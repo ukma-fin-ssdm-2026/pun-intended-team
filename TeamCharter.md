@@ -9,7 +9,7 @@
   - Redchuk Vladyslav Serhiiovych (GitHub: @Vlad-Re, NaUKMA email: v.redchuk@ukma.edu.ua)
 
 ## 2. Roles and Responsibilities
-- **Repo Maintainer:** Viktoriia Baran — manages the GitHub repository structure, branching, and merges.
+- **Repo Maintainer:** Viktoriya Baran — manages the GitHub repository structure, branching, and merges.
 - **CI Maintainer:** Vladyslav Redchuk — sets up and maintains GitHub Actions workflows.
 - **Documentation Lead:** Daryna Halytska — keeps the README, charter, and other documentation clear and up to date.
 - **Issue Tracker Lead:** Oleh Moshenskyi — manages GitHub issues, labels, and task assignments.
@@ -60,7 +60,7 @@ All decisions reached through a vote or escalation are recorded in writing (in t
 
 | Member | Hours/week | Convenient days/times |
 |---|---|---|
-| Viktoriia | ~5 hrs (depending on task load) | Monday, Friday, Saturday, Sunday |
+| Viktoriya | ~5 hrs (depending on task load) | Monday, Friday, Saturday, Sunday |
 | Oleh | ~5 hrs (depending on task load) | All days except Wednesday and Thursday |
 | Vladyslav | ~5 hrs (depending on task load) | All days except Thursday |
 | Daryna | ~5 hrs (depending on task load) | Monday, Friday, Saturday, Sunday |
