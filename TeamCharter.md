@@ -82,7 +82,7 @@ A persistent inability to complete the stated workload is discussed at a team me
 - **Verification rule:** generated code goes through review and tests before merging; unverified generated code does not enter the main branch.
 
 ## 9. Signatures
-- [ ] Viktoriya Baran (GitHub: @viktoriyabaran)
+- [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [ ] Daryna Halytska (GitHub: @DarynaHalytska)
 - [ ] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [ ] Vladyslav Redchuk (GitHub: @Vlad-Re)
