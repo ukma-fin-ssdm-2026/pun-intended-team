@@ -6,7 +6,7 @@ Team project for the SSDM course at the National University of Kyiv-Mohyla Acade
 
 ## ꩜ Project description
 
-Nearby is a particularly whimsical web app for going to events and meeting new people along the way.
+Nearby is a particularly whimsical mobile app for going to events and meeting new people along the way.
 
 The app collects all the upcoming events in a city: films, exhibitions, concerts, protests or workshops — anything one may need company for. A user fills in a profile (interests, age, what they are looking for: friends, dating, or just company for the evening), picks an event they would like to attend, and gets matched with someone who wants to go to the same event and shares the most interests. Users can also propose their own events if one isn't already listed.
 
