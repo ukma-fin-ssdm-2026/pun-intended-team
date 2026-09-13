@@ -12,16 +12,6 @@ The app also includes a listings section, where users can post their own events 
 | **Organization/Venue** (e.g., a university like Mohyla Academy, a café, a cultural center) | Posts its own events directly in the app (without going through an external listing service), manages information about its events. |
 | **Administrator** | Manages users (bans, reports), moderates listings and profiles, manages event category directories, oversees compliance with community rules. |
 
-## Key Features
-
-1. **Event Catalog** — browsing the city's event listings, obtained through integration with external services (Concert.ua, ArtWizard, etc.) and through direct posts from registered organizations/venues, with filtering by category, date, and location.
-2. **User Profile** — age, description, photo, interests, communication format (friends / dating / company for an event).
-3. **Event-Based Matching** — pick an event → the algorithm matches the user with the person who has the highest overlap of interests and has also picked that event.
-4. **Contact Exchange After a Match** — after a successful match, users see each other's contact details/links to continue communication outside the app (no built-in messenger).
-5. **Listings** — users can independently create posts like "looking for company / looking for friends for an event."
-6. **Notifications** — reminders about new matches and the upcoming date of a chosen event.
-7. **Reports and Moderation** — the ability to report a user/listing, handled by the administrator.
-
 ## Mini Design Document
 
 ### 1. System Purpose
@@ -47,7 +37,13 @@ Nearby helps people find company for attending cultural and entertainment events
 - **Administrator**: user management (banning/unbanning), moderation of listings and reports, managing event categories, viewing basic statistics.
 
 ### 4. Key Features
-(see the "Key Features" section above — 7 items)
+- **Event Catalog** — browsing the city's event listings, obtained through integration with external services (Concert.ua, ArtWizard, etc.) and through direct posts from registered organizations/venues, with filtering by category, date, and location.
+- **User Profile** — age, description, photo, interests, communication format (friends / dating / company for an event).
+- **Event-Based Matching** — pick an event → the algorithm matches the user with the person who has the highest overlap of interests and has also picked that event.
+- **Contact Exchange After a Match** — after a successful match, users see each other's contact details/links to continue communication outside the app (no built-in messenger).
+- **Listings** — users can independently create posts like "looking for company / looking for friends for an event."
+- **Notifications** — reminders about new matches and the upcoming date of a chosen event.
+- **Reports and Moderation** — the ability to report a user/listing, handled by the administrator.
 
 ### 5. Non-Functional Requirements
 1. **Performance**: the event catalog page must load in ≤ 1 second for 100 concurrent users.
