@@ -12,7 +12,7 @@ The app also includes a listings section, where users can post their own events 
 | **Organization/Venue** (e.g., a university like Mohyla Academy, a café, a cultural center) | Posts its own events directly in the app (without going through an external listing service), manages information about its events. |
 | **Administrator** | Manages users (bans, reports), moderates listings and profiles, manages event category directories, oversees compliance with community rules. |
 
-## Key Features (5–7)
+## Key Features
 
 1. **Event Catalog** — browsing the city's event listings, obtained through integration with external services (Concert.ua, ArtWizard, etc.) and through direct posts from registered organizations/venues, with filtering by category, date, and location.
 2. **User Profile** — age, description, photo, interests, communication format (friends / dating / company for an event).
@@ -47,16 +47,16 @@ Nearby helps people find company for attending cultural and entertainment events
 - **Administrator**: user management (banning/unbanning), moderation of listings and reports, managing event categories, viewing basic statistics.
 
 ### 4. Key Features
-(see the "Key Features" section above)
+(see the "Key Features" section above — 7 items)
 
 ### 5. Non-Functional Requirements
 1. **Performance**: the event catalog page must load in ≤ 1 second for 100 concurrent users.
-2. **Security/Privacy**: passwords are stored in hashed form (bcrypt/argon2).
-3. **Reliability**: the matching algorithm must complete processing a request within no more than 3 seconds and correctly handle the case where no suitable match is found (without crashing the system).
+2. **Security/Privacy**: user passwords are never stored or transmitted in plain text — only in a securely hashed form.
+3. **Reliability**: the matching algorithm must complete processing a request within no more than 3 seconds and correctly handle the case where no suitable match is found.
 4. **Usability**: filling in a profile as a new user must take no more than 5 minutes (no more than 10 required fields).
 
 ### 6. Assumptions and Constraints
-- Stack: to be determined later.
+- Stack: a single TypeScript codebase across all layers — Expo (React Native) with Expo Router and NativeWind for the iOS, Android and web clients; NestJS with Prisma for the REST API; PostgreSQL for storage; argon2id + JWT for authentication; Expo Notifications for push; Docker for the local database and for deployment; GitHub Actions for CI.
 - The event catalog is populated through integration with external service(s) and through direct posts from organizations/venues — the specific integration method (an official API, if available, or another data-retrieval method) will be clarified later, since a public API for these services is not yet confirmed.
 - Communication between matched participants happens outside the app (via the exchanged contacts) — a built-in chat is not being developed.
 - Team of 4 students, implementation timeline — one semester (11 weeks).
