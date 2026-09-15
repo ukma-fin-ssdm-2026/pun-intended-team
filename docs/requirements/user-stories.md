@@ -81,3 +81,27 @@
 - **Estimable** - there is a clear input (request + filters) and output (list of events or empty result).
 - **Small** - implemented as a single API endpoint with filter parameters + catalog page.
 - **Testable** - there are concrete Given/When/Then scenarios, including the edge case of an empty catalog or no events matching the applied filters.
+
+---
+
+### US-005: Administrator bans user
+**As an** administrator
+**I want to** ban user if necessary
+**so that** I can control misbehavior of app users
+
+**Acceptance Criteria:**
+1. **Given:** I am logged as administrator see a report about user<br>
+	**When:** I review it and click "Ban"<br>
+	**Then:** user can't access app and their account is disabled
+
+---
+
+### US-006: Administrator bans listing
+**As an** administrator
+**I want to** ban listings if necessary
+**so that** I can protect users from scam
+
+**Acceptance Criteria:**
+1. **Given:** I am logged in as administrator and see a report about listing<br>
+	**When:** I review it and click "Delete"<br>
+	**Then:** listing is deleted from catalog
