@@ -10,13 +10,13 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** I am logged in as a registered organization
-   **When:** I fill in the required event fields (title, category, date and time, location, description) and submit the form
-   **Then:** the event is published in the event catalog and can be found by users filtering by its category, date and location
+1. **Given:** I am logged in as a registered organization<br>
+	**When:** I fill in the required event fields (title, category, date and time, location, description) and submit the form<br>
+	**Then:** the event is published in the event catalog and can be found by users filtering by its category, date and location
 
-2. **Given:** I am logged in as a registered organization and one of the required fields is empty
-   **When:** I submit the form
-   **Then:** the event is not published and I see a validation message pointing at the missing field
+2. **Given:** I am logged in as a registered organization and one of the required fields is empty<br>
+	**When:** I submit the form<br>
+	**Then:** the event is not published and I see a validation message pointing at the missing field
 
 ---
 
@@ -28,9 +28,9 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** I am logged in as the organization that created the event and the event date has not passed
-   **When:** I change the event details and save, or mark the event as cancelled
-   **Then:** the catalog shows the updated details, or marks the event as cancelled, and users who picked this event are notified
+1. **Given:** I am logged in as the organization that created the event and the event date has not passed<br>
+	**When:** I change the event details and save, or mark the event as cancelled<br>
+	**Then:** the catalog shows the updated details, or marks the event as cancelled, and users who picked this event are notified
 
 ---
 
@@ -42,9 +42,9 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** the user is logging into the app for the first time
-   **When:** they fill in all required profile fields
-   **Then:** the system saves the profile and grants access to the event catalog
+1. **Given:** the user is logging into the app for the first time<br>
+	**When:** they fill in all required profile fields<br>
+	**Then:** the system saves the profile and grants access to the event catalog
 
 **INVEST check:**
 
@@ -65,13 +65,13 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** the user is logged in
-   **When:** they open the event catalog
-   **Then:** they see a list of upcoming events with their title, category, date and location.
+1. **Given:** the user is logged in<br>
+	**When:** they open the event catalog<br>
+	**Then:** they see a list of upcoming events with their title, category, date and location.
 
-2. **Given:** the user is on the event catalog page
-   **When:** they apply a filter by category, date, or location
-   **Then:** only events matching the selected filter(s) are shown
+2. **Given:** the user is on the event catalog page<br>
+	**When:** they apply a filter by category, date, or location<br>
+	**Then:** only events matching the selected filter(s) are shown
 
 **INVEST check:**
 
