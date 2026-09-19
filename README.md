@@ -24,3 +24,12 @@ Look [here](Project-Description.md) for a more detailed project description
 | Vladyslav Redchuk | CI Maintainer | [@Vlad-Re](https://github.com/Vlad-Re) |
 
 More on the team and our principles can be found [here](TeamCharter.md).
+
+## Requirements Artifacts
+
+Documentation related to requirements engineering for this project is located in [here](docs/requirements/):
+
+- [`requirements.md`](docs/requirements/requirements.md) — functional and non-functional requirements
+- [`user-stories.md`](docs/requirements/user-stories.md) — user stories with acceptance criteria
+- [`rtm.md`](docs/requirements/rtm.md) — Requirements Traceability Matrix
+- [`use-cases.md`](docs/requirements/use-cases.md) — use case descriptions
