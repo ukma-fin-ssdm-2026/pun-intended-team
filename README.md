@@ -27,7 +27,7 @@ More on the team and our principles can be found [here](TeamCharter.md).
 
 ## Requirements Artifacts
 
-Documentation related to requirements engineering for this project is located in [here](docs/requirements/):
+Documentation related to requirements engineering for this project is located [here](docs/requirements/):
 
 - [`requirements.md`](docs/requirements/requirements.md) — functional and non-functional requirements
 - [`user-stories.md`](docs/requirements/user-stories.md) — user stories with acceptance criteria
