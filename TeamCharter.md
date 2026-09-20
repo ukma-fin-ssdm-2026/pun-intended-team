@@ -9,15 +9,23 @@
   - Redchuk Vladyslav Serhiiovych (GitHub: @Vlad-Re, NaUKMA email: v.redchuk@ukma.edu.ua)
 
 ## 2. Roles and Responsibilities
-- **Repo Maintainer:** Viktoriya Baran — manages the GitHub repository structure, branching, and merges.
-- **CI Maintainer:** Vladyslav Redchuk — sets up and maintains GitHub Actions workflows.
-- **Documentation Lead:** Daryna Halytska — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
-- **Issue Tracker Lead:** Oleh Moshenskyi — manages GitHub issues, labels, and task assignments.
-- **Project Brief Lead:** Daryna Halytska — responsible for Project-Description.md and the mini-spec.
-- **Requirements Lead:** Oleh Moshenskyi — facilitates writing and refining user stories.
-- **Quality Lead:** Viktoriya Baran — ensures NFRs are measurable and properly documented.
-- **Traceability Lead:** Vladyslav Redchuk — maintains the RTM (Requirements Traceability Matrix).
-- **FR Lead:** Oleh Moshenskyi — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
+
+- **Viktoriya Baran**
+  - Repo Maintainer — manages the GitHub repository structure, branching, and merges.
+  - Quality Lead — ensures NFRs are measurable and properly documented.
+
+- **Daryna Halytska**
+  - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
+  - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
+
+- **Oleh Moshenskyi**
+  - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
+  - Requirements Lead — facilitates writing and refining user stories.
+  - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
+
+- **Vladyslav Redchuk**
+  - CI Maintainer — sets up and maintains GitHub Actions workflows.
+  - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
@@ -131,4 +139,4 @@ A persistent inability to complete the stated workload is discussed at a team me
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, and §10 Individual Accountability for Requirements Artifacts) were AI-generated wording, reviewed and edited by Daryna Halytska (label descriptions checked against the actual repository labels; disclosure-rule wording revised for accuracy; new sections checked against the syllabus's submission policy and the team's actual repo structure) before being committed.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, and §10 Individual Accountability for Requirements Artifacts) were AI-generated wording, reviewed and edited by Daryna Halytska.
