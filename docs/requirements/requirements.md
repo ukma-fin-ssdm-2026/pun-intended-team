@@ -1,7 +1,9 @@
 # System Requirements
 
 ## 1. Purpose and Scope
-Briefly: what this product is, who it's for, what is out of scope for this version.
+**Nearby** is an app for meeting new people and making friends, tied to real-world events happening around the city. The target audience is people aged 18–30. A user fills in a profile, picks an event from the catalog, and is matched with another attendee who shares their interests. Organizations and venues publish their events to the same catalog.
+
+For this version the scope is Kyiv only, the interface ships in Ukrainian, and the app ends at the contact exchange — arranging and attending the meeting happens outside of it.
 
 ## 2. Glossary
 
@@ -277,6 +279,7 @@ Reporting shall be reachable from every screen that shows another user, and a su
 - **OQ-001: How do people sign in?** Password, email, or a Telegram/SMS code. Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008.
 - **OQ-002: How long do we keep the audit log?** As for now - 90 days. Affects SEC-004.
 - **OQ-003: How long does a declined candidate stay excluded?**
+- **OQ-004: How long does a match proposal stay open before it expires?** Affects UC-001 (A4).
 
 ## AI Usage Note
 This document was written with the participation of Claude.
