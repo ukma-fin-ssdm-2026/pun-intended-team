@@ -12,6 +12,7 @@ Briefly: what this product is, who it's for, what is out of scope for this versi
 - FR-001: The system shall allow a user to register an account and authenticate on subsequent visits.
 - FR-002: The system shall allow a user to create and edit a profile, including age, description, photo, interests, and desired communication format (friends / dating / company for an event). (US-003)
 - FR-003: The system shall allow an organization/venue to register as a legal entity/venue account.
+- 
 **Event Catalog**
 - FR-004: The system shall display a catalog of upcoming events to a logged-in user. (US-004)
 - FR-005: The system shall allow a user to filter the event catalog by category, date, and location. (US-004)
@@ -21,17 +22,21 @@ Briefly: what this product is, who it's for, what is out of scope for this versi
 - FR-009: The system shall allow an organization to edit or cancel an event it created and notify users who had selected that event. (US-002)
 - FR-010: The system shall display a map with pins for venues hosting upcoming events, centered on the user's location (or a default city view if location access is denied). (US-007)
 - FR-011: The system shall show a venue's upcoming events when its map pin is tapped and allow the user to select one. (US-007)
+
 **Matching**
 - FR-012: The system shall allow a user to select an event they intend to attend. (US-009)
 - FR-013: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. (US-009)
 - FR-014: The system shall correctly handle the case where no suitable match is found, without error. (US-009)
 - FR-015: The system shall reveal each matched participant's contact details to the other only after a successful match. (US-009)
+
 **Listings**
 - FR-016: The system shall allow a user to create a listing (e.g., "looking for company for an event"). (US-010)
 - FR-017: The system shall allow a user to browse existing listings.
+
 **Notifications**
 - FR-018: The system shall notify a user when they receive a new match.
 - FR-019: The system shall send a reminder notification ahead of the date of an event the user selected.
+
 **Reporting & Moderation**
 - FR-020: The system shall allow a user to report another user's profile, selecting a reason and optionally a comment. (US-008)
 - FR-021: The system shall group repeated reports on the same profile into a single case visible to administrators, with a report count. (US-008)
@@ -39,6 +44,7 @@ Briefly: what this product is, who it's for, what is out of scope for this versi
 - FR-023: The system shall allow an administrator to review a reported listing and delete it from the catalog. (US-006)
 - FR-024: The system shall allow an administrator to manage the directory of event categories.
 - FR-025: The system shall allow an administrator to view basic platform statistics (e.g., number of users, events, matches, and open reports).
+
 **Event Participation**
 - FR-026: The system shall allow a user to withdraw from an event they previously selected before a match occurs, removing them from that event's matching pool.
 
