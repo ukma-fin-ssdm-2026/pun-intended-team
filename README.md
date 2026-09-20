@@ -33,3 +33,7 @@ Documentation related to requirements engineering for this project is located [h
 - [`user-stories.md`](docs/requirements/user-stories.md) — user stories with acceptance criteria
 - [`rtm.md`](docs/requirements/rtm.md) — Requirements Traceability Matrix
 - [`use-cases.md`](docs/requirements/use-cases.md) — use case descriptions
+
+## AI Usage Note
+
+This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
