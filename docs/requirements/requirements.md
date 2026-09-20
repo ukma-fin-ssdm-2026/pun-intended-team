@@ -1,7 +1,9 @@
 # System Requirements
 
 ## 1. Purpose and Scope
-Briefly: what this product is, who it's for, what is out of scope for this version.
+**Nearby** is an app for meeting new people and making friends, tied to real-world events happening around the city. The target audience is people aged 18–30. A user fills in a profile, picks an event from the catalog, and is matched with another attendee who shares their interests. Organizations and venues publish their events to the same catalog.
+
+For this version the scope is Kyiv only, the interface ships in Ukrainian, and the app ends at the contact exchange — arranging and attending the meeting happens outside of it.
 
 ## 2. Glossary
 
