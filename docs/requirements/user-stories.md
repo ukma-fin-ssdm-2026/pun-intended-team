@@ -199,3 +199,57 @@
 - **Estimable** - clear scope: a report form + saving to the database + display in the moderation queue.
 - **Small** - a single form available from a profile and a listing.
 - **Testable** - can be tested manually or automatically by following the Given/When/Then scenarios.
+
+---
+
+### US-009: User gets matched for an event
+
+**As a** user,
+**I want to** get matched with someone who has also picked the same event and shares the most interests with me,
+**so that** I have company to attend the event with.
+
+**Acceptance Criteria:**
+
+1. **Given:** I have filled in my profile and selected an event to attend<br>
+	**When:** the matching process runs and another user has selected the same event<br>
+	**Then:** I am matched with the participant who shares the highest number of interests with me, and we both see each other's contact details
+
+2. **Given:** I have selected an event but no other user has selected the same event yet<br>
+	**When:** the matching process runs<br>
+	**Then:** I see a message that no match has been found yet, and I remain in the matching pool for that event
+
+**INVEST check:**
+
+- **Independent** - relies only on selected events and filled profiles, which are already separate features.
+- **Negotiable** - the exact interest-overlap scoring and how long a user stays in the pool can be clarified with the team.
+- **Valuable** - this is the core value proposition of the app.
+- **Estimable** - clear scope: a matching function over the pool of users per event + contact reveal.
+- **Small** - one matching operation triggered by event selection.
+- **Testable** - can be verified with two test accounts selecting the same event and confirming the match and contact reveal, and with a single account confirming the "no match yet" case.
+
+---
+
+### US-010: User creates a listing looking for company
+
+**As a** user,
+**I want to** create a listing describing an event or activity I want company for,
+**so that** other users interested in the same thing can find me even if no matching event exists in the catalog yet.
+
+**Acceptance Criteria:**
+
+1. **Given:** I am logged in<br>
+	**When:** I fill in the listing fields (title/description, category, date) and submit<br>
+	**Then:** the listing is published and becomes visible to other users browsing listings
+
+2. **Given:** I am logged in and one of the required listing fields is empty<br>
+	**When:** I submit the form<br>
+	**Then:** the listing is not published and I see a validation message pointing at the missing field
+
+**INVEST check:**
+
+- **Independent** - listings are a separate entity from events and don't depend on matching being implemented.
+- **Negotiable** - the exact set of required fields and whether listings expire can be clarified with the team.
+- **Valuable** - expands the event catalog with user-proposed activities, covering cases the organization-posted catalog doesn't.
+- **Estimable** - clear scope: a listing form + validation + saving + display in the listings section.
+- **Small** - a single form and one create endpoint, similar in shape to US-001.
+- **Testable** - can be verified manually or with automated tests, same as US-001.
