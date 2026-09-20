@@ -9,11 +9,25 @@
   - Redchuk Vladyslav Serhiiovych (GitHub: @Vlad-Re, NaUKMA email: v.redchuk@ukma.edu.ua)
 
 ## 2. Roles and Responsibilities
-- **Repo Maintainer:** Viktoriya Baran — manages the GitHub repository structure, branching, and merges.
-- **CI Maintainer:** Vladyslav Redchuk — sets up and maintains GitHub Actions workflows.
-- **Documentation Lead:** Daryna Halytska — keeps the README, charter, and other documentation clear and up to date.
-- **Issue Tracker Lead:** Oleh Moshenskyi — manages GitHub issues, labels, and task assignments.
-- **Project Brief Lead:** Daryna Halytska — responsible for Project-Description.md and the mini-spec.
+
+- **Viktoriya Baran**
+  - Repo Maintainer — manages the GitHub repository structure, branching, and merges.
+  - Quality Lead — ensures NFRs are measurable and properly documented.
+
+- **Daryna Halytska**
+  - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
+  - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
+
+- **Oleh Moshenskyi**
+  - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
+  - Requirements Lead — facilitates writing and refining user stories.
+  - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
+
+- **Vladyslav Redchuk**
+  - CI Maintainer — sets up and maintains GitHub Actions workflows.
+  - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
+
+Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
 ## 3. Communication Plan
 - **Primary channel:** Signal
@@ -42,11 +56,34 @@
 - If there's disagreement over review comments, the decision is made through a short discussion in chat/a call, not unilaterally.
 - A branch can only be closed once every comment on it has been addressed.
 
+### Requirements Review
+- User stories and use cases are reviewed via pull request before merging into `main`, same as code — at least 1 approval from a team member other than the author, per the Code Review rules above.
+- Reviewers check each story against the INVEST checklist and confirm the acceptance criteria are testable.
+- Non-functional requirements are reviewed in a dedicated weekly sync session (see §3, Communication Plan) rather than only asynchronously: the Quality Lead walks the team through each NFR's fit criterion and verification method to confirm both are measurable before the requirement is committed.
+
 ### Task Workflow
 - Tasks are tracked via GitHub Issues.
 - A team member assigns a task to themselves from the To Do column (respecting the limit on the number of tasks in progress).
 - Definition of Done: code merged into `main`, PR closed, functionality manually verified.
 - The branch is deleted after the PR is merged.
+
+### Issue Labels
+The team replaced GitHub's default labels with its own set, grouped by area and by type of work. Every issue gets at least one area label; type labels are added as needed.
+
+| Label | Category | Meaning |
+|---|---|---|
+| `backend` | Area | Work on the NestJS/Prisma API, database, or server-side logic. |
+| `frontend` | Area | Work on the Expo/React Native client (iOS, Android, or web). |
+| `docs` | Area | Improvements or additions to documentation (charter, requirements, architecture notes, README, etc.). |
+| `deploy` | Area | CI/CD pipeline configuration, environment setup, releases. |
+| `chore` | Type | Maintenance work with no direct effect on functionality (dependency bumps, repo housekeeping, config). |
+| `tests` | Type | Writing or fixing unit/integration/system tests. |
+| `refactor` | Type | Restructuring existing code without changing external behavior. |
+| `bug` | Type | Something isn't working as intended. |
+| `blocked` | Status | The task cannot proceed until a dependency (another issue, a decision, external input) is resolved; the blocking issue is linked in a comment. |
+| `feedback` | Status | Feedback from the course instructor; excluded from the team's own tracker scoring. |
+
+Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is created or triaged, and may be adjusted by any member if the work's scope changes.
 
 ## 5. Conflict Resolution
 1. A direct conversation between the members involved in the disagreement — first try to resolve it without involving the whole team.
@@ -78,11 +115,28 @@ A persistent inability to complete the stated workload is discussed at a team me
 
 ## 8. Use of AI
 - **Tools:** Claude CLI.
-- **Disclosure rules:** AI use is noted in the commit message corresponding to the generated portion of code; it is additionally mentioned in the Loom video for the relevant lab artifact.
+- **Disclosure rules:**
+  1. AI use is noted in the commit message corresponding to the generated portion of code or text.
+  2. In addition to the commit message, every artifact containing AI-generated content includes a short **"AI Usage" note directly in the file** (e.g., as a comment block at the top of a code file, or a dedicated subsection in a Markdown document), stating: what was generated by AI, and how it was verified (reviewed, tested, rewritten, etc.).
+  3. AI use is additionally mentioned in the Loom video for the relevant lab artifact.
 - **Verification rule:** generated code goes through review and tests before merging; unverified generated code does not enter the main branch.
 
-## 9. Signatures
+## 9. Artifact Management
+- All requirements documentation (user stories, use cases, NFRs, RTM) lives in `docs/requirements/` in the team repository.
+- `README.md` is kept up to date with working links to every document in `docs/requirements/` and to the other `docs/` subdirectories listed in the syllabus (architecture, api, code-quality, testing, etc.).
+- Keeping `README.md` links current is the responsibility of the Documentation Lead (Daryna Halytska), checked as part of every PR that adds or moves a file under `docs/`.
+
+## 10. Individual Accountability
+
+### Individual Accountability for Requirements Artifacts
+- Each team member's Loom video for the requirements-stage lab artifacts must show their own contribution specifically: the user stories they wrote, the NFRs they specified, or the RTM rows they filled in — not a walkthrough of the whole document.
+- The team cross-checks evidence of individual contribution against the commit history before each weekly lab deadline, and again at the midterm evaluation and before the final project defense, in line with the commit-history verification described in the course submission policy.
+
+## 11. Signatures
 - [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [x] Daryna Halytska (GitHub: @DarynaHalytska)
 - [x] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
+
+## AI Usage Note
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, and §10 Individual Accountability for Requirements Artifacts) were AI-generated wording, reviewed and edited by Daryna Halytska.
