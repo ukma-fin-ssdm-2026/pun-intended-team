@@ -62,7 +62,11 @@
 
 1. **Given:** the user is logging into the app for the first time<br>
 	**When:** they fill in all required profile fields<br>
-	**Then:** the system saves the profile and grants access to the event catalog
+	**Then:** the system saves the profile and the user can select events to attend and be matched
+
+2. **Given:** I have filled in part of my profile<br>
+	**When:** I leave the screen before saving and come back to it<br>
+	**Then:** the values I had already entered are still there
 
 **INVEST check:**
 
@@ -83,7 +87,7 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** the user is logged in<br>
+1. **Given:** the user has opened the app<br>
 	**When:** they open the event catalog<br>
 	**Then:** they see a list of upcoming events with their title, category, date and location.
 
@@ -225,6 +229,14 @@
 4. **Given:** I have selected an event and no suitable match is currently available (none found yet, or a proposed match was declined)<br>
 	**When:** the matching process has no further candidate for me<br>
 	**Then:** I see a message that no match is currently available, and I can choose to keep waiting in the pool for that event, select a different event, or create a listing
+
+5. **Given:** I am waiting in the pool for an event<br>
+	**When:** a match is proposed to me<br>
+	**Then:** I am notified, so that I do not have to keep the app open to find out
+
+6. **Given:** I have selected an event and have not yet been matched<br>
+	**When:** I withdraw from that event<br>
+	**Then:** I am removed from its matching pool and am not proposed to anyone else for it
 
 **INVEST check:**
 
