@@ -56,3 +56,6 @@ Nearby helps people find company for attending cultural and entertainment events
 - The event catalog is populated through integration with external service(s) and through direct posts from organizations/venues — the specific integration method (an official API, if available, or another data-retrieval method) will be clarified later, since a public API for these services is not yet confirmed.
 - Communication between matched participants happens outside the app (via the exchanged contacts) — a built-in chat is not being developed.
 - Team of 4 students, implementation timeline — one semester (11 weeks).
+
+## AI Usage Note
+This document was written with the help of Claude. Reviewed and edited by Daryna Halytska.
