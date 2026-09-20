@@ -11,9 +11,13 @@
 ## 2. Roles and Responsibilities
 - **Repo Maintainer:** Viktoriya Baran — manages the GitHub repository structure, branching, and merges.
 - **CI Maintainer:** Vladyslav Redchuk — sets up and maintains GitHub Actions workflows.
-- **Documentation Lead:** Daryna Halytska — keeps the README, charter, and other documentation clear and up to date.
+- **Documentation Lead:** Daryna Halytska — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
 - **Issue Tracker Lead:** Oleh Moshenskyi — manages GitHub issues, labels, and task assignments.
 - **Project Brief Lead:** Daryna Halytska — responsible for Project-Description.md and the mini-spec.
+- **Requirements Lead:** Oleh Moshenskyi — facilitates writing and refining user stories.
+- **Quality Lead:** Viktoriya Baran — ensures NFRs are measurable and properly documented.
+- **Traceability Lead:** Vladyslav Redchuk — maintains the RTM (Requirements Traceability Matrix).
+- **FR Lead:** Oleh Moshenskyi — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
 
 ## 3. Communication Plan
 - **Primary channel:** Signal
