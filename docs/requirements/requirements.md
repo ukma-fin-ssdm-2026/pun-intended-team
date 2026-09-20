@@ -277,6 +277,7 @@ Reporting shall be reachable from every screen that shows another user, and a su
 - **OQ-001: How do people sign in?** Password, email, or a Telegram/SMS code. Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008.
 - **OQ-002: How long do we keep the audit log?** As for now - 90 days. Affects SEC-004.
 - **OQ-003: How long does a declined candidate stay excluded?**
+- **OQ-004: How long does a match proposal stay open before it expires?** Affects UC-001 (A4).
 
 ## AI Usage Note
 This document was written with the participation of Claude.
