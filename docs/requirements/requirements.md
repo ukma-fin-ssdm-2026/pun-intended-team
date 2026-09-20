@@ -160,7 +160,7 @@ Sessions shall expire without user action, and access shall be withdrawn on sign
 
 **SEC-006**
 The application shall meet a named published security baseline and ship free of known high-severity dependency advisories.
-- *Fit criterion:* all applicable OWASP ASVS v4 **Level 1** controls pass, each exception written down and justified; zero Critical and zero High `npm audit` advisories at release.
+- *Fit criterion:* all applicable OWASP ASVS v5 **Level 1** controls pass, each exception written down and justified; zero Critical and zero High `npm audit` advisories at release.
 - *Verification:* ASVS L1 checklist reviewed and signed off in the repo; `npm audit --audit-level=high` as a CI gate.
 
 **SEC-007**
