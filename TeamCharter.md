@@ -19,6 +19,8 @@
 - **Traceability Lead:** Vladyslav Redchuk — maintains the RTM (Requirements Traceability Matrix).
 - **FR Lead:** Oleh Moshenskyi — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
 
+Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
+
 ## 3. Communication Plan
 - **Primary channel:** Signal
 - **Meeting schedule:** online, once a week
@@ -45,6 +47,11 @@
 - The reviewer responds within 48 hours; if there's no response, the author pings the team's general chat.
 - If there's disagreement over review comments, the decision is made through a short discussion in chat/a call, not unilaterally.
 - A branch can only be closed once every comment on it has been addressed.
+
+### Requirements Review
+- User stories and use cases are reviewed via pull request before merging into `main`, same as code — at least 1 approval from a team member other than the author, per the Code Review rules above.
+- Reviewers check each story against the INVEST checklist and confirm the acceptance criteria are testable.
+- Non-functional requirements are reviewed in a dedicated weekly sync session (see §3, Communication Plan) rather than only asynchronously: the Quality Lead walks the team through each NFR's fit criterion and verification method to confirm both are measurable before the requirement is committed.
 
 ### Task Workflow
 - Tasks are tracked via GitHub Issues.
@@ -106,11 +113,22 @@ A persistent inability to complete the stated workload is discussed at a team me
   3. AI use is additionally mentioned in the Loom video for the relevant lab artifact.
 - **Verification rule:** generated code goes through review and tests before merging; unverified generated code does not enter the main branch.
 
-## 9. Signatures
+## 9. Artifact Management
+- All requirements documentation (user stories, use cases, NFRs, RTM) lives in `docs/requirements/` in the team repository.
+- `README.md` is kept up to date with working links to every document in `docs/requirements/` and to the other `docs/` subdirectories listed in the syllabus (architecture, api, code-quality, testing, etc.).
+- Keeping `README.md` links current is the responsibility of the Documentation Lead (Daryna Halytska), checked as part of every PR that adds or moves a file under `docs/`.
+
+## 10. Individual Accountability
+
+### Individual Accountability for Requirements Artifacts
+- Each team member's Loom video for the requirements-stage lab artifacts must show their own contribution specifically: the user stories they wrote, the NFRs they specified, or the RTM rows they filled in — not a walkthrough of the whole document.
+- The team cross-checks evidence of individual contribution against the commit history before each weekly lab deadline, and again at the midterm evaluation and before the final project defense, in line with the commit-history verification described in the course submission policy.
+
+## 11. Signatures
 - [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [x] Daryna Halytska (GitHub: @DarynaHalytska)
 - [x] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table and the §8 Use of AI disclosure rules) were AI-generated wording, reviewed and edited by Daryna Halytska (label descriptions checked against the actual repository labels; disclosure-rule wording revised for accuracy) before being committed.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, and §10 Individual Accountability for Requirements Artifacts) were AI-generated wording, reviewed and edited by Daryna Halytska (label descriptions checked against the actual repository labels; disclosure-rule wording revised for accuracy; new sections checked against the syllabus's submission policy and the team's actual repo structure) before being committed.
