@@ -40,7 +40,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 - FR-005: Registration is verified by a code delivered over Telegram or SMS: the system sends a code to the contact given at registration and activates the account once the user enters it.
 
 **Event Catalog**
-- FR-006: The system shall display a catalog of upcoming events to a logged-in user. (US-004)
+- FR-006: The system shall display a catalog of upcoming events to any visitor, whether or not they are logged in. (US-004)
 - FR-007: The system shall allow a user to filter the event catalog by category, date, and location. (US-004)
 - FR-008: The system shall populate the event catalog with events retrieved from external listing services (e.g., Concert.ua, ArtWizard) in addition to direct organization posts.
 - FR-009: The system shall allow an organization to create and publish an event with title, category, date/time, location, and description. (US-001)
@@ -54,16 +54,16 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 **Matching**
 - FR-016: The system shall allow a user to select an event they intend to attend. (US-009)
 - FR-017: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. (US-009)
-- FR-018: The system shall correctly handle the case where no suitable match is found, without error. (US-009)
-- FR-019: The system shall reveal each matched participant's contact details to the other only after a successful match. (US-009)
-- FR-020: The matching algorithm shall exclude from a user's candidate set the user themselves, banned accounts, users they have reported, and candidates they have declined. If exclusion empties the set, FR-018 applies.
+- FR-018: The system shall correctly handle the case where no suitable match is currently available, without error, and let the user choose to keep waiting in the pool, select a different event (FR-016), or create a listing (FR-021). (US-009)
+- FR-019: The system shall show each proposed match only the other participant's profile, without contact details; contact details shall be revealed to both participants only after both have explicitly approved the match, and shall not be revealed if either participant declines. (US-009)
+- FR-020: The matching algorithm shall exclude from a user's candidate set the user themselves, banned accounts, users they have reported, and candidates they have declined. If exclusion empties the set, FR-018 applies. (US-009)
 
 **Listings**
 - FR-021: The system shall allow a user to create a listing (e.g., "looking for company for an event"). (US-010)
-- FR-022: The system shall allow a user to browse existing listings.
+- FR-022: The system shall allow a user to browse existing listings. (US-010)
 
 **Notifications**
-- FR-023: The system shall notify a user when they receive a new match.
+- FR-023: The system shall notify a user when they receive a new match. (US-009)
 - FR-024: The system shall send a reminder notification ahead of the date of an event the user selected.
 
 **Reporting & Moderation**
@@ -75,7 +75,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 - FR-030: The system shall allow an administrator to view basic platform statistics (e.g., number of users, events, matches, and open reports).
 
 **Event Participation**
-- FR-031: The system shall allow a user to withdraw from an event they previously selected before a match occurs, removing them from that event's matching pool.
+- FR-031: The system shall allow a user to withdraw from an event they previously selected before a match occurs, removing them from that event's matching pool. (US-009)
 
 **Safety**
 - FR-032: On a user's first match the system shall show a safety notice — meet in a public place, tell someone where you are going, how to report — with an acknowledgment control. The notice remains reachable from the profile afterwards.
@@ -286,4 +286,4 @@ This document was written with the participation of Claude.
 
 **§2, §4, §5 and §6** are AI-generated wording, reviewed, edited and cut back by Viktoriia Baran. The non-functional requirements were rewritten from team notes into a uniform statement / fit criterion / verification form; the glossary, assumptions, constraints, risks and open questions were drafted from the rest of the document and then cut back manually to the project's actual scope.
 
-**§3** — FR-004, FR-005, FR-014, FR-015, FR-020, FR-032, FR-033 and the final sentence of FR-029 are AI-generated: they were extracted from §4 during the NFR review, where they had been recorded as qualities although they describe behaviour.
+**§3** — FR-004, FR-005, FR-014, FR-015, FR-020, FR-032, FR-033 and the final sentence of FR-029 are AI-generated: they were extracted from §4 during the NFR review, where they had been recorded as qualities although they describe behaviour. FR-030 (admin statistics) and FR-031 (withdrawing from an event before a match) were suggested by Claude after a review of Project-Description.md surfaced them as missing from the initial functional requirements list, and were confirmed by Oleh. The rest of §3 reflects the feature scope and matching/listing behaviour defined by Oleh Moshenskyi from Project-Description.md and team discussion. Claude assisted with formalizing each feature into a numbered "shall" statement, grouping the list into subsections, and cross-checking it against user-stories.md for consistency. The final list was reviewed and edited by Oleh.
