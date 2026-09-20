@@ -199,3 +199,73 @@
 - **Estimable** - clear scope: a report form + saving to the database + display in the moderation queue.
 - **Small** - a single form available from a profile and a listing.
 - **Testable** - can be tested manually or automatically by following the Given/When/Then scenarios.
+
+---
+
+### US-009: User gets matched for an event
+
+**As a** user,
+**I want to** be matched with someone who has also picked the same event and shares the most interests with me,
+**so that** I have company to attend the event with.
+
+**Acceptance Criteria:**
+
+1. **Given:** I have filled in my profile and selected an event to attend<br>
+	**When:** the matching process runs and finds another user who has also selected the same event<br>
+	**Then:** I am shown that participant's profile as a proposed match, without their contact details
+
+2. **Given:** I have been shown a proposed match<br>
+	**When:** both I and the other participant approve the match<br>
+	**Then:** we each receive the other's contact details to continue communication outside the app
+
+3. **Given:** I have been shown a proposed match<br>
+	**When:** I or the other participant decline it<br>
+	**Then:** no contact details are exchanged, and the matching process continues for both of us
+
+4. **Given:** I have selected an event and no suitable match is currently available (none found yet, or a proposed match was declined)<br>
+	**When:** the matching process has no further candidate for me<br>
+	**Then:** I see a message that no match is currently available, and I can choose to keep waiting in the pool for that event, select a different event, or create a listing
+
+**INVEST check:**
+
+- **Independent** - relies only on selected events, filled profiles, and the approve/decline action, all already separate features.
+- **Negotiable** - the exact interest-overlap scoring, how proposals are ordered, and how long a user waits before a new candidate is offered can be clarified with the team.
+- **Valuable** - this is the core value proposition of the app; the propose-then-approve flow also protects users' privacy until both sides agree.
+- **Estimable** - clear scope: a matching function over the pool of users per event + a propose/approve/decline flow + contact reveal on mutual approval.
+- **Small** - one matching operation triggered by event selection, plus one approve/decline action.
+- **Testable** - can be verified with two test accounts selecting the same event: confirming a match is proposed without contacts, confirming contacts appear only once both approve, confirming a decline exchanges no contacts, and confirming the no-match state offers all three follow-up choices.
+
+---
+
+### US-010: User creates a listing looking for company
+
+**As a** user,
+**I want to** create a listing describing an event or activity I want company for,
+**so that** other users interested in the same thing can find me even if no matching event exists in the catalog yet.
+
+**Acceptance Criteria:**
+
+1. **Given:** I am logged in<br>
+	**When:** I fill in the listing fields (title/description, category, date) and submit<br>
+	**Then:** the listing is published and becomes visible to other users browsing listings
+
+2. **Given:** I am logged in and one of the required listing fields is empty<br>
+	**When:** I submit the form<br>
+	**Then:** the listing is not published and I see a validation message pointing at the missing field
+
+**INVEST check:**
+
+- **Independent** - listings are a separate entity from events and don't depend on matching being implemented.
+- **Negotiable** - the exact set of required fields and whether listings expire can be clarified with the team.
+- **Valuable** - expands the event catalog with user-proposed activities, covering cases the organization-posted catalog doesn't.
+- **Estimable** - clear scope: a listing form + validation + saving + display in the listings section.
+- **Small** - a single form and one create endpoint, similar in shape to US-001.
+- **Testable** - can be verified manually or with automated tests, same as US-001.
+
+---
+## AI Usage Note
+This document was written with the participation of Claude.
+
+US-001–US-008 were already in place before this round of edits; their acceptance criteria and INVEST checks were reviewed but not substantially changed.
+
+The scenario behind US-009 and US-010 — the propose/approve/decline sequence and the fallback options in US-009's AC4 — was specified by Oleh Moshenskyi. Claude drafted the story text, acceptance criteria and INVEST checks from that scenario, and revised US-009 twice more following review comments from Viktoriia Baran (contact details released only after mutual approval; the user is offered a choice instead of being forced to stay in the pool). The final wording was reviewed and approved by Oleh Moshenskyi.
