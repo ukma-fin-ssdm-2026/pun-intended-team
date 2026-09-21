@@ -34,6 +34,17 @@ Documentation related to requirements engineering for this project is located [h
 - [`rtm.md`](docs/requirements/rtm.md) — Requirements Traceability Matrix
 - [`use-cases.md`](docs/requirements/use-cases.md) — use case descriptions
 
+## Architecture Artifacts
+
+Documentation related to system architecture for this project is located [here](docs/architecture/):
+
+- [`high-level-design.md`](docs/architecture/high-level-design.md) — architecture style, components and their interactions
+- [`traceability-matrix.md`](docs/architecture/traceability-matrix.md) — requirements-to-components mapping
+- [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
+- [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
+- [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
+- [`uml/`](docs/architecture/uml/) — UML diagrams (component, sequence, deployment)
+
 ## AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
