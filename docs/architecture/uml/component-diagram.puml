@@ -1,0 +1,50 @@
+@startuml component-diagram
+title Nearby — Component Diagram
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "User / Organization" as Actor
+
+package "Client tier" {
+  [Expo App\n(iOS / Android / web)] as CMP01
+}
+
+package "Server tier" {
+  [Main Server\n(NestJS)\nuser requests + matching] as CMP02
+  [Notification Service\npush, SMS / Telegram] as CMP03
+  [Event Import Service] as CMP04
+  database "PostgreSQL" as CMP05
+}
+
+cloud "External systems" {
+  [Event providers\n(Concert.ua, ArtWizard)] as EXT01
+  [Expo Push] as EXT02
+  [SMS / Telegram] as EXT03
+}
+
+Actor --> CMP01
+CMP01 --> CMP02 : REST / HTTPS (TLS 1.2+)
+
+CMP02 --> CMP05 : read / write,\nqueue outbound message
+CMP03 --> CMP05 : LISTEN / NOTIFY,\nread message queue
+CMP04 --> CMP05 : upsert events
+
+EXT01 --> CMP04 : provider API / import
+CMP03 --> EXT02 : push notifications\n(FR-023, FR-024)
+CMP03 --> EXT03 : verification codes\n(FR-005, SEC-008)
+
+note right of CMP03
+  Owns all outbound communication.
+  Woken by NOTIFY, not polling —
+  SEC-008 allows p95 <= 2 s.
+end note
+
+note bottom of CMP05
+  Single shared schema.
+  Services hand work to each other
+  through the database, not over HTTP.
+end note
+
+@enduml

@@ -1,0 +1,69 @@
+@startuml
+skinparam componentStyle uml2
+
+frame "Trust Boundary: Public / External" {
+  node "Client Device\n(Smartphone / Web)" <<device>> as cl {
+    artifact "Expo App" <<React Native>>
+  }
+}
+
+frame "Trust Boundary: Private Cloud (VPC)" {
+  node "Traffic Balancer" <<executionEnvironment>> as bal
+
+  node "API Node 1" <<executionEnvironment>> as api1 {
+    artifact "Main Server" <<NestJS>>
+  }
+
+  node "API Node 2" <<executionEnvironment>> as api2 {
+    artifact "Main Server" <<NestJS>>
+  }
+
+  database "Database Node" <<executionEnvironment>> as db {
+    artifact "PostgreSQL" <<Database>>
+  }
+
+  node "Notification Worker" <<executionEnvironment>> as notif_w {
+    artifact "Notification Service" <<Node.js>>
+  }
+
+  node "Import Worker" <<executionEnvironment>> as import_w {
+    artifact "Event Import Service" <<Node.js>>
+  }
+}
+
+frame "Trust Boundary: Third-party Providers" {
+  node "Event Providers\n(Concert.ua, ArtWizard)" <<external system>> as events
+  node "Expo Push API" <<external system>> as expo
+  node "SMS / Telegram API" <<external system>> as sms
+}
+
+' Client requests routing
+cl --> bal : HTTPS (TLS 1.2+)
+
+' Strict SEC-001 compliance: E2E TLS without plain HTTP termination at edge
+bal --> api1 : HTTPS (TLS 1.2+)
+bal --> api2 : HTTPS (TLS 1.2+)
+
+' Internal database connections and asynchronous communication
+api1 -down-> db : TCP (Prisma / Write)
+api2 -down-> db : TCP (Prisma / Write)
+import_w -up-> db : TCP (Upsert)
+notif_w -up-> db : TCP (LISTEN / NOTIFY)
+
+' External integrations
+events -down-> import_w : HTTPS (API / Import)
+notif_w --> expo : HTTPS (Push Notifications)
+notif_w --> sms : HTTPS (Verification Codes)
+
+note right of bal
+  Per SEC-001: internal traffic
+  is strictly encrypted (E2E TLS).
+end note
+
+note bottom of db
+  STRIDE: Services interact
+  strictly via Database.
+  No internal HTTP calls.
+end note
+
+@enduml
