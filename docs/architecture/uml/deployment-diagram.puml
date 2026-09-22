@@ -1,0 +1,50 @@
+@startuml
+skinparam componentStyle uml2
+
+frame "Public" {
+  node "Client\n(Smartphone / Web)" <<device>> as cl {
+    artifact "Nearby App" <<Expo / React Native>>
+  }
+}
+
+frame "Server infrastructure" {
+  node "Traffic balancer" <<executionEnvironment>> as bal
+
+  node "API instance 1" <<executionEnvironment>> as api1 {
+    artifact "REST API" <<NestJS>>
+  }
+
+  node "API instance 2" <<executionEnvironment>> as api2 {
+    artifact "REST API" <<NestJS>>
+  }
+
+  database "Database Node" <<executionEnvironment>> as db {
+    artifact "Data Storage" <<PostgreSQL>>
+  }
+
+  node "Worker" <<executionEnvironment>> as w {
+    artifact "Event Fetcher Job" <<TypeScript>>
+  }
+}
+
+frame "Third-party" {
+  node "Expo Notifications" <<external system>> as notif
+  node "Event sources\n(Concert.ua, etc.)" <<external system>> as events
+}
+
+' Triggers
+cl --> bal : HTTPS
+
+bal --> api1 : HTTP
+bal --> api2 : HTTP
+
+api1 -up-> db : TCP (Prisma)
+api2 -up-> db : TCP (Prisma)
+
+w --> events : HTTPS (API Call)
+w -up-> db : TCP (Prisma)
+
+api1 --> notif : HTTPS
+api2 --> notif : HTTPS
+
+@enduml
