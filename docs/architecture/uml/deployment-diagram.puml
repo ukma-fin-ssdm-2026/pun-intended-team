@@ -1,50 +1,69 @@
 @startuml
 skinparam componentStyle uml2
 
-frame "Public" {
-  node "Client\n(Smartphone / Web)" <<device>> as cl {
-    artifact "Nearby App" <<Expo / React Native>>
+frame "Trust Boundary: Public / External" {
+  node "Client Device\n(Smartphone / Web)" <<device>> as cl {
+    artifact "Expo App" <<React Native>>
   }
 }
 
-frame "Server infrastructure" {
-  node "Traffic balancer" <<executionEnvironment>> as bal
+frame "Trust Boundary: Private Cloud (VPC)" {
+  node "Traffic Balancer" <<executionEnvironment>> as bal
 
-  node "API instance 1" <<executionEnvironment>> as api1 {
-    artifact "REST API" <<NestJS>>
+  node "API Node 1" <<executionEnvironment>> as api1 {
+    artifact "Main Server" <<NestJS>>
   }
 
-  node "API instance 2" <<executionEnvironment>> as api2 {
-    artifact "REST API" <<NestJS>>
+  node "API Node 2" <<executionEnvironment>> as api2 {
+    artifact "Main Server" <<NestJS>>
   }
 
   database "Database Node" <<executionEnvironment>> as db {
-    artifact "Data Storage" <<PostgreSQL>>
+    artifact "PostgreSQL" <<Database>>
   }
 
-  node "Worker" <<executionEnvironment>> as w {
-    artifact "Event Fetcher Job" <<TypeScript>>
+  node "Notification Worker" <<executionEnvironment>> as notif_w {
+    artifact "Notification Service" <<Node.js>>
+  }
+
+  node "Import Worker" <<executionEnvironment>> as import_w {
+    artifact "Event Import Service" <<Node.js>>
   }
 }
 
-frame "Third-party" {
-  node "Expo Notifications" <<external system>> as notif
-  node "Event sources\n(Concert.ua, etc.)" <<external system>> as events
+frame "Trust Boundary: Third-party Providers" {
+  node "Event Providers\n(Concert.ua, ArtWizard)" <<external system>> as events
+  node "Expo Push API" <<external system>> as expo
+  node "SMS / Telegram API" <<external system>> as sms
 }
 
-' Triggers
-cl --> bal : HTTPS
+' Client requests routing
+cl --> bal : HTTPS (TLS 1.2+)
 
-bal --> api1 : HTTP
-bal --> api2 : HTTP
+' Strict SEC-001 compliance: E2E TLS without plain HTTP termination at edge
+bal --> api1 : HTTPS (TLS 1.2+)
+bal --> api2 : HTTPS (TLS 1.2+)
 
-api1 -up-> db : TCP (Prisma)
-api2 -up-> db : TCP (Prisma)
+' Internal database connections and asynchronous communication
+api1 -down-> db : TCP (Prisma / Write)
+api2 -down-> db : TCP (Prisma / Write)
+import_w -up-> db : TCP (Upsert)
+notif_w -up-> db : TCP (LISTEN / NOTIFY)
 
-w --> events : HTTPS (API Call)
-w -up-> db : TCP (Prisma)
+' External integrations
+events -down-> import_w : HTTPS (API / Import)
+notif_w --> expo : HTTPS (Push Notifications)
+notif_w --> sms : HTTPS (Verification Codes)
 
-api1 --> notif : HTTPS
-api2 --> notif : HTTPS
+note right of bal
+  Per SEC-001: internal traffic
+  is strictly encrypted (E2E TLS).
+end note
+
+note bottom of db
+  STRIDE: Services interact
+  strictly via Database.
+  No internal HTTP calls.
+end note
 
 @enduml
