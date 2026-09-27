@@ -22,14 +22,10 @@
 | Continue matching? | First strike (no response) — with a "yes" action | Inbox + push |
 | Removed from matching | Second strike — says the user can apply again | Inbox |
 | No match found | Open-mode cutoff passes, user still unpaired (FR-018) | Inbox + push |
-| Event reminder | Before the event (FR-024) | Inbox + push |
+| Event reminder | 3 h before the event (FR-024) — after the last round (T-6h), before the cutoff (T-1h) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
 | Report received | Report filed (SAFE-003) | Inbox |
 | Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback; not an inbox row (stored as VerificationCode) |
-
-## Open
-
-- Reminder timing — must not collide with round notifications.
 
 ## AI Usage Note
 

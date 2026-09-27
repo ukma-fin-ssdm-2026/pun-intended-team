@@ -18,7 +18,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
    - A removed user may apply again; the new application starts with no strikes, but pair exclusions remain.
 7. **Exclusivity** — the instant path and the round job take the same per-session lock before reading the pool, so a candidate is never claimed twice (FUNC-002).
 8. **Algorithm** — a pure function `match(pool, exclusions, seed) → pairings`, with no I/O (FUNC-001, MAIN-001).
-9. **Sessions** — a single-day event has one session at its start time. A multi-day event (e.g. a month-long exhibition) gets one session per day, created when the first user applies for that day, at the time of day of the event start, computed in Europe/Kyiv. Rounds, pools and proposals work the same for both ([data model §5](../data-model.md)).
+9. **Sessions** — a single-day event has one session at its start time. A multi-day event (e.g. a month-long exhibition) gets one session per day, created when the first user applies for that day, at the time of day of the event start, computed in Europe/Kyiv. Rounds, pools and proposals work the same for both ([data model](../data-model.md), EventSession).
 
 ## Policy (tunable, not architecture)
 
@@ -31,10 +31,6 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 | Strikes before removal | 2 |
 
 Every score is logged so the threshold can be tuned on real data.
-
-## Open
-
-- Requirement wording to update: FR-017, FR-018, PERF-003, FUNC-002.
 
 ## AI Usage Note
 
