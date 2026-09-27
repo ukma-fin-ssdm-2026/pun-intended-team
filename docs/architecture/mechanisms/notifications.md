@@ -17,8 +17,10 @@
 |---|---|---|
 | Match proposed | Instant match or round | Inbox + push |
 | Match is mutual, contacts revealed | Second acceptance | Inbox + push |
-| Respond soon | Pending proposal nearing the next round | Inbox + push |
-| Not a match this time | Decline or expiry — soft wording, never "you were declined" | Inbox |
+| Respond soon | 4 h before `valid_until` (halfway for short windows) | Inbox + push |
+| Not a match this time | Decline, or expiry for the user who responded — "we'll find you someone better", never "you were declined" | Inbox |
+| Continue matching? | First strike (no response) — with a "yes" action | Inbox + push |
+| Removed from matching | Second strike — says the user can apply again | Inbox |
 | No match found | Open-mode cutoff passes, user still unpaired (FR-018) | Inbox + push |
 | Event reminder | Before the event (FR-024) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
