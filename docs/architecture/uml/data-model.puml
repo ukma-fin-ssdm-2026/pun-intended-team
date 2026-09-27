@@ -337,3 +337,4 @@ account |o--o{ report_case : resolves
 account ||..o{ audit_log : actor (no FK)
 
 ' ----
+@enduml
