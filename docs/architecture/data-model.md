@@ -1,176 +1,170 @@
-# Data Model (draft)
+# Data Model
 
-## 1. Entities
+Entity–relationship model of Nearby's PostgreSQL schema (CMP-04, [ADR-002](decisions/ADR-002.md)).
 
-### 1.1 User
-An individual account holder who browses events, requests matches and posts listings (FR-001, FR-002). Must be 18+ (SAFE-001).
+Diagram: [`uml/data-model.puml`](uml/data-model.puml)
 
-- `id` — UUID, **PK**
-- `contact_identifier` — string `*` (email or phone; sign-in identifier per OQ-001, also used for FR-005 code delivery)
-- `password_hash` — string, nullable `*` (SEC-002, argon2id; nullable if sign-in ends up passwordless per OQ-001)
-- `date_of_birth` — date `*` (SEC-003, SAFE-001)
-- `is_verified` — boolean (FR-005)
-- `is_banned` — boolean (FR-027)
-- `safety_notice_ack_at` — timestamp, nullable (SAFE-002, FR-032)
-- `created_at` — timestamp
+## 1. Key Functions Covered
 
-**Relationships:** 1—1 Profile · 1—N Listing (author) · 1—N Match (as participant A or B) · 1—N Report (as reporter) · 1—N DeviceToken · 1—N NotificationOutbox (recipient)
+| Key function (Project-Description.md) | Entities |
+|---|---|
+| Registration and sign-in | Account, AuthMethod, VerificationCode, RefreshToken |
+| User profile | Profile, ProfilePhoto, LinkedAccount, Interest, ProfileInterest |
+| Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
+| Event-based matching | Application, Match, Exclusion |
+| Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice_ack_at |
+| Listings | Listing |
+| Notifications | Notification, DeviceToken |
+| Reports and moderation | ReportCase, Report, AuditLog |
 
-### 1.2 Profile
-1:1 extension of `User` holding the matching-relevant data (FR-002, FR-004).
+## 2. Entities
 
-- `id` — UUID, **PK**
-- `user_id` — UUID, **FK → User**, unique
-- `description` — text
-- `photo_url` — string `*` (personally identifying image data)
-- `communication_format` — enum(`friends`, `dating`, `company`)
-- `contact_link` — string `*` (SEC-003; the sole contact info revealed to the other side, and only after a mutual match, FR-019)
-- `is_draft` — boolean (FR-004, in-progress profiles are saved and restored)
+Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity marks (S), (C), (P) are defined in §4. Every table also has `created_at` and, where rows change, `updated_at`; all times are `timestamptz`.
 
-**Relationships:** 1—1 User · M—N Interest (via `Profile_Interest` join table)
+### identity
 
-### 1.3 Interest
-Reference catalog of interest tags used for matching (FR-002, FR-017).
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Account** | PK `id` | `role` (user / admin), `contact_identifier` (S, encrypted) — the verified phone number (E.164), revealed on a mutual match unless `Profile.share_phone` is off, `contact_hash` (UK) — HMAC of the number with a key from the secrets store; the encrypted value cannot be indexed, so uniqueness and every lookup go through the hash, `date_of_birth` (S, SAFE-001), `status` (pending / active / banned) — `pending` until the date of birth passes the age check; a pending account can only finish registration, `failed_signins`, `locked_until` (SEC-007). Administrator accounts are created by the team. |
+| **AuthMethod** | PK `id` | `account_id` FK, `type` (password / google), `secret` — argon2id hash (C) for a password, Google `sub` (P) for Google |
+| **VerificationCode** | PK `id` | `contact` (S, encrypted) — phone number, `contact_hash` — for the resend throttle, `channel` (telegram / sms) — Telegram Gateway API first, SMS as fallback, `provider_request_id` — for delivery checks and cost tracking, `code_hash` (C), `purpose` (registration / reset), `sent_at`, `expires_at`, `attempts`, `used_at` (SEC-008). No FK: the code is sent before the account exists. |
+| **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
 
-- `id` — UUID, **PK**
-- `name` — string, unique
+### profiles
 
-**Relationships:** M—N Profile (via `Profile_Interest(profile_id, interest_id)`)
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `communication_format` (S) — the default that pre-fills `Application.desired_company`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
+| **ProfilePhoto** | PK = FK `profile_id` | `content` (S, bytea), `content_type` — resized on upload; kept apart from Profile so that profile reads do not load the image |
+| **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — optional contacts revealed on a mutual match; UK (`profile_id`, `app`) |
+| **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it |
+| **ProfileInterest** | PK (`profile_id`, `interest_id`) | junction table |
 
-### 1.4 Organization
-Venue/organizer account; posts events but does not take part in matching (FR-003).
+### catalog
 
-- `id` — UUID, **PK**
-- `name` — string
-- `email` — string
-- `password_hash` — string `*` (SEC-002)
-- `is_banned` — boolean
-- `created_at` — timestamp
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Organization** | PK = FK `account_id` | `name`, `description`, `official_link`, `verification_status` (pending / verified / rejected / revoked), `verified_by` FK → Account (admin), `verified_at`. An organization is a regular user account with this extra row; it publishes events only when `verified`, and verification is done by the team. |
+| **Category** | PK `id` | `name` (UK), `is_active` (FR-029) |
+| **Venue** | PK `id` | `name`, `address`, `location` (PostGIS point, FR-012) — placed on the map by the organization or taken from the provider, `source` (organization / import), `organization_id` FK (organization venues only) |
+| **Event** | PK `id` | `category_id` FK, `venue_id` FK, `organization_id` FK (null for imported), `source` (organization / import), `provider` and `external_id` (imported only, UK together — re-import updates the same row), `title`, `description`, `starts_at`, `ends_at` (FR-007 date filter; when a provider gives no end, the end of the start day in Europe/Kyiv), `status` (published / cancelled) |
+| **EventSession** | PK `id` | `event_id` FK, `starts_at`, `status` (scheduled / cancelled); UK (`event_id`, `starts_at`). Matching rounds are anchored here ([matching](mechanisms/matching.md)). Created when the first user applies: one session for a single-day event, one per day for a multi-day event, at the time of day of `Event.starts_at` in Europe/Kyiv. |
 
-**Relationships:** 1—N Event (publisher)
+### import (CMP-03)
 
-### 1.5 Event
-A catalog item — concert, exhibition, lecture, etc. (FR-006–FR-015).
+| Entity | Key | Main attributes |
+|---|---|---|
+| **ImportRun** | PK `id` | `provider`, `started_at`, `finished_at`, `status` — the last successful run gives the "last updated" notice (FR-014) |
+| **SkippedRecord** | PK `id` | `import_run_id` FK, `raw` (jsonb), `reason` (FR-015) — e.g. a record without coordinates |
 
-- `id` — UUID, **PK**
-- `title` — string
-- `description` — text
-- `category_id` — UUID, **FK → Category**
-- `date_time` — timestamp
-- `location` — string / geo coordinates (for the map view, FR-012)
-- `source` — enum(`organization`, `external_import`) (FR-008)
-- `organization_id` — UUID, **FK → Organization**, nullable (null for imported events)
-- `external_provider_ref` — string, nullable (FLEX-003 — adapter-specific external ID)
-- `status` — enum(`active`, `cancelled`) (FR-011)
-- `created_at` — timestamp
+### matching
 
-**Relationships:** N—1 Category · N—1 Organization (nullable) · 1—N Match (rounds scoped to this event) · 1—N Listing (optional reference)
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Application** | PK `id` | `user_id` FK, `session_id` FK, `desired_company` (S; friends / casual / dating), `open_to_extend` (S; bool) — answers to the matching questions, which are the same for every event; each new question becomes a new column, `status` (in_pool / paired / paused / removed / withdrawn / no_match / cancelled) — `paused`: first unanswered proposal, waiting for the user to confirm "continue matching?"; `removed`: second unanswered proposal; `cancelled`: the event was cancelled or the user banned, `no_response_count` (0–2) — unanswered proposals in this application ([matching](mechanisms/matching.md) rule 6); a new application for the same session starts at 0, `created_at` — order in open mode |
+| **Match** | PK `id` | `application_a_id` FK, `application_b_id` FK, `source` (instant / round / open), `score`, `seed` (FUNC-001), `status` (proposed / accepted_a / accepted_b / mutual / declined / expired / cancelled), `cancel_reason` (event_cancelled / participant_banned / participant_withdrew) — `cancelled` creates no Exclusion and does not count as a decline, `valid_until` = min(`created_at` + 24 h, start of the next round, or the cutoff after the last round); at that moment the `matching.expire` job writes `expired` and applies a strike to each participant who did not respond (both, if neither did) |
+| **Exclusion** | PK `id` | `user_id` FK, `excluded_user_id` FK, `event_id` FK, `match_id` FK, `reason` (declined / expired) — one row per declined or expired proposal; the check is symmetric, so one row keeps the pair apart in both directions until the event ends. Reported and banned users come from `moderation.exclusionsFor(userId)` and are not copied here. |
 
-### 1.6 Category
-Admin-managed lookup for classifying events and listings (FR-029).
+### listings
 
-- `id` — UUID, **PK**
-- `name` — string, unique
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Listing** | PK `id` | `author_id` FK, `category_id` FK, `event_id` FK (optional), `title`, `description` (P), `date`, `status` (active / removed) |
 
-**Relationships:** 1—N Event · 1—N Listing
+### moderation
 
-### 1.7 Listing
-A "looking for company" post created by a user (FR-021, FR-022, US-010).
+| Entity | Key | Main attributes |
+|---|---|---|
+| **ReportCase** | PK `id` | `target_type` (account / listing), `target_account_id` or `target_listing_id` FK (exactly one set), `status` (open / resolved), `resolution` (banned / removed / dismissed), `resolved_by` FK → Account (admin), `resolved_at`. At most one open case per target (FR-026). |
+| **Report** | PK `id` | `case_id` FK, `reporter_id` FK, `reason`, `comment` (P) |
+| **AuditLog** | PK `id` | `created_at`, `actor_id`, `action`, `target_type`, `target_id`, `result`, `ip_address` (P). Append-only; `actor_id` has no FK so records outlive accounts (SEC-004). Other modules write it through an `audit.record` job enqueued in the same transaction as the action. |
 
-- `id` — UUID, **PK**
-- `user_id` — UUID, **FK → User** (author)
-- `title` — string
-- `description` — text
-- `category_id` — UUID, **FK → Category**, nullable
-- `event_id` — UUID, **FK → Event**, nullable (a listing may or may not point at a catalog event)
-- `date_time` — timestamp, nullable
-- `status` — enum(`active`, `removed_by_admin`) (FR-028)
-- `created_at` — timestamp
+### notifications
 
-**Relationships:** N—1 User (author) · N—1 Category (optional) · N—1 Event (optional) · 1—N Report (as target, when `target_type = listing`)
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
+| **DeviceToken** | PK `id` | `account_id` FK, `refresh_token_id` FK — deleted when that session is revoked, `push_token` (P, UK), `platform` (ios / android) |
 
-### 1.8 Match (Round)
-Models both an open matching round and a resolved pairing for one event (US-009, UC-001, FR-016–FR-020, FR-023, FR-031). A round opens with `participant_b_id = null` while a candidate is sought (FR-018); once a candidate is found it becomes a proposal (FR-017) and resolves to mutual, declined, expired or withdrawn.
-
-- `id` — UUID, **PK**
-- `event_id` — UUID, **FK → Event**
-- `participant_a_id` — UUID, **FK → User**
-- `participant_b_id` — UUID, **FK → User**, nullable (null while waiting for a candidate)
-- `per_event_answers_a` / `per_event_answers_b` — jsonb (per-participant answers from UC-001 step 3)
-- `status` — enum(`waiting`, `proposed`, `accepted_a`, `accepted_b`, `mutual`, `declined`, `expired`, `withdrawn`, `merged`)
-- `proposed_at` — timestamp, nullable
-- `resolved_at` — timestamp, nullable
-
-**Relationships:** N—1 Event · N—1 User (participant A) · N—1 User (participant B, nullable)
-**Business rule (FUNC-002):** a user has at most one open `Match` per event. When a `waiting` row is paired, the candidate's own `waiting` row for that event is closed (`status = merged`) rather than left open.
-
-### 1.9 Report
-A complaint filed against a user profile or a listing (FR-025–FR-028, US-008).
-
-- `id` — UUID, **PK**
-- `reporter_id` — UUID, **FK → User**
-- `target_type` — enum(`user`, `listing`)
-- `target_id` — UUID, polymorphic **FK → User.id or Listing.id** (app-enforced, not a DB constraint), depending on `target_type`
-- `reason` — string/enum
-- `comment` — text, nullable
-- `status` — enum(`open`, `reviewed`)
-- `reviewed_by` — UUID, nullable, **FK → Administrator** (entity not yet modeled)
-- `created_at` — timestamp
-
-**Relationships:** N—1 User (reporter) · N—1 User or Listing (polymorphic target)
-Repeated reports sharing the same `(target_type, target_id)` are grouped into one case by query (FR-026), not by a separate case table — kept simple for now; revisit if a case needs its own status.
-
-### 1.10 DeviceToken
-A device's push-notification registration, feeding FR-023/FR-024.
-
-- `id` — UUID, **PK**
-- `user_id` — UUID, **FK → User**
-- `token` — string, unique
-- `platform` — enum(`ios`, `android`, `web`)
-- `created_at` — timestamp
-
-**Relationships:** N—1 User
-
-### 1.11 NotificationOutbox
-Transactional outbox for reliably delivering push notifications (FR-011 event cancelled, FR-023 new match, FR-024 event reminder, FR-032 safety notice).
-
-- `id` — UUID, **PK**
-- `user_id` — UUID, **FK → User** (recipient)
-- `type` — enum(`new_match`, `no_match_update`, `event_reminder`, `event_cancelled`, `safety_notice`, …)
-- `payload` — jsonb
-- `status` — enum(`pending`, `sent`, `failed`)
-- `created_at` — timestamp
-- `sent_at` — timestamp, nullable
-
-**Relationships:** N—1 User (recipient)
-
-## 2. Relationship Summary
+## 3. Relationships
 
 | Relationship | Cardinality | Note |
 |---|---|---|
-| User — Profile | 1—1 | created at/after registration; may stay a draft (FR-004) |
-| Profile — Interest | M—N | via `Profile_Interest` |
-| Organization — Event | 1—N | nullable on Event (imported events have no organization) |
-| Category — Event | 1—N | |
-| Category — Listing | 1—N | optional |
-| Event — Listing | 1—N | optional, a listing may not reference any event |
-| User — Listing | 1—N | author |
-| Event — Match | 1—N | rounds/proposals scoped to one event |
-| User — Match | 1—N (×2) | as participant A and, separately, as participant B |
-| User — Report | 1—N | as reporter |
-| User/Listing — Report | 1—N | polymorphic target |
-| User — DeviceToken | 1—N | |
-| User — NotificationOutbox | 1—N | as recipient |
+| Account — AuthMethod | 1 : 0..* | one account, several sign-in methods |
+| Account — RefreshToken | 1 : 0..* | |
+| Account — Profile | 1 : 0..1 | the profile shows the age computed from `Account.date_of_birth` |
+| Account — Organization | 1 : 0..1 | the account acts as an organization |
+| Profile — ProfilePhoto | 1 : 0..1 | |
+| Profile — LinkedAccount | 1 : 0..* | at most one per app |
+| Profile — Interest | M : N | via ProfileInterest |
+| Organization — Event | 0..1 : 0..* | imported events have no organization |
+| Organization — Venue | 0..1 : 0..* | imported venues have no organization |
+| Category — Event, Category — Listing | 1 : 0..* | |
+| Venue — Event | 1 : 0..* | |
+| Event — EventSession | 1 : 0..* | none until someone applies |
+| ImportRun — SkippedRecord | 1 : 0..* | |
+| Account — Application | 1 : 0..* | at most one active application per user and session |
+| EventSession — Application | 1 : 0..* | the session's pool |
+| Application — Match | 1 : 0..* (as A or B) | each Match joins exactly two applications; an application has at most one open match at a time (FUNC-002) |
+| Match — Exclusion | 1 : 0..1 | a row when the match was declined or expired |
+| Event — Exclusion | 1 : 0..* | an exclusion is scoped to one event |
+| Account — Listing | 1 : 0..* | |
+| Event — Listing | 0..1 : 0..* | a listing may point at a catalog event |
+| ReportCase — Report | 1 : 1..* | repeat reports grouped into one case (FR-026) |
+| Account — Report | 1 : 0..* | reporter |
+| ReportCase — target | 0..1 Account or 0..1 Listing | |
+| Account — Notification, Account — DeviceToken | 1 : 0..* | |
+| RefreshToken — DeviceToken | 1 : 0..1 | no push after sign-out |
 
-## 3. Sensitive Data (SEC-002 / SEC-003)
+### Invariants and How They Are Enforced
 
-Per SEC-003, personal data other than passwords is encrypted at rest and in transit; per SEC-002, passwords are stored only as an `argon2id` hash. Fields flagged `*` above:
+| Invariant | Enforced by |
+|---|---|
+| Usernames are unique regardless of case | unique index on `lower(username)` |
+| One linked account per app | UK (`profile_id`, `app`) |
+| One active application per user and session | partial unique index on (`user_id`, `session_id`) where `status` in (in_pool, paired, paused) — a paused user cannot skip the "continue?" step by applying again; `removed` stays outside, so a removed user may apply again |
+| One open case per report target | partial unique index on the target where `status = open` |
+| Exactly one target in a ReportCase | CHECK |
+| A Match joins two different applications | CHECK (`application_a_id <> application_b_id`) |
+| Both applications of a Match belong to the same session | service (matching), under the per-session lock |
+| At least one shared contact (`share_phone` or a linked account) | service (profiles) — spans two tables |
+| Only verified organizations publish events; organization accounts do not apply for matching | service — the data lives in other modules |
 
-- `User.password_hash` — SEC-002 (hash only, never plaintext)
-- `User.contact_identifier` — SEC-003
-- `User.date_of_birth` — SEC-003
-- `Profile.contact_link` — SEC-003, additionally access-gated by FR-019 (revealed only after mutual match)
-- `Profile.photo_url` — personally identifying image data
+## 4. Personal and Sensitive Data
+
+- **(C) Credential** — never returned by the API, never logged; stored only as a hash.
+- **(S) Sensitive personal** — exposure harms the user directly (contact, exact date of birth, dating intent, face); access is restricted and encrypted at rest.
+- **(P) Personal** — identifies or describes a person but is visible to other users by design, or is technical data tied to a person.
+
+| Data | Where | Class | Protection |
+|---|---|---|---|
+| Password hash | AuthMethod.secret | C | argon2id (SEC-002) |
+| Verification code, refresh token | VerificationCode.code_hash, RefreshToken.token_hash | C | stored hashed; expiry and revocation (SEC-005, SEC-008) |
+| Phone number, linked-account usernames | Account.contact_identifier, VerificationCode.contact, LinkedAccount.username | S | column-level encryption (SEC-003); the phone number is looked up only through `contact_hash`; account and linked contacts are revealed only after mutual acceptance and safety acknowledgment (SEC-001, SAFE-002); VerificationCode.contact is never revealed |
+| Date of birth | Account.date_of_birth | S | encrypted at rest (SEC-003); other users see only the age, computed on the server |
+| Photo | ProfilePhoto.content | S | encrypted at rest with the database volume; served only through an authenticated API endpoint, never as a public link |
+| Communication format, per-event answers | Profile.communication_format, Application.desired_company, Application.open_to_extend | S | reveal a "dating" preference; shown only to a proposed match |
+| Google subject ID | AuthMethod.secret (type google) | P | never returned by the API |
+| Username, display name, description, interests, age | Profile, ProfileInterest | P | shown to other signed-in users by design, never to guests. The description is free text and may contain whatever the user chooses to disclose; reports (FR-025) cover misuse. |
+| Listing text, report comment | Listing.description, Report.comment | P | report comments visible to administrators only |
+| Notification content | Notification.payload | P | owner only |
+| Push token | DeviceToken.push_token | P | never returned by the API |
+| IP address | AuditLog.ip_address | P | audit log retention (SEC-004, OQ-002) |
+
+**Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept at the load balancer, keyed on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002); account lockout is the only limit stored here.
+
+## 5. Changes Needed in Other Documents
+
+| Document | Change | Kind |
+|---|---|---|
+| high-level-design.md §2.2 | matching also depends on identity (phone number for the contact reveal) | architecture, one row |
+| high-level-design.md §3 I3 | new job `audit.record`: producers identity and the other modules below moderation, consumer moderation | architecture, one row |
+| high-level-design.md §3 I4 | organization-created venues are written by CMP-02 | architecture, one row |
+| [authentication.md](mechanisms/authentication.md) | registration is always by phone number; Telegram is a delivery channel through the Telegram Gateway API, SMS the fallback | team decision |
+| requirements.md FR-003, glossary; user-stories.md US-001, US-002 | an organization is a regular user account, verified by the team, rather than a separate account type | team decision |
+| [matching.md](mechanisms/matching.md) Open | multi-day events split into daily sessions | closes an open item |
+| requirements.md §6 | OQ-003 resolved: exclusion lasts until the event ends | closes an open question |
 
 ## AI Usage Note
-This document was written with the help of Claude, based on previously agreed-upon documentation files. It was reviewed and edited by Daryna Halytska.
+
+Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.
