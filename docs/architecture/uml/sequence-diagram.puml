@@ -1,0 +1,62 @@
+@startuml sequence-diagram-matching
+/'
+  AI Usage Note
+  Drafted with Claude; updated to match matching.md, notifications.md,
+  data-model.md, UC-001 and high-level-design.md (I1, I3).
+'/
+title Nearby — Sequence Diagram: Matching (main success scenario, UC-001)
+
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+autonumber
+
+actor "User" as U
+participant "Expo App" as APP
+participant "Main Server\n(API + job handlers)" as SRV
+database "PostgreSQL\n(tables + job queue)" as DB
+participant "Expo Push" as PUSH
+actor "Candidate" as C
+
+== Apply ==
+
+U -> APP : apply to event session
+APP -> SRV : POST /sessions/{id}/applications
+SRV -> DB : insert application (in_pool)
+SRV --> APP : 202 Accepted — in pool, next round at …
+
+== Scheduled round ==
+
+DB ->> SRV : matching.round job
+SRV -> SRV : match(pool, exclusions, seed)\nin a worker thread
+SRV -> DB : in one transaction: Match (proposed),\ninbox rows, deliver + expire jobs
+SRV ->> PUSH : push "match proposed"
+PUSH ->> APP : notification
+PUSH ->> C : notification
+
+== Both accept ==
+
+U -> APP : accept
+APP -> SRV : POST /matches/{id}/accept
+SRV -> DB : match → accepted_a
+C -> SRV : accept (from the candidate's app)
+SRV -> DB : match → mutual; inbox rows (match_mutual)
+
+== Contact reveal ==
+
+APP -> SRV : GET /matches/{id}
+SRV -> DB : check mutual + safety notice acknowledged
+SRV --> APP : contact details (FR-019)
+
+note over SRV
+  Server-side checks: per-session lock (FUNC-002),
+  403 unless mutual (SEC-001), contacts only after
+  the safety notice (SAFE-002).
+end note
+
+note over U, C
+  Not shown — see UC-001 and matching.md: instant match on apply (rule 1),
+  decline (A3), expiry and strikes (A4, rule 6), withdrawal (A5), open mode.
+end note
+
+@enduml
