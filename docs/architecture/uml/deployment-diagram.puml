@@ -1,69 +1,72 @@
-@startuml
-skinparam componentStyle uml2
+@startuml deployment-diagram
+/'
+AI Usage Note
+Drafted with Claude from high-level-design.md §6 and the team's architecture decisions.
+Layout checked by rendering with PlantUML; reviewed by Daryna Halytska.
+'/
+title Nearby — Deployment Diagram with Trust Boundaries
 
-frame "Trust Boundary: Public / External" {
-  node "Client Device\n(Smartphone / Web)" <<device>> as cl {
-    artifact "Expo App" <<React Native>>
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 80
+
+rectangle "Z0 · Internet — untrusted" as Z0 #FFF5F5;line:B71C1C;line.dashed {
+  node "User device\n(iOS / Android / browser)" as dev {
+    artifact "Expo app\nCMP-01" as app
   }
 }
 
-frame "Trust Boundary: Private Cloud (VPC)" {
-  node "Traffic Balancer" <<executionEnvironment>> as bal
+rectangle "Our infrastructure" as INFRA #FAFAFA;line:424242 {
 
-  node "API Node 1" <<executionEnvironment>> as api1 {
-    artifact "Main Server" <<NestJS>>
+  rectangle "Z1 · Edge" as Z1 #FFFDE7;line:F9A825;line.dashed {
+    node "Load balancer /\nreverse proxy" as lb
   }
 
-  node "API Node 2" <<executionEnvironment>> as api2 {
-    artifact "Main Server" <<NestJS>>
+  rectangle "Z2 · Core — trusted" as Z2 #F1F8E9;line:2E7D32;line.dashed {
+    node "App host" as host_main {
+      artifact "Main server\nCMP-02 (NestJS)\n1 instance, scales horizontally" as main
+    }
+    node "Secrets store\nJWT, column-encryption\nand HMAC keys" as secrets
   }
 
-  database "Database Node" <<executionEnvironment>> as db {
-    artifact "PostgreSQL" <<Database>>
+  rectangle "Z3 · Import — partly trusted\n(parses untrusted input)" as Z3 #FFF3E0;line:E65100;line.dashed {
+    node "App host (import)" as host_import {
+      artifact "Event import service\nCMP-03 (NestJS)" as imp
+    }
   }
 
-  node "Notification Worker" <<executionEnvironment>> as notif_w {
-    artifact "Notification Service" <<Node.js>>
-  }
-
-  node "Import Worker" <<executionEnvironment>> as import_w {
-    artifact "Event Import Service" <<Node.js>>
+  rectangle "Z4 · Data — trusted" as Z4 #E3F2FD;line:1565C0;line.dashed {
+    database "Managed PostgreSQL\nCMP-04\nencrypted volume, daily backups\npg-boss queue, profile photos" as db
   }
 }
 
-frame "Trust Boundary: Third-party Providers" {
-  node "Event Providers\n(Concert.ua, ArtWizard)" <<external system>> as events
-  node "Expo Push API" <<external system>> as expo
-  node "SMS / Telegram API" <<external system>> as sms
+rectangle "Z5 · External services — outside our control" as Z5 #F3E5F5;line:6A1B9A;line.dashed {
+  node "Event providers\n(Concert.ua, ArtWizard)\nEXT-01" as providers
+  node "Telegram Gateway API / SMS\nEXT-03" as tg
+  node "Expo Push\nEXT-02" as push
+  node "Google\nEXT-04" as google
 }
 
-' Client requests routing
-cl --> bal : HTTPS (TLS 1.2+)
+app --> lb : **TB1**\nHTTPS (TLS 1.2+)
+lb --> main : **TB2**\nprivate network
+main --> db : **TB3**\nSQL, role nearby_main
+imp --> db : **TB4**\nSQL, role nearby_import
+imp --> providers : **TB5**\nHTTPS pull\n(untrusted data)
+main --> tg : **TB6**\nverification codes
+main --> push : **TB6**\npush batches
+main --> google : **TB6**\nID token check
+main --> secrets : **TB7**\nkeys
+push ..> app : push\n(no contacts)
 
-' Strict SEC-001 compliance: E2E TLS without plain HTTP termination at edge
-bal --> api1 : HTTPS (TLS 1.2+)
-bal --> api2 : HTTPS (TLS 1.2+)
-
-' Internal database connections and asynchronous communication
-api1 -down-> db : TCP (Prisma / Write)
-api2 -down-> db : TCP (Prisma / Write)
-import_w -up-> db : TCP (Upsert)
-notif_w -up-> db : TCP (LISTEN / NOTIFY)
-
-' External integrations
-events -down-> import_w : HTTPS (API / Import)
-notif_w --> expo : HTTPS (Push Notifications)
-notif_w --> sms : HTTPS (Verification Codes)
-
-note right of bal
-  Per SEC-001: internal traffic
-  is strictly encrypted (E2E TLS).
-end note
-
-note bottom of db
-  STRIDE: Services interact
-  strictly via Database.
-  No internal HTTP calls.
-end note
+legend right
+  Dashed frames are trust zones; **TB1–TB7** mark the boundaries
+  analysed in threat-model.md §1–§2.
+  TB1  device ↔ load balancer / API
+  TB3, TB4  server processes ↔ PostgreSQL
+  TB5, TB6  our infrastructure ↔ external services
+  TB2, TB7  internal boundaries inside our infrastructure
+endlegend
 
 @enduml
