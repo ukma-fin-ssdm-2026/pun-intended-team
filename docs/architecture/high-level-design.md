@@ -30,9 +30,9 @@ Both server processes are built from **one codebase and one image**, started in 
 
 | Module | Responsibility | Requirements |
 |---|---|---|
-| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-003, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
+| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
 | profiles | Profiles, interests, safety notice acknowledgment | FR-002, FR-004, FR-032, SAFE-002 |
-| catalog | Events, sessions, venues, categories, organization publishing | FR-006–FR-013, FR-029 |
+| catalog | Events, sessions, venues, categories, organization verification and publishing | FR-003, FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
 | notifications | Inbox, push delivery, verification-code dispatch | FR-011, FR-023, FR-024 |
 | moderation | Reports, cases, bans, listing removal, audit log | FR-025–FR-028, SAFE-003, SEC-004 |
@@ -66,13 +66,13 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 |---|---|---|
 | `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
-| `/events`, `/venues`, `/categories` | guest or user read, organization write | FR-006–FR-013 |
+| `/events`, `/venues`, `/categories` | guest or user read, verified organization write | FR-006–FR-013 |
 | `/sessions/{id}/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |
 | `/reports` | user | FR-025 |
 | `/notifications` | user | inbox, polled on app open and every 30–60 s while open |
-| `/admin/*` | administrator | FR-026–FR-030 |
+| `/admin/*` | administrator | FR-003 (organization verification), FR-026–FR-030 |
 
 Catalog reads require a guest or user token (`/auth/guest`); responses are paginated at ≤ 20 items and cover the coming weeks only — see [catalog access](mechanisms/catalog-access.md).
 

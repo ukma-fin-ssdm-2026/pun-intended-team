@@ -11,12 +11,14 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 - **Event** — a single happening in the catalog: a concert, exhibition, lecture, workshop, film screening and so on. Carries a title, category, date and time, location and description. Events reach the catalog two ways: posted by an organization or imported from an external provider.
 - **Event catalog** — the browsable, filterable set of upcoming events; the first screen a user sees.
 - **Category** — the kind of event, used for filtering.
-- **Organization** — a venue or event organizer with an account that posts and manages its own events. Organizations do not take part in matching.
+- **Organization** — a venue or event organizer that posts and manages its own events. It uses a regular user account that the team has verified as an organization. Organization accounts do not take part in matching.
 - **User** — an individual with a profile who browses events, requests matches and may post listings. Must be 18 or older.
 - **Profile** — the personal information a user gives so they can be matched.
 - **Listing** — a "looking for company" post a user writes, describing an event or activity they want company for. It may point at an event in the catalog but doesn't need to: a listing can propose something the catalog does not cover. Listings can be reported and removed by an administrator.
 - **Match** — a proposed pairing of two users attending the same event. A match becomes mutual when both sides accept.
 - **Candidate** — a user who may be proposed to another in a round, once the exclusions have been applied.
+- **Round** — a scheduled matching pass that pairs everyone in an event's pool at once, at fixed times before the event.
+- **Matching cutoff** — the time shortly before an event after which no new matches are proposed for it.
 - **Administrator** — a moderator account: bans users, removes listings and works the report queue.
 - **Report** — a complaint one user files about another user or a listing, which reaches the moderation queue within a minute.
 
@@ -35,9 +37,9 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 **Registration & Profile**
 - FR-001: The system shall allow a user to register an account and authenticate on subsequent visits.
 - FR-002: The system shall allow a user to create and edit a profile, including age, description, photo, interests, and desired communication format (friends / dating / company for an event). (US-003)
-- FR-003: The system shall allow an organization/venue to register as a legal entity/venue account.
+- FR-003: The system shall allow a registered user to request organization/venue status, and shall let that account publish events only after the team has verified it.
 - FR-004: A profile in progress shall be saved when the user leaves the screen and restored when they return. (US-003)
-- FR-005: Registration is verified by a code delivered over Telegram or SMS: the system sends a code to the contact given at registration and activates the account once the user enters it.
+- FR-005: Registration is verified by a one-time code sent to the phone number given at registration — through Telegram, or by SMS if Telegram delivery is not possible — and the account is activated once the user enters it.
 
 **Event Catalog**
 - FR-006: The system shall display a catalog of upcoming events to any visitor, whether or not they are logged in. (US-004)
@@ -48,15 +50,15 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 - FR-011: The system shall allow an organization to edit or cancel an event it created and notify users who had selected that event. (US-002)
 - FR-012: The system shall display a map with pins for venues hosting upcoming events, centered on the user's location (or a default city view if location access is denied). (US-007)
 - FR-013: The system shall show a venue's upcoming events when its map pin is tapped and allow the user to select one. (US-007)
-- FR-014: When the catalog is serving data from a failed import cycle, the system shall display a "last updated …" notice.
+- FR-014: When the event import service's most recent import run has failed, the main server shall keep serving the events from the last successful run, and the catalog shall display a "last updated …" notice with the time of that run.
 - FR-015: Records from an external provider that cannot be mapped to our event model shall be skipped and logged.
 
 **Matching**
 - FR-016: The system shall allow a user to select an event they intend to attend. (US-009)
-- FR-017: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. (US-009)
-- FR-018: The system shall correctly handle the case where no suitable match is currently available, without error, and let the user choose to keep waiting in the pool, select a different event (FR-016), or create a listing (FR-021). (US-009)
+- FR-017: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. Matching runs in scheduled rounds before the event; an exceptionally good pair is matched as soon as the second user selects the event. (US-009)
+- FR-018: The system shall correctly handle the case where no suitable match is currently available, without error: it shall tell the user when the next matching round runs and let them choose to keep waiting in the pool, select a different event (FR-016), or create a listing (FR-021). If no match is found by the matching cutoff before the event, the user shall be notified. (US-009)
 - FR-019: The system shall show each proposed match only the other participant's profile, without contact details; contact details shall be revealed to both participants only after both have explicitly approved the match, and shall not be revealed if either participant declines. (US-009)
-- FR-020: The matching algorithm shall exclude from a user's candidate set the user themselves, banned accounts, users they have reported, and candidates they have declined. If exclusion empties the set, FR-018 applies. (US-009)
+- FR-020: The matching algorithm shall exclude from a user's candidate set the user themselves, banned accounts, users they have reported, and candidates with whom a proposal for this event was declined or expired; these exclusions last until the event ends. If exclusion empties the set, FR-018 applies. (US-009)
 
 **Listings**
 - FR-021: The system shall allow a user to create a listing (e.g., "looking for company for an event"). (US-010)
@@ -64,7 +66,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 
 **Notifications**
 - FR-023: The system shall notify a user when they receive a new match. (US-009)
-- FR-024: The system shall send a reminder notification ahead of the date of an event the user selected.
+- FR-024: The system shall send a reminder notification 3 hours before the start of an event the user selected.
 
 **Reporting & Moderation**
 - FR-025: The system shall allow a user to report another user's profile, selecting a reason and optionally a comment. (US-008)
@@ -100,9 +102,9 @@ The event catalog shall render its first page of events within one second of bei
 - *Verification:* Largest Contentful Paint for the catalog route, recorded by a Lighthouse / Expo trace under the PERF-001 load scenario at 100 concurrent users.
 
 **PERF-003**
-The system shall deliver the outcome of a match request — FR-018 — within one minute of the request, so that a user is never left waiting without an answer.
-- *Fit criterion:* p90 of request-to-outcome time ≤ 60 s with 50 users requesting a match on the same event.
-- *Verification:* load scenario with 50 virtual users requesting a match on one event inside a ten-second window, asserting p90 of request-to-outcome time.
+The system shall answer a match request within one minute — with a proposed match, or with the FR-018 state and the time of the next round — so that a user is never left waiting without an answer.
+- *Fit criterion:* p90 of request-to-answer time ≤ 60 s with 50 users requesting a match on the same event.
+- *Verification:* load scenario with 50 virtual users requesting a match on one event inside a ten-second window, asserting p90 of request-to-answer time.
 
 **PERF-004**
 The mobile app shall start and stay responsive to touch input on a mid-range device, not only on a flagship.
@@ -150,7 +152,7 @@ Personal data other than passwords — phone numbers, contact links, dates of bi
 
 **SEC-004**
 The system shall log every security-relevant action with enough detail to reconstruct who did what and when, without the log becoming a second copy of the personal data.
-- *Fit criterion:* logged events — successful and failed sign-in, password change, contact reveal, report filed, ban, unban, every admin action. Each record carries timestamp, actor ID, action, target and result. Retention ≥ 90 days. Zero passwords, tokens or full contact details in log output.
+- *Fit criterion:* logged events — successful and failed sign-in, password change, contact reveal, report filed, ban, unban, every admin action. Each record carries timestamp, actor ID, action, target and result. Retention 90 days, after which records are deleted (OQ-002). Zero passwords, tokens or full contact details in log output.
 - *Verification:* test that performs each listed action and asserts a matching log record; scan of sample log output for forbidden fields.
 
 **SEC-005**
@@ -165,9 +167,9 @@ The application shall meet a named published security baseline and ship free of 
 
 **SEC-007**
 The system shall rate-limit sign-in attempts and public endpoint requests, so that credentials cannot be guessed and the catalog cannot be scraped by brute force.
-- *Fit criterion:* after 5 failed sign-ins for one account within 15 min, further attempts are refused for 15 min; public endpoints cap at 100 requests/min per IP, returning `429`; failure messages do not reveal whether an account exists.
-- *Verification:* test firing six bad sign-ins and asserting the lockout; test exceeding the per-IP cap and asserting `429`; message wording reviewed for account enumeration.
-- *Note:* written for password sign-in; the same limits apply to verification-code attempts and resends if we go passwordless.
+- *Fit criterion:* after 5 failed sign-ins for one account within 15 min, further attempts are refused for 15 min; public endpoints cap at 100 requests/min per guest or user token, with a backstop of 1000 requests/min per IP so that users behind a shared address are not blocked, returning `429` with `Retry-After`; failure messages do not reveal whether an account exists.
+- *Verification:* test firing six bad sign-ins and asserting the lockout; tests exceeding the per-token cap and the per-IP backstop and asserting `429`; message wording reviewed for account enumeration.
+- *Note:* the lockout applies to password sign-in and to verification-code attempts alike; code resends are throttled by SEC-008.
 
 **SEC-008**
 A registration verification code — FR-005 — shall be short-lived, single-use and attempt-limited, and shall be handed to the messaging provider within a bounded time.
@@ -211,9 +213,9 @@ The codebase shall be shared across iOS, Android and web, and the layout shall a
 - *Verification:* line-count script over the source tree, reported in the README; responsive check at 320, 768 and 1920 px.
 
 **FLEX-002**
-The API shall hold no session or request state in memory, so that a second instance can be started without a code change.
-- *Fit criterion:* zero in-memory sessions or request-scoped caches that a second instance would not see; 2 instances behind a load balancer pass the full test suite with zero failures attributable to instance affinity.
-- *Verification:* run two API containers behind a round-robin proxy and execute the integration suite against the proxy.
+The API shall hold no session or request state in memory, so that further instances can be added without a code change if load requires it. Production starts with one instance.
+- *Fit criterion:* zero in-memory sessions or request-scoped caches that another instance would not see; when run as 2 instances behind a load balancer, the API passes the full test suite with zero failures attributable to instance affinity.
+- *Verification:* when scaling, run two API containers behind a round-robin proxy and execute the integration suite against the proxy.
 
 **FLEX-003**
 Adding or replacing an external event provider shall be confined to a single adapter, since it is not yet known whether Concert.ua or ArtWizard will give us an API.
@@ -235,7 +237,7 @@ The matching algorithm shall return a reproducible ordering for a given candidat
 - *Verification:* unit test over a seeded fixture asserting identical output across runs; second test with two seeds asserting the orderings differ.
 
 **FUNC-002**
-A pairing shall be exclusive and mutual: each user appears in at most one pairing per round, and a paired user is not offered to anyone else until that match is rejected or expires.
+A pairing shall be exclusive and mutual: each user appears in at most one pairing per round, and a paired user is not offered to anyone else until that match is declined, expires or is cancelled.
 - *Fit criterion:* zero cases of A → B without B → A; zero users appearing in two pairings of one round; holds in 100% of test cases, including users filing at different times within one round and the same user filing on several events at once.
 - *Verification:* property test over randomly generated rounds asserting the result is a valid matching; concurrency test firing overlapping requests that all rank the same candidate first, asserting exactly one of them receives that candidate.
 
@@ -275,11 +277,11 @@ Reporting shall be reachable from every screen that shows another user, and a su
 - **R-002:** Too few users per event for matching to produce pairs (FR-018).
 - **R-003:** Hosting does not sustain the uptime target (REL-001).
 
-**Open questions**
-- **OQ-001: How do people sign in?** Password, email, or a Telegram/SMS code. Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008.
-- **OQ-002: How long do we keep the audit log?** As for now - 90 days. Affects SEC-004.
-- **OQ-003: How long does a declined candidate stay excluded?**
-- **OQ-004: How long does a match proposal stay open before it expires?** Affects UC-001 (A4).
+**Open questions** — all resolved during the architecture phase.
+- **OQ-001: How do people sign in?** Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008. *Resolved:* registration by phone number and a one-time code (Telegram, SMS as fallback); later sign-in by password or Google — see [authentication](../architecture/mechanisms/authentication.md).
+- **OQ-002: How long do we keep the audit log?** Affects SEC-004. *Resolved:* 90 days; older records are deleted by a daily job.
+- **OQ-003: How long does a declined candidate stay excluded?** Affects FR-020. *Resolved:* until the event ends; the exclusion does not carry over to other events, and an expired proposal excludes the pair the same way — see [matching](../architecture/mechanisms/matching.md).
+- **OQ-004: How long does a match proposal stay open before it expires?** Affects UC-001 (A4). *Resolved:* 24 hours or until the next round starts, whichever comes first; after the last round, until the matching cutoff — see [matching](../architecture/mechanisms/matching.md) rule 4.
 
 ## AI Usage Note
 This document was written with the participation of Claude.

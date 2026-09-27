@@ -10,17 +10,17 @@
 
 **Acceptance Criteria:**
 
-1. **Given:** I am logged in as a registered organization<br>
+1. **Given:** I am logged in with an account verified as an organization<br>
 	**When:** I fill in the required event fields (title, category, date and time, location, description) and submit the form<br>
 	**Then:** the event is published in the event catalog and can be found by users filtering by its category, date and location
 
-2. **Given:** I am logged in as a registered organization and one of the required fields is empty<br>
+2. **Given:** I am logged in with an account verified as an organization and one of the required fields is empty<br>
 	**When:** I submit the form<br>
 	**Then:** the event is not published and I see a validation message pointing at the missing field
 
 **INVEST check:**
 
-- **Independent** - publishing an event depends only on organization accounts existing, not on profiles or matching.
+- **Independent** - publishing an event depends only on verified organization accounts existing, not on profiles or matching.
 - **Negotiable** - the exact set of required fields and whether posted events need moderation can be clarified with the team.
 - **Valuable** - direct posts from organizations/venues are one of the two sources that fill the event catalog.
 - **Estimable** - clear scope: event form + validation + saving to the database + display in the catalog.
