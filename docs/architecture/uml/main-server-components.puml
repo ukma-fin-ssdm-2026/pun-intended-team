@@ -1,18 +1,23 @@
 @startuml main-server-components
+/'
+  AI Usage Note
+  Drafted with Claude from an architecture discussion led by Viktoriia Baran.
+'/
 title Nearby — Main Server (CMP-02) Internal Structure
 
 skinparam componentStyle uml2
 skinparam shadowing false
 skinparam defaultTextAlignment center
+skinparam linetype ortho
+skinparam packageStyle rectangle
 
 () "I1 Client API" as I1
-() "I3 Job queue\n(consume)" as I3in
 
 component "Main Server (CMP-02)" {
 
   package "Entry points" as L1 {
     [REST controllers] as REST
-    [Job handlers] as JOBS
+    [Job handlers\n(called by the job queue client)] as JOBS
   }
 
   package "Domain modules" as L2 {
@@ -40,11 +45,10 @@ component "Main Server (CMP-02)" {
 }
 
 () "I4 SQL" as I4
-() "I3 Job queue\n(enqueue)" as I3out
+() "I3 Job queue" as I3
 () "I5 External APIs" as I5
 
 I1 -down- REST
-I3in -down- JOBS
 REST -down-> T1
 JOBS -down-> T1
 
@@ -68,17 +72,12 @@ MO -[hidden]down- PR
 PR -[hidden]down- NO
 NO -[hidden]down- QUEUE
 REPO -down- I4
-QUEUE -down- I3out
+QUEUE -down- I3
 ADP -down- I5
 
 note right of L2
-  Dependencies point downward
-  (or sideways within a tier, no cycles);
-  every module uses Infrastructure.
-  Upward reactions go through jobs:
-  event.changed → matching,
-  user.banned → matching.
-  No module reads another's tables.
+  No upward calls: a lower module
+  triggers an upper one through a job (I3).
   Module-level dependencies:
   high-level-design.md §2.2
 end note
