@@ -1,50 +1,59 @@
 @startuml component-diagram
-title Nearby — Component Diagram
+title Nearby — Component Diagram (system level)
 
-skinparam componentStyle rectangle
+skinparam componentStyle uml2
 skinparam shadowing false
 skinparam defaultTextAlignment center
 
-actor "User / Organization" as Actor
+actor "User / Organization /\nAdministrator" as Actor
 
-package "Client tier" {
-  [Expo App\n(iOS / Android / web)] as CMP01
+node "Client tier" {
+  [Expo App\n(iOS / Android / web)\nCMP-01] as CMP01
 }
 
-package "Server tier" {
-  [Main Server\n(NestJS)\nuser requests + matching] as CMP02
-  [Notification Service\npush, SMS / Telegram] as CMP03
-  [Event Import Service] as CMP04
-  database "PostgreSQL" as CMP05
+node "Server tier" {
+  () "I1 Client API\n(REST + OpenAPI)" as I1
+  [Main Server\n(NestJS, ROLE=api+jobs)\nCMP-02] as CMP02
+  [Event Import Service\n(NestJS, ROLE=import)\nCMP-03] as CMP04
+
+  () "I4 SQL" as I4
+  () "I3 Job queue" as I3
+  database "PostgreSQL\nCMP-04" as CMP05
 }
 
 cloud "External systems" {
-  [Event providers\n(Concert.ua, ArtWizard)] as EXT01
-  [Expo Push] as EXT02
-  [SMS / Telegram] as EXT03
+  [Expo Push\nEXT-02] as EXT02
+  [Telegram / SMS\nEXT-03] as EXT03
+  [Google\nEXT-04] as EXT04
+  [Event providers\n(Concert.ua, ArtWizard)\nEXT-01] as EXT01
 }
 
 Actor --> CMP01
-CMP01 --> CMP02 : REST / HTTPS (TLS 1.2+)
+CMP01 -down-> I1 : HTTPS (TLS 1.2+)
+I1 -down- CMP02
 
-CMP02 --> CMP05 : read / write,\nqueue outbound message
-CMP03 --> CMP05 : LISTEN / NOTIFY,\nread message queue
-CMP04 --> CMP05 : upsert events
+CMP02 -down-> I4 : Prisma
+CMP04 -down-> I4 : Prisma\n(import role)
+CMP02 -down-> I3 : enqueue / consume
+CMP04 -down-> I3 : event.changed
+I4 -down- CMP05
+I3 -down- CMP05
 
-EXT01 --> CMP04 : provider API / import
-CMP03 --> EXT02 : push notifications\n(FR-023, FR-024)
-CMP03 --> EXT03 : verification codes\n(FR-005, SEC-008)
+CMP02 -down-> EXT02 : «PushProvider»
+CMP02 -down-> EXT03 : «MessagingProvider»
+CMP02 -down-> EXT04 : «GoogleIdentity»
+CMP04 -down-> EXT01 : «EventProvider»
 
-note right of CMP03
-  Owns all outbound communication.
-  Woken by NOTIFY, not polling —
-  SEC-008 allows p95 <= 2 s.
+note right of CMP05
+  Single schema; each process
+  has its own DB role.
+  I3 = pg-boss queue tables.
+  Processes never call each other.
 end note
 
-note bottom of CMP05
-  Single shared schema.
-  Services hand work to each other
-  through the database, not over HTTP.
+note left of CMP02
+  Internal structure:
+  main-server-components.puml
 end note
 
 @enduml

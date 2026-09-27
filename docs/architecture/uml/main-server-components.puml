@@ -1,0 +1,86 @@
+@startuml main-server-components
+title Nearby — Main Server (CMP-02) Internal Structure
+
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+() "I1 Client API" as I1
+() "I3 Job queue\n(consume)" as I3in
+
+component "Main Server (CMP-02)" {
+
+  package "Entry points" as L1 {
+    [REST controllers] as REST
+    [Job handlers] as JOBS
+  }
+
+  package "Domain modules" as L2 {
+    package "Workflows" as T1 {
+      [matching] as MA
+      [moderation] as MO
+      [listings] as LI
+      [admin] as AD
+    }
+    package "Foundation" as T2 {
+      [profiles] as PR
+      [catalog] as CA
+      [identity] as ID
+    }
+    package "Platform" as T3 {
+      [notifications] as NO
+    }
+  }
+
+  package "Infrastructure" as L3 {
+    [Prisma repositories] as REPO
+    [Job queue client] as QUEUE
+    [Adapters\nPush · Messaging · Google] as ADP
+  }
+}
+
+() "I4 SQL" as I4
+() "I3 Job queue\n(enqueue)" as I3out
+() "I5 External APIs" as I5
+
+I1 -down- REST
+I3in -down- JOBS
+REST -down-> T1
+JOBS -down-> T1
+
+' Tier-level dependencies; module-level ones are in high-level-design.md §2.2
+T1 -down-> T2
+T2 -down-> T3
+T1 -down-> T3
+
+L2 -down-> L3
+
+' Layout only
+MA -[hidden]right- MO
+MO -[hidden]right- LI
+LI -[hidden]right- AD
+PR -[hidden]right- CA
+CA -[hidden]right- ID
+REPO -[hidden]right- QUEUE
+QUEUE -[hidden]right- ADP
+REST -[hidden]down- MO
+MO -[hidden]down- PR
+PR -[hidden]down- NO
+NO -[hidden]down- QUEUE
+REPO -down- I4
+QUEUE -down- I3out
+ADP -down- I5
+
+note right of L2
+  Dependencies point downward
+  (or sideways within a tier, no cycles);
+  every module uses Infrastructure.
+  Upward reactions go through jobs:
+  event.changed → matching,
+  user.banned → matching.
+  No module reads another's tables.
+  Module-level dependencies:
+  high-level-design.md §2.2
+end note
+
+@enduml
