@@ -153,18 +153,6 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 **Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept at the load balancer, keyed on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002); account lockout is the only limit stored here.
 
-## 5. Changes Needed in Other Documents
-
-| Document | Change | Kind |
-|---|---|---|
-| high-level-design.md §2.2 | matching also depends on identity (phone number for the contact reveal) | architecture, one row |
-| high-level-design.md §3 I3 | new job `audit.record`: producers identity and the other modules below moderation, consumer moderation | architecture, one row |
-| high-level-design.md §3 I4 | organization-created venues are written by CMP-02 | architecture, one row |
-| [authentication.md](mechanisms/authentication.md) | registration is always by phone number; Telegram is a delivery channel through the Telegram Gateway API, SMS the fallback | team decision |
-| requirements.md FR-003, glossary; user-stories.md US-001, US-002 | an organization is a regular user account, verified by the team, rather than a separate account type | team decision |
-| [matching.md](mechanisms/matching.md) Open | multi-day events split into daily sessions | closes an open item |
-| requirements.md §6 | OQ-003 resolved: exclusion lasts until the event ends | closes an open question |
-
 ## AI Usage Note
 
 Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.
