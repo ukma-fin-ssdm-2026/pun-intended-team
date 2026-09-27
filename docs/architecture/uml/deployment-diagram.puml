@@ -1,8 +1,10 @@
 @startuml deployment-diagram
 /'
-AI Usage Note
-Drafted with Claude from high-level-design.md §6 and the team's architecture decisions.
-Layout checked by rendering with PlantUML; reviewed by Daryna Halytska.
+  AI Usage Note
+  Drafted with Claude from high-level-design.md §6 and the team's architecture decisions.
+  Layout checked by rendering with PlantUML; reviewed by Daryna Halytska.
+
+  Merged with Claude from the team's two deployment drafts. Reviewed by Vlad-Re and Daryna Halytska.
 '/
 title Nearby — Deployment Diagram with Trust Boundaries
 
@@ -18,7 +20,7 @@ rectangle "Z0 · Internet — untrusted" as Z0 #FFF5F5;line:B71C1C;line.dashed {
   }
 }
 
-rectangle "Our infrastructure" as INFRA #FAFAFA;line:424242 {
+rectangle "Our infrastructure (managed host, one private network)" as INFRA #FAFAFA;line:424242 {
 
   rectangle "Z1 · Edge" as Z1 #FFFDE7;line:F9A825;line.dashed {
     node "Load balancer /\nreverse proxy" as lb
@@ -26,9 +28,9 @@ rectangle "Our infrastructure" as INFRA #FAFAFA;line:424242 {
 
   rectangle "Z2 · Core — trusted" as Z2 #F1F8E9;line:2E7D32;line.dashed {
     node "App host" as host_main {
-      artifact "Main server\nCMP-02 (NestJS)\n1 instance, scales horizontally" as main
+      artifact "Main server\nCMP-02 (NestJS)" as main
     }
-    node "Secrets store\nJWT, column-encryption\nand HMAC keys" as secrets
+    node "Secrets store\nJWT, column-encryption and HMAC keys,\ndatabase credentials" as secrets
   }
 
   rectangle "Z3 · Import — partly trusted\n(parses untrusted input)" as Z3 #FFF3E0;line:E65100;line.dashed {
@@ -38,35 +40,64 @@ rectangle "Our infrastructure" as INFRA #FAFAFA;line:424242 {
   }
 
   rectangle "Z4 · Data — trusted" as Z4 #E3F2FD;line:1565C0;line.dashed {
-    database "Managed PostgreSQL\nCMP-04\nencrypted volume, daily backups\npg-boss queue, profile photos" as db
+    database "Managed PostgreSQL" as db {
+      artifact "PostgreSQL + PostGIS\npg-boss job queue, profile photos\nCMP-04" as pg
+    }
   }
+
+
 }
 
 rectangle "Z5 · External services — outside our control" as Z5 #F3E5F5;line:6A1B9A;line.dashed {
-  node "Event providers\n(Concert.ua, ArtWizard)\nEXT-01" as providers
+  node "Google\nEXT-04" as google
   node "Telegram Gateway API / SMS\nEXT-03" as tg
   node "Expo Push\nEXT-02" as push
-  node "Google\nEXT-04" as google
+  node "Event providers\n(Concert.ua, ArtWizard)\nEXT-01" as providers
 }
 
-app --> lb : **TB1**\nHTTPS (TLS 1.2+)
-lb --> main : **TB2**\nprivate network
-main --> db : **TB3**\nSQL, role nearby_main
-imp --> db : **TB4**\nSQL, role nearby_import
-imp --> providers : **TB5**\nHTTPS pull\n(untrusted data)
-main --> tg : **TB6**\nverification codes
-main --> push : **TB6**\npush batches
-main --> google : **TB6**\nID token check
-main --> secrets : **TB7**\nkeys
-push ..> app : push\n(no contacts)
+app -down-> lb : **TB1**\nHTTPS (TLS 1.2+)
+lb -down-> main : **TB2**\nHTTP, private network
+main -right-> secrets : keys
+imp -left-> secrets : **TB7**\nown database\ncredentials only
+main -down-> db : **TB3**\nSQL, role nearby_main
+imp -down-> db : **TB4**\nSQL, role nearby_import
+main -down-> google : **TB6**\nID token check
+main -down-> tg : **TB6**\nverification codes
+main -down-> push : **TB6**\npush batches
+imp -down-> providers : **TB5** HTTPS pull\n(untrusted data)
+push .up.> app : push\n(no contacts)
+
+google -[hidden]right- tg
+tg -[hidden]right- push
+push -[hidden]right- providers
+
+note right of lb
+  TLS terminates here;
+  plain HTTP is redirected (SEC-001).
+  Per-IP backstop limit (SEC-007).
+end note
+
+note left of main
+  1 instance at launch; stateless (FLEX-002),
+  so more instances go behind the same
+  balancer without a code change.
+end note
+
+note bottom of db
+  Encrypted volume, daily backups (REL-004).
+  CMP-02 and CMP-03 never call each other:
+  they meet only in the database.
+end note
 
 legend right
-  Dashed frames are trust zones; **TB1–TB7** mark the boundaries
-  analysed in threat-model.md §1–§2.
-  TB1  device ↔ load balancer / API
+  Dashed frames are trust zones Z0–Z5;
+  **TB1–TB7** mark the boundaries analysed
+  in threat-model.md §1–§2.
+  TB1  device ↔ load balancer
+  TB2  load balancer ↔ main server
   TB3, TB4  server processes ↔ PostgreSQL
   TB5, TB6  our infrastructure ↔ external services
-  TB2, TB7  internal boundaries inside our infrastructure
+  TB7  import service ↔ secrets store
 endlegend
 
 @enduml
