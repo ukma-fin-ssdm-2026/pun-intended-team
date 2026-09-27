@@ -1,0 +1,339 @@
+@startuml data-model
+/'
+AI Usage Note
+Drafted with Claude from data-model.md and the team's review notes.
+Layout checked by rendering with PlantUML; reviewed by Daryna Halytska.
+'/
+title Nearby — Data Model (ER)
+
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 60
+skinparam ranksep 70
+
+' Sensitivity marks follow data-model.md §4:
+'   red    (S) sensitive personal
+'   purple (C) credential
+'   blue   (P) personal
+' * = mandatory attribute
+
+package "identity" {
+  entity "Account" as account {
+    * id : uuid <<PK>>
+    --
+    * role : user | admin
+    * <color:#B71C1C>contact_identifier : text (S) phone</color>
+    * contact_hash : text <<UK>>
+    <color:#B71C1C>date_of_birth : date (S)</color>
+    * status : pending | active | banned
+    failed_signins : int
+    locked_until : timestamptz
+  }
+
+  entity "AuthMethod" as auth_method {
+    * id : uuid <<PK>>
+    --
+    * account_id : uuid <<FK>>
+    * type : password | google
+    * <color:#6A1B9A>secret : text (C) password hash</color>
+  }
+
+  entity "VerificationCode" as verification_code {
+    * id : uuid <<PK>>
+    --
+    * <color:#B71C1C>contact : text (S) phone</color>
+    * contact_hash : text
+    * channel : telegram | sms
+    provider_request_id : text
+    * <color:#6A1B9A>code_hash : text (C)</color>
+    * purpose : registration | reset
+    * sent_at / expires_at : timestamptz
+    * attempts : int
+    used_at : timestamptz
+  }
+
+  entity "RefreshToken" as refresh_token {
+    * id : uuid <<PK>>
+    --
+    * account_id : uuid <<FK>>
+    * <color:#6A1B9A>token_hash : text (C)</color>
+    * expires_at : timestamptz
+    revoked_at : timestamptz
+  }
+}
+
+package "profiles" {
+  entity "Profile" as profile {
+    * account_id : uuid <<PK, FK>>
+    --
+    * <color:#1565C0>username : text <<UK>> (P)</color>
+    * <color:#1565C0>display_name : text (P)</color>
+    <color:#1565C0>description : text (P)</color>
+    * <color:#B71C1C>communication_format (S)</color>
+    * share_phone : bool
+    safety_notice_ack_at : timestamptz
+  }
+
+  entity "ProfilePhoto" as profile_photo {
+    * profile_id : uuid <<PK, FK>>
+    --
+    * <color:#B71C1C>content : bytea (S) photo</color>
+    * content_type : text
+  }
+
+  entity "LinkedAccount" as linked_account {
+    * id : uuid <<PK>>
+    --
+    * profile_id : uuid <<FK>>
+    * app : telegram | instagram | …
+    * <color:#B71C1C>username : text (S) contact link</color>
+  }
+
+  entity "Interest" as interest {
+    * id : uuid <<PK>>
+    --
+    * name : text <<UK>>
+  }
+
+  entity "ProfileInterest" as profile_interest {
+    * profile_id : uuid <<PK, FK>>
+    * interest_id : uuid <<PK, FK>>
+  }
+}
+
+package "catalog" {
+  entity "Organization" as organization {
+    * account_id : uuid <<PK, FK>>
+    --
+    * name : text
+    description : text
+    official_link : text
+    * verification_status : pending | verified | rejected | revoked
+    verified_by : uuid <<FK>>
+    verified_at : timestamptz
+  }
+
+  entity "Category" as category {
+    * id : uuid <<PK>>
+    --
+    * name : text <<UK>>
+    * is_active : bool
+  }
+
+  entity "Venue" as venue {
+    * id : uuid <<PK>>
+    --
+    * name : text
+    * address : text
+    * location : geography(Point)
+    * source : organization | import
+    organization_id : uuid <<FK>>
+  }
+
+  entity "Event" as event {
+    * id : uuid <<PK>>
+    --
+    * category_id : uuid <<FK>>
+    * venue_id : uuid <<FK>>
+    organization_id : uuid <<FK>>
+    * source : organization | import
+    provider / external_id : text
+    * title : text
+    * description : text
+    * starts_at : timestamptz
+    * ends_at : timestamptz
+    * status : published | cancelled
+  }
+
+  entity "EventSession" as event_session {
+    * id : uuid <<PK>>
+    --
+    * event_id : uuid <<FK>>
+    * starts_at : timestamptz
+    * status : scheduled | cancelled
+  }
+}
+
+package "import (CMP-03)" {
+  entity "ImportRun" as import_run {
+    * id : uuid <<PK>>
+    --
+    * provider : text
+    * started_at : timestamptz
+    finished_at : timestamptz
+    * status : text
+  }
+
+  entity "SkippedRecord" as skipped_record {
+    * id : uuid <<PK>>
+    --
+    * import_run_id : uuid <<FK>>
+    * raw : jsonb
+    * reason : text
+  }
+}
+
+package "matching" {
+  entity "Application" as application {
+    * id : uuid <<PK>>
+    --
+    * user_id : uuid <<FK>>
+    * session_id : uuid <<FK>>
+    * <color:#B71C1C>desired_company (S)</color>
+    * <color:#B71C1C>open_to_extend : bool (S)</color>
+    * status : in_pool | paired | paused | removed
+      | withdrawn | no_match | cancelled
+    * no_response_count : 0..2
+  }
+
+  entity "Match" as match {
+    * id : uuid <<PK>>
+    --
+    * application_a_id : uuid <<FK>>
+    * application_b_id : uuid <<FK>>
+    * source : instant | round | open
+    * score : numeric
+    * seed : bigint
+    * status : proposed | accepted_a | accepted_b
+      | mutual | declined | expired | cancelled
+    cancel_reason : text
+    * valid_until : timestamptz
+  }
+
+  entity "Exclusion" as exclusion {
+    * id : uuid <<PK>>
+    --
+    * user_id : uuid <<FK>>
+    * excluded_user_id : uuid <<FK>>
+    * event_id : uuid <<FK>>
+    * match_id : uuid <<FK>>
+    * reason : declined | expired
+  }
+}
+
+package "listings" {
+  entity "Listing" as listing {
+    * id : uuid <<PK>>
+    --
+    * author_id : uuid <<FK>>
+    * category_id : uuid <<FK>>
+    event_id : uuid <<FK>>
+    * title : text
+    * <color:#1565C0>description : text (P)</color>
+    * date : date
+    * status : active | removed
+  }
+}
+
+package "moderation" {
+  entity "ReportCase" as report_case {
+    * id : uuid <<PK>>
+    --
+    * target_type : account | listing
+    target_account_id : uuid <<FK>>
+    target_listing_id : uuid <<FK>>
+    * status : open | resolved
+    resolution : banned | removed | dismissed
+    resolved_by : uuid <<FK>>
+    resolved_at : timestamptz
+  }
+
+  entity "Report" as report {
+    * id : uuid <<PK>>
+    --
+    * case_id : uuid <<FK>>
+    * reporter_id : uuid <<FK>>
+    * reason : text
+    <color:#1565C0>comment : text (P)</color>
+  }
+
+  entity "AuditLog" as audit_log {
+    * id : bigint <<PK>>
+    --
+    actor_id : uuid
+    * action : text
+    target_type / target_id
+    * result : text
+    <color:#1565C0>ip_address : inet (P)</color>
+  }
+}
+
+package "notifications" {
+  entity "Notification" as notification {
+    * id : uuid <<PK>>
+    --
+    * account_id : uuid <<FK>>
+    * type : text
+    * <color:#1565C0>payload : jsonb (P)</color>
+    * dedupe_key : text <<UK>>
+    * push_status : pending | sent | failed | skipped
+    read_at : timestamptz
+  }
+
+  entity "DeviceToken" as device_token {
+    * id : uuid <<PK>>
+    --
+    * account_id : uuid <<FK>>
+    * refresh_token_id : uuid <<FK>>
+    * <color:#1565C0>push_token : text <<UK>> (P)</color>
+    * platform : ios | android
+  }
+}
+
+legend right
+  <color:#B71C1C>red</color> (S) sensitive personal: phone, contact link,
+      date of birth, photo, dating preference
+  <color:#6A1B9A>purple</color> (C) credential: password hash, code, token
+  <color:#1565C0>blue</color> (P) personal
+  * mandatory · every table also has created_at / updated_at
+  Details: data-model.md §4
+endlegend
+
+' ---- identity ----
+account ||--o{ auth_method
+account ||--o{ refresh_token
+account ||--o| profile
+account ||--o| organization : acts as
+
+' ---- profiles ----
+profile ||--o| profile_photo
+profile ||--o{ linked_account
+profile ||--o{ profile_interest
+interest ||--o{ profile_interest
+
+' ---- catalog ----
+organization |o--o{ event : publishes
+organization |o--o{ venue : owns
+account |o--o{ organization : verifies
+category ||--o{ event
+venue ||--o{ event
+event ||--o{ event_session
+
+' ---- import ----
+import_run ||--o{ skipped_record
+
+' ---- matching ----
+account ||--o{ application : applies
+event_session ||--o{ application : pool
+application ||--o{ match : as A
+application ||--o{ match : as B
+match ||--o| exclusion
+event ||--o{ exclusion
+account ||--o{ exclusion : excludes / excluded
+
+' ---- listings ----
+account ||--o{ listing : writes
+category ||--o{ listing
+event |o--o{ listing : refers to
+
+' ---- moderation ----
+report_case ||--|{ report
+account ||--o{ report : files
+account |o--o{ report_case : target
+listing |o--o{ report_case : target
+account |o--o{ report_case : resolves
+account ||..o{ audit_log : actor (no FK)
+
+' ----
