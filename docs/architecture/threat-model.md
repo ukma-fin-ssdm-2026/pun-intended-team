@@ -21,7 +21,7 @@ STRIDE analysis of Nearby's deployment ([high-level design §6](high-level-desig
 | TB4 | import service ↔ PostgreSQL | imported events and venues, role `nearby_import` |
 | TB5 | event providers → import service | raw event data, possibly scraped HTML |
 | TB6 | main server → Telegram Gateway / SMS, Expo Push, Google | phone numbers and codes, push content, Google ID tokens |
-| TB7 | main server → secrets store | JWT, column-encryption and HMAC keys |
+| TB7 | import service → secrets store | the import service's own database credentials only |
 
 ## 2. STRIDE Walkthrough
 
@@ -40,7 +40,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |
 | TB6 main server → external | Google tokens verified server-side | TLS | provider request IDs stored | codes and push text carry no contacts | TM-08 | — |
 | Expo Push → user device | push is only a hint; the app reads the inbox through the API | TLS (Expo, APNs / FCM) | — | push text carries no contacts | missed push: the inbox still has the row (notifications.md) | — |
-| TB7 secrets store | — | — | — | JWT, column-encryption and HMAC keys reachable from CMP-02 only; the import service receives only its own database credentials | — | — |
+| TB7 import → secrets store | — | — | — | JWT, column-encryption and HMAC keys reachable from CMP-02 only; the import service receives only its own database credentials | — | — |
 
 ## 3. Risks
 
@@ -78,3 +78,5 @@ TM-10 and TM-14 are mitigated, but their residual part — copying what a legiti
 ## AI Usage Note
 
 Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.
+
+Boundary TB7 was later updated with Claude to match the revised deployment diagram. Reviewed by Vlad-Re
