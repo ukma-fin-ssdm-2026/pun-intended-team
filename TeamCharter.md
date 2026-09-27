@@ -13,19 +13,23 @@
 - **Viktoriya Baran**
   - Repo Maintainer — manages the GitHub repository structure, branching, and merges.
   - Quality Lead — ensures NFRs are measurable and properly documented.
+  - Architecture Lead — coordinates the choice of architecture style and the component diagram.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
   - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
+  - Data & Threat Modeler — builds the data model and leads the STRIDE analysis of the deployment diagram.
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
   - Requirements Lead — facilitates writing and refining user stories.
   - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
+  - Requirements-Architecture Mapper — creates the requirements-to-components traceability matrix.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
   - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
+  - UML Lead — responsible for the correctness of UML diagrams.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
