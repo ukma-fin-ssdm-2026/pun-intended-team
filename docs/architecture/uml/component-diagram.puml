@@ -1,5 +1,9 @@
 @startuml component-diagram
-title Nearby — Component Diagram (system level)
+/'
+  AI Usage Note
+  Drafted with Claude from an architecture discussion led by Viktoriia Baran.
+'/
+title Nearby — Component Diagram
 
 skinparam componentStyle uml2
 skinparam shadowing false
@@ -14,16 +18,16 @@ node "Client tier" {
 node "Server tier" {
   () "I1 Client API\n(REST + OpenAPI)" as I1
   [Main Server\n(NestJS, ROLE=api+jobs)\nCMP-02] as CMP02
-  [Event Import Service\n(NestJS, ROLE=import)\nCMP-03] as CMP04
+  [Event Import Service\n(NestJS, ROLE=import)\nCMP-03] as CMP03
 
   () "I4 SQL" as I4
   () "I3 Job queue" as I3
-  database "PostgreSQL\nCMP-04" as CMP05
+  database "PostgreSQL\nCMP-04" as CMP04
 }
 
 cloud "External systems" {
   [Expo Push\nEXT-02] as EXT02
-  [Telegram / SMS\nEXT-03] as EXT03
+  [Telegram Gateway / SMS\nEXT-03] as EXT03
   [Google\nEXT-04] as EXT04
   [Event providers\n(Concert.ua, ArtWizard)\nEXT-01] as EXT01
 }
@@ -33,22 +37,20 @@ CMP01 -down-> I1 : HTTPS (TLS 1.2+)
 I1 -down- CMP02
 
 CMP02 -down-> I4 : Prisma
-CMP04 -down-> I4 : Prisma\n(import role)
+CMP03 -down-> I4 : Prisma\n(import role)
 CMP02 -down-> I3 : enqueue / consume
-CMP04 -down-> I3 : event.changed
-I4 -down- CMP05
-I3 -down- CMP05
+CMP03 -down-> I3 : event.changed
+I4 -down- CMP04
+I3 -down- CMP04
 
 CMP02 -down-> EXT02 : «PushProvider»
 CMP02 -down-> EXT03 : «MessagingProvider»
 CMP02 -down-> EXT04 : «GoogleIdentity»
-CMP04 -down-> EXT01 : «EventProvider»
+CMP03 -down-> EXT01 : «EventProvider»
 
-note right of CMP05
+note right of CMP04
   Single schema; each process
   has its own DB role.
-  I3 = pg-boss queue tables.
-  Processes never call each other.
 end note
 
 note left of CMP02

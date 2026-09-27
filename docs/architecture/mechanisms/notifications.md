@@ -25,7 +25,7 @@
 | Event reminder | Before the event (FR-024) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
 | Report received | Report filed (SAFE-003) | Inbox |
-| Verification code | Registration, password reset (FR-005) | Telegram → SMS fallback |
+| Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback; not an inbox row (stored as VerificationCode) |
 
 ## Open
 

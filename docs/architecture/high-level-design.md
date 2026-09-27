@@ -17,20 +17,20 @@ Both server processes are built from **one codebase and one image**, started in 
 
 | ID | Component | Responsibility |
 |---|---|---|
-| CMP-01 | Client (Expo — iOS / Android / web) | UI, local draft state (FR-004), map (FR-012), inbox polling. Holds no business rules. |
+| CMP-01 | Client (Expo — iOS / Android / web) | UI, local draft state (FR-004), map (FR-012), inbox polling, unsupported-version notice (FR-033). Holds no business rules. |
 | CMP-02 | Main server (NestJS) | All user requests and all core background work: auth, profiles, catalog, matching, notifications, moderation, admin. Stateless: 1 instance at launch, scales horizontally (FLEX-002, verified with 2 in CI). |
 | CMP-03 | Event import service (NestJS) | Periodic import from external providers (FR-008), normalization, skip-and-log (FR-015), staleness marking (FR-014, REL-003). One adapter per provider (FLEX-003). |
 | CMP-04 | PostgreSQL | Single source of truth, including the job queue (ADR-002). |
 | EXT-01 | External event providers | Concert.ua, ArtWizard — source for CMP-03. |
 | EXT-02 | Expo Push | Push delivery for the notifications module. |
-| EXT-03 | Telegram / SMS provider | Verification codes (FR-005, SEC-008). Telegram first, SMS as fallback. |
-| EXT-04 | Google | Sign-in
+| EXT-03 | Telegram Gateway API / SMS provider | Verification codes (FR-005, SEC-008). Telegram Gateway first, SMS as fallback. |
+| EXT-04 | Google | Sign-in with Google — ID token verification only (FR-001). |
 
 ### 2.1 Main Server Modules
 
 | Module | Responsibility | Requirements |
 |---|---|---|
-| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
+| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-003, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
 | profiles | Profiles, interests, safety notice acknowledgment | FR-002, FR-004, FR-032, SAFE-002 |
 | catalog | Events, sessions, venues, categories, organization publishing | FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
@@ -47,8 +47,8 @@ Modules sit in three tiers, defined by dependency direction rather than importan
 
 | Module | Depends on | Reacts to (job) |
 |---|---|---|
-| matching | profiles (interests), catalog (sessions), moderation (exclusions), notifications | `event.changed`, `user.banned` |
-| moderation | listings (remove), identity (revoke on ban), notifications | — |
+| matching | profiles (interests, contacts, safety acknowledgment), catalog (sessions), identity (phone number for the contact reveal), moderation (exclusions), notifications | `event.changed`, `user.banned` |
+| moderation | listings (remove), identity (revoke on ban), notifications | `audit.record` |
 | admin | `stats()` of every other module | — |
 | listings | catalog (event reference) | — |
 | profiles | — | — |
@@ -97,6 +97,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | `notifications.deliver` | notifications | notifications | `notificationId` | immediate or delayed (reminders, "respond soon") |
 | `event.changed` | CMP-03, catalog | matching | `eventId`, `change` | immediate — closes pools, voids pending matches, notifies applicants |
 | `user.banned` | moderation | matching | `userId` | immediate — withdraws applications, voids pending matches |
+| `audit.record` | identity and the other modules below moderation | moderation | actor, action, target, result, IP address | immediate — moderation writes the AuditLog row (SEC-004) |
 | `import.run` | schedule | CMP-03 | `providerId` | cron |
 | `moderation.retention` | schedule | moderation | — | daily — audit log past retention (SEC-004) |
 | `identity.retention` | schedule | identity | — | daily — expired or revoked tokens, used or expired codes (SEC-005, SEC-008) |
@@ -108,7 +109,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | Tables | Written by | Read by |
 |---|---|---|
 | imported `events`, `venues`, `import_runs`, skipped records | CMP-03 | CMP-02 |
-| organization-created `events` | CMP-02 | CMP-02 |
+| organization-created `events` and `venues` | CMP-02 | CMP-02 |
 | everything else | CMP-02 | CMP-02 |
 
 Each process connects with its own database role; the import role can write only the tables above — see [database access](mechanisms/database-access.md).
@@ -119,7 +120,7 @@ Each process connects with its own database role; the import role can write only
 |---|---|---|
 | `EventProvider.fetch(since)` → raw records; `normalize(raw)` → event or skip | CMP-03 | one per provider |
 | `PushProvider.send(batch)` — up to 100 messages | notifications | Expo Push |
-| `MessagingProvider.sendCode(contact, code)` | notifications | Telegram → SMS fallback chain |
+| `MessagingProvider.sendCode(contact, code)` | notifications | Telegram Gateway API → SMS fallback chain |
 | `GoogleIdentity.verify(idToken)` → `{ sub, email }` | identity | Google |
 
 ## 4. How Components Communicate
