@@ -2,7 +2,7 @@
 
 Entity–relationship model of Nearby's PostgreSQL schema (CMP-04, [ADR-002](decisions/ADR-002.md)).
 
-Diagram: [`uml/data-model.puml`](uml/data-model.puml)
+Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.puml`](uml/data-model.puml))
 
 ## 1. Key Functions Covered
 
