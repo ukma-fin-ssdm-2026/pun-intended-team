@@ -1,6 +1,6 @@
 # Threat Model (STRIDE)
 
-STRIDE analysis of Nearby's deployment ([high-level design §6](high-level-design.md)). Trust zones and boundaries are marked on the [deployment-diagram](uml/rendered/deployment-diagram.svg); the data at stake and its sensitivity classes come from [data model §4](data-model.md).
+STRIDE analysis of Nearby's deployment ([high-level design §6](high-level-design.md)). Trust zones and boundaries are marked on the [deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)); the data at stake and its sensitivity classes come from [data model §4](data-model.md).
 
 ## 1. Trust Zones and Boundaries
 
