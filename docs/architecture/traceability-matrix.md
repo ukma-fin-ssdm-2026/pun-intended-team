@@ -79,7 +79,7 @@ plus a separate import service (ADR-001)):
 |---|---|---|
 | SEC-001 | CMP-02, CMP-04 | Mutual-acceptance rule checked exclusively server-side, by reading `Match.status` from CMP-04 before any reveal — an architectural invariant, unbypassable via direct API calls. |
 | SEC-002 | CMP-02, CMP-04 | identity module hashes with argon2id; the hash lives in `AuthMethod` (CMP-04). |
-| SEC-003 | CMP-02, CMP-04 | Column-level encryption applied by identity/profiles before writing to CMP-04, keys from the secrets store (ADR-002). |
+| SEC-003 | CMP-02, CMP-04 | Column-level encryption applied by identity/profiles before writing to CMP-04, keys from the main server's env file (ADR-002). |
 | SEC-004 | CMP-02, CMP-04 | Each module performing a loggable action (sign-in, contact reveal, report, ban, admin action) enqueues `audit.record`; moderation writes the resulting `AuditLog` rows to CMP-04. |
 | SEC-005 | CMP-01, CMP-02, CMP-04 | Client stores tokens; identity module issues/validates/revokes; `RefreshToken` table in CMP-04. |
 | SEC-006 | CMP-01, CMP-02, CMP-03 | Cross-cutting engineering practice (ASVS checklist, `npm audit` CI gate) — applies to every codebase, not one runtime component. |
@@ -160,7 +160,7 @@ Format: stimulus → source → environment → artifact → response → respon
 
 ## 4. Coverage Check
 
-- Every FR (001–033) and every NFR (30 items across §4.1–4.9) has at least one component. 
+- Every FR (001–033) and every NFR (30 items across §4.1–4.9) has at least one component.
 - Every component ID — CMP-01 … CMP-04, EXT-01 … EXT-04 — appears against at least one requirement.
 - Scope is deliberately narrower than the full stack wherever a requirement genuinely doesn't touch every layer, rather than defaulting every row to CMP-01+CMP-02+CMP-04: client-only (FR-004, FR-033, PERF-004, REL-002, INTC-001, INTC-003, FLEX-001, COMP-001), client + server with no independent DB write (FR-010, INTC-002, INTC-004), server-only with no DB (SEC-007, FUNC-001, MAIN-001), and database-only (REL-004).
 

@@ -29,13 +29,14 @@ rectangle "Our infrastructure (managed host, one private network)" as INFRA #FAF
   rectangle "Z2 · Core — trusted" as Z2 #F1F8E9;line:2E7D32;line.dashed {
     node "App host" as host_main {
       artifact "Main server\nCMP-02 (NestJS)" as main
+      artifact "main.env" as env_main
     }
-    node "Secrets store\nJWT, column-encryption and HMAC keys,\ndatabase credentials" as secrets
   }
 
   rectangle "Z3 · Import — partly trusted\n(parses untrusted input)" as Z3 #FFF3E0;line:E65100;line.dashed {
     node "App host (import)" as host_import {
       artifact "Event import service\nCMP-03 (NestJS)" as imp
+      artifact "import.env" as env_import
     }
   }
 
@@ -44,8 +45,6 @@ rectangle "Our infrastructure (managed host, one private network)" as INFRA #FAF
       artifact "PostgreSQL + PostGIS\npg-boss job queue, profile photos\nCMP-04" as pg
     }
   }
-
-
 }
 
 rectangle "Z5 · External services — outside our control" as Z5 #F3E5F5;line:6A1B9A;line.dashed {
@@ -55,17 +54,15 @@ rectangle "Z5 · External services — outside our control" as Z5 #F3E5F5;line:6
   node "Event providers\n(Concert.ua, ArtWizard)\nEXT-01" as providers
 }
 
-app -down-> lb : **TB1**\nHTTPS (TLS 1.2+)
-lb -down-> main : **TB2**\nHTTP, private network
-main -right-> secrets : keys
-imp -left-> secrets : **TB7**\nown database\ncredentials only
-main -down-> db : **TB3**\nSQL, role nearby_main
-imp -down-> db : **TB4**\nSQL, role nearby_import
-main -down-> google : **TB6**\nID token check
-main -down-> tg : **TB6**\nverification codes
-main -down-> push : **TB6**\npush batches
-imp -down-> providers : **TB5** HTTPS pull\n(untrusted data)
-push .up.> app : push\n(no contacts)
+dev -down-> lb : **TB1**\nHTTPS (TLS 1.2+)
+lb -down-> host_main : **TB2**\nHTTP, private network
+host_main -down-> db : **TB3**\nSQL, role nearby_main
+host_import -down-> db : **TB4**\nSQL, role nearby_import
+host_main -down-> google : **TB6**\nID token check
+host_main -down-> tg : **TB6**\nverification codes
+host_main -down-> push : **TB6**\npush batches
+host_import -down-> providers : **TB5** HTTPS pull\n(untrusted data)
+push .up.> dev : push\n(no contacts)
 
 google -[hidden]right- tg
 tg -[hidden]right- push
@@ -77,7 +74,7 @@ note right of lb
   Per-IP backstop limit (SEC-007).
 end note
 
-note left of main
+note right of host_main
   1 instance at launch; stateless (FLEX-002),
   so more instances go behind the same
   balancer without a code change.
@@ -91,13 +88,14 @@ end note
 
 legend right
   Dashed frames are trust zones Z0–Z5;
-  **TB1–TB7** mark the boundaries analysed
+  **TB1–TB6** mark the boundaries analysed
   in threat-model.md §1–§2.
   TB1  device ↔ load balancer
   TB2  load balancer ↔ main server
   TB3, TB4  server processes ↔ PostgreSQL
   TB5, TB6  our infrastructure ↔ external services
-  TB7  import service ↔ secrets store
+  Each app host reads only its own env file;
+  local file reads cross no trust boundary.
 endlegend
 
 @enduml
