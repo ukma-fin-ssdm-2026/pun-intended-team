@@ -1,0 +1,184 @@
+openapi: 3.0.3
+info:
+  title: Nearby API
+  version: 0.1.0
+  description: >-
+    REST API of Nearby, an app for going to events and meeting people along the
+    way.
+servers:
+  - url: http://localhost:4100
+    description: Local development
+tags:
+  - name: Events
+    description: Events users can go to together
+  - name: System
+    description: Service endpoints
+components:
+  schemas:
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        source:
+          $ref: '#/components/schemas/EventSource'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+      required:
+        - id
+        - title
+        - description
+        - startsAt
+        - endsAt
+        - source
+        - status
+      description: An event users can go to together
+      example:
+        id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+        title: 'Open-air film night: Shadows of Forgotten Ancestors'
+        description: Screening in the park, bring a blanket.
+        startsAt: '2026-10-17T19:00:00+03:00'
+        endsAt: '2026-10-17T21:30:00+03:00'
+        source: organization
+        status: published
+    EventSource:
+      type: string
+      enum:
+        - organization
+        - import
+      description: 'Who added the event: a verified organization or the importer'
+    EventStatus:
+      type: string
+      enum:
+        - published
+        - cancelled
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+              description: Present only for validation errors
+          required:
+            - code
+            - message
+      required:
+        - error
+      description: The body of every error response
+      example:
+        error:
+          code: VALIDATION_ERROR
+          message: The request is invalid
+          details:
+            - location: params
+              field: id
+              message: Invalid UUID
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - INVALID_JSON
+        - NOT_FOUND
+        - INTERNAL_ERROR
+      description: Machine-readable code; clients branch on it, not on the message
+    ValidationIssue:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/ValidationLocation'
+        field:
+          type: string
+        message:
+          type: string
+      required:
+        - location
+        - field
+        - message
+      description: One invalid field of the request
+    ValidationLocation:
+      type: string
+      enum:
+        - params
+        - query
+        - body
+      description: Part of the request the invalid field is in
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+      required:
+        - status
+      description: Returned while the API is up
+      example:
+        status: ok
+  parameters: {}
+paths:
+  /api/v1/events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get an event
+      tags:
+        - Events
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid; see error.details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check that the API is running
+      tags:
+        - System
+      responses:
+        '200':
+          description: The API is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
