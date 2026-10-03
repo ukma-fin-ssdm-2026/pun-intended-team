@@ -52,7 +52,27 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - [Swagger UI on GitHub Pages](https://ukma-fin-ssdm-2026.github.io/pun-intended-team/) — read-only docs, published from `main` on every push; the page itself is [`docs/api/index.html`](docs/api/index.html), with Swagger UI vendored in [`docs/api/vendor/swagger-ui/`](docs/api/vendor/swagger-ui/)
 - [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) — the generated spec the page shows; regenerate and commit it with `npm run docs:generate` after changing the API
 - The `API docs (GitHub Pages)` workflow regenerates the spec and fails a pull request whose committed spec is out of date
-- Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs
+- Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs. Click **Authorize** and enter a stub token, listed under [Trying It Out](docs/api/api-design.md#trying-it-out)
+- [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
+
+## Running the API
+
+Requires Node.js 26 or later.
+
+```bash
+npm install
+npm run dev        # http://localhost:4100, Swagger UI at /api-docs; restarts on changes
+```
+
+For a production build: `npm run build`, then `npm start`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PORT` | `4100` | Port the server listens on |
+| `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
+| `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
+
+Other scripts: `npm run typecheck` checks types without building, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
 ## AI Usage Note
 
