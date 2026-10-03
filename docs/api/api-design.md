@@ -11,7 +11,7 @@
 | Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
 | Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
 | Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
-| Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production only, so the live server does not hand out a map of the API |
+| Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production, or in production when `SWAGGER_UI=true` (e.g. on staging) |
 
 **Versioning rule.** Adding an endpoint, an optional request field or a response field does not change the version. Removing or renaming a field, changing its type, or making an optional field required does, and goes to `/api/v2` while `/api/v1` keeps working for the clients that still use it.
 
