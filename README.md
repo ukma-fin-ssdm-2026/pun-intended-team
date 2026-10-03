@@ -18,10 +18,10 @@ Look [here](Project-Description.md) for a more detailed project description
 
 | Member | Role | GitHub |
 |---|---|---|
-| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
-| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler | [@DarynaHalytska](https://github.com/DarynaHalytska) |
-| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
-| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead | [@Vlad-Re](https://github.com/Vlad-Re) |
+| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
+| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API) | [@DarynaHalytska](https://github.com/DarynaHalytska) |
+| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API) | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
+| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead | [@Vlad-Re](https://github.com/Vlad-Re) |
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
@@ -44,6 +44,14 @@ Documentation related to system architecture for this project is located [here](
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`
+
+## API Documentation
+
+The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod schemas in [`src/api/`](src/api/).
+
+- [Swagger UI on GitHub Pages](https://ukma-fin-ssdm-2026.github.io/pun-intended-team/) — read-only docs, published from `main` on every push; the page itself is [`docs/api/index.html`](docs/api/index.html), with Swagger UI vendored in [`docs/api/vendor/swagger-ui/`](docs/api/vendor/swagger-ui/)
+- [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) — the generated spec the page shows; regenerate and commit it with `npm run docs:generate` after changing the API
+- Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs
 
 ## AI Usage Note
 

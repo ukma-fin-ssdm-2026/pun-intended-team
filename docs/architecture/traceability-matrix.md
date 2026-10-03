@@ -151,7 +151,7 @@ Format: stimulus → source → environment → artifact → response → respon
 | Environment | Normal operation, any match state other than mutual acceptance |
 | Artifact | CMP-02 matching module and its CMP-04 query on `Match.status`, behind the `/matches` endpoint |
 | Response | The server refuses the request, since the mutual-acceptance check is enforced independently of the client (SEC-001) and cannot be bypassed by calling the API directly |
-| Response measure | 100% of such requests return `403`; authorization tests cover every match state (proposed, one-sided accept, mutual, declined) and unauthenticated/banned callers (SEC-001; threat model TM-06) |
+| Response measure | 100% of such requests return `404`, as if the match did not exist; authorization tests cover every match state (proposed, one-sided accept, mutual, declined) and banned callers, and calls without a valid access token return `401` (SEC-001; threat model TM-06) |
 
 ### QAS-3 — Reliability: external provider outage
 | Field | Value |

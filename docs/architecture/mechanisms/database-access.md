@@ -12,7 +12,7 @@ Each process connects with its **own database role**, so a compromised import se
 | `nearby_main` | Main server (CMP-02) | Read and write all application tables; no schema changes |
 | `nearby_import` | Import service (CMP-03) | Write imported `events` and `venues`, `import_runs`, skipped records; enqueue `event.changed`. |
 
-Roles and grants are created in a migration; each process gets its own connection string from the secrets store.
+Roles and grants are created in a migration; each process gets its own connection string from the env file on its host.
 
 ## Not Done
 

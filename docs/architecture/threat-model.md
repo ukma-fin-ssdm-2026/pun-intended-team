@@ -8,8 +8,8 @@ STRIDE analysis of Nearby's deployment ([high-level design §6](high-level-desig
 |---|---|---|
 | Z0 Internet | user devices (iOS, Android, web), guests, anyone calling the API directly | untrusted |
 | Z1 Edge | load balancer / reverse proxy | trusted, holds no data |
-| Z2 Core | main server (CMP-02), secrets store | trusted |
-| Z3 Import | event import service (CMP-03) | partly trusted — parses untrusted external input |
+| Z2 Core | main server (CMP-02) and its env file with the JWT, column-encryption and HMAC keys | trusted |
+| Z3 Import | event import service (CMP-03) and its env file with its own database credentials only | partly trusted — parses untrusted external input |
 | Z4 Data | PostgreSQL (CMP-04), including the job queue and profile photos | trusted, reached only through database roles |
 | Z5 External | event providers, Telegram Gateway API / SMS, Expo Push, Google | outside our control |
 
@@ -21,7 +21,6 @@ STRIDE analysis of Nearby's deployment ([high-level design §6](high-level-desig
 | TB4 | import service ↔ PostgreSQL | imported events and venues, role `nearby_import` |
 | TB5 | event providers → import service | raw event data, possibly scraped HTML |
 | TB6 | main server → Telegram Gateway / SMS, Expo Push, Google | phone numbers and codes, push content, Google ID tokens |
-| TB7 | import service → secrets store | the import service's own database credentials only |
 
 ## 2. STRIDE Walkthrough
 
@@ -40,7 +39,6 @@ Each component and boundary was checked against the six questions. A cell names 
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |
 | TB6 main server → external | Google tokens verified server-side | TLS | provider request IDs stored | codes and push text carry no contacts | TM-08 | — |
 | Expo Push → user device | push is only a hint; the app reads the inbox through the API | TLS (Expo, APNs / FCM) | — | push text carries no contacts | missed push: the inbox still has the row (notifications.md) | — |
-| TB7 import → secrets store | — | — | — | JWT, column-encryption and HMAC keys reachable from CMP-02 only; the import service receives only its own database credentials | — | — |
 
 ## 3. Risks
 

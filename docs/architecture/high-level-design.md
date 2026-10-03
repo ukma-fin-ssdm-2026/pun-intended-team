@@ -39,7 +39,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | listings | "Looking for company" posts | FR-021, FR-022 |
 | admin | Platform statistics | FR-030 |
 
-Mechanism details: [matching](mechanisms/matching.md) · [notifications](mechanisms/notifications.md) · [authentication](mechanisms/authentication.md) · [catalog access](mechanisms/catalog-access.md) · [database access](mechanisms/database-access.md).
+Mechanism details: [matching](mechanisms/matching.md) · [notifications](mechanisms/notifications.md) · [authentication](mechanisms/authentication.md) · [catalog access](mechanisms/catalog-access.md) · [database access](mechanisms/database-access.md) · [code structure](mechanisms/code-structure.md).
 
 ### 2.2 Module Dependencies
 
@@ -149,7 +149,6 @@ Each process connects with its own database role; the import role can write only
 | App host | Main server (CMP-02) | 1 at launch, scales horizontally |
 | App host | Event import service (CMP-03) | 1 |
 | Managed PostgreSQL | CMP-04 — encrypted volume, daily backups (REL-004) | 1 |
-| Secrets store | JWT and column-encryption keys, reachable from CMP-02 only (SEC-003) | 1 |
 | External | EXT-01 – EXT-04 | — |
 
 Trust boundaries sit between the internet and the load balancer, and between our network and every external system. Diagram: [deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)).

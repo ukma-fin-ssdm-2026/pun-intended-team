@@ -14,22 +14,27 @@
   - Repo Maintainer — manages the GitHub repository structure, branching, and merges.
   - Quality Lead — ensures NFRs are measurable and properly documented.
   - Architecture Lead — coordinates the choice of architecture style and the component diagram.
+  - Backend Lead — writes the core API code with annotations.
+  - API Design Lead — owns `docs/api/api-design.md` (resource model, status codes, versioning) and checks that endpoints are consistent with it.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
   - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
   - Data & Threat Modeler — builds the data model and leads the STRIDE analysis of the deployment diagram.
+  - Documentation Lead (API) — sets up automatic documentation generation and GitHub Pages.
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
   - Requirements Lead — facilitates writing and refining user stories.
   - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
   - Requirements-Architecture Mapper — creates the requirements-to-components traceability matrix.
+  - Quality Lead (API) — owns `docs/api/quality-attributes.md` (goals with failure conditions) and verifies the validation of every endpoint through Swagger UI.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
   - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
   - UML Lead — responsible for the correctness of UML diagrams.
+  - Integration Lead — integrates all components and the CI/CD pipeline.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
@@ -70,6 +75,14 @@ Each requirements artifact (user stories, NFRs, RTM) has one person responsible 
 - A team member assigns a task to themselves from the To Do column (respecting the limit on the number of tasks in progress).
 - Definition of Done: code merged into `main`, PR closed, functionality manually verified.
 - The branch is deleted after the PR is merged.
+
+### Weekly Task Deadlines
+To leave time for code review, the team finishes its work a day before the course deadline.
+
+- **Saturday 21:00 — soft deadline:** all work for the week is done and its pull requests are open.
+- **Saturday 22:00 — hard deadline:** no new work is started or pushed after this point.
+- **Sunday — review fixes only:** only changes requested in review comments are made. Reviewers leave their comments by Sunday 12:00; for weekly tasks this replaces the 48-hour response window in *Code Review*.
+- Everything must be merged into `main` before the course deadline (24 hours before the next lab session), when the repository is collected for grading.
 
 ### Issue Labels
 The team replaced GitHub's default labels with its own set, grouped by area and by type of work. Every issue gets at least one area label; type labels are added as needed.
@@ -143,4 +156,4 @@ A persistent inability to complete the stated workload is discussed at a team me
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, and §10 Individual Accountability for Requirements Artifacts) were AI-generated wording, reviewed and edited by Daryna Halytska.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, §10 Individual Accountability for Requirements Artifacts, and the Lab 4 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska.
