@@ -137,7 +137,7 @@ The system shall be restorable from automated backups after loss of the database
 
 **SEC-001**
 The system shall enforce the mutual-acceptance rule server-side and transmit contact details only over an encrypted channel, so that the rule cannot be bypassed by calling the API directly.
-- *Fit criterion:* a contact request in any state other than two recorded acceptances is refused with `403` in 100% of cases, including calls that skip the UI and calls from unauthenticated or banned users. All traffic over TLS 1.2+; plain HTTP is redirected, never served.
+- *Fit criterion:* a contact request in any state other than two recorded acceptances is refused with `404`, as if the match did not exist, in 100% of cases, including calls that skip the UI and calls from banned users; calls without a valid access token are refused with `401`. All traffic over TLS 1.2+; plain HTTP is redirected, never served.
 - *Verification:* authorization tests over each match state (proposed, one-sided accept, mutual accept, rejected) and as an unauthenticated and a banned user; TLS configuration checked with an SSL scanner.
 
 **SEC-002**
