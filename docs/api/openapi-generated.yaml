@@ -287,6 +287,10 @@ components:
         - limit
         - offset
         - hasMore
+      example:
+        limit: 20
+        offset: 0
+        hasMore: false
     CreateEventBody:
       type: object
       properties:
@@ -475,6 +479,9 @@ paths:
     get:
       operationId: adminListCategories
       summary: List all categories
+      description: >-
+        List all categories, including inactive ones, to manage the directory.
+        To pick a category for an event or listing, use listCategories.
       tags:
         - Categories
       security:
@@ -550,6 +557,7 @@ paths:
     get:
       operationId: adminGetCategory
       summary: Get a category
+      description: Get one category, including whether it is active.
       tags:
         - Categories
       security:
@@ -687,6 +695,9 @@ paths:
     get:
       operationId: listCategories
       summary: List the categories users can pick
+      description: >-
+        List the active categories users can pick for events and listings; their
+        ids go in categoryId.
       tags:
         - Categories
       security:
@@ -708,7 +719,9 @@ paths:
     get:
       operationId: listEvents
       summary: Browse the event catalog
-      description: Published events in the catalog window, soonest first.
+      description: >-
+        Browse the event catalog: published events in the catalog window,
+        soonest first.
       tags:
         - Events
       security:
@@ -839,6 +852,7 @@ paths:
     get:
       operationId: getEvent
       summary: Get an event
+      description: Get one event with its category and venue.
       tags:
         - Events
       security:
@@ -880,6 +894,9 @@ paths:
     patch:
       operationId: updateEvent
       summary: Edit an event
+      description: >-
+        Edit one of the organization’s own events; only the fields sent change.
+        A cancelled event cannot be edited.
       tags:
         - Events
       security:
@@ -937,8 +954,8 @@ paths:
       operationId: cancelEvent
       summary: Cancel an event
       description: >-
-        The event stays readable with status `cancelled`. Cancelling it again
-        changes nothing.
+        Cancel one of the organization’s own events. It stays readable with
+        status `cancelled`; cancelling it again changes nothing.
       tags:
         - Events
       security:
@@ -981,7 +998,9 @@ paths:
     get:
       operationId: listListings
       summary: Browse listings
-      description: Active listings from today on, soonest first.
+      description: >-
+        Browse listings: active "looking for company" posts from today on,
+        soonest first.
       tags:
         - Listings
       security:
@@ -1074,6 +1093,7 @@ paths:
     get:
       operationId: getListing
       summary: Get a listing
+      description: Get one active listing with its author and category.
       tags:
         - Listings
       security:

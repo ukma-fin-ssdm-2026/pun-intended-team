@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-03T14:39:00.404Z
+ * Generated on: 2026-10-03T17:27:48.855Z
  */
 
 // Load environment variables from .env file
@@ -67,7 +67,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
   ["adminListCategories", {
     name: "adminListCategories",
-    description: `List all categories
+    description: `List all categories, including inactive ones, to manage the directory. To pick a category for an event or listing, use listCategories.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -93,7 +93,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["adminGetCategory", {
     name: "adminGetCategory",
-    description: `Get a category
+    description: `Get one category, including whether it is active.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"}},"required":["id"]},
     method: "get",
@@ -132,7 +132,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listCategories", {
     name: "listCategories",
-    description: `List the categories users can pick
+    description: `List the active categories users can pick for events and listings; their ids go in categoryId.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -145,7 +145,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listEvents", {
     name: "listEvents",
-    description: `Published events in the catalog window, soonest first.
+    description: `Browse the event catalog: published events in the catalog window, soonest first.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"number","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["number","null"],"minimum":0,"default":0,"description":"Items to skip"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue, e.g. after tapping its map pin"},"from":{"type":"string","format":"date","description":"First day, Kyiv time; earlier dates count as today"},"to":{"type":"string","format":"date","description":"Last day, Kyiv time; later dates count as the end of the catalog window"}}},
     method: "get",
@@ -171,7 +171,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getEvent", {
     name: "getEvent",
-    description: `Get an event
+    description: `Get one event with its category and venue.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
     method: "get",
@@ -184,7 +184,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["updateEvent", {
     name: "updateEvent",
-    description: `Edit an event
+    description: `Edit one of the organization’s own events; only the fields sent change. A cancelled event cannot be edited.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":5000},"categoryId":{"type":"string","format":"uuid"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time"},"endsAt":{"type":"string","format":"date-time"}},"description":"Only the fields to change"}},"required":["id"]},
     method: "patch",
@@ -197,7 +197,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["cancelEvent", {
     name: "cancelEvent",
-    description: `The event stays readable with status \`cancelled\`. Cancelling it again changes nothing.
+    description: `Cancel one of the organization’s own events. It stays readable with status \`cancelled\`; cancelling it again changes nothing.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
     method: "post",
@@ -210,7 +210,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listListings", {
     name: "listListings",
-    description: `Active listings from today on, soonest first.
+    description: `Browse listings: active "looking for company" posts from today on, soonest first.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"number","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["number","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
     method: "get",
@@ -236,7 +236,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getListing", {
     name: "getListing",
-    description: `Get a listing
+    description: `Get one active listing with its author and category.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
     method: "get",

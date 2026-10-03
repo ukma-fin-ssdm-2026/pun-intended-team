@@ -14,6 +14,7 @@ export class CategoriesController {
     path: Routes.categories.list,
     operationId: 'listCategories',
     summary: 'List the categories users can pick',
+    description: 'List the active categories users can pick for events and listings; their ids go in categoryId.',
     tags: ['Categories'],
     access: 'guest',
     responses: {
