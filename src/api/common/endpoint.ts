@@ -13,10 +13,11 @@ import {
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { map } from 'rxjs';
 import { z } from 'zod';
-import { registry } from './registry.js';
+import { ApiException } from './api-exception.js';
+import { type Access, RequireAccess } from './auth.js';
+import { bearerAuth, registry } from './registry.js';
 import { ErrorResponse, type ValidationIssue } from './schemas/errors.js';
 import type { Tag } from './tags.js';
-import { ApiException } from './api-exception.js';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -49,6 +50,7 @@ export interface EndpointDefinition {
   summary: string;
   description?: string;
   tags: Tag[];
+  access: Access;
   request?: RequestSchemas;
   /** Exactly one 2xx: the status the endpoint answers with on success. */
   responses: Record<number, ResponseDefinition>;
@@ -56,6 +58,11 @@ export interface EndpointDefinition {
 
 const VALIDATION_ERROR: ResponseDefinition = {
   description: 'The request is invalid',
+  schema: ErrorResponse,
+};
+
+const UNAUTHENTICATED: ResponseDefinition = {
+  description: 'No access token, or an invalid or expired one',
   schema: ErrorResponse,
 };
 
@@ -75,11 +82,15 @@ interface IncomingRequest {
  * endpoint validate its input and shape its success response.
  */
 export function Endpoint(route: EndpointDefinition): MethodDecorator {
-  const { method, path, request = {} } = route;
+  const { method, path, access, request = {} } = route;
   const status = successStatus(route);
   const hasInput = Boolean(request.params || request.query || request.body);
 
-  const responses = hasInput && !route.responses[400] ? { 400: VALIDATION_ERROR, ...route.responses } : route.responses;
+  const responses = {
+    ...(hasInput && { 400: VALIDATION_ERROR }),
+    ...(access !== 'public' && { 401: UNAUTHENTICATED }),
+    ...route.responses,
+  };
 
   registry.registerPath({
     method,
@@ -88,6 +99,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
     summary: route.summary,
     description: route.description,
     tags: route.tags,
+    security: access === 'public' ? undefined : [{ [bearerAuth.name]: [] }],
     request: toOpenApiRequest(request),
     responses: Object.fromEntries(
       Object.entries(responses).map(([status, { description, schema }]) => [
@@ -100,6 +112,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
   return applyDecorators(
     RequestMapping({ method: RequestMethod[method.toUpperCase() as Uppercase<Method>], path: toNestPath(path) }),
     HttpCode(status),
+    RequireAccess(access),
     UseInterceptors(new ValidationInterceptor(request), new ResponseSchemaInterceptor(route.responses[status].schema)),
   );
 }

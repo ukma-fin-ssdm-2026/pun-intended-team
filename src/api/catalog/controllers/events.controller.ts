@@ -18,6 +18,7 @@ export class EventsController {
     operationId: 'getEvent',
     summary: 'Get an event',
     tags: ['Events'],
+    access: 'guest',
     request: GetEventRequest,
     responses: {
       200: { description: 'The event', schema: Event },
