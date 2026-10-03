@@ -75,12 +75,28 @@ const EventInputFields = {
   endsAt: DateTime,
 };
 
-export const CreateEventBody = z.object(EventInputFields).meta({ id: 'CreateEventBody' });
+const CreateEventFields = z.object(EventInputFields);
 
-export const UpdateEventBody = z
-  .object(EventInputFields)
-  .partial()
-  .meta({ id: 'UpdateEventBody', description: 'Only the fields to change' });
+export const createEventExample: CreateEventBody = {
+  title: 'Film quiz night',
+  description: 'Teams of up to four, questions on Ukrainian cinema.',
+  categoryId: categoryExample.id,
+  venueId: eventExample.venue.id,
+  startsAt: '2026-10-25T19:00:00+03:00',
+  endsAt: '2026-10-25T21:00:00+03:00',
+};
+
+export const CreateEventBody = CreateEventFields.meta({ id: 'CreateEventBody', example: createEventExample });
+
+const UpdateEventFields = CreateEventFields.partial();
+
+export const UpdateEventBody = UpdateEventFields.meta({
+  id: 'UpdateEventBody',
+  description: 'Only the fields to change',
+  example: { title: 'Film quiz night: Oscar edition' } satisfies UpdateEventBody,
+});
 
 export type Event = z.infer<typeof EventFields>;
+export type CreateEventBody = z.input<typeof CreateEventFields>;
+export type UpdateEventBody = z.input<typeof UpdateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
