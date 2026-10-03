@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "nearby-api": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "exec node \"$CLAUDE_PROJECT_DIR/src/mcp/build/index.js\""],
+      "env": {
+        "BEARER_TOKEN_BEARERAUTH": "stub-guest"
+      }
+    }
+  }
+}
