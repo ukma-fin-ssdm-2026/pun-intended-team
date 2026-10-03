@@ -6,10 +6,11 @@ import { InfraModule } from '../infra/infra.module.js';
 import { CatalogApiModule } from './catalog/catalog-api.module.js';
 import { ApiExceptionFilter } from './common/api-exception.filter.js';
 import { AuthGuard } from './common/auth.js';
+import { ListingsApiModule } from './listings/listings-api.module.js';
 import { SystemApiModule } from './system/system-api.module.js';
 
 @Module({
-  imports: [InfraModule, IdentityModule, SystemApiModule, CatalogApiModule],
+  imports: [InfraModule, IdentityModule, SystemApiModule, CatalogApiModule, ListingsApiModule],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: AuthGuard },

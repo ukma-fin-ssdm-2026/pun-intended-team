@@ -12,4 +12,8 @@ export class CategoriesService {
     const category = await this.categoriesRepository.findById(id);
     return category?.isActive ? category : undefined;
   }
+
+  async findAll(): Promise<Category[]> {
+    return this.categoriesRepository.findAll();
+  }
 }

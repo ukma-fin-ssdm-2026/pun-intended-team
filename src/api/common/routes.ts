@@ -10,4 +10,8 @@ export const Routes = {
     byId: '/api/v1/events/{id}',
     cancel: '/api/v1/events/{id}/cancel',
   },
+  listings: {
+    list: '/api/v1/listings',
+    byId: '/api/v1/listings/{id}',
+  },
 } as const;

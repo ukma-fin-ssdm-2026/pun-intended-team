@@ -5,9 +5,13 @@ import { EventsRepository } from '../core/catalog/repositories/events.repository
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.js';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.js';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.js';
+import { ListingsRepository } from '../core/listings/repositories/listings.repository.js';
+import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.js';
 import { StubCategoriesRepository } from './stubs/categories.repository.js';
 import { StubEventsRepository } from './stubs/events.repository.js';
+import { StubListingsRepository } from './stubs/listings.repository.js';
 import { StubOrganizationsRepository } from './stubs/organizations.repository.js';
+import { StubProfilesRepository } from './stubs/profiles.repository.js';
 import { StubSessionsRepository } from './stubs/sessions.repository.js';
 import { StubVenuesRepository } from './stubs/venues.repository.js';
 
@@ -17,6 +21,8 @@ const repositories = [
   { provide: VenuesRepository, useClass: StubVenuesRepository },
   { provide: OrganizationsRepository, useClass: StubOrganizationsRepository },
   { provide: SessionsRepository, useClass: StubSessionsRepository },
+  { provide: ProfilesRepository, useClass: StubProfilesRepository },
+  { provide: ListingsRepository, useClass: StubListingsRepository },
 ];
 
 @Global()

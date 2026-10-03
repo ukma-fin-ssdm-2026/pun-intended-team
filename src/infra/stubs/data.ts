@@ -6,6 +6,8 @@ import type { Event } from '../../core/catalog/types/event.js';
 import type { Category } from '../../core/catalog/types/category.js';
 import type { Organization } from '../../core/catalog/types/organization.js';
 import type { Venue } from '../../core/catalog/types/venue.js';
+import type { Listing } from '../../core/listings/types/listing.js';
+import type { ProfileSummary } from '../../core/profiles/types/profile.js';
 
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -24,6 +26,11 @@ export const sessions: Record<string, Caller> = {
   'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user' },
   'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin' },
 };
+
+export const profiles: ProfileSummary[] = [
+  { accountId: accounts.olena, username: 'olena_k', displayName: 'Olena' },
+  { accountId: accounts.taras, username: 'taras.m', displayName: 'Taras' },
+];
 
 export const organizations: Organization[] = [
   { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
@@ -100,5 +107,28 @@ export const events: StoredEvent[] = [
     source: 'organization',
     status: 'cancelled',
     organizationId: accounts.filmClub,
+  },
+];
+
+export const listings: Listing[] = [
+  {
+    id: '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09',
+    authorId: accounts.olena,
+    categoryId: categories[1].id,
+    eventId: events[1].id,
+    title: 'Looking for company for the Arsenal exhibition',
+    description: 'Planning to go on Tuesday evening, happy to grab a coffee after.',
+    date: '2026-10-20',
+    status: 'active',
+  },
+  {
+    id: 'af5b7d9e-1a3c-4e5f-9b7d-9e1a3c5e7f10',
+    authorId: accounts.taras,
+    categoryId: categories[2].id,
+    eventId: null,
+    title: 'Anyone up for a jazz concert this weekend?',
+    description: 'No ticket yet, open to suggestions.',
+    date: '2026-10-11',
+    status: 'active',
   },
 ];
