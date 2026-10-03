@@ -133,6 +133,8 @@ components:
           default: true
       required:
         - name
+      example:
+        name: Workshops
     UpdateCategoryBody:
       type: object
       properties:
@@ -143,6 +145,8 @@ components:
         isActive:
           type: boolean
       description: Only the fields to change
+      example:
+        isActive: false
     CategoryList:
       type: object
       properties:
@@ -313,6 +317,13 @@ components:
         - venueId
         - startsAt
         - endsAt
+      example:
+        title: Film quiz night
+        description: Teams of up to four, questions on Ukrainian cinema.
+        categoryId: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+        venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+        startsAt: '2026-10-25T19:00:00+03:00'
+        endsAt: '2026-10-25T21:00:00+03:00'
     UpdateEventBody:
       type: object
       properties:
@@ -337,6 +348,8 @@ components:
           type: string
           format: date-time
       description: Only the fields to change
+      example:
+        title: 'Film quiz night: Oscar edition'
     ListingsPage:
       type: object
       properties:
@@ -438,6 +451,12 @@ components:
         - title
         - description
         - date
+      example:
+        categoryId: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+        eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+        title: Looking for company for the Arsenal exhibition
+        description: Planning to go in the evening, happy to grab a coffee after.
+        date: '2026-10-20'
     HealthResponse:
       type: object
       properties:

@@ -38,21 +38,30 @@ export const CategoryIdParams = z.object({
 
 const CategoryName = z.string().trim().min(1).max(60);
 
-export const CreateCategoryBody = z
-  .object({
-    name: CategoryName,
-    isActive: z.boolean().default(true),
-  })
-  .meta({ id: 'CreateCategoryBody' });
+const CreateCategoryFields = z.object({
+  name: CategoryName,
+  isActive: z.boolean().default(true),
+});
 
-export const UpdateCategoryBody = z
-  .object({
-    name: CategoryName.optional(),
-    isActive: z.boolean().optional(),
-  })
-  .meta({ id: 'UpdateCategoryBody', description: 'Only the fields to change' });
+export const CreateCategoryBody = CreateCategoryFields.meta({
+  id: 'CreateCategoryBody',
+  example: { name: 'Workshops' } satisfies CreateCategoryBody,
+});
+
+const UpdateCategoryFields = z.object({
+  name: CategoryName.optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const UpdateCategoryBody = UpdateCategoryFields.meta({
+  id: 'UpdateCategoryBody',
+  description: 'Only the fields to change',
+  example: { isActive: false } satisfies UpdateCategoryBody,
+});
 
 export type Category = z.infer<typeof CategoryFields>;
 export type CategoryList = z.infer<typeof CategoryList>;
 export type AdminCategory = z.infer<typeof AdminCategoryFields>;
 export type AdminCategoryList = z.infer<typeof AdminCategoryList>;
+export type CreateCategoryBody = z.input<typeof CreateCategoryFields>;
+export type UpdateCategoryBody = z.input<typeof UpdateCategoryFields>;

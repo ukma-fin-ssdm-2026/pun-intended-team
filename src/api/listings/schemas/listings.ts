@@ -45,15 +45,24 @@ export const ListingIdParams = z.object({
 
 export const ListListingsQuery = PageQuery;
 
-export const CreateListingBody = z
-  .object({
-    categoryId: Id,
-    eventId: Id.optional().describe('A catalog event the listing is about'),
-    title: z.string().trim().min(1).max(120),
-    description: z.string().trim().max(2000),
-    date: CalendarDate.describe('The day, Kyiv time'),
-  })
-  .meta({ id: 'CreateListingBody' });
+const CreateListingFields = z.object({
+  categoryId: Id,
+  eventId: Id.optional().describe('A catalog event the listing is about'),
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000),
+  date: CalendarDate.describe('The day, Kyiv time'),
+});
+
+export const createListingExample: CreateListingBody = {
+  categoryId: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02',
+  eventId: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
+  title: 'Looking for company for the Arsenal exhibition',
+  description: 'Planning to go in the evening, happy to grab a coffee after.',
+  date: '2026-10-20',
+};
+
+export const CreateListingBody = CreateListingFields.meta({ id: 'CreateListingBody', example: createListingExample });
 
 export type Listing = z.infer<typeof ListingFields>;
 export type ListingsPage = z.infer<typeof ListingsPage>;
+export type CreateListingBody = z.input<typeof CreateListingFields>;
