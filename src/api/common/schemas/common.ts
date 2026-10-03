@@ -25,7 +25,7 @@ const PageInfo = z
     offset: z.number().int(),
     hasMore: z.boolean().describe('Whether another page follows'),
   })
-  .meta({ id: 'PageInfo' });
+  .meta({ id: 'PageInfo', example: { limit: MAX_PAGE_SIZE, offset: 0, hasMore: false } });
 
 /** A page of items; there is no total, so the size of the catalog is not revealed. */
 export function pageOf<T extends z.ZodType>(item: T, id: string) {

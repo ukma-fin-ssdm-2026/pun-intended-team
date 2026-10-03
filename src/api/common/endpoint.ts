@@ -73,6 +73,14 @@ const NOT_AN_ADMIN: ResponseDefinition = {
   schema: ErrorResponse,
 };
 
+// Added to every operation description, so an agent knows which token a tool needs before it gets a 401.
+const ACCESS_NOTE: Record<Access, string> = {
+  public: 'No access token needed.',
+  guest: 'Needs an access token: a guest token or a signed-in account.',
+  user: 'Needs a signed-in account; a guest token gets 401.',
+  admin: 'Needs an administrator account; other accounts get 404.',
+};
+
 const LOCATION_HEADER = {
   Location: { description: 'URL of the created object', schema: { type: 'string' as const } },
 };
@@ -109,7 +117,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
     path,
     operationId: route.operationId,
     summary: route.summary,
-    description: route.description,
+    description: describe(route),
     tags: route.tags,
     security: access === 'public' ? undefined : [{ [bearerAuth.name]: [] }],
     request: toOpenApiRequest(request),
@@ -216,6 +224,18 @@ function successStatus(route: EndpointDefinition): number {
     throw new Error(`${route.operationId}: a 201 response needs a location, and only a 201 can have one`);
   }
   return statuses[0];
+}
+
+/**
+ * The description followed by the access note. Without a description the
+ * summary leads instead, because generated MCP tools show only the
+ * description and would otherwise lose what the endpoint does.
+ */
+function describe(route: EndpointDefinition): string {
+  if (Object.values(ACCESS_NOTE).some((note) => route.description?.includes(note))) {
+    throw new Error(`${route.operationId}: @Endpoint adds the access note itself; remove it from the description`);
+  }
+  return `${route.description ?? `${route.summary}.`} ${ACCESS_NOTE[route.access]}`;
 }
 
 /** '/events/{id}' -> '/events/:id' */

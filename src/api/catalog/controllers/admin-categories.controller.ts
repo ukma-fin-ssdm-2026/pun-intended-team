@@ -33,6 +33,9 @@ export class AdminCategoriesController {
     path: Routes.admin.categories,
     operationId: 'adminListCategories',
     summary: 'List all categories',
+    description:
+      'List all categories, including inactive ones, to manage the directory. ' +
+      'To pick a category for an event or listing, use listCategories.',
     tags: ['Categories'],
     access: 'admin',
     responses: {
@@ -48,6 +51,7 @@ export class AdminCategoriesController {
     path: Routes.admin.categoryById,
     operationId: 'adminGetCategory',
     summary: 'Get a category',
+    description: 'Get one category, including whether it is active.',
     tags: ['Categories'],
     access: 'admin',
     request: GetCategoryRequest,

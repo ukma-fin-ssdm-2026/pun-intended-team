@@ -130,4 +130,5 @@ This README was written with the participation of Claude, which drafted the init
 
 - **Agent and call:** Claude Code (VS Code extension) with `nearby-api` connected via `.mcp.json`. Asked "Які події є в каталозі між 15 і 25 жовтня?", the agent chose `listEvents` with `from=2026-10-15`, `to=2026-10-25` and listed the 2 events the stubs return (17.10 and 20.10).
 - **Not as expected:** the generator drops an operation's `summary` when it has a `description`, so `cancelEvent` does not say that it cancels an event; request body fields have no descriptions; no tool states the access level it needs, so 12 of 16 tools answer 401 or 404 with the guest token; the agent treated the stub end time 23:59:59 as a likely placeholder and said so.
+- **Fixed in #110:** every description now starts with what the endpoint does, and `@Endpoint` adds the access level it needs. Descriptions for request body fields are added separately by the API author. The stub end time is unchanged.
 - **Verified by:** Daryna Halytska — ran the demo above in Claude Code.

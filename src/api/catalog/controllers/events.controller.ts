@@ -28,7 +28,7 @@ export class EventsController {
     path: Routes.events.list,
     operationId: 'listEvents',
     summary: 'Browse the event catalog',
-    description: 'Published events in the catalog window, soonest first.',
+    description: 'Browse the event catalog: published events in the catalog window, soonest first.',
     tags: ['Events'],
     access: 'guest',
     request: ListEventsRequest,
@@ -46,6 +46,7 @@ export class EventsController {
     path: Routes.events.byId,
     operationId: 'getEvent',
     summary: 'Get an event',
+    description: 'Get one event with its category and venue.',
     tags: ['Events'],
     access: 'guest',
     request: GetEventRequest,
@@ -90,6 +91,9 @@ export class EventsController {
     path: Routes.events.byId,
     operationId: 'updateEvent',
     summary: 'Edit an event',
+    description:
+      'Edit one of the organization’s own events; only the fields sent change. ' +
+      'A cancelled event cannot be edited.',
     tags: ['Events'],
     access: 'user',
     request: UpdateEventRequest,
@@ -116,7 +120,9 @@ export class EventsController {
     path: Routes.events.cancel,
     operationId: 'cancelEvent',
     summary: 'Cancel an event',
-    description: 'The event stays readable with status `cancelled`. Cancelling it again changes nothing.',
+    description:
+      'Cancel one of the organization’s own events. ' +
+      'It stays readable with status `cancelled`; cancelling it again changes nothing.',
     tags: ['Events'],
     access: 'user',
     request: CancelEventRequest,

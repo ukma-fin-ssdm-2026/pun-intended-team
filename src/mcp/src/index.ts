@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-03T14:39:00.404Z
+ * Generated on: 2026-10-03T17:37:34.951Z
  */
 
 // Load environment variables from .env file
@@ -67,7 +67,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
   ["adminListCategories", {
     name: "adminListCategories",
-    description: `List all categories
+    description: `List all categories, including inactive ones, to manage the directory. To pick a category for an event or listing, use listCategories. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -80,7 +80,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["adminCreateCategory", {
     name: "adminCreateCategory",
-    description: `Add a category
+    description: `Add a category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60},"isActive":{"type":"boolean","default":true}},"required":["name"],"description":"The JSON request body."}}},
     method: "post",
@@ -93,7 +93,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["adminGetCategory", {
     name: "adminGetCategory",
-    description: `Get a category
+    description: `Get one category, including whether it is active. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"}},"required":["id"]},
     method: "get",
@@ -106,7 +106,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["adminDeleteCategory", {
     name: "adminDeleteCategory",
-    description: `Delete an unused category
+    description: `Delete an unused category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"}},"required":["id"]},
     method: "delete",
@@ -119,7 +119,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["adminUpdateCategory", {
     name: "adminUpdateCategory",
-    description: `Rename, deactivate or reactivate a category
+    description: `Rename, deactivate or reactivate a category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60},"isActive":{"type":"boolean"}},"description":"Only the fields to change"}},"required":["id"]},
     method: "patch",
@@ -132,7 +132,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listCategories", {
     name: "listCategories",
-    description: `List the categories users can pick
+    description: `List the active categories users can pick for events and listings; their ids go in categoryId. Needs an access token: a guest token or a signed-in account.
 (Tags: Categories)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -145,7 +145,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listEvents", {
     name: "listEvents",
-    description: `Published events in the catalog window, soonest first.
+    description: `Browse the event catalog: published events in the catalog window, soonest first. Needs an access token: a guest token or a signed-in account.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"number","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["number","null"],"minimum":0,"default":0,"description":"Items to skip"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue, e.g. after tapping its map pin"},"from":{"type":"string","format":"date","description":"First day, Kyiv time; earlier dates count as today"},"to":{"type":"string","format":"date","description":"Last day, Kyiv time; later dates count as the end of the catalog window"}}},
     method: "get",
@@ -158,7 +158,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["createEvent", {
     name: "createEvent",
-    description: `Publish an event
+    description: `Publish an event. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":5000},"categoryId":{"type":"string","format":"uuid"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time"},"endsAt":{"type":"string","format":"date-time"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"description":"The JSON request body."}}},
     method: "post",
@@ -171,7 +171,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getEvent", {
     name: "getEvent",
-    description: `Get an event
+    description: `Get one event with its category and venue. Needs an access token: a guest token or a signed-in account.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
     method: "get",
@@ -184,7 +184,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["updateEvent", {
     name: "updateEvent",
-    description: `Edit an event
+    description: `Edit one of the organization’s own events; only the fields sent change. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":5000},"categoryId":{"type":"string","format":"uuid"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time"},"endsAt":{"type":"string","format":"date-time"}},"description":"Only the fields to change"}},"required":["id"]},
     method: "patch",
@@ -197,7 +197,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["cancelEvent", {
     name: "cancelEvent",
-    description: `The event stays readable with status \`cancelled\`. Cancelling it again changes nothing.
+    description: `Cancel one of the organization’s own events. It stays readable with status \`cancelled\`; cancelling it again changes nothing. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
     method: "post",
@@ -210,7 +210,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["listListings", {
     name: "listListings",
-    description: `Active listings from today on, soonest first.
+    description: `Browse listings: active "looking for company" posts from today on, soonest first. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"number","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["number","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
     method: "get",
@@ -223,7 +223,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["createListing", {
     name: "createListing",
-    description: `Post a listing
+    description: `Post a listing. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"categoryId":{"type":"string","format":"uuid"},"eventId":{"type":"string","format":"uuid","description":"A catalog event the listing is about"},"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":2000},"date":{"type":"string","format":"date","description":"The day, Kyiv time"}},"required":["categoryId","title","description","date"],"description":"The JSON request body."}}},
     method: "post",
@@ -236,7 +236,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getListing", {
     name: "getListing",
-    description: `Get a listing
+    description: `Get one active listing with its author and category. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
     method: "get",
@@ -249,7 +249,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["deleteListing", {
     name: "deleteListing",
-    description: `Remove your listing
+    description: `Remove your listing. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
     method: "delete",
@@ -262,7 +262,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getHealth", {
     name: "getHealth",
-    description: `Check that the API is running
+    description: `Check that the API is running. No access token needed.
 (Tags: System)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
