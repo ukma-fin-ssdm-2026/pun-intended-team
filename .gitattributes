@@ -1,5 +1,10 @@
-# AI Usage Note: written by Claude (Claude Code); checked with git check-attr.
+# AI Usage Note: written by Claude (Claude Code); checked with git check-attr and git ls-files --eol.
+# Reviewed by: Daryna Halytska
 # Third-party files copied unchanged from the swagger-ui-dist npm package.
 # linguist-vendored: GitHub leaves them out of the repository language stats.
 # -text: Git never converts their line endings, so they stay byte-identical to the package.
 docs/api/vendor/** linguist-vendored -text
+
+# Generated spec: npm run docs:generate writes LF, and CI compares it with the committed file,
+# so it stays LF on checkout everywhere (also on Windows with core.autocrlf=true).
+docs/api/openapi-generated.yaml text eol=lf

@@ -51,6 +51,7 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 - [Swagger UI on GitHub Pages](https://ukma-fin-ssdm-2026.github.io/pun-intended-team/) — read-only docs, published from `main` on every push; the page itself is [`docs/api/index.html`](docs/api/index.html), with Swagger UI vendored in [`docs/api/vendor/swagger-ui/`](docs/api/vendor/swagger-ui/)
 - [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) — the generated spec the page shows; regenerate and commit it with `npm run docs:generate` after changing the API
+- The `API docs (GitHub Pages)` workflow regenerates the spec and fails a pull request whose committed spec is out of date
 - Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs
 
 ## AI Usage Note

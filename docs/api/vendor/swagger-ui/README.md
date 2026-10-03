@@ -22,6 +22,8 @@ Third-party code used by [`docs/api/index.html`](../../index.html), the Swagger 
 
 ## How to update
 
+The `API docs (GitHub Pages)` workflow ([`pages.yml`](../../../../.github/workflows/pages.yml)) runs `npm ci` and compares every file here (except this README) byte for byte with `node_modules/swagger-ui-dist/`, and fails if a file `index.html` loads is missing. If a dependency update moves `swagger-ui-dist` to another version, that check fails until the files here are updated:
+
 1. Check which version `package-lock.json` resolves for `node_modules/swagger-ui-dist`; the vendored copy must match it.
 2. Download the tarball of that version from the npm registry and check that its SHA-512 matches the `integrity` in `package-lock.json` and in the registry (`https://registry.npmjs.org/swagger-ui-dist/<version>`).
 3. Copy the files listed above from the tarball's `package/` folder over the ones here.
@@ -30,3 +32,5 @@ Third-party code used by [`docs/api/index.html`](../../index.html), the Swagger 
 ## AI Usage Note
 
 This README was drafted by Claude (Claude Code). The vendored files themselves are not AI-generated. The version, tarball URL and integrity were checked against `package-lock.json` and the npm registry, and the file hashes were compared with the published tarball. Verified by: Daryna Halytska
+
+The note on the CI check (issue #90) was also drafted by Claude; the check was run locally against `node_modules/swagger-ui-dist` 5.33.0, both passing and failing on a deliberately changed file. Verified by: Daryna Halytska
