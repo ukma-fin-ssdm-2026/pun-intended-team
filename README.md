@@ -72,7 +72,7 @@ For a production build: `npm run build`, then `npm start`.
 | `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
 | `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
 
-Other scripts: `npm run typecheck` checks types without building, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
+Other scripts: `npm run typecheck` checks types without building, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
 ## ൠ MCP Server
 
