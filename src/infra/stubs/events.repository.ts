@@ -1,33 +1,52 @@
 // Written with the help of Claude
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { EventsRepository } from '../../core/catalog/repositories/events.repository.js';
-import type { Event } from '../../core/catalog/types/event.js';
-
-// Stub data until the database is connected.
-const events: Event[] = [
-  {
-    id: '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10',
-    title: 'Open-air film night: Shadows of Forgotten Ancestors',
-    description: 'Screening in the park, bring a blanket.',
-    startsAt: '2026-10-17T19:00:00+03:00',
-    endsAt: '2026-10-17T21:30:00+03:00',
-    source: 'organization',
-    status: 'published',
-  },
-  {
-    id: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
-    title: 'Contemporary art exhibition at the Arsenal',
-    description: 'Imported from a partner listing.',
-    startsAt: '2026-10-20T11:00:00+03:00',
-    endsAt: '2026-10-20T23:59:59+03:00',
-    source: 'import',
-    status: 'published',
-  },
-];
+import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../../core/catalog/types/event.js';
+import { kyivDate } from '../../core/common/kyiv-time.js';
+import type { Page, PageRequest } from '../../core/common/page.js';
+import { categories, events, type StoredEvent, venues } from './data.js';
+import { paginate } from './paginate.js';
 
 @Injectable()
 export class StubEventsRepository implements EventsRepository {
   async findById(id: string): Promise<Event | undefined> {
-    return events.find((event) => event.id === id);
+    const event = events.find((event) => event.id === id);
+    return event && toEvent(event);
   }
+
+  async findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>> {
+    const matching = events
+      .filter(
+        (event) =>
+          event.status === 'published' &&
+          (!filter.categoryId || event.categoryId === filter.categoryId) &&
+          (!filter.venueId || event.venueId === filter.venueId) &&
+          kyivDate(event.endsAt) >= filter.from &&
+          kyivDate(event.startsAt) <= filter.to,
+      )
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+    return paginate(matching.map(toEvent), page);
+  }
+
+  async create(record: EventRecord): Promise<Event> {
+    const event: StoredEvent = { id: randomUUID(), ...record };
+    events.push(event);
+    return toEvent(event);
+  }
+
+  async update(id: string, changes: EventChanges & { status?: EventStatus }): Promise<Event> {
+    const event = events.find((event) => event.id === id);
+    if (!event) {
+      throw new Error(`No event ${id} to update`);
+    }
+    Object.assign(event, changes);
+    return toEvent(event);
+  }
+}
+
+function toEvent({ categoryId, venueId, ...event }: StoredEvent): Event {
+  const category = categories.find((category) => category.id === categoryId)!;
+  const venue = venues.find((venue) => venue.id === venueId)!;
+  return { ...event, category: { id: category.id, name: category.name }, venue };
 }

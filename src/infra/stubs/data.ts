@@ -2,6 +2,10 @@
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
 import type { Caller } from '../../core/identity/types/caller.js';
+import type { Event } from '../../core/catalog/types/event.js';
+import type { Category } from '../../core/catalog/types/category.js';
+import type { Organization } from '../../core/catalog/types/organization.js';
+import type { Venue } from '../../core/catalog/types/venue.js';
 
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -20,3 +24,81 @@ export const sessions: Record<string, Caller> = {
   'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user' },
   'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin' },
 };
+
+export const organizations: Organization[] = [
+  { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
+  { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },
+];
+
+export const categories: Category[] = [
+  { id: '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01', name: 'Cinema', isActive: true },
+  { id: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02', name: 'Exhibitions', isActive: true },
+  { id: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03', name: 'Concerts', isActive: true },
+  { id: '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04', name: 'Poetry slams', isActive: false },
+];
+
+export const venues: Venue[] = [
+  {
+    id: '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05',
+    name: 'Natalka Park lawn',
+    address: 'Naberezhno-Luhova St, Kyiv',
+    location: { lat: 50.4825, lng: 30.5181 },
+    organizationId: accounts.filmClub,
+  },
+  {
+    id: '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06',
+    name: 'Mystetskyi Arsenal',
+    address: '10-12 Lavrska St, Kyiv',
+    location: { lat: 50.4357, lng: 30.5555 },
+    organizationId: null,
+  },
+  {
+    id: '7c3e5a7b-9d1f-4b3c-8e5a-7b9c1d3f5a07',
+    name: 'New Gallery hall',
+    address: '5 Velyka Vasylkivska St, Kyiv',
+    location: { lat: 50.4401, lng: 30.5203 },
+    organizationId: accounts.newGallery,
+  },
+];
+
+/** How an event row is stored: category and venue by id, joined on read. */
+export type StoredEvent = Omit<Event, 'category' | 'venue'> & { categoryId: string; venueId: string };
+
+export const events: StoredEvent[] = [
+  {
+    id: '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10',
+    title: 'Open-air film night: Shadows of Forgotten Ancestors',
+    description: 'Screening in the park, bring a blanket.',
+    categoryId: categories[0].id,
+    venueId: venues[0].id,
+    startsAt: '2026-10-17T19:00:00+03:00',
+    endsAt: '2026-10-17T21:30:00+03:00',
+    source: 'organization',
+    status: 'published',
+    organizationId: accounts.filmClub,
+  },
+  {
+    id: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
+    title: 'Contemporary art exhibition at the Arsenal',
+    description: 'Imported from a partner listing.',
+    categoryId: categories[1].id,
+    venueId: venues[1].id,
+    startsAt: '2026-10-20T11:00:00+03:00',
+    endsAt: '2026-10-20T23:59:59+03:00',
+    source: 'import',
+    status: 'published',
+    organizationId: null,
+  },
+  {
+    id: 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f',
+    title: 'Silent film with live piano',
+    description: 'Cancelled: the pianist is ill.',
+    categoryId: categories[0].id,
+    venueId: venues[0].id,
+    startsAt: '2026-10-24T18:00:00+03:00',
+    endsAt: '2026-10-24T20:00:00+03:00',
+    source: 'organization',
+    status: 'cancelled',
+    organizationId: accounts.filmClub,
+  },
+];

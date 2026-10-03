@@ -6,6 +6,8 @@ export const Routes = {
     health: '/health',
   },
   events: {
+    list: '/api/v1/events',
     byId: '/api/v1/events/{id}',
+    cancel: '/api/v1/events/{id}/cancel',
   },
 } as const;

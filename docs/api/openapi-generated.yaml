@@ -23,6 +23,18 @@ components:
         implemented, use a stub token: `stub-guest`, `stub-user`, `stub-user-2`,
         `stub-org` (verified organization), `stub-org-pending` or `stub-admin`.
   schemas:
+    EventsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
     Event:
       type: object
       properties:
@@ -33,6 +45,10 @@ components:
           type: string
         description:
           type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        venue:
+          $ref: '#/components/schemas/Venue'
         startsAt:
           type: string
           format: date-time
@@ -47,6 +63,8 @@ components:
         - id
         - title
         - description
+        - category
+        - venue
         - startsAt
         - endsAt
         - source
@@ -56,10 +74,61 @@ components:
         id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
         title: 'Open-air film night: Shadows of Forgotten Ancestors'
         description: Screening in the park, bring a blanket.
+        category:
+          id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+          name: Cinema
+        venue:
+          id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+          name: Natalka Park lawn
+          address: Naberezhno-Luhova St, Kyiv
+          location:
+            lat: 50.4825
+            lng: 30.5181
         startsAt: '2026-10-17T19:00:00+03:00'
         endsAt: '2026-10-17T21:30:00+03:00'
         source: organization
         status: published
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+      description: An event category from the directory administrators manage
+      example:
+        id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+        name: Cinema
+    Venue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+      required:
+        - id
+        - name
+        - address
+        - location
+      description: Where an event takes place
     EventSource:
       type: string
       enum:
@@ -71,6 +140,20 @@ components:
       enum:
         - published
         - cancelled
+    PageInfo:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+          description: Whether another page follows
+      required:
+        - limit
+        - offset
+        - hasMore
     ErrorResponse:
       type: object
       properties:
@@ -110,6 +193,10 @@ components:
         - INTERNAL_ERROR
         - NOT_FOUND
         - CONFLICT
+        - REFERENCE_NOT_FOUND
+        - ORGANIZATION_NOT_VERIFIED
+        - EVENT_CANCELLED
+        - EVENT_ENDS_BEFORE_START
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -132,6 +219,60 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    CreateEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        categoryId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+          description: One of the organization's own venues
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      required:
+        - title
+        - description
+        - categoryId
+        - venueId
+        - startsAt
+        - endsAt
+    UpdateEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        categoryId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+          description: One of the organization's own venues
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      description: Only the fields to change
     HealthResponse:
       type: object
       properties:
@@ -146,6 +287,137 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      summary: Browse the event catalog
+      description: Published events in the catalog window, soonest first.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events of this category
+          required: false
+          description: Only events of this category
+          name: categoryId
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events at this venue, e.g. after tapping its map pin
+          required: false
+          description: Only events at this venue, e.g. after tapping its map pin
+          name: venueId
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: First day, Kyiv time; earlier dates count as today
+          required: false
+          description: First day, Kyiv time; earlier dates count as today
+          name: from
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: >-
+              Last day, Kyiv time; later dates count as the end of the catalog
+              window
+          required: false
+          description: >-
+            Last day, Kyiv time; later dates count as the end of the catalog
+            window
+          name: to
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createEvent
+      summary: Publish an event
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+      responses:
+        '201':
+          description: The published event
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified
+            organization. `REFERENCE_NOT_FOUND`: no such active category, or the
+            venue is not one of the organization’s own.
+            `EVENT_ENDS_BEFORE_START`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/events/{id}:
     get:
       operationId: getEvent
@@ -184,6 +456,106 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No event with this id, or the caller may not access it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateEvent
+      summary: Edit an event
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventBody'
+      responses:
+        '200':
+          description: The updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `EVENT_CANCELLED`: a cancelled event cannot be edited.
+            `ORGANIZATION_NOT_VERIFIED`, `REFERENCE_NOT_FOUND`,
+            `EVENT_ENDS_BEFORE_START`: as when publishing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/cancel:
+    post:
+      operationId: cancelEvent
+      summary: Cancel an event
+      description: >-
+        The event stays readable with status `cancelled`. Cancelling it again
+        changes nothing.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The cancelled event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
           content:
             application/json:
               schema:
