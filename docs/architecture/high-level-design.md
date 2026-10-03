@@ -50,7 +50,7 @@ Modules sit in three tiers, defined by dependency direction rather than importan
 | matching | profiles (interests, contacts, safety acknowledgment), catalog (sessions), identity (phone number for the contact reveal), moderation (exclusions), notifications | `event.changed`, `user.banned` |
 | moderation | listings (remove), identity (revoke on ban), notifications | `audit.record` |
 | admin | `stats()` of every other module | — |
-| listings | catalog (event reference) | — |
+| listings | catalog (event and category references), profiles (author's name) | — |
 | profiles | — | — |
 | catalog | — | — |
 | identity | notifications (`sendCode`) | — |
@@ -66,7 +66,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 |---|---|---|
 | `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
-| `/events`, `/venues`, `/categories` | guest or user read, verified organization write | FR-006–FR-013 |
+| `/events`, `/venues`, `/categories` | guest or user read; verified organization write (events, venues) | FR-006–FR-013 |
 | `/sessions/{id}/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |

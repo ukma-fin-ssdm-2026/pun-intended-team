@@ -11,13 +11,13 @@
 | Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
 | Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
 | Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
-| Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` |
+| Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production only, so the live server does not hand out a map of the API |
 
 **Versioning rule.** Adding an endpoint, an optional request field or a response field does not change the version. Removing or renaming a field, changing its type, or making an optional field required does, and goes to `/api/v2` while `/api/v1` keeps working for the clients that still use it.
 
 ## 2. Resource Model
 
-The API exposes two resources for this lab: **Events** (the catalog) and **Listings** (users' "looking for company" posts). Both come from the [data model](../architecture/data-model.md).
+The API exposes two main resources: **Events** (the catalog) and **Listings** (users' "looking for company" posts), plus **Categories**, a lookup both of them refer to. All three come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -60,6 +60,20 @@ A user's post such as "looking for company for an exhibition on Saturday".
 
 Related to: Account (author), Category, Event.
 
+### Category
+
+**Base paths:** `/api/v1/categories` (read), `/api/v1/admin/categories` (management)
+
+A lookup, not a resource users work with: it exists to filter the catalog and to classify events and listings. Only administrators manage it (FR-029), and changes show up in the catalog filters immediately.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `name` | string | Unique, case-insensitive |
+| `isActive` | boolean | Admin responses only. An inactive category disappears from the filters and cannot be picked for new events or listings, but existing ones keep it |
+
+Related to: Event, Listing.
+
 ## 3. Endpoints
 
 Each endpoint lists every status it can return. `429` (rate limit) and `500` can come from any endpoint, so they are left out of the tables.
@@ -70,8 +84,8 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 |---|---|---|---|---|
 | `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
 | `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
-| `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422 ORGANIZATION_NOT_VERIFIED` |
-| `PATCH` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422 EVENT_CANCELLED` |
+| `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
+| `PATCH` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
 
 `GET /api/v1/events` query parameters (FR-007):
@@ -80,7 +94,7 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 |---|---|---|---|
 | `categoryId` | UUID | any category | — |
 | `from` | date | today | Before today: clamped to today, the catalog shows only upcoming events (FR-006) |
-| `to` | date | end of the catalog window | Past the window: clamped to its end. Before `from`: `400` |
+| `to` | date | end of the catalog window (today + 28 days) | Past the window: clamped to its end. Before `from`: `400` |
 | `venueId` | UUID | any venue; used when a map pin is tapped (FR-013) | — |
 | `limit`, `offset` | integer | see [pagination](#pagination) | `limit` above 20: `400` |
 
@@ -92,10 +106,25 @@ Dates are clamped because a user scrolling the date picker too far should just s
 |---|---|---|---|---|
 | `GET` | `/api/v1/listings` | Signed-in user | `200` a page of listings | `400`, `401` |
 | `GET` | `/api/v1/listings/{id}` | Signed-in user | `200` the listing | `400`, `401`, `404` |
-| `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401` |
+| `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401`, `422` |
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
 
-`400` on an endpoint with an `{id}` covers an id that is not a UUID.
+### Categories
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/categories` | Anyone with a guest or user token | `200` the active categories | `401` |
+| `GET` | `/api/v1/admin/categories` | Administrator | `200` all categories, with `isActive` | `401`, `404` |
+| `GET` | `/api/v1/admin/categories/{id}` | Administrator | `200` the category | `400`, `401`, `404` |
+| `POST` | `/api/v1/admin/categories` | Administrator | `201` the category + `Location` header | `400`, `401`, `404`, `409` |
+| `PATCH` | `/api/v1/admin/categories/{id}` | Administrator | `200` the updated category | `400`, `401`, `404`, `409` |
+| `DELETE` | `/api/v1/admin/categories/{id}` | Administrator | `204` | `400`, `401`, `404`, `409` |
+
+`POST` takes `{ name, isActive? }` (active by default); `PATCH` takes either field, so the same call renames, deactivates or reactivates. A duplicate name is a `409`. The category lists are not paginated.
+
+`400` on an endpoint with an `{id}` covers an id that is not a UUID. The `422` codes of each endpoint are listed under [business-rule codes](#business-rule-codes-422).
+
+The listing feed shows active listings dated today or later. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing.
 
 ## 4. Design Decisions
 
@@ -105,7 +134,7 @@ The endpoints are written in NestJS, and each one is declared with `@Endpoint`, 
 
 ### Pagination
 
-List endpoints use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
+The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
 
 ```json
 {
@@ -119,6 +148,14 @@ There is no `total`: the client only needs to know whether to load more, and a t
 ### Actions as Sub-Resources
 
 Cancelling an event is `POST /events/{id}/cancel`, not `DELETE`, because the event is not removed: it stays readable with `status: cancelled`, and the users who picked it are notified (FR-011). Cancelling an event that is already cancelled returns `200` again and notifies nobody, so a retried request is harmless.
+
+### Administration Endpoints
+
+Everything administrators manage lives under `/api/v1/admin/*` (HLD I1), apart from the read endpoints everyone uses. So `GET /categories` always means the same thing (the active categories), and the admin screen asks `GET /admin/categories` for all of them, instead of one endpoint whose answer depends on the caller's role or a `showInactive` flag. A caller who is not an administrator gets a `404` from any `/admin` endpoint, under the no-`403` rule below, so the admin API does not reveal that it exists.
+
+### Deleting a Category
+
+Events and listings refer to their category, so a category can only be deleted while nothing uses it; otherwise the answer is `409 CONFLICT` with the advice to deactivate it instead. The database enforces this (`ON DELETE RESTRICT`) and the repository turns the foreign-key error into `CONFLICT`. The catalog module could not check on its own: listings are another module's table, and asking the listings module would create a dependency cycle (HLD §2.2).
 
 ### Error Handling
 
@@ -153,7 +190,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault |
 | `401 Unauthorized` | `UNAUTHENTICATED` | No access token, or an invalid or expired one |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
-| `409 Conflict` | `CONFLICT` | The request conflicts with the current state, e.g. a duplicate |
+| `409 Conflict` | `CONFLICT` | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007) |
@@ -165,8 +202,26 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 
 | `code` | Endpoint | When |
 |---|---|---|
-| `ORGANIZATION_NOT_VERIFIED` | `POST /events` | The caller is not an organization, or its verification is not `verified` |
-| `EVENT_CANCELLED` | `PATCH /events/{id}` | The event is cancelled and can no longer be edited |
+| `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PATCH /events/{id}` | The caller is not an organization, or its verification is not `verified` |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PATCH /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
+| `EVENT_ENDS_BEFORE_START` | `POST /events`, `PATCH /events/{id}` | `endsAt` is not after `startsAt` (for a `PATCH`, after merging with the stored values) |
+| `EVENT_CANCELLED` | `PATCH /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+
+A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
+
+### Trying It Out
+
+Until sign-in is implemented, the API accepts stub tokens. In Swagger UI (`/api-docs`), click **Authorize** and enter one; with curl, send `Authorization: Bearer <token>`.
+
+| Token | Caller |
+|---|---|
+| `stub-guest` | A guest: catalog reads only |
+| `stub-user`, `stub-user-2` | Two regular users, for trying who may delete which listing |
+| `stub-org` | A verified organization with its own venue |
+| `stub-org-pending` | An organization still awaiting verification |
+| `stub-admin` | An administrator |
+
+The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes last until the server restarts.
 
 ## AI Usage Note
 
