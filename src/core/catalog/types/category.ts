@@ -4,3 +4,7 @@ export interface Category {
   name: string;
   isActive: boolean;
 }
+
+export type NewCategory = Omit<Category, 'id'>;
+
+export type CategoryChanges = Partial<NewCategory>;

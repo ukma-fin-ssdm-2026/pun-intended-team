@@ -14,4 +14,11 @@ export const Routes = {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
   },
+  categories: {
+    list: '/api/v1/categories',
+  },
+  admin: {
+    categories: '/api/v1/admin/categories',
+    categoryById: '/api/v1/admin/categories/{id}',
+  },
 } as const;
