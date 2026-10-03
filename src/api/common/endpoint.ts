@@ -11,12 +11,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
-import { map } from 'rxjs';
+import { map, tap } from 'rxjs';
 import { z } from 'zod';
-import { registry } from './registry.js';
+import { ApiException } from './api-exception.js';
+import { type Access, RequireAccess } from './auth.js';
+import { bearerAuth, registry } from './registry.js';
 import { ErrorResponse, type ValidationIssue } from './schemas/errors.js';
 import type { Tag } from './tags.js';
-import { ApiException } from './api-exception.js';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -49,14 +50,31 @@ export interface EndpointDefinition {
   summary: string;
   description?: string;
   tags: Tag[];
+  access: Access;
   request?: RequestSchemas;
   /** Exactly one 2xx: the status the endpoint answers with on success. */
   responses: Record<number, ResponseDefinition>;
+  /** Required with a 201: the Routes path of the created object, its {id} filled from the result. */
+  location?: string;
 }
 
 const VALIDATION_ERROR: ResponseDefinition = {
   description: 'The request is invalid',
   schema: ErrorResponse,
+};
+
+const UNAUTHENTICATED: ResponseDefinition = {
+  description: 'No access token, or an invalid or expired one',
+  schema: ErrorResponse,
+};
+
+const NOT_AN_ADMIN: ResponseDefinition = {
+  description: 'Not found, or the caller is not an administrator',
+  schema: ErrorResponse,
+};
+
+const LOCATION_HEADER = {
+  Location: { description: 'URL of the created object', schema: { type: 'string' as const } },
 };
 
 // Where the interceptor leaves the parsed input for @Input() to pick up.
@@ -75,11 +93,16 @@ interface IncomingRequest {
  * endpoint validate its input and shape its success response.
  */
 export function Endpoint(route: EndpointDefinition): MethodDecorator {
-  const { method, path, request = {} } = route;
+  const { method, path, access, location, request = {} } = route;
   const status = successStatus(route);
   const hasInput = Boolean(request.params || request.query || request.body);
 
-  const responses = hasInput && !route.responses[400] ? { 400: VALIDATION_ERROR, ...route.responses } : route.responses;
+  const responses = {
+    ...(hasInput && { 400: VALIDATION_ERROR }),
+    ...(access !== 'public' && { 401: UNAUTHENTICATED }),
+    ...(access === 'admin' && { 404: NOT_AN_ADMIN }),
+    ...route.responses,
+  };
 
   registry.registerPath({
     method,
@@ -88,19 +111,33 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
     summary: route.summary,
     description: route.description,
     tags: route.tags,
+    security: access === 'public' ? undefined : [{ [bearerAuth.name]: [] }],
     request: toOpenApiRequest(request),
     responses: Object.fromEntries(
-      Object.entries(responses).map(([status, { description, schema }]) => [
-        status,
-        schema ? { description, content: { 'application/json': { schema } } } : { description },
+      Object.entries(responses).map(([code, { description, schema }]) => [
+        code,
+        {
+          description,
+          ...(schema && { content: { 'application/json': { schema } } }),
+          ...(Number(code) === 201 && { headers: LOCATION_HEADER }),
+        },
       ]),
     ),
   });
 
+  const interceptors: NestInterceptor[] = [
+    new ValidationInterceptor(request),
+    new ResponseSchemaInterceptor(route.responses[status].schema),
+  ];
+  if (location) {
+    interceptors.push(new LocationInterceptor(location));
+  }
+
   return applyDecorators(
     RequestMapping({ method: RequestMethod[method.toUpperCase() as Uppercase<Method>], path: toNestPath(path) }),
     HttpCode(status),
-    UseInterceptors(new ValidationInterceptor(request), new ResponseSchemaInterceptor(route.responses[status].schema)),
+    RequireAccess(access),
+    UseInterceptors(...interceptors),
   );
 }
 
@@ -154,6 +191,16 @@ class ResponseSchemaInterceptor implements NestInterceptor {
   }
 }
 
+/** Sets the Location header of a 201 to the URL of the object the handler created. */
+class LocationInterceptor implements NestInterceptor {
+  constructor(private readonly location: string) {}
+
+  intercept(context: ExecutionContext, next: CallHandler) {
+    const res = context.switchToHttp().getResponse<{ setHeader(name: string, value: string): void }>();
+    return next.handle().pipe(tap((result: { id: string }) => res.setHeader('Location', this.location.replace('{id}', result.id))));
+  }
+}
+
 /** Checked at startup, so a misdeclared endpoint stops the server instead of misbehaving. */
 function successStatus(route: EndpointDefinition): number {
   const statuses = Object.keys(route.responses)
@@ -164,6 +211,9 @@ function successStatus(route: EndpointDefinition): number {
   }
   if (route.responses[204]?.schema) {
     throw new Error(`${route.operationId}: a 204 response has no body, so it cannot have a schema`);
+  }
+  if (Boolean(route.responses[201]) !== Boolean(route.location)) {
+    throw new Error(`${route.operationId}: a 201 response needs a location, and only a 201 can have one`);
   }
   return statuses[0];
 }

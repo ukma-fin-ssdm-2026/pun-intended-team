@@ -12,6 +12,7 @@ export class SystemController {
     operationId: 'getHealth',
     summary: 'Check that the API is running',
     tags: ['System'],
+    access: 'public',
     responses: {
       200: { description: 'The API is up', schema: HealthResponse },
     },

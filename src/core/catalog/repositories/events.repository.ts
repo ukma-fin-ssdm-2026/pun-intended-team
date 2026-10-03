@@ -1,5 +1,6 @@
 // Written with the help of Claude
-import type { Event } from '../types/event.js';
+import type { Page, PageRequest } from '../../common/page.js';
+import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../types/event.js';
 
 /**
  * What the catalog needs from storage. Core only depends on this class;
@@ -7,4 +8,11 @@ import type { Event } from '../types/event.js';
  */
 export abstract class EventsRepository {
   abstract findById(id: string): Promise<Event | undefined>;
+
+  /** Published events that overlap the filter's dates, soonest first. */
+  abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
+
+  abstract create(event: EventRecord): Promise<Event>;
+
+  abstract update(id: string, changes: EventChanges & { status?: EventStatus }): Promise<Event>;
 }

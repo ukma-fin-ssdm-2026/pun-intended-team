@@ -11,58 +11,51 @@ servers:
 tags:
   - name: Events
     description: Events users can go to together
+  - name: Listings
+    description: '"Looking for company" posts'
+  - name: Categories
+    description: The event category directory
   - name: System
     description: Service endpoints
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: >-
+        An access token, or a guest token for catalog reads. Until sign-in is
+        implemented, use a stub token: `stub-guest`, `stub-user`, `stub-user-2`,
+        `stub-org` (verified organization), `stub-org-pending` or `stub-admin`.
   schemas:
-    Event:
+    AdminCategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategory'
+      required:
+        - items
+    AdminCategory:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        title:
+        name:
           type: string
-        description:
-          type: string
-        startsAt:
-          type: string
-          format: date-time
-        endsAt:
-          type: string
-          format: date-time
-        source:
-          $ref: '#/components/schemas/EventSource'
-        status:
-          $ref: '#/components/schemas/EventStatus'
+        isActive:
+          type: boolean
+          description: Inactive categories are hidden from filters and cannot be picked
       required:
         - id
-        - title
-        - description
-        - startsAt
-        - endsAt
-        - source
-        - status
-      description: An event users can go to together
+        - name
+        - isActive
+      description: A category as administrators see it
       example:
-        id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
-        title: 'Open-air film night: Shadows of Forgotten Ancestors'
-        description: Screening in the park, bring a blanket.
-        startsAt: '2026-10-17T19:00:00+03:00'
-        endsAt: '2026-10-17T21:30:00+03:00'
-        source: organization
-        status: published
-    EventSource:
-      type: string
-      enum:
-        - organization
-        - import
-      description: 'Who added the event: a verified organization or the importer'
-    EventStatus:
-      type: string
-      enum:
-        - published
-        - cancelled
+        id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+        name: Cinema
+        isActive: true
     ErrorResponse:
       type: object
       properties:
@@ -102,6 +95,10 @@ components:
         - INTERNAL_ERROR
         - NOT_FOUND
         - CONFLICT
+        - REFERENCE_NOT_FOUND
+        - ORGANIZATION_NOT_VERIFIED
+        - EVENT_CANCELLED
+        - EVENT_ENDS_BEFORE_START
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -124,6 +121,323 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    CreateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        isActive:
+          type: boolean
+          default: true
+      required:
+        - name
+    UpdateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        isActive:
+          type: boolean
+      description: Only the fields to change
+    CategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required:
+        - items
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+      description: An event category from the directory administrators manage
+      example:
+        id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+        name: Cinema
+    EventsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        venue:
+          $ref: '#/components/schemas/Venue'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        source:
+          $ref: '#/components/schemas/EventSource'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+      required:
+        - id
+        - title
+        - description
+        - category
+        - venue
+        - startsAt
+        - endsAt
+        - source
+        - status
+      description: An event users can go to together
+      example:
+        id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+        title: 'Open-air film night: Shadows of Forgotten Ancestors'
+        description: Screening in the park, bring a blanket.
+        category:
+          id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+          name: Cinema
+        venue:
+          id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+          name: Natalka Park lawn
+          address: Naberezhno-Luhova St, Kyiv
+          location:
+            lat: 50.4825
+            lng: 30.5181
+        startsAt: '2026-10-17T19:00:00+03:00'
+        endsAt: '2026-10-17T21:30:00+03:00'
+        source: organization
+        status: published
+    Venue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+      required:
+        - id
+        - name
+        - address
+        - location
+      description: Where an event takes place
+    EventSource:
+      type: string
+      enum:
+        - organization
+        - import
+      description: 'Who added the event: a verified organization or the importer'
+    EventStatus:
+      type: string
+      enum:
+        - published
+        - cancelled
+    PageInfo:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+          description: Whether another page follows
+      required:
+        - limit
+        - offset
+        - hasMore
+    CreateEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        categoryId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+          description: One of the organization's own venues
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      required:
+        - title
+        - description
+        - categoryId
+        - venueId
+        - startsAt
+        - endsAt
+    UpdateEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 5000
+        categoryId:
+          type: string
+          format: uuid
+        venueId:
+          type: string
+          format: uuid
+          description: One of the organization's own venues
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      description: Only the fields to change
+    ListingsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Listing'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+    Listing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        category:
+          $ref: '#/components/schemas/Category'
+        eventId:
+          type: string
+          nullable: true
+          format: uuid
+          description: The catalog event the listing is about, if any
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+      required:
+        - id
+        - author
+        - category
+        - eventId
+        - title
+        - description
+        - date
+        - status
+      description: A "looking for company" post
+      example:
+        id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+        author:
+          username: olena_k
+          displayName: Olena
+        category:
+          id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+          name: Cinema
+        eventId: null
+        title: Looking for company for an exhibition on Saturday
+        description: Planning to go in the evening, happy to grab a coffee after.
+        date: '2026-10-17'
+        status: active
+    ListingAuthor:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: string
+      required:
+        - username
+        - displayName
+      description: Who posted the listing; never their contacts
+    ListingStatus:
+      type: string
+      enum:
+        - active
+        - removed
+    CreateListingBody:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+          description: A catalog event the listing is about
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          maxLength: 2000
+        date:
+          type: string
+          format: date
+          description: The day, Kyiv time
+      required:
+        - categoryId
+        - title
+        - description
+        - date
     HealthResponse:
       type: object
       properties:
@@ -138,12 +452,378 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/admin/categories:
+    get:
+      operationId: adminListCategories
+      summary: List all categories
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All categories, active or not
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: adminCreateCategory
+      summary: Add a category
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryBody'
+      responses:
+        '201':
+          description: The new category
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another category already has this name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/categories/{id}:
+    get:
+      operationId: adminGetCategory
+      summary: Get a category
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: adminUpdateCategory
+      summary: Rename, deactivate or reactivate a category
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryBody'
+      responses:
+        '200':
+          description: The updated category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another category already has this name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: adminDeleteCategory
+      summary: Delete an unused category
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      responses:
+        '204':
+          description: The category was deleted
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: An event or listing uses the category; deactivate it instead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/categories:
+    get:
+      operationId: listCategories
+      summary: List the categories users can pick
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The active categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      summary: Browse the event catalog
+      description: Published events in the catalog window, soonest first.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events of this category
+          required: false
+          description: Only events of this category
+          name: categoryId
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events at this venue, e.g. after tapping its map pin
+          required: false
+          description: Only events at this venue, e.g. after tapping its map pin
+          name: venueId
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: First day, Kyiv time; earlier dates count as today
+          required: false
+          description: First day, Kyiv time; earlier dates count as today
+          name: from
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: >-
+              Last day, Kyiv time; later dates count as the end of the catalog
+              window
+          required: false
+          description: >-
+            Last day, Kyiv time; later dates count as the end of the catalog
+            window
+          name: to
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createEvent
+      summary: Publish an event
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+      responses:
+        '201':
+          description: The published event
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified
+            organization. `REFERENCE_NOT_FOUND`: no such active category, or the
+            venue is not one of the organization’s own.
+            `EVENT_ENDS_BEFORE_START`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/events/{id}:
     get:
       operationId: getEvent
       summary: Get an event
       tags:
         - Events
+      security:
+        - bearerAuth: []
       parameters:
         - schema:
             type: string
@@ -166,8 +846,286 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No event with this id, or the caller may not access it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateEvent
+      summary: Edit an event
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventBody'
+      responses:
+        '200':
+          description: The updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `EVENT_CANCELLED`: a cancelled event cannot be edited.
+            `ORGANIZATION_NOT_VERIFIED`, `REFERENCE_NOT_FOUND`,
+            `EVENT_ENDS_BEFORE_START`: as when publishing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/cancel:
+    post:
+      operationId: cancelEvent
+      summary: Cancel an event
+      description: >-
+        The event stays readable with status `cancelled`. Cancelling it again
+        changes nothing.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The cancelled event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings:
+    get:
+      operationId: listListings
+      summary: Browse listings
+      description: Active listings from today on, soonest first.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of listings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createListing
+      summary: Post a listing
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingBody'
+      responses:
+        '201':
+          description: The posted listing
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `REFERENCE_NOT_FOUND`: no such active category or event.
+            `EVENT_CANCELLED`: the event is cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings/{id}:
+    get:
+      operationId: getListing
+      summary: Get a listing
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteListing
+      summary: Remove your listing
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '204':
+          description: The listing was removed
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id, or it is not the caller’s own
           content:
             application/json:
               schema:
