@@ -1,11 +1,132 @@
 <!-- Written with the help of Claude -->
 # API Design
 
-## Status codes
+## 1. Architecture Overview
+
+| | |
+|---|---|
+| Base URL (local) | `http://localhost:4100` |
+| Style | REST, resources as plural nouns |
+| Transport | Clients reach the API only over HTTPS (TLS 1.2+); plain HTTP is redirected. TLS ends at the load balancer, which forwards plain HTTP to the server inside the private network ([high-level design](../architecture/high-level-design.md), threat model TB1/TB2). The server itself never handles TLS, so locally it is plain HTTP |
+| Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
+| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
+| Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
+| Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` |
+
+**Versioning rule.** Adding an endpoint, an optional request field or a response field does not change the version. Removing or renaming a field, changing its type, or making an optional field required does, and goes to `/api/v2` while `/api/v1` keeps working for the clients that still use it.
+
+## 2. Resource Model
+
+The API exposes two resources for this lab: **Events** (the catalog) and **Listings** (users' "looking for company" posts). Both come from the [data model](../architecture/data-model.md).
+
+### Event
+
+**Base path:** `/api/v1/events`
+
+An event in the city that users can go to together. It is posted by a verified organization or brought in by the importer.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `title` | string | |
+| `description` | string | |
+| `category` | `{ id, name }` | |
+| `venue` | `{ id, name, address, location: { lat, lng } }` | |
+| `startsAt`, `endsAt` | date-time | |
+| `source` | `organization` \| `import` | |
+| `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
+
+Related to: Category, Venue, Organization (none for imported events), Listing.
+
+Not exposed: organizer contacts and the number of applicants or attendees (catalog access, rule 1).
+
+### Listing
+
+**Base path:** `/api/v1/listings`
+
+A user's post such as "looking for company for an exhibition on Saturday".
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `author` | `{ username, displayName }` | Never the author's contacts |
+| `category` | `{ id, name }` | |
+| `eventId` | UUID, optional | Set when the listing is about a catalog event |
+| `eventTitle` | string, optional | |
+| `title` | string | |
+| `description` | string | |
+| `date` | date | |
+| `status` | `active` \| `removed` | Only `active` listings are returned to users |
+
+Related to: Account (author), Category, Event.
+
+## 3. Endpoints
+
+Each endpoint lists every status it can return. `429` (rate limit) and `500` can come from any endpoint, so they are left out of the tables.
+
+### Events
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
+| `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
+| `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422 ORGANIZATION_NOT_VERIFIED` |
+| `PATCH` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422 EVENT_CANCELLED` |
+| `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
+
+`GET /api/v1/events` query parameters (FR-007):
+
+| Parameter | Type | Default | Out of range |
+|---|---|---|---|
+| `categoryId` | UUID | any category | — |
+| `from` | date | today | Before today: clamped to today, the catalog shows only upcoming events (FR-006) |
+| `to` | date | end of the catalog window | Past the window: clamped to its end. Before `from`: `400` |
+| `venueId` | UUID | any venue; used when a map pin is tapped (FR-013) | — |
+| `limit`, `offset` | integer | see [pagination](#pagination) | `limit` above 20: `400` |
+
+Dates are clamped because a user scrolling the date picker too far should just see the events that exist. `limit` is rejected because only a script asks for more than a page, and it should learn the cap rather than be silently short-changed.
+
+### Listings
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/listings` | Signed-in user | `200` a page of listings | `400`, `401` |
+| `GET` | `/api/v1/listings/{id}` | Signed-in user | `200` the listing | `400`, `401`, `404` |
+| `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401` |
+| `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
+
+`400` on an endpoint with an `{id}` covers an id that is not a UUID.
+
+## 4. Design Decisions
+
+### Why Code-First?
+
+The endpoints are written in NestJS, and each one is declared with `@Endpoint`, which carries its path, its zod request schemas and every response. The same declaration drives both request validation and the OpenAPI document, so the spec cannot drift from what the server actually does. The types come from the schemas too, so a handler that returns the wrong shape does not compile. Writing the YAML by hand would mean keeping two copies in sync.
+
+### Pagination
+
+List endpoints use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
+
+```json
+{
+  "items": [ ... ],
+  "page": { "limit": 20, "offset": 40, "hasMore": true }
+}
+```
+
+There is no `total`: the client only needs to know whether to load more, and a total would tell a scraper how big the catalog is.
+
+### Actions as Sub-Resources
+
+Cancelling an event is `POST /events/{id}/cancel`, not `DELETE`, because the event is not removed: it stays readable with `status: cancelled`, and the users who picked it are notified (FR-011). Cancelling an event that is already cancelled returns `200` again and notifies nobody, so a retried request is harmless.
+
+### Error Handling
+
+#### Status codes
 
 Every endpoint declares exactly one success status. The server refuses to start if an endpoint declares none or several.
 
-### Success
+##### Success
 
 | Status | When | Body |
 |---|---|---|
@@ -13,9 +134,19 @@ Every endpoint declares exactly one success status. The server refuses to start 
 | `201 Created` | A new object was created | The created object, plus a `Location` header with its URL |
 | `204 No Content` | A delete succeeded, or an action with nothing to return | None (the server refuses to start if a 204 declares a body schema) |
 
-### Errors
+##### Errors
 
 Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "details"? } }`. Clients branch on `code`, never on `message`.
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request is invalid",
+    "details": [{ "location": "params", "field": "id", "message": "Invalid UUID" }]
+  }
+}
+```
 
 | Status | `code` | When |
 |---|---|---|
@@ -29,3 +160,14 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
+
+##### Business-rule codes (`422`)
+
+| `code` | Endpoint | When |
+|---|---|---|
+| `ORGANIZATION_NOT_VERIFIED` | `POST /events` | The caller is not an organization, or its verification is not `verified` |
+| `EVENT_CANCELLED` | `PATCH /events/{id}` | The event is cancelled and can no longer be edited |
+
+## AI Usage Note
+
+Drafted with Claude from the project's requirements, data model and architecture documents. Reviewed and edited by Viktoriia Baran.
