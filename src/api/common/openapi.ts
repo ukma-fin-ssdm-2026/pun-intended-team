@@ -6,10 +6,11 @@ import { dump } from 'js-yaml';
 import { DEFAULT_PORT } from './config.js';
 import { registry } from './registry.js';
 import { tags } from './tags.js';
-// Importing the controllers registers their paths in the registry.
-import './controllers/index.js';
+// Importing the app module loads every controller, whose @Endpoint decorators
+// register their paths in the registry.
+import '../app.module.js';
 
-const repoRoot = path.resolve(import.meta.dirname, '../..');
+const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const { version } = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string };
 
 const SPEC_FILE = path.join(repoRoot, 'docs/api/openapi-generated.yaml');

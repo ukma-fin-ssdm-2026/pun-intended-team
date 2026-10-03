@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { DateTime, Id } from './common.js';
+import { DateTime, Id } from '../../common/schemas/common.js';
 
 export const EventSource = z
   .enum(['organization', 'import'])

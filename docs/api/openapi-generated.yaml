@@ -77,7 +77,7 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ValidationIssue'
-              description: Present only for validation errors
+              description: Every invalid field, for validation errors that can name them
           required:
             - code
             - message
@@ -96,9 +96,12 @@ components:
       type: string
       enum:
         - VALIDATION_ERROR
-        - INVALID_JSON
-        - NOT_FOUND
+        - UNAUTHENTICATED
+        - PAYLOAD_TOO_LARGE
+        - RATE_LIMITED
         - INTERNAL_ERROR
+        - NOT_FOUND
+        - CONFLICT
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -158,13 +161,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
         '400':
-          description: The request is invalid; see error.details
+          description: The request is invalid
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No event with this id
+          description: No event with this id, or the caller may not access it
           content:
             application/json:
               schema:

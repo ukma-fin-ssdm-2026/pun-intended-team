@@ -39,7 +39,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | listings | "Looking for company" posts | FR-021, FR-022 |
 | admin | Platform statistics | FR-030 |
 
-Mechanism details: [matching](mechanisms/matching.md) · [notifications](mechanisms/notifications.md) · [authentication](mechanisms/authentication.md) · [catalog access](mechanisms/catalog-access.md) · [database access](mechanisms/database-access.md).
+Mechanism details: [matching](mechanisms/matching.md) · [notifications](mechanisms/notifications.md) · [authentication](mechanisms/authentication.md) · [catalog access](mechanisms/catalog-access.md) · [database access](mechanisms/database-access.md) · [code structure](mechanisms/code-structure.md).
 
 ### 2.2 Module Dependencies
 

@@ -50,7 +50,7 @@ SRV --> APP : contact details (FR-019)
 
 note over SRV
   Server-side checks: per-session lock (FUNC-002),
-  403 unless mutual (SEC-001), contacts only after
+  404 unless mutual (SEC-001), contacts only after
   the safety notice (SAFE-002).
 end note
 
