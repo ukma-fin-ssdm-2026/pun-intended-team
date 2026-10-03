@@ -25,7 +25,7 @@ Look [here](Project-Description.md) for a more detailed project description
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
-## Requirements Artifacts
+## ୭ Requirements Artifacts
 
 Documentation related to requirements engineering for this project is located [here](docs/requirements/):
 
@@ -34,7 +34,7 @@ Documentation related to requirements engineering for this project is located [h
 - [`rtm.md`](docs/requirements/rtm.md) — Requirements Traceability Matrix
 - [`use-cases.md`](docs/requirements/use-cases.md) — use case descriptions
 
-## Architecture Artifacts
+## ໒ Architecture Artifacts
 
 Documentation related to system architecture for this project is located [here](docs/architecture/):
 
@@ -45,7 +45,7 @@ Documentation related to system architecture for this project is located [here](
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, sequence, deployment)
 
-## API Documentation
+## ൭ API Documentation
 
 The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod schemas in [`src/api/`](src/api/).
 
@@ -55,7 +55,7 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs. Click **Authorize** and enter a stub token, listed under [Trying It Out](docs/api/api-design.md#trying-it-out)
 - [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
 
-## Running the API
+## ര Running the API
 
 Requires Node.js 26 or later.
 
@@ -74,6 +74,6 @@ For a production build: `npm run build`, then `npm start`.
 
 Other scripts: `npm run typecheck` checks types without building, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
-## AI Usage Note
+## ༄ AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
