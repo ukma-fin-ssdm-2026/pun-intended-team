@@ -481,7 +481,8 @@ paths:
       summary: List all categories
       description: >-
         List all categories, including inactive ones, to manage the directory.
-        To pick a category for an event or listing, use listCategories.
+        To pick a category for an event or listing, use listCategories. Needs an
+        administrator account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -508,6 +509,7 @@ paths:
     post:
       operationId: adminCreateCategory
       summary: Add a category
+      description: Add a category. Needs an administrator account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -557,7 +559,9 @@ paths:
     get:
       operationId: adminGetCategory
       summary: Get a category
-      description: Get one category, including whether it is active.
+      description: >-
+        Get one category, including whether it is active. Needs an administrator
+        account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -599,6 +603,9 @@ paths:
     patch:
       operationId: adminUpdateCategory
       summary: Rename, deactivate or reactivate a category
+      description: >-
+        Rename, deactivate or reactivate a category. Needs an administrator
+        account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -651,6 +658,9 @@ paths:
     delete:
       operationId: adminDeleteCategory
       summary: Delete an unused category
+      description: >-
+        Delete an unused category. Needs an administrator account; other
+        accounts get 404.
       tags:
         - Categories
       security:
@@ -697,7 +707,8 @@ paths:
       summary: List the categories users can pick
       description: >-
         List the active categories users can pick for events and listings; their
-        ids go in categoryId.
+        ids go in categoryId. Needs an access token: a guest token or a
+        signed-in account.
       tags:
         - Categories
       security:
@@ -721,7 +732,8 @@ paths:
       summary: Browse the event catalog
       description: >-
         Browse the event catalog: published events in the catalog window,
-        soonest first.
+        soonest first. Needs an access token: a guest token or a signed-in
+        account.
       tags:
         - Events
       security:
@@ -805,6 +817,7 @@ paths:
     post:
       operationId: createEvent
       summary: Publish an event
+      description: Publish an event. Needs a signed-in account; a guest token gets 401.
       tags:
         - Events
       security:
@@ -852,7 +865,9 @@ paths:
     get:
       operationId: getEvent
       summary: Get an event
-      description: Get one event with its category and venue.
+      description: >-
+        Get one event with its category and venue. Needs an access token: a
+        guest token or a signed-in account.
       tags:
         - Events
       security:
@@ -896,7 +911,8 @@ paths:
       summary: Edit an event
       description: >-
         Edit one of the organization’s own events; only the fields sent change.
-        A cancelled event cannot be edited.
+        A cancelled event cannot be edited. Needs a signed-in account; a guest
+        token gets 401.
       tags:
         - Events
       security:
@@ -955,7 +971,8 @@ paths:
       summary: Cancel an event
       description: >-
         Cancel one of the organization’s own events. It stays readable with
-        status `cancelled`; cancelling it again changes nothing.
+        status `cancelled`; cancelling it again changes nothing. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Events
       security:
@@ -1000,7 +1017,7 @@ paths:
       summary: Browse listings
       description: >-
         Browse listings: active "looking for company" posts from today on,
-        soonest first.
+        soonest first. Needs a signed-in account; a guest token gets 401.
       tags:
         - Listings
       security:
@@ -1048,6 +1065,7 @@ paths:
     post:
       operationId: createListing
       summary: Post a listing
+      description: Post a listing. Needs a signed-in account; a guest token gets 401.
       tags:
         - Listings
       security:
@@ -1093,7 +1111,9 @@ paths:
     get:
       operationId: getListing
       summary: Get a listing
-      description: Get one active listing with its author and category.
+      description: >-
+        Get one active listing with its author and category. Needs a signed-in
+        account; a guest token gets 401.
       tags:
         - Listings
       security:
@@ -1135,6 +1155,7 @@ paths:
     delete:
       operationId: deleteListing
       summary: Remove your listing
+      description: Remove your listing. Needs a signed-in account; a guest token gets 401.
       tags:
         - Listings
       security:
@@ -1173,6 +1194,7 @@ paths:
     get:
       operationId: getHealth
       summary: Check that the API is running
+      description: Check that the API is running. No access token needed.
       tags:
         - System
       responses:
