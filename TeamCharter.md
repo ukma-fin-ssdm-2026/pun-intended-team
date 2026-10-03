@@ -152,7 +152,7 @@ A persistent inability to complete the stated workload is discussed at a team me
 ## 11. Signatures
 - [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [x] Daryna Halytska (GitHub: @DarynaHalytska)
-- [ ] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
+- [x] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
