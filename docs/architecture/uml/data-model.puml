@@ -336,5 +336,9 @@ listing |o--o{ report_case : target
 account |o--o{ report_case : resolves
 account ||..o{ audit_log : actor (no FK)
 
-' ----
+' ---- notifications ----
+account ||--o{ notification
+account ||--o{ device_token
+refresh_token ||--o| device_token
+
 @enduml

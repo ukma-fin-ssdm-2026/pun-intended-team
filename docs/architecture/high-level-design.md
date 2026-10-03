@@ -151,14 +151,15 @@ Each process connects with its own database role; the import role can write only
 | Managed PostgreSQL | CMP-04 — encrypted volume, daily backups (REL-004) | 1 |
 | External | EXT-01 – EXT-04 | — |
 
-Trust boundaries sit between the internet and the load balancer, and between our network and every external system. Diagram: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml).
+Trust boundaries sit between the internet and the load balancer, and between our network and every external system. Diagram: [deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)).
 
 ## 7. Diagrams
 
-- [`uml/component-diagram.puml`](uml/component-diagram.puml) — system-level components and their interfaces
-- [`uml/main-server-components.puml`](uml/main-server-components.puml) — internal structure of CMP-02: layers and module tiers
-- [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml) — nodes, trust boundaries
-- [`uml/sequence-diagram.puml`](uml/sequence-diagram.puml) — key interaction flow
+- [Component diagram](uml/rendered/component-diagram.svg) (source: [`uml/component-diagram.puml`](uml/component-diagram.puml)) — system-level components and their interfaces
+- [Main server components](uml/rendered/main-server-components.svg) (source: [`uml/main-server-components.puml`](uml/main-server-components.puml)) — internal structure of CMP-02: layers and module tiers
+- [Deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)) — nodes, trust boundaries
+- [Sequence diagram](uml/rendered/sequence-diagram.svg) (source: [`uml/sequence-diagram.puml`](uml/sequence-diagram.puml)) — key interaction flow
+- [Data model (ER)](uml/rendered/data-model.svg) (source: [`uml/data-model.puml`](uml/data-model.puml)) — entities, keys, relationships
 
 ## AI Usage Note
 
