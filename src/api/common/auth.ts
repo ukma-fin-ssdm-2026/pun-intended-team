@@ -7,9 +7,9 @@ import { ApiException } from './api-exception.js';
 
 /**
  * Who may call an endpoint: anyone (`public`), a guest or a signed-in account
- * (`guest`, catalog reads), or a signed-in account only (`user`).
+ * (`guest`, catalog reads), a signed-in account (`user`), or an administrator (`admin`).
  */
-export type Access = 'public' | 'guest' | 'user';
+export type Access = 'public' | 'guest' | 'user' | 'admin';
 
 export const RequireAccess = Reflector.createDecorator<Access>();
 
@@ -38,8 +38,11 @@ export class AuthGuard implements CanActivate {
     if (!caller) {
       throw new ApiException('UNAUTHENTICATED', 'A valid access token is required');
     }
-    if (access === 'user' && caller.kind !== 'account') {
+    if (caller.kind !== 'account' && (access === 'user' || access === 'admin')) {
       throw new ApiException('UNAUTHENTICATED', 'Sign in to do this');
+    }
+    if (access === 'admin' && caller.kind === 'account' && caller.role !== 'admin') {
+      throw new ApiException('NOT_FOUND', 'Not found');
     }
     req[CALLER] = caller;
     return true;
@@ -49,7 +52,7 @@ export class AuthGuard implements CanActivate {
 export const CurrentAccount = createParamDecorator((_data: unknown, context: ExecutionContext): AccountCaller => {
   const caller = context.switchToHttp().getRequest<AuthenticatedRequest>()[CALLER];
   if (caller?.kind !== 'account') {
-    throw new Error("@CurrentAccount() is only available on endpoints with access: 'user'");
+    throw new Error("@CurrentAccount() is only available on endpoints with access: 'user' or 'admin'");
   }
   return caller;
 });

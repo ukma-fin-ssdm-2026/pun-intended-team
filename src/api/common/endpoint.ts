@@ -66,6 +66,11 @@ const UNAUTHENTICATED: ResponseDefinition = {
   schema: ErrorResponse,
 };
 
+const NOT_AN_ADMIN: ResponseDefinition = {
+  description: 'Not found, or the caller is not an administrator',
+  schema: ErrorResponse,
+};
+
 // Where the interceptor leaves the parsed input for @Input() to pick up.
 const INPUT = Symbol('validated input');
 
@@ -89,6 +94,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
   const responses = {
     ...(hasInput && { 400: VALIDATION_ERROR }),
     ...(access !== 'public' && { 401: UNAUTHENTICATED }),
+    ...(access === 'admin' && { 404: NOT_AN_ADMIN }),
     ...route.responses,
   };
 
