@@ -54,6 +54,7 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - The `API docs (GitHub Pages)` workflow regenerates the spec and fails a pull request whose committed spec is out of date
 - Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs. Click **Authorize** and enter a stub token, listed under [Trying It Out](docs/api/api-design.md#trying-it-out)
 - [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
+- [`quality-attributes.md`](docs/api/quality-attributes.md) — quality goals for the Nearby REST API
 
 ## ര Running the API
 
@@ -130,5 +131,5 @@ This README was written with the participation of Claude, which drafted the init
 
 - **Agent and call:** Claude Code (VS Code extension) with `nearby-api` connected via `.mcp.json`. Asked "Які події є в каталозі між 15 і 25 жовтня?", the agent chose `listEvents` with `from=2026-10-15`, `to=2026-10-25` and listed the 2 events the stubs return (17.10 and 20.10).
 - **Not as expected:** the generator drops an operation's `summary` when it has a `description`, so `cancelEvent` does not say that it cancels an event; request body fields have no descriptions; no tool states the access level it needs, so 12 of 16 tools answer 401 or 404 with the guest token; the agent treated the stub end time 23:59:59 as a likely placeholder and said so.
-- **Fixed in #110:** every description now starts with what the endpoint does, and `@Endpoint` adds the access level it needs. Descriptions for request body fields are added separately by the API author. The stub end time is unchanged.
+- **Fixed in #110:** every description now starts with what the endpoint does, and `@Endpoint` adds the access level it needs. The stub end time is unchanged.
 - **Verified by:** Daryna Halytska — ran the demo above in Claude Code.
