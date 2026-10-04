@@ -14,8 +14,9 @@ if (!isProduction) {
   writeOpenApiSpec();
 }
 
-const app = await NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter());
+const app = await NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter(), { bodyParser: false });
 app.disable('x-powered-by');
+app.useBodyParser('json', { limit: '100kb' });
 
 // The spec comes from the zod registry, not from @nestjs/swagger decorators;
 // SwaggerModule only serves it. The live Swagger UI calls the server it is
