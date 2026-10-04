@@ -122,6 +122,7 @@ describe('GET /health', () => {
     const res = await call('GET', '/health');
     assert.equal(res.status, 200);
     assert.deepEqual(res.body, { status: 'ok' });
+    assert.equal(res.headers.get('x-powered-by'), null);
   });
 
   // Public and without input, so neither 400 nor 401 applies; an unsupported method is the wrong request.
