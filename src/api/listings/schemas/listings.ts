@@ -50,7 +50,7 @@ const CreateListingFields = z.strictObject({
   eventId: Id.optional().describe('A catalog event the listing is about'),
   title: z.string().trim().min(1).max(120).describe('Title shown in the listing feed'),
   description: z.string().trim().max(2000).describe('Can be empty'),
-  date: CalendarDate.describe('The day, Kyiv time'),
+  date: CalendarDate.describe('The day, Kyiv time; today or later'),
 });
 
 export const createListingExample: CreateListingBody = {

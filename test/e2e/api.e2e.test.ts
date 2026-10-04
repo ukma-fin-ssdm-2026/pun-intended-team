@@ -25,11 +25,14 @@ const newEvent = {
   endsAt: '2026-10-25T21:00:00+03:00',
 };
 
+// A week from today in Kyiv, so the listing never falls in the past.
+const nextWeek = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(Date.now() + 7 * 24 * 3600 * 1000);
+
 const newListing = {
   categoryId: exhibitions,
   title: 'Looking for company for an exhibition',
   description: 'Evening, coffee after.',
-  date: '2026-10-20',
+  date: nextWeek,
 };
 
 let server: ChildProcess;
@@ -254,6 +257,11 @@ describe('POST /api/v1/listings', () => {
   test('rejects a malformed date with 400', async () => {
     const res = await call('POST', '/api/v1/listings', { token: 'stub-user', body: { ...newListing, date: '20.10.2026' } });
     assertInvalid(res, 'body', 'date');
+  });
+
+  test('rejects a date in the past with 422', async () => {
+    const res = await call('POST', '/api/v1/listings', { token: 'stub-user', body: { ...newListing, date: '2020-01-01' } });
+    assertRejected(res, 422, 'LISTING_DATE_IN_PAST');
   });
 });
 

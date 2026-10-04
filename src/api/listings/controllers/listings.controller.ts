@@ -64,7 +64,8 @@ export class ListingsController {
       201: { description: 'The posted listing', schema: Listing },
       422: {
         description:
-          '`REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled.',
+          '`REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled. ' +
+          '`LISTING_DATE_IN_PAST`: the date is before today.',
         schema: ErrorResponse,
       },
     },

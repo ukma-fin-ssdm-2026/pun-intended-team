@@ -2,8 +2,6 @@
 import { z } from 'zod';
 import { domainErrorCodes } from '../../../core/common/domain-error.js';
 
-// Draft error format, to be agreed in #83 and described in docs/api/api-design.md.
-
 export const ErrorCode = z
   .enum([
     // Raised by the API layer itself

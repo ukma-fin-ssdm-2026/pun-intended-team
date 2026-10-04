@@ -9,6 +9,7 @@ export const domainErrorCodes = [
   'ORGANIZATION_NOT_VERIFIED',
   'EVENT_CANCELLED',
   'EVENT_ENDS_BEFORE_START',
+  'LISTING_DATE_IN_PAST',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];

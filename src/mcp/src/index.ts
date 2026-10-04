@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-04T11:47:40.837Z
+ * Generated on: 2026-10-04T11:55:43.694Z
  */
 
 // Load environment variables from .env file
@@ -225,7 +225,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "createListing",
     description: `Post a listing. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"eventId":{"type":"string","format":"uuid","description":"A catalog event the listing is about"},"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the listing feed"},"description":{"type":"string","maxLength":2000,"description":"Can be empty"},"date":{"type":"string","format":"date","description":"The day, Kyiv time"}},"required":["categoryId","title","description","date"],"additionalProperties":false,"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"eventId":{"type":"string","format":"uuid","description":"A catalog event the listing is about"},"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the listing feed"},"description":{"type":"string","maxLength":2000,"description":"Can be empty"},"date":{"type":"string","format":"date","description":"The day, Kyiv time; today or later"}},"required":["categoryId","title","description","date"],"additionalProperties":false,"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/listings",
     executionParameters: [],

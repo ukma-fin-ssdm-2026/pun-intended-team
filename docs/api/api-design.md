@@ -9,7 +9,7 @@
 | Style | REST, resources as plural nouns |
 | Transport | Clients reach the API only over HTTPS (TLS 1.2+); plain HTTP is redirected. TLS ends at the load balancer, which forwards plain HTTP to the server inside the private network ([high-level design](../architecture/high-level-design.md), threat model TB1/TB2). The server itself never handles TLS, so locally it is plain HTTP |
 | Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
-| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
+| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest` (planned; until then, the stub tokens under [Trying It Out](#trying-it-out)), so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
 | Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
 | Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production, or in production when `SWAGGER_UI=true` (e.g. on staging) |
 
@@ -51,8 +51,7 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `id` | UUID | |
 | `author` | `{ username, displayName }` | Never the author's contacts |
 | `category` | `{ id, name }` | |
-| `eventId` | UUID, optional | Set when the listing is about a catalog event |
-| `eventTitle` | string, optional | |
+| `eventId` | UUID or `null` | Set when the listing is about a catalog event |
 | `title` | string | |
 | `description` | string | |
 | `date` | date | |
@@ -122,9 +121,15 @@ Dates are clamped because a user scrolling the date picker too far should just s
 
 `POST` takes `{ name, isActive? }` (active by default); `PATCH` takes either field, so the same call renames, deactivates or reactivates. A duplicate name is a `409`. The category lists are not paginated.
 
+### System
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/health` | Anyone, no token | `200` `{ "status": "ok" }` | — |
+
 `400` on an endpoint with an `{id}` covers an id that is not a UUID. The `422` codes of each endpoint are listed under [business-rule codes](#business-rule-codes-422).
 
-The listing feed shows active listings dated today or later. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing.
+The listing feed shows active listings dated today or later. A listing cannot be posted for a past date; once its date has passed, it is kept and can still be read by id. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing.
 
 ## 4. Design Decisions
 
@@ -187,7 +192,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 
 | Status | `code` | When |
 |---|---|---|
-| `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault |
+| `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
 | `401 Unauthorized` | `UNAUTHENTICATED` | No access token, or an invalid or expired one |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT` | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
@@ -206,6 +211,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PATCH /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PATCH /events/{id}` | `endsAt` is not after `startsAt` (for a `PATCH`, after merging with the stored values) |
 | `EVENT_CANCELLED` | `PATCH /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 
