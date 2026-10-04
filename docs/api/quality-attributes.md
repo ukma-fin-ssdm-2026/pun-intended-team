@@ -16,7 +16,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | ID | Goal | Status | Latest result |
 |---|---|---|---|
 | QA-PERF-01 | Read latency | contract | Smoke run only (3 October): p99 66 ms at 50 connections |
-| QA-SEC-01 | Input validation | now · **not met** | 169 of 170 log rows pass; the only failure is a form-encoded body (D-4) |
+| QA-SEC-01 | Input validation | now · met | 170 of 170 log rows pass |
 | QA-SEC-02 | Bulk access | now · met | `limit=21` is rejected on both list endpoints; no page above 20 items |
 | QA-SEC-03 | Data exposure | now · met | 0 sensitive names among 34 schema properties and parameters; no `X-Powered-By` header (D-3) |
 | QA-SEC-04 | Access control | now (stub tokens) · met; rest contract | all 19 rows that expect `401` pass; non-admin and not-the-owner callers get `404` |
@@ -25,7 +25,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | QA-REL-01 | Failure handling | now · met | 0 of 170 responses were `5xx`; the `500` path itself is not exercised (see goal) |
 | QA-REL-02 | Availability | contract | No deployed backend yet |
 | QA-FUNC-01 | Status codes | now · met | 16 of 16 documented operations match the spec; every success code in the log is the documented one |
-| QA-INTC-01 | Error format | now · met (scope: the API's own code, D-6) | 0 non-2xx responses in the spec without `ErrorResponse`; 134 error responses in the log, none leaks internals |
+| QA-INTC-01 | Error format | now · met (scope: the API's own code, D-6) | 0 non-2xx responses in the spec without `ErrorResponse`; 135 error responses in the log, none leaks internals |
 | QA-MAIN-01 | Annotation completeness | now · met | 16 of 16 operations pass; the four list responses now have an example (D-2) |
 | QA-MAIN-02 | Spec freshness | now · met | Regenerated spec is byte-identical to the committed one |
 | QA-MAIN-03 | Publication delay | now · not measured yet | Take the run time from the last `API docs (GitHub Pages)` run |
@@ -51,17 +51,17 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 
 ### Security
 
-**QA-SEC-01 · Input validation** — *now · **not met** (D-4)*
+**QA-SEC-01 · Input validation** — *now · met*
 
 - **Goal:** 100% of invalid inputs (missing, wrong type, out of range, too long, malformed id, unknown body field, malformed JSON, a body that is not JSON) are rejected with `400` before any handler logic runs (`413` for a body over 100 kB)
 - **Failure condition:** any invalid input returns `2xx` or `5xx`, or is silently accepted
 - **Implementation:**
   - a zod schema for every path, query and body parameter, passed to `@Endpoint` and checked by `ValidationInterceptor` before the handler runs; all three parts are parsed together, so `details` lists every invalid field. The same schema produces the OpenAPI description, so the rules shown in Swagger UI cannot differ from the rules enforced
-  - body schemas must reject unknown fields: a plain `z.object` drops them without any error, a `z.strictObject` rejects them. The five body schemas (`CreateEventBody`, `UpdateEventBody`, `CreateListingBody`, `CreateCategoryBody`, `UpdateCategoryBody`) are `z.strictObject` (D-1, closed), and the spec shows `additionalProperties: false` on each. An unknown key gives `400 VALIDATION_ERROR`; the message names the key and `details[].field` is empty (decision Q-1)
-  - bodies must be JSON (`api-design.md` §1). Nest also registers a form-urlencoded parser by default, so **today a form-encoded body is accepted** (D-4)
+  - body schemas must reject unknown fields: a plain `z.object` drops them without any error, a `z.strictObject` rejects them. The five body schemas (`CreateEventBody`, `UpdateEventBody`, `CreateListingBody`, `CreateCategoryBody`, `UpdateCategoryBody`) are `z.strictObject` (D-1, closed), and the spec shows `additionalProperties: false` on each. An unknown key gives `400 VALIDATION_ERROR` with one `details` entry: `field` is empty and the message, `Unknown fields are not allowed`, does not name the key (decision Q-1)
+  - bodies must be JSON (`api-design.md` §1): `main.ts` turns off Nest's default parsers and registers only the JSON one, so a form-encoded body is not parsed and gets `400` (D-4, closed)
   - errors raised before a handler runs (broken JSON, body over 100 kB, broken URL encoding) are mapped to `400` / `413` by `ApiExpressAdapter`
 - **Measurement:** validation log (§4), every endpoint × every input class; to be repeated in Swagger UI (**Try it out**) as the table in §4 shows, with `curl` for the rows Swagger UI cannot send
-- **Latest result:** 169 of 170 rows pass. Every input class is rejected as required except one: a body sent as `application/x-www-form-urlencoded` with valid fields is parsed and accepted (1 row, on `POST /admin/categories`; Nest registers that parser for every route, D-4). An unknown body field is now rejected with `400` on all five endpoints that take a body (8 rows), including the mass-assignment attempts (`status`, `source`, `organizationId` for an event; `status`, `authorId` for a listing)
+- **Latest result:** 170 of 170 rows pass. A body sent as `application/x-www-form-urlencoded` with valid fields is rejected with `400` (D-4). An unknown body field is now rejected with `400` on all five endpoints that take a body (8 rows), including the mass-assignment attempts (`status`, `source`, `organizationId` for an event; `status`, `authorId` for a listing)
 - **Source:** Lab 4 criteria; threat model (main server, Tampering: input validation)
 
 **QA-SEC-02 · Bulk access** — *now · met*
@@ -169,7 +169,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - `@Endpoint` adds the `400` and `401` responses to every operation that needs them
   - technical detail goes to the log, not to the response (SEC-004)
 - **Measurement:** every non-2xx response in the spec refers to `ErrorResponse` (checked in Swagger UI under each operation's **Responses**); the validation log checks every error response for the shape and for stack-trace patterns
-- **Latest result:** 0 exceptions in the spec; all 134 error responses in the log have `error.code` and `error.message` and show no stack trace. This includes the 8 rejected unknown fields, the `422` for a past listing date, and errors raised outside the handlers: broken JSON, a 200 kB body, broken URL encoding, an unknown route and a wrong method. Outside the API's code (D-6): a 100 kB `Authorization` header gets an empty `431` from Node itself, and the router words an unknown route its own way (`Cannot OPTIONS /api/v1/events`) instead of `Not found`
+- **Latest result:** 0 exceptions in the spec; all 135 error responses in the log have `error.code` and `error.message` and show no stack trace. This includes the 8 rejected unknown fields, the `422` for a past listing date, and errors raised outside the handlers: broken JSON, a 200 kB body, broken URL encoding, an unknown route and a wrong method. Outside the API's code (D-6): a 100 kB `Authorization` header gets an empty `431` from Node itself. Errors that Nest raises itself, such as the router's `404`, get our own message (`Not found`), not Nest's (`Cannot OPTIONS /api/v1/events`)
 - **Source:** Lab 4 criteria, INTC-004
 
 ### Maintainability
@@ -192,9 +192,9 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Failure condition:** regenerating the spec on a clean checkout produces a diff against the committed file
 - **Implementation:**
   - the spec is produced only from the code: `npm run docs:generate`, and in development every server start rewrites it; it is never edited by hand
-  - the `API docs (GitHub Pages)` workflow regenerates the spec and compares: it fails a pull request whose committed spec is out of date; on `main` it only warns and publishes the freshly generated spec
-- **Measurement:** CI step in that workflow; locally, `npm run docs:generate` followed by `git diff --exit-code docs/api/openapi-generated.yaml`
-- **Latest result:** regenerating produced a file identical to the committed one. After the fixes the spec changes (`additionalProperties: false` on the five bodies, examples on the four list responses), so the committed file has to be regenerated and committed together with them
+  - the `CI` workflow regenerates the spec on every pull request and fails it if the committed spec is out of date; on `main`, `API docs (GitHub Pages)` runs the same check, only warns, and publishes the freshly generated spec
+- **Measurement:** the `Generate and check API docs` job in `CI`; locally, `npm run docs:generate` followed by `git diff --exit-code docs/api/openapi-generated.yaml`
+- **Latest result:** regenerating produced a file identical to the committed one, including the changes from the fixes (`additionalProperties: false` on the five bodies, examples on the four list responses)
 - **Source:** Lab 4 criteria (code → docs)
 
 **QA-MAIN-03 · Publication delay** — *now · not measured yet*
@@ -249,7 +249,7 @@ Three scenarios show how the most important goals behave in practice.
 
 ## 4. Validation Log
 
-Run for issue #98: every endpoint, every applicable input class, expected result from [`api-design.md`](api-design.md), actual result from the running API. A row passes only when both the status code and the error body match. The *Actual* column comes from requests sent to a local copy of the API on 4 October 2026 (stub data, fresh server, fixes D-1 to D-3 applied); it is **not yet a Swagger UI result**. The table *Swagger UI verification* below shows what has been repeated there.
+Run for issue #98: every endpoint, every applicable input class, expected result from [`api-design.md`](api-design.md), actual result from the running API. A row passes only when both the status code and the error body match. The *Actual* column comes from requests sent to a local copy of the API on 4 October 2026 (stub data, fresh server), and every row was repeated in Swagger UI or with `curl`, as the table *Swagger UI verification* below shows.
 
 ### How to run it
 
@@ -270,7 +270,7 @@ curl -i -X POST http://localhost:4100/api/v1/admin/categories \
   -H "Content-Type: application/x-www-form-urlencoded" -d "name=Zform"
 ```
 
-**Dates.** The stub events are dated 17 and 20 October 2026 and the stub listings 11 and 20 October, so the item counts in the *Actual* column are those of 4 October. From 12 October `GET /listings` returns one item, from 18 October the `limit=1` row of `GET /events` no longer returns `hasMore=true`, and from 21 October the catalog and the feed are empty (D-5).
+**Dates.** The stub dates count from the day the server starts: events in 13, 16 and 20 days (the last one cancelled), listings in 7 and 16 days. The item counts in the *Actual* column therefore stay the same whenever the log is run (D-5).
 
 | Token | Caller | Use it for |
 |---|---|---|
@@ -324,7 +324,7 @@ Tick a row when every row of that endpoint in the log has been repeated in Swagg
 
 ### Result
 
-**169 of 170 rows pass; 0 responses were `5xx`** (QA-REL-01 requires zero). The one failing row is defect D-4 (form-encoded body).
+**170 of 170 rows pass; 0 responses were `5xx`** (QA-REL-01 requires zero).
 
 | Endpoint | Rows | Pass | Fail |
 |---|---|---|---|
@@ -341,11 +341,11 @@ Tick a row when every row of that endpoint in the log has been repeated in Swagg
 | `GET /categories` | 2 | 2 | 0 |
 | `GET /admin/categories` | 4 | 4 | 0 |
 | `GET /admin/categories/{id}` | 6 | 6 | 0 |
-| `POST /admin/categories` | 12 | 11 | 1 |
+| `POST /admin/categories` | 12 | 12 | 0 |
 | `PATCH /admin/categories/{id}` | 11 | 11 | 0 |
 | `DELETE /admin/categories/{id}` | 7 | 7 | 0 |
 | Unknown routes and wrong methods (curl) | 5 | 5 | 0 |
-| **Total** | **170** | **169** | **1** |
+| **Total** | **170** | **170** | **0** |
 
 ### Log
 
@@ -591,7 +591,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 </details>
 
 <details>
-<summary>`POST /admin/categories` — 11 of 12 pass</summary>
+<summary>`POST /admin/categories` — 12 of 12 pass</summary>
 
 | Input | Expected | Actual | Pass |
 |---|---|---|---|
@@ -603,7 +603,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | `name` of 60 characters (boundary) | 201 | 201, yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy, Location /api/v1/admin/categories/{id} | ✅ |
 | `isActive: "yes"` (wrong type) | 400, `body.isActive` | 400 VALIDATION_ERROR (body.isActive) | ✅ |
 | unknown field `foo` | 400, `VALIDATION_ERROR` (QA-SEC-01) | 400 VALIDATION_ERROR (body.) | ✅ |
-| wrong `Content-Type` (`application/x-www-form-urlencoded`, valid fields) (curl) | 400, `VALIDATION_ERROR` (`api-design.md` §1: JSON in and out) | 201, Zform, Location /api/v1/admin/categories/{id} | ❌ |
+| wrong `Content-Type` (`application/x-www-form-urlencoded`, valid fields) (curl) | 400, `VALIDATION_ERROR` (`api-design.md` §1: JSON in and out) | 400 VALIDATION_ERROR (body.) | ✅ |
 | duplicate name `cinema` (case-insensitive) | 409, `CONFLICT` | 409 CONFLICT | ✅ |
 | regular user | 404 (never `403`) | 404 NOT_FOUND | ✅ |
 | guest token | 401 | 401 UNAUTHENTICATED | ✅ |
@@ -656,6 +656,23 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | wrong method: `PUT /api/v1/listings/{id}` | 404, `NOT_FOUND` | 404 NOT_FOUND | ✅ |
 
 </details>
+
+### Defects and decisions
+
+| # | Finding | Goal | Status |
+|---|---|---|---|
+| D-1 | Unknown body fields were silently ignored | QA-SEC-01 | Fixed: the five body schemas are `z.strictObject` |
+| D-2 | The four list responses had no example | QA-MAIN-01 | Fixed: `EventsPage`, `ListingsPage`, `CategoryList` and `AdminCategoryList` have one |
+| D-3 | Every response carried `X-Powered-By: Express` | QA-SEC-03 | Fixed: the header is turned off in `main.ts` |
+| D-4 | A form-encoded body was parsed and accepted | QA-SEC-01 | Fixed: only the JSON body parser is registered |
+| D-5 | The stub data had fixed October dates, so the catalog and the feed would be empty from 21 October | — | Fixed: stub dates count from the day the server starts |
+| D-6 | Errors raised outside the API's code: Node answers headers above about 16 kB with an empty `431`; Nest's router used its own message for `404` | QA-INTC-01 | Router message fixed: Nest's errors get our message. The `431` stays out of scope |
+
+| # | Question | Decision |
+|---|---|---|
+| Q-1 | What happens to an unknown body field? | `400 VALIDATION_ERROR`; the unknown names are not echoed back ([`api-design.md`](api-design.md#errors)) |
+| Q-2 | `GET /health` was missing from the endpoint tables of `api-design.md` | Added |
+| Q-3 | May a listing be posted for a past date? | No: `422 LISTING_DATE_IN_PAST`. Listings whose date has passed are kept and can still be read by id |
 
 ### Error bodies
 
