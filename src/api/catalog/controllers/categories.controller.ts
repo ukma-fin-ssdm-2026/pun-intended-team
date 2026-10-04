@@ -18,7 +18,7 @@ export class CategoriesController {
     tags: ['Categories'],
     access: 'guest',
     responses: {
-      200: { description: 'The active categories', schema: CategoryList },
+      202: { description: 'The active categories', schema: CategoryList },
     },
   })
   async listCategories(): Promise<CategoryList> {
