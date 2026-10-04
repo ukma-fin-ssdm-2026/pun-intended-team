@@ -133,6 +133,7 @@ components:
           default: true
       required:
         - name
+      additionalProperties: false
       example:
         name: Workshops
     UpdateCategoryBody:
@@ -144,6 +145,7 @@ components:
           maxLength: 60
         isActive:
           type: boolean
+      additionalProperties: false
       description: Only the fields to change
       example:
         isActive: false
@@ -321,6 +323,7 @@ components:
         - venueId
         - startsAt
         - endsAt
+      additionalProperties: false
       example:
         title: Film quiz night
         description: Teams of up to four, questions on Ukrainian cinema.
@@ -351,6 +354,7 @@ components:
         endsAt:
           type: string
           format: date-time
+      additionalProperties: false
       description: Only the fields to change
       example:
         title: 'Film quiz night: Oscar edition'
@@ -455,6 +459,7 @@ components:
         - title
         - description
         - date
+      additionalProperties: false
       example:
         categoryId: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
         eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e

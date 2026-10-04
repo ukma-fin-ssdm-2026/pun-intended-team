@@ -38,7 +38,7 @@ export const CategoryIdParams = z.object({
 
 const CategoryName = z.string().trim().min(1).max(60);
 
-const CreateCategoryFields = z.object({
+const CreateCategoryFields = z.strictObject({
   name: CategoryName,
   isActive: z.boolean().default(true),
 });
@@ -48,7 +48,7 @@ export const CreateCategoryBody = CreateCategoryFields.meta({
   example: { name: 'Workshops' } satisfies CreateCategoryBody,
 });
 
-const UpdateCategoryFields = z.object({
+const UpdateCategoryFields = z.strictObject({
   name: CategoryName.optional(),
   isActive: z.boolean().optional(),
 });

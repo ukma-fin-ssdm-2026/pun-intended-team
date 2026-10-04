@@ -165,7 +165,9 @@ class ValidationInterceptor implements NestInterceptor {
       const result = schema.safeParse(value);
       if (result.success) return result.data;
       for (const issue of result.error.issues) {
-        details.push({ location, field: issue.path.join('.'), message: issue.message });
+        // Unknown keys are not named back, unlike zod's own message.
+        const message = issue.code === 'unrecognized_keys' ? 'Unknown fields are not allowed' : issue.message;
+        details.push({ location, field: issue.path.join('.'), message });
       }
       return undefined;
     };

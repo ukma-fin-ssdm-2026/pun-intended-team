@@ -75,7 +75,7 @@ const EventInputFields = {
   endsAt: DateTime,
 };
 
-const CreateEventFields = z.object(EventInputFields);
+const CreateEventFields = z.strictObject(EventInputFields);
 
 export const createEventExample: CreateEventBody = {
   title: 'Film quiz night',

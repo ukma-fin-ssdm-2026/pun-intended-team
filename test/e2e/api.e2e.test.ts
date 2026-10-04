@@ -180,6 +180,13 @@ describe('POST /api/v1/events', () => {
     const { title: _title, ...body } = newEvent;
     assertInvalid(await call('POST', '/api/v1/events', { token: 'stub-org', body }), 'body', 'title');
   });
+
+  test('rejects an unknown body field with 400 without naming it', async () => {
+    const body = { ...newEvent, status: 'cancelled' };
+    const res = await call('POST', '/api/v1/events', { token: 'stub-org', body });
+    assertInvalid(res, 'body', '');
+    assert.doesNotMatch(JSON.stringify(res.body), /status/);
+  });
 });
 
 describe('PATCH /api/v1/events/{id}', () => {

@@ -45,7 +45,7 @@ export const ListingIdParams = z.object({
 
 export const ListListingsQuery = PageQuery;
 
-const CreateListingFields = z.object({
+const CreateListingFields = z.strictObject({
   categoryId: Id,
   eventId: Id.optional().describe('A catalog event the listing is about'),
   title: z.string().trim().min(1).max(120),
