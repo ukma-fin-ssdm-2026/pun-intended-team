@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { Category, categoryExample } from '../../catalog/schemas/categories.js';
+import { ActiveCategoryId, Category, categoryExample } from '../../catalog/schemas/categories.js';
 import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.js';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
@@ -37,7 +37,7 @@ export const Listing = ListingFields.meta({
   example: listingExample,
 });
 
-export const ListingsPage = pageOf(Listing, 'ListingsPage');
+export const ListingsPage = pageOf(Listing, 'ListingsPage', listingExample);
 
 export const ListingIdParams = z.object({
   id: Id.describe('Listing id'),
@@ -45,12 +45,12 @@ export const ListingIdParams = z.object({
 
 export const ListListingsQuery = PageQuery;
 
-const CreateListingFields = z.object({
-  categoryId: Id,
+const CreateListingFields = z.strictObject({
+  categoryId: ActiveCategoryId,
   eventId: Id.optional().describe('A catalog event the listing is about'),
-  title: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(2000),
-  date: CalendarDate.describe('The day, Kyiv time'),
+  title: z.string().trim().min(1).max(120).describe('Title shown in the listing feed'),
+  description: z.string().trim().max(2000).describe('Can be empty'),
+  date: CalendarDate.describe('The day, Kyiv time; today or later'),
 });
 
 export const createListingExample: CreateListingBody = {

@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
 import { CalendarDate, DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.js';
-import { Category, categoryExample } from './categories.js';
+import { ActiveCategoryId, Category, categoryExample } from './categories.js';
 
 export const EventSource = z
   .enum(['organization', 'import'])
@@ -53,7 +53,7 @@ export const Event = EventFields.meta({
   example: eventExample,
 });
 
-export const EventsPage = pageOf(Event, 'EventsPage');
+export const EventsPage = pageOf(Event, 'EventsPage', eventExample);
 
 export const EventIdParams = z.object({
   id: Id.describe('Event id'),
@@ -67,15 +67,15 @@ export const ListEventsQuery = PageQuery.extend({
 }).refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' });
 
 const EventInputFields = {
-  title: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(5000),
-  categoryId: Id,
+  title: z.string().trim().min(1).max(120).describe('Title shown in the catalog'),
+  description: z.string().trim().max(5000).describe('Can be empty'),
+  categoryId: ActiveCategoryId,
   venueId: Id.describe("One of the organization's own venues"),
-  startsAt: DateTime,
-  endsAt: DateTime,
+  startsAt: DateTime.describe('Start time with an offset, e.g. 2026-10-25T19:00:00+03:00'),
+  endsAt: DateTime.describe('End time with an offset; must be after startsAt'),
 };
 
-const CreateEventFields = z.object(EventInputFields);
+const CreateEventFields = z.strictObject(EventInputFields);
 
 export const createEventExample: CreateEventBody = {
   title: 'Film quiz night',

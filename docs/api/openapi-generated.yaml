@@ -36,6 +36,11 @@ components:
             $ref: '#/components/schemas/AdminCategory'
       required:
         - items
+      example:
+        items:
+          - id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+            name: Cinema
+            isActive: true
     AdminCategory:
       type: object
       properties:
@@ -99,6 +104,7 @@ components:
         - ORGANIZATION_NOT_VERIFIED
         - EVENT_CANCELLED
         - EVENT_ENDS_BEFORE_START
+        - LISTING_DATE_IN_PAST
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -128,11 +134,14 @@ components:
           type: string
           minLength: 1
           maxLength: 60
+          description: Unique, case-insensitive
         isActive:
           type: boolean
           default: true
+          description: Whether users can pick the category
       required:
         - name
+      additionalProperties: false
       example:
         name: Workshops
     UpdateCategoryBody:
@@ -142,8 +151,11 @@ components:
           type: string
           minLength: 1
           maxLength: 60
+          description: Unique, case-insensitive
         isActive:
           type: boolean
+          description: Whether users can pick the category
+      additionalProperties: false
       description: Only the fields to change
       example:
         isActive: false
@@ -156,6 +168,10 @@ components:
             $ref: '#/components/schemas/Category'
       required:
         - items
+      example:
+        items:
+          - id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+            name: Cinema
     Category:
       type: object
       properties:
@@ -183,6 +199,29 @@ components:
       required:
         - items
         - page
+      example:
+        items:
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+              name: Cinema
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            endsAt: '2026-10-17T21:30:00+03:00'
+            source: organization
+            status: published
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     Event:
       type: object
       properties:
@@ -298,12 +337,15 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the catalog
         description:
           type: string
           maxLength: 5000
+          description: Can be empty
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         venueId:
           type: string
           format: uuid
@@ -311,9 +353,11 @@ components:
         startsAt:
           type: string
           format: date-time
+          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
         endsAt:
           type: string
           format: date-time
+          description: End time with an offset; must be after startsAt
       required:
         - title
         - description
@@ -321,6 +365,7 @@ components:
         - venueId
         - startsAt
         - endsAt
+      additionalProperties: false
       example:
         title: Film quiz night
         description: Teams of up to four, questions on Ukrainian cinema.
@@ -335,12 +380,15 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the catalog
         description:
           type: string
           maxLength: 5000
+          description: Can be empty
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         venueId:
           type: string
           format: uuid
@@ -348,9 +396,12 @@ components:
         startsAt:
           type: string
           format: date-time
+          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
         endsAt:
           type: string
           format: date-time
+          description: End time with an offset; must be after startsAt
+      additionalProperties: false
       description: Only the fields to change
       example:
         title: 'Film quiz night: Oscar edition'
@@ -366,6 +417,24 @@ components:
       required:
         - items
         - page
+      example:
+        items:
+          - id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+            author:
+              username: olena_k
+              displayName: Olena
+            category:
+              id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+              name: Cinema
+            eventId: null
+            title: Looking for company for an exhibition on Saturday
+            description: Planning to go in the evening, happy to grab a coffee after.
+            date: '2026-10-17'
+            status: active
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     Listing:
       type: object
       properties:
@@ -435,6 +504,7 @@ components:
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         eventId:
           type: string
           format: uuid
@@ -443,18 +513,21 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the listing feed
         description:
           type: string
           maxLength: 2000
+          description: Can be empty
         date:
           type: string
           format: date
-          description: The day, Kyiv time
+          description: The day, Kyiv time; today or later
       required:
         - categoryId
         - title
         - description
         - date
+      additionalProperties: false
       example:
         categoryId: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
         eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
@@ -1102,7 +1175,8 @@ paths:
         '422':
           description: >-
             `REFERENCE_NOT_FOUND`: no such active category or event.
-            `EVENT_CANCELLED`: the event is cancelled.
+            `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`:
+            the date is before today.
           content:
             application/json:
               schema:

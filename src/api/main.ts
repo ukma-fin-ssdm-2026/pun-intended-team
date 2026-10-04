@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
 import { ApiExpressAdapter } from './common/api-express-adapter.js';
@@ -13,7 +14,8 @@ if (!isProduction) {
   writeOpenApiSpec();
 }
 
-const app = await NestFactory.create(AppModule, new ApiExpressAdapter());
+const app = await NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter());
+app.disable('x-powered-by');
 
 // The spec comes from the zod registry, not from @nestjs/swagger decorators;
 // SwaggerModule only serves it. The live Swagger UI calls the server it is

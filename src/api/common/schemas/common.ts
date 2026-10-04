@@ -19,15 +19,19 @@ export const PageQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0).describe('Items to skip'),
 });
 
+const pageInfoExample = { limit: MAX_PAGE_SIZE, offset: 0, hasMore: false };
+
 const PageInfo = z
   .object({
     limit: z.number().int(),
     offset: z.number().int(),
     hasMore: z.boolean().describe('Whether another page follows'),
   })
-  .meta({ id: 'PageInfo', example: { limit: MAX_PAGE_SIZE, offset: 0, hasMore: false } });
+  .meta({ id: 'PageInfo', example: pageInfoExample });
 
 /** A page of items; there is no total, so the size of the catalog is not revealed. */
-export function pageOf<T extends z.ZodType>(item: T, id: string) {
-  return z.object({ items: z.array(item), page: PageInfo }).meta({ id });
+export function pageOf<T extends z.ZodType>(item: T, id: string, itemExample: z.output<T>) {
+  return z
+    .object({ items: z.array(item), page: PageInfo })
+    .meta({ id, example: { items: [itemExample], page: pageInfoExample } });
 }

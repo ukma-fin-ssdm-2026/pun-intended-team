@@ -18,7 +18,7 @@ export class ListingsService {
     private readonly profilesService: ProfilesService,
   ) {}
 
-  /** Active listings from today on; past ones are no longer useful. */
+  /** Active listings from today on; past ones stay readable by id. */
   async list(page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
     return { ...result, items: await this.withDetails(result.items) };
@@ -34,6 +34,9 @@ export class ListingsService {
   }
 
   async create(accountId: string, input: NewListing): Promise<ListingDetails> {
+    if (input.date < kyivDate()) {
+      throw new DomainError('LISTING_DATE_IN_PAST', 'The listing date has passed');
+    }
     if (!(await this.categoriesService.findActive(input.categoryId))) {
       throw new DomainError('REFERENCE_NOT_FOUND', 'Category not found');
     }
