@@ -12,25 +12,27 @@ The catalog module as the example; every other module follows the same pattern.
 src/
   api/                          HTTP only
     main.ts, app.module.ts
-    common/                     endpoint, filter, adapter, openapi, registry, routes, tags, config
+    common/                     endpoint, auth, api-exception, filter, adapter, openapi, registry, routes, tags, config
       schemas/                  common.ts, errors.ts
     catalog/
-      catalog-api.module.ts     imports core's CatalogModule, declares the controller
-      controllers/              events.controller.ts
-      schemas/                  events.ts
+      catalog-api.module.ts     imports core's CatalogModule, declares the controllers
+      controllers/              events, categories, admin-categories
+      schemas/                  events.ts, categories.ts
     system/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/domain-error.ts
+    common/                     domain-error.ts, kyiv-time.ts, page.ts
     catalog/
-      catalog.module.ts         provides + exports EventsService
-      repositories/             events.repository.ts (abstract: what core needs from storage)
-      services/                 events.service.ts
-      types/                    event.ts
+      catalog.module.ts         provides + exports EventsService, CategoriesService
+      repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
+      services/                 events.service.ts, categories.service.ts
+      types/                    event, category, venue, organization
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
-    stubs/                      stand-in for the database, deleted as one folder: events.repository.ts
+    stubs/                      stand-in for the database, deleted as one folder: one repository per core repository, data.ts, paginate.ts
+  scripts/                      generate-spec.ts (npm run docs:generate)
+  mcp/                          MCP server generated from the spec; a separate Node project, not edited by hand
 ```
 
 ## Rules
@@ -38,9 +40,9 @@ src/
 1. **`api` → `core` ← `infra`.** `core` imports nothing from either: `api` calls its services, and `infra` implements its repositories. `api/app.module.ts` brings all three together.
 2. **Controllers only deal with HTTP.** A controller declares the endpoint with `@Endpoint`, receives the validated input, calls a service and returns its result. It contains no business rules.
 3. **Business logic lives in `core` services**, including calculations. For example, each module exposes `stats()` in its own service, and admin stats only combine them.
-4. **Each feature has two Nest modules.** The `core` module (`CatalogModule`) provides and exports the services. The `api` module (`CatalogApiModule`) imports it and declares the controllers. Modules call each other only through exported services (HLD I2).
-5. **API schemas are separate from domain types.** `api/*/schemas/` holds the zod request and response schemas: the DTOs, and the source of the OpenAPI spec. `core/*/types/` holds plain TypeScript entities together with service inputs. Controllers may return domain objects: `@Endpoint` parses every success response with its schema, so fields the schema does not declare (internal or sensitive ones) never reach the client.
-6. **`core` errors carry a code, not a status.** `core` throws `DomainError` with a code (`NOT_FOUND`, `CONFLICT`, one code per business rule). `ApiExceptionFilter` in `api` maps each code to a status and is the only place that builds `ErrorResponse`. Codes that only HTTP raises (`VALIDATION_ERROR`, `UNAUTHENTICATED`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`) stay in `api`. Statuses are listed in [api-design.md](../../api/api-design.md).
+4. **A module with endpoints has two Nest modules.** The `core` module (`CatalogModule`) provides and exports the services. The `api` module (`CatalogApiModule`) imports it and declares the controllers. Modules call each other only through exported services (HLD I2).
+5. **API schemas are separate from domain types.** `api/*/schemas/` holds the zod request and response schemas: the DTOs, and the source of the OpenAPI spec. `core/*/types/` holds plain TypeScript entities together with service inputs. Controllers may return domain objects: `@Endpoint` parses every success response with its schema, so fields the schema does not declare (internal or sensitive ones) never reach the client. Request body schemas are the opposite: `z.strictObject`, so an unknown field is a `400`.
+6. **`core` errors carry a code, not a status.** `core` throws `DomainError` with a code (`NOT_FOUND`, `CONFLICT`, one code per business rule). `api` maps each code to a status (`api-exception.ts`), and `ApiExceptionFilter` is the only place that builds `ErrorResponse`. Codes that only HTTP raises (`VALIDATION_ERROR`, `UNAUTHENTICATED`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`, `INTERNAL_ERROR`) stay in `api`. Statuses are listed in [api-design.md](../../api/api-design.md).
 7. **Services reach storage only through repositories.** A repository is an abstract class in `core/*/repositories/`, and Nest uses it as the injection token. `InfraModule` (global, so `core` never imports it) binds it to an implementation: the stub now, Prisma later. A module's repositories touch only its own tables (HLD I2).
 8. **Inside a module, subfolders group files by kind** (`controllers/`, `schemas/`, `repositories/`, `services/`, `types/`). A subfolder is created only when its first file appears.
 
