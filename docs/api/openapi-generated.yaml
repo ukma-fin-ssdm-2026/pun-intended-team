@@ -36,6 +36,11 @@ components:
             $ref: '#/components/schemas/AdminCategory'
       required:
         - items
+      example:
+        items:
+          - id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+            name: Cinema
+            isActive: true
     AdminCategory:
       type: object
       properties:
@@ -158,6 +163,10 @@ components:
             $ref: '#/components/schemas/Category'
       required:
         - items
+      example:
+        items:
+          - id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+            name: Cinema
     Category:
       type: object
       properties:
@@ -185,6 +194,29 @@ components:
       required:
         - items
         - page
+      example:
+        items:
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+              name: Cinema
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            endsAt: '2026-10-17T21:30:00+03:00'
+            source: organization
+            status: published
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     Event:
       type: object
       properties:
@@ -370,6 +402,24 @@ components:
       required:
         - items
         - page
+      example:
+        items:
+          - id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+            author:
+              username: olena_k
+              displayName: Olena
+            category:
+              id: 0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01
+              name: Cinema
+            eventId: null
+            title: Looking for company for an exhibition on Saturday
+            description: Planning to go in the evening, happy to grab a coffee after.
+            date: '2026-10-17'
+            status: active
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     Listing:
       type: object
       properties:

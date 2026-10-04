@@ -18,19 +18,25 @@ export const Category = CategoryFields.meta({
   example: categoryExample,
 });
 
-export const CategoryList = z.object({ items: z.array(Category) }).meta({ id: 'CategoryList' });
+export const CategoryList = z
+  .object({ items: z.array(Category) })
+  .meta({ id: 'CategoryList', example: { items: [categoryExample] } });
 
 const AdminCategoryFields = CategoryFields.extend({
   isActive: z.boolean().describe('Inactive categories are hidden from filters and cannot be picked'),
 });
 
+const adminCategoryExample: AdminCategory = { ...categoryExample, isActive: true };
+
 export const AdminCategory = AdminCategoryFields.meta({
   id: 'AdminCategory',
   description: 'A category as administrators see it',
-  example: { ...categoryExample, isActive: true },
+  example: adminCategoryExample,
 });
 
-export const AdminCategoryList = z.object({ items: z.array(AdminCategory) }).meta({ id: 'AdminCategoryList' });
+export const AdminCategoryList = z
+  .object({ items: z.array(AdminCategory) })
+  .meta({ id: 'AdminCategoryList', example: { items: [adminCategoryExample] } });
 
 export const CategoryIdParams = z.object({
   id: Id.describe('Category id'),

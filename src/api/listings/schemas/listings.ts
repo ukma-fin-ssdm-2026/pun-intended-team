@@ -37,7 +37,7 @@ export const Listing = ListingFields.meta({
   example: listingExample,
 });
 
-export const ListingsPage = pageOf(Listing, 'ListingsPage');
+export const ListingsPage = pageOf(Listing, 'ListingsPage', listingExample);
 
 export const ListingIdParams = z.object({
   id: Id.describe('Listing id'),

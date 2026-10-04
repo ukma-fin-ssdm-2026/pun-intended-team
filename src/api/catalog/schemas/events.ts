@@ -53,7 +53,7 @@ export const Event = EventFields.meta({
   example: eventExample,
 });
 
-export const EventsPage = pageOf(Event, 'EventsPage');
+export const EventsPage = pageOf(Event, 'EventsPage', eventExample);
 
 export const EventIdParams = z.object({
   id: Id.describe('Event id'),
