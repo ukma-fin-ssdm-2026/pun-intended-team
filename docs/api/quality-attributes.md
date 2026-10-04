@@ -4,26 +4,27 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 
 - **Scope:** every endpoint of the API in [`/src/api`](../../src/api) — 16 operations, 15 of them under `/api/v1` plus `/health` — and the OpenAPI specification generated from it ([`openapi-generated.yaml`](openapi-generated.yaml)). The endpoint list lives in [`api-design.md`](api-design.md); when it changes, this document changes with it.
 - **Quality model:** ISO/IEC 25010:2023, the same as [`requirements.md` §4](../requirements/requirements.md).
-- **Related documents:** [`requirements.md`](../requirements/requirements.md) · [`high-level-design.md`](../architecture/high-level-design.md) · [`catalog-access.md`](../architecture/mechanisms/catalog-access.md) · [`data-model.md`](../architecture/data-model.md)
+- **Related documents:** [`requirements.md`](../requirements/requirements.md) · [`high-level-design.md`](../architecture/high-level-design.md) · [`catalog-access.md`](../architecture/mechanisms/catalog-access.md) · [`data-model.md`](../architecture/data-model.md) · [`threat-model.md`](../architecture/threat-model.md)
 - **Status tags:**
   - **now** — the API returns stub data, but validation, status codes, error format and documentation are real, so the goal can pass or fail already. The result of the latest measurement follows the tag.
   - **contract** — depends on real authentication, a database or a deployed server. It is written down now so that the stubs and the spec do not contradict it, and it is **not** claimed as met until it is measured.
-- **Measured with:** [`test/validation/validate-api.mjs`](../../test/validation/validate-api.mjs) (live API, §4), [`test/validation/check-spec.mjs`](../../test/validation/check-spec.mjs) (generated spec) and a 60-second smoke load run. Latest run: 3 October 2026, `main`, stub data, fresh server.
+- **Measured with:** the validation log (§4), produced by sending every request to a local copy of the API; a check of the generated spec (`openapi-generated.yaml`); a 60-second smoke load run and `npm audit`. Repeating the log by hand in Swagger UI is tracked in the table *Swagger UI verification* in §4: no goal below claims a Swagger UI result that is not ticked there. Latest run: 3 October 2026 (Kyiv time), `main`, stub data, fresh server.
 
 ## Status at a Glance
 
 | ID | Goal | Status | Latest result |
 |---|---|---|---|
 | QA-PERF-01 | Read latency | contract | Smoke run only: p99 66 ms at 50 connections |
-| QA-SEC-01 | Input validation | now · **not met** | 161 of 169 log rows pass; the 8 failures are unknown body fields (D-1) |
+| QA-SEC-01 | Input validation | now · **not met** | 161 of 170 log rows pass; the 9 failures are unknown body fields (D-1, 8 rows) and a form-encoded body (D-4) |
 | QA-SEC-02 | Bulk access | now · met | `limit=21` is rejected on both list endpoints; no page above 20 items |
 | QA-SEC-03 | Data exposure | now · met | 0 sensitive names among 34 schema properties and parameters |
 | QA-SEC-04 | Access control | now (stub tokens) · met; rest contract | all 19 rows that expect `401` pass; non-admin and not-the-owner callers get `404` |
 | QA-SEC-05 | Rate limiting | contract | Not implemented: 127,796 smoke requests on one token got no `429` |
-| QA-REL-01 | Failure handling | now · met | 0 of 169 responses were `5xx`; the `500` path itself is not exercised (see goal) |
+| QA-SEC-06 | Dependency advisories | now · met | `npm audit`: 0 advisories of any severity (198 packages) |
+| QA-REL-01 | Failure handling | now · met | 0 of 170 responses were `5xx`; the `500` path itself is not exercised (see goal) |
 | QA-REL-02 | Availability | contract | No deployed backend yet |
 | QA-FUNC-01 | Status codes | now · met | 15 of 15 documented endpoints match the spec; every success code in the log is the documented one |
-| QA-INTC-01 | Error format | now · met | 0 non-2xx responses in the spec without `ErrorResponse`; 125 error responses in the log, none leaks internals |
+| QA-INTC-01 | Error format | now · met (scope: the API's own code, D-6) | 0 non-2xx responses in the spec without `ErrorResponse`; 125 error responses in the log, none leaks internals |
 | QA-MAIN-01 | Annotation completeness | now · **not met** | 12 of 16 operations pass; 4 list responses have no example (D-2) |
 | QA-MAIN-02 | Spec freshness | now · met | Regenerated spec is byte-identical to the committed one |
 | QA-MAIN-03 | Publication delay | now · not measured yet | Take the run time from the last `API docs (GitHub Pages)` run |
@@ -49,17 +50,18 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 
 ### Security
 
-**QA-SEC-01 · Input validation** — *now · **not met** (D-1)*
+**QA-SEC-01 · Input validation** — *now · **not met** (D-1, D-4)*
 
-- **Goal:** 100% of invalid inputs (missing, wrong type, out of range, too long, malformed id, unknown body field, malformed JSON) are rejected with `400` before any handler logic runs (`413` for a body over 100 kB)
+- **Goal:** 100% of invalid inputs (missing, wrong type, out of range, too long, malformed id, unknown body field, malformed JSON, a body that is not JSON) are rejected with `400` before any handler logic runs (`413` for a body over 100 kB)
 - **Failure condition:** any invalid input returns `2xx` or `5xx`, or is silently accepted
 - **Implementation:**
   - a zod schema for every path, query and body parameter, passed to `@Endpoint` and checked by `ValidationInterceptor` before the handler runs; all three parts are parsed together, so `details` lists every invalid field. The same schema produces the OpenAPI description, so the rules shown in Swagger UI cannot differ from the rules enforced
   - body schemas must reject unknown fields: a plain `z.object` drops them without any error, a `z.strictObject` rejects them. **Today the five body schemas use `z.object`** (D-1)
+  - bodies must be JSON (`api-design.md` §1). Nest also registers a form-urlencoded parser by default, so **today a form-encoded body is accepted** (D-4)
   - errors raised before a handler runs (broken JSON, body over 100 kB, broken URL encoding) are mapped to `400` / `413` by `ApiExpressAdapter`
-- **Measurement:** validation log (§4), every endpoint × every input class, run through Swagger UI (**Try it out**) and by `validate-api.mjs`
-- **Latest result:** 161 of 169 rows pass. Every input class is rejected as required except one: an unknown body field is accepted and ignored on `POST /events`, `PATCH /events/{id}`, `POST /listings`, `POST /admin/categories` and `PATCH /admin/categories/{id}` (8 rows). The ignored fields never reach the stored data: `status` and `source` sent for an event, and `status` and `authorId` sent for a listing, did not change the created object (the event stayed `published` with source `organization`, the listing stayed `active` with the caller as author)
-- **Source:** Lab 4 criteria, SAFE-001
+- **Measurement:** validation log (§4), every endpoint × every input class; to be repeated in Swagger UI (**Try it out**) as the table in §4 shows, with `curl` for the rows Swagger UI cannot send
+- **Latest result:** 161 of 170 rows pass. Every input class is rejected as required except two. (1) An unknown body field is accepted and ignored on `POST /events`, `PATCH /events/{id}`, `POST /listings`, `POST /admin/categories` and `PATCH /admin/categories/{id}` (8 rows, D-1). (2) A body sent as `application/x-www-form-urlencoded` with valid fields is parsed and accepted (1 row, on `POST /admin/categories`; Nest registers that parser for every route, D-4). The ignored fields never reach the stored data: `status` and `source` sent for an event, and `status` and `authorId` sent for a listing, did not change the created object (the event stayed `published` with source `organization`, the listing stayed `active` with the caller as author)
+- **Source:** Lab 4 criteria; threat model (main server, Tampering: input validation)
 
 **QA-SEC-02 · Bulk access** — *now · met*
 
@@ -70,17 +72,17 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - no `total` in the page object, so the size of the catalog is not revealed
   - the catalog window is limited to 28 days
 - **Measurement:** validation log — `limit=20` passes and `limit=21`, `0`, `-5`, `abc`, `1.5` are rejected on `GET /events`; `limit=20` passes and `21`, `0`, `abc` are rejected on `GET /listings`
-- **Source:** catalog-access.md, rule 2
+- **Source:** catalog-access.md, rule 2; threat model TM-10
 
 **QA-SEC-03 · Data exposure** — *now · met*
 
-- **Goal:** zero response schemas contain credential or sensitive fields — password, `secret`, `code_hash`, `token_hash`, `push_token`, `date_of_birth`, phone number, email — except the contact fields of a mutual match (no such endpoint yet)
+- **Goal:** zero response schemas contain credential or sensitive fields — `password`, `secret`, `code_hash`, `token_hash`, `push_token`, `date_of_birth`, the phone number (stored as `contact_identifier`; any `contact*` or `phone` name), email — except the contact fields of a mutual match (no such endpoint yet). Names are compared in lower case without underscores, because the API uses camelCase and the data model snake_case: `code_hash` and `codeHash` are the same name
 - **Failure condition:** any such field name appears in a response schema or in a response body
 - **Implementation:**
   - response shapes are zod schemas that list their fields explicitly; `ResponseSchemaInterceptor` parses every handler result with the success schema, so a field the schema does not list is dropped from the response
   - listing authors are exposed as `username` and `displayName` only
-- **Measurement:** `check-spec.mjs` searches the property and parameter names of the generated spec for the listed names; inspection of the stub responses (the listing author row in §4)
-- **Latest result:** 0 hits among 34 property and parameter names
+- **Measurement:** search of the property and parameter names in `openapi-generated.yaml` (the **Schemas** section of Swagger UI) for the listed names; inspection of the stub responses (the listing author row in §4)
+- **Latest result:** 0 hits among 34 property and parameter names (checked in the normalised form, also against `hash`, `failedSignins` and `lockedUntil` from the data model)
 - **Source:** SEC-002, data-model §4
 
 **QA-SEC-04 · Access control** — *now (stub tokens) · met; real tokens and the contact rule are contract*
@@ -93,7 +95,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - mutual-acceptance rule checked on the server (planned)
 - **Measurement:** validation log — each of the 15 protected endpoints is called with a missing or guest token; non-admin and not-the-owner rows; later, authorization tests per token state and per match state
 - **Latest result:** all 19 rows that expect `401` pass, and all non-admin and not-the-owner rows return `404`. Expired, tampered and revoked tokens cannot be tried with stub tokens
-- **Source:** SEC-005, SEC-001
+- **Source:** SEC-005, SEC-001; threat model TM-11
 
 **QA-SEC-05 · Rate limiting** — *contract*
 
@@ -104,7 +106,18 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - per-IP backstop at the load balancer (planned)
 - **Measurement:** test that sends 101 requests within one minute
 - **Latest result:** not implemented. The smoke run sent 127,796 requests on one token in 60 s and never got a `429`, so this goal would fail if it were claimed now
-- **Source:** SEC-007
+- **Source:** SEC-007; catalog-access.md, rule 4; threat model TM-10
+
+**QA-SEC-06 · Dependency advisories** — *now · met*
+
+- **Goal:** zero Critical and zero High advisories in the dependencies of the API at release
+- **Failure condition:** `npm audit --audit-level=high` exits with a non-zero status
+- **Implementation:**
+  - dependencies are installed from `package-lock.json` (`npm ci`), so the audit sees the versions that run
+  - `src/mcp/` is a separate generated project with its own lock file and is outside this goal
+- **Measurement:** `npm audit --audit-level=high` on the repository root. The CI gate that SEC-006 asks for is not set up yet, so this is a manual run
+- **Latest result:** 3 October 2026: 0 advisories of any severity (info, low, moderate, high, critical) in the 198 packages installed from the lock file
+- **Source:** SEC-006
 
 ### Reliability
 
@@ -117,7 +130,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - the router answers unknown routes with `404`, and the same filter gives it the `ErrorResponse` shape
   - the server refuses to start if an endpoint is declared with zero or several success statuses, so a misdeclared endpoint cannot misbehave at run time
 - **Measurement:** validation log (a `5xx` row is a failure); the server process is watched during the run
-- **Latest result:** 0 of 169 responses were `5xx`; the server answered the last request of the log, and a separate 60-second load run (127,796 requests) also ended with no errors or timeouts. Not covered: the `500` path itself, because nothing in the stub API can fail; it needs a test with a repository that throws
+- **Latest result:** 0 of 170 responses were `5xx`; the server answered the last request of the log, and a separate 60-second load run (127,796 requests) also ended with no errors or timeouts. About 20 extra hand-made probes (`null` and array values, JSON nested 5000 levels, a `__proto__` key, a repeated query parameter, a 100 kB token, `HEAD` and `OPTIONS`) gave no `5xx` either. Not covered: the `500` path itself, because nothing in the stub API can fail; it needs a test with a repository that throws
 - **Source:** Lab 4 criteria
 
 **QA-REL-02 · Availability** — *contract (needs a deployed backend, bonus)*
@@ -139,7 +152,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Implementation:**
   - `@Endpoint` takes exactly one success status per endpoint and sets it as the response code
   - `@Endpoint` adds `400`, `401` and (for admin endpoints) `404` to the spec itself; every other returned code is declared in the endpoint's `responses`
-- **Measurement:** validation log, *expected* vs *actual* columns; `check-spec.mjs` compares the codes of every endpoint table row in `api-design.md` with the spec
+- **Measurement:** validation log, *expected* vs *actual* columns; comparison of the codes of every endpoint table row in `api-design.md` with the responses listed for the same operation in Swagger UI
 - **Latest result:** 15 of 15 documented endpoints have the same code set in the spec and in `api-design.md`; every success in the log returns the documented code, every `201` carries `Location` and every `204` has an empty body
 - **Source:** Lab 4 criteria
 
@@ -147,14 +160,14 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 
 **QA-INTC-01 · Error format** — *now · met*
 
-- **Goal:** 100% of `4xx`/`5xx` responses use one shared `ErrorResponse` schema; zero stack traces, exception names or raw internal messages in any response body
+- **Goal:** 100% of `4xx`/`5xx` responses produced by the API's own code use one shared `ErrorResponse` schema; zero stack traces, exception names or raw internal messages in any response body. A request that Node's HTTP parser rejects before the API runs (headers above about 16 kB) is outside this scope (D-6)
 - **Failure condition:** any error response in the spec or in a real call has a different shape, or exposes an exception name or a stack trace
 - **Implementation:**
   - `ErrorResponse` is defined once in `common/schemas/errors.ts`; `ApiExceptionFilter` is the only place that builds an error body, so errors raised by Nest itself (router `404`, a stray `403` mapped to `404`) get the same shape
   - `@Endpoint` adds the `400` and `401` responses to every operation that needs them
   - technical detail goes to the log, not to the response (SEC-004)
-- **Measurement:** `check-spec.mjs` (every non-2xx response refers to `ErrorResponse`); the validation log checks every error response for the shape and for stack-trace patterns
-- **Latest result:** 0 exceptions in the spec; all 125 error responses in the log have `error.code` and `error.message` and show no stack trace. This includes errors raised outside the handlers: broken JSON, a 200 kB body, broken URL encoding, an unknown route and a wrong method
+- **Measurement:** every non-2xx response in the spec refers to `ErrorResponse` (checked in Swagger UI under each operation's **Responses**); the validation log checks every error response for the shape and for stack-trace patterns
+- **Latest result:** 0 exceptions in the spec; all 125 error responses in the log have `error.code` and `error.message` and show no stack trace. This includes errors raised outside the handlers: broken JSON, a 200 kB body, broken URL encoding, an unknown route and a wrong method. Outside the API's code (D-6): a 100 kB `Authorization` header gets an empty `431` from Node itself, and the router words an unknown route its own way (`Cannot OPTIONS /api/v1/events`) instead of `Not found`
 - **Source:** Lab 4 criteria, INTC-004
 
 ### Maintainability
@@ -167,7 +180,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - `summary`, `tags`, `operationId`, `access` and `responses` are required fields of `@Endpoint`, so an endpoint cannot be declared without them (TypeScript refuses to compile); the server also refuses to start for a misdeclared status (`201` without `location`, `204` with a body)
   - examples are set once on a schema with `.meta({ example })` and reused by every response that refers to it
   - shared schemas (`Id`, `ErrorResponse`, `PageInfo`) are reused instead of copied
-- **Measurement:** `check-spec.mjs` over `openapi-generated.yaml` (run in CI once D-2 is fixed); manual spot-check in Swagger UI
+- **Measurement:** inspection of `openapi-generated.yaml` and of every operation in Swagger UI (summary, description, parameters, **Example Value** of the success response, documented `400` / `401`)
 - **Latest result:** 12 of 16 operations pass. The four list operations — `GET /events`, `GET /listings`, `GET /categories`, `GET /admin/categories` — return `EventsPage`, `ListingsPage`, `CategoryList` and `AdminCategoryList`, which have no example. Everything else passes: summaries, descriptions, tags and unique `operationId`s on all 16, `400` and `401` wherever needed, a description on every parameter
 - **Source:** Lab 4 criteria
 
@@ -200,7 +213,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Failure condition:** any operation path other than `/health` has no version prefix
 - **Implementation:**
   - every path is defined once in `common/routes.ts` with its full prefix (`/api/v1/...`)
-- **Measurement:** `check-spec.mjs` over the paths of the generated spec; the validation log tries an unknown version and a path without a prefix
+- **Measurement:** the list of paths in `openapi-generated.yaml` (shown in Swagger UI); the validation log tries an unknown version and a path without a prefix
 - **Latest result:** 15 of 16 operations under `/api/v1`; `/api/v2/...` and an unprefixed `/events/{id}` both answer `404` with `ErrorResponse`
 - **Source:** Lab 4 bonus, REL-001
 
@@ -214,7 +227,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | Security (`404` instead of `403`) | A caller who may not access a resource gets the same `404` as for a missing one; non-admins get `404` on `/admin/*` | A client cannot tell "not yours" from "does not exist", which makes debugging harder | The `404` description in the spec says "or the caller may not access it"; the cause is in the server log |
 | Safety (contacts after mutual accept) | Contacts appear only after both accept and the safety notice is acknowledged (SEC-001, SAFE-002) | Extra steps before two people can talk | The confirmation screen explains the steps in advance (UC-001) |
 | Reliability (serve last import) | The catalog keeps serving the last import while the provider is down (REL-003) | Users may see stale events | Catalog shows a "last updated …" notice (FR-014) |
-| Flexibility (stateless API) | No in-process cache, so every read goes to the database (FLEX-002) | Performance headroom is lower | PERF-001 test shows when it matters; Redis or HTTP caching is the recorded next step (ADR-002). Until the database is connected the stubs keep state in memory, so two instances would show different data |
+| Flexibility (stateless API) | No in-process cache, so every read goes to the database (FLEX-002) | Performance headroom is lower | PERF-001 test shows when it matters; adding Redis is the recorded next step (ADR-002). Until the database is connected the stubs keep state in memory, so two instances would show different data |
 | Security (page size ≤ 20) | Browsing needs several requests; no "list all" endpoint | Less convenient for legitimate clients | Client loads the next page on scroll; the cap is reviewed against measured usage |
 | Maintainability (code-first spec) | Every endpoint carries its summary, tags, schemas and response list, so each `@Endpoint` block is longer; generation is a CI step | Controllers are harder to read | `@Endpoint` keeps one endpoint in one block, and shared schemas (`Id`, `ErrorResponse`, `PageInfo`) are reused |
 | Interaction capability (one `ErrorResponse`) | Detailed internal error text is not returned (INTC-004) | Less detail for the client; this is also what prevents information leaks | `details` names every invalid field; full detail goes to the log (SEC-004) |
@@ -234,11 +247,23 @@ Three scenarios show how the most important goals behave in practice.
 
 ## 4. Validation Log
 
-Run for issue #98: every endpoint, every applicable input class, expected result from [`api-design.md`](api-design.md), actual result from the running API. A row passes only when both the status code and the error body match.
+Run for issue #98: every endpoint, every applicable input class, expected result from [`api-design.md`](api-design.md), actual result from the running API. A row passes only when both the status code and the error body match. The *Actual* column comes from requests sent to a local copy of the API on 3 October 2026 (stub data, fresh server); it is **not yet a Swagger UI result**. The table *Swagger UI verification* below shows what has been repeated there.
 
 ### How to run it
 
-**In Swagger UI** (what the Loom video shows): start the API with `npm run dev` (Node 26) and open `http://localhost:4100/api-docs`. Click **Authorize** and enter one of the stub tokens below, then use **Try it out** on each endpoint with each input class. Swagger UI only offers documented operations, so the rows for routes that do not exist are tried with `curl` or the browser address bar.
+Use the **local** Swagger UI: the one on GitHub Pages is read-only and has no **Try it out**. Start the API with `npm run dev` (Node 26) and open `http://localhost:4100/api-docs`. Click **Authorize**, enter one of the stub tokens below, then use **Try it out** on each endpoint with each input class and compare the status code and the error body with the *Expected* column.
+
+Stub data lives in memory and some rows create or delete objects, so restart the server before a full pass and go through each block of the log from top to bottom (for example, "the same listing again" needs the row before it).
+
+**Rows Swagger UI cannot send, or may refuse to send, are marked `(curl)`** in the log: broken URL encoding, `text/plain` and form-encoded bodies (Swagger UI offers only the documented `application/json`), invalid JSON, no body, a 200 kB body, and the unknown routes. This list is not yet confirmed in a browser; add to it whatever Swagger UI turns out to refuse. Example:
+
+```bash
+curl -i -X POST http://localhost:4100/api/v1/admin/categories \
+  -H "Authorization: Bearer stub-admin" \
+  -H "Content-Type: application/x-www-form-urlencoded" -d "name=Zform"
+```
+
+**Dates.** The stub events are dated 17 and 20 October 2026 and one listing 20 October, so the item counts in the *Actual* column are those of 3 October. From 18 October the `limit=1` row of `GET /events` no longer returns `hasMore=true`, and from 21 October the catalog and the feed are empty (D-5).
 
 | Token | Caller | Use it for |
 |---|---|---|
@@ -247,8 +272,6 @@ Run for issue #98: every endpoint, every applicable input class, expected result
 | `stub-org` | a verified organization with its own venue | publish, edit and cancel events |
 | `stub-org-pending` | an organization awaiting verification | `ORGANIZATION_NOT_VERIFIED` |
 | `stub-admin` | an administrator | `/api/v1/admin/categories`; any other caller gets `404` there |
-
-**Automatically:** `npm run build`, then `npm start` in one terminal and `node test/validation/validate-api.mjs` in another prints the log below (`--json` for machine-readable output). Stub data lives in memory, so restart the server before each run: the script creates and deletes objects. `node test/validation/check-spec.mjs` runs the checks over the generated spec.
 
 **Input classes:**
 
@@ -267,9 +290,33 @@ Run for issue #98: every endpoint, every applicable input class, expected result
 | Wrong caller | not the owner, not an administrator → `404` |
 | Business rule | valid body that a rule forbids → `422` |
 
+### Swagger UI verification
+
+Tick a row when every row of that endpoint in the log has been repeated in Swagger UI (and in `curl` where marked) and the *Actual* column still matches. The counts of `curl` rows are expected, not yet confirmed.
+
+| Endpoint | Rows | Of them `curl` | Repeated in Swagger UI |
+|---|---|---|---|
+| `GET /health` | 1 | 0 | ☐ |
+| `GET /events` | 21 | 0 | ☐ |
+| `GET /events/{id}` | 9 | 1 | ☐ |
+| `POST /events` | 29 | 4 | ☐ |
+| `PATCH /events/{id}` | 16 | 0 | ☐ |
+| `POST /events/{id}/cancel` | 6 | 0 | ☐ |
+| `GET /listings` | 8 | 0 | ☐ |
+| `GET /listings/{id}` | 5 | 0 | ☐ |
+| `POST /listings` | 22 | 1 | ☐ |
+| `DELETE /listings/{id}` | 6 | 0 | ☐ |
+| `GET /categories` | 2 | 0 | ☐ |
+| `GET /admin/categories` | 4 | 0 | ☐ |
+| `GET /admin/categories/{id}` | 6 | 0 | ☐ |
+| `POST /admin/categories` | 12 | 1 | ☐ |
+| `PATCH /admin/categories/{id}` | 11 | 0 | ☐ |
+| `DELETE /admin/categories/{id}` | 7 | 0 | ☐ |
+| Unknown routes and wrong methods | 5 | 5 | ☐ |
+
 ### Result
 
-**161 of 169 rows pass; 0 responses were `5xx`** (QA-REL-01 requires zero). The 8 failing rows are all one defect, D-1.
+**161 of 170 rows pass; 0 responses were `5xx`** (QA-REL-01 requires zero). The 9 failing rows are two defects: D-1 (8 rows, unknown body fields) and D-4 (1 row, form-encoded body).
 
 | Endpoint | Rows | Pass | Fail |
 |---|---|---|---|
@@ -286,11 +333,11 @@ Run for issue #98: every endpoint, every applicable input class, expected result
 | `GET /categories` | 2 | 2 | 0 |
 | `GET /admin/categories` | 4 | 4 | 0 |
 | `GET /admin/categories/{id}` | 6 | 6 | 0 |
-| `POST /admin/categories` | 11 | 10 | 1 |
+| `POST /admin/categories` | 12 | 10 | 2 |
 | `PATCH /admin/categories/{id}` | 11 | 10 | 1 |
 | `DELETE /admin/categories/{id}` | 7 | 7 | 0 |
 | Unknown routes and wrong methods (curl) | 5 | 5 | 0 |
-| **Total** | **169** | **161** | **8** |
+| **Total** | **170** | **161** | **9** |
 
 ### Log
 
@@ -347,7 +394,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | unknown id `11111111-1111-4111-8111-111111111111` | 404, `NOT_FOUND` | 404 NOT_FOUND | ✅ |
 | nil id `00000000-0000-0000-0000-000000000000` (boundary) | 404, `NOT_FOUND` | 404 NOT_FOUND | ✅ |
 | no token | 401 | 401 UNAUTHENTICATED | ✅ |
-| broken URL encoding `/events/%FF` | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
+| broken URL encoding `/events/%FF` (curl) | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
 
 </details>
 
@@ -380,11 +427,11 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | regular user (`stub-user`), not an organization | 422, `ORGANIZATION_NOT_VERIFIED` | 422 ORGANIZATION_NOT_VERIFIED | ✅ |
 | guest token | 401 | 401 UNAUTHENTICATED | ✅ |
 | no token | 401 | 401 UNAUTHENTICATED | ✅ |
-| body is not valid JSON `{"title":` | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
+| body is not valid JSON `{"title":` (curl) | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
 | body is a JSON array `[]` | 400, `VALIDATION_ERROR` | 400 VALIDATION_ERROR (body.) | ✅ |
-| no body at all | 400, `VALIDATION_ERROR` | 400 VALIDATION_ERROR (body.) | ✅ |
-| wrong `Content-Type` (`text/plain`) | 400, `VALIDATION_ERROR` | 400 VALIDATION_ERROR (body.) | ✅ |
-| body of 200 kB | 413, `PAYLOAD_TOO_LARGE` | 413 PAYLOAD_TOO_LARGE | ✅ |
+| no body at all (curl) | 400, `VALIDATION_ERROR` | 400 VALIDATION_ERROR (body.) | ✅ |
+| wrong `Content-Type` (`text/plain`) (curl) | 400, `VALIDATION_ERROR` | 400 VALIDATION_ERROR (body.) | ✅ |
+| body of 200 kB (curl) | 413, `PAYLOAD_TOO_LARGE` | 413 PAYLOAD_TOO_LARGE | ✅ |
 
 </details>
 
@@ -481,7 +528,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | cancelled event | 422, `EVENT_CANCELLED` | 422 EVENT_CANCELLED | ✅ |
 | `date` in the past (`2020-01-01`) | not specified in `api-design.md` | 201, Looking for company for an exhibition [active], Location /api/v1/listings/{id} | ✅ |
 | guest token | 401 | 401 UNAUTHENTICATED | ✅ |
-| body is not valid JSON | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
+| body is not valid JSON (curl) | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |
 
 </details>
 
@@ -536,7 +583,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 </details>
 
 <details>
-<summary>`POST /admin/categories` — 10 of 11 pass</summary>
+<summary>`POST /admin/categories` — 10 of 12 pass</summary>
 
 | Input | Expected | Actual | Pass |
 |---|---|---|---|
@@ -548,6 +595,7 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | `name` of 60 characters (boundary) | 201 | 201, yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy, Location /api/v1/admin/categories/{id} | ✅ |
 | `isActive: "yes"` (wrong type) | 400, `body.isActive` | 400 VALIDATION_ERROR (body.isActive) | ✅ |
 | unknown field `foo` | 400, `VALIDATION_ERROR` (QA-SEC-01) | 201, Other, Location /api/v1/admin/categories/{id} | ❌ |
+| wrong `Content-Type` (`application/x-www-form-urlencoded`, valid fields) (curl) | 400, `VALIDATION_ERROR` (`api-design.md` §1: JSON in and out) | 201, Zform, Location /api/v1/admin/categories/{id} | ❌ |
 | duplicate name `cinema` (case-insensitive) | 409, `CONFLICT` | 409 CONFLICT | ✅ |
 | regular user | 404 (never `403`) | 404 NOT_FOUND | ✅ |
 | guest token | 401 | 401 UNAUTHENTICATED | ✅ |
@@ -637,18 +685,27 @@ Each defect is filed as an issue by the Quality Lead and linked here.
 
 | # | Finding | Goal | Proposed fix |
 |---|---|---|---|
-| D-1 | **Unknown body fields are silently ignored.** The five body schemas (`CreateEventBody`, `UpdateEventBody`, `CreateListingBody`, `CreateCategoryBody`, `UpdateCategoryBody`) are `z.object`, which drops unknown keys. 8 log rows fail. No data is affected: ignored fields never reach the stored object | QA-SEC-01 | Use `z.strictObject` in `events.ts`, `listings.ts` and `categories.ts` (4 lines). Tried in a copy of the repository: all 169 log rows pass, `npm run test:e2e` still passes 32 of 32, and the spec gains `additionalProperties: false` on the five bodies. One side effect: `details[].field` is empty for the unknown key (the message names it: `Unrecognized key: "foo"`); put the key in `field` |
+| D-1 | **Unknown body fields are silently ignored.** The five body schemas (`CreateEventBody`, `UpdateEventBody`, `CreateListingBody`, `CreateCategoryBody`, `UpdateCategoryBody`) are `z.object`, which drops unknown keys. 8 log rows fail. No data is affected: ignored fields never reach the stored object | QA-SEC-01 | Use `z.strictObject` in `events.ts`, `listings.ts` and `categories.ts` (4 lines). Tried in a copy of the repository: all 169 rows of the first run pass, `npm run test:e2e` still passes 32 of 32, and the spec gains `additionalProperties: false` on the five bodies. One side effect: `details[].field` is empty for the unknown key (the message names it: `Unrecognized key: "foo"`); put the key in `field` |
 | D-2 | **The four list responses have no example** (`EventsPage`, `ListingsPage`, `CategoryList`, `AdminCategoryList`) | QA-MAIN-01 | Add `example` to the four schemas, built from the existing `eventExample`, `listingExample` and `categoryExample` |
 | D-3 | **Every response carries `X-Powered-By: Express`**, which names the framework. Not covered by a goal yet | QA-SEC-03 (nearest) | Disable the header in `main.ts`, or add `helmet` |
+| D-4 | **A form-encoded body is accepted.** `POST /admin/categories` with `Content-Type: application/x-www-form-urlencoded` and `name=Zform` returns `201`: Nest registers a form parser next to the JSON one. `api-design.md` §1 says "JSON in and out", and `text/plain` is already rejected | QA-SEC-01 | In `main.ts`: `NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter(), { bodyParser: false })`, then `app.useBodyParser('json')`. Tried in a copy of the repository: the form-encoded request gets `400`, valid JSON still `201`, broken JSON `400`, a 200 kB body `413`, `npm run test:e2e` 32 of 32 |
+| D-5 | **The stub data goes stale on 18 October.** `data.ts` has fixed dates (published events 17 and 20 October 2026, a listing 20 October); the catalog hides events that have ended and the feed hides listings dated before today. The `limit=1` row of `GET /events` stops returning `hasMore=true` on 18 October and the catalog is empty from 21 October. With the clock set to 23 October `npm run test:e2e` fails 1 of 32 (`returns a page of listings`), so the `API tests` workflow, which runs on every push and pull request, turns red | the validation log; no goal of its own | Compute the stub dates from today (for example `kyivDate()` plus a few days) in `data.ts`. Not tried |
+| D-6 | **Errors that do not come from the API's own code.** A 100 kB `Authorization` header is rejected by Node with an empty `431`, not an `ErrorResponse`; the router answers an unknown route or method with its own wording (`Cannot OPTIONS /api/v1/events`) while other `404`s say `Not found` | QA-INTC-01 | `431`: accept and keep it out of scope (it comes from Node before the API runs; in production the load balancer is in front). Router wording: let `ApiExceptionFilter` answer every router `404` with `Not found`. Not tried |
 
 Open questions for the Backend Lead and the API Design Lead:
 
 - **Q-1.** `api-design.md` does not say what happens to an unknown field in a body. D-1 assumes "rejected with `400`", the stricter reading of QA-SEC-01. If the team prefers "ignored", write that in `api-design.md` and change QA-SEC-01 to match: the goal and the design must not disagree.
 - **Q-2.** `GET /health` is in the spec but not in the endpoint tables of `api-design.md` (only its lack of a version prefix is mentioned). Add it, so that QA-FUNC-01 covers all 16 operations.
 - **Q-3.** `POST /api/v1/listings` accepts a `date` in the past (`2020-01-01` → `201`), but the feed shows only listings dated today or later, so the new listing never appears. `api-design.md` does not say whether this is allowed; a `422` would be consistent with the other business rules.
+- **Q-4.** The business-rule table in `api-design.md` lists `ORGANIZATION_NOT_VERIFIED` for `PATCH /events/{id}`, but `EventsService.update` checks ownership first and the pending stub organization (`stub-org-pending`) owns no event, so no stub token can reach that `422` and the log has no row for it. Add a stub event owned by that organization, or remove `PATCH` from that row.
+- **Q-5.** `requirements.md` MAIN-001 asks for statement coverage of at least 70% on the API with a failing gate. The repository has e2e tests and no coverage gate, and this document has no goal for it. Add a *contract* goal here, or leave it to the testing document?
 
 ## AI Usage Note
 
-This document was developed collaboratively by Oleh and Claude. Oleh provided the initial ideas and a draft, while Claude helped formalize and structure the content and produce a clear, high-quality English version.
+This document was developed collaboratively by Oleh and Claude. Oleh provided the initial ideas and a draft (the goals and the trade-off table); Claude formalized and structured the content, wrote the English text, and produced the validation log.
 
-Some numerical values marked (proposed) and some scenarios were formulated with the assistance of AI based on Oleh's initial ideas. The goals were then updated to the current NestJS code, and the validation log, the spec checks and the smoke run were produced by Claude with `validate-api.mjs`, `check-spec.mjs` and autocannon against a copy of the repository (Node 22, not the Node 26 the project requires). The log was not yet repeated by hand in Swagger UI: Oleh repeats a sample there before the Loom video.
+**What AI generated:** the wording of the goals, the numbers marked (proposed), the scenarios, the log (169 rows by a script and one row by hand, 3 October 2026) and the proposed fixes.
+
+**How it was checked (by Claude, on the repository archive, Node 22 and not the Node 26 the project requires):** `npm run typecheck`; `npm run test:e2e` (32 of 32); the spec regenerated with `npm run docs:generate` is identical to the committed one; the log repeated on a fresh server gives the same 161 passes and 8 failures; the proposed fixes D-1 and D-4 tried in a copy of the repository (all rows pass, e2e 32 of 32); D-5 reproduced by running the tests with the clock set forward; `npm audit` gives 0 advisories; the 60-second smoke run is an order of magnitude on one core, not a benchmark. The sources cited in each goal (requirements, threat model, catalog access, data model, ADR-002, UC-001) were compared with the text of those documents; "Lab 4 criteria" could not be compared, because the assignment text is not in the repository.
+
+**Not yet done:** the validation log has not been repeated by hand in Swagger UI. The table *Swagger UI verification* in §4 shows which endpoints have been; Oleh updates this note when it is complete.
