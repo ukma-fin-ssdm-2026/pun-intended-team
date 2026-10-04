@@ -10,7 +10,6 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Status tags:**
   - **now** — the API returns stub data, but validation, status codes, error format and documentation are real, so the goal can pass or fail already. The result of the latest measurement follows the tag.
   - **contract** — depends on real authentication, a database or a deployed server. It is written down now so that the stubs and the spec do not contradict it, and it is **not** claimed as met until it is measured.
-- **Measured with:** the validation log (§4), produced by sending every request to a local copy of the API; a check of the generated spec (`openapi-generated.yaml`); a 60-second smoke load run and `npm audit`. Repeating the log by hand in Swagger UI is tracked in the table *Swagger UI verification* in §4: no goal below claims a Swagger UI result that is not ticked there. Latest run: the validation log on 4 October 2026 (Kyiv time), stub data, fresh server, code with fixes D-1, D-2, D-3 applied (decisions Q-1 to Q-3 included). The smoke load run, the extra probes and `npm audit` are from 3 October 2026, before those fixes, and have not been repeated.
 
 ## Status at a Glance
 
