@@ -133,9 +133,11 @@ components:
           type: string
           minLength: 1
           maxLength: 60
+          description: Unique, case-insensitive
         isActive:
           type: boolean
           default: true
+          description: Whether users can pick the category
       required:
         - name
       additionalProperties: false
@@ -148,8 +150,10 @@ components:
           type: string
           minLength: 1
           maxLength: 60
+          description: Unique, case-insensitive
         isActive:
           type: boolean
+          description: Whether users can pick the category
       additionalProperties: false
       description: Only the fields to change
       example:
@@ -332,12 +336,15 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the catalog
         description:
           type: string
           maxLength: 5000
+          description: Can be empty
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         venueId:
           type: string
           format: uuid
@@ -345,9 +352,11 @@ components:
         startsAt:
           type: string
           format: date-time
+          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
         endsAt:
           type: string
           format: date-time
+          description: End time with an offset; must be after startsAt
       required:
         - title
         - description
@@ -370,12 +379,15 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the catalog
         description:
           type: string
           maxLength: 5000
+          description: Can be empty
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         venueId:
           type: string
           format: uuid
@@ -383,9 +395,11 @@ components:
         startsAt:
           type: string
           format: date-time
+          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
         endsAt:
           type: string
           format: date-time
+          description: End time with an offset; must be after startsAt
       additionalProperties: false
       description: Only the fields to change
       example:
@@ -489,6 +503,7 @@ components:
         categoryId:
           type: string
           format: uuid
+          description: An active category from listCategories
         eventId:
           type: string
           format: uuid
@@ -497,9 +512,11 @@ components:
           type: string
           minLength: 1
           maxLength: 120
+          description: Title shown in the listing feed
         description:
           type: string
           maxLength: 2000
+          description: Can be empty
         date:
           type: string
           format: date

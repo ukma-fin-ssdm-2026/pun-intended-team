@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-03T17:37:34.951Z
+ * Generated on: 2026-10-04T11:47:40.837Z
  */
 
 // Load environment variables from .env file
@@ -82,7 +82,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "adminCreateCategory",
     description: `Add a category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60},"isActive":{"type":"boolean","default":true}},"required":["name"],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/admin/categories",
     executionParameters: [],
@@ -121,7 +121,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "adminUpdateCategory",
     description: `Rename, deactivate or reactivate a category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60},"isActive":{"type":"boolean"}},"description":"Only the fields to change"}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","description":"Whether users can pick the category"}},"additionalProperties":false,"description":"Only the fields to change"}},"required":["id"]},
     method: "patch",
     pathTemplate: "/api/v1/admin/categories/{id}",
     executionParameters: [{"name":"id","in":"path"}],
@@ -160,7 +160,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "createEvent",
     description: `Publish an event. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":5000},"categoryId":{"type":"string","format":"uuid"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time"},"endsAt":{"type":"string","format":"date-time"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/events",
     executionParameters: [],
@@ -186,7 +186,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "updateEvent",
     description: `Edit one of the organization’s own events; only the fields sent change. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":5000},"categoryId":{"type":"string","format":"uuid"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time"},"endsAt":{"type":"string","format":"date-time"}},"description":"Only the fields to change"}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"additionalProperties":false,"description":"Only the fields to change"}},"required":["id"]},
     method: "patch",
     pathTemplate: "/api/v1/events/{id}",
     executionParameters: [{"name":"id","in":"path"}],
@@ -225,7 +225,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "createListing",
     description: `Post a listing. Needs a signed-in account; a guest token gets 401.
 (Tags: Listings)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"categoryId":{"type":"string","format":"uuid"},"eventId":{"type":"string","format":"uuid","description":"A catalog event the listing is about"},"title":{"type":"string","minLength":1,"maxLength":120},"description":{"type":"string","maxLength":2000},"date":{"type":"string","format":"date","description":"The day, Kyiv time"}},"required":["categoryId","title","description","date"],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"eventId":{"type":"string","format":"uuid","description":"A catalog event the listing is about"},"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the listing feed"},"description":{"type":"string","maxLength":2000,"description":"Can be empty"},"date":{"type":"string","format":"date","description":"The day, Kyiv time"}},"required":["categoryId","title","description","date"],"additionalProperties":false,"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/listings",
     executionParameters: [],

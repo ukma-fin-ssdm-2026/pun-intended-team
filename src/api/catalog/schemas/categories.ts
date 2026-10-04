@@ -42,11 +42,15 @@ export const CategoryIdParams = z.object({
   id: Id.describe('Category id'),
 });
 
-const CategoryName = z.string().trim().min(1).max(60);
+export const ActiveCategoryId = Id.describe('An active category from listCategories');
+
+const CategoryName = z.string().trim().min(1).max(60).describe('Unique, case-insensitive');
+
+const CategoryIsActive = z.boolean().describe('Whether users can pick the category');
 
 const CreateCategoryFields = z.strictObject({
   name: CategoryName,
-  isActive: z.boolean().default(true),
+  isActive: CategoryIsActive.default(true),
 });
 
 export const CreateCategoryBody = CreateCategoryFields.meta({
@@ -56,7 +60,7 @@ export const CreateCategoryBody = CreateCategoryFields.meta({
 
 const UpdateCategoryFields = z.strictObject({
   name: CategoryName.optional(),
-  isActive: z.boolean().optional(),
+  isActive: CategoryIsActive.optional(),
 });
 
 export const UpdateCategoryBody = UpdateCategoryFields.meta({
