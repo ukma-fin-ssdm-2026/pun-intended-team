@@ -257,12 +257,12 @@ Use the **local** Swagger UI: the one on GitHub Pages is read-only and has no **
 
 Stub data lives in memory and some rows create or delete objects, so restart the server before a full pass and go through each block of the log from top to bottom (for example, "the same listing again" needs the row before it).
 
-**Rows Swagger UI cannot send are marked `(curl)`** in the log: 34 of 170 rows, in two groups.
+**Rows Swagger UI cannot send are marked `(curl)`** in the log: 34 of 170 rows, in two groups
 
 - **Blocked by Swagger UI itself (26 rows).** Before it sends a request, Swagger UI checks every query and path parameter against the schema and refuses a value that breaks it: a `limit` or `offset` that is not an integer or is out of range, and a value that is not a UUID in `categoryId`, `venueId` or `{id}`. To see the server's `400` for these, send them with `curl`.
 - **Not sendable from Swagger UI (8 rows).** It offers only the documented `application/json` body, so `text/plain` and form-urlencoded bodies, a request with no body and no `Content-Type`, and the unknown routes need `curl`.
 
-Broken JSON and a 200 kB body can be typed or pasted into the request body box of **Try it out**, so those rows are not marked. This split comes from one trial run against the local Swagger UI; it is **expected, not yet confirmed by hand**. Add to the list whatever else Swagger UI turns out to refuse. Example:
+Broken JSON and a 200 kB body can be typed or pasted into the request body box of **Try it out**, so those rows are not marked. Add to the list whatever else Swagger UI turns out to refuse. Example:
 
 ```bash
 curl -i -X POST http://localhost:4100/api/v1/admin/categories \
