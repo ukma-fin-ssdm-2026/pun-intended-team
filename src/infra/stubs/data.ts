@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
+import { addDays, kyivDate } from '../../core/common/kyiv-time.js';
 import type { Caller } from '../../core/identity/types/caller.js';
 import type { Event } from '../../core/catalog/types/event.js';
 import type { Category } from '../../core/catalog/types/category.js';
@@ -68,6 +69,9 @@ export const venues: Venue[] = [
   },
 ];
 
+// Dates count from the day the server starts, so the stub catalog never runs out.
+const inDays = (days: number) => addDays(kyivDate(), days);
+
 /** How an event row is stored: category and venue by id, joined on read. */
 export type StoredEvent = Omit<Event, 'category' | 'venue'> & { categoryId: string; venueId: string };
 
@@ -78,8 +82,8 @@ export const events: StoredEvent[] = [
     description: 'Screening in the park, bring a blanket.',
     categoryId: categories[0].id,
     venueId: venues[0].id,
-    startsAt: '2026-10-17T19:00:00+03:00',
-    endsAt: '2026-10-17T21:30:00+03:00',
+    startsAt: `${inDays(13)}T19:00:00+03:00`,
+    endsAt: `${inDays(13)}T21:30:00+03:00`,
     source: 'organization',
     status: 'published',
     organizationId: accounts.filmClub,
@@ -90,8 +94,8 @@ export const events: StoredEvent[] = [
     description: 'Imported from a partner listing.',
     categoryId: categories[1].id,
     venueId: venues[1].id,
-    startsAt: '2026-10-20T11:00:00+03:00',
-    endsAt: '2026-10-20T23:59:59+03:00',
+    startsAt: `${inDays(16)}T11:00:00+03:00`,
+    endsAt: `${inDays(16)}T23:59:59+03:00`,
     source: 'import',
     status: 'published',
     organizationId: null,
@@ -102,8 +106,8 @@ export const events: StoredEvent[] = [
     description: 'Cancelled: the pianist is ill.',
     categoryId: categories[0].id,
     venueId: venues[0].id,
-    startsAt: '2026-10-24T18:00:00+03:00',
-    endsAt: '2026-10-24T20:00:00+03:00',
+    startsAt: `${inDays(20)}T18:00:00+03:00`,
+    endsAt: `${inDays(20)}T20:00:00+03:00`,
     source: 'organization',
     status: 'cancelled',
     organizationId: accounts.filmClub,
@@ -117,8 +121,8 @@ export const listings: Listing[] = [
     categoryId: categories[1].id,
     eventId: events[1].id,
     title: 'Looking for company for the Arsenal exhibition',
-    description: 'Planning to go on Tuesday evening, happy to grab a coffee after.',
-    date: '2026-10-20',
+    description: 'Planning to go in the evening, happy to grab a coffee after.',
+    date: inDays(16),
     status: 'active',
   },
   {
@@ -126,9 +130,9 @@ export const listings: Listing[] = [
     authorId: accounts.taras,
     categoryId: categories[2].id,
     eventId: null,
-    title: 'Anyone up for a jazz concert this weekend?',
+    title: 'Anyone up for a jazz concert?',
     description: 'No ticket yet, open to suggestions.',
-    date: '2026-10-11',
+    date: inDays(7),
     status: 'active',
   },
 ];

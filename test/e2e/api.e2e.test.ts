@@ -130,7 +130,9 @@ describe('GET /health', () => {
 
   // Public and without input, so neither 400 nor 401 applies; an unsupported method is the wrong request.
   test('rejects an unsupported method with 404', async () => {
-    assertRejected(await call('POST', '/health'), 404, 'NOT_FOUND');
+    const res = await call('POST', '/health');
+    assertRejected(res, 404, 'NOT_FOUND');
+    assert.equal(res.body.error.message, 'Not found');
   });
 });
 
@@ -314,6 +316,15 @@ describe('POST /api/v1/admin/categories', () => {
   test('rejects an empty name with 400', async () => {
     const res = await call('POST', '/api/v1/admin/categories', { token: 'stub-admin', body: { name: '' } });
     assertInvalid(res, 'body', 'name');
+  });
+
+  test('rejects a form-encoded body with 400', async () => {
+    const res = await fetch(`${baseUrl}/api/v1/admin/categories`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer stub-admin', 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'name=Workshops',
+    });
+    assert.equal(res.status, 400);
   });
 });
 

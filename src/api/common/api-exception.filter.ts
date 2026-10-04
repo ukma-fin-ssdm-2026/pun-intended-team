@@ -7,13 +7,14 @@ import type { ErrorCode, ErrorResponse } from './schemas/errors.js';
 
 // Nest and Nest packages throw HttpException with a status but no code,
 // e.g. the router (404), @nestjs/passport (401) or @nestjs/throttler (429).
-const codeByStatus: Partial<Record<number, ErrorCode>> = {
-  [HttpStatus.BAD_REQUEST]: 'VALIDATION_ERROR',
-  [HttpStatus.UNAUTHORIZED]: 'UNAUTHENTICATED',
-  [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
-  [HttpStatus.CONFLICT]: 'CONFLICT',
-  [HttpStatus.PAYLOAD_TOO_LARGE]: 'PAYLOAD_TOO_LARGE',
-  [HttpStatus.TOO_MANY_REQUESTS]: 'RATE_LIMITED',
+// Their own messages ("Cannot GET /path") are replaced with ours.
+const errorByStatus: Partial<Record<number, { code: ErrorCode; message: string }>> = {
+  [HttpStatus.BAD_REQUEST]: { code: 'VALIDATION_ERROR', message: 'The request is invalid' },
+  [HttpStatus.UNAUTHORIZED]: { code: 'UNAUTHENTICATED', message: 'A valid access token is required' },
+  [HttpStatus.NOT_FOUND]: { code: 'NOT_FOUND', message: 'Not found' },
+  [HttpStatus.CONFLICT]: { code: 'CONFLICT', message: 'The request conflicts with the current state' },
+  [HttpStatus.PAYLOAD_TOO_LARGE]: { code: 'PAYLOAD_TOO_LARGE', message: 'The request body is too large' },
+  [HttpStatus.TOO_MANY_REQUESTS]: { code: 'RATE_LIMITED', message: 'Too many requests' },
 };
 
 // The only place that builds error bodies, so every error has the ErrorResponse shape.
@@ -51,9 +52,9 @@ function toApiException(exception: unknown): ApiException | undefined {
     if (exception.getStatus() === HttpStatus.FORBIDDEN) {
       return new ApiException('NOT_FOUND', 'Not found');
     }
-    const code = codeByStatus[exception.getStatus()];
-    if (code) {
-      return new ApiException(code, exception.message);
+    const error = errorByStatus[exception.getStatus()];
+    if (error) {
+      return new ApiException(error.code, error.message);
     }
   }
   return undefined;

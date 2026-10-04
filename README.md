@@ -1,6 +1,6 @@
 # Nearby
 
-[![CI Test](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/workflows/ci.yml/badge.svg)](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/workflows/ci.yml)
+[![CI](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/workflows/ci.yml/badge.svg)](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/workflows/ci.yml)
 
 Team project for the SSDM course at the National University of Kyiv-Mohyla Academy, 2026
 
@@ -51,7 +51,7 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 - [Swagger UI on GitHub Pages](https://ukma-fin-ssdm-2026.github.io/pun-intended-team/) — read-only docs, published from `main` on every push; the page itself is [`docs/api/index.html`](docs/api/index.html), with Swagger UI vendored in [`docs/api/vendor/swagger-ui/`](docs/api/vendor/swagger-ui/)
 - [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) — the generated spec the page shows; regenerate and commit it with `npm run docs:generate` after changing the API
-- The `API docs (GitHub Pages)` workflow regenerates the spec and fails a pull request whose committed spec is out of date
+- The `CI` workflow regenerates the spec and fails a pull request whose committed spec is out of date
 - Local Swagger UI with "Try it out": run `npm run dev` and open http://localhost:4100/api-docs. Click **Authorize** and enter a stub token, listed under [Trying It Out](docs/api/api-design.md#trying-it-out)
 - [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
 - [`quality-attributes.md`](docs/api/quality-attributes.md) — quality goals for the Nearby REST API
