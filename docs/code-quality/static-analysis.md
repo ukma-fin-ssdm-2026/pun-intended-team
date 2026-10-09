@@ -68,8 +68,19 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - Dependabot version updates in [`.github/dependabot.yml`](../../.github/dependabot.yml): weekly for npm in `/` and `/tools/mcp-generator`, and for GitHub Actions. `src/mcp` is excluded because it is generated.
 - Dependabot alerts and security updates are enabled in the repository Settings.
 - `npm audit --audit-level=high` runs for all three packages in CI via [`.github/workflows/dependency-audit.yml`](../../.github/workflows/dependency-audit.yml) (SEC-006).
+- Dependabot's first run failed with "Cannot create ref due to creations being restricted": the "branch naming" ruleset allowed only `feature/<n>-*` branches. Fixed by excluding `dependabot/**/*` from that ruleset; the next run opened #131 and #132.
 
 **Result:** `npm audit` reports 0 vulnerabilities in all three packages, also after adding the ESLint devDependencies.
+
+**Finding: typescript 6.0.3 → 7.0.2 (Dependabot PR #131).**
+
+- **What.** The build and e2e tests fail on the new major.
+- **Decision: accepted.** The major version is ignored with `@dependabot ignore this major version`. Revisit when the team plans the TypeScript 7 migration.
+
+**Finding: js-yaml 4.3.2 → 5.4.3 (Dependabot PR #132).**
+
+- **What.** CI was green, and js-yaml is used only for `dump()` in `src/api/common/openapi.ts`, but the current version has no known vulnerabilities, so a major upgrade brings no security benefit now.
+- **Decision: accepted.** The major version is ignored. Revisit if an advisory affects 4.x.
 
 **Finding: outdated dependencies in `src/mcp`.**
 
@@ -81,4 +92,4 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 The review, the findings and the write-ups were drafted by Claude, which confirmed the findings against a locally running server with `curl`, and condensed by Claude. Verified by Daryna Halytska: checked each finding against the code; reproduced SA-01 with curl against a locally running server (NODE_ENV=production).
 
-The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository.
+The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository; found and fixed the ruleset that blocked Dependabot, and decided on #131 and #132.
