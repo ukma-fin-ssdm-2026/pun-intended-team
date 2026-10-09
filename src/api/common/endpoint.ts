@@ -207,7 +207,9 @@ class LocationInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler) {
     const res = context.switchToHttp().getResponse<{ setHeader(name: string, value: string): void }>();
-    return next.handle().pipe(tap((result: { id: string }) => res.setHeader('Location', this.location.replace('{id}', result.id))));
+    return next
+      .handle()
+      .pipe(tap((result: { id: string }) => res.setHeader('Location', this.location.replace('{id}', result.id))));
   }
 }
 
