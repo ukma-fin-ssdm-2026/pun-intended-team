@@ -29,13 +29,18 @@ jobs:
     permissions:
       contents: read
 
+  dependency-audit:
+    uses: ./.github/workflows/dependency-audit.yml
+    permissions:
+      contents: read
+
   # Gate job: green only when every job above succeeded.
   # `always()` makes it run (and fail) even when a needed job failed or was cancelled;
   # without it the job would be skipped, and a skipped required check counts as passing.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [api-tests, docs]
+    needs: [api-tests, docs, dependency-audit]
     runs-on: ubuntu-latest
     steps:
       - name: Check that every CI job succeeded
