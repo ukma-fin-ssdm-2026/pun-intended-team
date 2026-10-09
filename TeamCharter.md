@@ -16,12 +16,14 @@
   - Architecture Lead — coordinates the choice of architecture style and the component diagram.
   - Backend Lead — writes the core API code with annotations.
   - API Design Lead — owns `docs/api/api-design.md` (resource model, status codes, versioning) and checks that endpoints are consistent with it.
+  - Documentation Lead (Lab 5) — updates the charter and the summary reports.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
   - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
   - Data & Threat Modeler — builds the data model and leads the STRIDE analysis of the deployment diagram.
   - Documentation Lead (API) — sets up automatic documentation generation and GitHub Pages.
+  - Security Analyst — checks how data is handled, runs the security analyzer, documents vulnerabilities, and owns the dependency audit (Dependabot, `npm audit` in CI).
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
@@ -29,12 +31,15 @@
   - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
   - Requirements-Architecture Mapper — creates the requirements-to-components traceability matrix.
   - Quality Lead (API) — owns `docs/api/quality-attributes.md` (goals with failure conditions) and verifies the validation of every endpoint through Swagger UI.
+  - Code Reviewer — reviews the other team's code.
+  - Prototype Lead — owns the base code structure, the first working component, and `progress.md`.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
   - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
   - UML Lead — responsible for the correctness of UML diagrams.
   - Integration Lead — integrates all components and the CI/CD pipeline.
+  - Quality Lead (code) — coordinates the code review and sets up static analysis.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
@@ -156,4 +161,4 @@ A persistent inability to complete the stated workload is discussed at a team me
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, §10 Individual Accountability for Requirements Artifacts, and the Lab 4 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, §10 Individual Accountability for Requirements Artifacts, the Lab 4 role descriptions in §2, and the Lab 5 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska.
