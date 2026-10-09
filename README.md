@@ -43,6 +43,7 @@ Documentation related to system architecture for this project is located [here](
 - [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
+- [`mechanisms/`](docs/architecture/mechanisms/) — architectural mechanisms: [matching](docs/architecture/mechanisms/matching.md), [notifications](docs/architecture/mechanisms/notifications.md), [authentication](docs/architecture/mechanisms/authentication.md), [catalog access](docs/architecture/mechanisms/catalog-access.md), [database access](docs/architecture/mechanisms/database-access.md) and [code structure](docs/architecture/mechanisms/code-structure.md)
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`
 
 ## ൭ API Documentation
@@ -133,3 +134,5 @@ This README was written with the participation of Claude, which drafted the init
 - **Not as expected:** the generator drops an operation's `summary` when it has a `description`, so `cancelEvent` does not say that it cancels an event; request body fields have no descriptions; no tool states the access level it needs, so 12 of 16 tools answer 401 or 404 with the guest token; the agent treated the stub end time 23:59:59 as a likely placeholder and said so.
 - **Fixed in #110:** every description now starts with what the endpoint does, and `@Endpoint` adds the access level it needs. The stub end time is unchanged.
 - **Verified by:** Daryna Halytska — ran the demo above in Claude Code.
+
+**Links (#137).** The links to `docs/architecture/mechanisms/` were added by Claude Code after checking every file under `docs/` for a link and every existing link for a target. `docs/code-quality/` is left to #135. Verified by: Daryna Halytska.
