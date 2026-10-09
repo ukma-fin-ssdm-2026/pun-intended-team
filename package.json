@@ -16,7 +16,8 @@
     "mcp:generate": "npm ci --prefix tools/mcp-generator && tools/mcp-generator/node_modules/.bin/openapi-mcp-generator --input docs/api/openapi-generated.yaml --output src/mcp --server-name nearby-api-mcp --force && npm install --prefix src/mcp --save-dev --save-exact shx@0.3.4",
     "mcp:build": "npm ci --prefix src/mcp && npm run build --prefix src/mcp",
     "test:e2e": "nest build && node --test \"test/e2e/**/*.test.ts\"",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",

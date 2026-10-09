@@ -10,7 +10,7 @@ import pluginSecurity from 'eslint-plugin-security';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['src/mcp/**', 'tools/**', 'docs/**', 'dist/**', 'node_modules/**'] },
+  { ignores: ['src/mcp/**', 'docs/**', 'dist/**', 'node_modules/**'] },
   eslint.configs.recommended,
   tseslint.configs.recommended,
   pluginSecurity.configs.recommended,
