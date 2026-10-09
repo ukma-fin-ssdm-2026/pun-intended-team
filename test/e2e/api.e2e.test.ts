@@ -41,6 +41,8 @@ let baseUrl: string;
 interface Response {
   status: number;
   headers: Headers;
+  // Parsed JSON whose shape depends on the endpoint; tests read fields directly and assert on them.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any;
 }
 
