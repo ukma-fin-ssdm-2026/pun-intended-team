@@ -45,7 +45,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 **Config:** `pluginSecurity.configs.recommended` in [`eslint.config.mjs`](../../eslint.config.mjs), after `tseslint.configs.recommended`. All recommended rules are on, all as warnings.
 
-**Coverage:** all hand-written code. `eslint.config.mjs` ignores `src/mcp` (generated), `tools`, `docs` and `dist`.
+**Coverage:** all hand-written code. `eslint.config.mjs` ignores `src/mcp` (generated), `docs` and `dist`.
 
 **Result:** 9 warnings, 0 errors. One true positive, which confirms SA-01.
 
