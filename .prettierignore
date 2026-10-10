@@ -7,3 +7,4 @@ docs/api
 dist
 package-lock.json
 tools/mcp-generator/package-lock.json
+app
