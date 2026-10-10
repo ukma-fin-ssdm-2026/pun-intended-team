@@ -27,10 +27,10 @@ but there are also link_active, redact_speaker_names, use_builtin_model, and acc
 
 # Bonus: AI review against ours
 
-> **AI use:** everything from here down was produced with Claude (claude.ai, Claude Sonnet 5.5) after class, in a separate commit, as the course AI policy and the Lab 5 bonus require. The review above, written in class without AI, is unchanged and is the basis of the comparison.
+> **AI use:** The raw AI review below was produced with Claude (claude.ai, Claude Sonnet 5.5) after class. The comparison was initially drafted with Claude and edited below after checking the supplied repository archive. The in-class review above was written without AI and is preserved unchanged as the comparison baseline.
 
 **Team's repository:** Whadio, <https://github.com/ukma-fin-ssdm-2026/Whadio>
-**Reviewed commit SHA:** `8dbbe90d45ea4de06b3e836cbb8fa98a94395641` (the team's last commit before the review in class on 6 October)
+**Reviewed commit SHA:** `8dbbe90d45ea4de06b3e836cbb8fa98a94395641` (recorded in the source draft; the supplied ZIP has no Git metadata, so this SHA cannot be checked against the archive).
 **Done by:** Claude (claude.ai, Claude Sonnet 5.5) reading `src/`, `pyproject.toml`, `.pre-commit-config.yaml` and `.github/workflows/ci.yml` from the repository archive, with Ruff 0.17.0 and Bandit 1.9.4 run on it, and one finding reproduced with a minimal FastAPI app that imports Whadio's own `core/errors.py` and `accounts/schemas.py`.
 **Prompt:** "Review this repository as a code reviewer for a software-design course: standards and style, quality and maintainability, security (input validation, sessions, logging), use of the framework, documentation and static analysis. Give 3 strengths, 3 improvements and 1 potential vulnerability, each with file and line."
 
@@ -66,41 +66,41 @@ but there are also link_active, redact_speaker_names, use_builtin_model, and acc
 
 </details>
 
-## Comparison of the AI review with ours
+## Comparison of the AI review with the in-class review
 
-*Draft for the team to check and edit; every statement below was verified by running the tool or reading the cited line. Remarks about the in-class review are made so the team can decide what to keep.*
+Sections 1–3 above are the team's original in-class review and remain unchanged. The comparison below uses that review as its baseline.
 
-### Found by both
+### Findings raised by both reviews
 
-- Handlers hold logic that belongs below them (`list_meetings`, `upload_recording`).
-- Ambiguous fixture names (`transcribed()`, `folder_in()`, missing 404/409 in the names).
-- One consistent error format is a strength; `bandit` is clean (confirmed with `-c pyproject.toml`).
+- Some API handlers contain logic that could live below the HTTP layer: `list_meetings` applies filters inline, and `upload_recording` checks and decodes the uploaded file and builds the response.
+- Some fixture names do not make their behavior clear: `transcribed()` returns a meeting, `folder_in()` returns a UUID, and `transcript()` can raise errors through `transcribed()`.
+- Both reviews noted the shared error response format and that Bandit reported no findings in the recorded run. A clean Bandit result does not establish that the application has no security issues.
 
-### Found only by the AI
+### Findings raised by the AI review only
 
-- Validation errors echo the password and any other input (`core/errors.py:168`): **reproduced**. This is a real vulnerability and a better choice for the "1 vulnerability" point than the name filter.
-- Authorization is never exercised (`_user` unused, no 403/404 test), and the whole suite is one test.
-- The upload limit is checked after the body is received; FFmpeg decodes untrusted files in the API process; the MCP endpoint is unauthenticated (stub-level, noted as such).
-- The strengths about Import Linter, the strict tool chain and the pinned CI actions: our review did not look at the configuration.
+- **Validation responses include invalid input values.** In the supplied source, `src/whadio/api/core/errors.py:159-168` places the rejected input in `provided_value`, except for missing fields. `SignIn.password` is limited to 128 characters (`src/whadio/api/accounts/schemas.py:48-57`). The raw Claude review says it reproduced a too-long password being echoed in an error response. This editing pass confirmed the code path but did not rerun that HTTP reproduction. The risk is that a response containing a secret may be retained by browser tooling, a proxy, or an error tracker; the report does not establish disclosure to a different user. The finding is best described as sensitive-input reflection with downstream exposure risk.
+- **Meeting-level authorization is not implemented.** Meeting handlers receive a `BrowserUser` dependency, which checks the fixed demo cookie, but they do not use the caller for workspace or role checks. The concern is missing resource-level authorization, not that the routes have no authentication dependency at all.
+- **Behavioral test coverage is very small.** The supplied archive contains `src/whadio/api/test_meta.py` with one health-check test. The broader API behavior is not covered by tests in this snapshot.
+- **Upload and MCP hardening risks:** the upload-size check is in the handler after FastAPI/Starlette has parsed the multipart upload; audio decoding runs in the API process. The README also says the stub MCP endpoint has no key. These are valid risks to review before deployment, though the MCP behavior is explicitly described as a stub and the upload impact was not reproduced in the raw review.
 
-### Found only by us
+### Findings raised by the team only
 
-- The naming inconsistencies of booleans: the AI confirmed `use_builtin_model` in the code, but `link_active`, `redact_speaker_names` and `accept_terms` are in `docs/api/api-design.md` for operations that are not implemented yet, so this is a remark about the design document, and the AI did not read it that closely.
-- The remark that AI notes should name who reviewed them: the AI did not check the documents.
+- The boolean-name examples are partly in the implementation and partly in `docs/api/api-design.md`. `use_builtin_model` exists in the API schema; `link_active`, `redact_speaker_names` and `accept_terms` appear in the design document for operations not implemented in the supplied code. This is a consistency observation about the design, not a lint violation in the implementation.
+- The suggestion to identify who reviewed AI-generated notes is a documentation/process point. The raw AI review did not inspect that policy or the relevant documents.
 
-### Remarks of ours that the AI could not confirm
+### Accuracy notes on the original review
 
-- **"Ruff `--select D` finds 98 violations".** With Ruff 0.17.0 the same command finds 120 (43 classes, 37 functions, 21 packages, 18 modules, 1 `__init__`), so the counts depend on the version. More important, `pyproject.toml` ignores `D` on purpose ("docstrings only where they state a contract"). The remark is accurate about the facts but is not a defect of the code by the team's own standard.
-- **"`ruff format --check`: 10 files need to be reformatted".** With the repository's configuration (`line-length = 100`) all 39 files are formatted. With Ruff's default width of 88, 12 files would change. The most likely cause is running the command outside the project configuration, so this remark is a **false positive**.
-- **"The name filter is `str`, not `DisplayText`" (`meetings/schemas.py:67`).** The line is right and the type is different, but `Input` strips surrounding whitespace and the field needs at least one character, and the value is only a substring match: it is never stored or shown. The impact is close to none; it is a style point, not a vulnerability.
+- **“No tests and static analysis” is too broad if read literally.** The archive has one test, and `.pre-commit-config.yaml` plus `.github/workflows/ci.yml` configure and run Ruff, type checks, Bandit, tests, and other checks. The supported criticism is that behavioral test coverage is minimal, not absent, and static analysis is configured rather than missing.
+- **“Custom task priority labels are used” cannot be checked from this ZIP.** GitHub issue labels are not part of the source archive. Keep this point only if it was confirmed directly on the team's issue tracker.
+- **The Ruff docstring count differs between the in-class note and the later recorded run.** The original count is preserved above as the in-class record; the comparison draft records a different count under Ruff 0.17.0. In either case, `pyproject.toml` explicitly ignores the `D` rules for the project's normal lint policy, so these are not violations of the configured standard. If the exact count matters, attach the command, Ruff version, working directory and output.
+- **The formatting count also depends on how the command was run.** The project config sets `line-length = 100`. The comparison draft records that the repository-configured run formatted all 39 files, while Ruff's default width of 88 would change 12. Those exact counts were not rerun during this edit; retain them as recorded results only if the team has the command output.
+- **The `name: str` observation is a validation/style concern, not a demonstrated vulnerability.** The field has length bounds, input strings are stripped by the shared `Input` model, and the value is used only as a case-insensitive substring filter. It is not stored or returned.
+- **The commit identity remains unverified.** The SHA is retained from the supplied report, but the ZIP has no `.git` directory. Confirm the archive matches that SHA before claiming the AI review and the in-class review used the same commit.
 
-### Remarks of the AI that we think are weak
+### What we take from the comparison
 
-- The timing-unsafe comparison of tokens is true of the code, but the tokens are public demo values (the repository says so, and Ruff's `S105` is switched off for that file for this reason). It becomes relevant only with real sessions.
-- Sign-out and the MCP endpoint are stub-level behaviour documented in the README; they matter once the stubs go.
-
-### What we take from it
-
-The in-class review found the style and structure points that are visible without running anything. Running the project's own configuration, and one reproduction, found the one finding of security substance. For our own repository this suggests the same checks: run every tool with the project's configuration before writing a number in a report, and look for a place where an error response copies the request.
+The in-class review identified visible style and structure concerns. The AI review added useful checks for request validation, access control, test coverage and upload handling. The follow-up also shows why review claims should distinguish a configured project standard from an optional stricter check, and why exact tool output and the reviewed commit should be recorded.
 
 ## AI Usage Note
+
+Sections 1–3 were written by the team during the in-class review without AI and are preserved unchanged. The raw bonus review was produced with Claude, as identified above.
