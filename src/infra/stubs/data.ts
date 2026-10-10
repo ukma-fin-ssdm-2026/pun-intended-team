@@ -2,7 +2,9 @@
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
+import type { Account } from '../../core/identity/types/account.ts';
 import type { Caller } from '../../core/identity/types/caller.ts';
+import type { VerificationCode } from '../../core/identity/types/verification-code.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
 import type { Category } from '../../core/catalog/types/category.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
@@ -17,6 +19,54 @@ export const accounts = {
   newGallery: 'f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d',
   admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
 } as const;
+
+export type StoredAccount = Account & { passwordHash: string | null };
+
+/** Every seeded account signs in with the password `nearby-dev-password`. */
+export const storedAccounts: StoredAccount[] = [
+  {
+    id: accounts.olena,
+    phone: '+380501110001',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '2001-04-12',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$LnG7K0R7BJ6TF1NOl/kiUA$OobkKSuS8xyXPey6bgtmsmsDwx3BMrZ/rUXrfCqlIAM',
+  },
+  {
+    id: accounts.taras,
+    phone: '+380501110002',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1998-11-03',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$oYWbgSv7qBSiEAktpWqTKw$7MS6NJ8lW91UtWCr1Th15mBnCNh7wF1lC0l/o3qWO9I',
+  },
+  {
+    id: accounts.filmClub,
+    phone: '+380501110003',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1990-06-21',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$mbsR20JBtHrDaHifqHOiPg$rtm+NwVRQqNJrn0W7iwtXK4qWmp+scuJjig6IDoWW2c',
+  },
+  {
+    id: accounts.newGallery,
+    phone: '+380501110004',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1995-02-08',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$DYsNhEfFW/Et/WHp53hi3A$9dMgfT/ns9lcZkWOrCnjCnIX8Ko/Bej6VWdMvojgjQQ',
+  },
+  {
+    id: accounts.admin,
+    phone: '+380501110005',
+    role: 'admin',
+    status: 'active',
+    dateOfBirth: '1988-09-15',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$q/i5tKWroyaTrMl2KrIbqw$p3fWgp18FPlZRLMH11s+ska1YYY3M8i1Sm1pPsqQTaw',
+  },
+];
+
+export const verificationCodes: VerificationCode[] = [];
 
 /** Demo tokens for Swagger UI and curl, until sign-in is implemented. */
 export const sessions: Record<string, Caller> = {
