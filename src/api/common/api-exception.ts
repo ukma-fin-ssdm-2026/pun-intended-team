@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { ErrorCode, ValidationIssue } from './schemas/errors.js';
+import type { ErrorCode, ValidationIssue } from './schemas/errors.ts';
 
 const errorStatus: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,

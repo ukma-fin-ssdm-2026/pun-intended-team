@@ -1,11 +1,11 @@
 // Written with the help of Claude
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { Page, PageRequest } from '../../core/common/page.js';
-import { ListingsRepository } from '../../core/listings/repositories/listings.repository.js';
-import type { Listing, ListingRecord } from '../../core/listings/types/listing.js';
-import { listings } from './data.js';
-import { paginate } from './paginate.js';
+import type { Page, PageRequest } from '../../core/common/page.ts';
+import { ListingsRepository } from '../../core/listings/repositories/listings.repository.ts';
+import type { Listing, ListingRecord } from '../../core/listings/types/listing.ts';
+import { listings } from './data.ts';
+import { paginate } from './paginate.ts';
 
 @Injectable()
 export class StubListingsRepository implements ListingsRepository {

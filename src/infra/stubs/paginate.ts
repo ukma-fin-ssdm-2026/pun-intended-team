@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { Page, PageRequest } from '../../core/common/page.js';
+import type { Page, PageRequest } from '../../core/common/page.ts';
 
 export function paginate<T>(items: T[], { limit, offset }: PageRequest): Page<T> {
   return {

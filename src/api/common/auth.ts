@@ -1,9 +1,9 @@
 // Written with the help of Claude
 import { type CanActivate, createParamDecorator, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { AuthService } from '../../core/identity/services/auth.service.js';
-import type { AccountCaller, Caller } from '../../core/identity/types/caller.js';
-import { ApiException } from './api-exception.js';
+import { AuthService } from '../../core/identity/services/auth.service.ts';
+import type { AccountCaller, Caller } from '../../core/identity/types/caller.ts';
+import { ApiException } from './api-exception.ts';
 
 /**
  * Who may call an endpoint: anyone (`public`), a guest or a signed-in account

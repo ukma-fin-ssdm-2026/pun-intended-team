@@ -1,6 +1,6 @@
 // Written with the help of Claude
-import type { Page, PageRequest } from '../../common/page.js';
-import type { Listing, ListingRecord } from '../types/listing.js';
+import type { Page, PageRequest } from '../../common/page.ts';
+import type { Listing, ListingRecord } from '../types/listing.ts';
 
 export abstract class ListingsRepository {
   abstract findActiveById(id: string): Promise<Listing | undefined>;

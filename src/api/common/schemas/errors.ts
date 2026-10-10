@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { domainErrorCodes } from '../../../core/common/domain-error.js';
+import { domainErrorCodes } from '../../../core/common/domain-error.ts';
 
 export const ErrorCode = z
   .enum([
