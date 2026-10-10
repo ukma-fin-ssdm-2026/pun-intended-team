@@ -142,6 +142,31 @@ describe('GET /health', () => {
   });
 });
 
+// SA-05: every response, errors included, carries the security headers. The server runs in production mode here.
+describe('Security headers', () => {
+  const expected = {
+    'x-content-type-options': 'nosniff',
+    'cache-control': 'no-store',
+    'content-security-policy': "default-src 'none'; frame-ancestors 'none'",
+    'strict-transport-security': 'max-age=31536000; includeSubDomains',
+  };
+
+  const responses: Record<string, () => Promise<Response>> = {
+    'a successful response': () => call('GET', '/health'),
+    'an error response': () => call('GET', '/api/v1/events'),
+    'an unknown route': () => call('GET', '/no-such-route'),
+  };
+
+  for (const [name, send] of Object.entries(responses)) {
+    test(`are set on ${name}`, async () => {
+      const res = await send();
+      for (const [header, value] of Object.entries(expected)) {
+        assert.equal(res.headers.get(header), value, header);
+      }
+    });
+  }
+});
+
 describe('GET /api/v1/categories', () => {
   test('lists active categories for a guest', async () => {
     const res = await call('GET', '/api/v1/categories', { token: 'stub-guest' });
