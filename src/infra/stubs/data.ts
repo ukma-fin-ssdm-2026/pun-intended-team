@@ -20,12 +20,12 @@ export const accounts = {
 
 /** Demo tokens for Swagger UI and curl, until sign-in is implemented. */
 export const sessions: Record<string, Caller> = {
-  'stub-guest': { kind: 'guest' },
-  'stub-user': { kind: 'account', accountId: accounts.olena, role: 'user' },
-  'stub-user-2': { kind: 'account', accountId: accounts.taras, role: 'user' },
-  'stub-org': { kind: 'account', accountId: accounts.filmClub, role: 'user' },
-  'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user' },
-  'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin' },
+  'stub-guest': { kind: 'guest', guestId: 'stub-guest' },
+  'stub-user': { kind: 'account', accountId: accounts.olena, role: 'user', sessionId: 'stub-user' },
+  'stub-user-2': { kind: 'account', accountId: accounts.taras, role: 'user', sessionId: 'stub-user-2' },
+  'stub-org': { kind: 'account', accountId: accounts.filmClub, role: 'user', sessionId: 'stub-org' },
+  'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user', sessionId: 'stub-org-pending' },
+  'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin', sessionId: 'stub-admin' },
 };
 
 export const profiles: ProfileSummary[] = [

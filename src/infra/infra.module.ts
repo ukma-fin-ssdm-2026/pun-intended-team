@@ -4,6 +4,7 @@ import { CategoriesRepository } from '../core/catalog/repositories/categories.re
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
+import { AccessTokens } from '../core/identity/adapters/access-tokens.ts';
 import { CodeHasher } from '../core/identity/adapters/code-hasher.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
@@ -12,7 +13,8 @@ import { MessagingProvider } from '../core/notifications/adapters/messaging-prov
 import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
-import { loadCodeHmacKey } from './auth/key-files.ts';
+import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
+import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { StubCategoriesRepository } from './stubs/categories.repository.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
@@ -36,6 +38,7 @@ const adapters = [
   { provide: MessagingProvider, useClass: ConsoleMessagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
+  { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },
 ];
 
 const providers = [...repositories, ...adapters];

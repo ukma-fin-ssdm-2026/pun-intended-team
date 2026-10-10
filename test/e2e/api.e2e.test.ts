@@ -107,9 +107,18 @@ before(async () => {
   keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
   const codeHmacKeyFile = path.join(keysDir, 'code-hmac.key');
   writeFileSync(codeHmacKeyFile, randomBytes(32).toString('base64url'));
+  const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
+  const jwtKey = { kty: 'oct', alg: 'HS256', kid: 'e2e', k: randomBytes(32).toString('base64url') };
+  writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwtKey] }));
   // Production mode so the run does not rewrite the committed OpenAPI spec.
   server = spawn(process.execPath, ['dist/api/main.js'], {
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'production', CODE_HMAC_KEY_FILE: codeHmacKeyFile },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      NODE_ENV: 'production',
+      CODE_HMAC_KEY_FILE: codeHmacKeyFile,
+      JWT_KEYS_FILE: jwtKeysFile,
+    },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   const deadline = Date.now() + 15_000;
