@@ -3,7 +3,6 @@
 // through the API last until the server restarts.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
 import type { Account } from '../../core/identity/types/account.ts';
-import type { Caller } from '../../core/identity/types/caller.ts';
 import type { VerificationCode } from '../../core/identity/types/verification-code.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
 import type { Category } from '../../core/catalog/types/category.ts';
@@ -67,16 +66,6 @@ export const storedAccounts: StoredAccount[] = [
 ];
 
 export const verificationCodes: VerificationCode[] = [];
-
-/** Demo tokens for Swagger UI and curl, until sign-in is implemented. */
-export const sessions: Record<string, Caller> = {
-  'stub-guest': { kind: 'guest', guestId: 'stub-guest' },
-  'stub-user': { kind: 'account', accountId: accounts.olena, role: 'user', sessionId: 'stub-user' },
-  'stub-user-2': { kind: 'account', accountId: accounts.taras, role: 'user', sessionId: 'stub-user-2' },
-  'stub-org': { kind: 'account', accountId: accounts.filmClub, role: 'user', sessionId: 'stub-org' },
-  'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user', sessionId: 'stub-org-pending' },
-  'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin', sessionId: 'stub-admin' },
-};
 
 export const profiles: ProfileSummary[] = [
   { accountId: accounts.olena, username: 'olena_k', displayName: 'Olena' },

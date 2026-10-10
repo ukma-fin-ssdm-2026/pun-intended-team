@@ -8,7 +8,6 @@ import { AccessTokens } from '../adapters/access-tokens.ts';
 import { CodeHasher } from '../adapters/code-hasher.ts';
 import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
-import { SessionsRepository } from '../repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
 import type { AccessToken, Registration } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
@@ -28,7 +27,6 @@ export class AuthService {
   constructor(
     private readonly accountsRepository: AccountsRepository,
     private readonly verificationCodesRepository: VerificationCodesRepository,
-    private readonly sessionsRepository: SessionsRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly codeHasher: CodeHasher,
     private readonly accessTokens: AccessTokens,
@@ -104,9 +102,8 @@ export class AuthService {
     return this.issue({ kind: 'guest', guestId: randomUUID() });
   }
 
-  // The stub tokens keep working until the e2e tests sign in for real.
   async authenticate(accessToken: string): Promise<Caller | undefined> {
-    return (await this.accessTokens.verify(accessToken)) ?? this.sessionsRepository.findCaller(accessToken);
+    return this.accessTokens.verify(accessToken);
   }
 
   private async issue(caller: Caller): Promise<AccessToken> {

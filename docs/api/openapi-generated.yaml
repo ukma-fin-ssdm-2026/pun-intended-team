@@ -24,10 +24,10 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: JWT
       description: >-
-        An access token, or a guest token for catalog reads. Until sign-in is
-        implemented, use a stub token: `stub-guest`, `stub-user`, `stub-user-2`,
-        `stub-org` (verified organization), `stub-org-pending` or `stub-admin`.
+        An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
+        a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
     AdminCategoryList:
       type: object
