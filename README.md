@@ -77,6 +77,7 @@ For a production build: `npm run build`, then `npm start`.
 | `PORT` | `4100` | Port the server listens on |
 | `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
 | `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
+| `CORS_ORIGINS` | — | Comma-separated origins allowed to call the API from a browser, e.g. `http://localhost:8081` for the Expo web client; unset keeps CORS off |
 
 Other scripts: `npm run typecheck` checks types without building, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
