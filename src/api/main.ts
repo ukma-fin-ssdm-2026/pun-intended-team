@@ -5,7 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.ts';
 import { ApiExpressAdapter } from './common/api-express-adapter.ts';
-import { isProduction, port, serveSwaggerUi } from './common/config.ts';
+import { corsOrigins, isProduction, port, serveSwaggerUi } from './common/config.ts';
 import { generateOpenApiSpec, writeOpenApiSpec } from './common/openapi.ts';
 
 // In development every start refreshes the committed spec. In production the
@@ -17,6 +17,9 @@ if (!isProduction) {
 const app = await NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter(), { bodyParser: false });
 app.disable('x-powered-by');
 app.useBodyParser('json', { limit: '100kb' });
+if (corsOrigins.length > 0) {
+  app.enableCors({ origin: corsOrigins });
+}
 
 // The spec comes from the zod registry, not from @nestjs/swagger decorators;
 // SwaggerModule only serves it. The live Swagger UI calls the server it is

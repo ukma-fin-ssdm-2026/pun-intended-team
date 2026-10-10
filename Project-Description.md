@@ -8,18 +8,18 @@ The app also includes a listings section, where users can post their own events 
 
 | Role | Description |
 |---|---|
-| **User (Attendee)** | Registers, fills in a profile (age, interests, communication format), browses the event listings, picks an event, gets matched, sees the match's contact info to continue communication, posts listings. |
-| **Organization/Venue** (e.g., a university like Mohyla Academy, a café, a cultural center) | Posts its own events directly in the app (without going through an external listing service), manages information about its events. |
+| **User (Attendee)** | Registers, fills in a profile (age, interests, communication format), browses the event listings, picks an event, gets matched, sees the other person's contact info once both accept the match, posts listings. |
+| **Organization/Venue** (e.g., a university like Mohyla Academy, a café, a cultural center) | Once verified by the team, posts its own events directly in the app (without going through an external listing service) and manages information about them. |
 | **Administrator** | Manages users (bans, reports), moderates listings and profiles, manages event category directories, oversees compliance with community rules. |
 
 ## Mini Design Document
 
 ### 1. System Purpose
-Nearby helps people find company for attending cultural and entertainment events in their city, combining an event listing feature with matching companions/conversation partners by shared interests. The target audience is young people and adults who want to expand their social circle or don't have anyone to go to an interesting event with.
+Nearby helps people find company for attending cultural and entertainment events in their city, combining an event listing feature with matching companions/conversation partners by shared interests. The target audience is people aged 18–30 in Kyiv who want to expand their social circle or don't have anyone to go to an interesting event with.
 
 ### 2. System Boundaries
 **In scope for this semester:**
-- User registration/authentication, profiles with interests.
+- User registration with phone verification, authentication, profiles with interests.
 - Event catalog populated through integration with external listing service(s) (Concert.ua, ArtWizard, etc.), as well as through direct posts from organizations/venues.
 - A basic matching algorithm based on shared interests and the chosen event.
 - Exchange of contact details between matched participants (no built-in messenger/chat inside the app).
@@ -33,11 +33,11 @@ Nearby helps people find company for attending cultural and entertainment events
 
 ### 3. User Roles and Permissions
 - **User**: registration, profile editing, browsing events, picking an event to attend, receiving a match, viewing the match's contacts, creating/viewing listings, filing a report.
-- **Organization/Venue**: registration as a legal entity/venue, posting its own events, editing/cancelling its own events.
+- **Organization/Venue**: requesting organization status for its account, and after verification posting, editing and cancelling its own events.
 - **Administrator**: user management (banning/unbanning), moderation of listings and reports, managing event categories, viewing basic statistics.
 
 ### 4. Key Features
-- **Event Catalog** — browsing the city's event listings, obtained through integration with external services (Concert.ua, ArtWizard, etc.) and through direct posts from registered organizations/venues, with filtering by category, date, and location.
+- **Event Catalog** — browsing the city's event listings, obtained through integration with external services (Concert.ua, ArtWizard, etc.) and through direct posts from registered organizations/venues, with filtering by category, date, and location, and a map of venues.
 - **User Profile** — age, description, photo, interests, communication format (friends / dating / company for an event).
 - **Event-Based Matching** — pick an event → the algorithm matches the user with the person who has the highest overlap of interests and has also picked that event.
 - **Contact Exchange After a Match** — after a successful match, users see each other's contact details/links to continue communication outside the app (no built-in messenger).
@@ -51,11 +51,14 @@ Nearby helps people find company for attending cultural and entertainment events
 3. **Reliability**: the matching algorithm must complete processing a request within no more than 3 seconds and correctly handle the case where no suitable match is found.
 4. **Usability**: filling in a profile as a new user must take no more than 5 minutes (no more than 10 required fields).
 
+The measurable criteria are in [`requirements.md`](docs/requirements/requirements.md#4-non-functional-requirements-nfr).
+
 ### 6. Assumptions and Constraints
 - Stack: a single TypeScript codebase across all layers — Expo (React Native) with Expo Router and NativeWind for the iOS, Android and web clients; NestJS with Prisma for the REST API; PostgreSQL for storage; argon2id + JWT for authentication; Expo Notifications for push; Docker for the local database and for deployment; GitHub Actions for CI.
-- The event catalog is populated through integration with external service(s) and through direct posts from organizations/venues — the specific integration method (an official API, if available, or another data-retrieval method) will be clarified later, since a public API for these services is not yet confirmed.
+- The event catalog is populated by a separate import service from external services and by direct posts from verified organizations/venues; whether these services offer a public API is not yet confirmed.
 - Communication between matched participants happens outside the app (via the exchanged contacts) — a built-in chat is not being developed.
+- Scope: Kyiv only, with the interface in Ukrainian.
 - Team of 4 students, implementation timeline — one semester (11 weeks).
 
 ## AI Usage Note
-This document was written with the help of Claude. Reviewed and edited by Daryna Halytska.
+This document was written with the help of Claude. Reviewed and edited by Daryna Halytska. Later updated with Claude to match the current design and reviewed by Viktoriya Baran.

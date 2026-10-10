@@ -52,15 +52,16 @@ export class EventsService {
     });
   }
 
-  async update(accountId: string, id: string, changes: EventChanges): Promise<Event> {
+  /** Replaces every editable field. Anyone but the posting organization is told the event does not exist. */
+  async update(accountId: string, id: string, input: NewEvent): Promise<Event> {
     const event = await this.getOwned(accountId, id);
     await this.requireVerifiedOrganization(accountId);
     if (event.status === 'cancelled') {
       throw new DomainError('EVENT_CANCELLED', 'A cancelled event can no longer be edited');
     }
-    await this.checkReferences(accountId, changes);
-    checkTimes(changes.startsAt ?? event.startsAt, changes.endsAt ?? event.endsAt);
-    return this.eventsRepository.update(id, changes);
+    await this.checkReferences(accountId, input);
+    checkTimes(input.startsAt, input.endsAt);
+    return this.eventsRepository.update(id, input);
   }
 
   async cancel(accountId: string, id: string): Promise<Event> {

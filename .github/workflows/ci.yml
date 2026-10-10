@@ -3,6 +3,7 @@
 # How it was verified: actionlint (syntax, expressions, reusable-workflow inputs and permissions).
 # The calls themselves run only on GitHub.
 # Reviewed by: Vlad-Re
+# Changed by Claude (Claude Code): added the code-quality job.
 #
 # CI = everything that must be green for the code to count as healthy.
 # Each check lives in its own reusable workflow; this file only decides what belongs to CI.
@@ -34,13 +35,18 @@ jobs:
     permissions:
       contents: read
 
+  code-quality:
+    uses: ./.github/workflows/code-quality.yml
+    permissions:
+      contents: read
+
   # Gate job: green only when every job above succeeded.
   # `always()` makes it run (and fail) even when a needed job failed or was cancelled;
   # without it the job would be skipped, and a skipped required check counts as passing.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [api-tests, docs, dependency-audit]
+    needs: [api-tests, docs, dependency-audit, code-quality]
     runs-on: ubuntu-latest
     steps:
       - name: Check that every CI job succeeded

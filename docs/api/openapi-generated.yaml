@@ -372,6 +372,7 @@ components:
         - startsAt
         - endsAt
       additionalProperties: false
+      description: All editable fields of an event; PUT /events/{id} takes the same body
       example:
         title: Film quiz night
         description: Teams of up to four, questions on Ukrainian cinema.
@@ -379,38 +380,6 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
-    UpdateEventBody:
-      type: object
-      properties:
-        title:
-          type: string
-          minLength: 1
-          maxLength: 120
-          description: Title shown in the catalog
-        description:
-          type: string
-          maxLength: 5000
-          description: Can be empty
-        categoryId:
-          type: string
-          format: uuid
-          description: An active category from listCategories
-        venueId:
-          type: string
-          format: uuid
-          description: One of the organization's own venues
-        startsAt:
-          type: string
-          format: date-time
-          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
-        endsAt:
-          type: string
-          format: date-time
-          description: End time with an offset; must be after startsAt
-      additionalProperties: false
-      description: Only the fields to change
-      example:
-        title: 'Film quiz night: Oscar edition'
     RegisterBody:
       type: object
       properties:
@@ -1066,13 +1035,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    patch:
+    put:
       operationId: updateEvent
       summary: Edit an event
       description: >-
-        Edit one of the organization’s own events; only the fields sent change.
-        A cancelled event cannot be edited. Needs a signed-in account; a guest
-        token gets 401.
+        Replace the editable fields of one of the organization’s own events; the
+        body is the same as when publishing. A cancelled event cannot be edited.
+        Needs a signed-in account; a guest token gets 401.
       tags:
         - Events
       security:
@@ -1090,7 +1059,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateEventBody'
+              $ref: '#/components/schemas/CreateEventBody'
       responses:
         '200':
           description: The updated event

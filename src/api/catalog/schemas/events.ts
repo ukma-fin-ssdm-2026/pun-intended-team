@@ -86,17 +86,12 @@ export const createEventExample: CreateEventBody = {
   endsAt: '2026-10-25T21:00:00+03:00',
 };
 
-export const CreateEventBody = CreateEventFields.meta({ id: 'CreateEventBody', example: createEventExample });
-
-const UpdateEventFields = CreateEventFields.partial();
-
-export const UpdateEventBody = UpdateEventFields.meta({
-  id: 'UpdateEventBody',
-  description: 'Only the fields to change',
-  example: { title: 'Film quiz night: Oscar edition' } satisfies UpdateEventBody,
+export const CreateEventBody = CreateEventFields.meta({
+  id: 'CreateEventBody',
+  description: 'All editable fields of an event; PUT /events/{id} takes the same body',
+  example: createEventExample,
 });
 
 export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
-export type UpdateEventBody = z.input<typeof UpdateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
