@@ -22,14 +22,56 @@ CORS_ORIGINS=http://localhost:8081 npm run dev
 cd app && npm run web
 ```
 
-`CORS_ORIGINS` lets the web client, served from `http://localhost:8081`, call the API from the browser; without it the browser blocks the requests. On a phone, run `npm start` instead and open the app in Expo Go; set `EXPO_PUBLIC_API_URL` to an address of your computer that the phone can reach. See the root [README](../README.md) for the API itself.
+`CORS_ORIGINS` lets the web client, served from `http://localhost:8081`, call the API from the browser; without it the browser blocks the requests. To open the client on a phone, see [Running on a phone](#running-on-a-phone). See the root [README](../README.md) for the API itself.
+
+## Running on a phone
+
+1. Connect the phone and the computer to the same Wi-Fi network.
+2. Find the computer's IP address: `ipconfig` on Windows (IPv4 Address), `ipconfig getifaddr en0` on Mac.
+3. Run the API as in [Getting started](#getting-started).
+4. Open the client:
+   - Expo Go: run `npm start` and scan the QR code.
+   - Phone browser: run `npx expo start --web`, start the API with `CORS_ORIGINS=http://localhost:8081,http://<IP>:8081` and open `http://<IP>:8081`.
+
+The client calls the API on the same host it was opened from, port 4100, unless `EXPO_PUBLIC_API_URL` is set.
+
+On WSL, the phone cannot reach servers inside WSL by default. Once:
+
+1. Add to `%USERPROFILE%\.wslconfig`:
+
+   ```ini
+   [wsl2]
+   networkingMode=mirrored
+   ```
+
+2. Run `wsl --shutdown` and reopen WSL.
+3. In PowerShell as administrator:
+
+   ```powershell
+   Set-NetFirewallHyperVVMSetting -Name '{40E0AC32-46A5-438A-A0B2-2B479E8F2E90}' -DefaultInboundAction Allow
+   ```
+
+Without mirrored mode (Windows 10 and older Windows 11, where `Set-NetFirewallHyperVVMSetting` is missing):
+
+1. Find the WSL IP address: `hostname -I` in WSL (the first address).
+2. In PowerShell as administrator:
+
+   ```powershell
+   netsh interface portproxy add v4tov4 listenaddress=<IP> listenport=8081 connectaddress=<WSL IP> connectport=8081
+   netsh interface portproxy add v4tov4 listenaddress=<IP> listenport=4100 connectaddress=<WSL IP> connectport=4100
+   New-NetFirewallRule -DisplayName "Nearby dev" -Direction Inbound -Protocol TCP -LocalPort 8081,4100 -Action Allow
+   ```
+
+3. The WSL IP address may change after a restart: run `netsh interface portproxy reset` and repeat both `portproxy` commands (not the firewall rule).
+
+The warning `error while installing React Native DevTools ... libnspr4.so` in WSL can be ignored.
 
 ## Environment variables
 
-| Variable                | Example                 | Purpose                         |
-| ----------------------- | ----------------------- | ------------------------------- |
-| `EXPO_PUBLIC_API_URL`   | `http://localhost:4100` | Base URL of the Nearby API      |
-| `EXPO_PUBLIC_API_TOKEN` | `stub-guest`            | Stub bearer token for local dev |
+| Variable                | Example                 | Purpose                                                     |
+| ----------------------- | ----------------------- | ----------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL`   | `http://localhost:4100` | Base URL of the Nearby API; optional, detected when not set |
+| `EXPO_PUBLIC_API_TOKEN` | `stub-guest`            | Stub bearer token for local dev                             |
 
 `EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so they must never contain real secrets. `.env` is ignored by git; `.env.example` is committed.
 
