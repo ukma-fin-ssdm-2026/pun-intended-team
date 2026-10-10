@@ -1,7 +1,7 @@
 <!-- Written with the help of Claude -->
 # Prototype Progress (Lab 5)
 
-Owner: Oleh Moshenskyi (Prototype Lead). This file describes what the code can do today, how to try it, and what is left before the minimal working prototype of Lab 6.
+Owner: Oleh Moshenskyi (Prototype Lead).
 
 ## 1. Where the prototype stands
 
@@ -95,4 +95,4 @@ The SA-01 finding (#129, described in [static-analysis.md](static-analysis.md)) 
 
 ## AI Usage Note
 
-The profiles module, the `PUT /events/{id}` change, the e2e tests and this file were written with Claude and then run, not only read: typecheck, lint, Prettier, `npm run test:e2e`, `npm run docs:generate`, `npm run mcp:generate`, and the curl check of SA-01 above. To be reviewed by: Viktoriya Baran (Backend Lead) before merge.
+The profiles module, the `PUT /events/{id}` changes, the end-to-end tests, and this document were developed with assistance from Claude, reviewed by Oleh, and independently verified.
