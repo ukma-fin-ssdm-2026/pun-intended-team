@@ -84,8 +84,10 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 | `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
 | `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
 | `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
-| `PATCH` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
+| `PUT` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
+
+`PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
 
 `GET /api/v1/events` query parameters (FR-007):
 
@@ -207,10 +209,10 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 
 | `code` | Endpoint | When |
 |---|---|---|
-| `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PATCH /events/{id}` | The caller is not an organization, or its verification is not `verified` |
-| `REFERENCE_NOT_FOUND` | `POST /events`, `PATCH /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
-| `EVENT_ENDS_BEFORE_START` | `POST /events`, `PATCH /events/{id}` | `endsAt` is not after `startsAt` (for a `PATCH`, after merging with the stored values) |
-| `EVENT_CANCELLED` | `PATCH /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
+| `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
+| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
@@ -232,3 +234,5 @@ The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so chang
 ## AI Usage Note
 
 Drafted with Claude from the project's requirements, data model and architecture documents. Reviewed and edited by Viktoriia Baran.
+
+**`PUT /events/{id}` (issue #142).** The `PUT` paragraph under Events and the changed endpoint and error tables were written with Claude. Verified by: `npm run test:e2e` (every rule above has a test) and `npm run docs:generate`. To be reviewed by: Viktoriia Baran (API Design Lead).
