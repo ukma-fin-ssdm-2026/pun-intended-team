@@ -57,6 +57,11 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
 - [`quality-attributes.md`](docs/api/quality-attributes.md) — quality goals for the Nearby REST API
 
+## ⟡ Code Quality
+
+- [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
+- [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
+
 ## ര Running the API
 
 Requires Node.js 26 or later.
