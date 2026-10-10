@@ -16,7 +16,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 | SA-02 | `src/api/common/config.ts` | Swagger UI and the spec rewrite are on unless `NODE_ENV` is exactly `production` (fail-open). | Medium | TM-11, SEC-006 | Accepted |
 | SA-03 | `src/infra/stubs/data.ts`, `.mcp.json` | Fixed demo tokens, including `stub-admin`, are committed and published in the docs. | High if deployed | TM-11, SEC-005 | Accepted for the stub phase: real authentication is required before the first deployment |
 | SA-04 | `src/api/main.ts` | No rate limiting: 150 requests in a row all returned `200`. | Medium | TM-10, SEC-007 | Open, planned before deployment |
-| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Open, planned with SA-04 |
+| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Fixed in [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174) |
 
 ### SA-01: inherited object properties accepted as access tokens
 
@@ -31,6 +31,12 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **How it was found.** Manual review of `config.ts` and `main.ts`. Confirmed that with `NODE_ENV=production` `/api-docs` answers `404`.
 - **Why it is a risk.** A deployment that forgets one variable exposes an interactive console against the live API. Safe behaviour that depends on a variable being set exactly right is a fail-open default.
 - **Decision: accepted.** `NODE_ENV=production` is a mandatory part of every deployment configuration. Locally the team relies on Swagger and the spec refresh, and the spec is already public on GitHub Pages. Revisit if a deployment is found running without it.
+
+### SA-05: no security response headers
+
+- **What was found.** Responses carried no `X-Content-Type-Options`, `Cache-Control`, `Content-Security-Policy` or `Strict-Transport-Security` header, so a browser could sniff a JSON body as another type, and a shared cache could keep a response with personal data.
+- **Fix: [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174).** A middleware in [`security-headers.ts`](../../src/api/common/security-headers.ts) sets `nosniff`, `Cache-Control: no-store` and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` on every response, errors included, and HSTS in production. Swagger UI at `/api-docs` gets no CSP, since it loads its own scripts and styles.
+- **Regression test.** `Security headers` in [`test/e2e/api.e2e.test.ts`](../../test/e2e/api.e2e.test.ts) checks a successful response, an error and an unknown route. It fails on the code before the fix and passes after.
 
 ### What is done well
 
