@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // Every tag an endpoint can use; Swagger UI groups endpoints by them.
 export const tags = [
+  { name: 'Auth', description: 'Registration, sign-in and guest tokens' },
   { name: 'Events', description: 'Events users can go to together' },
   { name: 'Listings', description: '"Looking for company" posts' },
   { name: 'Categories', description: 'The event category directory' },

@@ -56,6 +56,8 @@ export interface EndpointDefinition {
   responses: Record<number, ResponseDefinition>;
   /** Required with a 201: the Routes path of the created object, its {id} filled from the result. */
   location?: string;
+  /** false leaves the endpoint out of the generated MCP server (x-mcp: false in the spec). */
+  mcp?: false;
 }
 
 const VALIDATION_ERROR: ResponseDefinition = {
@@ -120,6 +122,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
     description: describe(route),
     tags: route.tags,
     security: access === 'public' ? undefined : [{ [bearerAuth.name]: [] }],
+    ...(route.mcp === false && { 'x-mcp': false }),
     request: toOpenApiRequest(request),
     responses: Object.fromEntries(
       Object.entries(responses).map(([code, { description, schema }]) => [

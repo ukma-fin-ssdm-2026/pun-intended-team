@@ -6,11 +6,12 @@ import { InfraModule } from '../infra/infra.module.ts';
 import { CatalogApiModule } from './catalog/catalog-api.module.ts';
 import { ApiExceptionFilter } from './common/api-exception.filter.ts';
 import { AuthGuard } from './common/auth.ts';
+import { IdentityApiModule } from './identity/identity-api.module.ts';
 import { ListingsApiModule } from './listings/listings-api.module.ts';
 import { SystemApiModule } from './system/system-api.module.ts';
 
 @Module({
-  imports: [InfraModule, IdentityModule, SystemApiModule, CatalogApiModule, ListingsApiModule],
+  imports: [InfraModule, IdentityModule, SystemApiModule, IdentityApiModule, CatalogApiModule, ListingsApiModule],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: AuthGuard },

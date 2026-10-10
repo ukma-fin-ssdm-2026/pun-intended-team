@@ -9,7 +9,7 @@
 | Style | REST, resources as plural nouns |
 | Transport | Clients reach the API only over HTTPS (TLS 1.2+); plain HTTP is redirected. TLS ends at the load balancer, which forwards plain HTTP to the server inside the private network ([high-level design](../architecture/high-level-design.md), threat model TB1/TB2). The server itself never handles TLS, so locally it is plain HTTP |
 | Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
-| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Catalog reads accept a guest token from `/auth/guest` (planned; until then, the stub tokens under [Trying It Out](#trying-it-out)), so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
+| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Access tokens are valid for 60 minutes, with no refresh yet. Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
 | Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
 | Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production, or in production when `SWAGGER_UI=true` (e.g. on staging) |
 
@@ -76,6 +76,17 @@ Related to: Event, Listing.
 ## 3. Endpoints
 
 Each endpoint lists every status it can return. `429` (rate limit) and `500` can come from any endpoint, so they are left out of the tables.
+
+### Auth
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `POST` | `/api/v1/auth/register` | Anyone, no token | `202`, a code is sent to the phone | `400`, `429` |
+| `POST` | `/api/v1/auth/verify` | Anyone, no token | `200` an access token for the new account | `400`, `409`, `422` |
+| `POST` | `/api/v1/auth/sign-in` | Anyone, no token | `200` an access token | `400`, `401` |
+| `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
+
+Registration takes two calls: `register` sends a one-time code to a `+380` number, and `verify` takes the code, a password (8 to 128 characters) and the date of birth, then creates the account. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; a new one can be requested once a minute (SEC-008). `register` answers the same whether or not the number already has an account, and `sign-in` answers a wrong password and an unknown number alike (SEC-007). Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
 
 ### Events
 
@@ -195,12 +206,12 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | Status | `code` | When |
 |---|---|---|
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
-| `401 Unauthorized` | `UNAUTHENTICATED` | No access token, or an invalid or expired one |
+| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` | `UNAUTHENTICATED`: no access token, or an invalid or expired one. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password; it does not say which |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT` | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
-| `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007) |
+| `429 Too Many Requests` | `RATE_LIMITED`, `CODE_RESEND_TOO_SOON` | A rate limit was hit (SEC-007), or a verification code was requested again within a minute (SEC-008) |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
@@ -212,6 +223,8 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
+| `INVALID_CODE` | `POST /auth/verify` | The code is wrong, expired, already used, or has failed 3 times |
+| `UNDERAGE` | `POST /auth/verify` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001) |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
@@ -219,17 +232,23 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 
 ### Trying It Out
 
-Until sign-in is implemented, the API accepts stub tokens. In Swagger UI (`/api-docs`), click **Authorize** and enter one; with curl, send `Authorization: Bearer <token>`.
+The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`.
 
-| Token | Caller |
+Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Authorize** and paste it; with curl, send `Authorization: Bearer <token>`. Tokens last 60 minutes.
+
+- **Guest** (catalog reads only): `POST /api/v1/auth/guest`.
+- **Seeded account:** `POST /api/v1/auth/sign-in` with one of the numbers below and the password `nearby-dev-password`.
+- **New account:** `POST /api/v1/auth/register`, read the code in the server's console, then `POST /api/v1/auth/verify`.
+
+| Phone | Account |
 |---|---|
-| `stub-guest` | A guest: catalog reads only |
-| `stub-user`, `stub-user-2` | Two regular users, for trying who may delete which listing |
-| `stub-org` | A verified organization with its own venue |
-| `stub-org-pending` | An organization still awaiting verification |
-| `stub-admin` | An administrator |
+| `+380501110001` | Olena, a regular user |
+| `+380501110002` | Taras, a second user, for trying who may delete which listing |
+| `+380501110003` | Podil Film Club, a verified organization with its own venue |
+| `+380501110004` | New Gallery, an organization still awaiting verification |
+| `+380501110005` | An administrator |
 
-The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes last until the server restarts.
+The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes, registered accounts included, last until the server restarts.
 
 ## AI Usage Note
 

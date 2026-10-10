@@ -68,12 +68,11 @@ The warning `error while installing React Native DevTools ... libnspr4.so` in WS
 
 ## Environment variables
 
-| Variable                | Example                 | Purpose                                                     |
-| ----------------------- | ----------------------- | ----------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`   | `http://localhost:4100` | Base URL of the Nearby API; optional, detected when not set |
-| `EXPO_PUBLIC_API_TOKEN` | `stub-guest`            | Stub bearer token for local dev                             |
+| Variable              | Example                 | Purpose                                                     |
+| --------------------- | ----------------------- | ----------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL` | `http://localhost:4100` | Base URL of the Nearby API; optional, detected when not set |
 
-`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so they must never contain real secrets. `.env` is ignored by git; `.env.example` is committed.
+`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so they must never contain real secrets. The client needs no token setting: it gets a guest token from `POST /api/v1/auth/guest` and renews it before it expires. `.env` is ignored by git; `.env.example` is committed.
 
 ## Scripts
 
@@ -102,7 +101,7 @@ app/
    │  └─ events/[id].tsx event details screen
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
-   │  └─ client.ts      typed API client with the bearer token
+   │  └─ client.ts      typed API client; gets and renews the guest token
    ├─ hooks/            data hooks: use-categories.ts, use-events.ts, use-event.ts
    ├─ components/       shared UI: category filter, event card, loading and error states
    ├─ styles/           theme.ts with shared spacing, colors and font sizes
