@@ -66,6 +66,54 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 **Decision: ESLint warnings do not fail CI.** This includes the 9 from eslint-plugin-security (see below). Eight of them are false positives, and the one true positive (SA-01) is tracked in #129. Failing on warnings would keep CI red on 8 false positives.
 
+## Pre-commit hooks
+
+[`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) runs three hooks on every commit, so a problem is caught before it reaches CI:
+
+- **gitleaks** v8.30.1 (the official `gitleaks` hook) scans the staged changes for secrets.
+- **Prettier** with `--write` formats the staged `.ts` and `.mjs` files. If it changes a file, the commit stops, so the author reviews the change and stages it.
+- **ESLint** without `--fix` checks the same files. The commit should fail, not rewrite code.
+
+Only staged files are checked, which keeps a commit fast. The file types match the `format` and `lint` scripts.
+
+**Why `.githooks/pre-commit` calls pre-commit.** The repository sets `core.hooksPath` to `.githooks` for the commit-message hook, and pre-commit refuses to install its own hook while that setting exists. The small [`.githooks/pre-commit`](../../.githooks/pre-commit) runs `pre-commit run` instead. If pre-commit is not installed, it prints `pipx install pre-commit` and exits with 1: the commit is blocked rather than allowed without the checks (fail-closed). Setup is in the [README](../../README.md#commit-hooks).
+
+**Evidence.** A commit with a fake GitHub token (`ghp_` and 36 random characters) is blocked by gitleaks, and the secret is redacted in the output:
+
+```text
+$ python3 -c "import secrets,string;print('ghp_'+''.join(secrets.choice(string.ascii_letters+string.digits) for _ in range(36)))" > fake-token.tmp.txt
+$ git add fake-token.tmp.txt
+$ git commit -m "(#151) Test"
+Detect hardcoded secrets.................................................Failed
+- hook id: gitleaks
+- exit code: 1
+
+○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+Finding:     REDACTED
+Secret:      REDACTED
+RuleID:      github-pat
+Entropy:     5.021928
+File:        fake-token.tmp.txt
+Line:        1
+Fingerprint: fake-token.tmp.txt:github-pat:1
+
+5:31PM INF 0 commits scanned.
+5:31PM INF scanned ~41 bytes (41 bytes) in 56.4ms
+5:31PM WRN leaks found: 1
+
+prettier.............................................(no files to check)Skipped
+eslint...............................................(no files to check)Skipped
+```
+
+**Full history scan.** The hook sees only new changes, so the history was scanned once with `gitleaks git`: 228 commits, 1 finding, a false positive. The `curl-auth-header` rule matches prose about `curl` in `docs/api/quality-attributes.md`, which contains no token. It is listed in [`.gitleaksignore`](../../.gitleaksignore) (one fingerprint for the history scan, one for the current file). Nothing else was found.
+
+**Limit: SA-03 is not covered.** gitleaks does not flag the demo tokens `stub-*` in `src/infra/stubs/data.ts` and `.mcp.json`: they are short, readable words with no entropy, and no default rule matches them. This is deliberate: they are public by design for the stub phase (SA-03), and a custom rule would only flag the demo tokens that SA-03 already accepts, so they would have to be allowlisted anyway.
+
 ## Security analyzer (eslint-plugin-security)
 
 **Tool:** eslint-plugin-security 4.2.0 on ESLint 10.12, run with `npm run lint`.
@@ -121,4 +169,6 @@ The review, the findings and the write-ups were drafted by Claude, which confirm
 
 The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository; found and fixed the ruleset that blocked Dependabot, and decided on #131 and #132.
 
-The linting, formatting and type checking section was drafted by Claude (Claude Code), which checked every version, ignore, script and job name against `package.json`, `eslint.config.mjs`, `.prettierrc` and the workflows, ran `npm run lint` (0 errors, 9 warnings), measured the type-checked rules on `test/` with a temporary config (81 findings, deleted afterwards) and ran the `eslint-config-prettier` CLI (no conflicts). Verified by:
+The linting, formatting and type checking section was drafted by Claude (Claude Code), which checked every version, ignore, script and job name against `package.json`, `eslint.config.mjs`, `.prettierrc` and the workflows, ran `npm run lint` (0 errors, 9 warnings), measured the type-checked rules on `test/` with a temporary config (81 findings, deleted afterwards) and ran the `eslint-config-prettier` CLI (no conflicts). Verified by: Vlad-Re
+
+The pre-commit hooks section was drafted by Claude (Claude Code), which checked the hook config, the wrapper script and `.gitleaksignore` against the files, ran `pre-commit run --all-files`, scanned the history with gitleaks 8.30.1 (228 commits, 1 false positive) and tried commits with a fake token and with a badly formatted file. The blocked-commit output is the team's own run. Verified by: Vlad-Re
