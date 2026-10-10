@@ -16,7 +16,7 @@ Code, comments, commits and docs are in English.
 ## Code
 
 - Every TypeScript file Claude writes or co-writes starts with `// Written with the help of Claude`; so does `tsconfig.json`. Other JSON files and generated files do not get it.
-- Config and workflow files that AI generated start with an `AI Usage Note` comment block instead: what was generated, how it was verified, and who reviewed it. Markdown documents get an `AI Usage Note` section at the end (charter §8).
+- Config and workflow files that AI generated start with an `AI Usage Note` comment block instead: what was generated, how it was verified, and who reviewed it. Markdown documents get an `AI Usage Note` section at the end (charter §9).
 - Keep AI Usage Notes short and general: no issue numbers, line references or change details. Leave existing notes as they are.
 - Comments only where the code would mislead without them.
 - Never commit `.env` or real tokens; new variables go to `.env.example` with a safe default.
