@@ -43,7 +43,7 @@ Documentation related to system architecture for this project is located [here](
 - [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
-- [`mechanisms/`](docs/architecture/mechanisms/) — architectural mechanisms: [matching](docs/architecture/mechanisms/matching.md), [notifications](docs/architecture/mechanisms/notifications.md), [authentication](docs/architecture/mechanisms/authentication.md), [catalog access](docs/architecture/mechanisms/catalog-access.md), [database access](docs/architecture/mechanisms/database-access.md) and [code structure](docs/architecture/mechanisms/code-structure.md)
+- [`mechanisms/`](docs/architecture/mechanisms/) — architectural and code mechanisms
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`
 
 ## ൭ API Documentation
@@ -78,61 +78,8 @@ Other scripts: `npm run typecheck` checks types without building, `npm run test:
 
 ## ൠ MCP Server
 
-[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes every API endpoint as a tool, so an AI agent such as Claude Code can call the API. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.
-
-Do not edit `src/mcp/` by hand. If an agent misreads a tool, fix the `summary`, `description` or `.describe()` in [`src/api/`](src/api/), then regenerate the spec and the server:
-
-```bash
-npm run docs:generate   # spec from the zod schemas (see API Documentation)
-npm run mcp:generate    # src/mcp/ from the committed spec
-npm run mcp:build       # installs src/mcp/ dependencies and compiles to src/mcp/build/
-```
-
-`src/mcp/` is a separate Node project with its own `package.json` and lock file, and is excluded from the API's `tsconfig.json`. Each regeneration also changes the `Generated on` timestamp in `src/mcp/src/index.ts`.
-
-### Running it
-
-Start the API first (`npm run dev`, see [Running the API](#ര-running-the-api)). The MCP server talks over stdio and forwards each tool call to the API:
-
-```bash
-BEARER_TOKEN_BEARERAUTH=stub-guest node src/mcp/build/index.js
-```
-
-Start it with `node`, not `npm start`: npm prints its own lines to stdout, which breaks the stdio protocol, and rebuilds on every start.
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `BEARER_TOKEN_BEARERAUTH` | — | Sent as `Authorization: Bearer …` on every call. Use a stub token from [Trying It Out](docs/api/api-design.md#trying-it-out): `stub-guest` is enough for catalog reads; other tools answer 401 or 404 unless the token has the right role |
-| `API_BASE_URL` | `http://localhost:4100` | API the tools call; the default comes from `servers` in the spec |
-
-Pass tokens as environment variables, never in a committed file.
-
-To list the tools and call one without an agent, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
-
-```bash
-npx @modelcontextprotocol/inspector --cli node src/mcp/build/index.js -e BEARER_TOKEN_BEARERAUTH=stub-guest --method tools/list
-npx @modelcontextprotocol/inspector --cli node src/mcp/build/index.js -e BEARER_TOKEN_BEARERAUTH=stub-guest \
-  --method tools/call --tool-name listEvents --tool-arg from=2026-10-15 to=2026-10-25
-```
-
-### Connecting it to Claude Code
-
-[`.mcp.json`](.mcp.json) registers the server as `nearby-api` for everyone who opens the project in Claude Code, in the VS Code extension or the CLI. It starts `src/mcp/build/index.js` from the project root (Claude Code sets `CLAUDE_PROJECT_DIR` for the server) with the `stub-guest` token, so it holds no secrets. Do not put real tokens in it.
-
-1. Run `npm run mcp:build`, then start the API with `npm run dev`.
-2. Start a new conversation in Claude Code. When it asks whether to use the project's MCP servers, approve `nearby-api`.
-3. Type `/mcp` in the chat panel and check that `nearby-api` shows **Connected**. From this dialog you can also reconnect or disable it.
-4. Ask, for example, "Which events are in the catalog between 15 and 25 October?". The agent should call `listEvents`.
+[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server, generated from the OpenAPI spec, that exposes every API endpoint as a tool for AI agents such as Claude Code. [`.mcp.json`](.mcp.json) connects it to Claude Code as `nearby-api`. How to regenerate, run and connect it is described in [`AGENTS.md`](AGENTS.md#mcp-server).
 
 ## ༄ AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
-
-**MCP Server (#95).** The "MCP Server" section, `.mcp.json`, `tools/mcp-generator/`, the `mcp:generate` and `mcp:build` scripts in `package.json` and the `exclude` in `tsconfig.json` were drafted with Claude Code. The code in `src/mcp/` is generated by openapi-mcp-generator, not by AI. Checked by Claude Code: `npm audit` (0 high), typecheck, build and the API docs workflow steps, `tools/list` in MCP Inspector (16 tools for 16 operations), `listEvents` calls compared with `curl`, and a 401 for an admin tool with `stub-guest`.
-
-- **Agent and call:** Claude Code (VS Code extension) with `nearby-api` connected via `.mcp.json`. Asked "Які події є в каталозі між 15 і 25 жовтня?", the agent chose `listEvents` with `from=2026-10-15`, `to=2026-10-25` and listed the 2 events the stubs return (17.10 and 20.10).
-- **Not as expected:** the generator drops an operation's `summary` when it has a `description`, so `cancelEvent` does not say that it cancels an event; request body fields have no descriptions; no tool states the access level it needs, so 12 of 16 tools answer 401 or 404 with the guest token; the agent treated the stub end time 23:59:59 as a likely placeholder and said so.
-- **Fixed in #110:** every description now starts with what the endpoint does, and `@Endpoint` adds the access level it needs. The stub end time is unchanged.
-- **Verified by:** Daryna Halytska — ran the demo above in Claude Code.
-
-**Links (#137).** The links to `docs/architecture/mechanisms/` were added by Claude Code after checking every file under `docs/` for a link and every existing link for a target. `docs/code-quality/` is left to #135. Verified by: Daryna Halytska.
