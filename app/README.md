@@ -31,6 +31,9 @@ The API must be running separately (see the root [README](../README.md)); by def
 | `npm run lint`      | Lint with `expo lint` (eslint-config-expo)         |
 | `npm run typecheck` | Type-check with `tsc --noEmit`                     |
 | `npm run format`    | Format with Prettier (uses the root `.prettierrc`) |
+| `npm run api:types` | Regenerate `src/api/schema.d.ts` from the API spec |
+
+Run `npm run api:types` after the API spec (`docs/api/openapi-generated.yaml`) changes, and commit the regenerated `src/api/schema.d.ts` as is: it is generated, so do not edit or format it by hand.
 
 ## Project structure
 
@@ -44,11 +47,13 @@ app/
    │  ├─ _layout.tsx    root Stack navigator
    │  ├─ index.tsx      home screen
    │  └─ events/[id].tsx event details screen
-   ├─ api/              (later) generated schema types and the API client
+   ├─ api/
+   │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
+   │  └─ client.ts      typed API client with the bearer token
    ├─ hooks/            (later) data hooks, e.g. use-events.ts
    ├─ components/       (later) shared UI, e.g. event-card.tsx
    ├─ styles/           (later) shared styles
-   └─ config.ts         (later) reads EXPO_PUBLIC_* values
+   └─ config.ts         reads EXPO_PUBLIC_* values
 ```
 
 Import from `src/` with the `@/` alias, for example `import { EventCard } from '@/components/event-card'`.
