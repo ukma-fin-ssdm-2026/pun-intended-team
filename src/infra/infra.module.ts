@@ -6,7 +6,9 @@ import { OrganizationsRepository } from '../core/catalog/repositories/organizati
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
+import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.ts';
+import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { StubCategoriesRepository } from './stubs/categories.repository.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
 import { StubListingsRepository } from './stubs/listings.repository.ts';
@@ -25,9 +27,13 @@ const repositories = [
   { provide: ListingsRepository, useClass: StubListingsRepository },
 ];
 
+const adapters = [{ provide: MessagingProvider, useClass: ConsoleMessagingProvider }];
+
+const providers = [...repositories, ...adapters];
+
 @Global()
 @Module({
-  providers: repositories,
-  exports: repositories.map(({ provide }) => provide),
+  providers,
+  exports: providers.map(({ provide }) => provide),
 })
 export class InfraModule {}
