@@ -112,16 +112,16 @@ export interface paths {
          * @description Get one event with its category and venue. Needs an access token: a guest token or a signed-in account.
          */
         get: operations["getEvent"];
-        put?: never;
+        /**
+         * Edit an event
+         * @description Replace the editable fields of one of the organization’s own events; the body is the same as when publishing. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["updateEvent"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Edit an event
-         * @description Edit one of the organization’s own events; only the fields sent change. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
-         */
-        patch: operations["updateEvent"];
+        patch?: never;
         trace?: never;
     };
     "/api/v1/events/{id}/cancel": {
@@ -138,6 +138,86 @@ export interface paths {
          * @description Cancel one of the organization’s own events. It stays readable with status `cancelled`; cancelling it again changes nothing. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["cancelEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start registration
+         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account. No access token needed.
+         */
+        post: operations["register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish registration
+         * @description Finish registration with the code, a password and the date of birth. Creates the account and signs in. No access token needed.
+         */
+        post: operations["verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with phone number and password
+         * @description Sign in with phone number and password. No access token needed.
+         */
+        post: operations["signIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/guest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get a guest token
+         * @description Get a guest token: browse the catalog without an account. No access token needed.
+         */
+        post: operations["getGuestToken"];
         delete?: never;
         options?: never;
         head?: never;
@@ -273,7 +353,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "INVALID_CREDENTIALS" | "INVALID_CODE" | "CODE_RESEND_TOO_SOON" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -444,6 +524,7 @@ export interface components {
             hasMore: boolean;
         };
         /**
+         * @description All editable fields of an event; PUT /events/{id} takes the same body
          * @example {
          *       "title": "Film quiz night",
          *       "description": "Teams of up to four, questions on Ukrainian cinema.",
@@ -480,36 +561,62 @@ export interface components {
             endsAt: string;
         };
         /**
-         * @description Only the fields to change
          * @example {
-         *       "title": "Film quiz night: Oscar edition"
+         *       "phone": "+380501119999"
          *     }
          */
-        UpdateEventBody: {
-            /** @description Title shown in the catalog */
-            title?: string;
-            /** @description Can be empty */
-            description?: string;
+        RegisterBody: {
+            phone: components["schemas"]["PhoneNumber"];
+        };
+        /**
+         * @description Ukrainian number, E.164
+         * @example +380501110001
+         */
+        PhoneNumber: string;
+        /**
+         * @example {
+         *       "accessToken": "eyJhbGciOiJIUzI1NiIs…",
+         *       "tokenType": "Bearer",
+         *       "expiresIn": 3600
+         *     }
+         */
+        AccessTokenResponse: {
+            /** @description Send as `Authorization: Bearer <accessToken>` */
+            accessToken: string;
+            /** @enum {string} */
+            tokenType: "Bearer";
+            /** @description Seconds until the token expires */
+            expiresIn: number;
+        };
+        /**
+         * @example {
+         *       "phone": "+380501119999",
+         *       "code": "123456",
+         *       "password": "a long passphrase",
+         *       "dateOfBirth": "2000-05-17"
+         *     }
+         */
+        VerifyBody: {
+            phone: components["schemas"]["PhoneNumber"];
+            /** @description The code sent to the phone */
+            code: string;
+            /** @description 8 to 128 characters */
+            password: string;
             /**
-             * Format: uuid
-             * @description An active category from listCategories
+             * Format: date
+             * @description Checked on the server: at least 18 years old
              */
-            categoryId?: string;
-            /**
-             * Format: uuid
-             * @description One of the organization's own venues
-             */
-            venueId?: string;
-            /**
-             * Format: date-time
-             * @description Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
-             */
-            startsAt?: string;
-            /**
-             * Format: date-time
-             * @description End time with an offset; must be after startsAt
-             */
-            endsAt?: string;
+            dateOfBirth: string;
+        };
+        /**
+         * @example {
+         *       "phone": "+380501110001",
+         *       "password": "nearby-dev-password"
+         *     }
+         */
+        SignInBody: {
+            phone: components["schemas"]["PhoneNumber"];
+            password: string;
         };
         /**
          * @example {
@@ -1098,7 +1205,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["UpdateEventBody"];
+                "application/json": components["schemas"]["CreateEventBody"];
             };
         };
         responses: {
@@ -1195,6 +1302,159 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RegisterBody"];
+            };
+        };
+        responses: {
+            /** @description The code is on its way; it is valid for 10 minutes */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    verify: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VerifyBody"];
+            };
+        };
+        responses: {
+            /** @description The account is created; an access token for it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessTokenResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The phone number is already registered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times. `UNDERAGE`: younger than 18. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SignInBody"];
+            };
+        };
+        responses: {
+            /** @description An access token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessTokenResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_CREDENTIALS`: wrong phone number or password; it does not say which */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getGuestToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A guest access token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessTokenResponse"];
                 };
             };
         };
