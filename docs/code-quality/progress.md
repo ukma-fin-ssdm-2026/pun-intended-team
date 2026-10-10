@@ -36,7 +36,7 @@ src/
 └── infra/stubs/            in-memory implementations; replaced by Prisma repositories in #144
 ```
 
-The profiles module follows the listings pattern: `ProfilesApiModule` (controller and schemas) imports `ProfilesModule` (service), which depends on the abstract `ProfilesRepository`, `InterestsRepository` and `AccountsRepository`. `InfraModule` binds them to the stubs. Swapping in a database means writing three classes in `infra/` and changing three lines in `InfraModule`; the service, the controller and the tests stay.
+The profiles module follows the listings pattern: `ProfilesApiModule` (controller and schemas) imports `ProfilesModule` (service), which depends on the abstract `ProfilesRepository` and `InterestsRepository`. The date of birth comes from `AccountsService` in the `identity` module, because lint forbids one module from importing another module's repository. `InfraModule` binds the three abstract repositories (`ProfilesRepository`, `InterestsRepository`, `AccountsRepository`) to the stubs. Swapping in a database means writing three classes in `infra/` and changing three lines in `InfraModule`; the services, the controller and the tests stay.
 
 ## 3. First working component: the profile
 
@@ -82,7 +82,7 @@ Run on the code of this pull request:
 | `npm audit --package-lock-only --audit-level=high` | 0 vulnerabilities |
 | `eslint-plugin-security` (recommended rules, run by hand, not yet in CI) | 0 errors, 9 warnings on `src/`: 7 × `detect-object-injection` and 2 × `detect-non-literal-fs-filename`. See the [static analysis](static-analysis.md) report for how they were judged |
 
-While testing the stubs the Prototype Lead confirmed the SA-01 finding (#129): a guest endpoint such as `GET /api/v1/categories` answers `200` to the "tokens" `constructor`, `__proto__` and `toString`, because `sessions[accessToken]` reads the object's prototype. Endpoints that need an account (every profile endpoint included) answer `401`, because such a value has no `kind: 'account'`. The new `AccountsRepository` stub avoids the same pattern.
+The SA-01 finding (#129, described in [static-analysis.md](static-analysis.md)) was reproduced again on this code with `curl`: a guest endpoint such as `GET /api/v1/categories` answers `200` to the "tokens" `constructor`, `__proto__` and `toString`, because `sessions[accessToken]` reads the object's prototype. Endpoints that need an account (every profile endpoint included) answer `401`, because such a value has no `kind: 'account'`. The new `AccountsRepository` stub avoids the same pattern.
 
 ## 6. Known gaps and next steps
 
