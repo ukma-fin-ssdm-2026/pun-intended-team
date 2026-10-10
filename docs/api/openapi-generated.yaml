@@ -9,6 +9,8 @@ servers:
   - url: http://localhost:4100
     description: Local development
 tags:
+  - name: Auth
+    description: Registration, sign-in and guest tokens
   - name: Events
     description: Events users can go to together
   - name: Listings
@@ -105,6 +107,10 @@ components:
         - EVENT_CANCELLED
         - EVENT_ENDS_BEFORE_START
         - LISTING_DATE_IN_PAST
+        - INVALID_CREDENTIALS
+        - INVALID_CODE
+        - CODE_RESEND_TOO_SOON
+        - UNDERAGE
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -405,6 +411,87 @@ components:
       description: Only the fields to change
       example:
         title: 'Film quiz night: Oscar edition'
+    RegisterBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+      required:
+        - phone
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+    PhoneNumber:
+      type: string
+      pattern: ^\+380\d{9}$
+      description: Ukrainian number, E.164
+      example: '+380501110001'
+    AccessTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 'Send as `Authorization: Bearer <accessToken>`'
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+      example:
+        accessToken: eyJhbGciOiJIUzI1NiIs…
+        tokenType: Bearer
+        expiresIn: 3600
+    VerifyBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: The code sent to the phone
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+        dateOfBirth:
+          type: string
+          format: date
+          description: 'Checked on the server: at least 18 years old'
+      required:
+        - phone
+        - code
+        - password
+        - dateOfBirth
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+        code: '123456'
+        password: a long passphrase
+        dateOfBirth: '2000-05-17'
+    SignInBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+        - phone
+        - password
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+        password: nearby-dev-password
     ListingsPage:
       type: object
       properties:
@@ -1084,6 +1171,126 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: Start registration
+      description: >-
+        Start registration: sends a one-time code to the phone number. The
+        answer is the same whether or not the number already has an account. No
+        access token needed.
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterBody'
+      responses:
+        '202':
+          description: The code is on its way; it is valid for 10 minutes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: '`CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/verify:
+    post:
+      operationId: verify
+      summary: Finish registration
+      description: >-
+        Finish registration with the code, a password and the date of birth.
+        Creates the account and signs in. No access token needed.
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyBody'
+      responses:
+        '200':
+          description: The account is created; an access token for it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The phone number is already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
+            times. `UNDERAGE`: younger than 18.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Sign in with phone number and password
+      description: Sign in with phone number and password. No access token needed.
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInBody'
+      responses:
+        '200':
+          description: An access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_CREDENTIALS`: wrong phone number or password; it does not
+            say which
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/guest:
+    post:
+      operationId: getGuestToken
+      summary: Get a guest token
+      description: >-
+        Get a guest token: browse the catalog without an account. No access
+        token needed.
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: A guest access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
   /api/v1/listings:
     get:
       operationId: listListings
