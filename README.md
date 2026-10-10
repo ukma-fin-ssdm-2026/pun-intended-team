@@ -85,7 +85,7 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
 
-## Commit hooks
+## 𓂀 Commit hooks
 
 Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
 
