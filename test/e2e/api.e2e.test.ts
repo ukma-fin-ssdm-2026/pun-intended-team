@@ -4,8 +4,11 @@
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
 // Ids from src/infra/stubs/data.ts.
@@ -39,6 +42,7 @@ const newListing = {
 
 let server: ChildProcess;
 let baseUrl: string;
+let keysDir: string;
 
 interface Response {
   status: number;
@@ -99,9 +103,13 @@ async function freePort(): Promise<number> {
 before(async () => {
   const port = await freePort();
   baseUrl = `http://localhost:${port}`;
+  // Test keys of its own, so the run never depends on a developer's keys/.
+  keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
+  const codeHmacKeyFile = path.join(keysDir, 'code-hmac.key');
+  writeFileSync(codeHmacKeyFile, randomBytes(32).toString('base64url'));
   // Production mode so the run does not rewrite the committed OpenAPI spec.
   server = spawn(process.execPath, ['dist/api/main.js'], {
-    env: { ...process.env, PORT: String(port), NODE_ENV: 'production' },
+    env: { ...process.env, PORT: String(port), NODE_ENV: 'production', CODE_HMAC_KEY_FILE: codeHmacKeyFile },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   const deadline = Date.now() + 15_000;
@@ -123,6 +131,7 @@ before(async () => {
 
 after(() => {
   server?.kill();
+  rmSync(keysDir, { recursive: true, force: true });
 });
 
 describe('GET /health', () => {

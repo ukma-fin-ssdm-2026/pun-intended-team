@@ -4,10 +4,15 @@ import { CategoriesRepository } from '../core/catalog/repositories/categories.re
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
+import { CodeHasher } from '../core/identity/adapters/code-hasher.ts';
+import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.ts';
+import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
+import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
+import { loadCodeHmacKey } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { StubCategoriesRepository } from './stubs/categories.repository.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
@@ -27,7 +32,11 @@ const repositories = [
   { provide: ListingsRepository, useClass: StubListingsRepository },
 ];
 
-const adapters = [{ provide: MessagingProvider, useClass: ConsoleMessagingProvider }];
+const adapters = [
+  { provide: MessagingProvider, useClass: ConsoleMessagingProvider },
+  { provide: PasswordHasher, useClass: Argon2PasswordHasher },
+  { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
+];
 
 const providers = [...repositories, ...adapters];
 
