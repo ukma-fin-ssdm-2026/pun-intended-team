@@ -72,9 +72,7 @@ Import from `src/` with the `@/` alias, for example `import { EventCard } from '
 
 ## Code style
 
-- [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html), with two exceptions: a line length of 120, and file names in lowercase kebab-case (`event-card.tsx`, `use-events.ts`), the same as on the NestJS side.
-- Expo Router route files keep the names the router requires (`_layout.tsx`, `[id].tsx`).
-- Formatting comes from the root `.prettierrc` (single quotes, `printWidth` 120).
+The client follows the team's [coding standard](../TeamCharter.md#5-quality-and-code-review-policy) (TeamCharter.md §5). Expo Router route files keep the names the router requires (`_layout.tsx`, `[id].tsx`).
 
 ## AI Usage Note
 

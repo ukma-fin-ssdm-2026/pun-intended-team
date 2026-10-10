@@ -46,6 +46,7 @@ export default function HomeScreen() {
       <Stack.Screen options={{ title: 'Nearby' }} />
       <View>
         <CategoryFilter categories={categories.data ?? []} selectedId={categoryId} onSelect={setCategoryId} />
+        {categories.error && <Text style={styles.filterError}>Could not load categories.</Text>}
       </View>
       {content}
     </View>
@@ -54,6 +55,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  filterError: { fontSize: fontSizes.sm, color: colors.textMuted, paddingHorizontal: spacing.md },
   list: { gap: spacing.sm, padding: spacing.md },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   emptyText: { fontSize: fontSizes.md, color: colors.textMuted },

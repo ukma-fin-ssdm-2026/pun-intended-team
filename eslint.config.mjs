@@ -3,7 +3,7 @@
 // How it was verified: npm run lint run locally; npx tsc --noEmit passes.
 // Reviewed by: Vlad-Re
 // Changed by Claude (Claude Code): added eslint-plugin-security with its recommended rules (issue #126).
-// Changed by Claude (Claude Code): ignore app/, the Expo client lints itself with `npx expo lint` (issue #143).
+// Changed by Claude (Claude Code): ignore app/, the Expo client lints itself with `npx expo lint`.
 import { readdirSync } from 'node:fs';
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
