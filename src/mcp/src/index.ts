@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-04T11:55:43.694Z
+ * Generated on: 2026-10-10T08:42:26.752Z
  */
 
 // Load environment variables from .env file
@@ -160,7 +160,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     name: "createEvent",
     description: `Publish an event. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body"}}},
     method: "post",
     pathTemplate: "/api/v1/events",
     executionParameters: [],
@@ -184,10 +184,10 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["updateEvent", {
     name: "updateEvent",
-    description: `Edit one of the organization’s own events; only the fields sent change. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
+    description: `Replace the editable fields of one of the organization’s own events; the body is the same as when publishing. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"additionalProperties":false,"description":"Only the fields to change"}},"required":["id"]},
-    method: "patch",
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body"}},"required":["id"]},
+    method: "put",
     pathTemplate: "/api/v1/events/{id}",
     executionParameters: [{"name":"id","in":"path"}],
     requestBodyContentType: "application/json",
