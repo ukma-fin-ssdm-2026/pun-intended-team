@@ -67,8 +67,6 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 Requires Node.js 26 or later.
 
-The current state of the prototype, with a walkthrough of the profile endpoints, is in [`docs/code-quality/progress.md`](docs/code-quality/progress.md).
-
 ```bash
 npm install
 cp .env.example .env    # first time only: it overwrites an existing .env
