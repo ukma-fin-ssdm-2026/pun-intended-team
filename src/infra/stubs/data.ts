@@ -38,30 +38,49 @@ export const organizations: Organization[] = [
   { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },
 ];
 
+const categoryIds = {
+  cinema: '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01',
+  exhibitions: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02',
+  concerts: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03',
+  poetrySlams: '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04',
+} as const;
+
+const venueIds = {
+  natalkaPark: '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05',
+  arsenal: '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06',
+  newGalleryHall: '7c3e5a7b-9d1f-4b3c-8e5a-7b9c1d3f5a07',
+} as const;
+
+const eventIds = {
+  filmNight: '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10',
+  arsenalExhibition: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
+  silentFilm: 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f',
+} as const;
+
 export const categories: Category[] = [
-  { id: '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01', name: 'Cinema', isActive: true },
-  { id: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02', name: 'Exhibitions', isActive: true },
-  { id: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03', name: 'Concerts', isActive: true },
-  { id: '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04', name: 'Poetry slams', isActive: false },
+  { id: categoryIds.cinema, name: 'Cinema', isActive: true },
+  { id: categoryIds.exhibitions, name: 'Exhibitions', isActive: true },
+  { id: categoryIds.concerts, name: 'Concerts', isActive: true },
+  { id: categoryIds.poetrySlams, name: 'Poetry slams', isActive: false },
 ];
 
 export const venues: Venue[] = [
   {
-    id: '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05',
+    id: venueIds.natalkaPark,
     name: 'Natalka Park lawn',
     address: 'Naberezhno-Luhova St, Kyiv',
     location: { lat: 50.4825, lng: 30.5181 },
     organizationId: accounts.filmClub,
   },
   {
-    id: '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06',
+    id: venueIds.arsenal,
     name: 'Mystetskyi Arsenal',
     address: '10-12 Lavrska St, Kyiv',
     location: { lat: 50.4357, lng: 30.5555 },
     organizationId: null,
   },
   {
-    id: '7c3e5a7b-9d1f-4b3c-8e5a-7b9c1d3f5a07',
+    id: venueIds.newGalleryHall,
     name: 'New Gallery hall',
     address: '5 Velyka Vasylkivska St, Kyiv',
     location: { lat: 50.4401, lng: 30.5203 },
@@ -77,11 +96,11 @@ export type StoredEvent = Omit<Event, 'category' | 'venue'> & { categoryId: stri
 
 export const events: StoredEvent[] = [
   {
-    id: '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10',
+    id: eventIds.filmNight,
     title: 'Open-air film night: Shadows of Forgotten Ancestors',
     description: 'Screening in the park, bring a blanket.',
-    categoryId: categories[0].id,
-    venueId: venues[0].id,
+    categoryId: categoryIds.cinema,
+    venueId: venueIds.natalkaPark,
     startsAt: `${inDays(13)}T19:00:00+03:00`,
     endsAt: `${inDays(13)}T21:30:00+03:00`,
     source: 'organization',
@@ -89,11 +108,11 @@ export const events: StoredEvent[] = [
     organizationId: accounts.filmClub,
   },
   {
-    id: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
+    id: eventIds.arsenalExhibition,
     title: 'Contemporary art exhibition at the Arsenal',
     description: 'Imported from a partner listing.',
-    categoryId: categories[1].id,
-    venueId: venues[1].id,
+    categoryId: categoryIds.exhibitions,
+    venueId: venueIds.arsenal,
     startsAt: `${inDays(16)}T11:00:00+03:00`,
     endsAt: `${inDays(16)}T23:59:59+03:00`,
     source: 'import',
@@ -101,11 +120,11 @@ export const events: StoredEvent[] = [
     organizationId: null,
   },
   {
-    id: 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f',
+    id: eventIds.silentFilm,
     title: 'Silent film with live piano',
     description: 'Cancelled: the pianist is ill.',
-    categoryId: categories[0].id,
-    venueId: venues[0].id,
+    categoryId: categoryIds.cinema,
+    venueId: venueIds.natalkaPark,
     startsAt: `${inDays(20)}T18:00:00+03:00`,
     endsAt: `${inDays(20)}T20:00:00+03:00`,
     source: 'organization',
@@ -118,8 +137,8 @@ export const listings: Listing[] = [
   {
     id: '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09',
     authorId: accounts.olena,
-    categoryId: categories[1].id,
-    eventId: events[1].id,
+    categoryId: categoryIds.exhibitions,
+    eventId: eventIds.arsenalExhibition,
     title: 'Looking for company for the Arsenal exhibition',
     description: 'Planning to go in the evening, happy to grab a coffee after.',
     date: inDays(16),
@@ -128,7 +147,7 @@ export const listings: Listing[] = [
   {
     id: 'af5b7d9e-1a3c-4e5f-9b7d-9e1a3c5e7f10',
     authorId: accounts.taras,
-    categoryId: categories[2].id,
+    categoryId: categoryIds.concerts,
     eventId: null,
     title: 'Anyone up for a jazz concert?',
     description: 'No ticket yet, open to suggestions.',

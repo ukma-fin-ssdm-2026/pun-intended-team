@@ -102,7 +102,7 @@ interface IncomingRequest {
  */
 export function Endpoint(route: EndpointDefinition): MethodDecorator {
   const { method, path, access, location, request = {} } = route;
-  const status = successStatus(route);
+  const { status, response: success } = successResponse(route);
   const hasInput = Boolean(request.params || request.query || request.body);
 
   const responses = {
@@ -135,7 +135,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
 
   const interceptors: NestInterceptor[] = [
     new ValidationInterceptor(request),
-    new ResponseSchemaInterceptor(route.responses[status].schema),
+    new ResponseSchemaInterceptor(success.schema),
   ];
   if (location) {
     interceptors.push(new LocationInterceptor(location));
@@ -214,12 +214,11 @@ class LocationInterceptor implements NestInterceptor {
 }
 
 /** Checked at startup, so a misdeclared endpoint stops the server instead of misbehaving. */
-function successStatus(route: EndpointDefinition): number {
-  const statuses = Object.keys(route.responses)
-    .map(Number)
-    .filter((status) => status >= 200 && status < 300);
-  if (statuses.length !== 1) {
-    throw new Error(`${route.operationId} must declare exactly one 2xx response, got ${statuses.length}`);
+function successResponse(route: EndpointDefinition): { status: number; response: ResponseDefinition } {
+  const successes = Object.entries(route.responses).filter(([code]) => Number(code) >= 200 && Number(code) < 300);
+  const [success] = successes;
+  if (!success || successes.length !== 1) {
+    throw new Error(`${route.operationId} must declare exactly one 2xx response, got ${successes.length}`);
   }
   if (route.responses[204]?.schema) {
     throw new Error(`${route.operationId}: a 204 response has no body, so it cannot have a schema`);
@@ -227,7 +226,8 @@ function successStatus(route: EndpointDefinition): number {
   if (Boolean(route.responses[201]) !== Boolean(route.location)) {
     throw new Error(`${route.operationId}: a 201 response needs a location, and only a 201 can have one`);
   }
-  return statuses[0];
+  const [code, response] = success;
+  return { status: Number(code), response };
 }
 
 /**

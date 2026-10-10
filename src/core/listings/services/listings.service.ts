@@ -21,7 +21,8 @@ export class ListingsService {
   /** Active listings from today on; past ones stay readable by id. */
   async list(page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
-    return { ...result, items: await this.withDetails(result.items) };
+    const withDetails = await this.detailsFor(result.items);
+    return { ...result, items: result.items.map(withDetails) };
   }
 
   async getById(id: string): Promise<ListingDetails> {
@@ -29,8 +30,8 @@ export class ListingsService {
     if (!listing) {
       throw new DomainError('NOT_FOUND', 'Listing not found');
     }
-    const [details] = await this.withDetails([listing]);
-    return details;
+    const withDetails = await this.detailsFor([listing]);
+    return withDetails(listing);
   }
 
   async create(accountId: string, input: NewListing): Promise<ListingDetails> {
@@ -55,8 +56,8 @@ export class ListingsService {
       authorId: accountId,
       status: 'active',
     });
-    const [details] = await this.withDetails([listing]);
-    return details;
+    const withDetails = await this.detailsFor([listing]);
+    return withDetails(listing);
   }
 
   /**
@@ -71,17 +72,18 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
-  private async withDetails(listings: Listing[]): Promise<ListingDetails[]> {
+  /** Loads the authors and categories of these listings, then adds them to each listing. */
+  private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails> {
     const [authors, allCategories] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
     ]);
     const categories = new Map(allCategories.map((category) => [category.id, category]));
-    return listings.map((listing) => ({
+    return (listing) => ({
       ...listing,
       author: required(authors.get(listing.authorId), `profile of ${listing.authorId}`),
       category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
-    }));
+    });
   }
 }
 
