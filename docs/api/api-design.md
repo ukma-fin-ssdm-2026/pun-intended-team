@@ -297,17 +297,12 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 
 | Phone | Account |
 |---|---|
-| `stub-guest` | A guest: catalog reads only |
-| `stub-user`, `stub-user-2` | Two regular users, for trying who may delete which listing |
-| `stub-org` | A verified organization with its own venue |
-| `stub-org-pending` | An organization still awaiting verification |
-| `stub-admin` | An administrator; has no profile, so it shows the `404` of the profile endpoints |
-| `stub-new-user` | A registered account that has not started onboarding: `POST /me/profile` creates its profile. `stub-user` and `stub-user-2` already have complete profiles |
-| `+380501110001` | Olena, a regular user |
-| `+380501110002` | Taras, a second user, for trying who may delete which listing |
-| `+380501110003` | Podil Film Club, a verified organization with its own venue |
-| `+380501110004` | New Gallery, an organization still awaiting verification |
-| `+380501110005` | An administrator |
+| `+380501110001` | Olena, a regular user with a complete profile |
+| `+380501110002` | Taras, a second user with a profile, for trying who may delete which listing |
+| `+380501110003` | Podil Film Club, a verified organization with its own venue; no profile |
+| `+380501110004` | New Gallery, an organization still awaiting verification; no profile, so `POST /me/profile` creates one |
+| `+380501110005` | An administrator; no profile, so it shows the `404` of the profile endpoints |
+
 The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes, registered accounts included, last until the server restarts.
 
 ## AI Usage Note
