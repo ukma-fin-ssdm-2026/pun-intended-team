@@ -13,11 +13,11 @@ The Nearby API runs end to end on stub data: a request goes through validation, 
 | Listings: browse, get, post, remove | Working | — |
 | Categories and administration of categories | Working | — |
 | **Profiles: onboarding in steps, edit, interests, `isComplete`** | **Working (first component of this lab)** | #141 |
-| Sign-in with JWT access tokens | Stub tokens only | #140 |
+| Sign-in with phone and password, JWT access tokens | Working (merged from main) | #140 |
 | Local PostgreSQL with Prisma | Not started | #144 |
 | Expo client | Not started | #143 |
 
-21 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (events 5, listings 4, categories 1, admin categories 5, profiles 4, interests 1, health 1). The `src/mcp/` server was regenerated and exposes all of them as tools.
+25 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (auth 4, events 5, listings 4, categories 1, admin categories 5, profiles 4, interests 1, health 1). The `src/mcp/` server was regenerated and exposes all of them as tools.
 
 ## 2. Code structure
 
@@ -36,14 +36,18 @@ src/
 └── infra/stubs/            in-memory implementations; replaced by Prisma repositories in #144
 ```
 
-The profiles module follows the listings pattern: `ProfilesApiModule` (controller and schemas) imports `ProfilesModule` (service), which depends on the abstract `ProfilesRepository` and `InterestsRepository`. The date of birth comes from `AccountsService` in the `identity` module, because lint forbids one module from importing another module's repository. `InfraModule` binds the three abstract repositories (`ProfilesRepository`, `InterestsRepository`, `AccountsRepository`) to the stubs. Swapping in a database means writing three classes in `infra/` and changing three lines in `InfraModule`; the services, the controller and the tests stay.
+The profiles module follows the listings pattern: `ProfilesApiModule` (controller and schemas) imports `ProfilesModule` (service), which depends on the abstract `ProfilesRepository` and `InterestsRepository`. The date of birth comes from `AccountsService` in the `identity` module, because lint forbids one module from importing another module's repository. `InfraModule` binds the new `ProfilesRepository` and `InterestsRepository` to stubs; the existing `AccountsRepository` got one new method, `findDateOfBirth`. Swapping in a database means writing these classes in `infra/` and changing their lines in `InfraModule`; the services, the controller and the tests stay.
 
 ## 3. First working component: the profile
 
-`stub-new-user` is an account that has not started onboarding. With the API running (`npm run dev`):
+New Gallery (`+380501110004`) has no profile yet, so it can start onboarding. With the keys generated (`npm run keys:generate`) and the API running (`npm run dev`):
 
 ```bash
-H='Content-Type: application/json'; A='Authorization: Bearer stub-new-user'; U=http://localhost:4100
+H='Content-Type: application/json'; U=http://localhost:4100
+T=$(curl -s -X POST $U/api/v1/auth/sign-in -H "$H" \
+     -d '{"phone":"+380501110004","password":"nearby-dev-password"}' \
+     | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken')
+A="Authorization: Bearer $T"
 
 curl -s $U/api/v1/interests -H "$A"                                    # ids to pick from
 curl -si -X POST  $U/api/v1/me/profile -H "$A" -H "$H" \
@@ -77,21 +81,20 @@ Run on the code of this pull request:
 
 | Check | Result |
 |---|---|
-| `npm run test:e2e` | 71 of 71 pass (35 before; the 2 `PATCH /events` tests were replaced and 38 added) |
+| `npm run test:e2e` | 98 of 98 pass, 23 of them for profiles and interests; the 2 old `PATCH /events` tests were replaced by the `PUT` tests |
 | `npm run lint`, `npm run format:check`, `npm run typecheck` | pass |
 | `npm audit --package-lock-only --audit-level=high` | 0 vulnerabilities |
-| `eslint-plugin-security` (recommended rules, run by hand, not yet in CI) | 0 errors, 9 warnings on `src/`: 7 × `detect-object-injection` and 2 × `detect-non-literal-fs-filename`. See the [static analysis](static-analysis.md) report for how they were judged |
+| `eslint-plugin-security` (recommended rules, part of `npm run lint`) | 0 errors, 14 warnings on `src/` and `test/`: `detect-object-injection`, `detect-non-literal-fs-filename` and `detect-non-literal-regexp`. See the [static analysis](static-analysis.md) report for how they were judged |
 
-The SA-01 finding (#129, described in [static-analysis.md](static-analysis.md)) was reproduced again on this code with `curl`: a guest endpoint such as `GET /api/v1/categories` answers `200` to the "tokens" `constructor`, `__proto__` and `toString`, because `sessions[accessToken]` reads the object's prototype. Endpoints that need an account (every profile endpoint included) answer `401`, because such a value has no `kind: 'account'`. The new `AccountsRepository` stub avoids the same pattern.
+The SA-01 finding (#129) concerned the stub `sessions[accessToken]` lookup, which answered `200` to the "tokens" `constructor`, `__proto__` and `toString`. Sign-in with signed JWT tokens (#140) removed that lookup, and the e2e test "rejects a token named like an object property with 401" covers it. Every profile endpoint needs an account token and answers `401` to such values.
 
 ## 6. Known gaps and next steps
 
-- **Sign-in (#140)** replaces the stub tokens; the guard in `api/common/auth.ts` and the `AuthService` already isolate the lookup.
-- **Database (#144)**: the three new repositories need Prisma implementations. The unique index on `lower(username)` must produce the same `USERNAME_TAKEN`; the service check is only a fast path, as with category names.
+- **Database (#144)**: the new repositories need Prisma implementations. The unique index on `lower(username)` must produce the same `USERNAME_TAKEN`; the service check is only a fast path, as with category names.
 - **`sharePhone: false`** is accepted although the data model requires one shared contact; the rule needs linked accounts, which are out of scope for #141.
 - **Out of scope for #141:** photo upload and linked accounts.
 - [`quality-attributes.md`](../api/quality-attributes.md) still records the Lab 4 Swagger UI checks of `PATCH /events/{id}`; they are history of that lab and were left unchanged.
-- The end-to-end tests were run with Node 22 while preparing this change; CI uses Node 26 (`.nvmrc`) and is the reference run.
+- The end-to-end tests were run locally with Node 26 (via `npx`) and in CI, which uses Node 26 (`.nvmrc`).
 
 ## AI Usage Note
 
