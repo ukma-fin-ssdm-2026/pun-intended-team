@@ -2,7 +2,8 @@
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
-import type { Caller } from '../../core/identity/types/caller.ts';
+import type { Account } from '../../core/identity/types/account.ts';
+import type { VerificationCode } from '../../core/identity/types/verification-code.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
 import type { Category } from '../../core/catalog/types/category.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
@@ -16,30 +17,55 @@ export const accounts = {
   filmClub: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c',
   newGallery: 'f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d',
   admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
-  newcomer: 'b2c4d6e8-0a1b-4c3d-9e5f-6a8b0c2d4e17',
 } as const;
 
-/** Account.date_of_birth, YYYY-MM-DD. Only the age derived from it ever leaves the API. */
-export const datesOfBirth: Record<string, string> = {
-  [accounts.olena]: '1998-03-14',
-  [accounts.taras]: '1995-07-02',
-  [accounts.filmClub]: '1990-01-01',
-  [accounts.newGallery]: '1988-11-23',
-  [accounts.admin]: '1985-06-30',
-  [accounts.newcomer]: '2000-05-20',
-};
+export type StoredAccount = Account & { passwordHash: string | null };
 
-/** Demo tokens for Swagger UI and curl, until sign-in is implemented. */
-export const sessions: Record<string, Caller> = {
-  'stub-guest': { kind: 'guest' },
-  'stub-user': { kind: 'account', accountId: accounts.olena, role: 'user' },
-  'stub-user-2': { kind: 'account', accountId: accounts.taras, role: 'user' },
-  'stub-org': { kind: 'account', accountId: accounts.filmClub, role: 'user' },
-  'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user' },
-  'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin' },
-  // A registered account that has not started onboarding: it has no profile yet.
-  'stub-new-user': { kind: 'account', accountId: accounts.newcomer, role: 'user' },
-};
+/** Every seeded account signs in with the password `nearby-dev-password`. */
+export const storedAccounts: StoredAccount[] = [
+  {
+    id: accounts.olena,
+    phone: '+380501110001',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '2001-04-12',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$LnG7K0R7BJ6TF1NOl/kiUA$OobkKSuS8xyXPey6bgtmsmsDwx3BMrZ/rUXrfCqlIAM',
+  },
+  {
+    id: accounts.taras,
+    phone: '+380501110002',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1998-11-03',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$oYWbgSv7qBSiEAktpWqTKw$7MS6NJ8lW91UtWCr1Th15mBnCNh7wF1lC0l/o3qWO9I',
+  },
+  {
+    id: accounts.filmClub,
+    phone: '+380501110003',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1990-06-21',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$mbsR20JBtHrDaHifqHOiPg$rtm+NwVRQqNJrn0W7iwtXK4qWmp+scuJjig6IDoWW2c',
+  },
+  {
+    id: accounts.newGallery,
+    phone: '+380501110004',
+    role: 'user',
+    status: 'active',
+    dateOfBirth: '1995-02-08',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$DYsNhEfFW/Et/WHp53hi3A$9dMgfT/ns9lcZkWOrCnjCnIX8Ko/Bej6VWdMvojgjQQ',
+  },
+  {
+    id: accounts.admin,
+    phone: '+380501110005',
+    role: 'admin',
+    status: 'active',
+    dateOfBirth: '1988-09-15',
+    passwordHash: '$argon2id$v=19$m=19456,t=2,p=1$q/i5tKWroyaTrMl2KrIbqw$p3fWgp18FPlZRLMH11s+ska1YYY3M8i1Sm1pPsqQTaw',
+  },
+];
+
+export const verificationCodes: VerificationCode[] = [];
 
 export const interestIds = {
   cinema: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01',
@@ -82,7 +108,6 @@ export const profiles: Profile[] = [
     interestIds: [interestIds.liveMusic],
   },
 ];
-
 export const organizations: Organization[] = [
   { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
   { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },

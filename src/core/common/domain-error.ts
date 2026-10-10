@@ -12,6 +12,10 @@ export const domainErrorCodes = [
   'LISTING_DATE_IN_PAST',
   'USERNAME_TAKEN',
   'PROFILE_EXISTS',
+  'INVALID_CREDENTIALS',
+  'INVALID_CODE',
+  'CODE_RESEND_TOO_SOON',
+  'UNDERAGE',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];
