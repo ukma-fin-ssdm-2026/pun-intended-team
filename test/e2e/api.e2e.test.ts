@@ -740,20 +740,20 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
 
 describe('GET /api/v1/interests', () => {
   test('lists the interests users can pick', async () => {
-    const res = await call('GET', '/api/v1/interests', { token: 'stub-user' });
+    const res = await call('GET', '/api/v1/interests', { token: tokens.user });
     assert.equal(res.status, 200);
     assert.ok(res.body.items.length > 0);
     assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestCinema));
   });
 
   test('rejects a guest token with 401', async () => {
-    assertRejected(await call('GET', '/api/v1/interests', { token: 'stub-guest' }), 401, 'UNAUTHENTICATED');
+    assertRejected(await call('GET', '/api/v1/interests', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
   });
 });
 
 describe('GET /api/v1/me/profile', () => {
   test('returns the profile with the age and isComplete', async () => {
-    const res = await call('GET', '/api/v1/me/profile', { token: 'stub-user' });
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.user });
     assert.equal(res.status, 200);
     assert.equal(res.body.username, 'olena_k');
     assert.ok(Number.isInteger(res.body.age) && res.body.age >= 18, `age ${res.body.age}`);
@@ -765,12 +765,12 @@ describe('GET /api/v1/me/profile', () => {
   });
 
   test('never returns the date of birth or the account id', async () => {
-    const res = await call('GET', '/api/v1/me/profile', { token: 'stub-user' });
-    assert.doesNotMatch(JSON.stringify(res.body), /1998|dateOfBirth|accountId/);
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.user });
+    assert.doesNotMatch(JSON.stringify(res.body), /2001|dateOfBirth|accountId/);
   });
 
   test('answers 404 when the account has no profile yet', async () => {
-    assertRejected(await call('GET', '/api/v1/me/profile', { token: 'stub-admin' }), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', '/api/v1/me/profile', { token: tokens.admin }), 404, 'NOT_FOUND');
   });
 
   test('rejects a request without a token with 401', async () => {
@@ -781,7 +781,7 @@ describe('GET /api/v1/me/profile', () => {
 describe('POST /api/v1/me/profile', () => {
   test('creates the profile and answers 201 with a Location header', async () => {
     const res = await call('POST', '/api/v1/me/profile', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { username: 'Newcomer.One', displayName: 'Newcomer' },
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
@@ -794,7 +794,7 @@ describe('POST /api/v1/me/profile', () => {
 
   test('rejects a second profile for the same account with 409 PROFILE_EXISTS', async () => {
     const res = await call('POST', '/api/v1/me/profile', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { username: 'another_name', displayName: 'Again' },
     });
     assertRejected(res, 409, 'PROFILE_EXISTS');
@@ -802,15 +802,15 @@ describe('POST /api/v1/me/profile', () => {
 
   test('rejects a username taken by someone else, in any case, with 409 USERNAME_TAKEN', async () => {
     const res = await call('POST', '/api/v1/me/profile', {
-      token: 'stub-admin',
+      token: tokens.admin,
       body: { username: 'OLENA_K', displayName: 'Impostor' },
     });
     assertRejected(res, 409, 'USERNAME_TAKEN');
-    assertRejected(await call('GET', '/api/v1/me/profile', { token: 'stub-admin' }), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', '/api/v1/me/profile', { token: tokens.admin }), 404, 'NOT_FOUND');
   });
 
   test('rejects a missing username and display name with 400', async () => {
-    const res = await call('POST', '/api/v1/me/profile', { token: 'stub-admin', body: {} });
+    const res = await call('POST', '/api/v1/me/profile', { token: tokens.admin, body: {} });
     assertInvalid(res, 'body', 'username');
     assertInvalid(res, 'body', 'displayName');
   });
@@ -818,7 +818,7 @@ describe('POST /api/v1/me/profile', () => {
   test('rejects a username that starts with a dot or contains a space with 400', async () => {
     for (const username of ['.hidden', 'two words', 'ab']) {
       const res = await call('POST', '/api/v1/me/profile', {
-        token: 'stub-admin',
+        token: tokens.admin,
         body: { username, displayName: 'X' },
       });
       assertInvalid(res, 'body', 'username');
@@ -827,14 +827,14 @@ describe('POST /api/v1/me/profile', () => {
 
   test('rejects an unknown body field with 400', async () => {
     const body = { username: 'valid_name', displayName: 'X', communicationFormat: 'dating' };
-    assertInvalid(await call('POST', '/api/v1/me/profile', { token: 'stub-admin', body }), 'body', '');
+    assertInvalid(await call('POST', '/api/v1/me/profile', { token: tokens.admin, body }), 'body', '');
   });
 });
 
 describe('PATCH /api/v1/me/profile', () => {
   test('changes only the fields sent', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { description: 'Walks and films.', communicationFormat: 'dating', sharePhone: false },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -847,7 +847,7 @@ describe('PATCH /api/v1/me/profile', () => {
 
   test('lets a user change the case of their own username', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { username: 'newcomer.one' },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
@@ -855,18 +855,18 @@ describe('PATCH /api/v1/me/profile', () => {
   });
 
   test('rejects a username taken by someone else with 409 USERNAME_TAKEN', async () => {
-    const res = await call('PATCH', '/api/v1/me/profile', { token: 'stub-new-user', body: { username: 'taras.m' } });
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { username: 'taras.m' } });
     assertRejected(res, 409, 'USERNAME_TAKEN');
   });
 
   test('answers 404 when the profile is not created yet', async () => {
-    const res = await call('PATCH', '/api/v1/me/profile', { token: 'stub-admin', body: { description: 'Hi' } });
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.admin, body: { description: 'Hi' } });
     assertRejected(res, 404, 'NOT_FOUND');
   });
 
   test('rejects an unknown communicationFormat with 400', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { communicationFormat: 'party' },
     });
     assertInvalid(res, 'body', 'communicationFormat');
@@ -874,7 +874,7 @@ describe('PATCH /api/v1/me/profile', () => {
 
   test('rejects an empty body with 400', async () => {
     assertRejected(
-      await call('PATCH', '/api/v1/me/profile', { token: 'stub-new-user', body: {} }),
+      await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: {} }),
       400,
       'VALIDATION_ERROR',
     );
@@ -884,7 +884,7 @@ describe('PATCH /api/v1/me/profile', () => {
 describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: [interestCinema, interestHiking, interestCinema] },
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
@@ -892,7 +892,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     assert.equal(first.body.isComplete, true, 'format and interests are both set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: [interestHiking] },
     });
     assert.deepEqual(
@@ -903,7 +903,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
 
   test('an empty list clears the interests and the profile is incomplete again', async () => {
     const res = await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: [] },
     });
     assert.equal(res.status, 200);
@@ -913,15 +913,15 @@ describe('PUT /api/v1/me/profile/interests', () => {
 
   test('rejects an unknown interest id with 422 and changes nothing', async () => {
     await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: [interestCinema] },
     });
     const res = await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: [interestHiking, randomUUID()] },
     });
     assertRejected(res, 422, 'REFERENCE_NOT_FOUND');
-    const profile = await call('GET', '/api/v1/me/profile', { token: 'stub-new-user' });
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
     assert.deepEqual(
       profile.body.interests.map((interest: { id: string }) => interest.id),
       [interestCinema],
@@ -929,13 +929,13 @@ describe('PUT /api/v1/me/profile/interests', () => {
   });
 
   test('answers 404 when the profile is not created yet', async () => {
-    const res = await call('PUT', '/api/v1/me/profile/interests', { token: 'stub-admin', body: { interestIds: [] } });
+    const res = await call('PUT', '/api/v1/me/profile/interests', { token: tokens.admin, body: { interestIds: [] } });
     assertRejected(res, 404, 'NOT_FOUND');
   });
 
   test('rejects ids that are not UUIDs with 400', async () => {
     const res = await call('PUT', '/api/v1/me/profile/interests', {
-      token: 'stub-new-user',
+      token: tokens.orgPending,
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
