@@ -1,14 +1,14 @@
 // Written with the help of Claude
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
-import { addDays, kyivDate } from '../../core/common/kyiv-time.js';
-import type { Caller } from '../../core/identity/types/caller.js';
-import type { Event } from '../../core/catalog/types/event.js';
-import type { Category } from '../../core/catalog/types/category.js';
-import type { Organization } from '../../core/catalog/types/organization.js';
-import type { Venue } from '../../core/catalog/types/venue.js';
-import type { Listing } from '../../core/listings/types/listing.js';
-import type { ProfileSummary } from '../../core/profiles/types/profile.js';
+import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
+import type { Caller } from '../../core/identity/types/caller.ts';
+import type { Event } from '../../core/catalog/types/event.ts';
+import type { Category } from '../../core/catalog/types/category.ts';
+import type { Organization } from '../../core/catalog/types/organization.ts';
+import type { Venue } from '../../core/catalog/types/venue.ts';
+import type { Listing } from '../../core/listings/types/listing.ts';
+import type { ProfileSummary } from '../../core/profiles/types/profile.ts';
 
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',

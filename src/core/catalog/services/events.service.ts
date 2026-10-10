@@ -1,13 +1,13 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { DomainError } from '../../common/domain-error.js';
-import { addDays, kyivDate } from '../../common/kyiv-time.js';
-import type { Page, PageRequest } from '../../common/page.js';
-import { EventsRepository } from '../repositories/events.repository.js';
-import { OrganizationsRepository } from '../repositories/organizations.repository.js';
-import { VenuesRepository } from '../repositories/venues.repository.js';
-import type { Event, EventChanges, EventQuery, NewEvent } from '../types/event.js';
-import { CategoriesService } from './categories.service.js';
+import { DomainError } from '../../common/domain-error.ts';
+import { addDays, kyivDate } from '../../common/kyiv-time.ts';
+import type { Page, PageRequest } from '../../common/page.ts';
+import { EventsRepository } from '../repositories/events.repository.ts';
+import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
+import { VenuesRepository } from '../repositories/venues.repository.ts';
+import type { Event, EventChanges, EventQuery, NewEvent } from '../types/event.ts';
+import { CategoriesService } from './categories.service.ts';
 
 const CATALOG_WINDOW_DAYS = 28;
 

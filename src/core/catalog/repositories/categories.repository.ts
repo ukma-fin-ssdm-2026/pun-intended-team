@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { Category, CategoryChanges, NewCategory } from '../types/category.js';
+import type { Category, CategoryChanges, NewCategory } from '../types/category.ts';
 
 export abstract class CategoriesRepository {
   abstract findById(id: string): Promise<Category | undefined>;

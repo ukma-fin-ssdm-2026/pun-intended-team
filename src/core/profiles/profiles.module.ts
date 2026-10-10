@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { Module } from '@nestjs/common';
-import { ProfilesService } from './services/profiles.service.js';
+import { ProfilesService } from './services/profiles.service.ts';
 
 @Module({
   providers: [ProfilesService],

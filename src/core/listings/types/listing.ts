@@ -1,6 +1,6 @@
 // Written with the help of Claude
-import type { Category } from '../../catalog/types/category.js';
-import type { ProfileSummary } from '../../profiles/types/profile.js';
+import type { Category } from '../../catalog/types/category.ts';
+import type { ProfileSummary } from '../../profiles/types/profile.ts';
 
 export type ListingStatus = 'active' | 'removed';
 

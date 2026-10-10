@@ -1,8 +1,8 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { DomainError } from '../../common/domain-error.js';
-import { CategoriesRepository } from '../repositories/categories.repository.js';
-import type { Category, CategoryChanges, NewCategory } from '../types/category.js';
+import { DomainError } from '../../common/domain-error.ts';
+import { CategoriesRepository } from '../repositories/categories.repository.ts';
+import type { Category, CategoryChanges, NewCategory } from '../types/category.ts';
 
 @Injectable()
 export class CategoriesService {

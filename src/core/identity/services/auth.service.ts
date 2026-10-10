@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { SessionsRepository } from '../repositories/sessions.repository.js';
-import type { Caller } from '../types/caller.js';
+import { SessionsRepository } from '../repositories/sessions.repository.ts';
+import type { Caller } from '../types/caller.ts';
 
 @Injectable()
 export class AuthService {

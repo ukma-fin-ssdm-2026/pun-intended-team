@@ -13,11 +13,11 @@ import {
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { map, tap } from 'rxjs';
 import { z } from 'zod';
-import { ApiException } from './api-exception.js';
-import { type Access, RequireAccess } from './auth.js';
-import { bearerAuth, registry } from './registry.js';
-import { ErrorResponse, type ValidationIssue } from './schemas/errors.js';
-import type { Tag } from './tags.js';
+import { ApiException } from './api-exception.ts';
+import { type Access, RequireAccess } from './auth.ts';
+import { bearerAuth, registry } from './registry.ts';
+import { ErrorResponse, type ValidationIssue } from './schemas/errors.ts';
+import type { Tag } from './tags.ts';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 

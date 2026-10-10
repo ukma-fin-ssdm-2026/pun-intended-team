@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { ActiveCategoryId, Category, categoryExample } from '../../catalog/schemas/categories.js';
-import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.js';
+import { ActiveCategoryId, Category, categoryExample } from '../../catalog/schemas/categories.ts';
+import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
 

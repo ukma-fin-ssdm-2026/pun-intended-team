@@ -1,11 +1,11 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
-import { EventsService } from '../../../core/catalog/services/events.service.js';
-import type { AccountCaller } from '../../../core/identity/types/caller.js';
-import { CurrentAccount } from '../../common/auth.js';
-import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.js';
-import { Routes } from '../../common/routes.js';
-import { ErrorResponse } from '../../common/schemas/errors.js';
+import { EventsService } from '../../../core/catalog/services/events.service.ts';
+import type { AccountCaller } from '../../../core/identity/types/caller.ts';
+import { CurrentAccount } from '../../common/auth.ts';
+import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
+import { Routes } from '../../common/routes.ts';
+import { ErrorResponse } from '../../common/schemas/errors.ts';
 import {
   CreateEventBody,
   Event,
@@ -13,7 +13,7 @@ import {
   EventsPage,
   ListEventsQuery,
   UpdateEventBody,
-} from '../schemas/events.js';
+} from '../schemas/events.ts';
 
 const ListEventsRequest = { query: ListEventsQuery } satisfies RequestSchemas;
 const GetEventRequest = { params: EventIdParams } satisfies RequestSchemas;

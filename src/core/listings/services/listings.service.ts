@@ -1,13 +1,13 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { CategoriesService } from '../../catalog/services/categories.service.js';
-import { EventsService } from '../../catalog/services/events.service.js';
-import { DomainError } from '../../common/domain-error.js';
-import { kyivDate } from '../../common/kyiv-time.js';
-import type { Page, PageRequest } from '../../common/page.js';
-import { ProfilesService } from '../../profiles/services/profiles.service.js';
-import { ListingsRepository } from '../repositories/listings.repository.js';
-import type { Listing, ListingDetails, NewListing } from '../types/listing.js';
+import { CategoriesService } from '../../catalog/services/categories.service.ts';
+import { EventsService } from '../../catalog/services/events.service.ts';
+import { DomainError } from '../../common/domain-error.ts';
+import { kyivDate } from '../../common/kyiv-time.ts';
+import type { Page, PageRequest } from '../../common/page.ts';
+import { ProfilesService } from '../../profiles/services/profiles.service.ts';
+import { ListingsRepository } from '../repositories/listings.repository.ts';
+import type { Listing, ListingDetails, NewListing } from '../types/listing.ts';
 
 @Injectable()
 export class ListingsService {

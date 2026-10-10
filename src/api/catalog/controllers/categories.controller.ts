@@ -1,9 +1,9 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
-import { CategoriesService } from '../../../core/catalog/services/categories.service.js';
-import { Endpoint } from '../../common/endpoint.js';
-import { Routes } from '../../common/routes.js';
-import { CategoryList } from '../schemas/categories.js';
+import { CategoriesService } from '../../../core/catalog/services/categories.service.ts';
+import { Endpoint } from '../../common/endpoint.ts';
+import { Routes } from '../../common/routes.ts';
+import { CategoryList } from '../schemas/categories.ts';
 
 @Controller()
 export class CategoriesController {
