@@ -171,7 +171,7 @@ A persistent inability to complete the stated workload is discussed at a team me
 - The team cross-checks evidence of individual contribution against the commit history before each weekly lab deadline, and again at the midterm evaluation and before the final project defense, in line with the commit-history verification described in the course submission policy.
 
 ## 12. Signatures
-- [ ] Viktoriya Baran (GitHub: @viktoriyabaran)
+- [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [ ] Daryna Halytska (GitHub: @DarynaHalytska)
 - [ ] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [ ] Vladyslav Redchuk (GitHub: @Vlad-Re)
