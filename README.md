@@ -18,10 +18,10 @@ Look [here](Project-Description.md) for a more detailed project description
 
 | Member | Role | GitHub |
 |---|---|---|
-| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
-| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API) | [@DarynaHalytska](https://github.com/DarynaHalytska) |
-| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API) | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
-| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead | [@Vlad-Re](https://github.com/Vlad-Re) |
+| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead, Documentation Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
+| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API), Security Analyst | [@DarynaHalytska](https://github.com/DarynaHalytska) |
+| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API), Code Reviewer, Prototype Lead | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
+| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead, Quality Lead (code) | [@Vlad-Re](https://github.com/Vlad-Re) |
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
@@ -61,6 +61,7 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 - [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
+- [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
 
 ## ര Running the API
 
@@ -79,7 +80,9 @@ For a production build: `npm run build`, then `npm start`.
 | `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
 | `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
 
-Other scripts: `npm run typecheck` checks types without building, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
+Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
+
+Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
 
 ## ൠ MCP Server
 
