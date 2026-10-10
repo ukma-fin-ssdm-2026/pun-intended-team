@@ -19,7 +19,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | QA-SEC-01 | Input validation | now · met | 170 of 170 log rows pass |
 | QA-SEC-02 | Bulk access | now · met | `limit=21` is rejected on both list endpoints; no page above 20 items |
 | QA-SEC-03 | Data exposure | now · met | 0 sensitive names among 34 schema properties and parameters; no `X-Powered-By` header |
-| QA-SEC-04 | Access control | now (stub tokens) · met; rest contract | all 19 rows that expect `401` pass; non-admin and not-the-owner callers get `404` |
+| QA-SEC-04 | Access control | now · met; revocation and the contact rule are contract | all 19 rows that expect `401` pass; non-admin and not-the-owner callers get `404`; expired and tampered tokens get `401` |
 | QA-SEC-05 | Rate limiting | contract | Not implemented: 127,796 smoke requests on one token got no `429` |
 | QA-SEC-06 | Dependency advisories | now · met | `npm audit` (3 October): 0 advisories of any severity (198 packages) |
 | QA-REL-01 | Failure handling | now · met | 0 of 170 responses were `5xx`; the `500` path itself is not exercised (see goal) |
@@ -44,7 +44,8 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
   - stateless API apart from the in-memory stub data in `src/infra/stubs/data.ts`, which the database replaces (FLEX-002)
   - indexed queries for the catalog filters (planned)
 - **Measurement:** k6 against staging, 500 sessions, 10 minutes. Stub-phase smoke run: 50 connections, 60 s, local server, `GET /api/v1/events`, thresholds p95 ≤ 1000 ms and no non-`2xx` answers:
-  `npx autocannon -c 50 -d 60 -H "Authorization: Bearer stub-guest" http://localhost:4100/api/v1/events`
+  `TOKEN=$(curl -s -X POST http://localhost:4100/api/v1/auth/guest | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken')`
+  `npx autocannon -c 50 -d 60 -H "Authorization: Bearer $TOKEN" http://localhost:4100/api/v1/events`
   (autocannon reports p97.5 and p99; p97.5 ≤ 1000 ms implies p95 ≤ 1000 ms)
 - **Latest smoke result:** 127,796 requests, all `2xx`, no errors or timeouts; p50 19 ms, p97.5 55 ms, p99 66 ms, max 793 ms. Run on 3 October, before the strict body schemas and the other fixes, and not repeated since. Run on a single-core sandbox with the load generator on the same machine and Node 22, so treat it as an order of magnitude, not a benchmark. It shows only that the stub API with validation is far from the limit; it says nothing about the database
 - **Source:** PERF-001
@@ -87,16 +88,16 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Latest result:** 0 hits among 34 property and parameter names (checked in the normalised form, also against `hash`, `failedSignins` and `lockedUntil` from the data model); no response in the log carries `X-Powered-By`
 - **Source:** SEC-002, data-model §4
 
-**QA-SEC-04 · Access control** — *now (stub tokens) · met; real tokens and the contact rule are contract*
+**QA-SEC-04 · Access control** — *now · met; revocation and the contact rule are contract*
 
-- **Goal:** on every endpoint except `/health`, a missing or invalid token gets `401` in 100% of cases; a guest token on a signed-in endpoint gets `401`; a signed-in caller who is not an administrator gets `404` on `/api/v1/admin/*`, and a caller who does not own the resource gets `404` — never `403` ([`api-design.md`](api-design.md#error-handling), SEC-001). *Contract:* an expired, tampered or revoked token gets `401` (SEC-005), and a contact request in any state other than two recorded acceptances gets `404`
+- **Goal:** on every endpoint except `/health`, a missing or invalid token gets `401` in 100% of cases; a guest token on a signed-in endpoint gets `401`; a signed-in caller who is not an administrator gets `404` on `/api/v1/admin/*`, and a caller who does not own the resource gets `404` — never `403` ([`api-design.md`](api-design.md#error-handling), SEC-001). an expired or tampered token gets `401` (SEC-005). *Contract:* a revoked token gets `401`, and a contact request in any state other than two recorded acceptances gets `404`
 - **Failure condition:** any of those cases answers anything else, or any `403` appears in the spec or in a response
 - **Implementation:**
   - one global `AuthGuard`; the access level of each endpoint (`public`, `guest`, `user`, `admin`) is declared in `@Endpoint`, and the guard answers before validation, so a non-admin learns nothing about the admin API from a validation error
-  - the guard accepts the fixed stub tokens until sign-in exists; the real JWT check replaces `AuthService.authenticate` (planned)
+  - `AuthService.authenticate` accepts only a signed JWT: HS256, key found by `kid`, issuer, audience, type and expiry checked, claims parsed into the caller (#140)
   - mutual-acceptance rule checked on the server (planned)
-- **Measurement:** validation log — each of the 15 protected endpoints is called with a missing or guest token; non-admin and not-the-owner rows; later, authorization tests per token state and per match state
-- **Latest result:** all 19 rows that expect `401` pass, and all non-admin and not-the-owner rows return `404`. Expired, tampered and revoked tokens cannot be tried with stub tokens
+- **Measurement:** validation log — each of the 15 protected endpoints is called with a missing or guest token; non-admin and not-the-owner rows; e2e tests with expired, tampered, `alg: none`, wrong-key, wrong-audience and malformed tokens; later, authorization tests per match state
+- **Latest result:** all 19 rows that expect `401` pass, and all non-admin and not-the-owner rows return `404`. The e2e suite rejects all 10 bad-token cases with `401` (#140); revoked tokens wait for refresh tokens
 - **Source:** SEC-005, SEC-001; threat model TM-11
 
 **QA-SEC-05 · Rate limiting** — *contract*
@@ -253,7 +254,7 @@ Run for issue #98: every endpoint, every applicable input class, expected result
 
 ### How to run it
 
-Use the **local** Swagger UI: the one on GitHub Pages is read-only and has no **Try it out**. Start the API with `npm run dev` (Node 26) and open `http://localhost:4100/api-docs`. Click **Authorize**, enter one of the stub tokens below, then use **Try it out** on each endpoint with each input class and compare the status code and the error body with the *Expected* column.
+Use the **local** Swagger UI: the one on GitHub Pages is read-only and has no **Try it out**. Start the API with `npm run dev` (Node 26) and open `http://localhost:4100/api-docs`. Click **Authorize**, paste a token for the caller of the row (see below), then use **Try it out** on each endpoint with each input class and compare the status code and the error body with the *Expected* column.
 
 Stub data lives in memory and some rows create or delete objects, so restart the server before a full pass and go through each block of the log from top to bottom (for example, "the same listing again" needs the row before it).
 
@@ -266,19 +267,21 @@ Broken JSON and a 200 kB body can be typed or pasted into the request body box o
 
 ```bash
 curl -i -X POST http://localhost:4100/api/v1/admin/categories \
-  -H "Authorization: Bearer stub-admin" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/x-www-form-urlencoded" -d "name=Zform"
 ```
 
 **Dates.** The stub dates count from the day the server starts: events in 13, 16 and 20 days (the last one cancelled), listings in 7 and 16 days. The item counts in the *Actual* column therefore stay the same whenever the log is run.
 
-| Token | Caller | Use it for |
+Tokens come from `POST /api/v1/auth/guest`, or from `POST /api/v1/auth/sign-in` with the phone below and the password `nearby-dev-password` ([Trying It Out](api-design.md#trying-it-out)); `$ADMIN_TOKEN` above is the administrator's. They last 60 minutes.
+
+| Caller | Phone | Use it for |
 |---|---|---|
-| `stub-guest` | a guest | catalog reads (`/events`, `/categories`); must get `401` on signed-in endpoints |
-| `stub-user`, `stub-user-2` | two regular users | listings; "not the owner" cases (`stub-user-2` deleting `stub-user`'s listing) |
-| `stub-org` | a verified organization with its own venue | publish, edit and cancel events |
-| `stub-org-pending` | an organization awaiting verification | `ORGANIZATION_NOT_VERIFIED` |
-| `stub-admin` | an administrator | `/api/v1/admin/categories`; any other caller gets `404` there |
+| a guest | — (`/auth/guest`) | catalog reads (`/events`, `/categories`); must get `401` on signed-in endpoints |
+| Olena, Taras: two regular users | `+380501110001`, `+380501110002` | listings; "not the owner" cases (Taras deleting Olena's listing) |
+| Podil Film Club: a verified organization with its own venue | `+380501110003` | publish, edit and cancel events |
+| New Gallery: an organization awaiting verification | `+380501110004` | `ORGANIZATION_NOT_VERIFIED` |
+| an administrator | `+380501110005` | `/api/v1/admin/categories`; any other caller gets `404` there |
 
 **Input classes:**
 
@@ -431,8 +434,8 @@ Click an endpoint to open its rows. *Expected* comes from `api-design.md`; *Actu
 | unknown category | 422, `REFERENCE_NOT_FOUND` | 422 REFERENCE_NOT_FOUND | ✅ |
 | deactivated category (Poetry slams) | 422, `REFERENCE_NOT_FOUND` | 422 REFERENCE_NOT_FOUND | ✅ |
 | another organization's venue | 422, `REFERENCE_NOT_FOUND` | 422 REFERENCE_NOT_FOUND | ✅ |
-| organization awaiting verification (`stub-org-pending`) | 422, `ORGANIZATION_NOT_VERIFIED` | 422 ORGANIZATION_NOT_VERIFIED | ✅ |
-| regular user (`stub-user`), not an organization | 422, `ORGANIZATION_NOT_VERIFIED` | 422 ORGANIZATION_NOT_VERIFIED | ✅ |
+| organization awaiting verification (New Gallery) | 422, `ORGANIZATION_NOT_VERIFIED` | 422 ORGANIZATION_NOT_VERIFIED | ✅ |
+| regular user (Olena), not an organization | 422, `ORGANIZATION_NOT_VERIFIED` | 422 ORGANIZATION_NOT_VERIFIED | ✅ |
 | guest token | 401 | 401 UNAUTHENTICATED | ✅ |
 | no token | 401 | 401 UNAUTHENTICATED | ✅ |
 | body is not valid JSON `{"title":` | 400, `VALIDATION_ERROR`, no `details` | 400 VALIDATION_ERROR | ✅ |

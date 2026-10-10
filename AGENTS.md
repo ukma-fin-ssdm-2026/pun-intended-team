@@ -66,7 +66,7 @@ Before changing code in one of these areas, read its mechanism in [`docs/archite
 
 ## MCP Server
 
-[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes every API endpoint as a tool. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.
+[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes the API endpoints as tools. Endpoints declared with `mcp: false` in `@Endpoint` are left out: the auth endpoints, since an agent cannot use a token it gets back and `register` sends a code. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.
 
 Do not edit `src/mcp/` by hand. If an agent misreads a tool, fix the `summary`, `description` or `.describe()` in [`src/api/`](src/api/), then regenerate the spec and the server:
 
@@ -80,17 +80,17 @@ npm run mcp:build       # installs src/mcp/ dependencies and compiles to src/mcp
 
 ### Running it
 
-Start the API first with `npm run dev`. The MCP server talks over stdio and forwards each tool call to the API:
+Start the API first with `npm run dev`. The MCP server talks over stdio and forwards each tool call to the API. Start it through [`tools/mcp-start.mjs`](tools/mcp-start.mjs), which gets a guest token from the API and renews it before it expires:
 
 ```bash
-BEARER_TOKEN_BEARERAUTH=stub-guest node src/mcp/build/index.js
+node tools/mcp-start.mjs
 ```
 
 Start it with `node`, not `npm start`: npm prints its own lines to stdout, which breaks the stdio protocol, and rebuilds on every start.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BEARER_TOKEN_BEARERAUTH` | — | Sent as `Authorization: Bearer …` on every call. Use a stub token from [Trying It Out](docs/api/api-design.md#trying-it-out): `stub-guest` is enough for catalog reads; other tools answer 401 or 404 unless the token has the right role |
+| `BEARER_TOKEN_BEARERAUTH` | a guest token | Sent as `Authorization: Bearer …` on every call. Unset, the launcher uses a guest token, enough for catalog reads. For other tools, pass a token from `/api/v1/auth/sign-in` with the right role ([Trying It Out](docs/api/api-design.md#trying-it-out)); it expires after 60 minutes and is not renewed |
 | `API_BASE_URL` | `http://localhost:4100` | API the tools call; the default comes from `servers` in the spec |
 
 Pass tokens as environment variables, never in a committed file.
@@ -98,14 +98,14 @@ Pass tokens as environment variables, never in a committed file.
 To list the tools and call one without an agent, use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```bash
-npx @modelcontextprotocol/inspector --cli node src/mcp/build/index.js -e BEARER_TOKEN_BEARERAUTH=stub-guest --method tools/list
-npx @modelcontextprotocol/inspector --cli node src/mcp/build/index.js -e BEARER_TOKEN_BEARERAUTH=stub-guest \
+npx @modelcontextprotocol/inspector --cli node tools/mcp-start.mjs --method tools/list
+npx @modelcontextprotocol/inspector --cli node tools/mcp-start.mjs \
   --method tools/call --tool-name listEvents --tool-arg from=2026-10-15 to=2026-10-25
 ```
 
 ### Connecting it to Claude Code
 
-[`.mcp.json`](.mcp.json) registers the server as `nearby-api` for everyone who opens the project in Claude Code, in the VS Code extension or the CLI. It starts `src/mcp/build/index.js` from the project root (Claude Code sets `CLAUDE_PROJECT_DIR` for the server) with the `stub-guest` token, so it holds no secrets. Do not put real tokens in it.
+[`.mcp.json`](.mcp.json) registers the server as `nearby-api` for everyone who opens the project in Claude Code, in the VS Code extension or the CLI. It starts `tools/mcp-start.mjs` from the project root (Claude Code sets `CLAUDE_PROJECT_DIR` for the server), which gets a guest token from the running API, so the file holds no secrets. Do not put real tokens in it.
 
 1. Run `npm run mcp:build`, then start the API with `npm run dev`.
 2. Start a new conversation in Claude Code. When it asks whether to use the project's MCP servers, approve `nearby-api`.

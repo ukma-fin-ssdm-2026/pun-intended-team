@@ -159,6 +159,7 @@ Trust boundaries sit between the internet and the load balancer, and between our
 - [Main server components](uml/rendered/main-server-components.svg) (source: [`uml/main-server-components.puml`](uml/main-server-components.puml)) — internal structure of CMP-02: layers and module tiers
 - [Deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)) — nodes, trust boundaries
 - [Sequence diagram](uml/rendered/sequence-diagram.svg) (source: [`uml/sequence-diagram.puml`](uml/sequence-diagram.puml)) — key interaction flow
+- [Auth sequence diagram](uml/rendered/sequence-diagram-auth.svg) (source: [`uml/sequence-diagram-auth.puml`](uml/sequence-diagram-auth.puml)) — registration, sign-in, guest tokens and the token check
 - [Data model (ER)](uml/rendered/data-model.svg) (source: [`uml/data-model.puml`](uml/data-model.puml)) — entities, keys, relationships
 
 ## AI Usage Note

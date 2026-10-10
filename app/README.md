@@ -31,6 +31,8 @@ cd app && npm run web
 3. Run the API as in [Getting started](#getting-started).
 4. Open the client:
    - Expo Go: run `npm start` and scan the QR code.
+     - On WSL, Expo puts the WSL IP address into the QR code by default and the phone cannot connect; run `REACT_NATIVE_PACKAGER_HOSTNAME=<IP> npx expo start` instead.
+     - On iPhone, Expo Go opens the project only when Expo Go and Expo CLI are logged in to the same Expo account (free, expo.dev): Profile → Log in in the app, `npx expo login` in `app/` on the computer.
    - Phone browser: run `npx expo start --web`, start the API with `CORS_ORIGINS=http://localhost:8081,http://<IP>:8081` and open `http://<IP>:8081`.
 
 The client calls the API on the same host it was opened from, port 4100, unless `EXPO_PUBLIC_API_URL` is set.
@@ -68,12 +70,11 @@ The warning `error while installing React Native DevTools ... libnspr4.so` in WS
 
 ## Environment variables
 
-| Variable                | Example                 | Purpose                                                     |
-| ----------------------- | ----------------------- | ----------------------------------------------------------- |
-| `EXPO_PUBLIC_API_URL`   | `http://localhost:4100` | Base URL of the Nearby API; optional, detected when not set |
-| `EXPO_PUBLIC_API_TOKEN` | `stub-guest`            | Stub bearer token for local dev                             |
+| Variable              | Example                 | Purpose                                                     |
+| --------------------- | ----------------------- | ----------------------------------------------------------- |
+| `EXPO_PUBLIC_API_URL` | `http://localhost:4100` | Base URL of the Nearby API; optional, detected when not set |
 
-`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so they must never contain real secrets. `.env` is ignored by git; `.env.example` is committed.
+`EXPO_PUBLIC_*` values are inlined into the JavaScript bundle, so they must never contain real secrets. The client needs no token setting: it gets a guest token from `POST /api/v1/auth/guest` and renews it before it expires. `.env` is ignored by git; `.env.example` is committed.
 
 ## Scripts
 
@@ -102,7 +103,7 @@ app/
    │  └─ events/[id].tsx event details screen
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
-   │  └─ client.ts      typed API client with the bearer token
+   │  └─ client.ts      typed API client; gets and renews the guest token
    ├─ hooks/            data hooks: use-categories.ts, use-events.ts, use-event.ts
    ├─ components/       shared UI: category filter, event card, loading and error states
    ├─ styles/           theme.ts with shared spacing, colors and font sizes
