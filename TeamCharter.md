@@ -174,7 +174,7 @@ A persistent inability to complete the stated workload is discussed at a team me
 - [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [x] Daryna Halytska (GitHub: @DarynaHalytska)
 - [x] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
-- [ ] Vladyslav Redchuk (GitHub: @Vlad-Re)
+- [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
 This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §9 Use of AI disclosure rules, §10 Artifact Management, §11 Individual Accountability for Requirements Artifacts, the Lab 4 role descriptions in §2, and the Lab 5 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska. The §5 Coding Standard and
