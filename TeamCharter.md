@@ -16,12 +16,14 @@
   - Architecture Lead — coordinates the choice of architecture style and the component diagram.
   - Backend Lead — writes the core API code with annotations.
   - API Design Lead — owns `docs/api/api-design.md` (resource model, status codes, versioning) and checks that endpoints are consistent with it.
+  - Documentation Lead (Lab 5) — updates the charter and the summary reports.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
   - Project Brief Lead — responsible for Project-Description.md and the mini-spec.
   - Data & Threat Modeler — builds the data model and leads the STRIDE analysis of the deployment diagram.
   - Documentation Lead (API) — sets up automatic documentation generation and GitHub Pages.
+  - Security Analyst — checks how data is handled, runs the security analyzer, documents vulnerabilities, and owns the dependency audit (Dependabot, `npm audit` in CI).
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
@@ -29,12 +31,15 @@
   - FR Lead — owns the FR section in `requirements.md` and cross-checks it against the Lab 1 mini-spec and user stories.
   - Requirements-Architecture Mapper — creates the requirements-to-components traceability matrix.
   - Quality Lead (API) — owns `docs/api/quality-attributes.md` (goals with failure conditions) and verifies the validation of every endpoint through Swagger UI.
+  - Code Reviewer — reviews the other team's code.
+  - Prototype Lead — owns the base code structure, the first working component, and `progress.md`.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
   - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
   - UML Lead — responsible for the correctness of UML diagrams.
   - Integration Lead — integrates all components and the CI/CD pipeline.
+  - Quality Lead (code) — coordinates the code review and sets up static analysis.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
@@ -56,17 +61,8 @@ Each requirements artifact (user stories, NFRs, RTM) has one person responsible 
 - Message format: `(#issue-number) Short description in the imperative mood` — e.g., `(#3) Write initial README`.
 - Commit message language: English.
 
-### Code Review
-- Merging into `main` is only possible via a pull request.
-- Before opening a pull request, merge `main` into the relevant feature branch to avoid conflicts.
-- At least 1 approval from another team member is required; for a subtask, approval must come from the person responsible for the parent task.
-- The PR author verifies that the code works locally before requesting a review.
-- The reviewer responds within 48 hours; if there's no response, the author pings the team's general chat.
-- If there's disagreement over review comments, the decision is made through a short discussion in chat/a call, not unilaterally.
-- A branch can only be closed once every comment on it has been addressed.
-
 ### Requirements Review
-- User stories and use cases are reviewed via pull request before merging into `main`, same as code — at least 1 approval from a team member other than the author, per the Code Review rules above.
+- User stories and use cases are reviewed via pull request before merging into `main`, same as code — at least 1 approval from a team member other than the author, per the Code Review rules in §5.
 - Reviewers check each story against the INVEST checklist and confirm the acceptance criteria are testable.
 - Non-functional requirements are reviewed in a dedicated weekly sync session (see §3, Communication Plan) rather than only asynchronously: the Quality Lead walks the team through each NFR's fit criterion and verification method to confirm both are measurable before the requirement is committed.
 
@@ -102,7 +98,32 @@ The team replaced GitHub's default labels with its own set, grouped by area and 
 
 Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is created or triaged, and may be adjusted by any member if the work's scope changes.
 
-## 5. Conflict Resolution
+## 5. Quality and Code Review Policy
+
+### Coding Standard
+- The team follows the [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html), with these exceptions:
+  - lines are up to 120 characters;
+  - file names follow the NestJS convention (`events.controller.ts`);
+  - JSDoc is written only where a name does not explain the purpose;
+  - zod schemas share the name of the type they define (`Category`).
+- TypeScript runs in `strict` mode. ESLint and Prettier check what they can; reviewers check the rest.
+- Code follows the layers and mechanisms in [`docs/architecture/mechanisms/`](docs/architecture/mechanisms/).
+
+### Required Tools
+- **Prettier** — formats the code (`npm run format`).
+- **ESLint** — checks the code against the `typescript-eslint` and `eslint-plugin-security` recommended rules (`npm run lint`).
+- **`commit-msg` hook** — checks the commit message format (`.githooks/commit-msg`).
+
+### Code Review
+- Merging into `main` is only possible via a pull request.
+- Before opening a pull request, merge `main` into the relevant feature branch to avoid conflicts.
+- At least 1 approval from another team member is required; for a subtask, approval must come from the person responsible for the parent task.
+- The PR author verifies that the code works locally before requesting a review.
+- The reviewer responds within 48 hours; if there's no response, the author pings the team's general chat.
+- If there's disagreement over review comments, the decision is made through a short discussion in chat/a call, not unilaterally.
+- A branch can only be closed once every comment on it has been addressed.
+
+## 6. Conflict Resolution
 1. A direct conversation between the members involved in the disagreement — first try to resolve it without involving the whole team.
 2. If unresolved — the issue is raised at the next team meeting for discussion.
 3. If no consensus is reached — a majority vote.
@@ -110,7 +131,7 @@ Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is
 
 All decisions reached through a vote or escalation are recorded in writing (in the team chat or meeting minutes) to avoid reopening the issue.
 
-## 6. Availability and Workload
+## 7. Availability and Workload
 
 | Member | Hours/week | Convenient days/times |
 |---|---|---|
@@ -123,14 +144,14 @@ If a member feels overloaded, they notify the team as soon as possible (without 
 
 A persistent inability to complete the stated workload is discussed at a team meeting, and the distribution of roles in the project is adjusted if needed.
 
-## 7. Ethical and Professional Conduct
+## 8. Ethical and Professional Conduct
 - All members comply with the institution's academic integrity rules and the ACM Code of Ethics.
 - Code and documentation borrowed from external sources (Stack Overflow, tutorials, libraries) must be accompanied by a reference to the source in a comment or in the documentation — passing off someone else's code/text as one's own is prohibited.
-- Use of AI tools is recorded in accordance with Section 8 of this charter.
+- Use of AI tools is recorded in accordance with Section 9 of this charter.
 - Members communicate with each other respectfully: constructive criticism of code and decisions is welcome, personal attacks are not.
 - Feedback on another member's work is given directly to that person, not discussed in their absence.
 
-## 8. Use of AI
+## 9. Use of AI
 - **Tools:** Claude CLI.
 - **Disclosure rules:**
   1. AI use is noted in the commit message corresponding to the generated portion of code or text.
@@ -138,22 +159,23 @@ A persistent inability to complete the stated workload is discussed at a team me
   3. AI use is additionally mentioned in the Loom video for the relevant lab artifact.
 - **Verification rule:** generated code goes through review and tests before merging; unverified generated code does not enter the main branch.
 
-## 9. Artifact Management
+## 10. Artifact Management
 - All requirements documentation (user stories, use cases, NFRs, RTM) lives in `docs/requirements/` in the team repository.
 - `README.md` is kept up to date with working links to every document in `docs/requirements/` and to the other `docs/` subdirectories listed in the syllabus (architecture, api, code-quality, testing, etc.).
 - Keeping `README.md` links current is the responsibility of the Documentation Lead (Daryna Halytska), checked as part of every PR that adds or moves a file under `docs/`.
 
-## 10. Individual Accountability
+## 11. Individual Accountability
 
 ### Individual Accountability for Requirements Artifacts
 - Each team member's Loom video for the requirements-stage lab artifacts must show their own contribution specifically: the user stories they wrote, the NFRs they specified, or the RTM rows they filled in — not a walkthrough of the whole document.
 - The team cross-checks evidence of individual contribution against the commit history before each weekly lab deadline, and again at the midterm evaluation and before the final project defense, in line with the commit-history verification described in the course submission policy.
 
-## 11. Signatures
+## 12. Signatures
 - [x] Viktoriya Baran (GitHub: @viktoriyabaran)
 - [x] Daryna Halytska (GitHub: @DarynaHalytska)
 - [x] Oleh Moshenskyi (GitHub: @OLEGkn-coder)
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §8 Use of AI disclosure rules, §9 Artifact Management, §10 Individual Accountability for Requirements Artifacts, and the Lab 4 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §9 Use of AI disclosure rules, §10 Artifact Management, §11 Individual Accountability for Requirements Artifacts, the Lab 4 role descriptions in §2, and the Lab 5 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska. The §5 Coding Standard and
+     Required Tools were drafted with Claude Code and reviewed by Viktoriya Baran.
