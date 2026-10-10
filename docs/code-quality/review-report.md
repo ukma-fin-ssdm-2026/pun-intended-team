@@ -103,4 +103,4 @@ The in-class review identified visible style and structure concerns. The AI revi
 
 ## AI Usage Note
 
-Sections 1–3 were written by the team during the in-class review without AI and are preserved unchanged. The raw bonus review was produced with Claude, as identified above.
+Sections 1–3 were written by the team during the in-class review without AI and are preserved unchanged. The raw bonus review was produced with Claude, as identified above. Checked by Oleh.
