@@ -81,6 +81,10 @@ For a production build: `npm run build`, then `npm start`.
 
 Other scripts: `npm run typecheck` checks types without building, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
+## ൬ Running the client
+
+The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone. To run it next to the API, see [`app/README.md`](app/README.md).
+
 ## ൠ MCP Server
 
 [`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes every API endpoint as a tool, so an AI agent such as Claude Code can call the API. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.

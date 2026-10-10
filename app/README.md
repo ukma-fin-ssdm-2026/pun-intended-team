@@ -1,17 +1,28 @@
 # Nearby client (Expo)
 
-Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It contains placeholder screens only for now.
+Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It lists upcoming events, filters them by category and shows an event's details.
 
 ## Getting started
+
+Once, install the dependencies and create `.env`:
 
 ```bash
 cd app
 npm install
 cp .env.example .env   # then adjust the values if needed
-npx expo start --web   # or: npx expo start, then open in Expo Go / an emulator
 ```
 
-The API must be running separately (see the root [README](../README.md)); by default the client expects it at `http://localhost:4100`.
+Then run the API and the client in two terminals:
+
+```bash
+# terminal 1, in the repository root: the API on http://localhost:4100
+CORS_ORIGINS=http://localhost:8081 npm run dev
+
+# terminal 2: the client on http://localhost:8081
+cd app && npm run web
+```
+
+`CORS_ORIGINS` lets the web client, served from `http://localhost:8081`, call the API from the browser; without it the browser blocks the requests. On a phone, run `npm start` instead and open the app in Expo Go; set `EXPO_PUBLIC_API_URL` to an address of your computer that the phone can reach. See the root [README](../README.md) for the API itself.
 
 ## Environment variables
 
@@ -45,15 +56,16 @@ app/
 └─ src/
    ├─ app/              Expo Router routes (every file is a screen)
    │  ├─ _layout.tsx    root Stack navigator
-   │  ├─ index.tsx      home screen
+   │  ├─ index.tsx      event list with the category filter
    │  └─ events/[id].tsx event details screen
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
    │  └─ client.ts      typed API client with the bearer token
-   ├─ hooks/            (later) data hooks, e.g. use-events.ts
-   ├─ components/       (later) shared UI, e.g. event-card.tsx
-   ├─ styles/           (later) shared styles
-   └─ config.ts         reads EXPO_PUBLIC_* values
+   ├─ hooks/            data hooks: use-categories.ts, use-events.ts, use-event.ts
+   ├─ components/       shared UI: category filter, event card, loading and error states
+   ├─ styles/           theme.ts with shared spacing, colors and font sizes
+   ├─ config.ts         reads EXPO_PUBLIC_* values
+   └─ dates.ts          formats dates in Kyiv time
 ```
 
 Import from `src/` with the `@/` alias, for example `import { EventCard } from '@/components/event-card'`.
