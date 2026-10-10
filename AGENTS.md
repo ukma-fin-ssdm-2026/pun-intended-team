@@ -35,7 +35,8 @@ npm run docs:generate   # after any API change; commit the updated spec, CI fail
 
 ## Git
 
-- Enable the commit hook once per clone: `git config core.hooksPath .githooks`. Never bypass it with `--no-verify`.
+- Enable the commit hooks once per clone: `git config core.hooksPath .githooks`, and install [pre-commit](README.md#commit-hooks) with `pipx install pre-commit`. Every commit then runs gitleaks, Prettier and ESLint on the staged files. Never bypass it with `--no-verify`.
+  If Prettier changes a file, the commit stops: review the change, `git add` it and commit again. A gitleaks finding is fixed by removing the secret, not by adding it to `.gitleaksignore`, unless the team agrees it is a false positive.
 - Work on the branch you are on. Do not create or switch branches unless asked; new branches are `feature/<issue-number>-<short-description>`, created from `main`.
 - Never commit or push to `main`; it only changes through pull requests.
 - Commit and push only when asked. Never force-push, rebase or amend commits that are already pushed.

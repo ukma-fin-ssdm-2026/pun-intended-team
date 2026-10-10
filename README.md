@@ -84,6 +84,20 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
 
+## Commit hooks
+
+Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
+
+Install pre-commit once per machine, with [pipx](https://pipx.pypa.io/stable/installation/) (`sudo apt install pipx` on Ubuntu, `brew install pipx` on macOS):
+
+```bash
+pipx install pre-commit
+```
+
+The hooks run through `.githooks/pre-commit`, which is enabled by the same `git config core.hooksPath .githooks` as above. Without pre-commit the commit is refused and the hook prints this command. The first run downloads gitleaks and takes longer. To check the whole repository: `pre-commit run --all-files`.
+
+If a commit from VS Code fails with "pre-commit is not installed", restart VS Code after `pipx ensurepath`, so it picks up the new `PATH`.
+
 ## ൠ MCP Server
 
 [`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server, generated from the OpenAPI spec, that exposes every API endpoint as a tool for AI agents such as Claude Code. [`.mcp.json`](.mcp.json) connects it to Claude Code as `nearby-api`. How to regenerate, run and connect it is described in [`AGENTS.md`](AGENTS.md#mcp-server).
