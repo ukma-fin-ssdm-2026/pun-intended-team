@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { Id } from '../../common/schemas/common.js';
+import { Id } from '../../common/schemas/common.ts';
 
 const CategoryFields = z.object({
   id: Id,

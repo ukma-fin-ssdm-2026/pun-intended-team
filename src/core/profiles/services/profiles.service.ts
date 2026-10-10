@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { ProfilesRepository } from '../repositories/profiles.repository.js';
-import type { ProfileSummary } from '../types/profile.js';
+import { ProfilesRepository } from '../repositories/profiles.repository.ts';
+import type { ProfileSummary } from '../types/profile.ts';
 
 @Injectable()
 export class ProfilesService {

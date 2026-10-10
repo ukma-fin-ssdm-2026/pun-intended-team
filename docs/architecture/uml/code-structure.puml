@@ -1,0 +1,143 @@
+@startuml code-structure
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Main Server Code Structure (src/)
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+
+package "api (HTTP)" as API {
+  class AuthGuard
+  class EventsController
+  class CategoriesController
+  class AdminCategoriesController
+  class ListingsController
+}
+
+package "core (business logic)" as CORE {
+  package identity {
+    class AuthService {
+      +authenticate(accessToken)
+    }
+    abstract class SessionsRepository {
+      +findCaller(accessToken)
+    }
+  }
+
+  package listings {
+    class ListingsService {
+      +list(page)
+      +getById(id)
+      +create(accountId, input)
+      +remove(accountId, id)
+    }
+    abstract class ListingsRepository {
+      +findActive(fromDate, page)
+      +findActiveById(id)
+      +create(listing)
+      +markRemoved(id)
+    }
+  }
+
+  package catalog {
+    class EventsService {
+      +list(query, page)
+      +find(id)
+      +getById(id)
+      +create(accountId, input)
+      +update(accountId, id, changes)
+      +cancel(accountId, id)
+    }
+    class CategoriesService {
+      +findActive(id)
+      +findAll()
+      +listActive()
+      +getById(id)
+      +create(input)
+      +update(id, changes)
+      +delete(id)
+    }
+    abstract class EventsRepository {
+      +findById(id)
+      +findPublished(filter, page)
+      +create(event)
+      +update(id, changes)
+    }
+    abstract class CategoriesRepository {
+      +findById(id)
+      +findAll()
+      +create(category)
+      +update(id, changes)
+      +delete(id)
+    }
+    abstract class VenuesRepository {
+      +findById(id)
+    }
+    abstract class OrganizationsRepository {
+      +findByAccountId(accountId)
+    }
+  }
+
+  package profiles {
+    class ProfilesService {
+      +getSummaries(accountIds)
+    }
+    abstract class ProfilesRepository {
+      +findSummaries(accountIds)
+    }
+  }
+}
+
+package "infra (stubs, bound in InfraModule)" as INFRA {
+  class StubSessionsRepository
+  class StubListingsRepository
+  class StubEventsRepository
+  class StubCategoriesRepository
+  class StubVenuesRepository
+  class StubOrganizationsRepository
+  class StubProfilesRepository
+}
+
+' api calls core services
+AuthGuard --> AuthService
+EventsController --> EventsService
+CategoriesController --> CategoriesService
+AdminCategoriesController --> CategoriesService
+ListingsController --> ListingsService
+
+' other modules call the same exported services
+ListingsService --> EventsService
+ListingsService --> CategoriesService
+ListingsService --> ProfilesService
+
+' services reach storage through repositories
+AuthService --> SessionsRepository
+ListingsService --> ListingsRepository
+EventsService --> CategoriesService
+EventsService --> EventsRepository
+EventsService --> VenuesRepository
+EventsService --> OrganizationsRepository
+CategoriesService --> CategoriesRepository
+ProfilesService --> ProfilesRepository
+
+' infra implements core repositories
+SessionsRepository <|.. StubSessionsRepository
+ListingsRepository <|.. StubListingsRepository
+EventsRepository <|.. StubEventsRepository
+CategoriesRepository <|.. StubCategoriesRepository
+VenuesRepository <|.. StubVenuesRepository
+OrganizationsRepository <|.. StubOrganizationsRepository
+ProfilesRepository <|.. StubProfilesRepository
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+endlegend
+
+@enduml

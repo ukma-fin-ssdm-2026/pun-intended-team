@@ -1,13 +1,13 @@
 // Written with the help of Claude
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
-import { IdentityModule } from '../core/identity/identity.module.js';
-import { InfraModule } from '../infra/infra.module.js';
-import { CatalogApiModule } from './catalog/catalog-api.module.js';
-import { ApiExceptionFilter } from './common/api-exception.filter.js';
-import { AuthGuard } from './common/auth.js';
-import { ListingsApiModule } from './listings/listings-api.module.js';
-import { SystemApiModule } from './system/system-api.module.js';
+import { IdentityModule } from '../core/identity/identity.module.ts';
+import { InfraModule } from '../infra/infra.module.ts';
+import { CatalogApiModule } from './catalog/catalog-api.module.ts';
+import { ApiExceptionFilter } from './common/api-exception.filter.ts';
+import { AuthGuard } from './common/auth.ts';
+import { ListingsApiModule } from './listings/listings-api.module.ts';
+import { SystemApiModule } from './system/system-api.module.ts';
 
 @Module({
   imports: [InfraModule, IdentityModule, SystemApiModule, CatalogApiModule, ListingsApiModule],

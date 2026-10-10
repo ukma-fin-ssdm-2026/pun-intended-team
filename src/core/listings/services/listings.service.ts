@@ -1,13 +1,13 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { CategoriesService } from '../../catalog/services/categories.service.js';
-import { EventsService } from '../../catalog/services/events.service.js';
-import { DomainError } from '../../common/domain-error.js';
-import { kyivDate } from '../../common/kyiv-time.js';
-import type { Page, PageRequest } from '../../common/page.js';
-import { ProfilesService } from '../../profiles/services/profiles.service.js';
-import { ListingsRepository } from '../repositories/listings.repository.js';
-import type { Listing, ListingDetails, NewListing } from '../types/listing.js';
+import { CategoriesService } from '../../catalog/services/categories.service.ts';
+import { EventsService } from '../../catalog/services/events.service.ts';
+import { DomainError } from '../../common/domain-error.ts';
+import { kyivDate } from '../../common/kyiv-time.ts';
+import type { Page, PageRequest } from '../../common/page.ts';
+import { ProfilesService } from '../../profiles/services/profiles.service.ts';
+import { ListingsRepository } from '../repositories/listings.repository.ts';
+import type { Listing, ListingDetails, NewListing } from '../types/listing.ts';
 
 @Injectable()
 export class ListingsService {
@@ -21,7 +21,8 @@ export class ListingsService {
   /** Active listings from today on; past ones stay readable by id. */
   async list(page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
-    return { ...result, items: await this.withDetails(result.items) };
+    const withDetails = await this.detailsFor(result.items);
+    return { ...result, items: result.items.map(withDetails) };
   }
 
   async getById(id: string): Promise<ListingDetails> {
@@ -29,8 +30,8 @@ export class ListingsService {
     if (!listing) {
       throw new DomainError('NOT_FOUND', 'Listing not found');
     }
-    const [details] = await this.withDetails([listing]);
-    return details;
+    const withDetails = await this.detailsFor([listing]);
+    return withDetails(listing);
   }
 
   async create(accountId: string, input: NewListing): Promise<ListingDetails> {
@@ -55,8 +56,8 @@ export class ListingsService {
       authorId: accountId,
       status: 'active',
     });
-    const [details] = await this.withDetails([listing]);
-    return details;
+    const withDetails = await this.detailsFor([listing]);
+    return withDetails(listing);
   }
 
   /**
@@ -71,17 +72,18 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
-  private async withDetails(listings: Listing[]): Promise<ListingDetails[]> {
+  /** Loads the authors and categories of these listings, then adds them to each listing. */
+  private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails> {
     const [authors, allCategories] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
     ]);
     const categories = new Map(allCategories.map((category) => [category.id, category]));
-    return listings.map((listing) => ({
+    return (listing) => ({
       ...listing,
       author: required(authors.get(listing.authorId), `profile of ${listing.authorId}`),
       category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
-    }));
+    });
   }
 }
 
