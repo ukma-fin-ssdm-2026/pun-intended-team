@@ -11,6 +11,7 @@ const RegisterRequest = { body: RegisterBody } satisfies RequestSchemas;
 const VerifyRequest = { body: VerifyBody } satisfies RequestSchemas;
 const SignInRequest = { body: SignInBody } satisfies RequestSchemas;
 
+// Not MCP tools (mcp: false): an agent cannot use a token it gets back, and register sends a code.
 @Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -25,6 +26,7 @@ export class AuthController {
       'the number already has an account.',
     tags: ['Auth'],
     access: 'public',
+    mcp: false,
     request: RegisterRequest,
     responses: {
       202: { description: 'The code is on its way; it is valid for 10 minutes' },
@@ -44,6 +46,7 @@ export class AuthController {
       'Finish registration with the code, a password and the date of birth. Creates the account and signs in.',
     tags: ['Auth'],
     access: 'public',
+    mcp: false,
     request: VerifyRequest,
     responses: {
       200: { description: 'The account is created; an access token for it', schema: AccessTokenResponse },
@@ -67,6 +70,7 @@ export class AuthController {
     summary: 'Sign in with phone number and password',
     tags: ['Auth'],
     access: 'public',
+    mcp: false,
     request: SignInRequest,
     responses: {
       200: { description: 'An access token', schema: AccessTokenResponse },
@@ -88,6 +92,7 @@ export class AuthController {
     description: 'Get a guest token: browse the catalog without an account.',
     tags: ['Auth'],
     access: 'public',
+    mcp: false,
     responses: {
       200: { description: 'A guest access token', schema: AccessTokenResponse },
     },

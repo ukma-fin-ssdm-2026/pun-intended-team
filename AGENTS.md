@@ -65,7 +65,7 @@ Before changing code in one of these areas, read its mechanism in [`docs/archite
 
 ## MCP Server
 
-[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes every API endpoint as a tool. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.
+[`src/mcp/`](src/mcp/) is an [MCP](https://modelcontextprotocol.io/) server that exposes the API endpoints as tools. Endpoints declared with `mcp: false` in `@Endpoint` are left out: the auth endpoints, since an agent cannot use a token it gets back and `register` sends a code. It is generated from [`openapi-generated.yaml`](docs/api/openapi-generated.yaml) by [openapi-mcp-generator](https://github.com/harsha-iiiv/openapi-mcp-generator), pinned in [`tools/mcp-generator/`](tools/mcp-generator/). Tool names are the `operationId`s; descriptions and parameter docs come from the spec.
 
 Do not edit `src/mcp/` by hand. If an agent misreads a tool, fix the `summary`, `description` or `.describe()` in [`src/api/`](src/api/), then regenerate the spec and the server:
 
