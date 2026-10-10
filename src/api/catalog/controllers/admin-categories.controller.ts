@@ -96,9 +96,7 @@ export class AdminCategoriesController {
       409: NAME_TAKEN,
     },
   })
-  async updateCategory(
-    @Input() { params, body }: RouteInput<typeof UpdateCategoryRequest>,
-  ): Promise<AdminCategory> {
+  async updateCategory(@Input() { params, body }: RouteInput<typeof UpdateCategoryRequest>): Promise<AdminCategory> {
     return this.categoriesService.update(params.id, body);
   }
 

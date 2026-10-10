@@ -17,7 +17,9 @@
     "mcp:build": "npm ci --prefix src/mcp && npm run build --prefix src/mcp",
     "test:e2e": "nest build && node --test \"test/e2e/**/*.test.ts\"",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,mjs}\"",
+    "format:check": "prettier --check \"**/*.{ts,mjs}\""
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^9.1.0",
@@ -38,6 +40,7 @@
     "eslint": "^10.12.0",
     "eslint-plugin-security": "^4.2.0",
     "globals": "^17.13.0",
+    "prettier": "^3.9.9",
     "typescript": "~6.0",
     "typescript-eslint": "^8.71.1"
   }

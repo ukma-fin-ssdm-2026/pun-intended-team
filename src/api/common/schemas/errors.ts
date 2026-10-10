@@ -34,7 +34,10 @@ const ErrorResponseFields = z.object({
   error: z.object({
     code: ErrorCode,
     message: z.string(),
-    details: z.array(ValidationIssue).optional().describe('Every invalid field, for validation errors that can name them'),
+    details: z
+      .array(ValidationIssue)
+      .optional()
+      .describe('Every invalid field, for validation errors that can name them'),
   }),
 });
 

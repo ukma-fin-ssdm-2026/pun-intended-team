@@ -26,7 +26,9 @@ const newEvent = {
 };
 
 // A week from today in Kyiv, so the listing never falls in the past.
-const nextWeek = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(Date.now() + 7 * 24 * 3600 * 1000);
+const nextWeek = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(
+  Date.now() + 7 * 24 * 3600 * 1000,
+);
 
 const newListing = {
   categoryId: exhibitions,
@@ -76,8 +78,9 @@ function assertRejected(res: Response, status: number, code: string): void {
 function assertInvalid(res: Response, location: string, field: string): void {
   assertRejected(res, 400, 'VALIDATION_ERROR');
   assert.ok(
-    res.body.error.details.some((issue: { location: string; field: string }) =>
-      issue.location === location && issue.field === field),
+    res.body.error.details.some(
+      (issue: { location: string; field: string }) => issue.location === location && issue.field === field,
+    ),
     JSON.stringify(res.body.error.details),
   );
 }
@@ -259,12 +262,18 @@ describe('POST /api/v1/listings', () => {
   });
 
   test('rejects a malformed date with 400', async () => {
-    const res = await call('POST', '/api/v1/listings', { token: 'stub-user', body: { ...newListing, date: '20.10.2026' } });
+    const res = await call('POST', '/api/v1/listings', {
+      token: 'stub-user',
+      body: { ...newListing, date: '20.10.2026' },
+    });
     assertInvalid(res, 'body', 'date');
   });
 
   test('rejects a date in the past with 422', async () => {
-    const res = await call('POST', '/api/v1/listings', { token: 'stub-user', body: { ...newListing, date: '2020-01-01' } });
+    const res = await call('POST', '/api/v1/listings', {
+      token: 'stub-user',
+      body: { ...newListing, date: '2020-01-01' },
+    });
     assertRejected(res, 422, 'LISTING_DATE_IN_PAST');
   });
 });

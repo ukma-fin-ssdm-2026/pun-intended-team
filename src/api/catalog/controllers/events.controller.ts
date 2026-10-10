@@ -6,7 +6,14 @@ import { CurrentAccount } from '../../common/auth.js';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.js';
 import { Routes } from '../../common/routes.js';
 import { ErrorResponse } from '../../common/schemas/errors.js';
-import { CreateEventBody, Event, EventIdParams, EventsPage, ListEventsQuery, UpdateEventBody } from '../schemas/events.js';
+import {
+  CreateEventBody,
+  Event,
+  EventIdParams,
+  EventsPage,
+  ListEventsQuery,
+  UpdateEventBody,
+} from '../schemas/events.js';
 
 const ListEventsRequest = { query: ListEventsQuery } satisfies RequestSchemas;
 const GetEventRequest = { params: EventIdParams } satisfies RequestSchemas;
