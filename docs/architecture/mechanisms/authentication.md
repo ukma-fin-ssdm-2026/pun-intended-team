@@ -13,6 +13,8 @@
 | Sign-in | Password or Google — no message sent |
 | Password reset | One-time code to the verified contact |
 
+How registration, sign-in and the token check work in the code: [auth sequence diagram](../uml/rendered/sequence-diagram-auth.svg) (source: [`uml/sequence-diagram-auth.puml`](../uml/sequence-diagram-auth.puml)).
+
 ## Rules
 
 1. **Registering via Google first** still ends with the code step — no account works without a verified contact.

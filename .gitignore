@@ -17,6 +17,9 @@ build/
 .env.local
 .env.*.local
 
+# Local key files (npm run keys:generate)
+keys/
+
 # ---- Logs ----
 *.log
 npm-debug.log*

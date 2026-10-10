@@ -12,11 +12,11 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 | ID | Location | Finding | Risk | Related | Decision |
 |---|---|---|---|---|---|
-| SA-01 | `src/infra/stubs/sessions.repository.ts`, `src/api/common/auth.ts` | Tokens such as `constructor` or `toString` are accepted as guest tokens. | Medium | TM-11, SEC-005 | To be fixed in #129 |
+| SA-01 | `src/infra/stubs/sessions.repository.ts`, `src/api/common/auth.ts` | Tokens such as `constructor` or `toString` are accepted as guest tokens. | Medium | TM-11, SEC-005 | Fixed in #140 |
 | SA-02 | `src/api/common/config.ts` | Swagger UI and the spec rewrite are on unless `NODE_ENV` is exactly `production` (fail-open). | Medium | TM-11, SEC-006 | Accepted |
-| SA-03 | `src/infra/stubs/data.ts`, `.mcp.json` | Fixed demo tokens, including `stub-admin`, are committed and published in the docs. | High if deployed | TM-11, SEC-005 | Accepted for the stub phase: real authentication is required before the first deployment |
+| SA-03 | `src/infra/stubs/data.ts`, `.mcp.json` | Fixed demo tokens, including `stub-admin`, are committed and published in the docs. | High if deployed | TM-11, SEC-005 | Fixed in #140: stub tokens removed, real sign-in and guest tokens |
 | SA-04 | `src/api/main.ts` | No rate limiting: 150 requests in a row all returned `200`. | Medium | TM-10, SEC-007 | Open, planned before deployment |
-| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Open, planned with SA-04 |
+| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Fixed in [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174) |
 
 ### SA-01: inherited object properties accepted as access tokens
 
@@ -24,6 +24,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **How it was found.** Manual review of the authentication path. Confirmed with `curl`: `Bearer constructor` gets `200` on `/api/v1/categories` and `/api/v1/events`, `Bearer bogus` gets `401`. User and admin endpoints still answer `401`. Confirmed by eslint-plugin-security, rule `security/detect-object-injection`.
 - **Why it is a risk.** SEC-005 requires every invalid token to be rejected with `401`, and TM-11 relies on deny-by-default guards. The impact today is small, since the guest tier only reads the catalog, but the same pattern in real session handling, or a new caller kind, would slip through.
 - **Decision: to be fixed in #129.** Look tokens up with `Object.hasOwn` or a `Map`, accept a guest only when `caller.kind === 'guest'`, and add a regression test that `Bearer constructor` gets `401`.
+- **Resolution: fixed in #140.** Signed JWTs replaced the stub sessions, so no token is looked up in an object any more, and #129 is closed with it. The regression test is in the e2e suite: `rejects a token named like an object property with 401`.
 
 ### SA-02: Swagger UI enabled unless `NODE_ENV=production`
 
@@ -32,12 +33,45 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **Why it is a risk.** A deployment that forgets one variable exposes an interactive console against the live API. Safe behaviour that depends on a variable being set exactly right is a fail-open default.
 - **Decision: accepted.** `NODE_ENV=production` is a mandatory part of every deployment configuration. Locally the team relies on Swagger and the spec refresh, and the spec is already public on GitHub Pages. Revisit if a deployment is found running without it.
 
+### SA-05: no security response headers
+
+- **What was found.** Responses carried no `X-Content-Type-Options`, `Cache-Control`, `Content-Security-Policy` or `Strict-Transport-Security` header, so a browser could sniff a JSON body as another type, and a shared cache could keep a response with personal data.
+- **Fix: [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174).** A middleware in [`security-headers.ts`](../../src/api/common/security-headers.ts) sets `nosniff`, `Cache-Control: no-store` and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` on every response, errors included, and HSTS in production. Swagger UI at `/api-docs` gets no CSP, since it loads its own scripts and styles.
+- **Regression test.** `Security headers` in [`test/e2e/api.e2e.test.ts`](../../test/e2e/api.e2e.test.ts) checks a successful response, an error and an unknown route. It fails on the code before the fix and passes after.
+
 ### What is done well
 
 - **Deny by default:** the guard is global, and an endpoint without an access level requires a signed-in user.
 - **No disclosure:** `403` and other users' resources answer `404`, as if they did not exist.
 - **Validated input and shaped output:** every endpoint validates params, query and body with zod (unknown fields are rejected), and every response is parsed by its schema, which drops internal fields.
 - **No leaked internals (INTC-004):** clients get fixed error messages, never stack traces; body limit 100 kB, `x-powered-by` disabled, CORS off.
+
+## Linting, formatting and type checking
+
+**ESLint** 10.12 with typescript-eslint 8.71, configured in [`eslint.config.mjs`](../../eslint.config.mjs).
+
+- **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `test/` and `*.mjs` get no type-checked rules.
+- **Why not `test/`:** measured before deciding. The type-checked rules gave 81 findings on `test/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `test/` is a future task together with typing `body`.
+- **Layer rule:** imports between `api`, `core` and `infra` are restricted by `no-restricted-imports`; the rules follow [`code-structure.md`](../architecture/mechanisms/code-structure.md).
+- **Ignores:** `src/mcp` (generated), `docs` and `dist`. `tools/` is linted.
+- **Scripts:** `npm run lint` does not use `--fix`, so CI fails instead of silently rewriting code. `npm run lint:fix` is for local use.
+
+**Baseline.** The first run found 2 errors in `test/e2e/api.e2e.test.ts`, now 0:
+
+- `no-unused-vars` on `_title` in a rest destructuring, solved with the `ignoreRestSiblings` option.
+- `no-explicit-any` on `body` in the test helper, solved with an `eslint-disable-next-line` and a comment explaining why.
+
+**Prettier** 3.9, configured in `.prettierrc` with `singleQuote: true` and `printWidth: 120`.
+
+- **Line width:** a deliberate departure from the Google TypeScript Style Guide (80), for team comfort.
+- **Scope:** `npm run format:check` covers `*.ts` and `*.mjs`. Markdown is not formatted: Prettier realigns a whole table when one cell becomes the widest in its column, which makes the diff of a one-cell edit unreadable.
+- **No `eslint-config-prettier`:** checked with its CLI against the current config, which found no conflicting rules, so the package is not installed.
+
+**Type checking.** `npm run typecheck` runs `tsc --noEmit` with `strict` plus `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns` and `noFallthroughCasesInSwitch`. Known gap: `tsconfig.json` includes only `src`, so nothing type-checks `test/`.
+
+**CI gate.** [`.github/workflows/code-quality.yml`](../../.github/workflows/code-quality.yml) has one job, "Static checks", which runs lint, `format:check` and typecheck. `ci.yml` calls it as `code-quality` and lists it in `needs` of the `ci-passed` aggregator. That is the only required check, so the job blocks merging without any ruleset change.
+
+**Decision: ESLint warnings do not fail CI.** This includes the warnings from eslint-plugin-security (see below), all of them false positives since #140 fixed SA-01. Failing on warnings would keep CI red on false positives.
 
 ## Security analyzer (eslint-plugin-security)
 
@@ -60,6 +94,17 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 | `src/api/common/endpoint.ts:184` | `security/detect-object-injection` | False positive | Same `INPUT` symbol, written after validation. |
 | `src/api/common/openapi.ts:32` | `security/detect-non-literal-fs-filename` | False positive | The path is the fixed `SPEC_FILE` in the repo; no caller passes another. |
 | `src/api/common/openapi.ts:33` | `security/detect-non-literal-fs-filename` | False positive | Same `SPEC_FILE` path. |
+
+**Re-run after #140:** 14 warnings, 0 errors, 0 true positives. The `sessions.repository.ts` warning (SA-01) is gone with the file, `api-exception.ts:29`, `endpoint.ts:154` and `endpoint.ts:184` moved to lines 33, 157 and 187, and `endpoint.ts:138` is no longer reported. New warnings:
+
+| Location | Rule | Verdict | Reason |
+|---|---|---|---|
+| `src/api/common/api-exception.filter.ts:56` | `security/detect-object-injection` | False positive | `status` is the number from an `HttpException`; the keys are numbers, so a request cannot reach a key like `constructor`. |
+| `src/infra/auth/key-files.ts:58` | `security/detect-object-injection` | False positive | `process.env[variable]`, where `variable` is one of two literals in the same file. |
+| `src/infra/auth/key-files.ts:63` | `security/detect-non-literal-fs-filename` | False positive | The key file path comes from the server's environment and is read once at startup; requests never reach it. |
+| `src/scripts/generate-keys.ts:20` | `security/detect-non-literal-fs-filename` | False positive | The paths come from the fixed list in the script. |
+| `test/e2e/api.e2e.test.ts:118` | `security/detect-non-literal-regexp` | False positive | Test code; the phone is a constant or random digits. |
+| `test/e2e/api.e2e.test.ts:159`, `:162` | `security/detect-non-literal-fs-filename` | False positive | Test code; the paths are inside a fresh `mkdtempSync` folder. |
 
 ## Dependency audit
 
@@ -93,3 +138,5 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 The review, the findings and the write-ups were drafted by Claude, which confirmed the findings against a locally running server with `curl`, and condensed by Claude. Verified by Daryna Halytska: checked each finding against the code; reproduced SA-01 with curl against a locally running server (NODE_ENV=production).
 
 The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository; found and fixed the ruleset that blocked Dependabot, and decided on #131 and #132.
+
+The linting, formatting and type checking section was drafted by Claude (Claude Code), which checked every version, ignore, script and job name against `package.json`, `eslint.config.mjs`, `.prettierrc` and the workflows, ran `npm run lint` (0 errors, 9 warnings), measured the type-checked rules on `test/` with a temporary config (81 findings, deleted afterwards) and ran the `eslint-config-prettier` CLI (no conflicts). Verified by:

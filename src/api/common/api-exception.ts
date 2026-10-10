@@ -4,6 +4,7 @@ import type { ErrorCode, ValidationIssue } from './schemas/errors.ts';
 const errorStatus: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
   UNAUTHENTICATED: 401,
+  INVALID_CREDENTIALS: 401,
   NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
@@ -14,7 +15,10 @@ const errorStatus: Record<ErrorCode, number> = {
   LISTING_DATE_IN_PAST: 422,
   USERNAME_TAKEN: 409,
   PROFILE_EXISTS: 409,
+  INVALID_CODE: 422,
+  UNDERAGE: 422,
   RATE_LIMITED: 429,
+  CODE_RESEND_TOO_SOON: 429,
   INTERNAL_ERROR: 500,
 };
 

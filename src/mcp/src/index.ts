@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
+ * Generated on: 2026-10-10T17:32:31.180Z
  * Generated on: 2026-10-10T14:44:07.038Z
  */
 
@@ -347,7 +348,8 @@ const securitySchemes =   {
     "bearerAuth": {
       "type": "http",
       "scheme": "bearer",
-      "description": "An access token, or a guest token for catalog reads. Until sign-in is implemented, use a stub token: `stub-guest`, `stub-user`, `stub-user-2`, `stub-org` (verified organization), `stub-org-pending` or `stub-admin`."
+      "bearerFormat": "JWT",
+      "description": "An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or a guest token from `/api/v1/auth/guest` for catalog reads."
     }
   };
 
