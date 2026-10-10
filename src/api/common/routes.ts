@@ -14,6 +14,13 @@ export const Routes = {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
   },
+  profiles: {
+    me: '/api/v1/me/profile',
+    interests: '/api/v1/me/profile/interests',
+  },
+  interests: {
+    list: '/api/v1/interests',
+  },
   categories: {
     list: '/api/v1/categories',
   },

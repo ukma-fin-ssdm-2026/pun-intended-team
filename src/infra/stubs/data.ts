@@ -8,7 +8,7 @@ import type { Category } from '../../core/catalog/types/category.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';
 import type { Listing } from '../../core/listings/types/listing.ts';
-import type { ProfileSummary } from '../../core/profiles/types/profile.ts';
+import type { Interest, Profile } from '../../core/profiles/types/profile.ts';
 
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -16,7 +16,18 @@ export const accounts = {
   filmClub: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c',
   newGallery: 'f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d',
   admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
+  newcomer: 'b2c4d6e8-0a1b-4c3d-9e5f-6a8b0c2d4e17',
 } as const;
+
+/** Account.date_of_birth, YYYY-MM-DD. Only the age derived from it ever leaves the API. */
+export const datesOfBirth: Record<string, string> = {
+  [accounts.olena]: '1998-03-14',
+  [accounts.taras]: '1995-07-02',
+  [accounts.filmClub]: '1990-01-01',
+  [accounts.newGallery]: '1988-11-23',
+  [accounts.admin]: '1985-06-30',
+  [accounts.newcomer]: '2000-05-20',
+};
 
 /** Demo tokens for Swagger UI and curl, until sign-in is implemented. */
 export const sessions: Record<string, Caller> = {
@@ -26,11 +37,50 @@ export const sessions: Record<string, Caller> = {
   'stub-org': { kind: 'account', accountId: accounts.filmClub, role: 'user' },
   'stub-org-pending': { kind: 'account', accountId: accounts.newGallery, role: 'user' },
   'stub-admin': { kind: 'account', accountId: accounts.admin, role: 'admin' },
+  // A registered account that has not started onboarding: it has no profile yet.
+  'stub-new-user': { kind: 'account', accountId: accounts.newcomer, role: 'user' },
 };
 
-export const profiles: ProfileSummary[] = [
-  { accountId: accounts.olena, username: 'olena_k', displayName: 'Olena' },
-  { accountId: accounts.taras, username: 'taras.m', displayName: 'Taras' },
+export const interestIds = {
+  cinema: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01',
+  art: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02',
+  liveMusic: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e03',
+} as const;
+
+export const interests: Interest[] = [
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01', name: 'Cinema' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02', name: 'Art and exhibitions' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e03', name: 'Live music' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04', name: 'Theatre' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e05', name: 'Board games' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06', name: 'Hiking' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e07', name: 'Photography' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e08', name: 'Books and poetry' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e09', name: 'Food and coffee' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e10', name: 'Sport' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e11', name: 'Technology' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12', name: 'Volunteering' },
+];
+
+export const profiles: Profile[] = [
+  {
+    accountId: accounts.olena,
+    username: 'olena_k',
+    displayName: 'Olena',
+    description: 'Cinema, galleries and long walks.',
+    communicationFormat: 'friends',
+    sharePhone: true,
+    interestIds: [interestIds.cinema, interestIds.art],
+  },
+  {
+    accountId: accounts.taras,
+    username: 'taras.m',
+    displayName: 'Taras',
+    description: '',
+    communicationFormat: 'company',
+    sharePhone: true,
+    interestIds: [interestIds.liveMusic],
+  },
 ];
 
 export const organizations: Organization[] = [
