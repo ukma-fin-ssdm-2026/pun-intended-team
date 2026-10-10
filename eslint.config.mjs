@@ -3,6 +3,7 @@
 // How it was verified: npm run lint run locally; npx tsc --noEmit passes.
 // Reviewed by: Vlad-Re
 // Changed by Claude (Claude Code): added eslint-plugin-security with its recommended rules.
+// Changed by Claude (Claude Code): ignored app/, the Expo client lints itself with `npx expo lint`.
 import { readdirSync } from 'node:fs';
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
@@ -25,7 +26,7 @@ const notOtherRepositories = (module) => ({
 });
 
 export default defineConfig(
-  { ignores: ['src/mcp/**', 'docs/**', 'dist/**', 'node_modules/**'] },
+  { ignores: ['src/mcp/**', 'docs/**', 'dist/**', 'node_modules/**', 'app/**'] },
   eslint.configs.recommended,
   tseslint.configs.recommended,
   pluginSecurity.configs.recommended,

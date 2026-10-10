@@ -7,3 +7,8 @@ export const port = Number(process.env.PORT ?? DEFAULT_PORT);
 export const isProduction = process.env.NODE_ENV === 'production';
 
 export const serveSwaggerUi = process.env.SWAGGER_UI === 'true' || !isProduction;
+
+export const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin !== '');
