@@ -49,10 +49,11 @@ function toApiException(exception: unknown): ApiException | undefined {
     return new ApiException(exception.code, exception.message);
   }
   if (exception instanceof HttpException) {
-    if (exception.getStatus() === HttpStatus.FORBIDDEN) {
+    const status: HttpStatus = exception.getStatus();
+    if (status === HttpStatus.FORBIDDEN) {
       return new ApiException('NOT_FOUND', 'Not found');
     }
-    const error = errorByStatus[exception.getStatus()];
+    const error = errorByStatus[status];
     if (error) {
       return new ApiException(error.code, error.message);
     }

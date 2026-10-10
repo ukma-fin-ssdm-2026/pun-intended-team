@@ -3,11 +3,26 @@
 // How it was verified: npm run lint run locally; npx tsc --noEmit passes.
 // Reviewed by: Vlad-Re
 // Changed by Claude (Claude Code): added eslint-plugin-security with its recommended rules (issue #126).
+import { readdirSync } from 'node:fs';
 import eslint from '@eslint/js';
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import pluginSecurity from 'eslint-plugin-security';
 import tseslint from 'typescript-eslint';
+
+// Import rules from docs/architecture/mechanisms/code-structure.md.
+const coreModules = readdirSync('src/core', { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name !== 'common')
+  .map((entry) => entry.name);
+
+const restrictImports = (...patterns) => ({ 'no-restricted-imports': ['error', { patterns }] });
+
+const notApiOrInfra = { group: ['**/api/**', '**/infra/**'], message: 'core imports nothing from api or infra.' };
+
+const notOtherRepositories = (module) => ({
+  group: coreModules.filter((other) => other !== module).map((other) => `**/${other}/repositories/**`),
+  message: 'Other modules call this module through its exported services.',
+});
 
 export default defineConfig(
   { ignores: ['src/mcp/**', 'docs/**', 'dist/**', 'node_modules/**'] },
@@ -20,5 +35,32 @@ export default defineConfig(
       // `const { title: _title, ...body } = obj` omits a field on purpose; don't flag the omitted one.
       '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
     },
+  },
+  {
+    files: ['src/**/*.ts'],
+    extends: [tseslint.configs.recommendedTypeChecked],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+  },
+  // Stubs stand in for database calls, which will await.
+  { files: ['src/infra/stubs/**/*.ts'], rules: { '@typescript-eslint/require-await': 'off' } },
+  {
+    files: ['src/api/**/*.ts'],
+    ignores: ['src/api/app.module.ts'],
+    rules: restrictImports(
+      { group: ['**/infra/**'], message: 'Only app.module.ts imports infra.' },
+      { group: ['**/core/*/repositories/**'], message: 'api calls core services.' },
+    ),
+  },
+  { files: ['src/core/common/**/*.ts'], rules: restrictImports(notApiOrInfra) },
+  ...coreModules.map((module) => ({
+    files: [`src/core/${module}/**/*.ts`],
+    rules: restrictImports(notApiOrInfra, notOtherRepositories(module)),
+  })),
+  {
+    files: ['src/infra/**/*.ts'],
+    rules: restrictImports({
+      group: ['**/api/**', '**/core/*/services/**'],
+      message: 'infra implements core repositories and calls nothing else in core.',
+    }),
   },
 );
