@@ -15,6 +15,7 @@ const poetrySlams = '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
+const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 
 const newEvent = {
   title: 'Film quiz night',
@@ -187,9 +188,41 @@ describe('POST /api/v1/events', () => {
     assert.equal(res.headers.get('location'), `/api/v1/events/${res.body.id}`);
   });
 
+  test('rejects an organization that is not verified with 422', async () => {
+    const res = await call('POST', '/api/v1/events', { token: 'stub-org-pending', body: newEvent });
+    assertRejected(res, 422, 'ORGANIZATION_NOT_VERIFIED');
+  });
+
+  test('rejects an account that is not an organization with 422', async () => {
+    const res = await call('POST', '/api/v1/events', { token: 'stub-user', body: newEvent });
+    assertRejected(res, 422, 'ORGANIZATION_NOT_VERIFIED');
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(
+      await call('POST', '/api/v1/events', { token: 'stub-guest', body: newEvent }),
+      401,
+      'UNAUTHENTICATED',
+    );
+  });
+
   test('rejects a body without a title with 400', async () => {
     const { title: _title, ...body } = newEvent;
     assertInvalid(await call('POST', '/api/v1/events', { token: 'stub-org', body }), 'body', 'title');
+  });
+
+  test('names every invalid field with one details entry each', async () => {
+    const { title: _title, venueId: _venueId, ...rest } = newEvent;
+    const res = await call('POST', '/api/v1/events', { token: 'stub-org', body: { ...rest, startsAt: 'tomorrow' } });
+    assertInvalid(res, 'body', 'title');
+    assertInvalid(res, 'body', 'venueId');
+    assertInvalid(res, 'body', 'startsAt');
+    assert.equal(res.body.error.details.length, 3, JSON.stringify(res.body.error.details));
+  });
+
+  test('rejects an event that ends before it starts with 422', async () => {
+    const body = { ...newEvent, endsAt: '2026-10-25T18:00:00+03:00' };
+    assertRejected(await call('POST', '/api/v1/events', { token: 'stub-org', body }), 422, 'EVENT_ENDS_BEFORE_START');
   });
 
   test('rejects an unknown body field with 400 without naming it', async () => {
@@ -200,19 +233,80 @@ describe('POST /api/v1/events', () => {
   });
 });
 
-describe('PATCH /api/v1/events/{id}', () => {
-  test('updates the organization’s own event', async () => {
-    const res = await call('PATCH', `/api/v1/events/${filmNight}`, {
-      token: 'stub-org',
-      body: { title: 'Open-air film night (updated)' },
-    });
-    assert.equal(res.status, 200);
-    assert.equal(res.body.title, 'Open-air film night (updated)');
+describe('PUT /api/v1/events/{id}', () => {
+  const replacement = { ...newEvent, title: 'Open-air film night (updated)', description: 'New description.' };
+
+  test('replaces the editable fields of the organization’s own event', async () => {
+    const res = await call('PUT', `/api/v1/events/${filmNight}`, { token: 'stub-org', body: replacement });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.id, filmNight);
+    assert.equal(res.body.title, replacement.title);
+    assert.equal(res.body.description, replacement.description);
+    assert.equal(res.body.startsAt, replacement.startsAt);
+    assert.equal(res.body.status, 'published');
+  });
+
+  test('does not accept PATCH any more: the route is gone', async () => {
+    const res = await call('PATCH', `/api/v1/events/${filmNight}`, { token: 'stub-org', body: { title: 'X' } });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('answers 404 to an organization that did not post the event', async () => {
+    const res = await call('PUT', `/api/v1/events/${filmNight}`, { token: 'stub-org-pending', body: replacement });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('answers 404 to a regular user, like for a missing event', async () => {
+    const own = await call('PUT', `/api/v1/events/${filmNight}`, { token: 'stub-user', body: replacement });
+    const missing = await call('PUT', `/api/v1/events/${randomUUID()}`, { token: 'stub-org', body: replacement });
+    assertRejected(own, 404, 'NOT_FOUND');
+    assertRejected(missing, 404, 'NOT_FOUND');
+  });
+
+  test('rejects editing a cancelled event with 422', async () => {
+    const res = await call('PUT', `/api/v1/events/${cancelledFilmEvent}`, { token: 'stub-org', body: replacement });
+    assertRejected(res, 422, 'EVENT_CANCELLED');
   });
 
   test('rejects an empty title with 400', async () => {
-    const res = await call('PATCH', `/api/v1/events/${filmNight}`, { token: 'stub-org', body: { title: '' } });
+    const res = await call('PUT', `/api/v1/events/${filmNight}`, {
+      token: 'stub-org',
+      body: { ...replacement, title: '' },
+    });
     assertInvalid(res, 'body', 'title');
+  });
+
+  test('rejects a body with missing fields with 400, one details entry per field', async () => {
+    const res = await call('PUT', `/api/v1/events/${filmNight}`, {
+      token: 'stub-org',
+      body: { title: 'Only a title' },
+    });
+    for (const field of ['description', 'categoryId', 'venueId', 'startsAt', 'endsAt']) {
+      assertInvalid(res, 'body', field);
+    }
+    assert.equal(res.body.error.details.length, 5, JSON.stringify(res.body.error.details));
+  });
+
+  test('rejects an id that is not a UUID with 400', async () => {
+    assertInvalid(
+      await call('PUT', '/api/v1/events/not-a-uuid', { token: 'stub-org', body: replacement }),
+      'params',
+      'id',
+    );
+  });
+
+  test('rejects a venue that is not the organization’s own with 422', async () => {
+    const body = { ...replacement, venueId: '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06' };
+    assertRejected(
+      await call('PUT', `/api/v1/events/${filmNight}`, { token: 'stub-org', body }),
+      422,
+      'REFERENCE_NOT_FOUND',
+    );
+  });
+
+  test('rejects a status field with 400: PUT cannot cancel', async () => {
+    const body = { ...replacement, status: 'cancelled' };
+    assertInvalid(await call('PUT', `/api/v1/events/${filmNight}`, { token: 'stub-org', body }), 'body', '');
   });
 });
 

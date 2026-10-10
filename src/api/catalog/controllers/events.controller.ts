@@ -6,19 +6,13 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
-import {
-  CreateEventBody,
-  Event,
-  EventIdParams,
-  EventsPage,
-  ListEventsQuery,
-  UpdateEventBody,
-} from '../schemas/events.ts';
+import { CreateEventBody, Event, EventIdParams, EventsPage, ListEventsQuery } from '../schemas/events.ts';
 
 const ListEventsRequest = { query: ListEventsQuery } satisfies RequestSchemas;
 const GetEventRequest = { params: EventIdParams } satisfies RequestSchemas;
 const CreateEventRequest = { body: CreateEventBody } satisfies RequestSchemas;
-const UpdateEventRequest = { params: EventIdParams, body: UpdateEventBody } satisfies RequestSchemas;
+// PUT replaces the editable fields, so it takes the same body as POST.
+const UpdateEventRequest = { params: EventIdParams, body: CreateEventBody } satisfies RequestSchemas;
 const CancelEventRequest = { params: EventIdParams } satisfies RequestSchemas;
 
 const NOT_OWN_EVENT = {
@@ -94,12 +88,12 @@ export class EventsController {
   }
 
   @Endpoint({
-    method: 'patch',
+    method: 'put',
     path: Routes.events.byId,
     operationId: 'updateEvent',
     summary: 'Edit an event',
     description:
-      'Edit one of the organization’s own events; only the fields sent change. ' +
+      'Replace the editable fields of one of the organization’s own events; the body is the same as when publishing. ' +
       'A cancelled event cannot be edited.',
     tags: ['Events'],
     access: 'user',
