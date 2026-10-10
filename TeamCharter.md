@@ -101,7 +101,11 @@ Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is
 ## 5. Quality and Code Review Policy
 
 ### Coding Standard
-- The team follows the [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html), except that file names follow the NestJS convention (`events.controller.ts`).
+- The team follows the [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html), with these exceptions:
+  - lines are up to 120 characters;
+  - file names follow the NestJS convention (`events.controller.ts`);
+  - JSDoc is written only where a name does not explain the purpose;
+  - zod schemas share the name of the type they define (`Category`).
 - TypeScript runs in `strict` mode. ESLint and Prettier check what they can; reviewers check the rest.
 - Code follows the layers and mechanisms in [`docs/architecture/mechanisms/`](docs/architecture/mechanisms/).
 
