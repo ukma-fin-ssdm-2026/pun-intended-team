@@ -3,12 +3,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import { dump } from 'js-yaml';
-import { DEFAULT_PORT } from './config.js';
-import { registry } from './registry.js';
-import { tags } from './tags.js';
+import { DEFAULT_PORT } from './config.ts';
+import { registry } from './registry.ts';
+import { tags } from './tags.ts';
 // Importing the app module loads every controller, whose @Endpoint decorators
 // register their paths in the registry.
-import '../app.module.js';
+import '../app.module.ts';
 
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const { version } = JSON.parse(readFileSync(path.join(repoRoot, 'package.json'), 'utf8')) as { version: string };

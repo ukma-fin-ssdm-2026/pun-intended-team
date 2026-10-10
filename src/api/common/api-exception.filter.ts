@@ -1,9 +1,9 @@
 // Written with the help of Claude
 import { type ArgumentsHost, Catch, type ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
-import { DomainError } from '../../core/common/domain-error.js';
-import { ApiException } from './api-exception.js';
-import type { ErrorCode, ErrorResponse } from './schemas/errors.js';
+import { DomainError } from '../../core/common/domain-error.ts';
+import { ApiException } from './api-exception.ts';
+import type { ErrorCode, ErrorResponse } from './schemas/errors.ts';
 
 // Nest and Nest packages throw HttpException with a status but no code,
 // e.g. the router (404), @nestjs/passport (401) or @nestjs/throttler (429).
@@ -49,10 +49,11 @@ function toApiException(exception: unknown): ApiException | undefined {
     return new ApiException(exception.code, exception.message);
   }
   if (exception instanceof HttpException) {
-    if (exception.getStatus() === HttpStatus.FORBIDDEN) {
+    const status: HttpStatus = exception.getStatus();
+    if (status === HttpStatus.FORBIDDEN) {
       return new ApiException('NOT_FOUND', 'Not found');
     }
-    const error = errorByStatus[exception.getStatus()];
+    const error = errorByStatus[status];
     if (error) {
       return new ApiException(error.code, error.message);
     }

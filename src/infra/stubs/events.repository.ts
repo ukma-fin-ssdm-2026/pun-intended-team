@@ -1,12 +1,12 @@
 // Written with the help of Claude
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { EventsRepository } from '../../core/catalog/repositories/events.repository.js';
-import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../../core/catalog/types/event.js';
-import { kyivDate } from '../../core/common/kyiv-time.js';
-import type { Page, PageRequest } from '../../core/common/page.js';
-import { categories, events, type StoredEvent, venues } from './data.js';
-import { paginate } from './paginate.js';
+import { EventsRepository } from '../../core/catalog/repositories/events.repository.ts';
+import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../../core/catalog/types/event.ts';
+import { kyivDate } from '../../core/common/kyiv-time.ts';
+import type { Page, PageRequest } from '../../core/common/page.ts';
+import { categories, events, type StoredEvent, venues } from './data.ts';
+import { paginate } from './paginate.ts';
 
 @Injectable()
 export class StubEventsRepository implements EventsRepository {

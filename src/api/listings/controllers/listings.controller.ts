@@ -1,12 +1,12 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
-import type { AccountCaller } from '../../../core/identity/types/caller.js';
-import { ListingsService } from '../../../core/listings/services/listings.service.js';
-import { CurrentAccount } from '../../common/auth.js';
-import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.js';
-import { Routes } from '../../common/routes.js';
-import { ErrorResponse } from '../../common/schemas/errors.js';
-import { CreateListingBody, ListListingsQuery, Listing, ListingIdParams, ListingsPage } from '../schemas/listings.js';
+import type { AccountCaller } from '../../../core/identity/types/caller.ts';
+import { ListingsService } from '../../../core/listings/services/listings.service.ts';
+import { CurrentAccount } from '../../common/auth.ts';
+import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
+import { Routes } from '../../common/routes.ts';
+import { ErrorResponse } from '../../common/schemas/errors.ts';
+import { CreateListingBody, ListListingsQuery, Listing, ListingIdParams, ListingsPage } from '../schemas/listings.ts';
 
 const ListListingsRequest = { query: ListListingsQuery } satisfies RequestSchemas;
 const GetListingRequest = { params: ListingIdParams } satisfies RequestSchemas;

@@ -1,8 +1,8 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
-import { Endpoint } from '../../common/endpoint.js';
-import { Routes } from '../../common/routes.js';
-import { HealthResponse } from '../schemas/system.js';
+import { Endpoint } from '../../common/endpoint.ts';
+import { Routes } from '../../common/routes.ts';
+import { HealthResponse } from '../schemas/system.ts';
 
 @Controller()
 export class SystemController {

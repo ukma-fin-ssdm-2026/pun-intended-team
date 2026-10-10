@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { ExpressAdapter } from '@nestjs/platform-express';
-import { ApiException } from './api-exception.js';
+import { ApiException } from './api-exception.ts';
 
 /**
  * Turns errors raised by Express itself, before any handler runs, into

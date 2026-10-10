@@ -1,16 +1,16 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
-import { CategoriesService } from '../../../core/catalog/services/categories.service.js';
-import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.js';
-import { Routes } from '../../common/routes.js';
-import { ErrorResponse } from '../../common/schemas/errors.js';
+import { CategoriesService } from '../../../core/catalog/services/categories.service.ts';
+import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
+import { Routes } from '../../common/routes.ts';
+import { ErrorResponse } from '../../common/schemas/errors.ts';
 import {
   AdminCategory,
   AdminCategoryList,
   CategoryIdParams,
   CreateCategoryBody,
   UpdateCategoryBody,
-} from '../schemas/categories.js';
+} from '../schemas/categories.ts';
 
 const GetCategoryRequest = { params: CategoryIdParams } satisfies RequestSchemas;
 const CreateCategoryRequest = { body: CreateCategoryBody } satisfies RequestSchemas;

@@ -1,6 +1,6 @@
 // Written with the help of Claude
-import type { Category } from './category.js';
-import type { Venue } from './venue.js';
+import type { Category } from './category.ts';
+import type { Venue } from './venue.ts';
 
 export type EventSource = 'organization' | 'import';
 

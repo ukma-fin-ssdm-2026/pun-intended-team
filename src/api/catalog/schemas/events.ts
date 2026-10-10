@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { CalendarDate, DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.js';
-import { ActiveCategoryId, Category, categoryExample } from './categories.js';
+import { CalendarDate, DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
 
 export const EventSource = z
   .enum(['organization', 'import'])

@@ -1,10 +1,10 @@
 // Written with the help of Claude
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import { CategoriesRepository } from '../../core/catalog/repositories/categories.repository.js';
-import type { Category, CategoryChanges, NewCategory } from '../../core/catalog/types/category.js';
-import { DomainError } from '../../core/common/domain-error.js';
-import { categories, events, listings } from './data.js';
+import { CategoriesRepository } from '../../core/catalog/repositories/categories.repository.ts';
+import type { Category, CategoryChanges, NewCategory } from '../../core/catalog/types/category.ts';
+import { DomainError } from '../../core/common/domain-error.ts';
+import { categories, events, listings } from './data.ts';
 
 @Injectable()
 export class StubCategoriesRepository implements CategoriesRepository {
