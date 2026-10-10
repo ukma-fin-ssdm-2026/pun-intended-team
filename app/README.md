@@ -31,6 +31,8 @@ cd app && npm run web
 3. Run the API as in [Getting started](#getting-started).
 4. Open the client:
    - Expo Go: run `npm start` and scan the QR code.
+     - On WSL, Expo puts the WSL IP address into the QR code by default and the phone cannot connect; run `REACT_NATIVE_PACKAGER_HOSTNAME=<IP> npx expo start` instead.
+     - On iPhone, Expo Go opens the project only when Expo Go and Expo CLI are logged in to the same Expo account (free, expo.dev): Profile → Log in in the app, `npx expo login` in `app/` on the computer.
    - Phone browser: run `npx expo start --web`, start the API with `CORS_ORIGINS=http://localhost:8081,http://<IP>:8081` and open `http://<IP>:8081`.
 
 The client calls the API on the same host it was opened from, port 4100, unless `EXPO_PUBLIC_API_URL` is set.
