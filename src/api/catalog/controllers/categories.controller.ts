@@ -15,7 +15,7 @@ export class CategoriesController {
     operationId: 'listCategories',
     summary: 'List the categories users can pick',
     description:
-      'List the active categories users can pick for events and listings; their ids go in categoryIdffffffffffff.',
+      'List the active categories users can pick for events and listings; their ids go in categoryIdfffffffffff.',
     tags: ['Categories'],
     access: 'guest',
     responses: {

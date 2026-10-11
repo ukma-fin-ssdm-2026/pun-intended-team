@@ -1000,8 +1000,8 @@ paths:
       summary: List the categories users can pick
       description: >-
         List the active categories users can pick for events and listings; their
-        ids go in categoryIdffffffffffff. Needs an access token: a guest token
-        or a signed-in account.
+        ids go in categoryIdfffffffffff. Needs an access token: a guest token or
+        a signed-in account.
       tags:
         - Categories
       security:
