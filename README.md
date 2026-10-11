@@ -90,7 +90,7 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
 
-## Local database
+## 𓊚 Local database
 
 Categories are stored in PostgreSQL with PostGIS ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
