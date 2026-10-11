@@ -119,8 +119,6 @@ eslint...............................................(no files to check)Skipped
 
 **Full history scan.** The hook sees only new changes, so the history was scanned once with `gitleaks git`: 228 commits, 1 finding, a false positive. The `curl-auth-header` rule matches prose about `curl` in `docs/api/quality-attributes.md`, which contains no token. It is listed in [`.gitleaksignore`](../../.gitleaksignore) (one fingerprint for the history scan, one for the current file). Nothing else was found.
 
-**Limit: SA-03 is not covered.** gitleaks does not flag the demo tokens `stub-*` in `src/infra/stubs/data.ts` and `.mcp.json`: they are short, readable words with no entropy, and no default rule matches them. This is deliberate: they are public by design for the stub phase (SA-03), and a custom rule would only flag the demo tokens that SA-03 already accepts, so they would have to be allowlisted anyway.
-
 ## Security analyzer (eslint-plugin-security)
 
 **Tool:** eslint-plugin-security 4.2.0 on ESLint 10.12, run with `npm run lint`.
