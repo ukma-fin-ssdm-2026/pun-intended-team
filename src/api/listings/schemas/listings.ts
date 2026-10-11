@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { ActiveCategoryId, Category, categoryExample } from '../../catalog/schemas/categories.ts';
+import { ActiveCategoryId, Category } from '../../catalog/schemas/categories.ts';
 import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
@@ -23,7 +23,7 @@ const ListingFields = z.object({
 export const listingExample: Listing = {
   id: '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09',
   author: { username: 'olena_k', displayName: 'Olena' },
-  category: categoryExample,
+  category: { id: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02', name: 'Exhibitions' },
   eventId: null,
   title: 'Looking for company for an exhibition on Saturday',
   description: 'Planning to go in the evening, happy to grab a coffee after.',

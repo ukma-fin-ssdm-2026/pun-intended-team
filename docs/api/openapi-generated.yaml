@@ -480,8 +480,8 @@ components:
               username: olena_k
               displayName: Olena
             category:
-              id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-              name: Concerts
+              id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+              name: Exhibitions
             eventId: null
             title: Looking for company for an exhibition on Saturday
             description: Planning to go in the evening, happy to grab a coffee after.
@@ -531,8 +531,8 @@ components:
           username: olena_k
           displayName: Olena
         category:
-          id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-          name: Concerts
+          id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+          name: Exhibitions
         eventId: null
         title: Looking for company for an exhibition on Saturday
         description: Planning to go in the evening, happy to grab a coffee after.
