@@ -89,6 +89,19 @@ The warning `error while installing React Native DevTools ... libnspr4.so` in WS
 
 Run `npm run api:types` after the API spec (`docs/api/openapi-generated.yaml`) changes, and commit the regenerated `src/api/schema.d.ts` as is: it is generated, so do not edit or format it by hand.
 
+## Checks in CI
+
+The job "Client checks" ([`client-checks.yml`](../.github/workflows/client-checks.yml)) runs on every pull request and must pass to merge. It runs these checks in `app/`, after `npm ci`:
+
+| Check                | Run it locally                                                       |
+| -------------------- | -------------------------------------------------------------------- |
+| Lint                 | `npm run lint`                                                       |
+| Types                | `npm run typecheck`                                                  |
+| Formatting           | `npx prettier --check .` (fix with `npm run format`)                 |
+| API types match spec | `npm run api:types`, then `git diff --exit-code src/api/schema.d.ts` |
+
+After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm run api:types` and commit the regenerated `src/api/schema.d.ts`; otherwise the last check fails in CI. The client has no tests, and its dependencies are not audited in CI.
+
 ## Project structure
 
 ```

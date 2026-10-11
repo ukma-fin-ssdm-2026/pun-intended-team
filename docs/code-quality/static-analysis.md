@@ -53,7 +53,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `test/` and `*.mjs` get no type-checked rules.
 - **Why not `test/`:** measured before deciding. The type-checked rules gave 81 findings on `test/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `test/` is a future task together with typing `body`.
 - **Layer rule:** imports between `api`, `core` and `infra` are restricted by `no-restricted-imports`; the rules follow [`code-structure.md`](../architecture/mechanisms/code-structure.md).
-- **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit.
+- **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit. It is checked by a separate CI job, "Client checks" ([`client-checks.yml`](../../.github/workflows/client-checks.yml)): `expo lint`, `tsc --noEmit`, `prettier --check` and a check that the generated API types match the spec. The client has no tests and no dependency audit.
 - **Scripts:** `npm run lint` does not use `--fix`, so CI fails instead of silently rewriting code. `npm run lint:fix` is for local use.
 
 **Baseline.** The first run found 2 errors in `test/e2e/api.e2e.test.ts`, now 0:
