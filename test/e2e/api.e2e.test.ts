@@ -19,6 +19,8 @@ const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
 const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
+const interestCinema = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01';
+const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06';
 
 // Seeded accounts from src/infra/stubs/data.ts.
 const seededPassword = 'nearby-dev-password';
@@ -764,5 +766,209 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
 
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('DELETE', '/api/v1/admin/categories/not-a-uuid', { token: tokens.admin }), 'params', 'id');
+  });
+});
+
+describe('GET /api/v1/interests', () => {
+  test('lists the interests users can pick', async () => {
+    const res = await call('GET', '/api/v1/interests', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.items.length > 0);
+    assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestCinema));
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(await call('GET', '/api/v1/interests', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('GET /api/v1/me/profile', () => {
+  test('returns the profile with the age and isComplete', async () => {
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.username, 'olena_k');
+    assert.ok(Number.isInteger(res.body.age) && res.body.age >= 18, `age ${res.body.age}`);
+    assert.equal(res.body.isComplete, true);
+    assert.deepEqual(
+      res.body.interests.map((interest: { name: string }) => interest.name),
+      ['Cinema', 'Art and exhibitions'],
+    );
+  });
+
+  test('never returns the date of birth or the account id', async () => {
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.user });
+    assert.doesNotMatch(JSON.stringify(res.body), /2001|dateOfBirth|accountId/);
+  });
+
+  test('answers 404 when the account has no profile yet', async () => {
+    assertRejected(await call('GET', '/api/v1/me/profile', { token: tokens.admin }), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    assertRejected(await call('GET', '/api/v1/me/profile'), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('POST /api/v1/me/profile', () => {
+  test('creates the profile and answers 201 with a Location header', async () => {
+    const res = await call('POST', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { username: 'Newcomer.One', displayName: 'Newcomer' },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.headers.get('location'), '/api/v1/me/profile');
+    assert.equal(res.body.username, 'Newcomer.One');
+    assert.equal(res.body.communicationFormat, null);
+    assert.deepEqual(res.body.interests, []);
+    assert.equal(res.body.isComplete, false);
+  });
+
+  test('rejects a second profile for the same account with 409 PROFILE_EXISTS', async () => {
+    const res = await call('POST', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { username: 'another_name', displayName: 'Again' },
+    });
+    assertRejected(res, 409, 'PROFILE_EXISTS');
+  });
+
+  test('rejects a username taken by someone else, in any case, with 409 USERNAME_TAKEN', async () => {
+    const res = await call('POST', '/api/v1/me/profile', {
+      token: tokens.admin,
+      body: { username: 'OLENA_K', displayName: 'Impostor' },
+    });
+    assertRejected(res, 409, 'USERNAME_TAKEN');
+    assertRejected(await call('GET', '/api/v1/me/profile', { token: tokens.admin }), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a missing username and display name with 400', async () => {
+    const res = await call('POST', '/api/v1/me/profile', { token: tokens.admin, body: {} });
+    assertInvalid(res, 'body', 'username');
+    assertInvalid(res, 'body', 'displayName');
+  });
+
+  test('rejects a username that starts with a dot or contains a space with 400', async () => {
+    for (const username of ['.hidden', 'two words', 'ab']) {
+      const res = await call('POST', '/api/v1/me/profile', {
+        token: tokens.admin,
+        body: { username, displayName: 'X' },
+      });
+      assertInvalid(res, 'body', 'username');
+    }
+  });
+
+  test('rejects an unknown body field with 400', async () => {
+    const body = { username: 'valid_name', displayName: 'X', communicationFormat: 'dating' };
+    assertInvalid(await call('POST', '/api/v1/me/profile', { token: tokens.admin, body }), 'body', '');
+  });
+});
+
+describe('PATCH /api/v1/me/profile', () => {
+  test('changes only the fields sent', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { description: 'Walks and films.', communicationFormat: 'dating', sharePhone: false },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.username, 'Newcomer.One');
+    assert.equal(res.body.description, 'Walks and films.');
+    assert.equal(res.body.communicationFormat, 'dating');
+    assert.equal(res.body.sharePhone, false);
+    assert.equal(res.body.isComplete, false, 'still no interests');
+  });
+
+  test('lets a user change the case of their own username', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { username: 'newcomer.one' },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.username, 'newcomer.one');
+  });
+
+  test('rejects a username taken by someone else with 409 USERNAME_TAKEN', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { username: 'taras.m' } });
+    assertRejected(res, 409, 'USERNAME_TAKEN');
+  });
+
+  test('answers 404 when the profile is not created yet', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.admin, body: { description: 'Hi' } });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('rejects an unknown communicationFormat with 400', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { communicationFormat: 'party' },
+    });
+    assertInvalid(res, 'body', 'communicationFormat');
+  });
+
+  test('rejects an empty body with 400', async () => {
+    assertRejected(
+      await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: {} }),
+      400,
+      'VALIDATION_ERROR',
+    );
+  });
+});
+
+describe('PUT /api/v1/me/profile/interests', () => {
+  test('replaces the whole set and completes the profile', async () => {
+    const first = await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: [interestCinema, interestHiking, interestCinema] },
+    });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
+    assert.equal(first.body.isComplete, true, 'format and interests are both set');
+
+    const second = await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: [interestHiking] },
+    });
+    assert.deepEqual(
+      second.body.interests.map((interest: { id: string }) => interest.id),
+      [interestHiking],
+    );
+  });
+
+  test('an empty list clears the interests and the profile is incomplete again', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: [] },
+    });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.interests, []);
+    assert.equal(res.body.isComplete, false);
+  });
+
+  test('rejects an unknown interest id with 422 and changes nothing', async () => {
+    await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: [interestCinema] },
+    });
+    const res = await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: [interestHiking, randomUUID()] },
+    });
+    assertRejected(res, 422, 'REFERENCE_NOT_FOUND');
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    assert.deepEqual(
+      profile.body.interests.map((interest: { id: string }) => interest.id),
+      [interestCinema],
+    );
+  });
+
+  test('answers 404 when the profile is not created yet', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/interests', { token: tokens.admin, body: { interestIds: [] } });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('rejects ids that are not UUIDs with 400', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/interests', {
+      token: tokens.orgPending,
+      body: { interestIds: ['cinema'] },
+    });
+    assertInvalid(res, 'body', 'interestIds.0');
   });
 });

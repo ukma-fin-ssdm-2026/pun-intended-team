@@ -25,4 +25,8 @@ export class StubAccountsRepository implements AccountsRepository {
     storedAccounts.push({ ...account, passwordHash });
     return account;
   }
+
+  async findDateOfBirth(accountId: string): Promise<string | undefined> {
+    return storedAccounts.find((account) => account.id === accountId)?.dateOfBirth;
+  }
 }

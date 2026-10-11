@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes two main resources: **Events** (the catalog) and **Listings** (users' "looking for company" posts), plus **Categories**, a lookup both of them refer to. All three come from the [data model](../architecture/data-model.md).
+The API exposes three main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts) and the signed-in user's own **Profile**, plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -58,6 +58,40 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `status` | `active` \| `removed` | Only `active` listings are returned to users |
 
 Related to: Account (author), Category, Event.
+
+### Profile
+
+**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`
+
+The signed-in user's own profile, built step by step during onboarding (FR-002, US-003) and edited afterwards. The resource is singular and lives under `/me`: a user only ever sees their own profile here, so there is no id to guess. Other users' profiles are shown only through listings (`author`).
+
+| Field | Type | Notes |
+|---|---|---|
+| `username` | string | Required at creation. Unique regardless of case, 3 to 30 letters, digits, dots or underscores, starting with a letter or a digit |
+| `displayName` | string | Required at creation, 1 to 50 characters |
+| `description` | string | Free text up to 500 characters; empty until set |
+| `communicationFormat` | `friends` \| `dating` \| `company` \| `null` | `null` until the user picks one |
+| `sharePhone` | boolean | Default `true`: whether the phone number is revealed on a mutual match |
+| `age` | integer | Whole years, computed on the server from the account's date of birth. The date itself is never returned (data model §4) |
+| `interests` | `[{ id, name }]` | Empty until the user picks some |
+| `isComplete` | boolean | `true` once `communicationFormat` is set **and** at least one interest is picked; matching needs both (use case E1) |
+
+Related to: Account (`age` comes from its date of birth), Interest.
+
+Not in this version: photo upload and linked accounts. Until linked accounts exist, `sharePhone: false` is accepted although the data model requires at least one shared contact; the check moves into the profiles service together with linked accounts.
+
+### Interest
+
+**Base path:** `/api/v1/interests`
+
+A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `name` | string | Unique |
+
+Related to: Profile (many to many).
 
 ### Category
 
@@ -120,6 +154,20 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/listings/{id}` | Signed-in user | `200` the listing | `400`, `401`, `404` |
 | `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401`, `422` |
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
+
+### Profile and Interests
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/interests` | Signed-in user | `200` all interests (not paginated) | `401` |
+| `GET` | `/api/v1/me/profile` | Signed-in user | `200` the profile | `401`, `404` |
+| `POST` | `/api/v1/me/profile` | Signed-in user | `201` the profile + `Location: /api/v1/me/profile` | `400`, `401`, `409` |
+| `PATCH` | `/api/v1/me/profile` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `409` |
+| `PUT` | `/api/v1/me/profile/interests` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
+
+Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes.
+
+A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
 
 ### Categories
 
@@ -208,7 +256,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
 | `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` | `UNAUTHENTICATED`: no access token, or an invalid or expired one. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password; it does not say which |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
-| `409 Conflict` | `CONFLICT` | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
+| `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED`, `CODE_RESEND_TOO_SOON` | A rate limit was hit (SEC-007), or a verification code was requested again within a minute (SEC-008) |
@@ -221,7 +269,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `code` | Endpoint | When |
 |---|---|---|
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
-| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings` | A referenced category is missing or deactivated, a venue is not one of the organization's own, or a referenced event does not exist. The message names which |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, or an interest id is not in the list. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `INVALID_CODE` | `POST /auth/verify` | The code is wrong, expired, already used, or has failed 3 times |
 | `UNDERAGE` | `POST /auth/verify` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001) |
@@ -229,6 +277,13 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
+
+##### Business-rule codes (`409`)
+
+| `code` | Endpoint | When |
+|---|---|---|
+| `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
+| `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
 
 ### Trying It Out
 
@@ -242,11 +297,11 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 
 | Phone | Account |
 |---|---|
-| `+380501110001` | Olena, a regular user |
-| `+380501110002` | Taras, a second user, for trying who may delete which listing |
-| `+380501110003` | Podil Film Club, a verified organization with its own venue |
-| `+380501110004` | New Gallery, an organization still awaiting verification |
-| `+380501110005` | An administrator |
+| `+380501110001` | Olena, a regular user with a complete profile |
+| `+380501110002` | Taras, a second user with a profile, for trying who may delete which listing |
+| `+380501110003` | Podil Film Club, a verified organization with its own venue; no profile |
+| `+380501110004` | New Gallery, an organization still awaiting verification; no profile, so `POST /me/profile` creates one |
+| `+380501110005` | An administrator; no profile, so it shows the `404` of the profile endpoints |
 
 The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes, registered accounts included, last until the server restarts.
 
@@ -254,4 +309,4 @@ The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so chang
 
 Drafted with Claude from the project's requirements, data model and architecture documents. Reviewed and edited by Viktoriia Baran.
 
-**`PUT /events/{id}` (issue #142).** The `PUT` paragraph under Events and the changed endpoint and error tables were written with Claude. Verified by: `npm run test:e2e` (every rule above has a test) and `npm run docs:generate`. To be reviewed by: Viktoriia Baran (API Design Lead).
+**Profile and Interest resources, `PUT /events/{id}` (issues #141, #142).** The Profile and Interest sections, the Profile and Interests endpoint tables, the `409` codes table, the `PUT` paragraph under Events and the changed error tables were written with Claude. Verified by: `npm run test:e2e` (every rule above has a test), `npm run docs:generate`, and a comparison of the tables with `docs/api/openapi-generated.yaml`. To be reviewed by: Viktoriia Baran (API Design Lead).

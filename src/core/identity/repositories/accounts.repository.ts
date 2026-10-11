@@ -9,4 +9,7 @@ export abstract class AccountsRepository {
 
   /** Creates the account together with its password sign-in method. */
   abstract create(account: AccountRecord, passwordHash: string): Promise<Account>;
+
+  /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
+  abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
 }

@@ -2,6 +2,7 @@
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
  * Generated on: 2026-10-10T17:32:31.180Z
+ * Generated on: 2026-10-10T14:44:07.038Z
  */
 
 // Load environment variables from .env file
@@ -258,6 +259,71 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Listings"],
+    deprecated: false
+  }],
+  ["listInterests", {
+    name: "listInterests",
+    description: `List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+(Tags: Interests)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/interests",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Interests"],
+    deprecated: false
+  }],
+  ["getMyProfile", {
+    name: "getMyProfile",
+    description: `Get the caller’s own profile with the age computed from the account’s date of birth. \`isComplete\` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/profile",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false
+  }],
+  ["createMyProfile", {
+    name: "createMyProfile",
+    description: `First onboarding step: create the caller’s profile with a username and a display name. Every later step is \`updateMyProfile\` and \`replaceMyInterests\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"}},"required":["username","displayName"],"additionalProperties":false,"description":"The first onboarding step; everything else is added with PATCH"}}},
+    method: "post",
+    pathTemplate: "/api/v1/me/profile",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false
+  }],
+  ["updateMyProfile", {
+    name: "updateMyProfile",
+    description: `Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"},"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"description":{"type":"string","maxLength":500,"description":"Free text about the user; can be empty"},"communicationFormat":{"type":"string","enum":["friends","dating","company"],"description":"What the user is looking for when they go to an event"},"sharePhone":{"type":"boolean","description":"Whether the phone number is revealed on a mutual match"}},"additionalProperties":false,"description":"Only the fields to change; at least one"}}},
+    method: "patch",
+    pathTemplate: "/api/v1/me/profile",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false
+  }],
+  ["replaceMyInterests", {
+    name: "replaceMyInterests",
+    description: `Replace the whole set of the caller’s interests with the given ids; an empty list clears it. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"interestIds":{"type":"array","items":{"type":"string","format":"uuid"},"maxItems":30,"description":"Ids from listInterests; the whole set is replaced, so an empty list clears it"}},"required":["interestIds"],"additionalProperties":false,"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/profile/interests",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
     deprecated: false
   }],
   ["getHealth", {
