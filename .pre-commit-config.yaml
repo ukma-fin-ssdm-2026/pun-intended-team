@@ -18,9 +18,12 @@ repos:
         entry: npx prettier --write --ignore-unknown
         language: system
         files: \.(ts|mjs)$
-      
+        exclude: ^app/
+
+      # app/ is the client with its own ESLint config and dependencies; the root config ignores it.
       - id: eslint
         name: eslint
         entry: npx eslint --no-warn-ignored
         language: system
         files: \.(ts|mjs)$
+        exclude: ^app/
