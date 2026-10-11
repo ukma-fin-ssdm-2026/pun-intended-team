@@ -82,12 +82,24 @@ For a production build: `npm run build`, then `npm start`.
 | `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
 | `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
 | `CORS_ORIGINS` | — | Comma-separated origins allowed to call the API from a browser, e.g. `http://localhost:8081` for the Expo web client; unset keeps CORS off |
+| `DATABASE_URL` | — | PostgreSQL connection string, set in `.env.example`; the server does not start without it, see [Local database](#local-database) |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
 
 Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
+
+## Local database
+
+Categories are stored in PostgreSQL with PostGIS ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+
+```bash
+docker compose up -d        # PostgreSQL 18 with PostGIS on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
+npx prisma migrate deploy   # creates the tables and the starting categories
+```
+
+To reset the database, delete its data and migrate again: `docker compose down -v`, then the two commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
 
 ## ൬ Running the client
 
