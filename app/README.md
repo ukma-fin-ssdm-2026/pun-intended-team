@@ -115,7 +115,7 @@ Import from `src/` with the `@/` alias, for example `import { EventCard } from '
 
 ## Code style
 
-The client follows the team's [coding standard](../TeamCharter.md#5-quality-and-code-review-policy) (TeamCharter.md §5). Expo Router route files keep the names the router requires (`_layout.tsx`, `[id].tsx`).
+The client follows the team's [coding standard](../TeamCharter.md#5-code-quality-and-review-policy) (TeamCharter.md §5). Expo Router route files keep the names the router requires (`_layout.tsx`, `[id].tsx`).
 
 ## AI Usage Note
 

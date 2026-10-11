@@ -98,7 +98,7 @@ The team replaced GitHub's default labels with its own set, grouped by area and 
 
 Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is created or triaged, and may be adjusted by any member if the work's scope changes.
 
-## 5. Quality and Code Review Policy
+## 5. Code Quality and Review Policy
 
 ### Coding Standard
 - The team follows the [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html), with these exceptions:
@@ -113,6 +113,9 @@ Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is
 - **Prettier** — formats the code (`npm run format`).
 - **ESLint** — checks the code against the `typescript-eslint` and `eslint-plugin-security` recommended rules (`npm run lint`).
 - **`commit-msg` hook** — checks the commit message format (`.githooks/commit-msg`).
+- **pre-commit** — runs gitleaks, Prettier and ESLint on the staged files before every commit (`.pre-commit-config.yaml`).
+- **npm audit and Dependabot** — check the dependencies for known vulnerabilities and propose updates.
+- **GitHub Actions** — runs the checks and the end-to-end tests on every pull request.
 
 ### Code Review
 - Merging into `main` is only possible via a pull request.
@@ -122,6 +125,12 @@ Labels are assigned by the Issue Tracker Lead (Oleh Moshenskyi) when an issue is
 - The reviewer responds within 48 hours; if there's no response, the author pings the team's general chat.
 - If there's disagreement over review comments, the decision is made through a short discussion in chat/a call, not unilaterally.
 - A branch can only be closed once every comment on it has been addressed.
+
+### Definition of Done
+In addition to the Definition of Done in §4, a pull request is merged only when:
+- the `CI passed` check is green: formatting, linting, type checking, end-to-end tests, the API spec check and the dependency audit;
+- new or changed behaviour is covered by end-to-end tests;
+- the documentation affected by the change is updated (API design, generated spec, README, architecture docs).
 
 ## 6. Conflict Resolution
 1. A direct conversation between the members involved in the disagreement — first try to resolve it without involving the whole team.
@@ -177,5 +186,4 @@ A persistent inability to complete the stated workload is discussed at a team me
 - [x] Vladyslav Redchuk (GitHub: @Vlad-Re)
 
 ## AI Usage Note
-This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §9 Use of AI disclosure rules, §10 Artifact Management, §11 Individual Accountability for Requirements Artifacts, the Lab 4 role descriptions in §2, and the Lab 5 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska. The §5 Coding Standard and
-     Required Tools were drafted with Claude Code and reviewed by Viktoriya Baran.
+This charter, and its subsequent edits, were written with the participation of Claude. All added/changed points (the §4 Issue Labels table, the §4 Requirements Review subsection, the §4 Weekly Task Deadlines subsection, the §9 Use of AI disclosure rules, §10 Artifact Management, §11 Individual Accountability for Requirements Artifacts, the Lab 4 role descriptions in §2, and the Lab 5 role descriptions in §2) were AI-generated wording, reviewed and edited by Daryna Halytska. The §5 Coding Standard, Required Tools and Definition of Done were drafted with Claude Code and reviewed by Viktoriya Baran.

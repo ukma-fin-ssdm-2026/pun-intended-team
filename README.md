@@ -87,7 +87,7 @@ For a production build: `npm run build`, then `npm start`.
 
 Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, `npm run test:e2e` runs the end-to-end tests in [`test/e2e/`](test/e2e/), and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
-Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-quality-and-code-review-policy).
+Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
 
 ## 𓂀 Commit hooks
 
