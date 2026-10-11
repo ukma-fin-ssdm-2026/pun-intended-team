@@ -18,6 +18,9 @@ services:
     volumes:
       # PostgreSQL 18 images keep the data in a versioned folder under /var/lib/postgresql, not in .../data.
       - db-data:/var/lib/postgresql
+      # The image's 10_postgis.sh creates PostGIS extensions in the database. Replacing it with an empty file
+      # leaves the database empty, so the extensions come only from the migrations (no drift in `prisma migrate dev`).
+      - /dev/null:/docker-entrypoint-initdb.d/10_postgis.sh:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
