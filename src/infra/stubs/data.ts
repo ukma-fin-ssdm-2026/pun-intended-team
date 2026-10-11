@@ -5,7 +5,6 @@ import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
 import type { Account } from '../../core/identity/types/account.ts';
 import type { VerificationCode } from '../../core/identity/types/verification-code.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
-import type { Category } from '../../core/catalog/types/category.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';
 import type { Listing } from '../../core/listings/types/listing.ts';
@@ -77,11 +76,10 @@ export const organizations: Organization[] = [
   { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },
 ];
 
+// Seeded by the seed_categories migration; the categories themselves live in the database.
 const categoryIds = {
-  cinema: '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01',
   exhibitions: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02',
   concerts: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03',
-  poetrySlams: '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04',
 } as const;
 
 const venueIds = {
@@ -95,13 +93,6 @@ const eventIds = {
   arsenalExhibition: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
   silentFilm: 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f',
 } as const;
-
-export const categories: Category[] = [
-  { id: categoryIds.cinema, name: 'Cinema', isActive: true },
-  { id: categoryIds.exhibitions, name: 'Exhibitions', isActive: true },
-  { id: categoryIds.concerts, name: 'Concerts', isActive: true },
-  { id: categoryIds.poetrySlams, name: 'Poetry slams', isActive: false },
-];
 
 export const venues: Venue[] = [
   {
@@ -138,7 +129,7 @@ export const events: StoredEvent[] = [
     id: eventIds.filmNight,
     title: 'Open-air film night: Shadows of Forgotten Ancestors',
     description: 'Screening in the park, bring a blanket.',
-    categoryId: categoryIds.cinema,
+    categoryId: categoryIds.concerts,
     venueId: venueIds.natalkaPark,
     startsAt: `${inDays(13)}T19:00:00+03:00`,
     endsAt: `${inDays(13)}T21:30:00+03:00`,
@@ -162,7 +153,7 @@ export const events: StoredEvent[] = [
     id: eventIds.silentFilm,
     title: 'Silent film with live piano',
     description: 'Cancelled: the pianist is ill.',
-    categoryId: categoryIds.cinema,
+    categoryId: categoryIds.concerts,
     venueId: venueIds.natalkaPark,
     startsAt: `${inDays(20)}T18:00:00+03:00`,
     endsAt: `${inDays(20)}T20:00:00+03:00`,

@@ -8,8 +8,8 @@ const CategoryFields = z.object({
 });
 
 export const categoryExample: Category = {
-  id: '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01',
-  name: 'Cinema',
+  id: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03',
+  name: 'Concerts',
 };
 
 export const Category = CategoryFields.meta({

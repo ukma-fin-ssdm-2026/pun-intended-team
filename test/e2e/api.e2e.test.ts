@@ -12,10 +12,9 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { SignJWT } from 'jose';
 
-// Ids from src/infra/stubs/data.ts.
-const cinema = '0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01';
+// Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
-const poetrySlams = '3e9c5a7d-1f4b-4d6e-8a8c-0b5d7f9e1a04';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
@@ -28,7 +27,7 @@ const phones = { user: '+380501110001', org: '+380501110003', orgPending: '+3805
 const newEvent = {
   title: 'Film quiz night',
   description: 'Teams of up to four.',
-  categoryId: cinema,
+  categoryId: concerts,
   venueId: filmClubVenue,
   startsAt: '2026-10-25T19:00:00+03:00',
   endsAt: '2026-10-25T21:00:00+03:00',
@@ -103,6 +102,23 @@ async function signIn(phone: string): Promise<string> {
   const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return res.body.accessToken;
+}
+
+const TEST_CATEGORY_PREFIX = 'E2E ';
+
+/** A category of the test's own, so no test depends on rows a previous run left in the database. */
+async function newCategory({ isActive = true } = {}): Promise<{ id: string; name: string }> {
+  const name = `${TEST_CATEGORY_PREFIX}${randomUUID().slice(0, 8)}`;
+  const created = await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name } });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  if (!isActive) {
+    const res = await call('PATCH', `/api/v1/admin/categories/${created.body.id}`, {
+      token: tokens.admin,
+      body: { isActive: false },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+  return { id: created.body.id, name };
 }
 
 /** A random Ukrainian number, so every registration test starts fresh. */
@@ -199,7 +215,14 @@ before(async () => {
   tokens.admin = await signIn(phones.admin);
 });
 
-after(() => {
+after(async () => {
+  // Categories are in the database and outlive the run, so remove the ones the tests made (also from a run that crashed).
+  const all = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
+  for (const { id, name } of all.body.items) {
+    if (name.startsWith(TEST_CATEGORY_PREFIX)) {
+      await call('DELETE', `/api/v1/admin/categories/${id}`, { token: tokens.admin });
+    }
+  }
   server?.kill();
   rmSync(keysDir, { recursive: true, force: true });
 });
@@ -415,8 +438,14 @@ describe('GET /api/v1/categories', () => {
   test('lists active categories for a guest', async () => {
     const res = await call('GET', '/api/v1/categories', { token: tokens.guest });
     assert.equal(res.status, 200);
-    assert.ok(res.body.items.some((category: { id: string }) => category.id === cinema));
-    assert.ok(!res.body.items.some((category: { id: string }) => category.id === poetrySlams));
+    assert.ok(res.body.items.some((category: { id: string }) => category.id === concerts));
+  });
+
+  test('leaves out inactive categories', async () => {
+    const inactive = await newCategory({ isActive: false });
+    const res = await call('GET', '/api/v1/categories', { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.ok(!res.body.items.some((category: { id: string }) => category.id === inactive.id));
   });
 
   test('rejects a request without a token with 401', async () => {
@@ -656,9 +685,10 @@ describe('DELETE /api/v1/listings/{id}', () => {
 
 describe('GET /api/v1/admin/categories', () => {
   test('lists all categories, inactive ones included', async () => {
+    const inactive = await newCategory({ isActive: false });
     const res = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
     assert.equal(res.status, 200);
-    assert.ok(res.body.items.some((category: { id: string }) => category.id === poetrySlams));
+    assert.ok(res.body.items.some((category: { id: string }) => category.id === inactive.id));
   });
 
   test('rejects a request without a token with 401', async () => {
@@ -668,9 +698,9 @@ describe('GET /api/v1/admin/categories', () => {
 
 describe('GET /api/v1/admin/categories/{id}', () => {
   test('returns the category', async () => {
-    const res = await call('GET', `/api/v1/admin/categories/${cinema}`, { token: tokens.admin });
+    const res = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { id: cinema, name: 'Cinema', isActive: true });
+    assert.deepEqual(res.body, { id: concerts, name: 'Concerts', isActive: true });
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -704,7 +734,8 @@ describe('POST /api/v1/admin/categories', () => {
 
 describe('PATCH /api/v1/admin/categories/{id}', () => {
   test('reactivates a category', async () => {
-    const res = await call('PATCH', `/api/v1/admin/categories/${poetrySlams}`, {
+    const inactive = await newCategory({ isActive: false });
+    const res = await call('PATCH', `/api/v1/admin/categories/${inactive.id}`, {
       token: tokens.admin,
       body: { isActive: true },
     });
@@ -713,7 +744,7 @@ describe('PATCH /api/v1/admin/categories/{id}', () => {
   });
 
   test('rejects a name longer than 60 characters with 400', async () => {
-    const res = await call('PATCH', `/api/v1/admin/categories/${poetrySlams}`, {
+    const res = await call('PATCH', `/api/v1/admin/categories/${concerts}`, {
       token: tokens.admin,
       body: { name: 'x'.repeat(61) },
     });
