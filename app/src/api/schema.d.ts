@@ -300,8 +300,8 @@ export interface components {
          * @example {
          *       "items": [
          *         {
-         *           "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *           "name": "Cinema",
+         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *           "name": "Concerts",
          *           "isActive": true
          *         }
          *       ]
@@ -313,8 +313,8 @@ export interface components {
         /**
          * @description A category as administrators see it
          * @example {
-         *       "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *       "name": "Cinema",
+         *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *       "name": "Concerts",
          *       "isActive": true
          *     }
          */
@@ -395,8 +395,8 @@ export interface components {
          * @example {
          *       "items": [
          *         {
-         *           "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *           "name": "Cinema"
+         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *           "name": "Concerts"
          *         }
          *       ]
          *     }
@@ -407,8 +407,8 @@ export interface components {
         /**
          * @description An event category from the directory administrators manage
          * @example {
-         *       "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *       "name": "Cinema"
+         *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *       "name": "Concerts"
          *     }
          */
         Category: {
@@ -424,8 +424,8 @@ export interface components {
          *           "title": "Open-air film night: Shadows of Forgotten Ancestors",
          *           "description": "Screening in the park, bring a blanket.",
          *           "category": {
-         *             "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *             "name": "Cinema"
+         *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *             "name": "Concerts"
          *           },
          *           "venue": {
          *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -460,8 +460,8 @@ export interface components {
          *       "title": "Open-air film night: Shadows of Forgotten Ancestors",
          *       "description": "Screening in the park, bring a blanket.",
          *       "category": {
-         *         "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *         "name": "Cinema"
+         *         "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *         "name": "Concerts"
          *       },
          *       "venue": {
          *         "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -528,7 +528,7 @@ export interface components {
          * @example {
          *       "title": "Film quiz night",
          *       "description": "Teams of up to four, questions on Ukrainian cinema.",
-         *       "categoryId": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
+         *       "categoryId": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
          *       "venueId": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
          *       "startsAt": "2026-10-25T19:00:00+03:00",
          *       "endsAt": "2026-10-25T21:00:00+03:00"
@@ -628,8 +628,8 @@ export interface components {
          *             "displayName": "Olena"
          *           },
          *           "category": {
-         *             "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *             "name": "Cinema"
+         *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
+         *             "name": "Exhibitions"
          *           },
          *           "eventId": null,
          *           "title": "Looking for company for an exhibition on Saturday",
@@ -658,8 +658,8 @@ export interface components {
          *         "displayName": "Olena"
          *       },
          *       "category": {
-         *         "id": "0b6f2d4a-8c1e-4a3b-9d5f-7e2a4c6b8d01",
-         *         "name": "Cinema"
+         *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
+         *         "name": "Exhibitions"
          *       },
          *       "eventId": null,
          *       "title": "Looking for company for an exhibition on Saturday",

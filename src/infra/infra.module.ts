@@ -18,8 +18,9 @@ import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
 import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaService } from './prisma/prisma.service.ts';
 import { StubAccountsRepository } from './stubs/accounts.repository.ts';
-import { StubCategoriesRepository } from './stubs/categories.repository.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
 import { StubInterestsRepository } from './stubs/interests.repository.ts';
 import { StubListingsRepository } from './stubs/listings.repository.ts';
@@ -30,7 +31,7 @@ import { StubVenuesRepository } from './stubs/venues.repository.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: StubEventsRepository },
-  { provide: CategoriesRepository, useClass: StubCategoriesRepository },
+  { provide: CategoriesRepository, useClass: PrismaCategoriesRepository },
   { provide: VenuesRepository, useClass: StubVenuesRepository },
   { provide: OrganizationsRepository, useClass: StubOrganizationsRepository },
   { provide: AccountsRepository, useClass: StubAccountsRepository },
@@ -52,7 +53,7 @@ const providers = [...repositories, ...adapters];
 
 @Global()
 @Module({
-  providers,
+  providers: [PrismaService, ...providers],
   exports: providers.map(({ provide }) => provide),
 })
 export class InfraModule {}
