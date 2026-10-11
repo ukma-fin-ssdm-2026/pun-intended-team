@@ -16,7 +16,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 | SA-02 | `src/api/common/config.ts` | Swagger UI and the spec rewrite are on unless `NODE_ENV` is exactly `production` (fail-open). | Medium | TM-11, SEC-006 | Accepted |
 | SA-03 | `src/infra/stubs/data.ts`, `.mcp.json` | Fixed demo tokens, including `stub-admin`, are committed and published in the docs. | High if deployed | TM-11, SEC-005 | Fixed in #140: stub tokens removed, real sign-in and guest tokens |
 | SA-04 | `src/api/main.ts` | No rate limiting: 150 requests in a row all returned `200`. | Medium | TM-10, SEC-007 | Open, planned before deployment |
-| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Fixed in [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174) |
+| SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Fixed in [#175](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/175) |
 
 ### SA-01: inherited object properties accepted as access tokens
 
@@ -36,7 +36,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 ### SA-05: no security response headers
 
 - **What was found.** Responses carried no `X-Content-Type-Options`, `Cache-Control`, `Content-Security-Policy` or `Strict-Transport-Security` header, so a browser could sniff a JSON body as another type, and a shared cache could keep a response with personal data.
-- **Fix: [#174](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/174).** A middleware in [`security-headers.ts`](../../src/api/common/security-headers.ts) sets `nosniff`, `Cache-Control: no-store` and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` on every response, errors included, and HSTS in production. Swagger UI at `/api-docs` gets no CSP, since it loads its own scripts and styles.
+- **Fix: [#175](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/175).** A middleware in [`security-headers.ts`](../../src/api/common/security-headers.ts) sets `nosniff`, `Cache-Control: no-store` and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` on every response, errors included, and HSTS in production. Swagger UI at `/api-docs` gets no CSP, since it loads its own scripts and styles.
 - **Regression test.** `Security headers` in [`test/e2e/api.e2e.test.ts`](../../test/e2e/api.e2e.test.ts) checks a successful response, an error and an unknown route. It fails on the code before the fix and passes after.
 
 ### What is done well
@@ -53,7 +53,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `test/` and `*.mjs` get no type-checked rules.
 - **Why not `test/`:** measured before deciding. The type-checked rules gave 81 findings on `test/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `test/` is a future task together with typing `body`.
 - **Layer rule:** imports between `api`, `core` and `infra` are restricted by `no-restricted-imports`; the rules follow [`code-structure.md`](../architecture/mechanisms/code-structure.md).
-- **Ignores:** `src/mcp` (generated), `docs` and `dist`. `tools/` is linted.
+- **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit. It is checked by a separate CI job, "Client checks" ([`client-checks.yml`](../../.github/workflows/client-checks.yml)): `expo lint`, `tsc --noEmit`, `prettier --check` and a check that the generated API types match the spec. The client has no tests and no dependency audit.
 - **Scripts:** `npm run lint` does not use `--fix`, so CI fails instead of silently rewriting code. `npm run lint:fix` is for local use.
 
 **Baseline.** The first run found 2 errors in `test/e2e/api.e2e.test.ts`, now 0:
@@ -131,26 +131,26 @@ eslint...............................................(no files to check)Skipped
 
 | Location | Rule | Verdict | Reason |
 |---|---|---|---|
-| `src/infra/stubs/sessions.repository.ts:10` | `security/detect-object-injection` | True positive | `sessions[accessToken]` uses the client's token as a key on a plain object (SA-01). |
-| `src/api/common/api-exception.ts:29` | `security/detect-object-injection` | False positive | `code` is an `ErrorCode` set in code, never request input. |
-| `src/api/common/auth.ts:47` | `security/detect-object-injection` | False positive | The key is the module-private `Symbol` `CALLER`. |
-| `src/api/common/auth.ts:53` | `security/detect-object-injection` | False positive | Same `CALLER` symbol, read back. |
-| `src/api/common/endpoint.ts:138` | `security/detect-object-injection` | False positive | `status` comes from the route definition at startup. |
-| `src/api/common/endpoint.ts:154` | `security/detect-object-injection` | False positive | The key is the module-private `Symbol` `INPUT`. |
-| `src/api/common/endpoint.ts:184` | `security/detect-object-injection` | False positive | Same `INPUT` symbol, written after validation. |
-| `src/api/common/openapi.ts:32` | `security/detect-non-literal-fs-filename` | False positive | The path is the fixed `SPEC_FILE` in the repo; no caller passes another. |
-| `src/api/common/openapi.ts:33` | `security/detect-non-literal-fs-filename` | False positive | Same `SPEC_FILE` path. |
+| `src/infra/stubs/sessions.repository.ts` → `StubSessionsRepository.findCaller` | `security/detect-object-injection` | True positive | `sessions[accessToken]` uses the client's token as a key on a plain object (SA-01). |
+| `src/api/common/api-exception.ts` → `ApiException` constructor | `security/detect-object-injection` | False positive | `code` is an `ErrorCode` set in code, never request input. |
+| `src/api/common/auth.ts` → `AuthGuard.canActivate` | `security/detect-object-injection` | False positive | The key is the module-private `Symbol` `CALLER`. |
+| `src/api/common/auth.ts` → `CurrentAccount` | `security/detect-object-injection` | False positive | Same `CALLER` symbol, read back. |
+| `src/api/common/endpoint.ts` → `Endpoint` (`route.responses[status]`) | `security/detect-object-injection` | False positive | `status` comes from the route definition at startup. |
+| `src/api/common/endpoint.ts` → `Input` | `security/detect-object-injection` | False positive | The key is the module-private `Symbol` `INPUT`. |
+| `src/api/common/endpoint.ts` → `ValidationInterceptor.intercept` | `security/detect-object-injection` | False positive | Same `INPUT` symbol, written after validation. |
+| `src/api/common/openapi.ts` → `writeOpenApiSpec` (`mkdirSync`) | `security/detect-non-literal-fs-filename` | False positive | The path is the fixed `SPEC_FILE` in the repo; no caller passes another. |
+| `src/api/common/openapi.ts` → `writeOpenApiSpec` (`writeFileSync`) | `security/detect-non-literal-fs-filename` | False positive | Same `SPEC_FILE` path. |
 
-**Re-run after #140:** 14 warnings, 0 errors, 0 true positives. The `sessions.repository.ts` warning (SA-01) is gone with the file, `api-exception.ts:29`, `endpoint.ts:154` and `endpoint.ts:184` moved to lines 33, 157 and 187, and `endpoint.ts:138` is no longer reported. New warnings:
+**Re-run after #140:** 14 warnings, 0 errors, 0 true positives. The `sessions.repository.ts` warning (SA-01) is gone with the file, and `Endpoint` is no longer reported. The other warnings above are still reported in the same functions. New warnings:
 
 | Location | Rule | Verdict | Reason |
 |---|---|---|---|
-| `src/api/common/api-exception.filter.ts:56` | `security/detect-object-injection` | False positive | `status` is the number from an `HttpException`; the keys are numbers, so a request cannot reach a key like `constructor`. |
-| `src/infra/auth/key-files.ts:58` | `security/detect-object-injection` | False positive | `process.env[variable]`, where `variable` is one of two literals in the same file. |
-| `src/infra/auth/key-files.ts:63` | `security/detect-non-literal-fs-filename` | False positive | The key file path comes from the server's environment and is read once at startup; requests never reach it. |
-| `src/scripts/generate-keys.ts:20` | `security/detect-non-literal-fs-filename` | False positive | The paths come from the fixed list in the script. |
-| `test/e2e/api.e2e.test.ts:118` | `security/detect-non-literal-regexp` | False positive | Test code; the phone is a constant or random digits. |
-| `test/e2e/api.e2e.test.ts:159`, `:162` | `security/detect-non-literal-fs-filename` | False positive | Test code; the paths are inside a fresh `mkdtempSync` folder. |
+| `src/api/common/api-exception.filter.ts` → `toApiException` | `security/detect-object-injection` | False positive | `status` is the number from an `HttpException`; the keys are numbers, so a request cannot reach a key like `constructor`. |
+| `src/infra/auth/key-files.ts` → `readKeyFile` (`process.env[variable]`) | `security/detect-object-injection` | False positive | `process.env[variable]`, where `variable` is one of two literals in the same file. |
+| `src/infra/auth/key-files.ts` → `readKeyFile` (`readFileSync`) | `security/detect-non-literal-fs-filename` | False positive | The key file path comes from the server's environment and is read once at startup; requests never reach it. |
+| `src/scripts/generate-keys.ts` → loop over `keys` | `security/detect-non-literal-fs-filename` | False positive | The paths come from the fixed list in the script. |
+| `test/e2e/api.e2e.test.ts` → `requestCode` | `security/detect-non-literal-regexp` | False positive | Test code; the phone is a constant or random digits. |
+| `test/e2e/api.e2e.test.ts` → `before` hook (two `writeFileSync` calls) | `security/detect-non-literal-fs-filename` | False positive | Test code; the paths are inside a fresh `mkdtempSync` folder. |
 
 ## Dependency audit
 
@@ -158,7 +158,7 @@ eslint...............................................(no files to check)Skipped
 
 - Dependabot version updates in [`.github/dependabot.yml`](../../.github/dependabot.yml): weekly for npm in `/` and `/tools/mcp-generator`, and for GitHub Actions. `src/mcp` is excluded because it is generated.
 - Dependabot alerts and security updates are enabled in the repository Settings.
-- `npm audit --audit-level=high` runs for all three packages in CI via [`.github/workflows/dependency-audit.yml`](../../.github/workflows/dependency-audit.yml) (SEC-006).
+- `npm audit --audit-level=high` runs in CI for three packages (`/`, `src/mcp`, `tools/mcp-generator`) via [`.github/workflows/dependency-audit.yml`](../../.github/workflows/dependency-audit.yml) (SEC-006). `app/` is not audited there (see below).
 - Dependabot's first run failed with "Cannot create ref due to creations being restricted": the "branch naming" ruleset allowed only `feature/<n>-*` branches. Fixed by excluding `dependabot/**/*` from that ruleset; the next run opened #131 and #132.
 
 **Result:** `npm audit` reports 0 vulnerabilities in all three packages, also after adding the ESLint devDependencies.
@@ -179,11 +179,18 @@ eslint...............................................(no files to check)Skipped
 - **Why it matters.** Old majors stop getting fixes. Dependabot version updates skip `src/mcp`, but vulnerabilities there are still reported by Dependabot alerts and the CI audit.
 - **Decision: accepted.** `src/mcp` is generated by openapi-mcp-generator, which requires zod 3 (see [`tools/mcp-generator/package.json`](../../tools/mcp-generator/package.json)), and the README forbids editing it by hand.
 
+**Finding: `app/` (Expo client) has 4 known advisories and is not audited in CI.**
+
+- **What.** `npm audit` in `app/` reports 29 vulnerabilities (18 high, 11 moderate) from four advisories in transitive packages. `braces` (high), `node-forge` (high) and `uuid` (moderate) are build tools only: Metro, Expo CLI and config plugins. They do not end up in the app. `decode-uri-component` (moderate, via `expo-router`) probably does end up in the app: a malformed URL can hang URL parsing on one device. `npm audit --omit=dev` does not separate the two groups, because Expo keeps its build tools in `dependencies`.
+- **Why not fixed.** The fixes need a new Expo SDK, not single package bumps: `npm audit fix --force` proposes breaking installs, and Dependabot PR #168 moved `expo-router` to SDK 58, which would have broken the client, so it was closed.
+- **What covers it now.** Dependabot alerts and security updates cover `app/` through the repository settings, as #168 showed. Version updates are not configured for `app/`: Expo recommends specific package versions for each SDK and updates them together. Nor is `app/` in the CI audit, because the 18 high would turn every pull request red. `app/` is linted with its own `npx expo lint`, so the root ESLint and Prettier skip it on purpose.
+- **Decision: accepted** until the next Expo SDK update.
+
 ## AI Usage Note
 
 The review, the findings and the write-ups were drafted by Claude, which confirmed the findings against a locally running server with `curl`, and condensed by Claude. Verified by Daryna Halytska: checked each finding against the code; reproduced SA-01 with curl against a locally running server (NODE_ENV=production).
 
-The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository; found and fixed the ruleset that blocked Dependabot, and decided on #131 and #132.
+The analyzer and dependency audit sections were drafted by Claude (Claude Code), which ran `npm run lint` and `npm audit` on all three packages and checked each warning against the code. Verified by Daryna Halytska: ran `npm run lint` (9 warnings, as listed) and checked the Dependabot settings in the repository; found and fixed the ruleset that blocked Dependabot, and decided on #131 and #132. The `app/` finding was drafted by Claude (Claude Code), which ran `npm audit --package-lock-only` in `app/` and checked the CI, Dependabot and lint configs.
 
 The linting, formatting and type checking section was drafted by Claude (Claude Code), which checked every version, ignore, script and job name against `package.json`, `eslint.config.mjs`, `.prettierrc` and the workflows, ran `npm run lint` (0 errors, 9 warnings), measured the type-checked rules on `test/` with a temporary config (81 findings, deleted afterwards) and ran the `eslint-config-prettier` CLI (no conflicts). Verified by: Vlad-Re
 

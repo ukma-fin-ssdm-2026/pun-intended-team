@@ -15,7 +15,7 @@ The Nearby API runs end to end on stub data: a request goes through validation, 
 | **Profiles: onboarding in steps, edit, interests, `isComplete`** | **Working (first component of this lab)** | #141 |
 | Sign-in with phone and password, JWT access tokens | Working (merged from main) | #140 |
 | Local PostgreSQL with Prisma | Not started | #144 |
-| Expo client | Not started | #143 |
+| Expo client | Merged (#159, #169) | #143 |
 
 25 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (auth 4, events 5, listings 4, categories 1, admin categories 5, profiles 4, interests 1, health 1). The `src/mcp/` server was regenerated and exposes all of them as tools.
 
@@ -73,7 +73,7 @@ The events rules of #142 ride on the same layers: `PUT /events/{id}` replaces th
 | Input validation | Every body is a `z.strictObject`: unknown fields are a `400`; the username has a pattern that must start with a letter or digit, lengths are bounded |
 | Layering | Controllers only translate HTTP; rules live in `core/profiles/services/profiles.service.ts`, which raises `DomainError` codes the API layer maps to statuses |
 | Documentation | The spec is generated from the same zod schemas; [`api-design.md`](../api/api-design.md) describes the new resources, endpoints and error codes |
-| Disclosure | Each new file starts with the AI note required by the charter (§8) |
+| Disclosure | Each new file starts with the AI note required by the charter (§9) |
 
 ## 5. Verification run
 

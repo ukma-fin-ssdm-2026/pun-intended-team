@@ -272,6 +272,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/interests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the interests users can pick
+         * @description List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listInterests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get your profile
+         * @description Get the caller’s own profile with the age computed from the account’s date of birth. `isComplete` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getMyProfile"];
+        put?: never;
+        /**
+         * Start your profile
+         * @description First onboarding step: create the caller’s profile with a username and a display name. Every later step is `updateMyProfile` and `replaceMyInterests`. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["createMyProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit your profile
+         * @description Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+         */
+        patch: operations["updateMyProfile"];
+        trace?: never;
+    };
+    "/api/v1/me/profile/interests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your interests
+         * @description Replace the whole set of the caller’s interests with the given ids; an empty list clears it. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["replaceMyInterests"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -353,7 +421,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "INVALID_CREDENTIALS" | "INVALID_CODE" | "CODE_RESEND_TOO_SOON" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "INVALID_CODE" | "CODE_RESEND_TOO_SOON" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -720,6 +788,112 @@ export interface components {
              * @description The day, Kyiv time; today or later
              */
             date: string;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *           "name": "Cinema"
+         *         }
+         *       ]
+         *     }
+         */
+        InterestList: {
+            items: components["schemas"]["Interest"][];
+        };
+        /**
+         * @description An interest from the fixed list users pick from
+         * @example {
+         *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *       "name": "Cinema"
+         *     }
+         */
+        Interest: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        /**
+         * @description The signed-in user’s own profile
+         * @example {
+         *       "username": "olena_k",
+         *       "displayName": "Olena",
+         *       "description": "Cinema, galleries and long walks.",
+         *       "communicationFormat": "friends",
+         *       "sharePhone": true,
+         *       "age": 28,
+         *       "interests": [
+         *         {
+         *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *           "name": "Cinema"
+         *         }
+         *       ],
+         *       "isComplete": true
+         *     }
+         */
+        Profile: {
+            username: string;
+            displayName: string;
+            description: string;
+            /**
+             * @description Null until the user picks one
+             * @enum {string|null}
+             */
+            communicationFormat: "friends" | "dating" | "company" | null;
+            /** @description Whether the phone number is revealed on a mutual match */
+            sharePhone: boolean;
+            /** @description Whole years, computed from the account’s date of birth; the date itself is never returned */
+            age: number;
+            interests: components["schemas"]["Interest"][];
+            /** @description True once communicationFormat and at least one interest are set; matching needs both */
+            isComplete: boolean;
+        };
+        /**
+         * @description The first onboarding step; everything else is added with PATCH
+         * @example {
+         *       "username": "olena_k",
+         *       "displayName": "Olena"
+         *     }
+         */
+        CreateProfileBody: {
+            /** @description Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores */
+            username: string;
+            /** @description The name other users see */
+            displayName: string;
+        };
+        /**
+         * @description Only the fields to change; at least one
+         * @example {
+         *       "communicationFormat": "friends"
+         *     }
+         */
+        UpdateProfileBody: {
+            /** @description The name other users see */
+            displayName?: string;
+            /** @description Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores */
+            username?: string;
+            /** @description Free text about the user; can be empty */
+            description?: string;
+            communicationFormat?: components["schemas"]["CommunicationFormat"];
+            /** @description Whether the phone number is revealed on a mutual match */
+            sharePhone?: boolean;
+        };
+        /**
+         * @description What the user is looking for when they go to an event
+         * @enum {string}
+         */
+        CommunicationFormat: "friends" | "dating" | "company";
+        /**
+         * @example {
+         *       "interestIds": [
+         *         "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01"
+         *       ]
+         *     }
+         */
+        ReplaceInterestsBody: {
+            /** @description Ids from listInterests; the whole set is replaced, so an empty list clears it */
+            interestIds: string[];
         };
         /**
          * @description Returned while the API is up
@@ -1644,6 +1818,246 @@ export interface operations {
             };
             /** @description No active listing with this id, or it is not the caller’s own */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listInterests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All interests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InterestList"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateProfileBody"];
+            };
+        };
+        responses: {
+            /** @description The new profile */
+            201: {
+                headers: {
+                    /** @description URL of the created object */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `USERNAME_TAKEN`: another user has this username. `PROFILE_EXISTS`: the account already has a profile. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfileBody"];
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `USERNAME_TAKEN`: another user has this username. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMyInterests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReplaceInterestsBody"];
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `REFERENCE_NOT_FOUND`: one of the interest ids does not exist. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
