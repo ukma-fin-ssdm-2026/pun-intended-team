@@ -8,10 +8,19 @@ import { ApiExceptionFilter } from './common/api-exception.filter.ts';
 import { AuthGuard } from './common/auth.ts';
 import { IdentityApiModule } from './identity/identity-api.module.ts';
 import { ListingsApiModule } from './listings/listings-api.module.ts';
+import { ProfilesApiModule } from './profiles/profiles-api.module.ts';
 import { SystemApiModule } from './system/system-api.module.ts';
 
 @Module({
-  imports: [InfraModule, IdentityModule, SystemApiModule, IdentityApiModule, CatalogApiModule, ListingsApiModule],
+  imports: [
+    InfraModule,
+    IdentityModule,
+    SystemApiModule,
+    IdentityApiModule,
+    CatalogApiModule,
+    ListingsApiModule,
+    ProfilesApiModule,
+  ],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },
     { provide: APP_GUARD, useClass: AuthGuard },

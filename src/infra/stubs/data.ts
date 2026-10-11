@@ -9,7 +9,7 @@ import type { Category } from '../../core/catalog/types/category.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';
 import type { Listing } from '../../core/listings/types/listing.ts';
-import type { ProfileSummary } from '../../core/profiles/types/profile.ts';
+import type { Interest, Profile } from '../../core/profiles/types/profile.ts';
 
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -67,11 +67,47 @@ export const storedAccounts: StoredAccount[] = [
 
 export const verificationCodes: VerificationCode[] = [];
 
-export const profiles: ProfileSummary[] = [
-  { accountId: accounts.olena, username: 'olena_k', displayName: 'Olena' },
-  { accountId: accounts.taras, username: 'taras.m', displayName: 'Taras' },
+export const interestIds = {
+  cinema: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01',
+  art: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02',
+  liveMusic: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e03',
+} as const;
+
+export const interests: Interest[] = [
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01', name: 'Cinema' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02', name: 'Art and exhibitions' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e03', name: 'Live music' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04', name: 'Theatre' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e05', name: 'Board games' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06', name: 'Hiking' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e07', name: 'Photography' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e08', name: 'Books and poetry' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e09', name: 'Food and coffee' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e10', name: 'Sport' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e11', name: 'Technology' },
+  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12', name: 'Volunteering' },
 ];
 
+export const profiles: Profile[] = [
+  {
+    accountId: accounts.olena,
+    username: 'olena_k',
+    displayName: 'Olena',
+    description: 'Cinema, galleries and long walks.',
+    communicationFormat: 'friends',
+    sharePhone: true,
+    interestIds: [interestIds.cinema, interestIds.art],
+  },
+  {
+    accountId: accounts.taras,
+    username: 'taras.m',
+    displayName: 'Taras',
+    description: '',
+    communicationFormat: 'company',
+    sharePhone: true,
+    interestIds: [interestIds.liveMusic],
+  },
+];
 export const organizations: Organization[] = [
   { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
   { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },
