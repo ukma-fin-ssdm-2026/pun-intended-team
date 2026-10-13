@@ -37,7 +37,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 - **What was found.** Responses carried no `X-Content-Type-Options`, `Cache-Control`, `Content-Security-Policy` or `Strict-Transport-Security` header, so a browser could sniff a JSON body as another type, and a shared cache could keep a response with personal data.
 - **Fix: [#175](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/175).** A middleware in [`security-headers.ts`](../../src/api/common/security-headers.ts) sets `nosniff`, `Cache-Control: no-store` and `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` on every response, errors included, and HSTS in production. Swagger UI at `/api-docs` gets no CSP, since it loads its own scripts and styles.
-- **Regression test.** `Security headers` in [`test/e2e/api.e2e.test.ts`](../../test/e2e/api.e2e.test.ts) checks a successful response, an error and an unknown route. It fails on the code before the fix and passes after.
+- **Regression test.** `Security headers` in [`tests/e2e/api.e2e.test.ts`](../../tests/e2e/api.e2e.test.ts) checks a successful response, an error and an unknown route. It fails on the code before the fix and passes after.
 
 ### What is done well
 
@@ -50,13 +50,13 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 **ESLint** 10.12 with typescript-eslint 8.71, configured in [`eslint.config.mjs`](../../eslint.config.mjs).
 
-- **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `test/` and `*.mjs` get no type-checked rules.
-- **Why not `test/`:** measured before deciding. The type-checked rules gave 81 findings on `test/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `test/` is a future task together with typing `body`.
+- **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `tests/` and `*.mjs` get no type-checked rules.
+- **Why not `tests/`:** measured before deciding. The type-checked rules gave 81 findings on `tests/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `tests/` is a future task together with typing `body`.
 - **Layer rule:** imports between `api`, `core` and `infra` are restricted by `no-restricted-imports`; the rules follow [`code-structure.md`](../architecture/mechanisms/code-structure.md).
 - **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit. It is checked by a separate CI job, "Client checks" ([`client-checks.yml`](../../.github/workflows/client-checks.yml)): `expo lint`, `tsc --noEmit`, `prettier --check` and a check that the generated API types match the spec. The client has no tests and no dependency audit.
 - **Scripts:** `npm run lint` does not use `--fix`, so CI fails instead of silently rewriting code. `npm run lint:fix` is for local use.
 
-**Baseline.** The first run found 2 errors in `test/e2e/api.e2e.test.ts`, now 0:
+**Baseline.** The first run found 2 errors in `tests/e2e/api.e2e.test.ts`, now 0:
 
 - `no-unused-vars` on `_title` in a rest destructuring, solved with the `ignoreRestSiblings` option.
 - `no-explicit-any` on `body` in the test helper, solved with an `eslint-disable-next-line` and a comment explaining why.
@@ -67,7 +67,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **Scope:** `npm run format:check` covers `*.ts` and `*.mjs`. Markdown is not formatted: Prettier realigns a whole table when one cell becomes the widest in its column, which makes the diff of a one-cell edit unreadable.
 - **No `eslint-config-prettier`:** checked with its CLI against the current config, which found no conflicting rules, so the package is not installed.
 
-**Type checking.** `npm run typecheck` runs `tsc --noEmit` with `strict` plus `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns` and `noFallthroughCasesInSwitch`. Known gap: `tsconfig.json` includes only `src`, so nothing type-checks `test/`.
+**Type checking.** `npm run typecheck` runs `tsc --noEmit` with `strict` plus `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns` and `noFallthroughCasesInSwitch`. Known gap: `tsconfig.json` includes only `src`, so nothing type-checks `tests/`.
 
 **CI gate.** [`.github/workflows/code-quality.yml`](../../.github/workflows/code-quality.yml) has one job, "Static checks", which runs lint, `format:check` and typecheck. `ci.yml` calls it as `code-quality` and lists it in `needs` of the `ci-passed` aggregator. That is the only required check, so the job blocks merging without any ruleset change.
 
@@ -149,8 +149,8 @@ eslint...............................................(no files to check)Skipped
 | `src/infra/auth/key-files.ts` → `readKeyFile` (`process.env[variable]`) | `security/detect-object-injection` | False positive | `process.env[variable]`, where `variable` is one of two literals in the same file. |
 | `src/infra/auth/key-files.ts` → `readKeyFile` (`readFileSync`) | `security/detect-non-literal-fs-filename` | False positive | The key file path comes from the server's environment and is read once at startup; requests never reach it. |
 | `src/scripts/generate-keys.ts` → loop over `keys` | `security/detect-non-literal-fs-filename` | False positive | The paths come from the fixed list in the script. |
-| `test/e2e/api.e2e.test.ts` → `requestCode` | `security/detect-non-literal-regexp` | False positive | Test code; the phone is a constant or random digits. |
-| `test/e2e/api.e2e.test.ts` → `before` hook (two `writeFileSync` calls) | `security/detect-non-literal-fs-filename` | False positive | Test code; the paths are inside a fresh `mkdtempSync` folder. |
+| `tests/e2e/api.e2e.test.ts` → `requestCode` | `security/detect-non-literal-regexp` | False positive | Test code; the phone is a constant or random digits. |
+| `tests/e2e/api.e2e.test.ts` → `before` hook (two `writeFileSync` calls) | `security/detect-non-literal-fs-filename` | False positive | Test code; the paths are inside a fresh `mkdtempSync` folder. |
 
 ## Dependency audit
 

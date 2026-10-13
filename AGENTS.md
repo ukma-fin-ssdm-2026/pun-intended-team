@@ -8,7 +8,7 @@ Nearby is a NestJS REST API (Node.js 26, see [`.nvmrc`](.nvmrc)) for a mobile ap
 
 - `src/api/` — HTTP layer; `src/core/` — business logic, one folder per module; `src/infra/` — database and external services. See [Code Structure](docs/architecture/mechanisms/code-structure.md).
 - Data comes from stubs in `src/infra/stubs/`; there is no database yet. Matching and notifications are designed but not implemented.
-- `test/e2e/` — end-to-end tests.
+- `tests/e2e/` — end-to-end tests.
 - `src/mcp/` and `docs/api/openapi-generated.yaml` are generated; never edit them by hand.
 
 Code, comments, commits and docs are in English.

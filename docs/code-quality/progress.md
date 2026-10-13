@@ -84,7 +84,7 @@ Run on the code of this pull request:
 | `npm run test:e2e` | 98 of 98 pass, 23 of them for profiles and interests; the 2 old `PATCH /events` tests were replaced by the `PUT` tests |
 | `npm run lint`, `npm run format:check`, `npm run typecheck` | pass |
 | `npm audit --package-lock-only --audit-level=high` | 0 vulnerabilities |
-| `eslint-plugin-security` (recommended rules, part of `npm run lint`) | 0 errors, 14 warnings on `src/` and `test/`: `detect-object-injection`, `detect-non-literal-fs-filename` and `detect-non-literal-regexp`. See the [static analysis](static-analysis.md) report for how they were judged |
+| `eslint-plugin-security` (recommended rules, part of `npm run lint`) | 0 errors, 14 warnings on `src/` and `tests/`: `detect-object-injection`, `detect-non-literal-fs-filename` and `detect-non-literal-regexp`. See the [static analysis](static-analysis.md) report for how they were judged |
 
 The SA-01 finding (#129) concerned the stub `sessions[accessToken]` lookup, which answered `200` to the "tokens" `constructor`, `__proto__` and `toString`. Sign-in with signed JWT tokens (#140) removed that lookup, and the e2e test "rejects a token named like an object property with 401" covers it. Every profile endpoint needs an account token and answers `401` to such values.
 
