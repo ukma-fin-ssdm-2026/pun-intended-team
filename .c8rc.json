@@ -1,7 +1,7 @@
 {
   "all": true,
-  "src": ["src"],
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/mcp/**", "src/scripts/**"],
+  "src": ["dist"],
+  "include": ["dist/**/*.js"],
+  "exclude": ["dist/scripts/**"],
   "reporter": ["text-summary", "html"]
 }
