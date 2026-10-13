@@ -19,7 +19,7 @@
     "mcp:build": "npm ci --prefix src/mcp && npm run build --prefix src/mcp",
     "test:e2e": "nest build && node --test \"tests/e2e/**/*.test.ts\"",
     "test:unit": "nest build && node --test \"tests/unit/**/*.test.ts\"",
-    "test:coverage": "c8 npm run test:e2e",
+    "test:coverage": "nest build && c8 node --test \"tests/**/*.test.ts\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,mjs}\"",
