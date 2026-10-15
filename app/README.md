@@ -91,7 +91,7 @@ Run `npm run api:types` after the API spec (`docs/api/openapi-generated.yaml`) c
 
 ## Checks in CI
 
-The job "Client checks" ([`client-checks.yml`](../.github/workflows/client-checks.yml)) runs on every pull request and must pass to merge. It runs these checks in `app/`, after `npm ci`:
+The client steps of the "CI passed" job ([`ci.yml`](../.github/workflows/ci.yml)) run on every pull request and must pass to merge. They run these checks in `app/`, after `npm ci`:
 
 | Check                | Run it locally                                                       |
 | -------------------- | -------------------------------------------------------------------- |
