@@ -42,7 +42,7 @@ rectangle "Our infrastructure (managed host, one private network)" as INFRA #FAF
 
   rectangle "Z4 · Data — trusted" as Z4 #E3F2FD;line:1565C0;line.dashed {
     database "Managed PostgreSQL" as db {
-      artifact "PostgreSQL + PostGIS\npg-boss job queue, profile photos\nCMP-04" as pg
+      artifact "PostgreSQL\npg-boss job queue, profile photos\nCMP-04" as pg
     }
   }
 }
