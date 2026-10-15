@@ -1,6 +1,3 @@
--- CreateExtension
-CREATE EXTENSION IF NOT EXISTS "postgis";
-
 -- CreateTable
 CREATE TABLE "categories" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
