@@ -94,6 +94,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Account — RefreshToken | 1 : 0..* | |
 | Account — Profile | 1 : 0..1 | the profile shows the age computed from `Account.date_of_birth` |
 | Account — Organization | 1 : 0..1 | the account acts as an organization |
+| Account (admin) — Organization | 0..1 : 0..* | `verified_by`: the administrator who verified the organization |
 | Profile — ProfilePhoto | 1 : 0..1 | |
 | Profile — LinkedAccount | 1 : 0..* | at most one per app |
 | Profile — Interest | M : N | via ProfileInterest |
@@ -108,11 +109,13 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Application — Match | 1 : 0..* (as A or B) | each Match joins exactly two applications; an application has at most one open match at a time (FUNC-002) |
 | Match — Exclusion | 1 : 0..1 | a row when the match was declined or expired |
 | Event — Exclusion | 1 : 0..* | an exclusion is scoped to one event |
+| Account — Exclusion | 1 : 0..* | as the user and as the excluded user |
 | Account — Listing | 1 : 0..* | |
 | Event — Listing | 0..1 : 0..* | a listing may point at a catalog event |
 | ReportCase — Report | 1 : 1..* | repeat reports grouped into one case (FR-026) |
 | Account — Report | 1 : 0..* | reporter |
 | ReportCase — target | 0..1 Account or 0..1 Listing | |
+| Account (admin) — ReportCase | 0..1 : 0..* | `resolved_by`: the administrator who resolved the case |
 | Account — Notification, Account — DeviceToken | 1 : 0..* | |
 | RefreshToken — DeviceToken | 1 : 0..1 | no push after sign-out |
 
