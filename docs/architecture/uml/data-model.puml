@@ -256,7 +256,8 @@ package "moderation" {
     --
     actor_id : uuid
     * action : text
-    target_type / target_id
+    target_type : text
+    target_id : text
     * result : text
     <color:#1565C0>ip_address : inet (P)</color>
   }
