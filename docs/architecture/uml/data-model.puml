@@ -24,11 +24,11 @@ package "identity" {
     * id : uuid <<PK>>
     --
     * role : user | admin
-    * <color:#B71C1C>contact_identifier : text (S) phone</color>
-    * contact_hash : text <<UK>>
-    <color:#B71C1C>date_of_birth : date (S)</color>
+    * <color:#B71C1C>contact_identifier : bytea (S) phone</color>
+    * contact_hash : bytea <<UK>>
+    <color:#B71C1C>date_of_birth : bytea (S)</color>
     * status : pending | active | banned
-    failed_signins : int
+    * failed_signins : int
     locked_until : timestamptz
   }
 
@@ -43,8 +43,8 @@ package "identity" {
   entity "VerificationCode" as verification_code {
     * id : uuid <<PK>>
     --
-    * <color:#B71C1C>contact : text (S) phone</color>
-    * contact_hash : text
+    * <color:#B71C1C>contact : bytea (S) phone</color>
+    * contact_hash : bytea
     * channel : telegram | sms
     provider_request_id : text
     * <color:#6A1B9A>code_hash : text (C)</color>
@@ -71,7 +71,7 @@ package "profiles" {
     * <color:#1565C0>username : text <<UK>> (P)</color>
     * <color:#1565C0>display_name : text (P)</color>
     <color:#1565C0>description : text (P)</color>
-    * <color:#B71C1C>communication_format (S)</color>
+    * <color:#B71C1C>communication_format : friends | casual | dating (S)</color>
     * share_phone : bool
     safety_notice_ack_at : timestamptz
   }
@@ -88,7 +88,7 @@ package "profiles" {
     --
     * profile_id : uuid <<FK>>
     * app : telegram | instagram | …
-    * <color:#B71C1C>username : text (S) contact link</color>
+    * <color:#B71C1C>username : bytea (S) contact link</color>
   }
 
   entity "Interest" as interest {
@@ -127,8 +127,8 @@ package "catalog" {
     --
     * name : text
     * address : text
-    * latitude : numeric
-    * longitude : numeric
+    * latitude : decimal(9,6)
+    * longitude : decimal(9,6)
     * source : organization | import
     organization_id : uuid <<FK>>
   }
@@ -182,11 +182,11 @@ package "matching" {
     --
     * user_id : uuid <<FK>>
     * session_id : uuid <<FK>>
-    * <color:#B71C1C>desired_company (S)</color>
+    * <color:#B71C1C>desired_company : friends | casual | dating (S)</color>
     * <color:#B71C1C>open_to_extend : bool (S)</color>
     * status : in_pool | paired | paused | removed
       | withdrawn | no_match | cancelled
-    * no_response_count : 0..2
+    * no_response_count : int (0..2)
   }
 
   entity "Match" as match {
@@ -195,11 +195,12 @@ package "matching" {
     * application_a_id : uuid <<FK>>
     * application_b_id : uuid <<FK>>
     * source : instant | round | open
-    * score : numeric
+    * score : decimal(4,3)
     * seed : bigint
     * status : proposed | accepted_a | accepted_b
       | mutual | declined | expired | cancelled
-    cancel_reason : text
+    cancel_reason : event_cancelled | participant_banned
+      | participant_withdrew
     * valid_until : timestamptz
   }
 
@@ -209,7 +210,7 @@ package "matching" {
     * user_id : uuid <<FK>>
     * excluded_user_id : uuid <<FK>>
     * event_id : uuid <<FK>>
-    * match_id : uuid <<FK>>
+    * match_id : uuid <<FK, UK>>
     * reason : declined | expired
   }
 }
@@ -266,7 +267,10 @@ package "notifications" {
     * id : uuid <<PK>>
     --
     * account_id : uuid <<FK>>
-    * type : text
+    * type : match_proposed | match_mutual | respond_soon
+      | not_a_match | continue_matching
+      | removed_from_matching | no_match_found
+      | event_reminder | event_changed | report_received
     * <color:#1565C0>payload : jsonb (P)</color>
     * dedupe_key : text <<UK>>
     * push_status : pending | sent | failed | skipped
@@ -277,7 +281,7 @@ package "notifications" {
     * id : uuid <<PK>>
     --
     * account_id : uuid <<FK>>
-    * refresh_token_id : uuid <<FK>>
+    * refresh_token_id : uuid <<FK, UK>>
     * <color:#1565C0>push_token : text <<UK>> (P)</color>
     * platform : ios | android
   }
@@ -288,7 +292,9 @@ legend right
       date of birth, photo, dating preference
   <color:#6A1B9A>purple</color> (C) credential: password hash, code, token
   <color:#1565C0>blue</color> (P) personal
-  * mandatory · every table also has created_at / updated_at
+  * mandatory · every table also has created_at; updated_at
+      only where rows change (not Interest, ProfileInterest,
+      SkippedRecord, Exclusion, Report, AuditLog)
   Details: data-model.md §4
 endlegend
 
