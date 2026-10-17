@@ -106,6 +106,8 @@ The coverage commands use [monocart-coverage-reports](https://github.com/cenfun/
 
 The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html), are a snapshot: after changing tests, run `npm run docs:coverage` and commit `docs/testing/coverage/` in the same pull request.
 
+How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
+
 ## 𓂀 Commit hooks
 
 Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
