@@ -14,12 +14,14 @@ const RegisterFields = z.strictObject({ phone: PhoneNumber });
 
 export const RegisterBody = RegisterFields.meta({ id: 'RegisterBody', example: { phone: '+380501119999' } });
 
+const Code = z
+  .string()
+  .regex(/^\d{6}$/, 'Six digits')
+  .describe('The code sent to the phone');
+
 const VerifyFields = z.strictObject({
   phone: PhoneNumber,
-  code: z
-    .string()
-    .regex(/^\d{6}$/, 'Six digits')
-    .describe('The code sent to the phone'),
+  code: Code,
   dateOfBirth: CalendarDate.describe('Checked on the server: at least 18 years old'),
 });
 
@@ -39,6 +41,24 @@ const SignInFields = z.strictObject({
 export const SignInBody = SignInFields.meta({
   id: 'SignInBody',
   example: { phone: '+380501110001', password: 'nearby-dev-password' },
+});
+
+const PasswordResetFields = z.strictObject({ phone: PhoneNumber });
+
+export const PasswordResetBody = PasswordResetFields.meta({
+  id: 'PasswordResetBody',
+  example: { phone: '+380501110001' },
+});
+
+const ConfirmPasswordResetFields = z.strictObject({
+  phone: PhoneNumber,
+  code: Code,
+  password: NewPassword,
+});
+
+export const ConfirmPasswordResetBody = ConfirmPasswordResetFields.meta({
+  id: 'ConfirmPasswordResetBody',
+  example: { phone: '+380501110001', code: '123456', password: 'a new long passphrase' },
 });
 
 const SetPasswordFields = z.strictObject({

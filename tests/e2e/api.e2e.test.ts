@@ -24,7 +24,14 @@ const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06';
 
 // Seeded accounts from src/infra/stubs/data.ts.
 const seededPassword = 'nearby-dev-password';
-const phones = { user: '+380501110001', org: '+380501110003', orgPending: '+380501110004', admin: '+380501110005' };
+const phones = {
+  user: '+380501110001',
+  // No other test signs in as Taras, so the password reset test can change his password.
+  taras: '+380501110002',
+  org: '+380501110003',
+  orgPending: '+380501110004',
+  admin: '+380501110005',
+};
 
 const newEvent = {
   title: 'Film quiz night',
@@ -129,10 +136,19 @@ function newPhone(): string {
 }
 
 /** Requests a code and reads it from the server's log, which shows only the last 4 digits of the phone. */
-async function requestCode(phone: string): Promise<string> {
+async function requestCode(phone: string, path = '/api/v1/auth/register'): Promise<string> {
   const logged = serverOutput.length;
-  const res = await call('POST', '/api/v1/auth/register', { body: { phone } });
+  const res = await call('POST', path, { body: { phone } });
   assert.equal(res.status, 202, JSON.stringify(res.body));
+  const code = await loggedCode(phone, logged);
+  if (!code) {
+    throw new Error(`No code logged for ${phone}`);
+  }
+  return code;
+}
+
+/** The code logged for `phone` after `logged` characters of server output, or undefined if none came within 2 s. */
+async function loggedCode(phone: string, logged: number): Promise<string | undefined> {
   const pattern = new RegExp(`for \\+380\\S*${phone.slice(-4)}: (\\d{6})`);
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
@@ -142,7 +158,7 @@ async function requestCode(phone: string): Promise<string> {
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error(`No code logged for ${phone}`);
+  return undefined;
 }
 
 function registration(phone: string, code: string, dateOfBirth = '2000-05-17') {
@@ -380,6 +396,53 @@ describe('POST /api/v1/auth/verify', () => {
       body: registration(phones.admin, await requestCode(phones.admin)),
     });
     assertRejected(res, 409, 'CONFLICT');
+  });
+});
+
+describe('POST /api/v1/auth/password-reset', () => {
+  test('sends no code to a number without an account, and answers it like one with an account', async () => {
+    const phone = newPhone();
+    const logged = serverOutput.length;
+
+    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone } });
+
+    assert.equal(res.status, 202, JSON.stringify(res.body));
+    assert.equal(res.body, undefined);
+    assert.equal(await loggedCode(phone, logged), undefined);
+  });
+
+  test('rejects a number that is not Ukrainian with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone: '0501234567' } });
+
+    assertInvalid(res, 'body', 'phone');
+  });
+});
+
+describe('POST /api/v1/auth/password-reset/confirm', () => {
+  test('replaces the password and signs in; the code works only once', async () => {
+    const phone = phones.taras;
+    const password = 'a new long passphrase';
+    const body = { phone, code: await requestCode(phone, '/api/v1/auth/password-reset'), password };
+
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', { body });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+    assertRejected(await call('POST', '/api/v1/auth/password-reset/confirm', { body }), 422, 'INVALID_CODE');
+    const oldPassword = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
+    assertRejected(oldPassword, 401, 'INVALID_CREDENTIALS');
+    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  });
+
+  test('does not accept a registration code', async () => {
+    const phone = newPhone();
+    const code = await requestCode(phone);
+
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
+      body: { phone, code, password: 'a new long passphrase' },
+    });
+
+    assertRejected(res, 422, 'INVALID_CODE');
   });
 });
 

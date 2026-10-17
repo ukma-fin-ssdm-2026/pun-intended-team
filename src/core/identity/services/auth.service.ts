@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { randomInt, randomUUID } from 'node:crypto';
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
@@ -9,7 +9,7 @@ import { CodeHasher } from '../adapters/code-hasher.ts';
 import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
-import type { AccessToken, Registration } from '../types/auth.ts';
+import type { AccessToken, PasswordReset, Registration } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
 
@@ -23,6 +23,7 @@ const MINIMUM_AGE = 18; // SAFE-001
 
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
   private dummyPasswordHash!: string;
 
   constructor(
@@ -68,6 +69,32 @@ export class AuthService implements OnModuleInit {
       throw new DomainError('WRONG_PASSWORD', 'The current password is missing or wrong. Enter it to set a new one');
     }
     await this.accountsRepository.setPasswordHash(accountId, await this.passwordHasher.hash(password));
+  }
+
+  /**
+   * Sends a reset code only to an active account, but returns the same way for any phone and without waiting
+   * for the provider, so neither the answer nor its timing reveals an account (SEC-007).
+   */
+  async requestPasswordReset(phone: string): Promise<void> {
+    const now = new Date();
+    const account = await this.accountsRepository.findByPhone(phone);
+    if (account?.status !== 'active' || !(await this.canSendCode(phone, now))) {
+      return;
+    }
+    this.sendCode(phone, 'reset', now).catch((error: unknown) => {
+      this.logger.error('A password reset code could not be sent', error instanceof Error ? error.stack : error);
+    });
+  }
+
+  async resetPassword({ phone, code, password }: PasswordReset): Promise<AccessToken> {
+    const now = new Date();
+    await this.useCode(phone, 'reset', code, now);
+    const account = await this.accountsRepository.findByPhone(phone);
+    if (account?.status !== 'active') {
+      throw invalidCode();
+    }
+    await this.accountsRepository.setPasswordHash(account.id, await this.passwordHasher.hash(password));
+    return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
   }
 
   async signIn(phone: string, password: string): Promise<AccessToken> {

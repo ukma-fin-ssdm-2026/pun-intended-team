@@ -6,6 +6,12 @@ export interface Registration {
   dateOfBirth: string;
 }
 
+export interface PasswordReset {
+  phone: string;
+  code: string;
+  password: string;
+}
+
 export interface AccessToken {
   accessToken: string;
   /** Seconds until the token expires. */

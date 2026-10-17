@@ -461,6 +461,39 @@ components:
       example:
         phone: '+380501110001'
         password: nearby-dev-password
+    PasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+      required:
+        - phone
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+    ConfirmPasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: The code sent to the phone
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+      required:
+        - phone
+        - code
+        - password
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+        code: '123456'
+        password: a new long passphrase
     SetPasswordBody:
       type: object
       properties:
@@ -1421,6 +1454,70 @@ paths:
           description: >-
             `INVALID_CREDENTIALS`: wrong phone number or password; it does not
             say which
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      summary: Start a password reset
+      description: >-
+        Start a password reset: sends a one-time code to the phone number if it
+        has an account. The answer is the same for any number, and a code
+        requested within a minute of the last one is silently not sent. No
+        access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetBody'
+      responses:
+        '202':
+          description: >-
+            If the number has an account, a code is on its way; it is valid for
+            10 minutes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset/confirm:
+    post:
+      operationId: resetPassword
+      summary: Finish a password reset
+      description: >-
+        Finish a password reset with the code and a new password, and sign in.
+        No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetBody'
+      responses:
+        '200':
+          description: The password is replaced; an access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
+            times
           content:
             application/json:
               schema:

@@ -4,6 +4,8 @@ import type { Account, AccountRecord, PasswordCredential } from '../types/accoun
 export abstract class AccountsRepository {
   abstract existsByPhone(phone: string): Promise<boolean>;
 
+  abstract findByPhone(phone: string): Promise<Account | undefined>;
+
   /** Undefined when no account has this phone or the account has no password. */
   abstract findPasswordCredential(phone: string): Promise<PasswordCredential | undefined>;
 

@@ -11,6 +11,15 @@ export class StubAccountsRepository implements AccountsRepository {
     return storedAccounts.some((account) => account.phone === phone);
   }
 
+  async findByPhone(phone: string): Promise<Account | undefined> {
+    const stored = storedAccounts.find((account) => account.phone === phone);
+    if (!stored) {
+      return undefined;
+    }
+    const { passwordHash, ...account } = stored;
+    return account;
+  }
+
   async findPasswordCredential(phone: string): Promise<PasswordCredential | undefined> {
     const account = storedAccounts.find((account) => account.phone === phone);
     if (!account?.passwordHash) {

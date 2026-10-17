@@ -1,6 +1,8 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
 import { describe, mock, test } from 'node:test';
+import { Logger } from '@nestjs/common';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { AuthService } from '../../dist/core/identity/services/auth.service.js';
 import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
@@ -8,7 +10,7 @@ import type { CodeDelivery } from '../../dist/core/notifications/types/code-deli
 import type { AccessTokens } from '../../dist/core/identity/adapters/access-tokens.js';
 import type { AccountsRepository } from '../../dist/core/identity/repositories/accounts.repository.js';
 import type { Account, AccountRecord, PasswordCredential } from '../../dist/core/identity/types/account.js';
-import type { Registration } from '../../dist/core/identity/types/auth.js';
+import type { PasswordReset, Registration } from '../../dist/core/identity/types/auth.js';
 import type { VerificationCode, VerificationCodeRecord } from '../../dist/core/identity/types/verification-code.js';
 import { ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
 import { NOW, useFixedClock } from './fixtures/clock.ts';
@@ -22,6 +24,10 @@ const CODE_RESEND_INTERVAL_MS = 60 * 1000; // SEC-008
 const MAX_FAILED_ATTEMPTS = 3; // SEC-008
 const DELIVERY: CodeDelivery = { channel: 'sms', providerRequestId: 'provider-request-1' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function anAccount(overrides: Partial<Account> = {}): Account {
+  return { id: ACCOUNT_ID, phone: PHONE, role: 'user', status: 'active', dateOfBirth: '2001-04-12', ...overrides };
+}
 
 function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
   return { accountId: ACCOUNT_ID, role: 'user', status: 'active', passwordHash: 'stored-hash', ...overrides };
@@ -50,10 +56,16 @@ function aRegistration(overrides: Partial<Registration> = {}): Registration {
   return { phone: PHONE, code: CODE, dateOfBirth: '2006-12-09', ...overrides };
 }
 
+/** PHONE resetting its password with the right code. */
+function aPasswordReset(overrides: Partial<PasswordReset> = {}): PasswordReset {
+  return { phone: PHONE, code: CODE, password: 'a new long passphrase', ...overrides };
+}
+
 /** Every port of AuthService as a mock; a test changes only what it needs. */
 function makeService() {
   const accounts = {
     existsByPhone: mock.fn(() => Promise.resolve(false)),
+    findByPhone: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
     findPasswordCredential: mock.fn((): Promise<PasswordCredential | undefined> => Promise.resolve(undefined)),
     create: mock.fn((record: AccountRecord): Promise<Account> => Promise.resolve({ id: ACCOUNT_ID, ...record })),
     findDateOfBirth: mock.fn(),
@@ -325,6 +337,126 @@ describe('AuthService.verify', () => {
     const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
     assert.equal(caller.accountId, ACCOUNT_ID);
     assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
+  });
+});
+
+describe('AuthService.requestPasswordReset', () => {
+  useFixedClock();
+
+  test('sends a reset code to an active account', async () => {
+    const { service, accounts, verificationCodes, notifications } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+
+    await service.requestPasswordReset(PHONE);
+    await setImmediate();
+
+    const [phone, sentCode] = notifications.sendCode.mock.calls[0]?.arguments as unknown as [string, string];
+    assert.equal(phone, PHONE);
+    assert.deepEqual(verificationCodes.create.mock.calls[0]?.arguments, [
+      {
+        phone: PHONE,
+        purpose: 'reset',
+        codeHash: `${PHONE}:${sentCode}`,
+        ...DELIVERY,
+        sentAt: NOW,
+        expiresAt: new Date(NOW.getTime() + CODE_LIFETIME_MS),
+      },
+    ]);
+  });
+
+  // SEC-007: the provider's response time must not tell an account from an unknown phone.
+  test('returns without waiting for the provider', async () => {
+    const { service, accounts, notifications } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+    notifications.sendCode.mock.mockImplementation(() => new Promise<CodeDelivery>(() => {}));
+
+    await service.requestPasswordReset(PHONE);
+
+    assert.equal(notifications.sendCode.mock.callCount(), 1);
+  });
+
+  test('logs a code that could not be sent instead of failing', async () => {
+    const { service, accounts, verificationCodes, notifications } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+    notifications.sendCode.mock.mockImplementation(() => Promise.reject(new Error('provider is down')));
+    const logError = mock.method(Logger.prototype, 'error', () => {});
+
+    await service.requestPasswordReset(PHONE);
+    await setImmediate();
+
+    assert.equal(logError.mock.callCount(), 1);
+    assert.equal(verificationCodes.create.mock.callCount(), 0);
+    logError.mock.restore();
+  });
+
+  const noCodeCases = [
+    { title: 'sends nothing to a phone without an account', account: undefined },
+    { title: 'sends nothing to a banned account', account: anAccount({ status: 'banned' }) },
+  ];
+
+  for (const { title, account } of noCodeCases) {
+    test(title, async () => {
+      const { service, accounts, notifications } = makeService();
+      accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(account));
+
+      await service.requestPasswordReset(PHONE);
+      await setImmediate();
+
+      assert.equal(notifications.sendCode.mock.callCount(), 0);
+    });
+  }
+
+  test('silently sends nothing less than a minute after the last code', async () => {
+    const { service, accounts, verificationCodes, notifications } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+    const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS + 1);
+    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
+
+    await service.requestPasswordReset(PHONE);
+    await setImmediate();
+
+    assert.equal(notifications.sendCode.mock.callCount(), 0);
+  });
+});
+
+describe('AuthService.resetPassword', () => {
+  useFixedClock();
+
+  test('checks the latest reset code, replaces the password and signs in', async () => {
+    const { service, accounts, verificationCodes, accessTokens } = makeService();
+    const account = anAccount();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(account));
+    const code = aCode({ purpose: 'reset' });
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(code));
+    const reset = aPasswordReset();
+
+    const token = await service.resetPassword(reset);
+
+    assert.deepEqual(verificationCodes.findLatest.mock.calls[0]?.arguments, [PHONE, 'reset']);
+    assert.deepEqual(verificationCodes.markUsed.mock.calls[0]?.arguments, [code.id, NOW]);
+    assert.deepEqual(accounts.setPasswordHash.mock.calls[0]?.arguments, [account.id, `hash(${reset.password})`]);
+    const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
+    assert.equal(caller.accountId, account.id);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
+  });
+
+  test('rejects a wrong code without changing the password', async () => {
+    const { service, accounts, verificationCodes } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode({ purpose: 'reset' })));
+
+    await assert.rejects(service.resetPassword(aPasswordReset({ code: '000000' })), isDomainError('INVALID_CODE'));
+    assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
+  });
+
+  test('rejects the code of an account banned after it was sent', async () => {
+    const { service, accounts, verificationCodes, accessTokens } = makeService();
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount({ status: 'banned' })));
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode({ purpose: 'reset' })));
+
+    await assert.rejects(service.resetPassword(aPasswordReset()), isDomainError('INVALID_CODE'));
+    assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
+    assert.equal(accessTokens.issue.mock.callCount(), 0);
   });
 });
 

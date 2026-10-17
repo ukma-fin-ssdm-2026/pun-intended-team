@@ -7,12 +7,22 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
-import { AccessTokenResponse, RegisterBody, SetPasswordBody, SignInBody, VerifyBody } from '../schemas/auth.ts';
+import {
+  AccessTokenResponse,
+  ConfirmPasswordResetBody,
+  PasswordResetBody,
+  RegisterBody,
+  SetPasswordBody,
+  SignInBody,
+  VerifyBody,
+} from '../schemas/auth.ts';
 
 const RegisterRequest = { body: RegisterBody } satisfies RequestSchemas;
 const VerifyRequest = { body: VerifyBody } satisfies RequestSchemas;
 const SignInRequest = { body: SignInBody } satisfies RequestSchemas;
 const SetPasswordRequest = { body: SetPasswordBody } satisfies RequestSchemas;
+const PasswordResetRequest = { body: PasswordResetBody } satisfies RequestSchemas;
+const ConfirmPasswordResetRequest = { body: ConfirmPasswordResetBody } satisfies RequestSchemas;
 
 // Not MCP tools (mcp: false): an agent cannot use a token it gets back, register sends a code,
 // and an agent should not set a user's password.
@@ -87,6 +97,48 @@ export class AuthController {
   })
   async signIn(@Input() { body }: RouteInput<typeof SignInRequest>): Promise<AccessTokenResponse> {
     return withType(await this.authService.signIn(body.phone, body.password));
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.passwordReset,
+    operationId: 'requestPasswordReset',
+    summary: 'Start a password reset',
+    description:
+      'Start a password reset: sends a one-time code to the phone number if it has an account. The answer is the ' +
+      'same for any number, and a code requested within a minute of the last one is silently not sent.',
+    tags: ['Auth'],
+    access: 'public',
+    mcp: false,
+    request: PasswordResetRequest,
+    responses: {
+      202: { description: 'If the number has an account, a code is on its way; it is valid for 10 minutes' },
+    },
+  })
+  async requestPasswordReset(@Input() { body }: RouteInput<typeof PasswordResetRequest>): Promise<void> {
+    await this.authService.requestPasswordReset(body.phone);
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.passwordResetConfirm,
+    operationId: 'resetPassword',
+    summary: 'Finish a password reset',
+    description: 'Finish a password reset with the code and a new password, and sign in.',
+    tags: ['Auth'],
+    access: 'public',
+    mcp: false,
+    request: ConfirmPasswordResetRequest,
+    responses: {
+      200: { description: 'The password is replaced; an access token', schema: AccessTokenResponse },
+      422: {
+        description: '`INVALID_CODE`: the code is wrong, expired, already used or failed 3 times',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async resetPassword(@Input() { body }: RouteInput<typeof ConfirmPasswordResetRequest>): Promise<AccessTokenResponse> {
+    return withType(await this.authService.resetPassword(body));
   }
 
   @Endpoint({
