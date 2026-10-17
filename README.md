@@ -44,7 +44,7 @@ Documentation related to system architecture for this project is located [here](
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
 - [`mechanisms/`](docs/architecture/mechanisms/) — architectural and code mechanisms
-- [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`
+- [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`. Render them with `npm run docs:diagrams` (needs Docker).
 
 ## ൭ API Documentation
 
