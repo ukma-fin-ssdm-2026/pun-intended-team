@@ -6,13 +6,13 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services and schemas, repositories mocked | 14 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 130 |
 | Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 99 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
 
-Unit tests cover events (FR-010, FR-011), verification codes and sign-in (FR-005, SEC-008, FR-001) and listings (FR-021). Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005. We are integration-heavy because most of the API is validation and permissions, visible only over HTTP; matching, the core business logic, is not built yet, and most new unit tests will come with it.
+Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration and sign-in (FR-001, FR-005, SAFE-001, SEC-007, SEC-008), listings (FR-021), Kyiv dates and ages, the match score, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet, and most new unit tests will come with it.
 
 Tools: `node:test`, MCR (monocart-coverage-reports), Docker PostgreSQL. Planned: k6, fast-check, Stryker, Maestro or Detox for the Expo client.
 
@@ -22,15 +22,17 @@ MCR, 17 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 93.18% | 77.55% | 96.75% | 92.06% |
-| Unit tests only | 16.84% | 10.61% | 9.09% | 10.81% |
+| All tests | 95.27% | 85.83% | 96.77% | 95.01% |
+| Unit tests only | 39.89% | 46.15% | 30.32% | 28.59% |
 
-Unit tests reach only `core/`; controllers, `api/common/` and `infra/` are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 94%; matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 94%; matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
-- **`key-files.ts` (79%)** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
-- **Branches (77.55%)** lag mostly in `infra/prisma/` (44%) and in `api-exception.filter.ts` (57%).
+- **`auth.ts` (94%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
+- **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
+- **`api-exception.filter.ts` (branches 57%)**: the `500` for an unexpected error and the mapping of Nest's own `403`.
+- **Production and start-up only**: HSTS in production, a missing `DATABASE_URL`, a malformed stored password hash; these need another environment or a broken dependency.
 
 ## Integration, System and Acceptance Tests
 
