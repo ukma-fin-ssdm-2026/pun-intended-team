@@ -1,28 +1,25 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
-import { afterEach, describe, mock, test } from 'node:test';
-// Node runs this file as it is, but AuthService needs compiling (decorators), so the code under test
-// comes from dist/ (built by `npm run test:unit`); the types come from src/ and are erased.
+import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { AuthService } from '../../dist/core/identity/services/auth.service.js';
-import type { NotificationsService } from '../../src/core/notifications/services/notifications.service.ts';
-import type { AccessTokens } from '../../src/core/identity/adapters/access-tokens.ts';
-import type { AccountsRepository } from '../../src/core/identity/repositories/accounts.repository.ts';
-import type { PasswordCredential } from '../../src/core/identity/types/account.ts';
-import type { VerificationCode, VerificationCodeRecord } from '../../src/core/identity/types/verification-code.ts';
+import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
+import type { AccessTokens } from '../../dist/core/identity/adapters/access-tokens.js';
+import type { AccountsRepository } from '../../dist/core/identity/repositories/accounts.repository.js';
+import type { PasswordCredential } from '../../dist/core/identity/types/account.js';
+import type { VerificationCode, VerificationCodeRecord } from '../../dist/core/identity/types/verification-code.js';
+import { ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
+import { useFixedClock } from './fixtures/clock.ts';
 
-const PHONE = '+380501234567';
 const PASSWORD = 'correct-horse';
-const REGISTRATION_START = new Date('2026-10-13T10:00:00Z');
-const CODE_LIFETIME_MS = 10 * 60 * 1000;
+const SIGNED_TOKEN = 'signed-token';
+const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
+const CODE_LIFETIME_MS = 10 * 60 * 1000; // SEC-008
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-const adminCredential: PasswordCredential = {
-  accountId: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
-  role: 'admin',
-  status: 'active',
-  passwordHash: 'stored-hash',
-};
+function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
+  return { accountId: ACCOUNT_ID, role: 'user', status: 'active', passwordHash: 'stored-hash', ...overrides };
+}
 
 /** Every port of AuthService as a mock; a test changes only what it needs. */
 function makeService() {
@@ -49,7 +46,7 @@ function makeService() {
     matches: mock.fn((phone: string, code: string, hash: string) => hash === `${phone}:${code}`),
   };
   const accessTokens = {
-    issue: mock.fn(() => Promise.resolve('signed-token')),
+    issue: mock.fn(() => Promise.resolve(SIGNED_TOKEN)),
     verify: mock.fn(),
   };
   const notifications = { sendCode: mock.fn(() => Promise.resolve()) };
@@ -65,32 +62,32 @@ function makeService() {
   return { service, accounts, verificationCodes, accessTokens, notifications };
 }
 
-void describe('AuthService', () => {
-  afterEach(() => mock.timers.reset());
+describe('AuthService.verify', () => {
+  useFixedClock();
 
-  void test('rejects a verification code issued more than 10 minutes ago', async () => {
-    mock.timers.enable({ apis: ['Date'], now: REGISTRATION_START });
+  test('rejects a verification code issued more than 10 minutes ago', async () => {
     const { service, accounts, verificationCodes, notifications } = makeService();
-
     await service.register(PHONE);
     const [, sentCode] = notifications.sendCode.mock.calls[0]?.arguments as unknown as [string, string];
     // The repository hands back the row it stored, as a real one would.
     const stored = await verificationCodes.create.mock.calls[0]?.result;
     verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(stored));
-
     mock.timers.tick(CODE_LIFETIME_MS + 1000);
 
-    await assert.rejects(
-      service.verify({ phone: PHONE, code: sentCode, password: PASSWORD, dateOfBirth: '2000-01-01' }),
-      (error) => error instanceof DomainError && error.code === 'INVALID_CODE',
-    );
+    const verifying = service.verify({ phone: PHONE, code: sentCode, password: PASSWORD, dateOfBirth: '2000-01-01' });
+
+    await assert.rejects(verifying, (error) => error instanceof DomainError && error.code === 'INVALID_CODE');
     assert.equal(verificationCodes.markUsed.mock.callCount(), 0);
     assert.equal(accounts.create.mock.callCount(), 0);
   });
+});
 
-  void test('sign-in asks for a token with the account role and a new session id', async () => {
+describe('AuthService.signIn', () => {
+  test('asks for a token with the account role and a new session id', async () => {
     const { service, accounts, accessTokens } = makeService();
-    accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(adminCredential));
+    // Not the default role, so a service that ignored the credential's role would fail.
+    const credential = aCredential({ role: 'admin' });
+    accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(credential));
 
     const token = await service.signIn(PHONE, PASSWORD);
 
@@ -99,17 +96,10 @@ void describe('AuthService', () => {
       Record<string, unknown>,
       number,
     ];
-    assert.deepEqual(
-      { ...caller, sessionId: undefined },
-      {
-        kind: 'account',
-        accountId: adminCredential.accountId,
-        role: 'admin',
-        sessionId: undefined,
-      },
-    );
-    assert.match(String(caller.sessionId), UUID);
-    assert.equal(lifetimeSeconds, 3600);
-    assert.deepEqual(token, { accessToken: 'signed-token', expiresIn: 3600 });
+    const { sessionId, ...account } = caller;
+    assert.deepEqual(account, { kind: 'account', accountId: credential.accountId, role: credential.role });
+    assert.match(String(sessionId), UUID);
+    assert.equal(lifetimeSeconds, ACCESS_TOKEN_SECONDS);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
   });
 });
