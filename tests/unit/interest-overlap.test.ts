@@ -14,4 +14,9 @@ describe('interestOverlap', () => {
   test('lists with no shared interests score 0', () => {
     assert.equal(interestOverlap(['hiking', 'jazz'], ['chess', 'cinema']), 0);
   });
+
+  test('partial overlap scores shared interests over all distinct interests', () => {
+    // 2 shared (hiking, jazz) of 4 distinct (hiking, jazz, chess, cinema)
+    assert.equal(interestOverlap(['hiking', 'jazz', 'chess'], ['hiking', 'jazz', 'cinema']), 0.5);
+  });
 });
