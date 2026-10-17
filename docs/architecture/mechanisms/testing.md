@@ -33,6 +33,21 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 5. **Categories, not file names.** A new file falls under its category; a file that fits none is measured. The patterns are in [`mcr.config.mjs`](../../../mcr.config.mjs).
 6. **Two reports** — unit tests alone and all tests, as single HTML files in [`docs/testing/coverage/`](../../testing/coverage/), regenerated with `npm run docs:coverage` in the pull request that changes tests.
 
+### Writing a unit test
+
+7. **Layout** — one file per unit, named after it: `tests/unit/auth.service.test.ts`. The code under test comes from `dist/`, since Node cannot run the decorators in `src/`; types come from `src/` with `import type`. Values and builders shared by several files live in `tests/unit/fixtures/`; a fixture used by one file stays in it. A test file never imports another test file.
+8. **Test data by layer:**
+
+   | Code | Test data |
+   |---|---|
+   | Services | Every port mocked with `mock.fn` from `node:test`, built by one factory per service; a test changes only the mocks it needs |
+   | Pure functions | A table of inputs and expected results, one test per row |
+   | Adapters | The real implementation with test inputs, such as keys in a temporary folder; the library it wraps is not mocked |
+
+9. **Deterministic** — fixed ids and dates from the fixtures, never `Date.now()` or random values in test data. Code that reads the clock runs under `mock.timers` with a fixed `now`, reset after each test.
+10. **One behaviour per test** — `describe` names the unit or method (`AuthService.verify`), `test` names the behaviour in lower case: `'rejects a code issued more than 10 minutes ago'`. Arrange, act and assert are separated by blank lines. A table of cases covers one path with different inputs, not unrelated behaviours. A test for a requirement names its id in a comment, e.g. `// SAFE-001`.
+11. **Assert what a caller observes** — the returned value, the `DomainError` code (`assert.rejects` with a check of `code`), and the port calls with their arguments, including that nothing was saved when a rule fails. Never assert a mock returning what it was given, or only that no error was thrown.
+
 ## AI Usage Note
 
 Drafted with Claude from a discussion led by Viktoriia Baran.
