@@ -2,7 +2,6 @@
 export interface Registration {
   phone: string;
   code: string;
-  password: string;
   /** YYYY-MM-DD. */
   dateOfBirth: string;
 }

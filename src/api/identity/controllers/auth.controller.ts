@@ -2,16 +2,20 @@
 import { Controller } from '@nestjs/common';
 import { AuthService } from '../../../core/identity/services/auth.service.ts';
 import type { AccessToken } from '../../../core/identity/types/auth.ts';
+import type { AccountCaller } from '../../../core/identity/types/caller.ts';
+import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
-import { AccessTokenResponse, RegisterBody, SignInBody, VerifyBody } from '../schemas/auth.ts';
+import { AccessTokenResponse, RegisterBody, SetPasswordBody, SignInBody, VerifyBody } from '../schemas/auth.ts';
 
 const RegisterRequest = { body: RegisterBody } satisfies RequestSchemas;
 const VerifyRequest = { body: VerifyBody } satisfies RequestSchemas;
 const SignInRequest = { body: SignInBody } satisfies RequestSchemas;
+const SetPasswordRequest = { body: SetPasswordBody } satisfies RequestSchemas;
 
-// Not MCP tools (mcp: false): an agent cannot use a token it gets back, and register sends a code.
+// Not MCP tools (mcp: false): an agent cannot use a token it gets back, register sends a code,
+// and an agent should not set a user's password.
 @Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -43,7 +47,8 @@ export class AuthController {
     operationId: 'verify',
     summary: 'Finish registration',
     description:
-      'Finish registration with the code, a password and the date of birth. Creates the account and signs in.',
+      'Finish registration with the code and the date of birth. Creates the account and signs in; ' +
+      'add a sign-in method next with `setPassword`.',
     tags: ['Auth'],
     access: 'public',
     mcp: false,
@@ -82,6 +87,33 @@ export class AuthController {
   })
   async signIn(@Input() { body }: RouteInput<typeof SignInRequest>): Promise<AccessTokenResponse> {
     return withType(await this.authService.signIn(body.phone, body.password));
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.account.password,
+    operationId: 'setPassword',
+    summary: 'Set or change your password',
+    description:
+      'Set a password to sign in with, right after registration, or change it. ' +
+      'Changing an existing password needs the current one.',
+    tags: ['Auth'],
+    access: 'user',
+    mcp: false,
+    request: SetPasswordRequest,
+    responses: {
+      204: { description: 'The password is set' },
+      422: {
+        description: '`WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async setPassword(
+    @CurrentAccount() account: AccountCaller,
+    @Input() { body }: RouteInput<typeof SetPasswordRequest>,
+  ): Promise<void> {
+    await this.authService.setPassword(account.accountId, body.password, body.currentPassword);
   }
 
   @Endpoint({

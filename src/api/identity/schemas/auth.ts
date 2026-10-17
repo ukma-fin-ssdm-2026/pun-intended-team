@@ -20,24 +20,35 @@ const VerifyFields = z.strictObject({
     .string()
     .regex(/^\d{6}$/, 'Six digits')
     .describe('The code sent to the phone'),
-  password: NewPassword,
   dateOfBirth: CalendarDate.describe('Checked on the server: at least 18 years old'),
 });
 
 export const VerifyBody = VerifyFields.meta({
   id: 'VerifyBody',
-  example: { phone: '+380501119999', code: '123456', password: 'a long passphrase', dateOfBirth: '2000-05-17' },
+  example: { phone: '+380501119999', code: '123456', dateOfBirth: '2000-05-17' },
 });
+
+// Not the rules for a new password, so a later rule change does not lock anyone out.
+const CurrentPassword = z.string().min(1).max(128);
 
 const SignInFields = z.strictObject({
   phone: PhoneNumber,
-  // Not the rules for a new password, so a later rule change does not lock anyone out.
-  password: z.string().min(1).max(128),
+  password: CurrentPassword,
 });
 
 export const SignInBody = SignInFields.meta({
   id: 'SignInBody',
   example: { phone: '+380501110001', password: 'nearby-dev-password' },
+});
+
+const SetPasswordFields = z.strictObject({
+  password: NewPassword,
+  currentPassword: CurrentPassword.optional().describe('Required once the account has a password'),
+});
+
+export const SetPasswordBody = SetPasswordFields.meta({
+  id: 'SetPasswordBody',
+  example: { password: 'a new long passphrase', currentPassword: 'a long passphrase' },
 });
 
 const AccessTokenFields = z.object({

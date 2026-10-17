@@ -47,7 +47,7 @@ export class AuthService implements OnModuleInit {
     await this.sendCode(phone, 'registration', now);
   }
 
-  async verify({ phone, code, password, dateOfBirth }: Registration): Promise<AccessToken> {
+  async verify({ phone, code, dateOfBirth }: Registration): Promise<AccessToken> {
     const now = new Date();
     // Used before the age check, so one code cannot try several dates of birth.
     await this.useCode(phone, 'registration', code, now);
@@ -57,11 +57,17 @@ export class AuthService implements OnModuleInit {
     if (await this.accountsRepository.existsByPhone(phone)) {
       throw new DomainError('CONFLICT', 'This phone number is already registered. Sign in instead');
     }
-    const account = await this.accountsRepository.create(
-      { phone, role: 'user', status: 'active', dateOfBirth },
-      await this.passwordHasher.hash(password),
-    );
+    const account = await this.accountsRepository.create({ phone, role: 'user', status: 'active', dateOfBirth });
     return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
+  }
+
+  /** The current password is required only once the account has one. */
+  async setPassword(accountId: string, password: string, currentPassword?: string): Promise<void> {
+    const currentHash = await this.accountsRepository.findPasswordHash(accountId);
+    if (currentHash && !(currentPassword && (await this.passwordHasher.verify(currentHash, currentPassword)))) {
+      throw new DomainError('WRONG_PASSWORD', 'The current password is missing or wrong. Enter it to set a new one');
+    }
+    await this.accountsRepository.setPasswordHash(accountId, await this.passwordHasher.hash(password));
   }
 
   async signIn(phone: string, password: string): Promise<AccessToken> {

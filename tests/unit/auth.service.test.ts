@@ -47,7 +47,7 @@ function aCode(overrides: Partial<VerificationCode> = {}): VerificationCode {
 
 /** An adult registering PHONE with the right code. */
 function aRegistration(overrides: Partial<Registration> = {}): Registration {
-  return { phone: PHONE, code: CODE, password: PASSWORD, dateOfBirth: '2006-12-09', ...overrides };
+  return { phone: PHONE, code: CODE, dateOfBirth: '2006-12-09', ...overrides };
 }
 
 /** Every port of AuthService as a mock; a test changes only what it needs. */
@@ -57,6 +57,8 @@ function makeService() {
     findPasswordCredential: mock.fn((): Promise<PasswordCredential | undefined> => Promise.resolve(undefined)),
     create: mock.fn((record: AccountRecord): Promise<Account> => Promise.resolve({ id: ACCOUNT_ID, ...record })),
     findDateOfBirth: mock.fn(),
+    findPasswordHash: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
+    setPasswordHash: mock.fn(() => Promise.resolve()),
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
@@ -310,7 +312,7 @@ describe('AuthService.verify', () => {
     assert.equal(accounts.create.mock.callCount(), 0);
   });
 
-  test('creates an active user account with the hashed password and signs it in', async () => {
+  test('creates an active user account without a sign-in method and signs it in', async () => {
     const { service, accounts, verificationCodes, accessTokens } = makeService();
     verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
     const registration = aRegistration();
@@ -319,11 +321,52 @@ describe('AuthService.verify', () => {
 
     assert.deepEqual(accounts.create.mock.calls[0]?.arguments, [
       { phone: registration.phone, role: 'user', status: 'active', dateOfBirth: registration.dateOfBirth },
-      `hash(${registration.password})`,
     ]);
     const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
     assert.equal(caller.accountId, ACCOUNT_ID);
     assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
+  });
+});
+
+describe('AuthService.setPassword', () => {
+  const NEW_PASSWORD = 'a new long passphrase';
+
+  test('sets the first password without asking for a current one', async () => {
+    const { service, accounts, passwordHasher } = makeService();
+
+    await service.setPassword(ACCOUNT_ID, NEW_PASSWORD);
+
+    assert.equal(passwordHasher.verify.mock.callCount(), 0);
+    assert.deepEqual(accounts.setPasswordHash.mock.calls[0]?.arguments, [ACCOUNT_ID, `hash(${NEW_PASSWORD})`]);
+  });
+
+  test('replaces the password when the current one is right', async () => {
+    const { service, accounts, passwordHasher } = makeService();
+    accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
+
+    await service.setPassword(ACCOUNT_ID, NEW_PASSWORD, PASSWORD);
+
+    assert.deepEqual(passwordHasher.verify.mock.calls[0]?.arguments, ['stored-hash', PASSWORD]);
+    assert.deepEqual(accounts.setPasswordHash.mock.calls[0]?.arguments, [ACCOUNT_ID, `hash(${NEW_PASSWORD})`]);
+  });
+
+  test('refuses to replace a password without the current one', async () => {
+    const { service, accounts } = makeService();
+    accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
+
+    await assert.rejects(service.setPassword(ACCOUNT_ID, NEW_PASSWORD), isDomainError('WRONG_PASSWORD'));
+    assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
+  });
+
+  test('refuses to replace a password when the current one is wrong', async () => {
+    const { service, accounts, passwordHasher } = makeService();
+    accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
+    passwordHasher.verify.mock.mockImplementation(() => Promise.resolve(false));
+
+    const setting = service.setPassword(ACCOUNT_ID, NEW_PASSWORD, 'wrong-password');
+
+    await assert.rejects(setting, isDomainError('WRONG_PASSWORD'));
+    assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
   });
 });
 

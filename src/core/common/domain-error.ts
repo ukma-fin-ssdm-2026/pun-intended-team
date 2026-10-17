@@ -13,6 +13,7 @@ export const domainErrorCodes = [
   'USERNAME_TAKEN',
   'PROFILE_EXISTS',
   'INVALID_CREDENTIALS',
+  'WRONG_PASSWORD',
   'INVALID_CODE',
   'CODE_RESEND_TOO_SOON',
   'UNDERAGE',

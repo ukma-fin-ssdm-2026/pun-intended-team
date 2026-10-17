@@ -11,6 +11,9 @@ export const Routes = {
     signIn: '/api/v1/auth/sign-in',
     guest: '/api/v1/auth/guest',
   },
+  account: {
+    password: '/api/v1/me/password',
+  },
   events: {
     list: '/api/v1/events',
     byId: '/api/v1/events/{id}',

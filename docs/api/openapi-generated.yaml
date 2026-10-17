@@ -10,7 +10,7 @@ servers:
     description: Local development
 tags:
   - name: Auth
-    description: Registration, sign-in and guest tokens
+    description: Registration, sign-in methods and guest tokens
   - name: Events
     description: Events users can go to together
   - name: Listings
@@ -114,6 +114,7 @@ components:
         - USERNAME_TAKEN
         - PROFILE_EXISTS
         - INVALID_CREDENTIALS
+        - WRONG_PASSWORD
         - INVALID_CODE
         - CODE_RESEND_TOO_SOON
         - UNDERAGE
@@ -431,11 +432,6 @@ components:
           type: string
           pattern: ^\d{6}$
           description: The code sent to the phone
-        password:
-          type: string
-          minLength: 8
-          maxLength: 128
-          description: 8 to 128 characters
         dateOfBirth:
           type: string
           format: date
@@ -443,13 +439,11 @@ components:
       required:
         - phone
         - code
-        - password
         - dateOfBirth
       additionalProperties: false
       example:
         phone: '+380501119999'
         code: '123456'
-        password: a long passphrase
         dateOfBirth: '2000-05-17'
     SignInBody:
       type: object
@@ -467,6 +461,25 @@ components:
       example:
         phone: '+380501110001'
         password: nearby-dev-password
+    SetPasswordBody:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Required once the account has a password
+      required:
+        - password
+      additionalProperties: false
+      example:
+        password: a new long passphrase
+        currentPassword: a long passphrase
     ListingsPage:
       type: object
       properties:
@@ -1340,8 +1353,9 @@ paths:
       operationId: verify
       summary: Finish registration
       description: >-
-        Finish registration with the code, a password and the date of birth.
-        Creates the account and signs in. No access token needed.
+        Finish registration with the code and the date of birth. Creates the
+        account and signs in; add a sign-in method next with `setPassword`. No
+        access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1407,6 +1421,47 @@ paths:
           description: >-
             `INVALID_CREDENTIALS`: wrong phone number or password; it does not
             say which
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/password:
+    put:
+      operationId: setPassword
+      summary: Set or change your password
+      description: >-
+        Set a password to sign in with, right after registration, or change it.
+        Changing an existing password needs the current one. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordBody'
+      responses:
+        '204':
+          description: The password is set
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `WRONG_PASSWORD`: the account has a password and `currentPassword`
+            is missing or wrong
           content:
             application/json:
               schema:

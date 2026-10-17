@@ -146,7 +146,15 @@ async function requestCode(phone: string): Promise<string> {
 }
 
 function registration(phone: string, code: string, dateOfBirth = '2000-05-17') {
-  return { phone, code, password: 'a long passphrase', dateOfBirth };
+  return { phone, code, dateOfBirth };
+}
+
+/** Registers a new number and returns its phone and access token; the account has no password yet. */
+async function newAccount(): Promise<{ phone: string; token: string }> {
+  const phone = newPhone();
+  const res = await call('POST', '/api/v1/auth/verify', { body: registration(phone, await requestCode(phone)) });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return { phone, token: res.body.accessToken };
 }
 
 /** Kyiv date `years` years before today. */
@@ -334,8 +342,6 @@ describe('POST /api/v1/auth/verify', () => {
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
     assertRejected(await call('POST', '/api/v1/auth/verify', { body }), 422, 'INVALID_CODE');
-    const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: body.password } });
-    assert.equal(signIn.status, 200);
   });
 
   test('refuses even the right code after 3 wrong ones', async () => {
@@ -375,12 +381,52 @@ describe('POST /api/v1/auth/verify', () => {
     });
     assertRejected(res, 409, 'CONFLICT');
   });
+});
+
+describe('PUT /api/v1/me/password', () => {
+  const password = 'a long passphrase';
+
+  test('sets the first password of a new account, which then signs in with it', async () => {
+    const { phone, token } = await newAccount();
+
+    const res = await call('PUT', '/api/v1/me/password', { token, body: { password } });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  });
+
+  test('changes a password only with the right current one', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const newPassword = 'another long passphrase';
+
+    const withoutCurrent = await call('PUT', '/api/v1/me/password', { token, body: { password: newPassword } });
+    const withWrongCurrent = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: newPassword, currentPassword: 'not-the-password' },
+    });
+    const withCurrent = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: newPassword, currentPassword: password },
+    });
+
+    assertRejected(withoutCurrent, 422, 'WRONG_PASSWORD');
+    assertRejected(withWrongCurrent, 422, 'WRONG_PASSWORD');
+    assert.equal(withCurrent.status, 204, JSON.stringify(withCurrent.body));
+    const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: newPassword } });
+    assert.equal(signIn.status, 200);
+  });
 
   test('rejects a password shorter than 8 characters with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: { ...registration(newPhone(), '123456'), password: 'short' },
-    });
-    assertInvalid(res, 'body', 'password');
+    const { token } = await newAccount();
+
+    assertInvalid(await call('PUT', '/api/v1/me/password', { token, body: { password: 'short' } }), 'body', 'password');
+  });
+
+  test('rejects a guest with 401', async () => {
+    const res = await call('PUT', '/api/v1/me/password', { token: tokens.guest, body: { password } });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });
 
