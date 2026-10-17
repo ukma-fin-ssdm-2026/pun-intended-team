@@ -2,14 +2,15 @@
 import { type CanActivate, createParamDecorator, type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthService } from '../../core/identity/services/auth.service.ts';
-import type { AccountCaller, Caller } from '../../core/identity/types/caller.ts';
+import type { AccountCaller, Caller, RegistrantCaller } from '../../core/identity/types/caller.ts';
 import { ApiException } from './api-exception.ts';
 
 /**
  * Who may call an endpoint: anyone (`public`), a guest or a signed-in account
- * (`guest`, catalog reads), a signed-in account (`user`), or an administrator (`admin`).
+ * (`guest`, catalog reads), an account finishing registration and nothing else (`registrant`),
+ * a signed-in account (`user`), or an administrator (`admin`).
  */
-export type Access = 'public' | 'guest' | 'user' | 'admin';
+export type Access = 'public' | 'guest' | 'registrant' | 'user' | 'admin';
 
 export const RequireAccess = Reflector.createDecorator<Access>();
 
@@ -38,6 +39,12 @@ export class AuthGuard implements CanActivate {
     if (!caller) {
       throw new ApiException('UNAUTHENTICATED', 'A valid access token is required');
     }
+    if (access === 'registrant' && caller.kind !== 'registrant') {
+      throw new ApiException('UNAUTHENTICATED', 'Verify your phone number first');
+    }
+    if (access !== 'registrant' && caller.kind === 'registrant') {
+      throw new ApiException('UNAUTHENTICATED', 'Finish registration first');
+    }
     if (caller.kind !== 'account' && (access === 'user' || access === 'admin')) {
       throw new ApiException('UNAUTHENTICATED', 'Sign in to do this');
     }
@@ -53,6 +60,14 @@ export const CurrentAccount = createParamDecorator((_data: unknown, context: Exe
   const caller = context.switchToHttp().getRequest<AuthenticatedRequest>()[CALLER];
   if (caller?.kind !== 'account') {
     throw new Error("@CurrentAccount() is only available on endpoints with access: 'user' or 'admin'");
+  }
+  return caller;
+});
+
+export const CurrentRegistrant = createParamDecorator((_data: unknown, context: ExecutionContext): RegistrantCaller => {
+  const caller = context.switchToHttp().getRequest<AuthenticatedRequest>()[CALLER];
+  if (caller?.kind !== 'registrant') {
+    throw new Error("@CurrentRegistrant() is only available on endpoints with access: 'registrant'");
   }
   return caller;
 });

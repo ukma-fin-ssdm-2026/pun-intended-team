@@ -2,8 +2,6 @@
 export interface Registration {
   phone: string;
   code: string;
-  /** YYYY-MM-DD. */
-  dateOfBirth: string;
 }
 
 export interface PasswordReset {

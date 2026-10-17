@@ -435,18 +435,24 @@ components:
           type: string
           pattern: ^\d{6}$
           description: The code sent to the phone
+      required:
+        - phone
+        - code
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+        code: '123456'
+    CompleteRegistrationBody:
+      type: object
+      properties:
         dateOfBirth:
           type: string
           format: date
           description: 'Checked on the server: at least 18 years old'
       required:
-        - phone
-        - code
         - dateOfBirth
       additionalProperties: false
       example:
-        phone: '+380501119999'
-        code: '123456'
         dateOfBirth: '2000-05-17'
     SignInBody:
       type: object
@@ -1400,10 +1406,10 @@ paths:
   /api/v1/auth/verify:
     post:
       operationId: verify
-      summary: Finish registration
+      summary: Verify the phone number
       description: >-
-        Finish registration with the code and the date of birth. Creates the
-        account and signs in; add a sign-in method next with `setPassword`. No
+        Second registration step: check the code. Returns a registration token,
+        valid for 15 minutes, that only `completeRegistration` accepts. No
         access token needed.
       tags:
         - Auth
@@ -1415,7 +1421,7 @@ paths:
               $ref: '#/components/schemas/VerifyBody'
       responses:
         '200':
-          description: The account is created; an access token for it
+          description: A registration token
           content:
             application/json:
               schema:
@@ -1435,7 +1441,63 @@ paths:
         '422':
           description: >-
             `INVALID_CODE`: the code is wrong, expired, already used or failed 3
-            times. `UNDERAGE`: younger than 18.
+            times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/complete-registration:
+    post:
+      operationId: completeRegistration
+      summary: Finish registration
+      description: >-
+        Last registration step: the date of birth. Activates the account and
+        signs in; add a sign-in method next with `setPassword`. Under 18, the
+        registration is removed and the number can start again. Needs the
+        registration token from `verify`; other tokens get 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRegistrationBody'
+      responses:
+        '200':
+          description: The account is active; an access token for it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The registration was removed; start again
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Registration is already complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`UNDERAGE`: younger than 18'
           content:
             application/json:
               schema:

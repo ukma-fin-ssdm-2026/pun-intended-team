@@ -7,8 +7,8 @@ import { type StoredAccount, storedAccounts } from './data.ts';
 
 @Injectable()
 export class StubAccountsRepository implements AccountsRepository {
-  async existsByPhone(phone: string): Promise<boolean> {
-    return storedAccounts.some((account) => account.phone === phone);
+  async findById(accountId: string): Promise<Account | undefined> {
+    return toAccount(storedAccounts.find((account) => account.id === accountId));
   }
 
   async findByPhone(phone: string): Promise<Account | undefined> {
@@ -43,6 +43,16 @@ export class StubAccountsRepository implements AccountsRepository {
     return account;
   }
 
+  async activate(accountId: string, dateOfBirth: string): Promise<void> {
+    const account = this.byId(accountId);
+    account.dateOfBirth = dateOfBirth;
+    account.status = 'active';
+  }
+
+  async delete(accountId: string): Promise<void> {
+    storedAccounts.splice(storedAccounts.indexOf(this.byId(accountId)), 1);
+  }
+
   async findPasswordHash(accountId: string): Promise<string | undefined> {
     return this.byId(accountId).passwordHash ?? undefined;
   }
@@ -56,7 +66,7 @@ export class StubAccountsRepository implements AccountsRepository {
   }
 
   async findDateOfBirth(accountId: string): Promise<string | undefined> {
-    return storedAccounts.find((account) => account.id === accountId)?.dateOfBirth;
+    return storedAccounts.find((account) => account.id === accountId)?.dateOfBirth ?? undefined;
   }
 
   private byId(accountId: string): StoredAccount {

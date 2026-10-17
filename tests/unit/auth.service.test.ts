@@ -20,6 +20,8 @@ const CODE = '123456';
 const PASSWORD = 'correct-horse';
 const SIGNED_TOKEN = 'signed-token';
 const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
+const REGISTRATION_TOKEN_SECONDS = 15 * 60;
+const ADULT_BIRTH_DATE = '2000-05-17';
 const CODE_LIFETIME_MS = 10 * 60 * 1000; // SEC-008
 const CODE_RESEND_INTERVAL_MS = 60 * 1000; // SEC-008
 const MAX_FAILED_ATTEMPTS = 3; // SEC-008
@@ -30,6 +32,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function anAccount(overrides: Partial<Account> = {}): Account {
   return { id: ACCOUNT_ID, phone: PHONE, role: 'user', status: 'active', dateOfBirth: '2001-04-12', ...overrides };
+}
+
+/** An account that verified its code but has not passed the age check yet. */
+function aPendingAccount(overrides: Partial<Account> = {}): Account {
+  return anAccount({ status: 'pending', dateOfBirth: null, ...overrides });
 }
 
 function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
@@ -63,7 +70,7 @@ function aCode(overrides: Partial<VerificationCode> = {}): VerificationCode {
 
 /** An adult registering PHONE with the right code. */
 function aRegistration(overrides: Partial<Registration> = {}): Registration {
-  return { phone: PHONE, code: CODE, dateOfBirth: '2006-12-09', ...overrides };
+  return { phone: PHONE, code: CODE, ...overrides };
 }
 
 /** PHONE resetting its password with the right code. */
@@ -74,7 +81,9 @@ function aPasswordReset(overrides: Partial<PasswordReset> = {}): PasswordReset {
 /** Every port of AuthService as a mock; a test changes only what it needs. */
 function makeService() {
   const accounts = {
-    existsByPhone: mock.fn(() => Promise.resolve(false)),
+    findById: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
+    activate: mock.fn(() => Promise.resolve()),
+    delete: mock.fn(() => Promise.resolve()),
     findByPhone: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
     findPasswordCredential: mock.fn((): Promise<PasswordCredential | undefined> => Promise.resolve(undefined)),
     create: mock.fn((record: AccountRecord): Promise<Account> => Promise.resolve({ id: ACCOUNT_ID, ...record })),
@@ -266,16 +275,92 @@ describe('AuthService.verify', () => {
     assert.equal(accounts.create.mock.callCount(), 0);
   });
 
-  test('uses up the code even when the age check fails', async () => {
+  test('rejects a phone that already has an account', async () => {
     const { service, accounts, verificationCodes } = makeService();
-    const code = aCode();
-    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(code));
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
 
-    const verifying = service.verify(aRegistration({ dateOfBirth: '2010-01-01' }));
-
-    await assert.rejects(verifying, isDomainError('UNDERAGE'));
-    assert.deepEqual(verificationCodes.markUsed.mock.calls[0]?.arguments, [code.id, NOW]);
+    await assert.rejects(service.verify(aRegistration()), isDomainError('CONFLICT'));
     assert.equal(accounts.create.mock.callCount(), 0);
+  });
+
+  test('creates a pending account and returns a 15-minute registration token', async () => {
+    const { service, accounts, verificationCodes, accessTokens } = makeService();
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
+
+    const token = await service.verify(aRegistration());
+
+    assert.deepEqual(accounts.create.mock.calls[0]?.arguments, [
+      { phone: PHONE, role: 'user', status: 'pending', dateOfBirth: null },
+    ]);
+    assert.deepEqual(accessTokens.issue.mock.calls[0]?.arguments, [
+      { kind: 'registrant', accountId: ACCOUNT_ID },
+      REGISTRATION_TOKEN_SECONDS,
+    ]);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: REGISTRATION_TOKEN_SECONDS });
+  });
+
+  test('continues the pending account of a phone that verified before', async () => {
+    const { service, accounts, verificationCodes, accessTokens } = makeService();
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
+    const pending = aPendingAccount({ id: OTHER_ACCOUNT_ID });
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(pending));
+
+    await service.verify(aRegistration());
+
+    assert.equal(accounts.create.mock.callCount(), 0);
+    const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
+    assert.deepEqual(caller, { kind: 'registrant', accountId: pending.id });
+  });
+});
+
+describe('AuthService.completeRegistration', () => {
+  useFixedClock();
+
+  test('activates the account with the date of birth and signs it in', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    const pending = aPendingAccount();
+    accounts.findById.mock.mockImplementation(() => Promise.resolve(pending));
+
+    const token = await service.completeRegistration(pending.id, ADULT_BIRTH_DATE);
+
+    assert.deepEqual(accounts.activate.mock.calls[0]?.arguments, [pending.id, ADULT_BIRTH_DATE]);
+    const [caller, lifetimeSeconds] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [
+      Record<string, unknown>,
+      number,
+    ];
+    const { sessionId, ...account } = caller;
+    assert.deepEqual(account, { kind: 'account', accountId: pending.id, role: pending.role });
+    assert.match(String(sessionId), UUID);
+    assert.equal(lifetimeSeconds, ACCESS_TOKEN_SECONDS);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
+  });
+
+  test('removes the registration of someone under 18, so the number can start again', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    const pending = aPendingAccount();
+    accounts.findById.mock.mockImplementation(() => Promise.resolve(pending));
+
+    const completing = service.completeRegistration(pending.id, '2010-01-01');
+
+    await assert.rejects(completing, isDomainError('UNDERAGE'));
+    assert.deepEqual(accounts.delete.mock.calls[0]?.arguments, [pending.id]);
+    assert.equal(accounts.activate.mock.callCount(), 0);
+    assert.equal(accessTokens.issue.mock.callCount(), 0);
+  });
+
+  test('refuses an account that already finished registration', async () => {
+    const { service, accounts } = makeService();
+    accounts.findById.mock.mockImplementation(() => Promise.resolve(anAccount()));
+
+    await assert.rejects(service.completeRegistration(ACCOUNT_ID, ADULT_BIRTH_DATE), isDomainError('CONFLICT'));
+    assert.equal(accounts.activate.mock.callCount(), 0);
+  });
+
+  test('refuses a registration that was removed', async () => {
+    const { service } = makeService();
+
+    await assert.rejects(service.completeRegistration(ACCOUNT_ID, ADULT_BIRTH_DATE), isDomainError('NOT_FOUND'));
   });
 
   // SAFE-001: the age changes at midnight in Kyiv; a 29 February birthday counts from 1 March.
@@ -321,43 +406,18 @@ describe('AuthService.verify', () => {
   for (const { now, dateOfBirth, adult, title } of ageCases) {
     test(title, async () => {
       mock.timers.setTime(Date.parse(now));
-      const { service, verificationCodes } = makeService();
-      const code = aCode({ sentAt: new Date(now) });
-      verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(code));
+      const { service, accounts } = makeService();
+      accounts.findById.mock.mockImplementation(() => Promise.resolve(aPendingAccount()));
 
-      const verifying = service.verify(aRegistration({ dateOfBirth }));
+      const completing = service.completeRegistration(ACCOUNT_ID, dateOfBirth);
 
       if (adult) {
-        await verifying;
+        await completing;
       } else {
-        await assert.rejects(verifying, isDomainError('UNDERAGE'));
+        await assert.rejects(completing, isDomainError('UNDERAGE'));
       }
     });
   }
-
-  test('rejects a phone that already has an account', async () => {
-    const { service, accounts, verificationCodes } = makeService();
-    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
-    accounts.existsByPhone.mock.mockImplementation(() => Promise.resolve(true));
-
-    await assert.rejects(service.verify(aRegistration()), isDomainError('CONFLICT'));
-    assert.equal(accounts.create.mock.callCount(), 0);
-  });
-
-  test('creates an active user account without a sign-in method and signs it in', async () => {
-    const { service, accounts, verificationCodes, accessTokens } = makeService();
-    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
-    const registration = aRegistration();
-
-    const token = await service.verify(registration);
-
-    assert.deepEqual(accounts.create.mock.calls[0]?.arguments, [
-      { phone: registration.phone, role: 'user', status: 'active', dateOfBirth: registration.dateOfBirth },
-    ]);
-    const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
-    assert.equal(caller.accountId, ACCOUNT_ID);
-    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
-  });
 });
 
 describe('AuthService.requestPasswordReset', () => {

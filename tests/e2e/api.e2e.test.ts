@@ -184,14 +184,18 @@ function newGoogleSubject(): string {
   return String(Math.floor(Math.random() * 1e15)).padStart(21, '1');
 }
 
-function registration(phone: string, code: string, dateOfBirth = '2000-05-17') {
-  return { phone, code, dateOfBirth };
+/** Verifies a new number and returns its phone and registration token. */
+async function newRegistrant(): Promise<{ phone: string; token: string }> {
+  const phone = newPhone();
+  const res = await call('POST', '/api/v1/auth/verify', { body: { phone, code: await requestCode(phone) } });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return { phone, token: res.body.accessToken };
 }
 
 /** Registers a new number and returns its phone and access token; the account has no password yet. */
 async function newAccount(): Promise<{ phone: string; token: string }> {
-  const phone = newPhone();
-  const res = await call('POST', '/api/v1/auth/verify', { body: registration(phone, await requestCode(phone)) });
+  const { phone, token } = await newRegistrant();
+  const res = await call('POST', '/api/v1/auth/complete-registration', { token, body: { dateOfBirth: '2000-05-17' } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
   return { phone, token: res.body.accessToken };
 }
@@ -400,12 +404,15 @@ describe('POST /api/v1/auth/register', () => {
 });
 
 describe('POST /api/v1/auth/verify', () => {
-  test('creates the account and signs in; the code works only once', async () => {
+  test('returns a registration token that only finishing registration accepts; the code works only once', async () => {
     const phone = newPhone();
-    const body = registration(phone, await requestCode(phone));
+    const body = { phone, code: await requestCode(phone) };
+
     const res = await call('POST', '/api/v1/auth/verify', { body });
+
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+    assert.equal(res.body.expiresIn, 15 * 60);
+    assertRejected(await call('GET', '/api/v1/listings', { token: res.body.accessToken }), 401, 'UNAUTHENTICATED');
     assertRejected(await call('POST', '/api/v1/auth/verify', { body }), 422, 'INVALID_CODE');
   });
 
@@ -414,37 +421,64 @@ describe('POST /api/v1/auth/verify', () => {
     const code = await requestCode(phone);
     const wrong = String((Number(code) + 1) % 1e6).padStart(6, '0');
     for (let attempt = 1; attempt <= 3; attempt++) {
-      assertRejected(
-        await call('POST', '/api/v1/auth/verify', { body: registration(phone, wrong) }),
-        422,
-        'INVALID_CODE',
-      );
+      assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code: wrong } }), 422, 'INVALID_CODE');
     }
-    assertRejected(await call('POST', '/api/v1/auth/verify', { body: registration(phone, code) }), 422, 'INVALID_CODE');
-  });
-
-  // SAFE-001 boundary: 18 today passes, one day short does not.
-  test('accepts someone who turns 18 today', async () => {
-    const phone = newPhone();
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phone, await requestCode(phone), yearsAgo(18)),
-    });
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-  });
-
-  test('refuses someone who turns 18 tomorrow with 422', async () => {
-    const phone = newPhone();
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phone, await requestCode(phone), yearsAgo(18, 1)),
-    });
-    assertRejected(res, 422, 'UNDERAGE');
+    assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code } }), 422, 'INVALID_CODE');
   });
 
   test('refuses a registered number with 409 once the code is right', async () => {
     const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phones.admin, await requestCode(phones.admin)),
+      body: { phone: phones.admin, code: await requestCode(phones.admin) },
     });
     assertRejected(res, 409, 'CONFLICT');
+  });
+});
+
+describe('POST /api/v1/auth/complete-registration', () => {
+  // SAFE-001 boundary: 18 today passes, one day short does not.
+  test('activates someone who turns 18 today and signs them in', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(18) },
+    });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('refuses someone who turns 18 tomorrow with 422 and removes the registration', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(18, 1) },
+    });
+
+    assertRejected(res, 422, 'UNDERAGE');
+    const again = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(30) },
+    });
+    assertRejected(again, 404, 'NOT_FOUND');
+  });
+
+  test('refuses a finished registration with 409', async () => {
+    const { token } = await newRegistrant();
+    const body = { dateOfBirth: '2000-05-17' };
+    await call('POST', '/api/v1/auth/complete-registration', { token, body });
+
+    assertRejected(await call('POST', '/api/v1/auth/complete-registration', { token, body }), 409, 'CONFLICT');
+  });
+
+  test('rejects a signed-in account token with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token: tokens.user,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });
 

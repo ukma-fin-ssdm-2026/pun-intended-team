@@ -8,6 +8,7 @@ export const Routes = {
   auth: {
     register: '/api/v1/auth/register',
     verify: '/api/v1/auth/verify',
+    completeRegistration: '/api/v1/auth/complete-registration',
     signIn: '/api/v1/auth/sign-in',
     google: '/api/v1/auth/google',
     guest: '/api/v1/auth/guest',

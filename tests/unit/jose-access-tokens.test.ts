@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { SignJWT } from 'jose';
-import type { AccountCaller, GuestCaller } from '../../dist/core/identity/types/caller.js';
+import type { AccountCaller, GuestCaller, RegistrantCaller } from '../../dist/core/identity/types/caller.js';
 import { JoseAccessTokens } from '../../dist/infra/auth/jose-access-tokens.js';
 import type { SigningKey } from '../../dist/infra/auth/key-files.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
@@ -50,6 +50,13 @@ describe('JoseAccessTokens', () => {
   test('verifies the account it issued a token for', async () => {
     const tokens = new JoseAccessTokens([KEY]);
     const caller = anAccountCaller({ role: 'admin' });
+
+    assert.deepEqual(await tokens.verify(await tokens.issue(caller, LIFETIME_SECONDS)), caller);
+  });
+
+  test('verifies the registrant it issued a token for', async () => {
+    const tokens = new JoseAccessTokens([KEY]);
+    const caller: RegistrantCaller = { kind: 'registrant', accountId: ACCOUNT_ID };
 
     assert.deepEqual(await tokens.verify(await tokens.issue(caller, LIFETIME_SECONDS)), caller);
   });

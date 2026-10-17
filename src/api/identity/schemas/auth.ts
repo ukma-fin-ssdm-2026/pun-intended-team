@@ -22,12 +22,20 @@ const Code = z
 const VerifyFields = z.strictObject({
   phone: PhoneNumber,
   code: Code,
-  dateOfBirth: CalendarDate.describe('Checked on the server: at least 18 years old'),
 });
 
 export const VerifyBody = VerifyFields.meta({
   id: 'VerifyBody',
-  example: { phone: '+380501119999', code: '123456', dateOfBirth: '2000-05-17' },
+  example: { phone: '+380501119999', code: '123456' },
+});
+
+const CompleteRegistrationFields = z.strictObject({
+  dateOfBirth: CalendarDate.describe('Checked on the server: at least 18 years old'),
+});
+
+export const CompleteRegistrationBody = CompleteRegistrationFields.meta({
+  id: 'CompleteRegistrationBody',
+  example: { dateOfBirth: '2000-05-17' },
 });
 
 // Not the rules for a new password, so a later rule change does not lock anyone out.

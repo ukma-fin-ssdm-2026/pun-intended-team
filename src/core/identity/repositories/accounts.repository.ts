@@ -2,7 +2,7 @@
 import type { Account, AccountRecord, PasswordCredential, SignInLockout } from '../types/account.ts';
 
 export abstract class AccountsRepository {
-  abstract existsByPhone(phone: string): Promise<boolean>;
+  abstract findById(accountId: string): Promise<Account | undefined>;
 
   abstract findByPhone(phone: string): Promise<Account | undefined>;
 
@@ -11,6 +11,11 @@ export abstract class AccountsRepository {
 
   /** Creates the account without sign-in methods; the user adds them after registration. */
   abstract create(account: AccountRecord): Promise<Account>;
+
+  /** Saves the date of birth of a pending account and makes it active. */
+  abstract activate(accountId: string, dateOfBirth: string): Promise<void>;
+
+  abstract delete(accountId: string): Promise<void>;
 
   /** Undefined when the account has no password yet. */
   abstract findPasswordHash(accountId: string): Promise<string | undefined>;

@@ -2,13 +2,14 @@
 import { Controller } from '@nestjs/common';
 import { AuthService } from '../../../core/identity/services/auth.service.ts';
 import type { AccessToken } from '../../../core/identity/types/auth.ts';
-import type { AccountCaller } from '../../../core/identity/types/caller.ts';
-import { CurrentAccount } from '../../common/auth.ts';
+import type { AccountCaller, RegistrantCaller } from '../../../core/identity/types/caller.ts';
+import { CurrentAccount, CurrentRegistrant } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
 import {
   AccessTokenResponse,
+  CompleteRegistrationBody,
   ConfirmPasswordResetBody,
   GoogleIdTokenBody,
   PasswordResetBody,
@@ -20,6 +21,7 @@ import {
 
 const RegisterRequest = { body: RegisterBody } satisfies RequestSchemas;
 const VerifyRequest = { body: VerifyBody } satisfies RequestSchemas;
+const CompleteRegistrationRequest = { body: CompleteRegistrationBody } satisfies RequestSchemas;
 const SignInRequest = { body: SignInBody } satisfies RequestSchemas;
 const SetPasswordRequest = { body: SetPasswordBody } satisfies RequestSchemas;
 const GoogleIdTokenRequest = { body: GoogleIdTokenBody } satisfies RequestSchemas;
@@ -57,27 +59,51 @@ export class AuthController {
     method: 'post',
     path: Routes.auth.verify,
     operationId: 'verify',
-    summary: 'Finish registration',
+    summary: 'Verify the phone number',
     description:
-      'Finish registration with the code and the date of birth. Creates the account and signs in; ' +
-      'add a sign-in method next with `setPassword`.',
+      'Second registration step: check the code. Returns a registration token, valid for 15 minutes, ' +
+      'that only `completeRegistration` accepts.',
     tags: ['Auth'],
     access: 'public',
     mcp: false,
     request: VerifyRequest,
     responses: {
-      200: { description: 'The account is created; an access token for it', schema: AccessTokenResponse },
+      200: { description: 'A registration token', schema: AccessTokenResponse },
       409: { description: 'The phone number is already registered', schema: ErrorResponse },
       422: {
-        description:
-          '`INVALID_CODE`: the code is wrong, expired, already used or failed 3 times. ' +
-          '`UNDERAGE`: younger than 18.',
+        description: '`INVALID_CODE`: the code is wrong, expired, already used or failed 3 times',
         schema: ErrorResponse,
       },
     },
   })
   async verify(@Input() { body }: RouteInput<typeof VerifyRequest>): Promise<AccessTokenResponse> {
     return withType(await this.authService.verify(body));
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.completeRegistration,
+    operationId: 'completeRegistration',
+    summary: 'Finish registration',
+    description:
+      'Last registration step: the date of birth. Activates the account and signs in; add a sign-in method ' +
+      'next with `setPassword`. Under 18, the registration is removed and the number can start again.',
+    tags: ['Auth'],
+    access: 'registrant',
+    mcp: false,
+    request: CompleteRegistrationRequest,
+    responses: {
+      200: { description: 'The account is active; an access token for it', schema: AccessTokenResponse },
+      404: { description: 'The registration was removed; start again', schema: ErrorResponse },
+      409: { description: 'Registration is already complete', schema: ErrorResponse },
+      422: { description: '`UNDERAGE`: younger than 18', schema: ErrorResponse },
+    },
+  })
+  async completeRegistration(
+    @CurrentRegistrant() registrant: RegistrantCaller,
+    @Input() { body }: RouteInput<typeof CompleteRegistrationRequest>,
+  ): Promise<AccessTokenResponse> {
+    return withType(await this.authService.completeRegistration(registrant.accountId, body.dateOfBirth));
   }
 
   @Endpoint({

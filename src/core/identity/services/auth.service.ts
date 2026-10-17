@@ -16,6 +16,7 @@ import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
 
 const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
+const REGISTRATION_TOKEN_SECONDS = 15 * 60;
 // SEC-008
 const CODE_DIGITS = 6;
 const CODE_LIFETIME_MS = 10 * 60 * 1000;
@@ -51,18 +52,34 @@ export class AuthService implements OnModuleInit {
     await this.sendCode(phone, 'registration', now);
   }
 
-  async verify({ phone, code, dateOfBirth }: Registration): Promise<AccessToken> {
+  /** A phone that verified before but never finished registration continues with its pending account. */
+  async verify({ phone, code }: Registration): Promise<AccessToken> {
     const now = new Date();
-    // Used before the age check, so one code cannot try several dates of birth.
     await this.useCode(phone, 'registration', code, now);
-    if (!isAtLeast(MINIMUM_AGE, dateOfBirth, now)) {
-      throw new DomainError('UNDERAGE', `You must be at least ${MINIMUM_AGE} to use Nearby`);
-    }
-    if (await this.accountsRepository.existsByPhone(phone)) {
+    const existing = await this.accountsRepository.findByPhone(phone);
+    if (existing && existing.status !== 'pending') {
       throw new DomainError('CONFLICT', 'This phone number is already registered. Sign in instead');
     }
-    const account = await this.accountsRepository.create({ phone, role: 'user', status: 'active', dateOfBirth });
-    return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
+    const account =
+      existing ?? (await this.accountsRepository.create({ phone, role: 'user', status: 'pending', dateOfBirth: null }));
+    return this.issue({ kind: 'registrant', accountId: account.id }, REGISTRATION_TOKEN_SECONDS);
+  }
+
+  /** An applicant under 18 is refused and the pending account removed, so the number can register again (SAFE-001). */
+  async completeRegistration(accountId: string, dateOfBirth: string): Promise<AccessToken> {
+    const account = await this.accountsRepository.findById(accountId);
+    if (!account) {
+      throw new DomainError('NOT_FOUND', 'No registration in progress. Start again with your phone number');
+    }
+    if (account.status !== 'pending') {
+      throw new DomainError('CONFLICT', 'Registration is already complete. Sign in instead');
+    }
+    if (!isAtLeast(MINIMUM_AGE, dateOfBirth, new Date())) {
+      await this.accountsRepository.delete(accountId);
+      throw new DomainError('UNDERAGE', `You must be at least ${MINIMUM_AGE} to use Nearby`);
+    }
+    await this.accountsRepository.activate(accountId, dateOfBirth);
+    return this.issue({ kind: 'account', accountId, role: account.role, sessionId: randomUUID() });
   }
 
   /** The current password is required only once the account has one. */
@@ -207,9 +224,9 @@ export class AuthService implements OnModuleInit {
     }
   }
 
-  private async issue(caller: Caller): Promise<AccessToken> {
-    const accessToken = await this.accessTokens.issue(caller, ACCESS_TOKEN_SECONDS);
-    return { accessToken, expiresIn: ACCESS_TOKEN_SECONDS };
+  private async issue(caller: Caller, lifetimeSeconds = ACCESS_TOKEN_SECONDS): Promise<AccessToken> {
+    const accessToken = await this.accessTokens.issue(caller, lifetimeSeconds);
+    return { accessToken, expiresIn: lifetimeSeconds };
   }
 }
 
