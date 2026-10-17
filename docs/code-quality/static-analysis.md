@@ -53,7 +53,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 - **Rules:** `tseslint.configs.recommended` for all code. `recommendedTypeChecked` only for `src/**/*.ts`. `test/` and `*.mjs` get no type-checked rules.
 - **Why not `test/`:** measured before deciding. The type-checked rules gave 81 findings on `test/`, none of them real: 51 `no-floating-promises` on the top-level `test()` and `describe()` calls from `node:test`, which the runner tracks itself, and 30 `no-unsafe-*` that all come from the single `any` in the response `body`. Type-checked linting of `test/` is a future task together with typing `body`.
 - **Layer rule:** imports between `api`, `core` and `infra` are restricted by `no-restricted-imports`; the rules follow [`code-structure.md`](../architecture/mechanisms/code-structure.md).
-- **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit. It is checked by a separate CI job, "Client checks" ([`client-checks.yml`](../../.github/workflows/client-checks.yml)): `expo lint`, `tsc --noEmit`, `prettier --check` and a check that the generated API types match the spec. The client has no tests and no dependency audit.
+- **Ignores:** `src/mcp` (generated), `app/`, `docs` and `dist`. `tools/` is linted. The Expo client in `app/` has its own ESLint configuration and is outside the root ESLint, Prettier and pre-commit. It is checked by the client steps of the "CI passed" job in [`ci.yml`](../../.github/workflows/ci.yml): `expo lint`, `tsc --noEmit`, `prettier --check` and a check that the generated API types match the spec. The client has no tests and no dependency audit.
 - **Scripts:** `npm run lint` does not use `--fix`, so CI fails instead of silently rewriting code. `npm run lint:fix` is for local use.
 
 **Baseline.** The first run found 2 errors in `test/e2e/api.e2e.test.ts`, now 0:
@@ -69,7 +69,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 
 **Type checking.** `npm run typecheck` runs `tsc --noEmit` with `strict` plus `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns` and `noFallthroughCasesInSwitch`. Known gap: `tsconfig.json` includes only `src`, so nothing type-checks `test/`.
 
-**CI gate.** [`.github/workflows/code-quality.yml`](../../.github/workflows/code-quality.yml) has one job, "Static checks", which runs lint, `format:check` and typecheck. `ci.yml` calls it as `code-quality` and lists it in `needs` of the `ci-passed` aggregator. That is the only required check, so the job blocks merging without any ruleset change.
+**CI gate.** The "CI passed" job in [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) runs lint, `format:check` and typecheck as steps, together with the other API checks. That is the only required check, so these steps block merging without any ruleset change.
 
 **Decision: ESLint warnings do not fail CI.** This includes the warnings from eslint-plugin-security (see below), all of them false positives since #140 fixed SA-01. Failing on warnings would keep CI red on false positives.
 
@@ -158,7 +158,7 @@ eslint...............................................(no files to check)Skipped
 
 - Dependabot version updates in [`.github/dependabot.yml`](../../.github/dependabot.yml): weekly for npm in `/` and `/tools/mcp-generator`, and for GitHub Actions. `src/mcp` is excluded because it is generated.
 - Dependabot alerts and security updates are enabled in the repository Settings.
-- `npm audit --audit-level=high` runs in CI for three packages (`/`, `src/mcp`, `tools/mcp-generator`) via [`.github/workflows/dependency-audit.yml`](../../.github/workflows/dependency-audit.yml) (SEC-006). `app/` is not audited there (see below).
+- `npm audit --audit-level=high` runs in CI for three packages (`/`, `src/mcp`, `tools/mcp-generator`) in the "CI passed" job of [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) (SEC-006). `app/` is not audited there (see below).
 - Dependabot's first run failed with "Cannot create ref due to creations being restricted": the "branch naming" ruleset allowed only `feature/<n>-*` branches. Fixed by excluding `dependabot/**/*` from that ruleset; the next run opened #131 and #132.
 
 **Result:** `npm audit` reports 0 vulnerabilities in all three packages, also after adding the ESLint devDependencies.

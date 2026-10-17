@@ -3,12 +3,14 @@
 # How it was verified: actionlint (syntax, expressions, reusable-workflow inputs and permissions).
 # The calls themselves run only on GitHub.
 # Reviewed by: Vlad-Re
-# Changed by Claude (Claude Code): added the code-quality and client-checks jobs.
+# Changed by Claude (Claude Code): merged the API tests, API docs, dependency audit, code quality, client
+# checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
 #
 # CI = everything that must be green for the code to count as healthy.
-# Each check lives in its own reusable workflow; this file only decides what belongs to CI.
-# The README badge points here, and the "CI passed" job is the single required check in the rulesets,
-# so adding a new check means adding one call below and to `needs:`, without touching the rulesets.
+# The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
+# job, because every job is billed separately, rounded up to a full minute, and pays for its own checkout
+# and `npm ci`. Every check step runs even if an earlier one failed, so one run reports all problems;
+# the job still fails if any step failed. After a green push to main, the deploy job publishes the API docs.
 name: CI
 
 on:
@@ -19,49 +21,188 @@ on:
 
 permissions: {}
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
-  api-tests:
-    uses: ./.github/workflows/api-tests.yml
-    permissions:
-      contents: read
-
-  docs:
-    uses: ./.github/workflows/api-docs.yml
-    permissions:
-      contents: read
-
-  dependency-audit:
-    uses: ./.github/workflows/dependency-audit.yml
-    permissions:
-      contents: read
-
-  code-quality:
-    uses: ./.github/workflows/code-quality.yml
-    permissions:
-      contents: read
-
-  client-checks:
-    uses: ./.github/workflows/client-checks.yml
-    permissions:
-      contents: read
-
-  # Gate job: green only when every job above succeeded.
-  # `always()` makes it run (and fail) even when a needed job failed or was cancelled;
-  # without it the job would be skipped, and a skipped required check counts as passing.
   ci-passed:
     name: CI passed
-    if: always()
-    needs: [api-tests, docs, dependency-audit, code-quality, client-checks]
     runs-on: ubuntu-latest
-    steps:
-      - name: Check that every CI job succeeded
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
         env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          POSTGRES_USER: nearby
+          POSTGRES_PASSWORD: nearby_dev_password
+          POSTGRES_DB: nearby
+        ports:
+          - 5432:5432
+        volumes:
+          # The image's init script would create PostGIS here; the migrations do it, as in docker-compose.yml.
+          - /dev/null:/docker-entrypoint-initdb.d/10_postgis.sh:ro
+        options: >-
+          --health-cmd "pg_isready -U nearby -d nearby"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            app/package-lock.json
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      # --- Code quality (was code-quality.yml) ---
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Check formatting
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run format:check
+
+      - name: Type-check
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run typecheck
+
+      # --- Client checks (was client-checks.yml; the client in app/ has its own dependencies) ---
+      - name: Install client dependencies
+        id: client-install
+        working-directory: app
+        run: npm ci
+
+      - name: Lint client
+        if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
+        working-directory: app
+        run: npm run lint
+
+      - name: Type-check client
+        if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
+        working-directory: app
+        run: npm run typecheck
+
+      - name: Check client formatting
+        if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
+        working-directory: app
+        run: npx prettier --check .
+
+      # The client's API types are generated from the spec; a spec change without them breaks this step.
+      - name: Check API types match the spec
+        if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
+        working-directory: app
         run: |
-          echo "Job results: $RESULTS"
-          for result in $RESULTS; do
-            if [ "$result" != success ]; then
-              echo "::error::At least one CI job did not succeed ($result). See the jobs above."
-              exit 1
+          npm run api:types
+          if ! git diff --exit-code src/api/schema.d.ts; then
+            echo "::error file=app/src/api/schema.d.ts::The API types are out of date. Run 'npm run api:types' in app/ and commit src/api/schema.d.ts."
+            exit 1
+          fi
+
+      # --- API docs check (was api-docs.yml) ---
+      - name: Check vendored Swagger UI matches swagger-ui-dist
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          version=$(node -p "require('./node_modules/swagger-ui-dist/package.json').version")
+          status=0
+          for file in docs/api/vendor/swagger-ui/*; do
+            name=$(basename "$file")
+            [ "$name" = README.md ] && continue
+            if ! cmp -s "$file" "node_modules/swagger-ui-dist/$name"; then
+              echo "::error file=$file::$name differs from swagger-ui-dist $version in node_modules. Update docs/api/vendor/swagger-ui/ as described in docs/api/vendor/swagger-ui/README.md."
+              status=1
             fi
           done
+          for name in swagger-ui-bundle.js swagger-ui.css; do
+            [ -f "docs/api/vendor/swagger-ui/$name" ] || { echo "::error::docs/api/vendor/swagger-ui/$name is missing; docs/api/index.html loads it."; status=1; }
+          done
+          exit $status
+
+      - name: Generate OpenAPI spec
+        id: docs-generate
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run docs:generate
+
+      # Fails a pull request; other events only warn, so main still gets the freshly generated spec.
+      - name: Check committed spec is up to date
+        if: ${{ !cancelled() && steps.docs-generate.outcome == 'success' }}
+        run: |
+          if [ -n "$(git status --porcelain -- docs/api/openapi-generated.yaml)" ]; then
+            git diff -- docs/api/openapi-generated.yaml
+            message="The committed OpenAPI spec is missing or out of date. Run 'npm run docs:generate' and commit docs/api/openapi-generated.yaml."
+            if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+              echo "::error file=docs/api/openapi-generated.yaml::$message"
+              exit 1
+            fi
+            if [ "$GITHUB_REF" = refs/heads/main ]; then
+              message="$message Publishing the freshly generated spec."
+            fi
+            echo "::warning file=docs/api/openapi-generated.yaml::$message"
+          fi
+
+      # --- API docs for GitHub Pages (was pages.yml): only after a push or manual run on main ---
+      - name: Upload API docs as the Pages artifact
+        if: ${{ !cancelled() && steps.docs-generate.outcome == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/api
+
+      # --- Dependency audit (was dependency-audit.yml) ---
+      # SEC-006: zero High and Critical advisories. --package-lock-only reads the lock files without installing.
+      - name: Audit all three packages
+        if: ${{ !cancelled() }}
+        run: |
+          status=0
+          for dir in . src/mcp tools/mcp-generator; do
+            echo "::group::npm audit in $dir"
+            (cd "$dir" && npm audit --package-lock-only --audit-level=high) || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+
+      # --- API tests (was api-tests.yml) ---
+      - name: Apply database migrations
+        id: migrate
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        env:
+          DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
+        run: npx prisma migrate deploy
+
+      - name: Run e2e tests
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
+        env:
+          DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
+        run: npm run test:e2e
+
+  deploy:
+    name: Deploy API docs
+    needs: ci-passed
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
