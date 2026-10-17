@@ -41,7 +41,7 @@
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
   - Traceability Lead — maintains the RTM (Requirements Traceability Matrix).
   - UML Lead — responsible for the correctness of UML diagrams.
-  - Integration Lead — integrates all components and the CI/CD pipeline, including the tests in the project and the CI pipeline.
+  - Integration Lead — integrates all components, the tests and the CI/CD pipeline.
   - Quality Lead (code) — coordinates the code review and sets up static analysis.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
