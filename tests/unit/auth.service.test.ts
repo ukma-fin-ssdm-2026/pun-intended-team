@@ -351,6 +351,17 @@ describe('AuthService.signIn', () => {
     );
   });
 
+  // SEC-007: the first sign-in with an unknown phone must not pay for creating the stand-in hash.
+  test('does no hashing during the first sign-in with an unknown phone', async () => {
+    const { service, passwordHasher } = makeService();
+    const hashesBefore = passwordHasher.hash.mock.callCount();
+
+    await assert.rejects(service.signIn(PHONE, PASSWORD), isDomainError('INVALID_CREDENTIALS'));
+
+    assert.equal(passwordHasher.hash.mock.callCount(), hashesBefore);
+    assert.equal(passwordHasher.verify.mock.callCount(), 1);
+  });
+
   test('rejects a wrong password', async () => {
     const { service, accounts, passwordHasher, accessTokens } = makeService();
     accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(aCredential()));
