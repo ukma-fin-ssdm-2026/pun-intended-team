@@ -6,8 +6,8 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 130 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 99 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 200 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 119 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
@@ -22,8 +22,8 @@ MCR, 17 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 95.27% | 85.83% | 96.77% | 95.01% |
-| Unit tests only | 39.89% | 46.15% | 30.32% | 28.59% |
+| All tests | 96.06% | 88.86% | 97.34% | 95.78% |
+| Unit tests only | 49.44% | 58.29% | 38.83% | 35.75% |
 
 Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 94%; matching and the report/ban flow are measured once they are built.
 
