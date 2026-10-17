@@ -58,6 +58,8 @@ const newListing = {
 let server: ChildProcess;
 let baseUrl: string;
 let keysDir: string;
+// The environment every API this run starts shares: the run's own keys and Google key set.
+let apiEnv: NodeJS.ProcessEnv;
 let serverOutput = '';
 // The test signs tokens with the server's own key to check how bad tokens are refused.
 const jwtKey = { kid: 'e2e', secret: randomBytes(32) };
@@ -219,9 +221,37 @@ async function freePort(): Promise<number> {
   });
 }
 
-before(async () => {
+/** Starts the built API on a free port with `apiEnv` and `env`; resolves once it answers /health. */
+async function startApi(
+  env: NodeJS.ProcessEnv,
+  onOutput?: (chunk: string) => void,
+): Promise<{ child: ChildProcess; url: string }> {
   const port = await freePort();
-  baseUrl = `http://localhost:${port}`;
+  const url = `http://localhost:${port}`;
+  const child = spawn(process.execPath, ['dist/api/main.js'], {
+    env: { ...apiEnv, ...env, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  child.stdout?.on('data', (chunk: Buffer) => onOutput?.(chunk.toString()));
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`The API exited with code ${child.exitCode}; run npm run build first`);
+    }
+    try {
+      if ((await fetch(`${url}/health`)).ok) {
+        return { child, url };
+      }
+    } catch {
+      // Not listening yet.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  child.kill();
+  throw new Error('The API did not start within 15 s');
+}
+
+before(async () => {
   // Test keys of its own, so the run never depends on a developer's keys/.
   keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
   const codeHmacKeyFile = path.join(keysDir, 'code-hmac.key');
@@ -235,42 +265,22 @@ before(async () => {
   jwksServer = createHttpServer((_req, res) => res.writeHead(200, { 'content-type': 'application/json' }).end(jwks));
   const jwksPort = await freePort();
   await new Promise<void>((resolve) => jwksServer.listen(jwksPort, resolve));
-  // Production mode so the run does not rewrite the committed OpenAPI spec.
-  server = spawn(process.execPath, ['dist/api/main.js'], {
-    env: {
-      ...process.env,
-      PORT: String(port),
-      NODE_ENV: 'production',
-      CODE_HMAC_KEY_FILE: codeHmacKeyFile,
-      JWT_KEYS_FILE: jwtKeysFile,
-      // The codes are read from the log, so they must not go to Telegram, the production default.
-      MESSAGING_PROVIDER: 'console',
-      GOOGLE_CLIENT_IDS: googleClientId,
-      GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
-    },
-    // stdout carries the verification codes the console messaging provider logs.
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
-  server.stdout?.on('data', (chunk: Buffer) => {
-    serverOutput += chunk.toString();
-  });
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (server.exitCode !== null) {
-      throw new Error(`The API exited with code ${server.exitCode}; run npm run build first`);
-    }
-    try {
-      if ((await fetch(`${baseUrl}/health`)).ok) {
-        break;
-      }
-    } catch {
-      // Not listening yet.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  if (Date.now() >= deadline) {
-    throw new Error('The API did not start within 15 s');
-  }
+  apiEnv = {
+    ...process.env,
+    // Production mode so the run does not rewrite the committed OpenAPI spec.
+    NODE_ENV: 'production',
+    CODE_HMAC_KEY_FILE: codeHmacKeyFile,
+    JWT_KEYS_FILE: jwtKeysFile,
+    // The codes are read from the log, so they must not go to Telegram, the production default.
+    MESSAGING_PROVIDER: 'console',
+    GOOGLE_CLIENT_IDS: googleClientId,
+    GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
+  };
+  // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
+  // stdout carries the verification codes the console messaging provider logs.
+  ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
+    serverOutput += chunk;
+  }));
   tokens.guest = (await call('POST', '/api/v1/auth/guest')).body.accessToken;
   tokens.user = await signIn(phones.user);
   tokens.org = await signIn(phones.org);
@@ -561,6 +571,48 @@ describe('PUT /api/v1/me/google', () => {
       401,
       'UNAUTHENTICATED',
     );
+  });
+});
+
+// SEC-007, TM-08: an API of its own with a limit of 2, so the rest of the suite keeps its budget.
+describe('Per-IP limit on the auth endpoints', () => {
+  let limited: { child: ChildProcess; url: string };
+
+  before(async () => {
+    limited = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
+  });
+
+  after(() => {
+    limited?.child.kill();
+  });
+
+  function post(path: string, body?: object): Promise<globalThis.Response> {
+    return fetch(limited.url + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: body && JSON.stringify(body),
+    });
+  }
+
+  test('refuses a third sign-in from one IP within a minute with 429 and Retry-After', async () => {
+    const attempt = { phone: phones.user, password: 'not-the-password' };
+    await post('/api/v1/auth/sign-in', attempt);
+    await post('/api/v1/auth/sign-in', attempt);
+
+    const res = await post('/api/v1/auth/sign-in', attempt);
+
+    assert.equal(res.status, 429);
+    assert.equal((await res.json()).error.code, 'RATE_LIMITED');
+    assert.ok(Number(res.headers.get('retry-after')) > 0, String(res.headers.get('retry-after')));
+  });
+
+  test('does not limit guest tokens, which every app start asks for', async () => {
+    const statuses = [];
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      statuses.push((await post('/api/v1/auth/guest')).status);
+    }
+
+    assert.deepEqual(statuses, [200, 200, 200]);
   });
 });
 

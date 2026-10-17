@@ -1,5 +1,6 @@
 // Written with the help of Claude
-import { Controller } from '@nestjs/common';
+import { Controller, UseGuards } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from '../../../core/identity/services/auth.service.ts';
 import type { AccessToken } from '../../../core/identity/types/auth.ts';
 import type { AccountCaller, RegistrantCaller } from '../../../core/identity/types/caller.ts';
@@ -34,6 +35,7 @@ const ConfirmPasswordResetRequest = { body: ConfirmPasswordResetBody } satisfies
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.register,
@@ -55,6 +57,7 @@ export class AuthController {
     await this.authService.register(body.phone);
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.verify,
@@ -106,6 +109,7 @@ export class AuthController {
     return withType(await this.authService.completeRegistration(registrant.accountId, body.dateOfBirth));
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.signIn,
@@ -127,6 +131,7 @@ export class AuthController {
     return withType(await this.authService.signIn(body.phone, body.password));
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.google,
@@ -149,6 +154,7 @@ export class AuthController {
     return withType(await this.authService.signInWithGoogle(body.idToken));
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.passwordReset,
@@ -169,6 +175,7 @@ export class AuthController {
     await this.authService.requestPasswordReset(body.phone);
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'post',
     path: Routes.auth.passwordResetConfirm,
