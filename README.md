@@ -63,6 +63,12 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
 
+## ✓ Testing
+
+Documentation related to testing is located [here](docs/testing/):
+
+- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current tests, coverage, and plans for integration, system, acceptance, performance, security and property-based tests in CI
+
 ## ര Running the API
 
 Requires Node.js 26 or later.
