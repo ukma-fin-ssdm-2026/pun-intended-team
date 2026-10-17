@@ -63,12 +63,6 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
 
-## ✓ Testing
-
-Documentation related to testing is located [here](docs/testing/):
-
-- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current tests, coverage, and plans for integration, system, acceptance, performance, security and property-based tests in CI
-
 ## ര Running the API
 
 Requires Node.js 26 or later.
@@ -111,6 +105,8 @@ npm run docs:coverage        # regenerates the committed reports in docs/testing
 The coverage commands use [monocart-coverage-reports](https://github.com/cenfun/monocart-coverage-reports), print a summary and write a single-file HTML report to `coverage/index.html`, which is not committed. Coverage measures only code that makes decisions when it runs; what is left out and why is in the [testing mechanism](docs/architecture/mechanisms/testing.md). Blank and comment lines are not counted.
 
 The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html), are a snapshot: after changing tests, run `npm run docs:coverage` and commit `docs/testing/coverage/` in the same pull request.
+
+How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
 ## 𓂀 Commit hooks
 
