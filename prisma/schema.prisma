@@ -209,16 +209,17 @@ model Category {
 }
 
 model Account {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  role              AccountRole   @default(user)
-  contactIdentifier Bytes         @map("contact_identifier")
-  contactHash       Bytes         @unique @map("contact_hash")
-  dateOfBirth       Bytes?        @map("date_of_birth")
-  status            AccountStatus @default(pending)
-  failedSignins     Int           @default(0) @map("failed_signins")
-  lockedUntil       DateTime?     @map("locked_until") @db.Timestamptz(3)
-  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role               AccountRole   @default(user)
+  contactIdentifier  Bytes         @map("contact_identifier")
+  contactHash        Bytes         @unique @map("contact_hash")
+  dateOfBirth        Bytes?        @map("date_of_birth")
+  status             AccountStatus @default(pending)
+  failedSignins      Int           @default(0) @map("failed_signins")
+  failedSigninsSince DateTime?     @map("failed_signins_since") @db.Timestamptz(3)
+  lockedUntil        DateTime?     @map("locked_until") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   authMethods           AuthMethod[]
   refreshTokens         RefreshToken[]

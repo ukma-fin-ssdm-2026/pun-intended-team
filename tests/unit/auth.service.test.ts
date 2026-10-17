@@ -333,15 +333,17 @@ describe('AuthService.signIn', () => {
     assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
   });
 
-  // SEC-007: an unknown phone costs a hash check too, so the response time does not reveal it.
-  test('checks the password of an unknown phone against one stand-in hash', async () => {
+  // SEC-007: an unknown phone costs one hash check, like a known one, so the response time does not reveal it.
+  test('checks every unknown phone against the stand-in hash made at startup, hashing nothing more', async () => {
     const { service, passwordHasher } = makeService();
+    await service.onModuleInit();
+    assert.equal(passwordHasher.hash.mock.callCount(), 1);
+    const standIn = await passwordHasher.hash.mock.calls[0]?.result;
 
     await assert.rejects(service.signIn(PHONE, PASSWORD), isDomainError('INVALID_CREDENTIALS'));
     await assert.rejects(service.signIn('+380501234500', PASSWORD), isDomainError('INVALID_CREDENTIALS'));
 
     assert.equal(passwordHasher.hash.mock.callCount(), 1);
-    const standIn = await passwordHasher.hash.mock.calls[0]?.result;
     assert.deepEqual(
       passwordHasher.verify.mock.calls.map((call) => call.arguments),
       [
