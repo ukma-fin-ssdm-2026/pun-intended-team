@@ -29,12 +29,12 @@ Tools: `node:test`, MCR (monocart-coverage-reports), Docker PostgreSQL. Planned:
 
 Reports: [all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html).
 
-Unit tests reach only the services in `core/`; controllers, `api/common/` and `infra/` are covered by the integration tests alone.
+Unit tests reach only `core/`; controllers, `api/common/` and `infra/` are covered by the integration tests alone.
 
 Not covered, and why:
-- **`api-express-adapter.ts`** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
-- **`key-files.ts`** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
-- **Branches (77.55%)** lag behind statements: error and edge paths in the services are tested over HTTP only for the common cases.
+- **`api-express-adapter.ts` (33%, no branches)** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
+- **`key-files.ts` (79%)** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
+- **Branches (77.55%)** lag behind statements mostly in `infra/prisma/` (44%): the database error paths of the categories repository, which need tests against PostgreSQL, and in `api-exception.filter.ts` (57%).
 
 | Target (MAIN-001) | Statements | Status |
 |---|---|---|
@@ -61,4 +61,4 @@ Tests are run locally before pushing, review checks them with the diff, and a fl
 
 ## AI Usage Note
 
-Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run.
+Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run and match the committed reports.
