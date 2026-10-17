@@ -32,6 +32,9 @@ if (serveSwaggerUi) {
   SwaggerModule.setup('api-docs', app, openapiSpec, { jsonDocumentUrl: 'api-docs.json' });
 }
 
+// Exit normally on SIGTERM so coverage (npm run test:coverage) is written.
+process.once('SIGTERM', () => void app.close().then(() => process.exit(0)));
+
 await app.listen(port);
 const logger = new Logger('Bootstrap');
 logger.log(`API:        http://localhost:${port}`);

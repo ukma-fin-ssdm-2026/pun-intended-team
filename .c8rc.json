@@ -1,0 +1,7 @@
+{
+  "all": true,
+  "src": ["dist"],
+  "include": ["dist/**/*.js"],
+  "exclude": ["dist/scripts/**"],
+  "reporter": ["text-summary", "html"]
+}
