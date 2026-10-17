@@ -31,7 +31,9 @@ export class AuthService {
     private readonly codeHasher: CodeHasher,
     private readonly accessTokens: AccessTokens,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) {
+    this.dummyPasswordHash = this.passwordHasher.hash(randomUUID());
+  }
 
   /** Answers the same whether or not the phone already has an account (SEC-007). */
   async register(phone: string): Promise<void> {
