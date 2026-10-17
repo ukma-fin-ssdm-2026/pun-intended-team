@@ -19,7 +19,7 @@ export const accounts = {
 } as const;
 
 /** No `lockout` means no failed sign-ins and no lock. */
-export type StoredAccount = Account & { passwordHash: string | null; lockout?: SignInLockout };
+export type StoredAccount = Account & { passwordHash: string | null; googleSubject?: string; lockout?: SignInLockout };
 
 /** Every seeded account signs in with the password `nearby-dev-password`. */
 export const storedAccounts: StoredAccount[] = [

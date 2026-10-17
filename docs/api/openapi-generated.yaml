@@ -115,6 +115,9 @@ components:
         - PROFILE_EXISTS
         - INVALID_CREDENTIALS
         - WRONG_PASSWORD
+        - INVALID_GOOGLE_TOKEN
+        - GOOGLE_ACCOUNT_TAKEN
+        - GOOGLE_ALREADY_LINKED
         - INVALID_CODE
         - CODE_RESEND_TOO_SOON
         - UNDERAGE
@@ -461,6 +464,19 @@ components:
       example:
         phone: '+380501110001'
         password: nearby-dev-password
+    GoogleIdTokenBody:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The ID token Google Sign-In returned on the device
+      required:
+        - idToken
+      additionalProperties: false
+      example:
+        idToken: eyJhbGciOiJSUzI1NiIs…
     PasswordResetBody:
       type: object
       properties:
@@ -1458,6 +1474,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/google:
+    post:
+      operationId: signInWithGoogle
+      summary: Sign in with Google
+      description: >-
+        Sign in with a Google account the user linked earlier with `linkGoogle`.
+        No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '200':
+          description: An access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked
+            this Google account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/password-reset:
     post:
       operationId: requestPasswordReset
@@ -1559,6 +1611,54 @@ paths:
           description: >-
             `WRONG_PASSWORD`: the account has a password and `currentPassword`
             is missing or wrong
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/google:
+    put:
+      operationId: linkGoogle
+      summary: Link your Google account
+      description: >-
+        Link a Google account to sign in with from now on. Linking the same
+        Google account again changes nothing. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '204':
+          description: The Google account is linked
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account.
+            `GOOGLE_ALREADY_LINKED`: this account has another Google account
+            linked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired'
           content:
             application/json:
               schema:

@@ -61,6 +61,15 @@ export const ConfirmPasswordResetBody = ConfirmPasswordResetFields.meta({
   example: { phone: '+380501110001', code: '123456', password: 'a new long passphrase' },
 });
 
+const GoogleIdTokenFields = z.strictObject({
+  idToken: z.string().min(1).max(4096).describe('The ID token Google Sign-In returned on the device'),
+});
+
+export const GoogleIdTokenBody = GoogleIdTokenFields.meta({
+  id: 'GoogleIdTokenBody',
+  example: { idToken: 'eyJhbGciOiJSUzI1NiIs…' },
+});
+
 const SetPasswordFields = z.strictObject({
   password: NewPassword,
   currentPassword: CurrentPassword.optional().describe('Required once the account has a password'),

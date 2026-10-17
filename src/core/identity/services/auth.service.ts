@@ -6,6 +6,7 @@ import { kyivDate } from '../../common/kyiv-time.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { AccessTokens } from '../adapters/access-tokens.ts';
 import { CodeHasher } from '../adapters/code-hasher.ts';
+import { GoogleIdTokens } from '../adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
@@ -33,6 +34,7 @@ export class AuthService implements OnModuleInit {
     private readonly passwordHasher: PasswordHasher,
     private readonly codeHasher: CodeHasher,
     private readonly accessTokens: AccessTokens,
+    private readonly googleIdTokens: GoogleIdTokens,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -127,6 +129,38 @@ export class AuthService implements OnModuleInit {
       role: credential.role,
       sessionId: randomUUID(),
     });
+  }
+
+  /** Only an account that linked this Google account signs in; the password lockout does not apply (TM-09). */
+  async signInWithGoogle(idToken: string): Promise<AccessToken> {
+    const subject = await this.googleIdTokens.verify(idToken);
+    const account = subject === undefined ? undefined : await this.accountsRepository.findByGoogleSubject(subject);
+    if (account?.status !== 'active') {
+      throw new DomainError(
+        'INVALID_CREDENTIALS',
+        'This Google account is not linked to Nearby. Sign in with your phone number, then link it',
+      );
+    }
+    return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
+  }
+
+  /** Only from a signed-in session, never by matching email (TM-12). Linking the same Google account again is a no-op. */
+  async linkGoogle(accountId: string, idToken: string): Promise<void> {
+    const subject = await this.googleIdTokens.verify(idToken);
+    if (subject === undefined) {
+      throw new DomainError('INVALID_GOOGLE_TOKEN', 'Google sign-in did not go through. Try again');
+    }
+    const owner = await this.accountsRepository.findByGoogleSubject(subject);
+    if (owner?.id === accountId) {
+      return;
+    }
+    if (owner) {
+      throw new DomainError('GOOGLE_ACCOUNT_TAKEN', 'This Google account is linked to another Nearby account');
+    }
+    if ((await this.accountsRepository.findGoogleSubject(accountId)) !== undefined) {
+      throw new DomainError('GOOGLE_ALREADY_LINKED', 'Your account already has a Google account linked');
+    }
+    await this.accountsRepository.linkGoogle(accountId, subject);
   }
 
   async issueGuestToken(): Promise<AccessToken> {

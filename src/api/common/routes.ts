@@ -9,12 +9,14 @@ export const Routes = {
     register: '/api/v1/auth/register',
     verify: '/api/v1/auth/verify',
     signIn: '/api/v1/auth/sign-in',
+    google: '/api/v1/auth/google',
     guest: '/api/v1/auth/guest',
     passwordReset: '/api/v1/auth/password-reset',
     passwordResetConfirm: '/api/v1/auth/password-reset/confirm',
   },
   account: {
     password: '/api/v1/me/password',
+    google: '/api/v1/me/google',
   },
   events: {
     list: '/api/v1/events',

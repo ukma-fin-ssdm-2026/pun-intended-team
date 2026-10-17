@@ -18,6 +18,14 @@ export abstract class AccountsRepository {
   /** Adds the password sign-in method, or replaces the password if there is one. */
   abstract setPasswordHash(accountId: string, passwordHash: string): Promise<void>;
 
+  abstract findByGoogleSubject(subject: string): Promise<Account | undefined>;
+
+  /** Undefined when the account has no Google account linked. */
+  abstract findGoogleSubject(accountId: string): Promise<string | undefined>;
+
+  /** Adds the Google sign-in method. */
+  abstract linkGoogle(accountId: string, subject: string): Promise<void>;
+
   abstract saveLockout(accountId: string, lockout: SignInLockout): Promise<void>;
 
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */

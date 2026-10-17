@@ -12,12 +12,19 @@ export class StubAccountsRepository implements AccountsRepository {
   }
 
   async findByPhone(phone: string): Promise<Account | undefined> {
-    const stored = storedAccounts.find((account) => account.phone === phone);
-    if (!stored) {
-      return undefined;
-    }
-    const { passwordHash, lockout, ...account } = stored;
-    return account;
+    return toAccount(storedAccounts.find((account) => account.phone === phone));
+  }
+
+  async findByGoogleSubject(subject: string): Promise<Account | undefined> {
+    return toAccount(storedAccounts.find((account) => account.googleSubject === subject));
+  }
+
+  async findGoogleSubject(accountId: string): Promise<string | undefined> {
+    return this.byId(accountId).googleSubject;
+  }
+
+  async linkGoogle(accountId: string, subject: string): Promise<void> {
+    this.byId(accountId).googleSubject = subject;
   }
 
   async findPasswordCredential(phone: string): Promise<PasswordCredential | undefined> {
@@ -59,4 +66,12 @@ export class StubAccountsRepository implements AccountsRepository {
     }
     return account;
   }
+}
+
+function toAccount(stored: StoredAccount | undefined): Account | undefined {
+  if (!stored) {
+    return undefined;
+  }
+  const { id, phone, role, status, dateOfBirth } = stored;
+  return { id, phone, role, status, dateOfBirth };
 }

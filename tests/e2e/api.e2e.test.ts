@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer as createHttpServer, type Server } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
@@ -61,6 +62,11 @@ let serverOutput = '';
 // The test signs tokens with the server's own key to check how bad tokens are refused.
 const jwtKey = { kid: 'e2e', secret: randomBytes(32) };
 const tokens = { guest: '', user: '', org: '', orgPending: '', admin: '' };
+// Google's keys are served by the test itself, so it can sign ID tokens the API accepts.
+const googleClientId = 'nearby-e2e.apps.googleusercontent.com';
+const googleKid = 'e2e-google';
+let googleKey: CryptoKey;
+let jwksServer: Server;
 
 interface Response {
   status: number;
@@ -161,6 +167,23 @@ async function loggedCode(phone: string, logged: number): Promise<string | undef
   return undefined;
 }
 
+/** An ID token for `subject` as Google Sign-In returns it on the device. */
+function googleIdToken(subject: string, { audience = googleClientId } = {}): Promise<string> {
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'RS256', kid: googleKid })
+    .setSubject(subject)
+    .setIssuer('https://accounts.google.com')
+    .setAudience(audience)
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(googleKey);
+}
+
+/** A random Google subject id, so every test links a Google account of its own. */
+function newGoogleSubject(): string {
+  return String(Math.floor(Math.random() * 1e15)).padStart(21, '1');
+}
+
 function registration(phone: string, code: string, dateOfBirth = '2000-05-17') {
   return { phone, code, dateOfBirth };
 }
@@ -202,6 +225,12 @@ before(async () => {
   const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
   const jwk = { kty: 'oct', alg: 'HS256', kid: jwtKey.kid, k: jwtKey.secret.toString('base64url') };
   writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwk] }));
+  const google = await generateKeyPair('RS256', { extractable: true });
+  googleKey = google.privateKey;
+  const jwks = JSON.stringify({ keys: [{ ...(await exportJWK(google.publicKey)), kid: googleKid, alg: 'RS256' }] });
+  jwksServer = createHttpServer((_req, res) => res.writeHead(200, { 'content-type': 'application/json' }).end(jwks));
+  const jwksPort = await freePort();
+  await new Promise<void>((resolve) => jwksServer.listen(jwksPort, resolve));
   // Production mode so the run does not rewrite the committed OpenAPI spec.
   server = spawn(process.execPath, ['dist/api/main.js'], {
     env: {
@@ -210,6 +239,8 @@ before(async () => {
       NODE_ENV: 'production',
       CODE_HMAC_KEY_FILE: codeHmacKeyFile,
       JWT_KEYS_FILE: jwtKeysFile,
+      GOOGLE_CLIENT_IDS: googleClientId,
+      GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     },
     // stdout carries the verification codes the console messaging provider logs.
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -250,6 +281,7 @@ after(async () => {
     }
   }
   server?.kill();
+  jwksServer?.close();
   rmSync(keysDir, { recursive: true, force: true });
 });
 
@@ -413,6 +445,86 @@ describe('POST /api/v1/auth/verify', () => {
       body: registration(phones.admin, await requestCode(phones.admin)),
     });
     assertRejected(res, 409, 'CONFLICT');
+  });
+});
+
+describe('POST /api/v1/auth/google', () => {
+  test('signs in an account that linked the Google account', async () => {
+    const { token } = await newAccount();
+    const subject = newGoogleSubject();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('refuses a Google account no account linked with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/google', {
+      body: { idToken: await googleIdToken(newGoogleSubject()) },
+    });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('refuses an ID token issued to another app with 401', async () => {
+    const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
+
+    assertRejected(await call('POST', '/api/v1/auth/google', { body: { idToken } }), 401, 'INVALID_CREDENTIALS');
+  });
+});
+
+describe('PUT /api/v1/me/google', () => {
+  test('links a Google account, and linking it again changes nothing', async () => {
+    const { token } = await newAccount();
+    const body = { idToken: await googleIdToken(newGoogleSubject()) };
+
+    const first = await call('PUT', '/api/v1/me/google', { token, body });
+    const again = await call('PUT', '/api/v1/me/google', { token, body });
+
+    assert.equal(first.status, 204, JSON.stringify(first.body));
+    assert.equal(again.status, 204, JSON.stringify(again.body));
+  });
+
+  test('refuses a Google account another account linked with 409', async () => {
+    const subject = newGoogleSubject();
+    const owner = await newAccount();
+    await call('PUT', '/api/v1/me/google', { token: owner.token, body: { idToken: await googleIdToken(subject) } });
+    const { token } = await newAccount();
+
+    const res = await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+
+    assertRejected(res, 409, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  test('refuses a second Google account with 409', async () => {
+    const { token } = await newAccount();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } });
+
+    const res = await call('PUT', '/api/v1/me/google', {
+      token,
+      body: { idToken: await googleIdToken(newGoogleSubject()) },
+    });
+
+    assertRejected(res, 409, 'GOOGLE_ALREADY_LINKED');
+  });
+
+  test('rejects an ID token issued to another app with 422', async () => {
+    const { token } = await newAccount();
+    const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
+
+    assertRejected(await call('PUT', '/api/v1/me/google', { token, body: { idToken } }), 422, 'INVALID_GOOGLE_TOKEN');
+  });
+
+  test('rejects a guest with 401', async () => {
+    const idToken = await googleIdToken(newGoogleSubject());
+
+    assertRejected(
+      await call('PUT', '/api/v1/me/google', { token: tokens.guest, body: { idToken } }),
+      401,
+      'UNAUTHENTICATED',
+    );
   });
 });
 

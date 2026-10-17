@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Global, Module } from '@nestjs/common';
+import { createRemoteJWKSet } from 'jose';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
@@ -9,13 +10,16 @@ import { InterestsRepository } from '../core/profiles/repositories/interests.rep
 import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.ts';
 import { AccessTokens } from '../core/identity/adapters/access-tokens.ts';
 import { CodeHasher } from '../core/identity/adapters/code-hasher.ts';
+import { GoogleIdTokens } from '../core/identity/adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
+import { loadGoogleSettings } from './auth/google-settings.ts';
 import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
 import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
+import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
@@ -47,6 +51,13 @@ const adapters = [
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },
+  {
+    provide: GoogleIdTokens,
+    useFactory: () => {
+      const { clientIds, jwksUrl } = loadGoogleSettings();
+      return new JoseGoogleIdTokens(clientIds, createRemoteJWKSet(jwksUrl));
+    },
+  },
 ];
 
 const providers = [...repositories, ...adapters];

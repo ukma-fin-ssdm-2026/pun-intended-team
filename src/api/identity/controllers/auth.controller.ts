@@ -10,6 +10,7 @@ import { ErrorResponse } from '../../common/schemas/errors.ts';
 import {
   AccessTokenResponse,
   ConfirmPasswordResetBody,
+  GoogleIdTokenBody,
   PasswordResetBody,
   RegisterBody,
   SetPasswordBody,
@@ -21,6 +22,7 @@ const RegisterRequest = { body: RegisterBody } satisfies RequestSchemas;
 const VerifyRequest = { body: VerifyBody } satisfies RequestSchemas;
 const SignInRequest = { body: SignInBody } satisfies RequestSchemas;
 const SetPasswordRequest = { body: SetPasswordBody } satisfies RequestSchemas;
+const GoogleIdTokenRequest = { body: GoogleIdTokenBody } satisfies RequestSchemas;
 const PasswordResetRequest = { body: PasswordResetBody } satisfies RequestSchemas;
 const ConfirmPasswordResetRequest = { body: ConfirmPasswordResetBody } satisfies RequestSchemas;
 
@@ -101,6 +103,28 @@ export class AuthController {
 
   @Endpoint({
     method: 'post',
+    path: Routes.auth.google,
+    operationId: 'signInWithGoogle',
+    summary: 'Sign in with Google',
+    description: 'Sign in with a Google account the user linked earlier with `linkGoogle`.',
+    tags: ['Auth'],
+    access: 'public',
+    mcp: false,
+    request: GoogleIdTokenRequest,
+    responses: {
+      200: { description: 'An access token', schema: AccessTokenResponse },
+      401: {
+        description: '`INVALID_CREDENTIALS`: the ID token is invalid, or no account linked this Google account',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async signInWithGoogle(@Input() { body }: RouteInput<typeof GoogleIdTokenRequest>): Promise<AccessTokenResponse> {
+    return withType(await this.authService.signInWithGoogle(body.idToken));
+  }
+
+  @Endpoint({
+    method: 'post',
     path: Routes.auth.passwordReset,
     operationId: 'requestPasswordReset',
     summary: 'Start a password reset',
@@ -166,6 +190,35 @@ export class AuthController {
     @Input() { body }: RouteInput<typeof SetPasswordRequest>,
   ): Promise<void> {
     await this.authService.setPassword(account.accountId, body.password, body.currentPassword);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.account.google,
+    operationId: 'linkGoogle',
+    summary: 'Link your Google account',
+    description:
+      'Link a Google account to sign in with from now on. Linking the same Google account again changes nothing.',
+    tags: ['Auth'],
+    access: 'user',
+    mcp: false,
+    request: GoogleIdTokenRequest,
+    responses: {
+      204: { description: 'The Google account is linked' },
+      409: {
+        description:
+          '`GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account. ' +
+          '`GOOGLE_ALREADY_LINKED`: this account has another Google account linked.',
+        schema: ErrorResponse,
+      },
+      422: { description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired', schema: ErrorResponse },
+    },
+  })
+  async linkGoogle(
+    @CurrentAccount() account: AccountCaller,
+    @Input() { body }: RouteInput<typeof GoogleIdTokenRequest>,
+  ): Promise<void> {
+    await this.authService.linkGoogle(account.accountId, body.idToken);
   }
 
   @Endpoint({

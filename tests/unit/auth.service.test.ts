@@ -13,7 +13,7 @@ import type { AccountsRepository } from '../../dist/core/identity/repositories/a
 import type { Account, AccountRecord, PasswordCredential } from '../../dist/core/identity/types/account.js';
 import type { PasswordReset, Registration } from '../../dist/core/identity/types/auth.js';
 import type { VerificationCode, VerificationCodeRecord } from '../../dist/core/identity/types/verification-code.js';
-import { ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
+import { ACCOUNT_ID, OTHER_ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
 import { NOW, useFixedClock } from './fixtures/clock.ts';
 
 const CODE = '123456';
@@ -24,6 +24,8 @@ const CODE_LIFETIME_MS = 10 * 60 * 1000; // SEC-008
 const CODE_RESEND_INTERVAL_MS = 60 * 1000; // SEC-008
 const MAX_FAILED_ATTEMPTS = 3; // SEC-008
 const DELIVERY: CodeDelivery = { channel: 'sms', providerRequestId: 'provider-request-1' };
+const GOOGLE_ID_TOKEN = 'google-id-token';
+const GOOGLE_SUBJECT = '109876543210987654321';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function anAccount(overrides: Partial<Account> = {}): Account {
@@ -80,6 +82,9 @@ function makeService() {
     findPasswordHash: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
     setPasswordHash: mock.fn(() => Promise.resolve()),
     saveLockout: mock.fn(() => Promise.resolve()),
+    findByGoogleSubject: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
+    findGoogleSubject: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
+    linkGoogle: mock.fn(() => Promise.resolve()),
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
@@ -102,6 +107,11 @@ function makeService() {
     issue: mock.fn(() => Promise.resolve(SIGNED_TOKEN)),
     verify: mock.fn(),
   };
+  const googleIdTokens = {
+    verify: mock.fn((idToken: string): Promise<string | undefined> =>
+      Promise.resolve(idToken === GOOGLE_ID_TOKEN ? GOOGLE_SUBJECT : undefined),
+    ),
+  };
   const notifications = { sendCode: mock.fn(() => Promise.resolve(DELIVERY)) };
 
   const service = new AuthService(
@@ -110,9 +120,10 @@ function makeService() {
     passwordHasher,
     codeHasher,
     accessTokens as unknown as AccessTokens,
+    googleIdTokens,
     notifications as unknown as NotificationsService,
   );
-  return { service, accounts, verificationCodes, passwordHasher, accessTokens, notifications };
+  return { service, accounts, verificationCodes, passwordHasher, accessTokens, googleIdTokens, notifications };
 }
 
 function isDomainError(code: string) {
@@ -628,6 +639,87 @@ describe('AuthService.signIn', () => {
     await service.signIn(PHONE, PASSWORD);
 
     assert.equal(accounts.saveLockout.mock.callCount(), 0);
+  });
+});
+
+describe('AuthService.signInWithGoogle', () => {
+  test('signs in the account that linked the Google account', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    const account = anAccount({ role: 'admin' });
+    accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(account));
+
+    const token = await service.signInWithGoogle(GOOGLE_ID_TOKEN);
+
+    assert.deepEqual(accounts.findByGoogleSubject.mock.calls[0]?.arguments, [GOOGLE_SUBJECT]);
+    const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
+    const { sessionId, ...signedIn } = caller;
+    assert.deepEqual(signedIn, { kind: 'account', accountId: account.id, role: account.role });
+    assert.match(String(sessionId), UUID);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
+  });
+
+  test('rejects an invalid ID token without looking up an account', async () => {
+    const { service, accounts } = makeService();
+
+    await assert.rejects(service.signInWithGoogle('forged'), isDomainError('INVALID_CREDENTIALS'));
+    assert.equal(accounts.findByGoogleSubject.mock.callCount(), 0);
+  });
+
+  test('rejects a Google account no account linked', async () => {
+    const { service, accessTokens } = makeService();
+
+    await assert.rejects(service.signInWithGoogle(GOOGLE_ID_TOKEN), isDomainError('INVALID_CREDENTIALS'));
+    assert.equal(accessTokens.issue.mock.callCount(), 0);
+  });
+
+  test('rejects a banned account', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(anAccount({ status: 'banned' })));
+
+    await assert.rejects(service.signInWithGoogle(GOOGLE_ID_TOKEN), isDomainError('INVALID_CREDENTIALS'));
+    assert.equal(accessTokens.issue.mock.callCount(), 0);
+  });
+});
+
+describe('AuthService.linkGoogle', () => {
+  test('links the Google account to the signed-in account', async () => {
+    const { service, accounts } = makeService();
+
+    await service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN);
+
+    assert.deepEqual(accounts.linkGoogle.mock.calls[0]?.arguments, [ACCOUNT_ID, GOOGLE_SUBJECT]);
+  });
+
+  test('rejects an invalid ID token', async () => {
+    const { service, accounts } = makeService();
+
+    await assert.rejects(service.linkGoogle(ACCOUNT_ID, 'forged'), isDomainError('INVALID_GOOGLE_TOKEN'));
+    assert.equal(accounts.linkGoogle.mock.callCount(), 0);
+  });
+
+  test('changes nothing when the account already linked this Google account', async () => {
+    const { service, accounts } = makeService();
+    accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(anAccount({ id: ACCOUNT_ID })));
+
+    await service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN);
+
+    assert.equal(accounts.linkGoogle.mock.callCount(), 0);
+  });
+
+  test('refuses a Google account another account linked', async () => {
+    const { service, accounts } = makeService();
+    accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(anAccount({ id: OTHER_ACCOUNT_ID })));
+
+    await assert.rejects(service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ACCOUNT_TAKEN'));
+    assert.equal(accounts.linkGoogle.mock.callCount(), 0);
+  });
+
+  test('refuses a second Google account', async () => {
+    const { service, accounts } = makeService();
+    accounts.findGoogleSubject.mock.mockImplementation(() => Promise.resolve('another-google-subject'));
+
+    await assert.rejects(service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ALREADY_LINKED'));
+    assert.equal(accounts.linkGoogle.mock.callCount(), 0);
   });
 });
 
