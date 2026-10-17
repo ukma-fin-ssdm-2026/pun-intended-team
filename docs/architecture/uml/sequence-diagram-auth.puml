@@ -12,7 +12,7 @@ autonumber
 
 actor "Client\n(app, Swagger UI)" as APP
 box "api" #F5F5F5
-  participant "AuthController\n+ AuthGuard" as API
+  participant "AuthController\n+ AuthGuard\n+ per-IP limit" as API
 end box
 box "core: identity" #EEF4FB
   participant "AuthService" as SVC
@@ -21,7 +21,7 @@ box "infra (behind core interfaces)" #F3F8EE
   database "VerificationCodes\nRepository" as CODES
   database "Accounts\nRepository" as ACC
   participant "CodeHasher (HMAC)\nPasswordHasher (argon2id)" as HASH
-  participant "AccessTokens\n(jose, HS256)" as TOK
+  participant "AccessTokens (jose, HS256)\nGoogleIdTokens (jose, RS256)" as TOK
   participant "MessagingProvider\n(via core notifications)" as MSG
 end box
 
@@ -29,22 +29,22 @@ end box
 
 APP -> API : POST /auth/register {phone}
 API -> SVC : register(phone)
-SVC -> CODES : findLatest(phone)
+SVC -> CODES : findLastSentAt(phone) — codes of any purpose
 alt a code was sent less than a minute ago
   SVC --> APP : 429 CODE_RESEND_TOO_SOON
 end
 SVC -> SVC : random 6-digit code
-SVC -> HASH : HMAC(phone:code)
-SVC -> CODES : create(hash, expires in 10 min)
 SVC -> MSG : sendCode(phone, code)
-note right of MSG : now: logged to the console;\nlater: Telegram Gateway → SMS
+note right of MSG : Telegram Gateway, SMS (TurboSMS) if Telegram\nrefuses or does not answer; console in development
+SVC -> HASH : HMAC(phone:code)
+SVC -> CODES : create(hash, channel, provider request id, expires in 10 min)
 API --> APP : 202 — same answer for a registered phone
 
-== Verify: finish registration ==
+== Verify the code ==
 
-APP -> API : POST /auth/verify {phone, code, password, dateOfBirth}
+APP -> API : POST /auth/verify {phone, code}
 API -> SVC : verify(…)
-SVC -> CODES : findLatest(phone)
+SVC -> CODES : findLatest(phone, registration)
 alt no code, expired, used or 3 failed attempts
   SVC --> APP : 422 INVALID_CODE
 else HMAC does not match
@@ -52,35 +52,75 @@ else HMAC does not match
   SVC --> APP : 422 INVALID_CODE
 end
 SVC -> CODES : markUsed — false if another request used it first
-SVC -> SVC : age ≥ 18 by the Kyiv date
-alt under 18
-  SVC --> APP : 422 UNDERAGE
-else phone already registered
+SVC -> ACC : findByPhone(phone)
+alt an active or banned account
   SVC --> APP : 409 CONFLICT
 end
-SVC -> HASH : argon2id(password)
-SVC -> ACC : create(account, passwordHash)
+SVC -> ACC : create(pending account) — or reuse the pending one
+SVC -> TOK : issue(registrant caller, 900 s)
+API --> APP : 200 registration token {accessToken, expiresIn: 900}
+
+== Finish registration: the age check ==
+
+APP -> API : POST /auth/complete-registration {dateOfBirth}\n— registration token
+API -> SVC : completeRegistration(accountId, dateOfBirth)
+SVC -> ACC : findById(accountId)
+alt removed
+  SVC --> APP : 404 NOT_FOUND
+else no longer pending
+  SVC --> APP : 409 CONFLICT
+else under 18 by the Kyiv date
+  SVC -> ACC : delete — the number can start again
+  SVC --> APP : 422 UNDERAGE
+end
+SVC -> ACC : activate(accountId, dateOfBirth)
 SVC -> TOK : issue(account caller, 3600 s)
 API --> APP : 200 {accessToken, expiresIn: 3600}
+note right of APP : next: PUT /me/password\nand / or PUT /me/google
 
-== Sign in ==
+== Sign in with a password ==
 
 APP -> API : POST /auth/sign-in {phone, password}
 API -> SVC : signIn(phone, password)
-SVC -> ACC : findPasswordCredential(phone)
-SVC -> HASH : verify(hash, password)\n— a dummy hash for an unknown phone
-alt unknown phone, wrong password or banned
-  SVC --> APP : 401 INVALID_CREDENTIALS — does not say which
+SVC -> ACC : findPasswordCredential(phone) — with the lockout state
+SVC -> HASH : verify(hash, password)\n— a stand-in hash for an unknown phone
+alt unknown phone, not active, or locked
+  SVC --> APP : 401 INVALID_CREDENTIALS
+else wrong password
+  SVC -> ACC : saveLockout — the 5th failure in 15 min locks for 15 min
+  SVC --> APP : 401 INVALID_CREDENTIALS — the same answer every time
+end
+SVC -> ACC : saveLockout(no failures) — only after earlier failures
+SVC -> TOK : issue(account caller, 3600 s)
+API --> APP : 200 {accessToken, expiresIn: 3600}
+
+== Sign in with Google ==
+
+APP -> API : POST /auth/google {idToken}
+API -> SVC : signInWithGoogle(idToken)
+SVC -> TOK : verify Google ID token — Google's keys, our client ids
+SVC -> ACC : findByGoogleSubject(sub) — linked earlier with PUT /me/google
+alt invalid token, not linked or not active
+  SVC --> APP : 401 INVALID_CREDENTIALS
 end
 SVC -> TOK : issue(account caller, 3600 s)
 API --> APP : 200 {accessToken, expiresIn: 3600}
 
-== Guest token ==
+== Forgot the password ==
 
-APP -> API : POST /auth/guest
-API -> SVC : issueGuestToken()
-SVC -> TOK : issue(guest caller with a random id)
-API --> APP : 200 {accessToken}
+APP -> API : POST /auth/password-reset {phone}
+API -> SVC : requestPasswordReset(phone)
+SVC -> ACC : findByPhone(phone)
+opt an active account and no code in the last minute
+  SVC ->> MSG : reset code, sent in the background as in Register
+end
+API --> APP : 202 — the same answer for any phone
+APP -> API : POST /auth/password-reset/confirm {phone, code, password}
+API -> SVC : resetPassword(…)
+SVC -> CODES : check the latest reset code, as in Verify
+SVC -> ACC : setPasswordHash, saveLockout(no failures)
+SVC -> TOK : issue(account caller, 3600 s)
+API --> APP : 200 {accessToken, expiresIn: 3600}
 
 == Any protected request ==
 
@@ -89,6 +129,8 @@ API -> SVC : authenticate(token)
 SVC -> TOK : verify(token)
 TOK -> TOK : key by kid; HS256 only; signature;\niss, aud, typ at+jwt; not expired;\nclaims parsed into a Caller
 alt any check fails
+  API --> APP : 401 UNAUTHENTICATED
+else registration token anywhere but complete-registration
   API --> APP : 401 UNAUTHENTICATED
 else guest on a user endpoint
   API --> APP : 401 UNAUTHENTICATED
@@ -99,8 +141,8 @@ API -> API : handler runs with the Caller
 
 note over APP, MSG
   Errors: AuthService throws a DomainError with a code; ApiExceptionFilter (api) turns it into the status shown.
-  Token: header {alg HS256, kid, typ at+jwt}; claims sub, role, sid (accounts only), iss/aud nearby-api, iat, exp.
-  Keys: JWT_KEYS_FILE (JWK Set, first key signs) and CODE_HMAC_KEY_FILE, read at startup; a missing or short key stops the server.
-  Planned, not shown: refresh tokens and a revocation check by sid (SEC-005), lockout and rate limits (SEC-007), audit records (SEC-004).
+  Token: header {alg HS256, kid, typ at+jwt}; claims sub, role (guest, registrant, user, admin), sid (accounts only), iss/aud nearby-api, iat, exp.
+  Limits: register, verify, sign-in, Google and both reset calls allow 20 requests a minute per IP each (429 RATE_LIMITED).
+  Planned, not shown: refresh tokens and a revocation check by sid (SEC-005), audit records (SEC-004).
 end note
 @enduml

@@ -116,11 +116,21 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
 | `POST` | `/api/v1/auth/register` | Anyone, no token | `202`, a code is sent to the phone | `400`, `429` |
-| `POST` | `/api/v1/auth/verify` | Anyone, no token | `200` an access token for the new account | `400`, `409`, `422` |
+| `POST` | `/api/v1/auth/verify` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
+| `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` an access token for the new account | `400`, `401`, `404`, `409`, `422` |
 | `POST` | `/api/v1/auth/sign-in` | Anyone, no token | `200` an access token | `400`, `401` |
+| `POST` | `/api/v1/auth/google` | Anyone, no token | `200` an access token | `400`, `401` |
+| `POST` | `/api/v1/auth/password-reset` | Anyone, no token | `202`, a code is sent if the number has an account | `400` |
+| `POST` | `/api/v1/auth/password-reset/confirm` | Anyone, no token | `200` an access token | `400`, `422` |
 | `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
+| `PUT` | `/api/v1/me/password` | Signed-in user | `204` | `400`, `401`, `422` |
+| `PUT` | `/api/v1/me/google` | Signed-in user | `204` | `400`, `401`, `409`, `422` |
 
-Registration takes two calls: `register` sends a one-time code to a `+380` number, and `verify` takes the code, a password (8 to 128 characters) and the date of birth, then creates the account. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; a new one can be requested once a minute (SEC-008). `register` answers the same whether or not the number already has an account, and `sign-in` answers a wrong password and an unknown number alike (SEC-007). Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
+Registration takes three calls: `register` sends a one-time code to a `+380` number; `verify` checks the code and returns a registration token, valid for 15 minutes, that only `complete-registration` accepts; `complete-registration` takes the date of birth and activates the account. Under 18, the registration is removed and the number can start again. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; one code a minute goes to a number, for registration and reset together (SEC-008).
+
+A new account has no sign-in method yet: the app sets a password with `PUT /me/password` (8 to 128 characters; changing it needs `currentPassword`) and / or links Google with `PUT /me/google`, which takes the ID token from Google Sign-In. `POST /auth/google` signs in only a Google account linked this way. A forgotten password is replaced with a code: `password-reset` sends one, `password-reset/confirm` takes it with the new password.
+
+`register` and `password-reset` answer the same whether or not the number has an account, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in for 15 minutes; Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google` and both reset calls take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
 
 ### Events
 
@@ -254,12 +264,12 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | Status | `code` | When |
 |---|---|---|
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
-| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` | `UNAUTHENTICATED`: no access token, or an invalid or expired one. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password; it does not say which |
+| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` | `UNAUTHENTICATED`: no access token, an invalid or expired one, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password, or a Google account no account linked; it does not say which |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
-| `429 Too Many Requests` | `RATE_LIMITED`, `CODE_RESEND_TOO_SOON` | A rate limit was hit (SEC-007), or a verification code was requested again within a minute (SEC-008) |
+| `429 Too Many Requests` | `RATE_LIMITED`, `CODE_RESEND_TOO_SOON` | A rate limit was hit (SEC-007), with `Retry-After` in seconds, or a registration code was requested again within a minute (SEC-008) |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
@@ -271,8 +281,10 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, or an interest id is not in the list. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
-| `INVALID_CODE` | `POST /auth/verify` | The code is wrong, expired, already used, or has failed 3 times |
-| `UNDERAGE` | `POST /auth/verify` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001) |
+| `INVALID_CODE` | `POST /auth/verify`, `POST /auth/password-reset/confirm` | The code is wrong, expired, already used, or has failed 3 times |
+| `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
+| `WRONG_PASSWORD` | `PUT /me/password` | The account has a password and `currentPassword` is missing or wrong |
+| `INVALID_GOOGLE_TOKEN` | `PUT /me/google` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
@@ -284,6 +296,8 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 |---|---|---|
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
+| `GOOGLE_ACCOUNT_TAKEN` | `PUT /me/google` | Another account linked this Google account |
+| `GOOGLE_ALREADY_LINKED` | `PUT /me/google` | The account has another Google account linked; linking the same one again changes nothing |
 
 ### Trying It Out
 
@@ -293,7 +307,8 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 
 - **Guest** (catalog reads only): `POST /api/v1/auth/guest`.
 - **Seeded account:** `POST /api/v1/auth/sign-in` with one of the numbers below and the password `nearby-dev-password`.
-- **New account:** `POST /api/v1/auth/register`, read the code in the server's console, then `POST /api/v1/auth/verify`.
+- **New account:** `POST /api/v1/auth/register`, read the code in the server's console, `POST /api/v1/auth/verify`, then `POST /api/v1/auth/complete-registration` with the registration token and `PUT /api/v1/me/password` with the access token. With `MESSAGING_PROVIDER=telegram` and a `TELEGRAM_GATEWAY_TOKEN` in `.env`, the code arrives in Telegram instead.
+- **Google:** set `GOOGLE_CLIENT_IDS` to the client id of a Google OAuth web client; until then Google sign-in refuses every token.
 
 | Phone | Account |
 |---|---|

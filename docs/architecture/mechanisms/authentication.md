@@ -8,9 +8,9 @@
 
 | Flow | Mechanism |
 |---|---|
-| Registration | Phone number + one-time code (FR-005, SEC-008), then date of birth (SAFE-001). The account stays `pending` until the age check passes. |
+| Registration | Phone number + one-time code (FR-005, SEC-008), then date of birth (SAFE-001). The account stays `pending` until the age check passes; its registration token only finishes registration. Under 18, the pending account is removed. |
 | Add sign-in method | Set a password and / or link a Google account |
-| Sign-in | Password or Google — no message sent |
+| Sign-in | Password or Google — no message sent. A locked account gets the same answer as a wrong password. |
 | Password reset | One-time code to the verified contact |
 
 How registration, sign-in and the token check work in the code: [auth sequence diagram](../uml/rendered/sequence-diagram-auth.svg) (source: [`uml/sequence-diagram-auth.puml`](../uml/sequence-diagram-auth.puml)).
@@ -21,7 +21,7 @@ How registration, sign-in and the token check work in the code: [auth sequence d
 2. **Google is linked only from a signed-in session**, never automatically by matching email.
 3. Passwords are stored as argon2id (SEC-002); lockout and rate limits cover passwords and codes alike (SEC-007).
 4. Tokens are the same whichever method was used (SEC-005).
-5. Codes go out through one messaging adapter (FLEX-003). They are sent through the **Telegram Gateway API** as an official Telegram message to the account registered with that number, so no bot or chat ID is needed. If the number has no Telegram account or delivery fails, the code goes by SMS. We generate and check the code ourselves, so the SEC-008 limits stay in our hands.
+5. Codes go out through one messaging adapter (FLEX-003). They are sent through the **Telegram Gateway API** as an official Telegram message to the account registered with that number, so no bot or chat ID is needed. If Telegram refuses the code or does not answer, it goes by SMS through TurboSMS. We generate and check the code ourselves, so the SEC-008 limits stay in our hands.
 6. **Organizations** are regular user accounts: they register the same way, then request organization status, and publish events only after the team has verified them (FR-003). Administrator accounts are created by the team, not through registration.
 
 ## Consequences
