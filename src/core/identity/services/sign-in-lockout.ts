@@ -9,7 +9,10 @@ export interface SignInLockout {
   lockedUntil: Date | null;
 }
 
-const NO_FAILURES = { failedSignins: 0, failedSigninsSince: null };
+const NO_FAILURES: Pick<SignInLockout, 'failedSignins' | 'failedSigninsSince'> = {
+  failedSignins: 0,
+  failedSigninsSince: null,
+};
 
 /** The lockout state to save after a failed sign-in. */
 export function afterFailedSignIn(state: SignInLockout, now: Date): SignInLockout {
@@ -17,5 +20,6 @@ export function afterFailedSignIn(state: SignInLockout, now: Date): SignInLockou
   if (failedSignins >= MAX_FAILED_SIGN_INS) {
     return { ...NO_FAILURES, lockedUntil: new Date(now.getTime() + LOCK_MS) };
   }
-  return { ...state, failedSignins, failedSigninsSince: state.failedSigninsSince ?? now };
+  const failedSigninsSince = state.failedSigninsSince ?? now;
+  return { ...state, failedSignins, failedSigninsSince };
 }
