@@ -29,7 +29,7 @@ Uncovered: controllers, `infra/` and the stubs run only behind HTTP and are cove
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) is one job that runs lint, type checks, the spec check, `npm audit` and the e2e tests; it runs no unit tests and no coverage. We merged everything into one job to save minutes, but GitHub Actions stopped anyway when the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request and fail below a threshold, raised to the MAIN-001 target of 70% statements. TODO: the starting threshold and when the runner is ready.
+[`ci.yml`](../../.github/workflows/ci.yml) is one job that runs lint, type checks, the spec check, `npm audit` and the e2e tests; it runs no unit tests and no coverage. We merged everything into one job to save minutes, but GitHub Actions stopped anyway when the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request and fail below a threshold, raised to the MAIN-001 target: 70% statements overall, 85% for the matching service, the authorization guards and the report/ban flow. TODO: the starting threshold and when the runner is ready.
 
 ---
 
