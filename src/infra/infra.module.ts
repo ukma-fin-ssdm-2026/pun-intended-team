@@ -22,6 +22,10 @@ import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
+import { loadMessagingSettings } from './messaging/messaging-settings.ts';
+import { TelegramGatewaySender } from './messaging/telegram-gateway-sender.ts';
+import { TurboSmsSender } from './messaging/turbosms-sender.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { StubAccountsRepository } from './stubs/accounts.repository.ts';
@@ -47,7 +51,7 @@ const repositories = [
 ];
 
 const adapters = [
-  { provide: MessagingProvider, useClass: ConsoleMessagingProvider },
+  { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },
@@ -61,6 +65,18 @@ const adapters = [
 ];
 
 const providers = [...repositories, ...adapters];
+
+function messagingProvider(): MessagingProvider {
+  const settings = loadMessagingSettings();
+  if (settings.provider === 'console') {
+    return new ConsoleMessagingProvider();
+  }
+  const { telegramToken, turboSms } = settings;
+  return new FallbackMessagingProvider([
+    new TelegramGatewaySender(telegramToken),
+    ...(turboSms ? [new TurboSmsSender(turboSms.token, turboSms.sender)] : []),
+  ]);
+}
 
 @Global()
 @Module({

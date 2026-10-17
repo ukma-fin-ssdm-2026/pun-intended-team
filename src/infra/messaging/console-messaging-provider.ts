@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MessagingProvider } from '../../core/notifications/adapters/messaging-provider.ts';
 import type { CodeDelivery } from '../../core/notifications/types/code-delivery.ts';
+import { maskPhone } from './mask-phone.ts';
 
 /** Development stand-in for the Telegram Gateway: logs the code instead of sending it. */
 @Injectable()
@@ -12,9 +13,4 @@ export class ConsoleMessagingProvider implements MessagingProvider {
     this.logger.log(`Verification code for ${maskPhone(phone)}: ${code}`);
     return Promise.resolve({ channel: 'telegram', providerRequestId: null });
   }
-}
-
-/** '+380501234501' -> '+380•••••4501' */
-function maskPhone(phone: string): string {
-  return phone.slice(0, 4) + '•'.repeat(Math.max(phone.length - 8, 0)) + phone.slice(-4);
 }

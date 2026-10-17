@@ -243,6 +243,8 @@ before(async () => {
       NODE_ENV: 'production',
       CODE_HMAC_KEY_FILE: codeHmacKeyFile,
       JWT_KEYS_FILE: jwtKeysFile,
+      // The codes are read from the log, so they must not go to Telegram, the production default.
+      MESSAGING_PROVIDER: 'console',
       GOOGLE_CLIENT_IDS: googleClientId,
       GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     },
