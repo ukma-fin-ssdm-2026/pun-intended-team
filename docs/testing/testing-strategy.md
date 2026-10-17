@@ -1,6 +1,6 @@
 # Testing Strategy
 
-How Nearby is tested today and how testing will grow. Requirement IDs refer to [`requirements.md`](../requirements/requirements.md).
+How Nearby is tested today and how testing will grow. Requirement IDs refer to [`requirements.md`](../requirements/requirements.md); the rules for both test layers and the coverage scope are in the [testing mechanism](../architecture/mechanisms/testing.md).
 
 ## Current Status
 
@@ -20,12 +20,21 @@ Tools: `node:test`, MCR (monocart-coverage-reports), Docker PostgreSQL. Planned:
 
 ## Coverage
 
-Unit + integration tests, 17 October 2026: **96.2% statements, 86.69% branches, 96.01% functions** (measured with c8 before the switch to MCR; to be re-measured). The generated Prisma client and type-only files are excluded, since they have no code of ours to test. Unit tests alone reach about 19%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
+17 October 2026, measured with MCR on the code that makes decisions when it runs (generated code, types, ports, stubs and declarations are left out, see the mechanism):
+
+| Run | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| All tests | 93.18% | 77.55% | 96.75% | 92.06% |
+| Unit tests only | 16.84% | 10.61% | 9.09% | 10.81% |
+
+Reports: [all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html).
+
+Unit tests reach only the services in `core/`; controllers, `api/common/` and `infra/` are covered by the integration tests alone.
 
 Not covered, and why:
-- **`api-express-adapter.ts` (46%)** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
-- **`key-files.ts` (75%)** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
-- **`openapi.ts` (57%)** runs from `npm run docs:generate`; CI checks the generated spec instead.
+- **`api-express-adapter.ts`** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
+- **`key-files.ts`** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
+- **Branches (77.55%)** lag behind statements: error and edge paths in the services are tested over HTTP only for the common cases.
 
 | Target (MAIN-001) | Statements | Status |
 |---|---|---|
@@ -46,7 +55,7 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, type checks, the spec check, `npm audit` and the integration tests in one job; no unit tests or coverage yet. Actions are paused because the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request with a coverage gate set just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, type checks, the spec check, `npm audit` and the integration tests in one job; no unit tests or coverage yet. Actions are paused because the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request with a coverage gate set just below the current coverage, so any drop fails the build; the gate rises as coverage grows. The committed reports are regenerated with `npm run docs:coverage`.
 
 Tests are run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
