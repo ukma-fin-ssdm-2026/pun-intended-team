@@ -129,6 +129,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | One open case per report target | partial unique index on the target where `status = open` |
 | Exactly one target in a ReportCase | CHECK |
 | A Match joins two different applications | CHECK (`application_a_id <> application_b_id`) |
+| An active account has a date of birth (SAFE-001) | CHECK (`status <> 'active' OR date_of_birth IS NOT NULL`) — the database checks only that the date exists; the date is encrypted, so the age of at least 18 is checked by the service (identity) before the status becomes `active` |
 | Both applications of a Match belong to the same session | service (matching), under the per-session lock |
 | At least one shared contact (`share_phone` or a linked account) | service (profiles) — spans two tables |
 | Only verified organizations publish events; organization accounts do not apply for matching | service — the data lives in other modules |
