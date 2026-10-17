@@ -34,4 +34,12 @@ describe('afterFailedSignIn', () => {
 
     assert.deepEqual(after, aLockout({ lockedUntil: minute(8 + LOCK_MINUTES) }));
   });
+
+  test('starts the window at the first failure', () => {
+    const before = aLockout();
+
+    const after = afterFailedSignIn(before, minute(0));
+
+    assert.deepEqual(after, aLockout({ failedSignins: 1, failedSigninsSince: minute(0) }));
+  });
 });
