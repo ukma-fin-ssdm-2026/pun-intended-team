@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Button, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { CategoryFilter } from '@/components/category-filter';
 import { ErrorMessage } from '@/components/error-message';
@@ -43,7 +43,13 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Nearby' }} />
+      <Stack.Screen
+        options={{
+          title: 'Nearby',
+          // Temporary: removed together with the sign-in test screen.
+          headerRight: () => <Button title="Sign-in test" onPress={() => router.push('/dev-auth')} />,
+        }}
+      />
       <View>
         <CategoryFilter categories={categories.data ?? []} selectedId={categoryId} onSelect={setCategoryId} />
         {categories.error && <Text style={styles.filterError}>Could not load categories.</Text>}
