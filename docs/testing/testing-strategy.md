@@ -20,13 +20,12 @@ Tools: `node:test`, c8, Docker PostgreSQL. Planned: k6, fast-check, Stryker, and
 
 ## Coverage
 
-Unit + integration tests, 17 October 2026: **90.5% statements, 84.75% branches, 91.46% functions** (generated Prisma client excluded). Unit tests alone reach 18%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
+Unit + integration tests, 17 October 2026: **96.2% statements, 86.69% branches, 96.01% functions**. `.c8rc.json` excludes the generated Prisma client and type-only files, which have no runtime code. Unit tests alone reach about 19%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (46%)** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
 - **`key-files.ts` (75%)** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
 - **`openapi.ts` (57%)** runs from `npm run docs:generate`; CI checks the generated spec instead.
-- **`core/*/types/` (0%)** are type-only files with no runtime code. They should be excluded from coverage together with the generated Prisma client; `.c8rc.json` excludes neither yet.
 
 | Target (MAIN-001) | Statements | Status |
 |---|---|---|
