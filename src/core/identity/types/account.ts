@@ -16,10 +16,18 @@ export interface Account {
 /** A new row as the repository stores it. */
 export type AccountRecord = Omit<Account, 'id'>;
 
+/** What an account stores to lock out password guessing (SEC-007). */
+export interface SignInLockout {
+  failedSignins: number;
+  failedSigninsSince: Date | null;
+  lockedUntil: Date | null;
+}
+
 /** What password sign-in needs; the hash never leaves the identity module. */
 export interface PasswordCredential {
   accountId: string;
   role: AccountRole;
   status: AccountStatus;
   passwordHash: string;
+  lockout: SignInLockout;
 }

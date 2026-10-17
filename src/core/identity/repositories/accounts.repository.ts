@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { Account, AccountRecord, PasswordCredential } from '../types/account.ts';
+import type { Account, AccountRecord, PasswordCredential, SignInLockout } from '../types/account.ts';
 
 export abstract class AccountsRepository {
   abstract existsByPhone(phone: string): Promise<boolean>;
@@ -17,6 +17,8 @@ export abstract class AccountsRepository {
 
   /** Adds the password sign-in method, or replaces the password if there is one. */
   abstract setPasswordHash(accountId: string, passwordHash: string): Promise<void>;
+
+  abstract saveLockout(accountId: string, lockout: SignInLockout): Promise<void>;
 
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;

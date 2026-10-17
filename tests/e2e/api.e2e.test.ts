@@ -326,6 +326,23 @@ describe('POST /api/v1/auth/sign-in', () => {
     assert.equal(unknownPhone.status, wrongPassword.status);
   });
 
+  // SEC-007: six bad sign-ins; the sixth, with the right password, is refused like a wrong one.
+  test('locks an account after 5 wrong passwords, answering like a wrong password', async () => {
+    const { phone, token } = await newAccount();
+    const password = 'a long passphrase';
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const wrong = { phone, password: 'not-the-password' };
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      assertRejected(await call('POST', '/api/v1/auth/sign-in', { body: wrong }), 401, 'INVALID_CREDENTIALS');
+    }
+
+    const locked = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    const wrongPassword = await call('POST', '/api/v1/auth/sign-in', { body: wrong });
+    assert.equal(locked.status, wrongPassword.status);
+    assert.deepEqual(locked.body, wrongPassword.body);
+  });
+
   test('rejects a number that is not Ukrainian with 400', async () => {
     const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: '+15551234567', password: 'x' } });
     assertInvalid(res, 'body', 'phone');

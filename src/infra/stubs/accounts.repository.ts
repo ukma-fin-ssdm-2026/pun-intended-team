@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { AccountsRepository } from '../../core/identity/repositories/accounts.repository.ts';
-import type { Account, AccountRecord, PasswordCredential } from '../../core/identity/types/account.ts';
+import type { Account, AccountRecord, PasswordCredential, SignInLockout } from '../../core/identity/types/account.ts';
 import { type StoredAccount, storedAccounts } from './data.ts';
 
 @Injectable()
@@ -16,7 +16,7 @@ export class StubAccountsRepository implements AccountsRepository {
     if (!stored) {
       return undefined;
     }
-    const { passwordHash, ...account } = stored;
+    const { passwordHash, lockout, ...account } = stored;
     return account;
   }
 
@@ -26,7 +26,8 @@ export class StubAccountsRepository implements AccountsRepository {
       return undefined;
     }
     const { id: accountId, role, status, passwordHash } = account;
-    return { accountId, role, status, passwordHash };
+    const lockout = account.lockout ?? { failedSignins: 0, failedSigninsSince: null, lockedUntil: null };
+    return { accountId, role, status, passwordHash, lockout };
   }
 
   async create(record: AccountRecord): Promise<Account> {
@@ -41,6 +42,10 @@ export class StubAccountsRepository implements AccountsRepository {
 
   async setPasswordHash(accountId: string, passwordHash: string): Promise<void> {
     this.byId(accountId).passwordHash = passwordHash;
+  }
+
+  async saveLockout(accountId: string, lockout: SignInLockout): Promise<void> {
+    this.byId(accountId).lockout = lockout;
   }
 
   async findDateOfBirth(accountId: string): Promise<string | undefined> {

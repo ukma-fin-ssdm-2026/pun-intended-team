@@ -9,6 +9,7 @@ import { CodeHasher } from '../adapters/code-hasher.ts';
 import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
+import { afterFailedSignIn, isLocked, NO_LOCKOUT } from './sign-in-lockout.ts';
 import type { AccessToken, PasswordReset, Registration } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
@@ -94,6 +95,7 @@ export class AuthService implements OnModuleInit {
       throw invalidCode();
     }
     await this.accountsRepository.setPasswordHash(account.id, await this.passwordHasher.hash(password));
+    await this.accountsRepository.saveLockout(account.id, NO_LOCKOUT);
     return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
   }
 
@@ -104,8 +106,20 @@ export class AuthService implements OnModuleInit {
       credential?.passwordHash ?? this.dummyPasswordHash,
       password,
     );
-    if (!credential || !passwordMatches || credential.status !== 'active') {
-      throw new DomainError('INVALID_CREDENTIALS', 'Wrong phone number or password');
+    if (!credential || credential.status !== 'active') {
+      throw invalidCredentials();
+    }
+    // A locked account answers like a wrong password, so a lock does not reveal the account (SEC-007).
+    const now = new Date();
+    if (isLocked(credential.lockout, now)) {
+      throw invalidCredentials();
+    }
+    if (!passwordMatches) {
+      await this.accountsRepository.saveLockout(credential.accountId, afterFailedSignIn(credential.lockout, now));
+      throw invalidCredentials();
+    }
+    if (credential.lockout.failedSignins > 0) {
+      await this.accountsRepository.saveLockout(credential.accountId, NO_LOCKOUT);
     }
     return this.issue({
       kind: 'account',
@@ -163,6 +177,10 @@ export class AuthService implements OnModuleInit {
     const accessToken = await this.accessTokens.issue(caller, ACCESS_TOKEN_SECONDS);
     return { accessToken, expiresIn: ACCESS_TOKEN_SECONDS };
   }
+}
+
+function invalidCredentials(): DomainError {
+  return new DomainError('INVALID_CREDENTIALS', 'Wrong phone number or password');
 }
 
 function invalidCode(): DomainError {

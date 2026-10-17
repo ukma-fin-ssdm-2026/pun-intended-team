@@ -5,6 +5,7 @@ import { describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { AuthService } from '../../dist/core/identity/services/auth.service.js';
+import { NO_LOCKOUT } from '../../dist/core/identity/services/sign-in-lockout.js';
 import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { CodeDelivery } from '../../dist/core/notifications/types/code-delivery.js';
 import type { AccessTokens } from '../../dist/core/identity/adapters/access-tokens.js';
@@ -30,7 +31,14 @@ function anAccount(overrides: Partial<Account> = {}): Account {
 }
 
 function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
-  return { accountId: ACCOUNT_ID, role: 'user', status: 'active', passwordHash: 'stored-hash', ...overrides };
+  return {
+    accountId: ACCOUNT_ID,
+    role: 'user',
+    status: 'active',
+    passwordHash: 'stored-hash',
+    lockout: NO_LOCKOUT,
+    ...overrides,
+  };
 }
 
 /** The code CODE, sent to PHONE a minute before NOW; it expires CODE_LIFETIME_MS after it was sent. */
@@ -71,6 +79,7 @@ function makeService() {
     findDateOfBirth: mock.fn(),
     findPasswordHash: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
     setPasswordHash: mock.fn(() => Promise.resolve()),
+    saveLockout: mock.fn(() => Promise.resolve()),
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
@@ -435,6 +444,7 @@ describe('AuthService.resetPassword', () => {
     assert.deepEqual(verificationCodes.findLatest.mock.calls[0]?.arguments, [PHONE, 'reset']);
     assert.deepEqual(verificationCodes.markUsed.mock.calls[0]?.arguments, [code.id, NOW]);
     assert.deepEqual(accounts.setPasswordHash.mock.calls[0]?.arguments, [account.id, `hash(${reset.password})`]);
+    assert.deepEqual(accounts.saveLockout.mock.calls[0]?.arguments, [account.id, NO_LOCKOUT]);
     const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
     assert.equal(caller.accountId, account.id);
     assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: ACCESS_TOKEN_SECONDS });
@@ -503,6 +513,8 @@ describe('AuthService.setPassword', () => {
 });
 
 describe('AuthService.signIn', () => {
+  useFixedClock();
+
   test('asks for a token with the account role and a new session id', async () => {
     const { service, accounts, accessTokens } = makeService();
     // Not the default role, so a service that ignored the credential's role would fail.
@@ -558,6 +570,64 @@ describe('AuthService.signIn', () => {
 
     await assert.rejects(service.signIn(PHONE, PASSWORD), isDomainError('INVALID_CREDENTIALS'));
     assert.equal(accessTokens.issue.mock.callCount(), 0);
+  });
+
+  // SEC-007
+  test('records a wrong password as a failed sign-in', async () => {
+    const { service, accounts, passwordHasher } = makeService();
+    const credential = aCredential();
+    accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(credential));
+    passwordHasher.verify.mock.mockImplementation(() => Promise.resolve(false));
+
+    await assert.rejects(service.signIn(PHONE, 'wrong-password'), isDomainError('INVALID_CREDENTIALS'));
+    assert.deepEqual(accounts.saveLockout.mock.calls[0]?.arguments, [
+      credential.accountId,
+      { failedSignins: 1, failedSigninsSince: NOW, lockedUntil: null },
+    ]);
+  });
+
+  // SEC-007: a locked account answers like a wrong password and does not extend its lock.
+  test('refuses a locked account even with the right password, counting nothing', async () => {
+    const { service, accounts, passwordHasher, accessTokens } = makeService();
+    const lockedUntil = new Date(NOW.getTime() + 1);
+    accounts.findPasswordCredential.mock.mockImplementation(() =>
+      Promise.resolve(aCredential({ lockout: { ...NO_LOCKOUT, lockedUntil } })),
+    );
+
+    await assert.rejects(service.signIn(PHONE, PASSWORD), isDomainError('INVALID_CREDENTIALS'));
+    assert.equal(passwordHasher.verify.mock.callCount(), 1);
+    assert.equal(accounts.saveLockout.mock.callCount(), 0);
+    assert.equal(accessTokens.issue.mock.callCount(), 0);
+  });
+
+  test('signs in from the moment the lock ends', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    accounts.findPasswordCredential.mock.mockImplementation(() =>
+      Promise.resolve(aCredential({ lockout: { ...NO_LOCKOUT, lockedUntil: NOW } })),
+    );
+
+    await service.signIn(PHONE, PASSWORD);
+
+    assert.equal(accessTokens.issue.mock.callCount(), 1);
+  });
+
+  test('clears earlier failed sign-ins on success', async () => {
+    const { service, accounts } = makeService();
+    const credential = aCredential({ lockout: { failedSignins: 2, failedSigninsSince: NOW, lockedUntil: null } });
+    accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(credential));
+
+    await service.signIn(PHONE, PASSWORD);
+
+    assert.deepEqual(accounts.saveLockout.mock.calls[0]?.arguments, [credential.accountId, NO_LOCKOUT]);
+  });
+
+  test('saves nothing on a success with no earlier failures', async () => {
+    const { service, accounts } = makeService();
+    accounts.findPasswordCredential.mock.mockImplementation(() => Promise.resolve(aCredential()));
+
+    await service.signIn(PHONE, PASSWORD);
+
+    assert.equal(accounts.saveLockout.mock.callCount(), 0);
   });
 });
 

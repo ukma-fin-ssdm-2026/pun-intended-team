@@ -2,7 +2,7 @@
 // Stub data until the database is connected. Kept in memory: changes made
 // through the API last until the server restarts.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
-import type { Account } from '../../core/identity/types/account.ts';
+import type { Account, SignInLockout } from '../../core/identity/types/account.ts';
 import type { VerificationCode } from '../../core/identity/types/verification-code.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
@@ -18,7 +18,8 @@ export const accounts = {
   admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
 } as const;
 
-export type StoredAccount = Account & { passwordHash: string | null };
+/** No `lockout` means no failed sign-ins and no lock. */
+export type StoredAccount = Account & { passwordHash: string | null; lockout?: SignInLockout };
 
 /** Every seeded account signs in with the password `nearby-dev-password`. */
 export const storedAccounts: StoredAccount[] = [
