@@ -178,10 +178,20 @@ jobs:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
         run: npx prisma migrate deploy
 
-      - name: Run e2e tests
+      # The API connects as nearby_main, which the migration creates; the script gives it a password.
+      - name: Set database role passwords
+        id: roles
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
+          MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
+          IMPORT_DATABASE_URL: postgresql://nearby_import:nearby_import_dev_password@localhost:5432/nearby
+        run: npm run db:set-passwords
+
+      - name: Run e2e tests
+        if: ${{ !cancelled() && steps.roles.outcome == 'success' }}
+        env:
+          MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
         run: npm run test:e2e
 
   deploy:

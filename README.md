@@ -82,7 +82,9 @@ For a production build: `npm run build`, then `npm start`.
 | `NODE_ENV` | — | `production` stops writing the spec on startup and hides Swagger UI |
 | `SWAGGER_UI` | — | `true` serves Swagger UI in production too, e.g. on staging |
 | `CORS_ORIGINS` | — | Comma-separated origins allowed to call the API from a browser, e.g. `http://localhost:8081` for the Expo web client; unset keeps CORS off |
-| `DATABASE_URL` | — | PostgreSQL connection string, set in `.env.example`; the server does not start without it, see [Local database](#local-database) |
+| `DATABASE_URL` | — | PostgreSQL connection string of the schema owner, used by migrations and `npm run db:set-passwords`, set in `.env.example`, see [Local database](#local-database) |
+| `MAIN_DATABASE_URL` | — | Connection string of the `nearby_main` role the API runs with, set in `.env.example`; the server does not start without it |
+| `IMPORT_DATABASE_URL` | — | Connection string of the `nearby_import` role for the import service, set in `.env.example`; only `npm run db:set-passwords` reads it for now |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
 
@@ -130,6 +132,8 @@ Categories are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-0
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
 npx prisma migrate deploy   # creates the tables and the starting categories
 ```
+
+Each process connects with its own database role ([database access](docs/architecture/mechanisms/database-access.md)): migrations run as the owner in `DATABASE_URL`, the API as `nearby_main` and the import service as `nearby_import`. The migration creates the two roles without a password; after `prisma migrate deploy`, run `npm run db:set-passwords` once to set the passwords from `MAIN_DATABASE_URL` and `IMPORT_DATABASE_URL` (repeating it is safe, and it prints no passwords). The owner needs the `CREATEROLE` privilege, which the Docker user already has.
 
 To reset the database, delete its data and migrate again: `docker compose down -v`, then the two commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
 

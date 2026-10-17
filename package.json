@@ -13,6 +13,7 @@
     "build": "nest build",
     "start": "node dist/api/main.js",
     "typecheck": "tsc --noEmit",
+    "db:set-passwords": "node --env-file-if-exists=.env src/scripts/set-role-passwords.ts",
     "keys:generate": "node src/scripts/generate-keys.ts",
     "docs:generate": "nest build && node dist/scripts/generate-spec.js",
     "docs:diagrams": "docker run --rm --user \"$(id -u):$(id -g)\" -v \"$PWD/docs/architecture/uml:/data\" plantuml/plantuml:1.2026.8 -tsvg -o rendered /data",
