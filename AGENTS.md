@@ -63,6 +63,7 @@ Before changing code in one of these areas, read its mechanism in [`docs/archite
 | Database roles and migrations | [`database-access.md`](docs/architecture/mechanisms/database-access.md) |
 | Applications, matching rounds and proposals | [`matching.md`](docs/architecture/mechanisms/matching.md) |
 | Inbox and push notifications | [`notifications.md`](docs/architecture/mechanisms/notifications.md) |
+| Tests and coverage: `tests/`, `mcr.config.mjs` | [`testing.md`](docs/architecture/mechanisms/testing.md) |
 
 ## MCP Server
 
