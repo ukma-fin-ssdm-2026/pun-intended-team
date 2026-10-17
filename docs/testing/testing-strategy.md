@@ -16,11 +16,11 @@ Unit tests cover event validation and cancellation (FR-010, FR-011), verificatio
 
 We are integration-heavy because most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet; most new unit tests will come with it.
 
-Tools: `node:test`, c8, Docker PostgreSQL. Planned: k6, fast-check, Stryker, and Maestro or Detox for end-to-end tests of the Expo client.
+Tools: `node:test`, MCR (monocart-coverage-reports), Docker PostgreSQL. Planned: k6, fast-check, Stryker, and Maestro or Detox for end-to-end tests of the Expo client.
 
 ## Coverage
 
-Unit + integration tests, 17 October 2026: **96.2% statements, 86.69% branches, 96.01% functions**. `.c8rc.json` excludes the generated Prisma client and type-only files, which have no runtime code. Unit tests alone reach about 19%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
+Unit + integration tests, 17 October 2026: **96.2% statements, 86.69% branches, 96.01% functions** (measured with c8 before the switch to MCR; to be re-measured). The generated Prisma client and type-only files are excluded, since they have no code of ours to test. Unit tests alone reach about 19%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (46%)** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
@@ -46,7 +46,7 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, type checks, the spec check, `npm audit` and the integration tests in one job; no unit tests or coverage yet. Actions are paused because the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request with a coverage gate (`c8 --check-coverage`) set just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, type checks, the spec check, `npm audit` and the integration tests in one job; no unit tests or coverage yet. Actions are paused because the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request with a coverage gate set just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
 
 Tests are run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
