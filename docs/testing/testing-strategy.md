@@ -4,67 +4,53 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 ## Current Status
 
-Tests run on the Node.js test runner (`node:test`); coverage is measured with [c8](https://github.com/bcoe/c8). Tests import the built code from `dist/`.
+| Layer | Where | Tests |
+|---|---|---|
+| Unit | [`tests/unit/`](../../tests/unit/): services and schemas, repositories mocked | 14 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 99 |
+| End-to-end | through the Expo client | planned |
 
-- **Unit** ([`tests/unit/`](../../tests/unit/), 14 tests, repositories mocked): event fields are validated (FR-010) and only the owner can cancel an event (FR-011); an expired code is rejected (FR-005, SEC-008) and sign-in issues a token with the account role (FR-001); a listing cannot be created for a cancelled event or deleted by anyone but its author (FR-021).
-- **E2E** ([`tests/e2e/`](../../tests/e2e/), 88 tests): the built API runs against PostgreSQL, and every endpoint gets a valid request and its rejections over HTTP, including the bad-token cases (SEC-005) and code limits (SEC-008).
+`tests/e2e/` holds what are really integration tests; we keep the folder name.
 
-## Coverage Summary
+Unit tests cover event validation and cancellation (FR-010, FR-011), verification codes and sign-in (FR-005, SEC-008, FR-001) and listing rules (FR-021). Integration tests send valid and invalid requests to every endpoint, including the token cases of SEC-005.
 
-Unit tests only, 17 October 2026: **18.06% statements, 23.3% branches, 15.74% functions, 18.06% lines**, generated Prisma client excluded. `.c8rc.json` must exclude `dist/infra/prisma/generated/`; that fix belongs to PR #199.
+We are integration-heavy because most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet; most new unit tests will come with it.
 
-Uncovered: controllers, `infra/` and the stubs run only behind HTTP and are covered by the e2e tests, not by this run. Services have partial unit tests (profiles 39%, events 50%, listings 57%). Matching is not implemented yet, and notifications is a stub. TODO: unit + e2e numbers.
+Tools: `node:test`, c8, Docker PostgreSQL. Planned: k6, fast-check, Stryker, and Maestro or Detox for end-to-end tests of the Expo client.
+
+## Coverage
+
+Unit + integration tests, 17 October 2026: **90.5% statements, 84.75% branches, 91.46% functions** (generated Prisma client excluded). Unit tests alone reach 18%; the rest comes from the integration tests, the only ones that reach controllers, `infra/` and the stubs.
+
+Not covered, and why:
+- **`api-express-adapter.ts` (46%)** maps Express errors (invalid JSON body, body too large, malformed URL) to our error format. No test sends such a request yet; this is the next integration test to add.
+- **`key-files.ts` (75%)** fails fast on a missing or malformed key file at start-up; these branches need unit tests.
+- **`openapi.ts` (57%)** runs from `npm run docs:generate`; CI checks the generated spec instead.
+- **`core/*/types/` (0%)** are type-only files with no runtime code. They should be excluded from coverage together with the generated Prisma client; `.c8rc.json` excludes neither yet.
+
+| Target (MAIN-001) | Statements | Status |
+|---|---|---|
+| Whole API | 70% | met |
+| Matching, authorization guards, report/ban flow | 85% | measured once matching and moderation are built |
 
 ## Integration, System and Acceptance Tests
 
-- **Integration:** each stub repository replaced by a Prisma one (ADR-002) gets tests against the Docker PostgreSQL.
-- **System:** the e2e suite; every new endpoint (matching, notifications, reports, bans) is added to it.
-- **Acceptance:** each acceptance criterion in [`user-stories.md`](../requirements/user-stories.md) becomes a named e2e scenario traced in [`rtm.md`](../requirements/rtm.md). US-001–004 and US-010 can be covered now; US-005–009 when built.
+- **Integration:** every stub repository replaced by Prisma gets tests against PostgreSQL; new endpoints join `tests/e2e/`.
+- **System:** core flows through the Expo client against a running API.
+- **Acceptance:** each acceptance criterion in [`user-stories.md`](../requirements/user-stories.md) becomes a scenario traced in [`rtm.md`](../requirements/rtm.md); US-001–004 and US-010 now, the rest as they are built.
 
 ## Performance, Security and Property-Based Testing
 
-- **Performance:** k6 for PERF-001 (500 sessions for 10 min, p95 ≤ 1000 ms) and, once matching exists, PERF-003 (50 users on one event, p90 ≤ 60 s).
-- **Security:** `npm audit --audit-level=high` already runs in CI (SEC-006); SEC-001 gets authorization tests for every match state, unauthenticated and banned.
-- **Property-based:** a fast-check test of `match(pool, exclusions, seed)` ([matching](../architecture/mechanisms/matching.md)) checking FUNC-002: every pairing is mutual and no user is in two pairings of a round.
+- **Performance:** k6 for PERF-001 (500 sessions, p95 ≤ 1 s) and, with matching, PERF-003.
+- **Security:** `npm audit` already runs in CI (SEC-006); authorization tests for every match state (SEC-001).
+- **Property-based:** fast-check on `match(pool, exclusions, seed)`: every pairing is mutual and no user is paired twice in a round (FUNC-002).
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) is one job that runs lint, type checks, the spec check, `npm audit` and the e2e tests; it runs no unit tests and no coverage. We merged everything into one job to save minutes, but GitHub Actions stopped anyway when the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request and fail below a threshold, raised to the MAIN-001 target: 70% statements overall, 85% for the matching service, the authorization guards and the report/ban flow. TODO: the starting threshold and when the runner is ready.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, type checks, the spec check, `npm audit` and the integration tests in one job; no unit tests or coverage yet. Actions are paused because the organization's minutes ran out. Once the self-hosted runner works, `npm run test:coverage` will run on every pull request with a coverage gate (`c8 --check-coverage`) set just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
 
----
-
-## Bonuses
-
-### Mutation Testing
-
-Evidence needed:
-
-- the Stryker configuration and the module it was run on;
-- the mutation score;
-- one surviving mutant;
-- the test written to kill it.
-
-TODO
-
-### Property-Based Test
-
-Evidence needed:
-
-- at least one fast-check property in `tests/`;
-- one sentence on what property the test checks and why it must hold for any input.
-
-TODO
-
-### Coverage Gate in CI
-
-Evidence needed:
-
-- coverage running in CI on every pull request;
-- the threshold, and why that value;
-- a link to a successful run.
-
-TODO
+Tests are run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
 ## AI Usage Note
 
-This document was drafted with Claude Code from the repository's tests, CI workflow and requirements, and reviewed by the team. The coverage numbers come from a local run.
+Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run.
