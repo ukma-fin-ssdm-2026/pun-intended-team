@@ -10,4 +10,8 @@ describe('interestOverlap', () => {
   test('identical lists score 1', () => {
     assert.equal(interestOverlap(['hiking', 'jazz', 'board games'], ['hiking', 'jazz', 'board games']), 1);
   });
+
+  test('lists with no shared interests score 0', () => {
+    assert.equal(interestOverlap(['hiking', 'jazz'], ['chess', 'cinema']), 0);
+  });
 });
