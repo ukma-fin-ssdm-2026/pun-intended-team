@@ -1,11 +1,15 @@
 // Written with the help of Claude
-export type CodePurpose = 'registration';
+import type { DeliveryChannel } from '../../notifications/types/code-delivery.ts';
+
+export type CodePurpose = 'registration' | 'reset';
 
 export interface VerificationCode {
   id: string;
   phone: string;
   purpose: CodePurpose;
   codeHash: string;
+  channel: DeliveryChannel;
+  providerRequestId: string | null;
   sentAt: Date;
   expiresAt: Date;
   failedAttempts: number;

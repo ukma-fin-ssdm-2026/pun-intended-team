@@ -4,6 +4,7 @@ import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { AuthService } from '../../dist/core/identity/services/auth.service.js';
 import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
+import type { CodeDelivery } from '../../dist/core/notifications/types/code-delivery.js';
 import type { AccessTokens } from '../../dist/core/identity/adapters/access-tokens.js';
 import type { AccountsRepository } from '../../dist/core/identity/repositories/accounts.repository.js';
 import type { Account, AccountRecord, PasswordCredential } from '../../dist/core/identity/types/account.js';
@@ -19,6 +20,7 @@ const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
 const CODE_LIFETIME_MS = 10 * 60 * 1000; // SEC-008
 const CODE_RESEND_INTERVAL_MS = 60 * 1000; // SEC-008
 const MAX_FAILED_ATTEMPTS = 3; // SEC-008
+const DELIVERY: CodeDelivery = { channel: 'sms', providerRequestId: 'provider-request-1' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
@@ -33,6 +35,8 @@ function aCode(overrides: Partial<VerificationCode> = {}): VerificationCode {
     phone: PHONE,
     purpose: 'registration',
     codeHash: `${PHONE}:${CODE}`,
+    channel: 'telegram',
+    providerRequestId: null,
     sentAt,
     expiresAt: new Date(sentAt.getTime() + CODE_LIFETIME_MS),
     failedAttempts: 0,
@@ -56,6 +60,7 @@ function makeService() {
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
+    findLastSentAt: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     create: mock.fn((record: VerificationCodeRecord): Promise<VerificationCode> =>
       Promise.resolve({ ...record, id: 'code-1', failedAttempts: 0, usedAt: null }),
     ),
@@ -74,7 +79,7 @@ function makeService() {
     issue: mock.fn(() => Promise.resolve(SIGNED_TOKEN)),
     verify: mock.fn(),
   };
-  const notifications = { sendCode: mock.fn(() => Promise.resolve()) };
+  const notifications = { sendCode: mock.fn(() => Promise.resolve(DELIVERY)) };
 
   const service = new AuthService(
     accounts as unknown as AccountsRepository,
@@ -94,7 +99,7 @@ function isDomainError(code: string) {
 describe('AuthService.register', () => {
   useFixedClock();
 
-  test('stores the code hashed with a 10-minute lifetime and sends the same code', async () => {
+  test('sends a code, then stores it hashed with its delivery channel and a 10-minute lifetime', async () => {
     const { service, verificationCodes, notifications } = makeService();
 
     await service.register(PHONE);
@@ -107,6 +112,7 @@ describe('AuthService.register', () => {
         phone: PHONE,
         purpose: 'registration',
         codeHash: `${PHONE}:${sentCode}`,
+        ...DELIVERY,
         sentAt: NOW,
         expiresAt: new Date(NOW.getTime() + CODE_LIFETIME_MS),
       },
@@ -116,7 +122,7 @@ describe('AuthService.register', () => {
   test('refuses a new code less than a minute after the last one', async () => {
     const { service, verificationCodes, notifications } = makeService();
     const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS + 1);
-    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode({ sentAt })));
+    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
 
     const registering = service.register(PHONE);
 
@@ -128,11 +134,20 @@ describe('AuthService.register', () => {
   test('sends a new code exactly a minute after the last one', async () => {
     const { service, verificationCodes, notifications } = makeService();
     const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS);
-    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode({ sentAt })));
+    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
 
     await service.register(PHONE);
 
     assert.equal(notifications.sendCode.mock.callCount(), 1);
+  });
+
+  test('stores no code when sending it fails', async () => {
+    const { service, verificationCodes, notifications } = makeService();
+    notifications.sendCode.mock.mockImplementation(() => Promise.reject(new Error('provider is down')));
+
+    await assert.rejects(service.register(PHONE), /provider is down/);
+
+    assert.equal(verificationCodes.create.mock.callCount(), 0);
   });
 });
 

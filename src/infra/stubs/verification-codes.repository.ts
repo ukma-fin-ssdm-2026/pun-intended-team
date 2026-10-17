@@ -20,6 +20,12 @@ export class StubVerificationCodesRepository implements VerificationCodesReposit
       );
   }
 
+  async findLastSentAt(phone: string): Promise<Date | undefined> {
+    return verificationCodes
+      .filter((code) => code.phone === phone)
+      .reduce<Date | undefined>((latest, code) => (latest && latest > code.sentAt ? latest : code.sentAt), undefined);
+  }
+
   async create(record: VerificationCodeRecord): Promise<VerificationCode> {
     const code: VerificationCode = { id: randomUUID(), ...record, failedAttempts: 0, usedAt: null };
     verificationCodes.push(code);

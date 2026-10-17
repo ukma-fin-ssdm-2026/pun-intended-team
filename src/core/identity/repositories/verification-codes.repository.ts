@@ -5,6 +5,9 @@ export abstract class VerificationCodesRepository {
   /** The code sent last to this phone for this purpose; only it can be used. */
   abstract findLatest(phone: string, purpose: CodePurpose): Promise<VerificationCode | undefined>;
 
+  /** When the last code of any purpose went to this phone, so the resend throttle covers them all. */
+  abstract findLastSentAt(phone: string): Promise<Date | undefined>;
+
   abstract create(code: VerificationCodeRecord): Promise<VerificationCode>;
 
   /** Returns the new count. */

@@ -11,6 +11,7 @@ import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
 import type { AccessToken, Registration } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
+import type { CodePurpose } from '../types/verification-code.ts';
 
 const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
 // SEC-008
@@ -40,37 +41,16 @@ export class AuthService implements OnModuleInit {
   /** Answers the same whether or not the phone already has an account (SEC-007). */
   async register(phone: string): Promise<void> {
     const now = new Date();
-    const latest = await this.verificationCodesRepository.findLatest(phone, 'registration');
-    if (latest && now.getTime() - latest.sentAt.getTime() < CODE_RESEND_INTERVAL_MS) {
+    if (!(await this.canSendCode(phone, now))) {
       throw new DomainError('CODE_RESEND_TOO_SOON', 'A code was sent less than a minute ago. Wait, then try again');
     }
-    const code = randomInt(0, 10 ** CODE_DIGITS)
-      .toString()
-      .padStart(CODE_DIGITS, '0');
-    await this.verificationCodesRepository.create({
-      phone,
-      purpose: 'registration',
-      codeHash: this.codeHasher.hash(phone, code),
-      sentAt: now,
-      expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
-    });
-    await this.notificationsService.sendCode(phone, code);
+    await this.sendCode(phone, 'registration', now);
   }
 
   async verify({ phone, code, password, dateOfBirth }: Registration): Promise<AccessToken> {
     const now = new Date();
-    const sent = await this.verificationCodesRepository.findLatest(phone, 'registration');
-    if (!sent || sent.usedAt || sent.expiresAt <= now || sent.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-      throw invalidCode();
-    }
-    if (!this.codeHasher.matches(phone, code, sent.codeHash)) {
-      await this.verificationCodesRepository.addFailedAttempt(sent.id);
-      throw invalidCode();
-    }
     // Used before the age check, so one code cannot try several dates of birth.
-    if (!(await this.verificationCodesRepository.markUsed(sent.id, now))) {
-      throw invalidCode();
-    }
+    await this.useCode(phone, 'registration', code, now);
     if (!isAtLeast(MINIMUM_AGE, dateOfBirth, now)) {
       throw new DomainError('UNDERAGE', `You must be at least ${MINIMUM_AGE} to use Nearby`);
     }
@@ -108,6 +88,42 @@ export class AuthService implements OnModuleInit {
 
   async authenticate(accessToken: string): Promise<Caller | undefined> {
     return this.accessTokens.verify(accessToken);
+  }
+
+  private async canSendCode(phone: string, now: Date): Promise<boolean> {
+    const lastSentAt = await this.verificationCodesRepository.findLastSentAt(phone);
+    return !lastSentAt || now.getTime() - lastSentAt.getTime() >= CODE_RESEND_INTERVAL_MS;
+  }
+
+  /** Stored only once sent, with the channel it went through. */
+  private async sendCode(phone: string, purpose: CodePurpose, now: Date): Promise<void> {
+    const code = randomInt(0, 10 ** CODE_DIGITS)
+      .toString()
+      .padStart(CODE_DIGITS, '0');
+    const delivery = await this.notificationsService.sendCode(phone, code);
+    await this.verificationCodesRepository.create({
+      phone,
+      purpose,
+      codeHash: this.codeHasher.hash(phone, code),
+      ...delivery,
+      sentAt: now,
+      expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
+    });
+  }
+
+  /** Throws INVALID_CODE unless the code is the latest for this purpose and still usable (SEC-008). */
+  private async useCode(phone: string, purpose: CodePurpose, code: string, now: Date): Promise<void> {
+    const sent = await this.verificationCodesRepository.findLatest(phone, purpose);
+    if (!sent || sent.usedAt || sent.expiresAt <= now || sent.failedAttempts >= MAX_FAILED_ATTEMPTS) {
+      throw invalidCode();
+    }
+    if (!this.codeHasher.matches(phone, code, sent.codeHash)) {
+      await this.verificationCodesRepository.addFailedAttempt(sent.id);
+      throw invalidCode();
+    }
+    if (!(await this.verificationCodesRepository.markUsed(sent.id, now))) {
+      throw invalidCode();
+    }
   }
 
   private async issue(caller: Caller): Promise<AccessToken> {
