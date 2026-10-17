@@ -35,16 +35,13 @@ jobs:
     # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
     services:
       postgres:
-        image: postgis/postgis:18-3.6
+        image: postgres:18
         env:
           POSTGRES_USER: nearby
           POSTGRES_PASSWORD: nearby_dev_password
           POSTGRES_DB: nearby
         ports:
           - 5432:5432
-        volumes:
-          # The image's init script would create PostGIS here; the migrations do it, as in docker-compose.yml.
-          - /dev/null:/docker-entrypoint-initdb.d/10_postgis.sh:ro
         options: >-
           --health-cmd "pg_isready -U nearby -d nearby"
           --health-interval 5s

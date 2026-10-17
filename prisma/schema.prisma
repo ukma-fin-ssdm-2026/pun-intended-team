@@ -6,14 +6,12 @@
 // Tables and columns follow docs/architecture/data-model.md. The connection URL is in prisma.config.ts.
 
 generator client {
-  provider        = "prisma-client"
-  output          = "../src/infra/prisma/generated"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client"
+  output   = "../src/infra/prisma/generated"
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [postgis]
+  provider = "postgresql"
 }
 
 model Category {
