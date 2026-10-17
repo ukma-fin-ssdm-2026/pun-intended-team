@@ -23,4 +23,9 @@ describe('interestOverlap', () => {
   test('two empty lists score 0', () => {
     assert.equal(interestOverlap([], []), 0);
   });
+
+  test('duplicates in either list are ignored', () => {
+    // 1 shared (hiking) of 4 distinct (hiking, jazz, chess, cinema)
+    assert.equal(interestOverlap(['hiking', 'hiking', 'jazz', 'chess'], ['hiking', 'cinema', 'cinema']), 0.25);
+  });
 });
