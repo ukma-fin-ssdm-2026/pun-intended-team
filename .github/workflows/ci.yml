@@ -190,16 +190,6 @@ jobs:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
         run: npm run test:coverage
 
-      # Also after failing tests; no report (e.g. the build failed) is not an error.
-      - name: Upload coverage report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report
-          path: coverage/
-          if-no-files-found: ignore
-          retention-days: 1
-
   deploy:
     name: Deploy API docs
     needs: ci-passed

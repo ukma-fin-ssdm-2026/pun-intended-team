@@ -48,7 +48,7 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and all tests with coverage (`npm run test:coverage`) in one job, and keeps the coverage report as an artifact for one day. Actions are paused: the organization's minutes ran out. Once the self-hosted runner works, every pull request run `npm run test:coverage` with a gate just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and all tests with coverage (`npm run test:coverage`) in one job. Actions are paused: the organization's minutes ran out. Once the self-hosted runner works, every pull request run `npm run test:coverage` with a gate just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
 
 Tests run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
