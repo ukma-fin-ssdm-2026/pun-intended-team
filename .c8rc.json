@@ -2,6 +2,6 @@
   "all": true,
   "src": ["dist"],
   "include": ["dist/**/*.js"],
-  "exclude": ["dist/scripts/**", "dist/infra/prisma/generated/**", "dist/core/*/types/**"],
+  "exclude": ["dist/scripts/**"],
   "reporter": ["text-summary", "html"]
 }
