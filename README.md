@@ -85,10 +85,21 @@ For a production build: `npm run build`, then `npm start`.
 | `DATABASE_URL` | — | PostgreSQL connection string, set in `.env.example`; the server does not start without it, see [Local database](#local-database) |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
+| `IMPORT_ON_START` | `false` | Development only: `true` runs one event import after the API starts, so the imported events appear in `GET /events`; see [Event import](#event-import) |
 
 Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
+
+### Event import
+
+The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. The provider sits behind the `EventProvider` adapter in `src/core/catalog/adapters/`, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it in `InfraModule`; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. A record that cannot be mapped is skipped and logged (FR-015), and a second run changes only what the provider changed.
+
+```bash
+npm run import:events   # one run: fetch, normalize, save, print a report
+```
+
+Events are kept in memory until the database holds them (#144), so a run in its own process is lost on exit. For development, start the API with `IMPORT_ON_START=true` in `.env` to see the imported events in the catalog.
 
 ## ꕤ Tests
 

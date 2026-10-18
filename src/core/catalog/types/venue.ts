@@ -6,3 +6,5 @@ export interface Venue {
   location: { lat: number; lng: number };
   organizationId: string | null;
 }
+
+export type NewImportedVenue = Pick<Venue, 'name' | 'address' | 'location'>;

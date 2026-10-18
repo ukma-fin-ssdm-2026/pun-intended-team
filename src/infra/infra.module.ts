@@ -12,12 +12,14 @@ import { CodeHasher } from '../core/identity/adapters/code-hasher.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
+import { EventProvider } from '../core/catalog/adapters/event-provider.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
 import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { ConcertUaEventProvider } from './providers/concert-ua-event-provider.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { StubAccountsRepository } from './stubs/accounts.repository.ts';
@@ -43,6 +45,8 @@ const repositories = [
 ];
 
 const adapters = [
+  // The one external provider; another one replaces this line (FLEX-003).
+  { provide: EventProvider, useFactory: () => new ConcertUaEventProvider() },
   { provide: MessagingProvider, useClass: ConsoleMessagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },

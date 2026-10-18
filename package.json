@@ -12,6 +12,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/api/main.js",
+    "import:events": "nest build && node dist/import/main.js",
     "typecheck": "tsc --noEmit",
     "keys:generate": "node src/scripts/generate-keys.ts",
     "docs:generate": "nest build && node dist/scripts/generate-spec.js",

@@ -21,7 +21,7 @@ const excluded = [
   /\/infra\/messaging\/console-messaging-provider\.(ts|js)$/,
   // Wiring and start-up
   /\.module\.(ts|js)$/,
-  /\/api\/main\.(ts|js)$/,
+  /\/(api|import)\/main\.(ts|js)$/,
   /\/api\/common\/config\.(ts|js)$/,
   // Declarations
   /\/schemas\//,

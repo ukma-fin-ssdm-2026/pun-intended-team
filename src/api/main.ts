@@ -3,9 +3,10 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import { EventImportService } from '../core/catalog/services/event-import.service.ts';
 import { AppModule } from './app.module.ts';
 import { ApiExpressAdapter } from './common/api-express-adapter.ts';
-import { corsOrigins, isProduction, port, serveSwaggerUi } from './common/config.ts';
+import { corsOrigins, importOnStart, isProduction, port, serveSwaggerUi } from './common/config.ts';
 import { generateOpenApiSpec, writeOpenApiSpec } from './common/openapi.ts';
 import { securityHeaders } from './common/security-headers.ts';
 
@@ -40,4 +41,10 @@ const logger = new Logger('Bootstrap');
 logger.log(`API:        http://localhost:${port}`);
 if (serveSwaggerUi) {
   logger.log(`Swagger UI: http://localhost:${port}/api-docs`);
+}
+if (importOnStart) {
+  app
+    .get(EventImportService, { strict: false })
+    .run()
+    .catch((error: unknown) => logger.error('Event import failed', error instanceof Error ? error.stack : error));
 }

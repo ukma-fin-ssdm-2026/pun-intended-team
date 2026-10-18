@@ -28,11 +28,14 @@ src/
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
-      services/                 events.service.ts, categories.service.ts
+      adapters/                 event-provider.ts (abstract: one external listing service)
+      services/                 events.service.ts, categories.service.ts, event-import.service.ts
       types/                    event, category, venue, organization
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
     stubs/                      stand-in for the database, deleted as one folder: one repository per core repository, data.ts, paginate.ts
+    providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
+  import/                       main.ts, import.module.ts: the import service (CMP-03), no HTTP
   scripts/                      generate-spec.ts (npm run docs:generate)
   mcp/                          MCP server generated from the spec; a separate Node project, not edited by hand
 ```
@@ -55,9 +58,9 @@ src/
 ## Planned
 
 13. **Database:** `infra/prisma/` gets a `PrismaService` (connecting as `nearby_main`, see [database access](database-access.md)) and one Prisma implementation per repository. Switching means changing the bindings in `infra.module.ts` and deleting `infra/stubs/`.
-14. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdentity`, `EventProvider`) are defined in `core` and implemented in `infra`.
+14. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdentity`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider` and `MessagingProvider` exist; the others come with their features.
 15. **Transactions across modules** (HLD I2, I3: `notify(…, tx)`, jobs enqueued in the same transaction) via `@nestjs-cls/transactional` with its Prisma adapter, so repositories join the caller's transaction without passing `tx` around.
-16. **`src/import/`**: the import service (CMP-03) starts `core` and `infra` without HTTP (`NestFactory.createApplicationContext`).
+16. **`src/import/`**: the import service (CMP-03) starts `core` and `infra` without HTTP (`NestFactory.createApplicationContext`). `npm run import:events` makes one run; the schedule (`import.run`, HLD I3) is still to come.
 
 ## AI Usage Note
 
