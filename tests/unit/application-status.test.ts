@@ -21,3 +21,7 @@ test('cannot apply while one of the applications is paused', () => {
 test('cannot apply while one of the applications is paired', () => {
   assert.equal(canApply(['withdrawn', 'paired']), false);
 });
+
+test('can apply after a removed application', () => {
+  assert.equal(canApply(['removed']), true);
+});
