@@ -17,3 +17,7 @@ test('cannot apply while one of the applications is in pool', () => {
 test('cannot apply while one of the applications is paused', () => {
   assert.equal(canApply(['withdrawn', 'paused']), false);
 });
+
+test('cannot apply while one of the applications is paired', () => {
+  assert.equal(canApply(['withdrawn', 'paired']), false);
+});
