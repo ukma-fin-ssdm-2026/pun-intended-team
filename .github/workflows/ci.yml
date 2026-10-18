@@ -5,6 +5,7 @@
 # Reviewed by: Vlad-Re
 # Changed by Claude (Claude Code): merged the API tests, API docs, dependency audit, code quality, client
 # checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
+# Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
@@ -178,11 +179,18 @@ jobs:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
         run: npx prisma migrate deploy
 
-      - name: Run e2e tests
+      # Unit tests need no database and fail within seconds, so a break shows up before the long run below.
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:unit
+
+      # Unit and e2e tests in one run, so the e2e tests do not run twice; the report covers both.
+      # Fails if coverage is below the thresholds in mcr.config.mjs.
+      - name: Run all tests with coverage
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
-        run: npm run test:e2e
+        run: npm run test:coverage
 
   deploy:
     name: Deploy API docs
