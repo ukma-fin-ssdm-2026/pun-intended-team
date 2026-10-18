@@ -13,3 +13,7 @@ test('can apply if a previous applications is withdrawn', () => {
 test('cannot apply while one of the applications is in pool', () => {
   assert.equal(canApply(['withdrawn', 'in_pool']), false);
 });
+
+test('cannot apply while one of the applications is paused', () => {
+  assert.equal(canApply(['withdrawn', 'paused']), false);
+});
