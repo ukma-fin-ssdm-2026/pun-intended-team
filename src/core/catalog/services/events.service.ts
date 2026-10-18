@@ -24,7 +24,7 @@ export class EventsService {
     const today = kyivDate();
     const windowEnd = addDays(today, CATALOG_WINDOW_DAYS);
     const from = query.from && query.from > today ? query.from : today;
-    const to = query.to && query.to < windowEnd ? query.to : windowEnd;
+    const to = query.to && query.to > windowEnd ? query.to : windowEnd;
     return this.eventsRepository.findPublished({ ...query, from, to }, page);
   }
 
