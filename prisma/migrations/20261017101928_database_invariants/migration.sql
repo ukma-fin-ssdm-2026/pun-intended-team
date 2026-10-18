@@ -14,10 +14,12 @@ CREATE UNIQUE INDEX "applications_user_id_session_id_active_key"
     ON "applications" ("user_id", "session_id")
     WHERE "status" IN ('in_pool', 'paired', 'paused');
 
+-- CREATE UNIQUE INDEX ... ON report_cases (target_account_id, target_listing_id) WHERE status = 'open';
+
 -- One open case per report target (an account or a listing).
 CREATE UNIQUE INDEX "report_cases_open_target_account_key"
     ON "report_cases" ("target_account_id")
-    WHERE "status" = 'open' AND "target_listing_id" IS NOT NULL;
+    WHERE "status" = 'open' AND "target_account_id" IS NOT NULL;
 
 CREATE UNIQUE INDEX "report_cases_open_target_listing_key"
     ON "report_cases" ("target_listing_id")
