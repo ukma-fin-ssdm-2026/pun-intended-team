@@ -5,3 +5,7 @@ import { canApply } from '../../dist/core/matching/services/application-status.j
 test('can apply with no previous applications', () => {
   assert.equal(canApply([]), true);
 });
+
+test('can apply if a previous applications is withdrawn', () => {
+  assert.equal(canApply(['withdrawn']), true);
+});
