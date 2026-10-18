@@ -46,7 +46,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
    | Pure functions | A table of inputs and expected results, one test per row |
    | Adapters | The real implementation with test inputs, such as keys in a temporary folder; the library it wraps is not mocked |
 
-11. **Deterministic** — fixed ids and dates from the fixtures, never `Date.now()` or random values in test data. Code that reads the clock runs under `mock.timers` with a fixed `now`, reset after each test.
+11. **Deterministic** — fixed ids and dates from the fixtures, never `Date.now()` or random values in test data. Code that reads the clock runs under `mock.timers` with a fixed `now`, reset after each test. The exception is a property-based test (fast-check), which makes up its inputs on purpose; a failing run prints its seed, which replays it.
 12. **One behaviour per test** — `describe` names the unit or method (`AuthService.verify`), `test` names the behaviour in lower case: `'rejects a code issued more than 10 minutes ago'`. Arrange, act and assert are separated by blank lines. A table of cases covers one path with different inputs, not unrelated behaviours. A test for a requirement names its id in a comment, e.g. `// SAFE-001`.
 13. **Assert what a caller observes** — the returned value, the `DomainError` code (`assert.rejects` with a check of `code`), and the port calls with their arguments, including that nothing was saved when a rule fails. Expected values come from the arranged data (`credential.role`) or from a named constant for a value a requirement sets (`ACCESS_TOKEN_SECONDS`, SEC-005), not from repeated literals. Never assert a mock returning what it was given, or only that no error was thrown.
 
