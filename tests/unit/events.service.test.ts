@@ -88,6 +88,24 @@ describe('EventsService.list', () => {
     });
   }
 
+  // Regression for #206: the end date was compared the wrong way round, so a client could read past the window.
+  const windowEndCases = [
+    { title: 'keeps the last day of the window', to: WINDOW_END, expected: WINDOW_END },
+    { title: 'keeps the day before the last day of the window', to: '2026-11-11', expected: '2026-11-11' },
+    { title: 'moves the day after the window to its last day', to: '2026-11-13', expected: WINDOW_END },
+    { title: 'moves a date a year ahead to the last day of the window', to: '2027-10-15', expected: WINDOW_END },
+  ];
+
+  for (const { title, to, expected } of windowEndCases) {
+    test(`end date: ${title}`, async () => {
+      const { service, eventsRepository } = makeService();
+
+      await service.list({ to }, PAGE);
+
+      assert.equal(eventsRepository.findPublished.mock.calls[0]?.arguments[0].to, expected);
+    });
+  }
+
   test('passes the category and venue filters on unchanged', async () => {
     const { service, eventsRepository } = makeService();
     const query = { categoryId: aCategory().id, venueId: aVenue().id };
