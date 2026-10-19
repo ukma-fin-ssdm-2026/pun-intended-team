@@ -44,15 +44,16 @@ const presets = {
   thumb: { width: 40, height: 40, transform: 'matrix(4.7692 6.3336 -4.2708 7.0936 1.108 -2.936)' },
 };
 
-type Props = {
-  preset: keyof typeof presets;
-};
+export type GradientFrame = { width: number; height: number; transform: string };
+
+// A preset, or the frame size and gradient transform of a one-off place (e.g. the onboarding tiles).
+type Props = { preset: keyof typeof presets; frame?: never } | { frame: GradientFrame; preset?: never };
 
 // Fills its parent; position the parent.
-export function CoralGradient({ preset }: Props) {
+export function CoralGradient({ preset, frame }: Props) {
   // Several gradients can be on screen at once, and on the web their ids share one document.
   const id = `coral-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
-  const { width, height, transform } = presets[preset];
+  const { width, height, transform } = frame ?? presets[preset];
 
   return (
     <Svg

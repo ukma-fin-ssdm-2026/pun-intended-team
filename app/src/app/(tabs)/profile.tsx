@@ -165,7 +165,9 @@ export default function ProfileScreen() {
         onClose={() => setSignOutOpen(false)}
         onSignOut={() => {
           setSignOutOpen(false);
-          router.push('/onboarding');
+          // Signing out starts a new history on the onboarding, so back cannot return to the account.
+          router.dismissAll();
+          router.replace('/onboarding');
         }}
       />
     </View>
