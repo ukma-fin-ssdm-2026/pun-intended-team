@@ -1,10 +1,11 @@
 // Written with the help of Claude
 // AI Usage: mock profile from the Figma "Т4 Профіль" and "П1 Редагувати профіль" frames; reviewed by Daryna Halytska.
+import { mockUser } from '@/mocks/user';
 
 export const mockProfile = {
   initial: 'Д',
-  firstName: 'Дарина',
-  nameAge: 'Дарина, 20',
+  firstName: mockUser.firstName,
+  nameAge: `${mockUser.firstName}, 20`,
   occupation: 'Студентка КМА',
   about: 'Люблю камерні концерти й виставки. Після подій обожнюю довгі прогулянки й каву.',
   interests: ['Джаз', 'Сучасне мистецтво', 'Лекції'],
