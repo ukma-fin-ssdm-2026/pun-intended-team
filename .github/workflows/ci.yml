@@ -29,7 +29,7 @@ concurrency:
 jobs:
   ci-passed:
     name: CI passed
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -196,7 +196,7 @@ jobs:
     name: Deploy API docs
     needs: ci-passed
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 5
     permissions:
       pages: write
