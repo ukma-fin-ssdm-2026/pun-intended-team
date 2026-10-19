@@ -80,7 +80,9 @@ export function Glass({
   blurTarget,
   children,
 }: Props) {
-  // The blur sits under the fill and border, and the corner radius clips all three.
+  // Bottom to top: blur, fill and border, content; the corner radius clips all three. On the web the two layers are
+  // absolutely positioned, and a browser paints positioned boxes over unpositioned ones such as an icon's <svg>, so the
+  // content gets its own positioned View above them.
   return (
     <View className={className} style={[{ borderRadius: radius, overflow: 'hidden' }, style]}>
       <BlurLayer blur={blur} tone={tone} blurTarget={blurTarget} />
@@ -90,7 +92,11 @@ export function Glass({
           { borderRadius: radius, backgroundColor: fill, borderWidth: border ? 1 : 0, borderColor: border },
         ]}
       />
-      {children}
+      {children !== undefined && <View style={styles.content}>{children}</View>}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { position: 'relative', zIndex: 1 },
+});
