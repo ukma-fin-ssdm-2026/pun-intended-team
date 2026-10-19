@@ -107,24 +107,46 @@ After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm r
 ```
 app/
 ├─ app.json, tsconfig.json, eslint.config.js
+├─ babel.config.js, metro.config.js   NativeWind and SVG imports
+├─ tailwind.config.ts   Tailwind theme built from src/styles/tokens.ts
+├─ global.css           Tailwind entry file
+├─ .svgrrc              turns the icons' stroke into currentColor at build time
 ├─ .env.example
-├─ assets/              icons and splash images
+├─ assets/
+│  ├─ icons/            Solar Linear icons exported from Figma
+│  └─ images/           app icons, splash, spinner and mock event covers
 └─ src/
    ├─ app/              Expo Router routes (every file is a screen)
-   │  ├─ _layout.tsx    root Stack navigator
+   │  ├─ _layout.tsx    root Stack navigator; loads Inter and global.css
    │  ├─ index.tsx      event list with the category filter
-   │  └─ events/[id].tsx event details screen
+   │  ├─ events/[id].tsx event details screen
+   │  └─ dev/components.tsx gallery of the UI kit, development only
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
    │  └─ client.ts      typed API client; gets and renews the guest token
    ├─ hooks/            data hooks: use-categories.ts, use-events.ts, use-event.ts
-   ├─ components/       shared UI: category filter, event card, loading and error states
-   ├─ styles/           theme.ts with shared spacing, colors and font sizes
+   ├─ components/
+   │  ├─ ui/            UI kit from the Figma design (see below)
+   │  └─ …              earlier screens' components: category filter, event card, loading and error states
+   ├─ mocks/            mock data for screens that have no endpoint yet
+   ├─ styles/
+   │  ├─ tokens.ts      design tokens from the Figma variables
+   │  └─ theme.ts       spacing, colors and font sizes of the earlier screens
    ├─ config.ts         reads EXPO_PUBLIC_* values
    └─ dates.ts          formats dates in Kyiv time
 ```
 
-Import from `src/` with the `@/` alias, for example `import { EventCard } from '@/components/event-card'`.
+Import from `src/` with the `@/` alias, for example `import { Button } from '@/components/ui/button'`.
+
+## UI kit
+
+The screens are built from the [Figma design](https://www.figma.com/design/SxoD0EfoWYmJ5zehxl7rtX/nearby?node-id=0-1) with [NativeWind](https://www.nativewind.dev/) (Tailwind classes in React Native).
+
+- **Tokens.** `src/styles/tokens.ts` holds the Figma variables under their Figma names, so `brand/coral` becomes the class `bg-brand-coral`. Text sizes are `text-title`, `text-body`, `text-caption` and so on; the weight comes from the font family: `font-inter`, `font-inter-medium`, `font-inter-semibold`. Change a colour or text style here, not in components.
+- **Components.** `src/components/ui/` has the Figma components: `Button`, `IconButton`, `TextField`, `SearchField`, `Chip`, `Toggle`, `EventCard` and `TabBar`.
+- **Icons.** `<Icon name="calendar" size={16} color={…} />`; `name` is typed, so a wrong name fails `npm run typecheck`. To add an icon, export it from Figma as SVG into `assets/icons/`, keep the file as exported, and add it to the map in `icon.tsx`.
+- **Shadows.** Use the `boxShadow` strings from `shadows` in `tokens.ts`; they render on iOS, Android and web. Do not use SVG filters for shadows: they do not render on every platform.
+- **Gallery.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. The route only works in development; in a production build it redirects to the catalog.
 
 ## Code style
 
