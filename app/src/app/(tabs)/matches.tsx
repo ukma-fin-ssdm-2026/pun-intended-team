@@ -14,7 +14,7 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
-import { mockMatchesTab, mockPerson, mockProposal, mockSearch } from '@/mocks/matching';
+import { mockMatchesTab, mockPeople, mockPerson, mockProposal, mockSearch } from '@/mocks/matching';
 import { useMatches } from '@/state/matches';
 import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
@@ -123,7 +123,8 @@ export default function MatchesScreen() {
   useStatusBarStyle('light');
 
   const proposalEvent = findMockEvent(mockSearch.eventId);
-  const mutualEvent = findMockEvent(mockMatchesTab.mutual.eventId);
+  const mutual = mockPeople.maksym;
+  const mutualEvent = findMockEvent(mutual.eventId);
   const searchEvent = findMockEvent(mockMatchesTab.search.eventId);
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const subtitle = matchesEmpty
@@ -189,11 +190,11 @@ export default function MatchesScreen() {
           {mutualEvent && (
             <MatchCard
               event={mutualEvent}
-              onPress={() => router.push('/mutual')}
+              onPress={() => router.push({ pathname: '/mutual', params: { person: mutual.id } })}
               status={
                 <>
-                  <Initial letter={mockMatchesTab.mutual.initial} />
-                  <StatusText title={mockMatchesTab.mutual.nameAge} note="Це взаємно · контакти відкрито" />
+                  <Initial letter={mutual.initial} />
+                  <StatusText title={mutual.nameAge} note="Це взаємно · контакти відкрито" />
                   <View className="size-9 items-center justify-center rounded-[18px] bg-surface-card">
                     <Icon name="send" size={18} color={colors.brand.coral} />
                   </View>

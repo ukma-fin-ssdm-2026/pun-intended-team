@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: proposed match screen from the Figma "05 Запропонований метч" frame with the 05.2а / 05.3а animations and
 // the 05.2 / 05.3 states, on mock data; reviewed by Daryna Halytska.
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
@@ -18,7 +18,6 @@ import { MatchStatus } from '@/components/matching/match-status';
 import { MatchingNav } from '@/components/matching/matching-nav';
 import { ProposalCard } from '@/components/matching/proposal-card';
 import { ReportFlow, type ReportStep } from '@/components/matching/report-flow';
-import { SafetySheet } from '@/components/matching/safety-sheet';
 import { SwipeAccept } from '@/components/matching/swipe-accept';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
@@ -54,9 +53,6 @@ type Answer = 'accepted' | 'declined';
 
 export default function ProposalScreen() {
   const router = useRouter();
-  // Т5 "Це взаємно!" opens this screen with the safety reminder (06) on top.
-  const { safety } = useLocalSearchParams<{ safety?: string }>();
-  const [safetyOpen, setSafetyOpen] = useState(safety === '1');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
@@ -185,14 +181,6 @@ export default function ProposalScreen() {
       )}
 
       <ReportFlow step={report} onStepChange={setReport} onDone={toMatches} />
-      <SafetySheet
-        visible={safetyOpen}
-        onClose={() => router.back()}
-        onConfirm={() => {
-          setSafetyOpen(false);
-          router.push('/mutual');
-        }}
-      />
     </View>
   );
 }

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
-import { mockPerson } from '@/mocks/matching';
+import type { MatchPerson } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
 
 const rules: { icon: IconName; title: string; note: string }[] = [
@@ -21,11 +21,13 @@ const SHEET_BOTTOM = 34;
 
 type Props = {
   visible: boolean;
+  // The mutual match the reminder is about.
+  person: MatchPerson;
   onClose: () => void;
   onConfirm: () => void;
 };
 
-export function SafetySheet({ visible, onClose, onConfirm }: Props) {
+export function SafetySheet({ visible, person, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -48,7 +50,7 @@ export function SafetySheet({ visible, onClose, onConfirm }: Props) {
               Перед першою зустріччю
             </Text>
             <Text className="text-center font-inter text-caption text-text-secondary">
-              {mockPerson.name} теж прийняла метч! Кілька простих правил, і можна планувати зустріч.
+              {person.name} теж {person.accepted} метч! Кілька простих правил, і можна планувати зустріч.
             </Text>
           </View>
 

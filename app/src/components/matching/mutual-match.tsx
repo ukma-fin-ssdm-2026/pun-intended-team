@@ -9,7 +9,7 @@ import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatShortDay, formatTime } from '@/dates';
 import type { MockEvent } from '@/mocks/events';
-import { mockMutual, mockPerson, mockProposal } from '@/mocks/matching';
+import { mockMutual, type MatchPerson } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
 
 // "01 Шапка": top padding 56 in the iPhone 14 frame (9 px below its status bar), 52 at the bottom, of which the contacts
@@ -39,13 +39,15 @@ function Avatar({ initial, className = '' }: { initial: string; className?: stri
 
 type HeroProps = {
   title: MutualTitle;
+  // The match and the event they go to together.
+  person: MatchPerson;
   event: MockEvent;
   onBack?: () => void;
   onMore?: () => void;
 };
 
 // The gradient header; the component gallery shows it with each title.
-export function MutualMatchHero({ title, event, onBack, onMore }: HeroProps) {
+export function MutualMatchHero({ title, person, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
   const when = `${formatShortDay(event.startsAt)}, ${formatTime(event.startsAt)}`;
 
@@ -67,7 +69,7 @@ export function MutualMatchHero({ title, event, onBack, onMore }: HeroProps) {
       </View>
       <View className="flex-row items-center">
         <Avatar initial={mockMutual.ownInitial} className="-mr-5" />
-        <Avatar initial={mockProposal.initial} />
+        <Avatar initial={person.initial} />
         <View className="absolute left-[60px] top-[58px] size-9 items-center justify-center rounded-[18px] bg-brand-coral">
           <Icon name="mutual-check" size={20} color={colors.text['on-dark']} />
         </View>
@@ -76,7 +78,7 @@ export function MutualMatchHero({ title, event, onBack, onMore }: HeroProps) {
         {title}
       </Text>
       <Text className="text-center font-inter text-caption text-text-on-dark-muted">
-        Ви з {mockPerson.instrumental} йдете на «{event.title}» · {when}
+        Ви з {person.instrumental} йдете на «{event.title}» · {when}
       </Text>
     </View>
   );
@@ -114,26 +116,26 @@ type Props = HeroProps & {
   onEventPress: () => void;
 };
 
-export function MutualMatch({ title, event, onBack, onMore, onEventPress }: Props) {
+export function MutualMatch({ title, person, event, onBack, onMore, onEventPress }: Props) {
   const insets = useSafeAreaInsets();
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
 
   return (
     <View className="flex-1 bg-surface-card">
       <ScrollView>
-        <MutualMatchHero title={title} event={event} onBack={onBack} onMore={onMore} />
+        <MutualMatchHero title={title} person={person} event={event} onBack={onBack} onMore={onMore} />
         <View
           className="gap-4 rounded-t-[28px] bg-surface-card px-5 pt-6"
           style={{ marginTop: -SHEET_OVERLAP, paddingBottom: CONTACTS_BOTTOM - ACTION_BOTTOM + actionBottom }}
         >
-          <Text className="font-inter-semibold text-title text-text-primary">Контакти {mockPerson.genitive}</Text>
+          <Text className="font-inter-semibold text-title text-text-primary">Контакти {person.genitive}</Text>
           <View className="rounded-[20px] bg-surface-background px-4 py-1">
-            <ContactRow icon="send" label="Telegram" value={mockMutual.telegram} action="arrow-long" />
+            <ContactRow icon="send" label="Telegram" value={person.telegram} action="arrow-long" />
             <View className="h-px bg-border-default" />
-            <ContactRow icon="phone" label="Телефон" value={mockMutual.phone} action="copy" />
+            <ContactRow icon="phone" label="Телефон" value={person.phone} action="copy" />
           </View>
           <Text className="font-inter text-caption text-text-secondary">
-            {mockPerson.name} теж бачить твої контакти. Бігом домовляйтесь про зустріч!
+            {person.name} теж бачить твої контакти. Бігом домовляйтесь про зустріч!
           </Text>
           <Pressable
             accessibilityRole="link"

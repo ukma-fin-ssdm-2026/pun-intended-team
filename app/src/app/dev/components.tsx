@@ -18,7 +18,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
 import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
-import { mockSearch } from '@/mocks/matching';
+import { mockPeople } from '@/mocks/matching';
 import {
   setAnnouncementsEmpty,
   setGuest,
@@ -72,7 +72,7 @@ export default function ComponentsGallery() {
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<TabName>('events');
 
-  const matchEvent = findMockEvent(mockSearch.eventId) ?? mockEvents[0];
+  const matchEvent = findMockEvent(mockPeople.maksym.eventId) ?? mockEvents[0];
 
   if (!__DEV__) return <Redirect href="/" />;
 
@@ -183,7 +183,7 @@ export default function ComponentsGallery() {
       <Section title="07 · варіанти заголовка">
         {mutualTitles.slice(1).map((title) => (
           <View key={title} className="overflow-hidden rounded-[28px]">
-            <MutualMatchHero title={title} event={matchEvent} />
+            <MutualMatchHero title={title} person={mockPeople.maksym} event={matchEvent} />
           </View>
         ))}
       </Section>

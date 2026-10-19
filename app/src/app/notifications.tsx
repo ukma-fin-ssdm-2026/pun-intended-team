@@ -42,8 +42,8 @@ const fresh: Notification[] = [
     time: '5 хв',
     text: 'Максим теж прийняв метч на «Квартирник». Контакти відкрито.',
     unread: true,
-    // The prototype opens the safety reminder over the proposed match (06), then the mutual match.
-    href: { pathname: '/proposal', params: { safety: '1' } },
+    // The safety reminder (06) over Максим's mutual match (07).
+    href: { pathname: '/mutual', params: { person: 'maksym', safety: '1' } },
   },
   {
     icon: 'matches',
