@@ -7,7 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/tokens';
 
-// Figma puts the header 60 px from the top of an iPhone 14 frame, 13 px below its 47 px status bar.
+// "01 Шапка" has a 60 px top padding in the iPhone 14 frame, 13 px below its 47 px status bar. A taller status bar
+// keeps that gap; on screens without one (the web) the padding stays 60 px, as in Figma.
+const TOP_PADDING = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 
 type Props = {
@@ -22,7 +24,7 @@ export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, o
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="gap-6 px-5" style={{ paddingTop: insets.top + GAP_BELOW_STATUS_BAR }}>
+    <View className="gap-6 px-5" style={{ paddingTop: Math.max(TOP_PADDING, insets.top + GAP_BELOW_STATUS_BAR) }}>
       <View className="flex-row items-center justify-between">
         <Text className="font-alice text-logo text-text-on-dark">Nearby</Text>
         <View className="flex-row items-center gap-3">

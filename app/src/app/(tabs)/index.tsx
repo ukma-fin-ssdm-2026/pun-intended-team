@@ -15,7 +15,7 @@ import { EventCard } from '@/components/ui/event-card';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
 import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
-import { BAR_HEIGHT } from '@/components/ui/tab-bar-shape';
+import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockCategories, mockEvents, mockPooledEventIds } from '@/mocks/events';
@@ -26,7 +26,7 @@ import { finishCatalogLoading, useSession } from '@/state/session';
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
 // the arrow after them opens the full list in the filters.
 const visibleCategories = (screenWidth: number) => (screenWidth >= 375 ? 2 : 1);
-// Space under the last card above the tab bar: Figma leaves 120 px for a 72 px bar and a 22 px safe area.
+// "03 Список подій" has a 120 px bottom padding: the 72 px bar, its 22 px safe area and 26 px above the bar.
 const LIST_BOTTOM_GAP = 26;
 // The prototype moves from the skeleton (01.1) to the catalog after 1.5 s, with a 0.25 s dissolve.
 const LOADING_MS = 1500;
@@ -63,7 +63,7 @@ export default function CatalogScreen() {
     <>
       <ScrollView
         className="flex-1 bg-surface-background"
-        contentContainerStyle={{ paddingBottom: BAR_HEIGHT + insets.bottom + LIST_BOTTOM_GAP }}
+        contentContainerStyle={{ paddingBottom: BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Taller than the header, so the first card starts over the gradient, as in Figma. */}
@@ -112,24 +112,26 @@ export default function CatalogScreen() {
             ))}
           </View>
         ) : (
-          <Animated.View entering={FadeIn.duration(DISSOLVE_MS)} className="gap-4 px-5 pt-7">
-            {events.map((event) => (
-              <EventCard
-                key={event.id}
-                title={event.title}
-                category={event.category.name}
-                dateLabel={formatEventDate(event.startsAt)}
-                place={event.venue.name}
-                cover={event.cover}
-                inPool={!isGuest && mockPooledEventIds.includes(event.id)}
-                // In the prototype the whole card, button included, opens the event page; the request starts there.
-                onPress={() => openEvent(event.id)}
-                onFindCompany={() => openEvent(event.id)}
-              />
-            ))}
-            {events.length === 0 && (
-              <Text className="py-10 text-center font-inter text-body text-text-secondary">Подій не знайшли</Text>
-            )}
+          // NativeWind maps className only on React Native's own components, so the layout sits on a View inside.
+          <Animated.View entering={FadeIn.duration(DISSOLVE_MS)}>
+            <View className="gap-4 px-5 pt-7">
+              {events.map((event) => (
+                <EventCard
+                  key={event.id}
+                  title={event.title}
+                  category={event.category.name}
+                  dateLabel={formatEventDate(event.startsAt)}
+                  place={event.venue.name}
+                  cover={event.cover}
+                  inPool={!isGuest && mockPooledEventIds.includes(event.id)}
+                  // The button opens the event page too, as in the prototype; the request starts there.
+                  onPress={() => openEvent(event.id)}
+                />
+              ))}
+              {events.length === 0 && (
+                <Text className="py-10 text-center font-inter text-body text-text-secondary">Подій не знайшли</Text>
+              )}
+            </View>
           </Animated.View>
         )}
       </ScrollView>

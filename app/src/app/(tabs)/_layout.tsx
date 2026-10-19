@@ -4,6 +4,7 @@ import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { View } from 'react-native';
 
 import { TabBar, type TabName } from '@/components/ui/tab-bar';
+import { tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { openGuestDialog, useSession } from '@/state/session';
 
 // Route file of each tab; the catalog is the app's start screen, so it is `index`.
@@ -41,7 +42,7 @@ function NearbyTabBar({ state, navigation, insets }: BottomTabBarProps) {
   return (
     <View className="absolute bottom-0 left-0 right-0">
       <TabBar active={routeTabs[current.name] ?? 'events'} onTabPress={onTabPress} />
-      <View className="bg-surface-card" style={{ height: insets.bottom }} />
+      <View className="bg-surface-card" style={{ height: tabBarSafeArea(insets.bottom) }} />
     </View>
   );
 }

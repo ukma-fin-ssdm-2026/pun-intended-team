@@ -4,6 +4,9 @@
 // The notch geometry is taken from the Figma bar shape (72 px high, 168 px notch): it keeps its size, only the
 // straight parts of the bar stretch with the screen width.
 export const BAR_HEIGHT = 72;
+// Figma draws a 22 px white safe area under the bar; a device with a larger bottom inset uses its own.
+const MIN_SAFE_AREA = 22;
+export const tabBarSafeArea = (bottomInset: number) => Math.max(bottomInset, MIN_SAFE_AREA);
 
 const NOTCH_HALF_WIDTH = 84;
 const NOTCH_DEPTH = 48;
