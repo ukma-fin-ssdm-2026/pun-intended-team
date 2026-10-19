@@ -60,6 +60,11 @@ export function formatEventDay(iso: string): string {
   return `${weekdaysLong[weekday]}, ${day} ${monthsLong[month - 1]}`;
 }
 
+// "19:00".
+export function formatTime(iso: string): string {
+  return kyivTime(new Date(iso)).time;
+}
+
 // "19:00 – 21:30".
 export function formatTimeRange(startIso: string, endIso: string): string {
   return `${kyivTime(new Date(startIso)).time} – ${kyivTime(new Date(endIso)).time}`;

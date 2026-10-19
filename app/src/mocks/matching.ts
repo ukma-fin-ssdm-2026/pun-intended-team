@@ -44,3 +44,10 @@ export const mockProposal = {
     { label: 'Інді', common: false },
   ],
 };
+
+// 07 Взаємний метч: the user's own initial next to the match's, and the match's contacts.
+export const mockMutual = {
+  ownInitial: 'Д',
+  telegram: '@olena_draws',
+  phone: '+380 [НОМЕР]',
+};

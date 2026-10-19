@@ -32,6 +32,8 @@ const presets = {
   search: { width: 390, height: 472, transform: 'matrix(46.5 74.736 -41.64 83.704 10.803 -34.645)' },
   // The full-screen background of 05 Запропонований метч and its states.
   screen: { width: 390, height: 844, transform: 'matrix(46.5 133.64 -41.64 149.67 10.803 -61.95)' },
+  // "01 Шапка" of 07 Взаємний метч.
+  mutual: { width: 390, height: 354, transform: 'matrix(46.5 56.052 -41.64 62.778 10.803 -25.984)' },
 };
 
 type Props = {

@@ -27,6 +27,7 @@ import Heart from '@/assets/icons/heart.svg';
 import Home from '@/assets/icons/home.svg';
 import List from '@/assets/icons/list.svg';
 import Matches from '@/assets/icons/matches.svg';
+import MutualCheck from '@/assets/icons/mutual-check.svg';
 import MenuDots from '@/assets/icons/menu-dots.svg';
 import Phone from '@/assets/icons/phone.svg';
 import Pin from '@/assets/icons/pin.svg';
@@ -76,6 +77,8 @@ const icons = {
   home: Home,
   list: List,
   matches: Matches,
+  // The 07 "Взаємно" badge tick (20 px, 2.2 px stroke).
+  'mutual-check': MutualCheck,
   'menu-dots': MenuDots,
   phone: Phone,
   pin: Pin,

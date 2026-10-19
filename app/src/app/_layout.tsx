@@ -41,6 +41,7 @@ export default function RootLayout() {
         <Stack.Screen name="events/[id]/index" options={{ headerShown: false }} />
         <Stack.Screen name="events/[id]/search" options={dissolve} />
         <Stack.Screen name="proposal" options={dissolve} />
+        <Stack.Screen name="mutual" options={dissolve} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog
