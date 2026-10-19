@@ -12,6 +12,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { GuestDialog } from '@/components/guest-dialog';
 import { closeGuestDialog, useSession } from '@/state/session';
@@ -30,11 +31,16 @@ export default function RootLayout() {
   // The splash screen stays up until the fonts are ready, so text never renders in the fallback font first.
   if (!fontsLoaded) return null;
 
+  // The matching screens open with the prototype's 250 ms dissolve.
+  const dissolve = { headerShown: false, animation: 'fade', animationDuration: 250 } as const;
+
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="events/[id]/index" options={{ headerShown: false }} />
+        <Stack.Screen name="events/[id]/search" options={dissolve} />
+        <Stack.Screen name="proposal" options={dissolve} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog
@@ -45,6 +51,6 @@ export default function RootLayout() {
           router.push(route);
         }}
       />
-    </>
+    </GestureHandlerRootView>
   );
 }

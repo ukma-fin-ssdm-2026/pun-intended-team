@@ -20,6 +20,7 @@ import Close from '@/assets/icons/close.svg';
 import Copy from '@/assets/icons/copy.svg';
 import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
+import DeclineClose from '@/assets/icons/decline-close.svg';
 import Filter from '@/assets/icons/filter.svg';
 import GalleryEdit from '@/assets/icons/gallery-edit.svg';
 import Heart from '@/assets/icons/heart.svg';
@@ -37,6 +38,8 @@ import Search from '@/assets/icons/search.svg';
 import Send from '@/assets/icons/send.svg';
 import Share from '@/assets/icons/share.svg';
 import Shield from '@/assets/icons/shield.svg';
+import StatusCheck from '@/assets/icons/status-check.svg';
+import StatusClose from '@/assets/icons/status-close.svg';
 import Ticket from '@/assets/icons/ticket.svg';
 import User from '@/assets/icons/user.svg';
 import { colors } from '@/styles/tokens';
@@ -65,6 +68,8 @@ const icons = {
   copy: Copy,
   cup: Cup,
   danger: Danger,
+  // The 05 "Не цього разу" cross (24 px, 2 px stroke) and the 05.2 / 05.3 status icons (34 px, 1.5 px stroke).
+  'decline-close': DeclineClose,
   filter: Filter,
   'gallery-edit': GalleryEdit,
   heart: Heart,
@@ -82,6 +87,8 @@ const icons = {
   send: Send,
   share: Share,
   shield: Shield,
+  'status-check': StatusCheck,
+  'status-close': StatusClose,
   ticket: Ticket,
   user: User,
 };

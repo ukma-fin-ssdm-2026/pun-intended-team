@@ -35,6 +35,7 @@ export const fontFamilies = {
 // Size and line height of the Figma text styles; the weight comes from the font family.
 export const typography = {
   logo: { fontSize: 30, lineHeight: 34 },
+  display: { fontSize: 28, lineHeight: 34 },
   h1: { fontSize: 22, lineHeight: 28 },
   title: { fontSize: 16, lineHeight: 22 },
   body: { fontSize: 15, lineHeight: 22 },

@@ -9,7 +9,8 @@ type Event = components['schemas']['Event'];
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
 // The API has no cover images, districts or organizers yet; those fields are mock-only. An event without a cover
 // shows the coral gradient.
-export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string };
+// `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
+export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
 
 // Category ids are shared by the events below; the order is the order of the Figma chips.
 export const mockCategories: components['schemas']['Category'][] = [
@@ -46,6 +47,7 @@ export const mockEvents: MockEvent[] = [
     cover: require('@/assets/images/events/jazz-evening.png'),
     district: 'Печерськ',
     organizer: 'Мистецький Арсенал',
+    shortTitle: 'Джаз-вечір',
   },
   {
     id: '7a2d4b5c-0002-4b00-8000-000000000002',

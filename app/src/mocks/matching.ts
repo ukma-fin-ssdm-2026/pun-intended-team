@@ -19,3 +19,28 @@ export const mockPerson = {
   instrumental: 'Оленою',
   genitive: 'Олени',
 };
+
+// 05 Запропонований метч: the first of three proposals for the jazz evening.
+export const mockProposal = {
+  position: 'Нові метчі · 1 з 3',
+  count: 3,
+  next: 'Далі: ще 2 пропозиції',
+  // Figma uses this photo as the user's cover.
+  cover: require('@/assets/images/events/kvartyrnyk.png'),
+  initial: 'О',
+  nameAge: 'Олена, 24',
+  occupation: 'Ілюстраторка',
+  lookingFor: 'компанію на вечір',
+  afterEvent: 'прогулянка, кава',
+  validUntil: 'Ср, 21 жовт, 19:00',
+  about:
+    'Працюю в ілюстрації, люблю камерні концерти й довгі прогулянки після них. Шукаю компанію, з якою можна обговорити музику.',
+  commonLabel: '· 3 спільних',
+  interests: [
+    { label: 'Джаз', common: true },
+    { label: 'Сучасне мистецтво', common: true },
+    { label: 'Лекції', common: true },
+    { label: 'Кераміка', common: false },
+    { label: 'Інді', common: false },
+  ],
+};

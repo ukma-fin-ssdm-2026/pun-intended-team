@@ -28,6 +28,10 @@ const stops: [offset: number, color: string][] = [
 const presets = {
   header: { width: 390, height: 484, transform: 'matrix(46.5 76.637 -41.64 85.833 10.803 -35.526)' },
   cover: { width: 334, height: 170, transform: 'matrix(39.823 26.918 -35.661 30.148 9.2518 -12.478)' },
+  // "00 Фон / Градієнт" of 04 Пошук компанії.
+  search: { width: 390, height: 472, transform: 'matrix(46.5 74.736 -41.64 83.704 10.803 -34.645)' },
+  // The full-screen background of 05 Запропонований метч and its states.
+  screen: { width: 390, height: 844, transform: 'matrix(46.5 133.64 -41.64 149.67 10.803 -61.95)' },
 };
 
 type Props = {
