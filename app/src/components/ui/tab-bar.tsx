@@ -103,12 +103,15 @@ function TabContent({ tab, index, transition }: { tab: (typeof tabs)[number]; in
 type Props = {
   active: TabName;
   onTabPress: (tab: TabName) => void;
+  // White space under the tabs down to the screen edge; the bar shape grows by it.
+  bottomPadding?: number;
 };
 
-export function TabBar({ active, onTabPress }: Props) {
+export function TabBar({ active, onTabPress, bottomPadding = 0 }: Props) {
   const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
   const activeIndex = tabs.findIndex((tab) => tab.name === active);
+  const height = BAR_HEIGHT + bottomPadding;
 
   const barWidth = useSharedValue(0);
   const from = useSharedValue(activeIndex);
@@ -153,14 +156,17 @@ export function TabBar({ active, onTabPress }: Props) {
         barWidth.set(layoutWidth);
         setWidth(layoutWidth);
       }}
-      className="w-full flex-row px-5 py-3"
-      style={{ height: BAR_HEIGHT }}
+      className="w-full flex-row px-5 pt-3"
+      style={{ height }}
     >
       {width > 0 && (
         <>
           <View className="absolute left-0 top-0" style={[shapeShadow, { pointerEvents: 'none' }]}>
-            <Svg width={width} height={BAR_HEIGHT}>
-              <Path d={tabBarPath(width, notchCenter ?? centerOf(activeIndex, width))} fill={colors.surface.card} />
+            <Svg width={width} height={height}>
+              <Path
+                d={tabBarPath(width, notchCenter ?? centerOf(activeIndex, width), height)}
+                fill={colors.surface.card}
+              />
             </Svg>
           </View>
           <Animated.View

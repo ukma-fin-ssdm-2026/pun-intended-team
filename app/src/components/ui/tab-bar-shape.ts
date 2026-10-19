@@ -4,7 +4,8 @@
 // The notch geometry is taken from the Figma bar shape (72 px high, 168 px notch): it keeps its size, only the
 // straight parts of the bar stretch with the screen width.
 export const BAR_HEIGHT = 72;
-// Figma draws a 22 px white safe area under the bar; a device with a larger bottom inset uses its own.
+// "Нижня навігація" is 94 px in Figma: the 72 px bar and a 22 px white safe area, flush with the bottom of the screen.
+// A device with a larger bottom inset uses its own instead of the 22 px.
 const MIN_SAFE_AREA = 22;
 export const tabBarSafeArea = (bottomInset: number) => Math.max(bottomInset, MIN_SAFE_AREA);
 
@@ -26,8 +27,9 @@ function side(distanceToEdge: number): Side {
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
-// `center` is the x of the active tab's centre; the path is in bar coordinates (0..width × 0..72).
-export function tabBarPath(width: number, center: number): string {
+// `center` is the x of the active tab's centre; the path is in bar coordinates (0..width × 0..height). Below the
+// notch the sides run straight down, so a taller bar reaches the bottom edge in one shape, without a seam.
+export function tabBarPath(width: number, center: number, height = BAR_HEIGHT): string {
   const c = center;
   const left = side(c - NOTCH_HALF_WIDTH);
   const right = side(width - (c + NOTCH_HALF_WIDTH));
@@ -43,7 +45,7 @@ export function tabBarPath(width: number, center: number): string {
   const rk = right.corner * (1 - KAPPA);
 
   const commands = [
-    `M0 ${BAR_HEIGHT}`,
+    `M0 ${height}`,
     `V${left.corner}`,
     `C0 ${lk} ${lk} 0 ${left.corner} 0`,
     `H${leftStart}`,
@@ -53,7 +55,7 @@ export function tabBarPath(width: number, center: number): string {
     `C${c + 44.04} 18.04 ${rightStart - rightHandle} 0 ${rightStart} 0`,
     `H${width - right.corner}`,
     `C${width - rk} 0 ${width} ${rk} ${width} ${right.corner}`,
-    `V${BAR_HEIGHT}`,
+    `V${height}`,
     'Z',
   ];
   return commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));

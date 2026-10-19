@@ -38,11 +38,15 @@ function NearbyTabBar({ state, navigation, insets }: BottomTabBarProps) {
     }
   };
 
-  // The bar floats over the screen, as in Figma: content scrolls under the notch and the raised active circle.
+  // The bar floats over the screen, as in Figma: content scrolls under the notch and the raised active circle. Its own
+  // shape reaches the bottom edge, so there is no separate strip and no seam under it.
   return (
     <View className="absolute bottom-0 left-0 right-0">
-      <TabBar active={routeTabs[current.name] ?? 'events'} onTabPress={onTabPress} />
-      <View className="bg-surface-card" style={{ height: tabBarSafeArea(insets.bottom) }} />
+      <TabBar
+        active={routeTabs[current.name] ?? 'events'}
+        onTabPress={onTabPress}
+        bottomPadding={tabBarSafeArea(insets.bottom)}
+      />
     </View>
   );
 }
