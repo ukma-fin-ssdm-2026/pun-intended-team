@@ -75,6 +75,6 @@ TM-10 and TM-14 are mitigated, but their residual part — copying what a legiti
 
 ## AI Usage Note
 
-Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed by Daryna Halytska.
+Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.
 
 Boundary TB7 was later updated with Claude to match the revised deployment diagram. Reviewed by Vlad-Re

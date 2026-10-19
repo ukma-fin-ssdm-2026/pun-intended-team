@@ -160,4 +160,4 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 ## AI Usage Note
 
-Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed by Daryna Halytska.
+Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.

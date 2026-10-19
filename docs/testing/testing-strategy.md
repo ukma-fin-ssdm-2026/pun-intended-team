@@ -64,4 +64,4 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 
 ## AI Usage Note
 
-Drafted with Claude Code from the repository's tests, CI workflow and requirements; reviewed by Daryna Halytska. Coverage numbers come from a local run and match the committed reports.
+Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run and match the committed reports.
