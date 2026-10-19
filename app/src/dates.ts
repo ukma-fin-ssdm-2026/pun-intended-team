@@ -84,17 +84,3 @@ export function weekendDays(today: KyivDay): KyivDay[] {
   const saturday = addDays(today, 6 - weekday);
   return [saturday, addDays(saturday, 1)];
 }
-
-// Used by the event details screen until it moves to mock data.
-const kyivDateTime = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Europe/Kyiv',
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  hour: '2-digit',
-  minute: '2-digit',
-});
-
-export function formatDateTime(iso: string): string {
-  return kyivDateTime.format(new Date(iso));
-}
