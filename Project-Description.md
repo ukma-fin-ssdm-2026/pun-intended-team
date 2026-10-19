@@ -61,4 +61,4 @@ The measurable criteria are in [`requirements.md`](docs/requirements/requirement
 - Team of 4 students, implementation timeline — one semester (11 weeks).
 
 ## AI Usage Note
-This document was written with the help of Claude. Reviewed and edited by Daryna Halytska. Later updated with Claude to match the current design and reviewed by Viktoriya Baran.
+This document was written with the help of Claude. Reviewed by Daryna Halytska. Later updated with Claude to match the current design and reviewed by Viktoriya Baran.

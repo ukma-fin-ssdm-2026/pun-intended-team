@@ -1,5 +1,5 @@
 # AI Usage Note: written by Claude (Claude Code); checked with git check-attr and git ls-files --eol.
-# Reviewed by: Daryna Halytska
+# Reviewed by Daryna Halytska
 # Changed by Claude (Claude Code): added the global line-ending rule.
 
 # All text files use LF everywhere; Prettier also expects LF.

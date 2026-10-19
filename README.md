@@ -143,4 +143,4 @@ The Expo client in [`app/`](app/) lists the catalog events and opens their detai
 
 ## ༄ AI Usage Note
 
-This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
+This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed by Daryna Halytska and Viktoriya Baran before being committed.
