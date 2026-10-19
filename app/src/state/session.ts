@@ -36,6 +36,11 @@ export function setGuest(isGuest: boolean) {
   store.set(({ simulateLoading }) => ({ isGuest, catalogLoading: simulateLoading }));
 }
 
+// Signing in (В4, В4.2, В8) ends guest mode.
+export function signIn() {
+  store.set(({ simulateLoading }) => ({ isGuest: false, catalogLoading: simulateLoading }));
+}
+
 export function setSimulateLoading(simulateLoading: boolean) {
   store.set({ simulateLoading, catalogLoading: simulateLoading });
 }
