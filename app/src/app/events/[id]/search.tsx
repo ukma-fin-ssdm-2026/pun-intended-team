@@ -126,7 +126,7 @@ export default function CompanySearchScreen() {
             icon="list"
             title="Створити оголошення"
             note="Запропонуй свою ідею для зустрічі"
-            onPress={() => router.push('/new-announcement')}
+            onPress={() => router.navigate({ pathname: '/announcements', params: { compose: '1' } })}
           />
         </View>
       </View>

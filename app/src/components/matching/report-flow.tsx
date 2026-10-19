@@ -20,9 +20,12 @@ const reasons = [
   'Інше',
 ];
 
-const nextSteps: { icon: IconName; text: string }[] = [
+// Who is reported, in the forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою".
+export type ReportedPerson = { name: string; accusative: string; instrumental: string };
+
+const nextSteps = (person: ReportedPerson): { icon: IconName; text: string }[] => [
   { icon: 'report-shield', text: 'Модератор розгляне скаргу протягом доби' },
-  { icon: 'report-close', text: `Ви з ${mockPerson.instrumental} більше не потрапите в метчі одне одного` },
+  { icon: 'report-close', text: `Ви з ${person.instrumental} більше не потрапите в метчі одне одного` },
   { icon: 'report-bell', text: 'Ми повідомимо, коли буде рішення' },
 ];
 
@@ -54,7 +57,7 @@ function ReasonRow({ label, checked, onPress }: { label: string; checked: boolea
   );
 }
 
-function ReportSheet({ onSubmit }: { onSubmit: () => void }) {
+function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: () => void }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   // Figma's filled-in example: two reasons and a comment.
@@ -85,10 +88,10 @@ function ReportSheet({ onSubmit }: { onSubmit: () => void }) {
               <Icon name="danger" size={26} color={colors.text['on-dark']} />
             </View>
             <Text accessibilityRole="header" className="text-center font-inter-bold text-h1 text-text-primary">
-              Поскаржитися на {mockPerson.accusative}
+              Поскаржитися на {person.accusative}
             </Text>
             <Text className="text-center font-inter text-caption text-text-secondary">
-              {mockPerson.name} не дізнається, хто надіслав скаргу. Модератор побачить її протягом хвилини.
+              {person.name} не дізнається, хто надіслав скаргу. Модератор побачить її протягом хвилини.
             </Text>
           </View>
 
@@ -122,7 +125,7 @@ function ReportSheet({ onSubmit }: { onSubmit: () => void }) {
   );
 }
 
-function ReportSentDialog({ onDone }: { onDone: () => void }) {
+function ReportSentDialog({ person, onDone }: { person: ReportedPerson; onDone: () => void }) {
   return (
     <View
       accessibilityViewIsModal
@@ -137,11 +140,11 @@ function ReportSentDialog({ onDone }: { onDone: () => void }) {
           Скаргу надіслано
         </Text>
         <Text className="text-center font-inter text-caption text-text-secondary">
-          Дякуємо, що допомагаєш тримати Nearby безпечним. {mockPerson.name} не дізнається, хто поскаржився.
+          Дякуємо, що допомагаєш тримати Nearby безпечним. {person.name} не дізнається, хто поскаржився.
         </Text>
       </View>
       <View className="rounded-[20px] bg-surface-background px-4 py-1">
-        {nextSteps.map((step, index) => (
+        {nextSteps(person).map((step, index) => (
           <View key={step.icon}>
             {index > 0 && <View className="h-px bg-border-default" />}
             <View className="flex-row items-center gap-3 py-3">
@@ -161,6 +164,8 @@ function ReportSentDialog({ onDone }: { onDone: () => void }) {
 export type ReportStep = 'closed' | 'form' | 'sent';
 
 type Props = {
+  // The match by default (05, 07); a post's author on Т3.
+  person?: ReportedPerson;
   step: ReportStep;
   onStepChange: (step: ReportStep) => void;
   // "Зрозуміло" on Д3.1; the prototype opens Т2 Метчі.
@@ -169,7 +174,7 @@ type Props = {
 
 // One modal for both steps, so sending the report swaps the sheet for the dialog without closing and reopening it.
 // A backdrop tap closes either step, as in the prototype.
-export function ReportFlow({ step, onStepChange, onDone }: Props) {
+export function ReportFlow({ person = mockPerson, step, onStepChange, onDone }: Props) {
   return (
     <Overlay
       visible={step !== 'closed'}
@@ -178,13 +183,14 @@ export function ReportFlow({ step, onStepChange, onDone }: Props) {
     >
       {step === 'sent' ? (
         <ReportSentDialog
+          person={person}
           onDone={() => {
             onStepChange('closed');
             onDone();
           }}
         />
       ) : (
-        <ReportSheet onSubmit={() => onStepChange('sent')} />
+        <ReportSheet person={person} onSubmit={() => onStepChange('sent')} />
       )}
     </Overlay>
   );

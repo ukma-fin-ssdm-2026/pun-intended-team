@@ -13,6 +13,8 @@ type Session = {
   inPool: boolean;
   // The Метчі tab as Т2.1 "Поки без метчів".
   matchesEmpty: boolean;
+  // The Оголошення tab as Т3.1 "Поки тут тихо".
+  announcementsEmpty: boolean;
   // "Увійди, щоб знайти компанію" (02.2) over the current screen.
   guestDialogOpen: boolean;
 };
@@ -23,6 +25,7 @@ const store = createStore<Session>({
   catalogLoading: true,
   inPool: false,
   matchesEmpty: false,
+  announcementsEmpty: false,
   guestDialogOpen: false,
 });
 
@@ -43,6 +46,10 @@ export function setInPool(inPool: boolean) {
 
 export function setMatchesEmpty(matchesEmpty: boolean) {
   store.set({ matchesEmpty });
+}
+
+export function setAnnouncementsEmpty(announcementsEmpty: boolean) {
+  store.set({ announcementsEmpty });
 }
 
 export function finishCatalogLoading() {

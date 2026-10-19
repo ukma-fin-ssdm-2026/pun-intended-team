@@ -36,6 +36,8 @@ const presets = {
   mutual: { width: 390, height: 354, transform: 'matrix(46.5 56.052 -41.64 62.778 10.803 -25.984)' },
   // The 178 px header of the Метчі tab.
   tabHeader: { width: 390, height: 178, transform: 'matrix(46.5 28.185 -41.64 31.567 10.803 -13.065)' },
+  // The 137 px header of the Оголошення tab.
+  announcements: { width: 390, height: 137, transform: 'matrix(46.5 21.693 -41.64 24.296 10.803 -10.056)' },
   // A 40 px event thumbnail without a cover.
   thumb: { width: 40, height: 40, transform: 'matrix(4.7692 6.3336 -4.2708 7.0936 1.108 -2.936)' },
 };

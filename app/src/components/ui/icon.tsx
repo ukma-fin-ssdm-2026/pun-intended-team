@@ -20,6 +20,7 @@ import Close from '@/assets/icons/close.svg';
 import Copy from '@/assets/icons/copy.svg';
 import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
+import EmptyList from '@/assets/icons/empty-list.svg';
 import EmptyMatches from '@/assets/icons/empty-matches.svg';
 import DeclineClose from '@/assets/icons/decline-close.svg';
 import Filter from '@/assets/icons/filter.svg';
@@ -76,6 +77,8 @@ const icons = {
   'decline-close': DeclineClose,
   // Т2.1 empty state (34 px), the Т2.2 toast tick and waiting badge clock (18 px), all with a 1.5 px stroke.
   'empty-matches': EmptyMatches,
+  // Т3.1 empty state (34 px, 1.5 px stroke).
+  'empty-list': EmptyList,
   filter: Filter,
   'gallery-edit': GalleryEdit,
   heart: Heart,
