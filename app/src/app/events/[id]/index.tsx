@@ -4,7 +4,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -18,14 +18,19 @@ import { findMockEvent, mockPooledEventIds } from '@/mocks/events';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
-// Figma puts the top buttons 56 px from the top of an iPhone 14 frame, 9 px below its 47 px status bar.
+// "01.1 Верхні дії" sits at y=56 in the iPhone 14 frame, 9 px below its 47 px status bar. A taller status bar keeps that
+// gap; without one (the web) the buttons stay at 56 px, as in Figma.
+const TOP_ACTIONS_Y = 56;
 const GAP_BELOW_STATUS_BAR = 9;
-// The details sheet overlaps the cover by 28 px and keeps that much space above the action bar.
+// "02 Деталі" starts at y=312, overlapping the 340 px cover by 28 px.
 const SHEET_OVERLAP = 28;
+// "03 Дія": padding 16 / 20 / 34 / 20 around the 52 px button; a larger bottom inset replaces the 34 px.
 const ACTION_BAR_TOP = 16;
+const ACTION_BAR_BOTTOM = 34;
 const BUTTON_HEIGHT = 52;
-// Longer descriptions are cut at a word with "Читати далі", about three lines as in Figma.
-const DESCRIPTION_PREVIEW = 120;
+// Longer descriptions are cut at the last word within 105 characters and end with "… Читати далі", which gives the
+// Figma text for the jazz evening.
+const DESCRIPTION_PREVIEW = 105;
 
 function preview(text: string): string | undefined {
   if (text.length <= DESCRIPTION_PREVIEW) return undefined;
@@ -111,8 +116,9 @@ export default function EventScreen() {
 
   const inPool = !isGuest && mockPooledEventIds.includes(event.id);
   const short = expanded ? undefined : preview(event.description);
-  const bottomPadding = Math.max(insets.bottom, 16);
-  const actionBarHeight = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding;
+  const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
+  // 130 px in Figma: the 102 px action bar and the 28 px overlap.
+  const sheetBottomPadding = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding + SHEET_OVERLAP;
 
   const onAction = () => {
     if (isGuest) setDialogOpen(true);
@@ -120,18 +126,20 @@ export default function EventScreen() {
   };
 
   return (
-    <View className="flex-1 bg-surface-card">
-      <ScrollView contentContainerStyle={{ paddingBottom: actionBarHeight + SHEET_OVERLAP }}>
+    <View className="flex-1 bg-surface-background">
+      <ScrollView>
         <View className="h-[340px] overflow-hidden">
-          {event.cover ? (
-            <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient preset="cover" />
-          )}
-          <TopShade />
+          <View style={StyleSheet.absoluteFill}>
+            {event.cover ? (
+              <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <CoralGradient preset="cover" />
+            )}
+            <TopShade />
+          </View>
           <View
             className="absolute left-5 right-5 flex-row items-center justify-between"
-            style={{ top: insets.top + GAP_BELOW_STATUS_BAR }}
+            style={{ top: Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR) }}
           >
             <GlassButton icon="arrow-left" label="Назад" onPress={goBack} />
             <GlassButton
@@ -143,12 +151,17 @@ export default function EventScreen() {
           </View>
         </View>
 
-        <View className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={{ marginTop: -SHEET_OVERLAP }}>
+        <View
+          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
+          style={{ marginTop: -SHEET_OVERLAP, paddingBottom: sheetBottomPadding }}
+        >
           <View className="items-center">
             <View className="h-1 w-10 rounded-sm bg-border-default" />
           </View>
 
-          <View className="items-start gap-2.5">
+          {/* Figma fixes this block at 84 px: a two-line title runs 11 px into the gap below, so the next block starts
+              where it does in the frame. */}
+          <View className="h-[84px] items-start gap-2.5">
             <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
               <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
             </View>
