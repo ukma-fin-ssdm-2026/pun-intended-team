@@ -48,6 +48,12 @@ export function formatEventDate(iso: string): string {
   return `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]} · ${time}`;
 }
 
+// "Сб, 24 жовт", as in the matching screens' subtitles.
+export function formatShortDay(iso: string): string {
+  const { month, day, weekday } = kyivTime(new Date(iso));
+  return `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]}`;
+}
+
 // "Субота, 24 жовтня", as on the event page.
 export function formatEventDay(iso: string): string {
   const { month, day, weekday } = kyivTime(new Date(iso));

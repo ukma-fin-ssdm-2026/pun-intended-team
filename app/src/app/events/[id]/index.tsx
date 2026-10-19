@@ -10,11 +10,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { GuestDialog } from '@/components/guest-dialog';
+import { CompanyRequestSheet } from '@/components/matching/company-request-sheet';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
-import { formatEventDay, formatTimeRange } from '@/dates';
+import { formatEventDay, formatShortDay, formatTimeRange } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { useSession } from '@/state/session';
@@ -114,6 +115,7 @@ export default function EventScreen() {
   const [dialogOpen, setDialogOpen] = useState(isGuest);
   const [favorite, setFavorite] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 
@@ -136,9 +138,12 @@ export default function EventScreen() {
   // 130 px in Figma: the 102 px action bar and the 28 px overlap.
   const sheetBottomPadding = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding + SHEET_OVERLAP;
 
+  const openSearch = () => router.push({ pathname: '/events/[id]/search', params: { id: event.id } });
+
   const onAction = () => {
     if (isGuest) setDialogOpen(true);
-    else router.push({ pathname: inPool ? '/events/[id]/search' : '/events/[id]/request', params: { id: event.id } });
+    else if (inPool) openSearch();
+    else setRequestOpen(true);
   };
 
   return (
@@ -238,6 +243,16 @@ export default function EventScreen() {
       >
         <Button label={inPool ? 'Стежити за метчингом' : 'Знайти мені метч'} variant="dark" onPress={onAction} />
       </View>
+
+      <CompanyRequestSheet
+        visible={requestOpen}
+        onClose={() => setRequestOpen(false)}
+        eventLabel={`${event.title} · ${formatShortDay(event.startsAt)}`}
+        onSubmit={() => {
+          setRequestOpen(false);
+          openSearch();
+        }}
+      />
 
       <GuestDialog
         visible={dialogOpen}

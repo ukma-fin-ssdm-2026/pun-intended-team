@@ -12,6 +12,7 @@ import CategoryArt from '@/assets/icons/category-art.svg';
 import CategoryCinema from '@/assets/icons/category-cinema.svg';
 import CategoryLecture from '@/assets/icons/category-lecture.svg';
 import CategoryMusic from '@/assets/icons/category-music.svg';
+import CheckBold from '@/assets/icons/check-bold.svg';
 import Check from '@/assets/icons/check.svg';
 import Clock from '@/assets/icons/clock.svg';
 import Close from '@/assets/icons/close.svg';
@@ -49,6 +50,8 @@ const icons = {
   'category-lecture': CategoryLecture,
   'category-music': CategoryMusic,
   check: Check,
+  // Figma's "Іконка / Обрано": the same check drawn at 16 px with a 2.2 px stroke.
+  'check-bold': CheckBold,
   clock: Clock,
   close: Close,
   copy: Copy,
@@ -83,7 +86,8 @@ type Props = {
   filled?: boolean;
 };
 
-// The SVGs keep the exported stroke; .svgrrc turns it into currentColor at build time, and `color` sets it.
+// The SVGs keep the exported stroke; .svgrrc turns it (#121212 or white) into currentColor at build time, and `color`
+// sets it.
 export function Icon({ name, size = 24, color = colors.text.primary, filled = false }: Props) {
   const Svg = icons[name];
   return <Svg width={size} height={size} color={color} fill={filled ? color : 'none'} />;
