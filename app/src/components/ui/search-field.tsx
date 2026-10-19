@@ -5,12 +5,15 @@ import { TextInput, View, type TextInputProps } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/tokens';
 
-type Props = Omit<TextInputProps, 'style'>;
+type Props = Omit<TextInputProps, 'style'> & {
+  // The map's search icon is #1A1A2E in Figma; elsewhere it is text/primary.
+  iconColor?: string;
+};
 
-export function SearchField({ placeholder = 'Пошук подій…', ...inputProps }: Props) {
+export function SearchField({ placeholder = 'Пошук подій…', iconColor = colors.text.primary, ...inputProps }: Props) {
   return (
     <View className="h-[50px] flex-row items-center gap-2.5 rounded-2xl bg-surface-card px-4">
-      <Icon name="search" size={20} />
+      <Icon name="search" size={20} color={iconColor} />
       <TextInput
         accessibilityRole="search"
         placeholder={placeholder}
