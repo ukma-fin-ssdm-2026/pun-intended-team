@@ -20,6 +20,7 @@ import Close from '@/assets/icons/close.svg';
 import Copy from '@/assets/icons/copy.svg';
 import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
+import EmptyMatches from '@/assets/icons/empty-matches.svg';
 import DeclineClose from '@/assets/icons/decline-close.svg';
 import Filter from '@/assets/icons/filter.svg';
 import GalleryEdit from '@/assets/icons/gallery-edit.svg';
@@ -42,7 +43,9 @@ import Shield from '@/assets/icons/shield.svg';
 import StatusCheck from '@/assets/icons/status-check.svg';
 import StatusClose from '@/assets/icons/status-close.svg';
 import Ticket from '@/assets/icons/ticket.svg';
+import ToastCheck from '@/assets/icons/toast-check.svg';
 import User from '@/assets/icons/user.svg';
+import WaitingClock from '@/assets/icons/waiting-clock.svg';
 import { colors } from '@/styles/tokens';
 
 const icons = {
@@ -71,6 +74,8 @@ const icons = {
   danger: Danger,
   // The 05 "Не цього разу" cross (24 px, 2 px stroke) and the 05.2 / 05.3 status icons (34 px, 1.5 px stroke).
   'decline-close': DeclineClose,
+  // Т2.1 empty state (34 px), the Т2.2 toast tick and waiting badge clock (18 px), all with a 1.5 px stroke.
+  'empty-matches': EmptyMatches,
   filter: Filter,
   'gallery-edit': GalleryEdit,
   heart: Heart,
@@ -93,7 +98,9 @@ const icons = {
   'status-check': StatusCheck,
   'status-close': StatusClose,
   ticket: Ticket,
+  'toast-check': ToastCheck,
   user: User,
+  'waiting-clock': WaitingClock,
 };
 
 export type IconName = keyof typeof icons;

@@ -34,6 +34,10 @@ const presets = {
   screen: { width: 390, height: 844, transform: 'matrix(46.5 133.64 -41.64 149.67 10.803 -61.95)' },
   // "01 Шапка" of 07 Взаємний метч.
   mutual: { width: 390, height: 354, transform: 'matrix(46.5 56.052 -41.64 62.778 10.803 -25.984)' },
+  // The 178 px header of the Метчі tab.
+  tabHeader: { width: 390, height: 178, transform: 'matrix(46.5 28.185 -41.64 31.567 10.803 -13.065)' },
+  // A 40 px event thumbnail without a cover.
+  thumb: { width: 40, height: 40, transform: 'matrix(4.7692 6.3336 -4.2708 7.0936 1.108 -2.936)' },
 };
 
 type Props = {

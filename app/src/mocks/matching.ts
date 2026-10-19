@@ -51,3 +51,12 @@ export const mockMutual = {
   telegram: '@olena_draws',
   phone: '+380 [НОМЕР]',
 };
+
+// Т2 Метчі: one card per event the user looks for company at, as in Figma.
+export const mockMatchesTab = {
+  subtitle: '3 події · 1 нова пропозиція',
+  answeredSubtitle: '3 події · 2 чекають на відповідь',
+  mutual: { eventId: '7a2d4b5c-0002-4b00-8000-000000000002', initial: 'М', nameAge: 'Максим, 26' },
+  search: { eventId: '7a2d4b5c-0002-4b00-8000-000000000003', nextPick: 'Наступний підбір: Пн, 26 жовт' },
+  toast: { title: 'Готово! Ти прийняла 2 метчі', note: 'Штурхнемо, щойно хтось відповість' },
+};

@@ -11,6 +11,8 @@ type Session = {
   // The event page as for an event the user already asked company for (02.1 "Ти вже в пошуку"); the catalog cards
   // keep the default button.
   inPool: boolean;
+  // The Метчі tab as Т2.1 "Поки без метчів".
+  matchesEmpty: boolean;
   // "Увійди, щоб знайти компанію" (02.2) over the current screen.
   guestDialogOpen: boolean;
 };
@@ -20,6 +22,7 @@ const store = createStore<Session>({
   simulateLoading: true,
   catalogLoading: true,
   inPool: false,
+  matchesEmpty: false,
   guestDialogOpen: false,
 });
 
@@ -36,6 +39,10 @@ export function setSimulateLoading(simulateLoading: boolean) {
 
 export function setInPool(inPool: boolean) {
   store.set({ inPool });
+}
+
+export function setMatchesEmpty(matchesEmpty: boolean) {
+  store.set({ matchesEmpty });
 }
 
 export function finishCatalogLoading() {
