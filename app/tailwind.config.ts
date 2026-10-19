@@ -23,6 +23,8 @@ export default {
         inter: [fontFamilies.regular],
         'inter-medium': [fontFamilies.medium],
         'inter-semibold': [fontFamilies.semibold],
+        'inter-bold': [fontFamilies.bold],
+        alice: [fontFamilies.logo],
       },
     },
   },
