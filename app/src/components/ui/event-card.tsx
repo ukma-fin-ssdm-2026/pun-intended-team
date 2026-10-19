@@ -1,11 +1,13 @@
 // Written with the help of Claude
 // AI Usage: event card from the Figma catalog; reviewed by Daryna Halytska.
+import { BlurTargetView } from 'expo-blur';
 import { Image, type ImageSource } from 'expo-image';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
 import { colors, shadows } from '@/styles/tokens';
 
@@ -34,6 +36,7 @@ const accessibilityActions = [
 
 export function EventCard({ title, category, dateLabel, place, cover, inPool, onPress, onFindCompany }: Props) {
   const [favorite, setFavorite] = useState(false);
+  const coverRef = useRef<View>(null);
   const toggleFavorite = () => setFavorite((value) => !value);
   const findCompany = onFindCompany ?? onPress;
 
@@ -57,30 +60,46 @@ export function EventCard({ title, category, dateLabel, place, cover, inPool, on
       style={{ boxShadow: shadows.small }}
     >
       <View className="h-[170px] overflow-hidden rounded-2xl">
-        <View style={StyleSheet.absoluteFill}>
+        {/* What the glass blurs on Android; the glass itself stays outside. */}
+        <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
           {cover ? (
             <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
           ) : (
             <CoralGradient preset="cover" />
           )}
-        </View>
-        <View className="absolute left-2.5 top-2.5 rounded-xl bg-[rgba(18,18,18,0.45)] px-2.5 py-[5px]">
+        </BlurTargetView>
+        <Glass
+          className="absolute left-2.5 top-2.5 px-2.5 py-[5px]"
+          radius={12}
+          fill="rgba(18, 18, 18, 0.45)"
+          tone="dark"
+          blurTarget={coverRef}
+        >
           <Text className="font-inter-semibold text-tag text-text-on-dark">{category}</Text>
-        </View>
+        </Glass>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="В обране"
           accessibilityState={{ selected: favorite }}
           onPress={toggleFavorite}
-          className="absolute right-2.5 top-2.5 size-9 items-center justify-center rounded-[18px] border border-white/40 bg-white/[0.28]"
+          className="absolute right-2.5 top-2.5"
         >
-          {/* Active: the same Solar heart filled and outlined in brand/coral, so the icon does not move when toggled. */}
-          <Icon
-            name="heart"
-            size={20}
-            color={favorite ? colors.brand.coral : colors.text['on-dark']}
-            filled={favorite}
-          />
+          <Glass
+            className="size-9 items-center justify-center"
+            radius={18}
+            fill="rgba(255, 255, 255, 0.28)"
+            border="rgba(255, 255, 255, 0.4)"
+            tone="light"
+            blurTarget={coverRef}
+          >
+            {/* Active: the same Solar heart filled and outlined in brand/coral, so the icon does not move when toggled. */}
+            <Icon
+              name="heart"
+              size={20}
+              color={favorite ? colors.brand.coral : colors.text['on-dark']}
+              filled={favorite}
+            />
+          </Glass>
         </Pressable>
       </View>
 

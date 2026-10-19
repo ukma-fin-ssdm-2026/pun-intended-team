@@ -1,9 +1,10 @@
 // Written with the help of Claude
 // AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
 // data; reviewed by Daryna Halytska.
+import { BlurTargetView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -11,6 +12,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { GuestDialog } from '@/components/guest-dialog';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDay, formatTimeRange } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -43,11 +45,13 @@ function GlassButton({
   label,
   onPress,
   active,
+  blurTarget,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
   active?: boolean;
+  blurTarget: RefObject<View | null>;
 }) {
   return (
     <Pressable
@@ -55,9 +59,18 @@ function GlassButton({
       accessibilityLabel={label}
       accessibilityState={active === undefined ? undefined : { selected: active }}
       onPress={onPress}
-      className="size-10 items-center justify-center rounded-[20px] border border-white/[0.35] bg-white/[0.22] active:opacity-80"
+      className="active:opacity-80"
     >
-      <Icon name={icon} size={20} color={active ? colors.brand.coral : colors.text['on-dark']} filled={active} />
+      <Glass
+        className="size-10 items-center justify-center"
+        radius={20}
+        fill="rgba(255, 255, 255, 0.22)"
+        border="rgba(255, 255, 255, 0.35)"
+        tone="light"
+        blurTarget={blurTarget}
+      >
+        <Icon name={icon} size={20} color={active ? colors.brand.coral : colors.text['on-dark']} filled={active} />
+      </Glass>
     </Pressable>
   );
 }
@@ -100,6 +113,7 @@ export default function EventScreen() {
   const [dialogOpen, setDialogOpen] = useState(isGuest);
   const [favorite, setFavorite] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 
   const event = findMockEvent(id);
@@ -129,24 +143,26 @@ export default function EventScreen() {
     <View className="flex-1 bg-surface-background">
       <ScrollView>
         <View className="h-[340px] overflow-hidden">
-          <View style={StyleSheet.absoluteFill}>
+          {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
+          <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
             {event.cover ? (
               <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
             ) : (
               <CoralGradient preset="cover" />
             )}
             <TopShade />
-          </View>
+          </BlurTargetView>
           <View
             className="absolute left-5 right-5 flex-row items-center justify-between"
             style={{ top: Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR) }}
           >
-            <GlassButton icon="arrow-left" label="Назад" onPress={goBack} />
+            <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
             <GlassButton
               icon="heart"
               label="В обране"
               active={favorite}
               onPress={() => setFavorite((value) => !value)}
+              blurTarget={coverRef}
             />
           </View>
         </View>
