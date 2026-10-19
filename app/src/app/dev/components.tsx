@@ -19,7 +19,14 @@ import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-matc
 import { formatEventDate } from '@/dates';
 import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
 import { mockSearch } from '@/mocks/matching';
-import { setGuest, setInPool, setMatchesEmpty, setSimulateLoading, useSession } from '@/state/session';
+import {
+  setAnnouncementsEmpty,
+  setGuest,
+  setInPool,
+  setMatchesEmpty,
+  setSimulateLoading,
+  useSession,
+} from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -79,6 +86,11 @@ export default function ComponentsGallery() {
         <SwitchRow label="Завантаження каталогу" value={session.simulateLoading} onValueChange={setSimulateLoading} />
         <SwitchRow label="У пулі (02.1 на сторінці події)" value={session.inPool} onValueChange={setInPool} />
         <SwitchRow label="Метчі порожні (Т2.1)" value={session.matchesEmpty} onValueChange={setMatchesEmpty} />
+        <SwitchRow
+          label="Оголошення порожні (Т3.1)"
+          value={session.announcementsEmpty}
+          onValueChange={setAnnouncementsEmpty}
+        />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 
