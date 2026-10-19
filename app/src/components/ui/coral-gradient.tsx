@@ -1,0 +1,61 @@
+// Written with the help of Claude
+// AI Usage: coral radial gradient from the Figma catalog header and event covers; reviewed by Daryna Halytska.
+import { useId } from 'react';
+import { StyleSheet } from 'react-native';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+
+// The Figma gradient fill: coral in the corner, a black band, coral again at the far edge.
+const stops: [offset: number, color: string][] = [
+  [0, 'rgb(217,85,80)'],
+  [0.080875, 'rgb(163,64,60)'],
+  [0.16175, 'rgb(109,43,40)'],
+  [0.20219, 'rgb(81,32,30)'],
+  [0.24263, 'rgb(54,21,20)'],
+  [0.28306, 'rgb(27,11,10)'],
+  [0.30328, 'rgb(14,5,5)'],
+  [0.3235, 'rgb(0,0,0)'],
+  [0.4586, 'rgb(0,0,0)'],
+  [0.49244, 'rgb(14,5,5)'],
+  [0.52628, 'rgb(27,11,10)'],
+  [0.59395, 'rgb(54,21,20)'],
+  [0.66163, 'rgb(81,32,30)'],
+  [0.7293, 'rgb(109,43,40)'],
+  [0.86465, 'rgb(163,64,60)'],
+  [1, 'rgb(217,85,80)'],
+];
+
+// Frame size and gradient transform of each place the gradient is used in Figma; the drawing stretches to the view.
+const presets = {
+  header: { width: 390, height: 484, transform: 'matrix(46.5 76.637 -41.64 85.833 10.803 -35.526)' },
+  cover: { width: 334, height: 170, transform: 'matrix(39.823 26.918 -35.661 30.148 9.2518 -12.478)' },
+};
+
+type Props = {
+  preset: keyof typeof presets;
+};
+
+// Fills its parent; position the parent.
+export function CoralGradient({ preset }: Props) {
+  // Several gradients can be on screen at once, and on the web their ids share one document.
+  const id = `coral-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const { width, height, transform } = presets[preset];
+
+  return (
+    <Svg
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
+    >
+      <Defs>
+        <RadialGradient id={id} gradientUnits="userSpaceOnUse" cx={0} cy={0} r={10} gradientTransform={transform}>
+          {stops.map(([offset, color]) => (
+            <Stop key={offset} offset={offset} stopColor={color} />
+          ))}
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${id})`} />
+    </Svg>
+  );
+}

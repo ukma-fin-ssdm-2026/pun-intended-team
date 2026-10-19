@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
+import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
 import { colors, shadows } from '@/styles/tokens';
 
@@ -14,7 +15,8 @@ type Props = {
   // Already formatted for display, e.g. "Сб, 18 жовт · 19:00".
   dateLabel: string;
   place: string;
-  cover: ImageSource;
+  // Without a cover image the card shows the coral gradient, as the lecture card on the Figma catalog.
+  cover?: ImageSource;
   // After a company request the button turns into the "У пулі" variant, as on the Figma catalog.
   inPool?: boolean;
   onPress?: () => void;
@@ -37,7 +39,11 @@ export function EventCard({ title, category, dateLabel, place, cover, inPool, on
 
       <View className="h-[170px] overflow-hidden rounded-2xl" style={{ pointerEvents: 'box-none' }}>
         <View className="absolute inset-0" style={{ pointerEvents: 'none' }}>
-          <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+          {cover ? (
+            <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+          ) : (
+            <CoralGradient preset="cover" />
+          )}
         </View>
         <View
           className="absolute left-2.5 top-2.5 rounded-xl bg-[rgba(18,18,18,0.45)] px-2.5 py-[5px]"

@@ -17,7 +17,7 @@ type Props = {
 
 const variantClasses: Record<Variant, string> = {
   coral: 'size-[50px] rounded-2xl bg-brand-coral',
-  glass: 'size-9 rounded-[18px] border border-white/20 bg-white/10',
+  glass: 'size-9 rounded-[18px] border border-white/[0.22] bg-white/[0.12]',
 };
 
 const iconSizes: Record<Variant, number> = { coral: 24, glass: 18 };

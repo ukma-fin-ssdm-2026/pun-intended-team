@@ -16,7 +16,10 @@ export function Chip({ label, selected = false, onPress }: Props) {
       onPress={onPress}
       className={`items-center rounded-[17px] px-4 py-2 ${selected ? 'bg-brand-coral' : 'bg-surface-card'}`}
     >
-      <Text className={`font-inter-medium text-label ${selected ? 'text-text-on-dark' : 'text-text-primary'}`}>
+      <Text
+        numberOfLines={1}
+        className={`font-inter-medium text-label ${selected ? 'text-text-on-dark' : 'text-text-primary'}`}
+      >
         {label}
       </Text>
     </Pressable>
