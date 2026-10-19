@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/ui/icon';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockMatchesTab, mockSearch } from '@/mocks/matching';
+import { mockMatchesTab } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
 
 // "01 Навігація": top padding 56 in the iPhone 14 frame, 9 px below its status bar.
@@ -63,8 +63,7 @@ const earlier: Notification[] = [
     title: 'Подію змінено',
     time: 'вчора',
     text: '«Кераміка для початківців» переноситься на 18:30.',
-    // The prototype opens the event page frame, which shows the jazz evening.
-    href: { pathname: '/events/[id]', params: { id: mockSearch.eventId } },
+    href: { pathname: '/events/[id]', params: { id: '7a2d4b5c-0002-4b00-8000-000000000006' } },
   },
   {
     icon: 'bell',

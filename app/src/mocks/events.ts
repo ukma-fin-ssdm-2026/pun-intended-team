@@ -111,6 +111,52 @@ export const mockEvents: MockEvent[] = [
   },
 ];
 
+// Events the other screens link to but the Figma catalog does not list: the open mic on the map (Т1) and the moved
+// ceramics workshop of Т5 "Подію змінено".
+export const mockOtherEvents: MockEvent[] = [
+  {
+    id: '7a2d4b5c-0002-4b00-8000-000000000005',
+    title: 'Поетичний open mic',
+    description:
+      'Вечір живої поезії в Мистецькому Арсеналі: читають усі охочі, від перших віршів до збірок. Запишись на місці або просто приходь послухати.',
+    category: { id: '6f1c2a3e-0001-4a00-8000-000000000005', name: 'Поезія' },
+    venue: {
+      id: '8b3e5c6d-0003-4c00-8000-000000000001',
+      name: 'Мистецький Арсенал',
+      address: 'вул. Лаврська, 10–12',
+      location: { lat: 50.4381, lng: 30.5576 },
+    },
+    startsAt: '2026-10-25T16:00:00Z',
+    endsAt: '2026-10-25T18:00:00Z',
+    source: 'organization',
+    status: 'published',
+    // Figma uses this photo for the open mic on the map.
+    cover: require('@/assets/images/events/kvartyrnyk.png'),
+    district: 'Печерськ',
+    organizer: 'Мистецький Арсенал',
+  },
+  {
+    id: '7a2d4b5c-0002-4b00-8000-000000000006',
+    title: 'Кераміка для початківців',
+    description:
+      'Майстер-клас для тих, хто ніколи не працював із глиною: зліпиш чашку чи мисочку й дізнаєшся, як їх випалюють. Матеріали й фартухи дадуть на місці.',
+    category: { id: '6f1c2a3e-0001-4a00-8000-000000000007', name: 'Воркшоп' },
+    venue: {
+      id: '8b3e5c6d-0003-4c00-8000-000000000004',
+      name: 'Майстерня «Глина»',
+      address: 'вул. Сагайдачного, 25',
+      location: { lat: 50.4627, lng: 30.5202 },
+    },
+    // Moved to 18:30, as the notification says.
+    startsAt: '2026-10-29T16:30:00Z',
+    endsAt: '2026-10-29T18:30:00Z',
+    source: 'import',
+    status: 'published',
+    district: 'Поділ',
+    organizer: 'Майстерня «Глина»',
+  },
+];
+
 export function findMockEvent(id: string): MockEvent | undefined {
-  return mockEvents.find((event) => event.id === id);
+  return [...mockEvents, ...mockOtherEvents].find((event) => event.id === id);
 }

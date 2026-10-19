@@ -125,8 +125,8 @@ export default function MapScreen() {
         <View className="rounded-[20px] bg-surface-background px-3 py-1">
           {mockVenue.events.map((item, index) => {
             const event = findMockEvent(item.eventId);
-            const cover = 'cover' in item ? item.cover : event?.cover;
-            const date = 'date' in item ? item.date : event && formatEventDate(event.startsAt);
+            const cover = event?.cover;
+            const date = event && formatEventDate(event.startsAt);
             return (
               <View key={item.key}>
                 {index > 0 && <View className="h-px bg-border-default" />}

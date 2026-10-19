@@ -1,22 +1,14 @@
 // Written with the help of Claude
 // AI Usage: mock venue and map shapes from the Figma "Т1 Мапа" frame; reviewed by Daryna Halytska.
 
-// The venue selected on the map, with its events; "Поетичний open mic" is not in the catalog mocks.
+// The venue selected on the map, with its events.
 export const mockVenue = {
   name: 'Мистецький Арсенал',
   address: 'вул. Лаврська, 10–12 · 650 м',
   eventsLabel: '3 події',
   events: [
     { key: 'jazz', title: 'Джаз-вечір', eventId: '7a2d4b5c-0002-4b00-8000-000000000001' },
-    {
-      key: 'open-mic',
-      title: 'Поетичний open mic',
-      // Dated like the other mocks (Figma's Нд, 19 жовт is Нд, 25 жовт here).
-      date: 'Нд, 25 жовт · 18:00',
-      cover: require('@/assets/images/events/kvartyrnyk.png'),
-      // The prototype opens the event page frame, which shows the jazz evening.
-      eventId: '7a2d4b5c-0002-4b00-8000-000000000001',
-    },
+    { key: 'open-mic', title: 'Поетичний open mic', eventId: '7a2d4b5c-0002-4b00-8000-000000000005' },
   ],
 };
 
