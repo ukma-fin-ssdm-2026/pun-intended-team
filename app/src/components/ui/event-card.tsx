@@ -2,7 +2,7 @@
 // AI Usage: event card from the Figma catalog; reviewed by Daryna Halytska.
 import { Image, type ImageSource } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
@@ -12,50 +12,66 @@ import { colors, shadows } from '@/styles/tokens';
 type Props = {
   title: string;
   category: string;
-  // Already formatted for display, e.g. "Сб, 18 жовт · 19:00".
+  // Already formatted for display, e.g. "Сб, 24 жовт · 19:00".
   dateLabel: string;
   place: string;
   // Without a cover image the card shows the coral gradient, as the lecture card on the Figma catalog.
   cover?: ImageSource;
   // After a company request the button turns into the "У пулі" variant, as on the Figma catalog.
   inPool?: boolean;
+  // A tap anywhere on the card except the heart opens the event page.
   onPress?: () => void;
+  // In the prototype "Знайти компанію" and "У пулі" have no target of their own and open the event page like the card;
+  // without this handler the button does the same as onPress.
   onFindCompany?: () => void;
 };
 
+const accessibilityActions = [
+  { name: 'activate' },
+  { name: 'favorite', label: 'В обране' },
+  { name: 'findCompany', label: 'Знайти компанію' },
+];
+
 export function EventCard({ title, category, dateLabel, place, cover, inPool, onPress, onFindCompany }: Props) {
   const [favorite, setFavorite] = useState(false);
+  const toggleFavorite = () => setFavorite((value) => !value);
+  const findCompany = onFindCompany ?? onPress;
 
-  // No pressable is nested in another (on the web that would be a <button> inside a <button>): the card's own press
-  // area lies behind the content, and the content lets taps through except on the heart and the button.
+  // A pressable card groups its content for screen readers, so the heart and the button are offered as its actions.
+  const onAccessibilityAction = ({ nativeEvent }: AccessibilityActionEvent) => {
+    if (nativeEvent.actionName === 'activate') onPress?.();
+    if (nativeEvent.actionName === 'favorite') toggleFavorite();
+    if (nativeEvent.actionName === 'findCompany') findCompany?.();
+  };
+
+  // The card is the pressable, with the "link" role: on the web that renders a <div role="link">, not a <button>, so
+  // the heart and the action button can be real buttons inside it. A press on them stays with them.
   return (
-    <View className="gap-1 rounded-[22px] bg-surface-card px-2 pb-3.5 pt-2" style={{ boxShadow: shadows.small }}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={title}
-        onPress={onPress}
-        className="absolute inset-0 rounded-[22px]"
-      />
-
-      <View className="h-[170px] overflow-hidden rounded-2xl" style={{ pointerEvents: 'box-none' }}>
-        <View className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`${title}, ${category}, ${dateLabel}, ${place}`}
+      accessibilityActions={accessibilityActions}
+      onAccessibilityAction={onAccessibilityAction}
+      onPress={onPress}
+      className="gap-1 rounded-[22px] bg-surface-card px-2 pb-3.5 pt-2"
+      style={{ boxShadow: shadows.small }}
+    >
+      <View className="h-[170px] overflow-hidden rounded-2xl">
+        <View style={StyleSheet.absoluteFill}>
           {cover ? (
             <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
           ) : (
             <CoralGradient preset="cover" />
           )}
         </View>
-        <View
-          className="absolute left-2.5 top-2.5 rounded-xl bg-[rgba(18,18,18,0.45)] px-2.5 py-[5px]"
-          style={{ pointerEvents: 'none' }}
-        >
+        <View className="absolute left-2.5 top-2.5 rounded-xl bg-[rgba(18,18,18,0.45)] px-2.5 py-[5px]">
           <Text className="font-inter-semibold text-tag text-text-on-dark">{category}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="В обране"
           accessibilityState={{ selected: favorite }}
-          onPress={() => setFavorite((value) => !value)}
+          onPress={toggleFavorite}
           className="absolute right-2.5 top-2.5 size-9 items-center justify-center rounded-[18px] border border-white/40 bg-white/[0.28]"
         >
           {/* Active: the same Solar heart filled and outlined in brand/coral, so the icon does not move when toggled. */}
@@ -68,8 +84,8 @@ export function EventCard({ title, category, dateLabel, place, cover, inPool, on
         </Pressable>
       </View>
 
-      <View className="gap-3.5 px-2 pt-3" style={{ pointerEvents: 'box-none' }}>
-        <View className="gap-2" style={{ pointerEvents: 'none' }}>
+      <View className="gap-3.5 px-2 pt-3">
+        <View className="gap-2">
           <Text className="font-inter-semibold text-title text-text-primary">{title}</Text>
           <View className="flex-row items-center gap-4">
             <View className="flex-row items-center gap-1.5">
@@ -84,16 +100,16 @@ export function EventCard({ title, category, dateLabel, place, cover, inPool, on
             </View>
           </View>
         </View>
-        <View className="flex-row justify-end" style={{ pointerEvents: 'box-none' }}>
+        <View className="flex-row justify-end">
           <Button
             label="Знайти компанію"
             size="sm"
             variant={inPool ? 'pool' : 'primary'}
-            onPress={onFindCompany}
+            onPress={findCompany}
             style={{ height: 32 }}
           />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
