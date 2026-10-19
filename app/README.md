@@ -110,7 +110,7 @@ app/
 ├─ babel.config.js, metro.config.js   NativeWind and SVG imports
 ├─ tailwind.config.ts   Tailwind theme built from src/styles/tokens.ts
 ├─ global.css           Tailwind entry file
-├─ .svgrrc              turns the icons' stroke into currentColor at build time
+├─ .svgrrc              turns the icons' stroke (#121212 or white) into currentColor at build time
 ├─ .env.example
 ├─ assets/
 │  ├─ icons/            Solar Linear icons exported from Figma
@@ -121,11 +121,15 @@ app/
    │  ├─ (tabs)/        tab screens under the Figma tab bar
    │  │  ├─ _layout.tsx tab navigator
    │  │  ├─ index.tsx   event catalog (mock data)
-   │  │  └─ map.tsx, matches.tsx, announcements.tsx, profile.tsx   placeholders for later stages
+   │  │  ├─ matches.tsx Т2 Метчі, with Т2.1 and Т2.2
+   │  │  └─ map.tsx, announcements.tsx, profile.tsx   placeholders for later stages
    │  ├─ events/[id]/
-   │  │  ├─ index.tsx   event page (mock data)
-   │  │  └─ request.tsx, search.tsx   placeholders for later stages
-   │  ├─ notifications.tsx, sign-in.tsx, sign-up.tsx   placeholders for later stages
+   │  │  ├─ index.tsx   event page with the 03 request sheet (mock data)
+   │  │  └─ search.tsx  04 Пошук компанії
+   │  ├─ proposal.tsx   05 Запропонований метч with 05.2 / 05.3 and the 06 sheet
+   │  ├─ mutual.tsx     07 Взаємний метч
+   │  ├─ notifications.tsx   Т5 Сповіщення
+   │  ├─ sign-in.tsx, sign-up.tsx, new-announcement.tsx   placeholders for later stages
    │  └─ dev/components.tsx gallery of the UI kit, development only
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
@@ -136,9 +140,10 @@ app/
    │  ├─ catalog-header.tsx   logo, notifications, avatar and greeting of the catalog
    │  ├─ filters-sheet.tsx    Д1 Фільтри
    │  ├─ guest-dialog.tsx     "Увійди, щоб знайти компанію"
+   │  ├─ matching/      screens' parts of the matching flow: request and safety sheets, report flow, radar, card, slider
    │  └─ screen-placeholder.tsx   stand-in for screens of later stages
    ├─ mocks/            mock data for screens that have no endpoint yet
-   ├─ state/            app-wide client state: the mock session and the catalog filters
+   ├─ state/            app-wide client state: the mock session, the catalog filters and the Метчі tab
    ├─ styles/
    │  └─ tokens.ts      design tokens from the Figma variables
    ├─ config.ts         reads EXPO_PUBLIC_* values
@@ -153,14 +158,15 @@ The screens are built from the [Figma design](https://www.figma.com/design/SxoD0
 
 - **Tokens.** `src/styles/tokens.ts` holds the Figma variables under their Figma names, so `brand/coral` becomes the class `bg-brand-coral`. Text sizes are `text-title`, `text-body`, `text-caption` and so on; the weight comes from the font family: `font-inter`, `font-inter-medium`, `font-inter-semibold`, `font-inter-bold`; the logo uses `font-alice`. Change a colour or text style here, not in components.
 - **Components.** `src/components/ui/` has the Figma components: `Button`, `IconButton`, `TextField`, `SearchField`, `Chip`, `Toggle`, `EventCard`, `EventCardSkeleton`, `FilterChip`, `TabBar`, `Overlay` (modal layer with the backdrop for dialogs and sheets) and `CoralGradient` (the radial gradient of the catalog header and of covers without an image).
-- **Icons.** `<Icon name="calendar" size={16} color={…} />`; `name` is typed, so a wrong name fails `npm run typecheck`. To add an icon, export it from Figma as SVG into `assets/icons/`, keep the file as exported, and add it to the map in `icon.tsx`.
+- **Icons.** `<Icon name="calendar" size={16} color={…} />`; `name` is typed, so a wrong name fails `npm run typecheck`. To add an icon, export it from Figma as SVG into `assets/icons/`, keep the file as exported, and add it to the map in `icon.tsx`. Most Figma icons are the Solar icons at another size; where Figma draws one with a heavier stroke than the scaled icon (for example the 16 px tick with a 2.2 px stroke), the Figma export is added under its own name instead of scaling the Solar one.
 - **`className` only on React Native components.** NativeWind applies classes to React Native's own components (`View`, `Text`, `Pressable`, `ScrollView`, `TextInput`, `Image`…), not to `Animated.View` from Reanimated, `expo-image` or `react-native-svg`. Give those a `style`, or put the classes on a `View` inside them.
 - **Glass.** Elements with a background blur in Figma use `Glass` (`src/components/ui/glass.tsx`) with the Figma corner radius, fill, border and blur radius. The web gets the exact Figma CSS (`backdrop-filter: blur(radius / 2)`), iOS the system blur. Android 12 and newer blur only what is inside a `BlurTargetView` passed as `blurTarget` (the card and event covers); without one, and on older Android, the glass shows its fill alone.
-- **Shadows.** Use the `boxShadow` strings from `shadows` in `tokens.ts`; they render on iOS, Android and web. Do not use SVG filters for shadows: they do not render on every platform.
-- **Navigation.** Links follow the Figma prototype: the tabs open Т1–Т4, the bell opens Т5 Сповіщення, the avatar the profile tab, the filter button and the categories arrow the Д1 Фільтри sheet, and a card the event page. On the event page the main button opens 03 Запит на компанію, or 04 Пошук компанії when the user is already in the pool (02.1, shown with the development switch), and the map preview the map tab. A guest has no bell or greeting, the avatar opens В4 Вхід, and the event page and the Метчі, Оголошення and Профіль tabs open the sign-in dialog (02.2). Dialogs and sheets close on a backdrop tap. Screens of later stages are placeholders.
+- **Shadows.** Use the `boxShadow` strings from `shadows` in `tokens.ts`; they render on iOS, Android and web. Take the radius and spread from the Figma effect itself: Figma's CSS export writes half the radius into `drop-shadow()`. Do not use SVG filters for shadows: they do not render on every platform.
+- **Navigation.** Links follow the Figma prototype: the tabs open Т1–Т4, the bell opens Т5 Сповіщення, the avatar the profile tab, the filter button and the categories arrow the Д1 Фільтри sheet, and a card the event page. On the event page the main button opens 03 Запит на компанію, or 04 Пошук компанії when the user is already in the pool (02.1, shown with the development switch), and the map preview the map tab. A guest has no bell or greeting, the avatar opens В4 Вхід, and the event page and the Метчі, Оголошення and Профіль tabs open the sign-in dialog (02.2). Dialogs and sheets close on a backdrop tap. The matching flow follows the prototype too: the request sheet opens 04, which shows 05 after 4 s; on 05 dragging the arrow along "Прийняти" accepts and the cross declines, and 1.8 s after the answer the Метчі tab opens as Т2.2. Т5 "Це взаємно!" opens 05 with the 06 safety sheet, whose "Зрозуміло" opens 07. Back on 05 and 07 and "Зрозуміло" after a report open the Метчі tab. Screens of later stages are placeholders.
+- **Motion.** Animations take their values from Figma's motion data and prototype (Smart Animate durations and easing) and run on Reanimated; with reduced motion they rest on their first frame or switch at once.
 - **State.** `src/state/` holds client state shared between screens in small stores (`createStore`, over `useSyncExternalStore`): the mock session and the catalog filters, which the search, the category row and the filters sheet all change.
 - **Status bar.** Call `useStatusBarStyle('light')` on a screen with a dark top, `'dark'` otherwise; it applies when the screen gets focus.
-- **Gallery and modes.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. Its first section switches the mock session: guest or signed in, whether the catalog shows its skeleton for 1.5 s first (on by default, as in the prototype), and whether the event page shows 02.1 "Ти вже в пошуку" (off by default). Catalog cards always show the default "Знайти компанію" button; the gallery shows the "У пулі" card. Open the catalog with the button there: reloading the page resets the switches. The route only works in development; in a production build it redirects to the catalog.
+- **Gallery and modes.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. Its first section switches the mock session: guest or signed in, whether the catalog shows its skeleton for 1.5 s first (on by default, as in the prototype), whether the event page shows 02.1 "Ти вже в пошуку" (off by default), and whether the Метчі tab is empty (Т2.1). It also shows the other titles of 07 ("Концерту бути!", "Вечір врятовано!", "Гірко!"). Catalog cards always show the default "Знайти компанію" button; the gallery shows the "У пулі" card. Open the catalog with the button there: reloading the page resets the switches. The route only works in development; in a production build it redirects to the catalog.
 
 ## Code style
 

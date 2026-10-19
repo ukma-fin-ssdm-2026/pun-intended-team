@@ -15,9 +15,11 @@ import { SearchField } from '@/components/ui/search-field';
 import { TabBar, type TabName } from '@/components/ui/tab-bar';
 import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
+import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
-import { mockCategories, mockEvents } from '@/mocks/events';
-import { setGuest, setInPool, setSimulateLoading, useSession } from '@/state/session';
+import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
+import { mockSearch } from '@/mocks/matching';
+import { setGuest, setInPool, setMatchesEmpty, setSimulateLoading, useSession } from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -63,6 +65,8 @@ export default function ComponentsGallery() {
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<TabName>('events');
 
+  const matchEvent = findMockEvent(mockSearch.eventId) ?? mockEvents[0];
+
   if (!__DEV__) return <Redirect href="/" />;
 
   return (
@@ -74,6 +78,7 @@ export default function ComponentsGallery() {
         <SwitchRow label="Гість" value={session.isGuest} onValueChange={setGuest} />
         <SwitchRow label="Завантаження каталогу" value={session.simulateLoading} onValueChange={setSimulateLoading} />
         <SwitchRow label="У пулі (02.1 на сторінці події)" value={session.inPool} onValueChange={setInPool} />
+        <SwitchRow label="Метчі порожні (Т2.1)" value={session.matchesEmpty} onValueChange={setMatchesEmpty} />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 
@@ -161,6 +166,14 @@ export default function ComponentsGallery() {
         <View className="pt-10" style={{ width: 320 }}>
           <TabBar active={tab} onTabPress={setTab} />
         </View>
+      </Section>
+
+      <Section title="07 · варіанти заголовка">
+        {mutualTitles.slice(1).map((title) => (
+          <View key={title} className="overflow-hidden rounded-[28px]">
+            <MutualMatchHero title={title} event={matchEvent} />
+          </View>
+        ))}
       </Section>
     </ScrollView>
   );
