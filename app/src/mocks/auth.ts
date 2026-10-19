@@ -5,6 +5,8 @@
 export const mockCredentials = {
   phone: '+380 67 123 45 67',
   password: 'nearby2026',
+  // В5: Figma shows a date under 18 to show the age error.
+  birthDate: '14.03.2010',
   // В6 Код підтвердження.
   code: '4821',
 };
