@@ -17,7 +17,7 @@ import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
 import { formatEventDate } from '@/dates';
 import { mockCategories, mockEvents } from '@/mocks/events';
-import { setGuest, setSimulateLoading, useSession } from '@/state/session';
+import { setGuest, setInPool, setSimulateLoading, useSession } from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -73,6 +73,7 @@ export default function ComponentsGallery() {
       <Section title="Режим (лише для розробки)">
         <SwitchRow label="Гість" value={session.isGuest} onValueChange={setGuest} />
         <SwitchRow label="Завантаження каталогу" value={session.simulateLoading} onValueChange={setSimulateLoading} />
+        <SwitchRow label="У пулі (02.1 на сторінці події)" value={session.inPool} onValueChange={setInPool} />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 

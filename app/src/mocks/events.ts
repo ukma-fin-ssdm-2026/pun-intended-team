@@ -109,14 +109,6 @@ export const mockEvents: MockEvent[] = [
   },
 ];
 
-// Events the user has already asked to find company for: the card button shows the "У пулі" look, and the event
-// page offers to follow the search (02.1) instead of starting one.
-export const mockPooledEventIds: string[] = [
-  '7a2d4b5c-0002-4b00-8000-000000000002',
-  '7a2d4b5c-0002-4b00-8000-000000000003',
-  '7a2d4b5c-0002-4b00-8000-000000000004',
-];
-
 export function findMockEvent(id: string): MockEvent | undefined {
   return mockEvents.find((event) => event.id === id);
 }

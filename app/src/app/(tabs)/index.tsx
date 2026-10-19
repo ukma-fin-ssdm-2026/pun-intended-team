@@ -18,7 +18,7 @@ import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockCategories, mockEvents, mockPooledEventIds } from '@/mocks/events';
+import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
 import { filterEvents, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
 import { finishCatalogLoading, useSession } from '@/state/session';
@@ -123,7 +123,6 @@ export default function CatalogScreen() {
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
                   cover={event.cover}
-                  inPool={!isGuest && mockPooledEventIds.includes(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.
                   onPress={() => openEvent(event.id)}
                 />

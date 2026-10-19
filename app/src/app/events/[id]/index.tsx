@@ -16,7 +16,7 @@ import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDay, formatTimeRange } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent, mockPooledEventIds } from '@/mocks/events';
+import { findMockEvent } from '@/mocks/events';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -108,7 +108,8 @@ export default function EventScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isGuest } = useSession();
+  const session = useSession();
+  const { isGuest } = session;
   // A guest sees the page under the sign-in dialog; closing the dialog leaves the page, as in the prototype.
   const [dialogOpen, setDialogOpen] = useState(isGuest);
   const [favorite, setFavorite] = useState(false);
@@ -128,7 +129,8 @@ export default function EventScreen() {
     );
   }
 
-  const inPool = !isGuest && mockPooledEventIds.includes(event.id);
+  // 02.1 comes from the development switch; there are no company requests yet.
+  const inPool = !isGuest && session.inPool;
   const short = expanded ? undefined : preview(event.description);
   const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
   // 130 px in Figma: the 102 px action bar and the 28 px overlap.

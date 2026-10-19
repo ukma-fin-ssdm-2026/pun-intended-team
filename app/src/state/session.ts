@@ -8,6 +8,9 @@ type Session = {
   // The catalog shows its skeleton (01.1) before the events, as the prototype does with mock data.
   simulateLoading: boolean;
   catalogLoading: boolean;
+  // The event page as for an event the user already asked company for (02.1 "Ти вже в пошуку"); the catalog cards
+  // keep the default button.
+  inPool: boolean;
   // "Увійди, щоб знайти компанію" (02.2) over the current screen.
   guestDialogOpen: boolean;
 };
@@ -16,6 +19,7 @@ const store = createStore<Session>({
   isGuest: false,
   simulateLoading: true,
   catalogLoading: true,
+  inPool: false,
   guestDialogOpen: false,
 });
 
@@ -28,6 +32,10 @@ export function setGuest(isGuest: boolean) {
 
 export function setSimulateLoading(simulateLoading: boolean) {
   store.set({ simulateLoading, catalogLoading: simulateLoading });
+}
+
+export function setInPool(inPool: boolean) {
+  store.set({ inPool });
 }
 
 export function finishCatalogLoading() {
