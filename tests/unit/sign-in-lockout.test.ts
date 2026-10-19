@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import fc from 'fast-check';
 import { afterFailedSignIn, type SignInLockout } from '../../dist/core/identity/services/sign-in-lockout.js';
 import { NOW } from './fixtures/clock.ts';
 
@@ -41,5 +42,27 @@ describe('afterFailedSignIn', () => {
     const after = afterFailedSignIn(before, minute(0));
 
     assert.deepEqual(after, aLockout({ failedSignins: 1, failedSigninsSince: minute(0) }));
+  });
+});
+
+// Property-based: fast-check makes up the failures, so this holds for any timeline, not only the ones above.
+describe('afterFailedSignIn, for any sequence of failed sign-ins', () => {
+  test('only produces states the database accepts', () => {
+    const minutesBetweenFailures = fc.array(fc.nat({ max: 60 }), { maxLength: 50 });
+
+    fc.assert(
+      fc.property(minutesBetweenFailures, (gaps) => {
+        let state = aLockout();
+        let minutes = 0;
+        for (const gap of gaps) {
+          minutes += gap;
+          state = afterFailedSignIn(state, minute(minutes));
+
+          // accounts_failed_signins_window_check and the threshold of 5 (SEC-007).
+          assert.equal(state.failedSignins === 0, state.failedSigninsSince === null);
+          assert.ok(state.failedSignins >= 0 && state.failedSignins < 5);
+        }
+      }),
+    );
   });
 });
