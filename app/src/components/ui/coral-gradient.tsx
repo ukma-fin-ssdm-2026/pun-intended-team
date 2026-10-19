@@ -38,6 +38,8 @@ const presets = {
   tabHeader: { width: 390, height: 178, transform: 'matrix(46.5 28.185 -41.64 31.567 10.803 -13.065)' },
   // The 137 px header of the Оголошення tab.
   announcements: { width: 390, height: 137, transform: 'matrix(46.5 21.693 -41.64 24.296 10.803 -10.056)' },
+  // The default cover of П1 Редагувати профіль.
+  profileCover: { width: 350, height: 108, transform: 'matrix(41.73 17.101 -37.37 19.153 9.695 -7.9272)' },
   // A 40 px event thumbnail without a cover.
   thumb: { width: 40, height: 40, transform: 'matrix(4.7692 6.3336 -4.2708 7.0936 1.108 -2.936)' },
 };
