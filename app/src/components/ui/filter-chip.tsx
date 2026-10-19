@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function FilterChip({ label, selected = false, icon, onPress }: Props) {
-  const leading = selected ? 'check' : icon;
+  const leading = selected ? 'chip-check' : icon;
   return (
     <Pressable
       accessibilityRole="button"

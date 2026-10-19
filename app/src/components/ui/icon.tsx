@@ -13,10 +13,13 @@ import CategoryCinema from '@/assets/icons/category-cinema.svg';
 import CategoryLecture from '@/assets/icons/category-lecture.svg';
 import CategoryMusic from '@/assets/icons/category-music.svg';
 import CheckBold from '@/assets/icons/check-bold.svg';
+import ChipCheck from '@/assets/icons/chip-check.svg';
 import Check from '@/assets/icons/check.svg';
 import CheckboxCheck from '@/assets/icons/checkbox-check.svg';
 import Clock from '@/assets/icons/clock.svg';
 import Close from '@/assets/icons/close.svg';
+import ContactPhone from '@/assets/icons/contact-phone.svg';
+import ContactSend from '@/assets/icons/contact-send.svg';
 import Copy from '@/assets/icons/copy.svg';
 import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
@@ -68,6 +71,10 @@ const icons = {
   // Exports drawn at their own size with a heavier stroke than the scaled Solar icons: the checkbox tick (16 px, 2.4)
   // and the Д3.1 "Скаргу надіслано" icons (26 px and 18 px, 1.5).
   'checkbox-check': CheckboxCheck,
+  // The tick of selected chips (Д1, П1: 14 px, 2.4 px stroke) and the profile contact icons (18 px, 1.5 px stroke).
+  'chip-check': ChipCheck,
+  'contact-phone': ContactPhone,
+  'contact-send': ContactSend,
   clock: Clock,
   close: Close,
   copy: Copy,
