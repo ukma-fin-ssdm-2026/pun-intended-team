@@ -14,6 +14,7 @@ import CategoryLecture from '@/assets/icons/category-lecture.svg';
 import CategoryMusic from '@/assets/icons/category-music.svg';
 import CheckBold from '@/assets/icons/check-bold.svg';
 import Check from '@/assets/icons/check.svg';
+import CheckboxCheck from '@/assets/icons/checkbox-check.svg';
 import Clock from '@/assets/icons/clock.svg';
 import Close from '@/assets/icons/close.svg';
 import Copy from '@/assets/icons/copy.svg';
@@ -28,6 +29,10 @@ import Matches from '@/assets/icons/matches.svg';
 import MenuDots from '@/assets/icons/menu-dots.svg';
 import Phone from '@/assets/icons/phone.svg';
 import Pin from '@/assets/icons/pin.svg';
+import ReportBell from '@/assets/icons/report-bell.svg';
+import ReportClose from '@/assets/icons/report-close.svg';
+import ReportSentCheck from '@/assets/icons/report-sent-check.svg';
+import ReportShield from '@/assets/icons/report-shield.svg';
 import Search from '@/assets/icons/search.svg';
 import Send from '@/assets/icons/send.svg';
 import Share from '@/assets/icons/share.svg';
@@ -52,6 +57,9 @@ const icons = {
   check: Check,
   // Figma's "Іконка / Обрано": the same check drawn at 16 px with a 2.2 px stroke.
   'check-bold': CheckBold,
+  // Exports drawn at their own size with a heavier stroke than the scaled Solar icons: the checkbox tick (16 px, 2.4)
+  // and the Д3.1 "Скаргу надіслано" icons (26 px and 18 px, 1.5).
+  'checkbox-check': CheckboxCheck,
   clock: Clock,
   close: Close,
   copy: Copy,
@@ -66,6 +74,10 @@ const icons = {
   'menu-dots': MenuDots,
   phone: Phone,
   pin: Pin,
+  'report-bell': ReportBell,
+  'report-close': ReportClose,
+  'report-sent-check': ReportSentCheck,
+  'report-shield': ReportShield,
   search: Search,
   send: Send,
   share: Share,
