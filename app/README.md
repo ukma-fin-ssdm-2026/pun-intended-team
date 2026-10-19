@@ -1,6 +1,6 @@
 # Nearby client (Expo)
 
-Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It lists upcoming events, filters them by category and shows an event's details.
+Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It shows the event catalog under a five-tab bar, filters it by search, category, day and district, and shows an event's page, for a signed-in user or a guest. The screens run on mock data for now (`src/mocks/`); the API hooks in `src/hooks/` are kept for connecting them.
 
 ## Getting started
 
@@ -117,21 +117,30 @@ app/
 │  └─ images/           app icons, splash, spinner and mock event covers
 └─ src/
    ├─ app/              Expo Router routes (every file is a screen)
-   │  ├─ _layout.tsx    root Stack navigator; loads Inter and global.css
-   │  ├─ index.tsx      event list with the category filter
-   │  ├─ events/[id].tsx event details screen
+   │  ├─ _layout.tsx    root Stack navigator; loads the fonts and global.css
+   │  ├─ (tabs)/        tab screens under the Figma tab bar
+   │  │  ├─ _layout.tsx tab navigator
+   │  │  ├─ index.tsx   event catalog (mock data)
+   │  │  └─ map.tsx, matches.tsx, announcements.tsx, profile.tsx   placeholders for later stages
+   │  ├─ events/[id]/
+   │  │  ├─ index.tsx   event page (mock data)
+   │  │  └─ request.tsx, search.tsx   placeholders for later stages
+   │  ├─ notifications.tsx, sign-in.tsx, sign-up.tsx   placeholders for later stages
    │  └─ dev/components.tsx gallery of the UI kit, development only
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
    │  └─ client.ts      typed API client; gets and renews the guest token
-   ├─ hooks/            data hooks: use-categories.ts, use-events.ts, use-event.ts
+   ├─ hooks/            API data hooks (not used by the mock screens yet) and use-status-bar-style.ts
    ├─ components/
    │  ├─ ui/            UI kit from the Figma design (see below)
-   │  └─ …              earlier screens' components: category filter, event card, loading and error states
+   │  ├─ catalog-header.tsx   logo, notifications, avatar and greeting of the catalog
+   │  ├─ filters-sheet.tsx    Д1 Фільтри
+   │  ├─ guest-dialog.tsx     "Увійди, щоб знайти компанію"
+   │  └─ screen-placeholder.tsx   stand-in for screens of later stages
    ├─ mocks/            mock data for screens that have no endpoint yet
+   ├─ state/            app-wide client state: the mock session and the catalog filters
    ├─ styles/
-   │  ├─ tokens.ts      design tokens from the Figma variables
-   │  └─ theme.ts       spacing, colors and font sizes of the earlier screens
+   │  └─ tokens.ts      design tokens from the Figma variables
    ├─ config.ts         reads EXPO_PUBLIC_* values
    └─ dates.ts          formats dates in Kyiv time
 ```
@@ -142,11 +151,14 @@ Import from `src/` with the `@/` alias, for example `import { Button } from '@/c
 
 The screens are built from the [Figma design](https://www.figma.com/design/SxoD0EfoWYmJ5zehxl7rtX/nearby?node-id=0-1) with [NativeWind](https://www.nativewind.dev/) (Tailwind classes in React Native).
 
-- **Tokens.** `src/styles/tokens.ts` holds the Figma variables under their Figma names, so `brand/coral` becomes the class `bg-brand-coral`. Text sizes are `text-title`, `text-body`, `text-caption` and so on; the weight comes from the font family: `font-inter`, `font-inter-medium`, `font-inter-semibold`. Change a colour or text style here, not in components.
-- **Components.** `src/components/ui/` has the Figma components: `Button`, `IconButton`, `TextField`, `SearchField`, `Chip`, `Toggle`, `EventCard` and `TabBar`.
+- **Tokens.** `src/styles/tokens.ts` holds the Figma variables under their Figma names, so `brand/coral` becomes the class `bg-brand-coral`. Text sizes are `text-title`, `text-body`, `text-caption` and so on; the weight comes from the font family: `font-inter`, `font-inter-medium`, `font-inter-semibold`, `font-inter-bold`; the logo uses `font-alice`. Change a colour or text style here, not in components.
+- **Components.** `src/components/ui/` has the Figma components: `Button`, `IconButton`, `TextField`, `SearchField`, `Chip`, `Toggle`, `EventCard`, `EventCardSkeleton`, `FilterChip`, `TabBar`, `Overlay` (modal layer with the backdrop for dialogs and sheets) and `CoralGradient` (the radial gradient of the catalog header and of covers without an image).
 - **Icons.** `<Icon name="calendar" size={16} color={…} />`; `name` is typed, so a wrong name fails `npm run typecheck`. To add an icon, export it from Figma as SVG into `assets/icons/`, keep the file as exported, and add it to the map in `icon.tsx`.
 - **Shadows.** Use the `boxShadow` strings from `shadows` in `tokens.ts`; they render on iOS, Android and web. Do not use SVG filters for shadows: they do not render on every platform.
-- **Gallery.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. The route only works in development; in a production build it redirects to the catalog.
+- **Navigation.** Links follow the Figma prototype: the tabs open Т1–Т4, the bell opens Т5 Сповіщення, the avatar the profile tab, the filter button and the categories arrow the Д1 Фільтри sheet, and a card the event page. On the event page the main button opens 03 Запит на компанію, or 04 Пошук компанії for an event the user is already in the pool for (02.1), and the map preview the map tab. A guest has no bell or greeting, the avatar opens В4 Вхід, and the event page and the Метчі, Оголошення and Профіль tabs open the sign-in dialog (02.2). Dialogs and sheets close on a backdrop tap. Screens of later stages are placeholders.
+- **State.** `src/state/` holds client state shared between screens in small stores (`createStore`, over `useSyncExternalStore`): the mock session and the catalog filters, which the search, the category row and the filters sheet all change.
+- **Status bar.** Call `useStatusBarStyle('light')` on a screen with a dark top, `'dark'` otherwise; it applies when the screen gets focus.
+- **Gallery and modes.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. Its first section switches the mock session: guest or signed in, and whether the catalog shows its skeleton for 1.5 s first (on by default, as in the prototype). Open the catalog with the button there: reloading the page resets the switches. The route only works in development; in a production build it redirects to the catalog.
 
 ## Code style
 

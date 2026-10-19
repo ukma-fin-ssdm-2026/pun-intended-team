@@ -1,19 +1,23 @@
 // Written with the help of Claude
 // AI Usage: development gallery of the base components with mock data; reviewed by Daryna Halytska.
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { Button, type ButtonSize, type ButtonVariant } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { EventCard } from '@/components/ui/event-card';
+import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
+import { FilterChip } from '@/components/ui/filter-chip';
 import { Icon, iconNames } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
 import { TabBar, type TabName } from '@/components/ui/tab-bar';
 import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
+import { formatEventDate } from '@/dates';
 import { mockCategories, mockEvents } from '@/mocks/events';
+import { setGuest, setSimulateLoading, useSession } from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -33,7 +37,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function SwitchRow({
+  label,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}) {
+  return (
+    <View className="flex-row items-center justify-between">
+      <Text className="font-inter text-body text-text-primary">{label}</Text>
+      <Toggle value={value} onValueChange={onValueChange} accessibilityLabel={label} />
+    </View>
+  );
+}
+
 export default function ComponentsGallery() {
+  const router = useRouter();
+  const session = useSession();
   const [phone, setPhone] = useState('+380 67 123 45 67');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(mockCategories[0].id);
@@ -45,6 +68,13 @@ export default function ComponentsGallery() {
   return (
     <ScrollView className="flex-1 bg-surface-background" contentContainerClassName="gap-8 p-5 pb-24">
       <Stack.Screen options={{ title: 'Компоненти' }} />
+
+      {/* Switches the mock session; open the catalog from here, since reloading the page resets them. */}
+      <Section title="Режим (лише для розробки)">
+        <SwitchRow label="Гість" value={session.isGuest} onValueChange={setGuest} />
+        <SwitchRow label="Завантаження каталогу" value={session.simulateLoading} onValueChange={setSimulateLoading} />
+        <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
+      </Section>
 
       <Section title="Іконки · Solar Linear">
         <View className="flex-row flex-wrap gap-4">
@@ -96,16 +126,30 @@ export default function ComponentsGallery() {
           ))}
         </View>
         <Toggle value={toggle} onValueChange={setToggle} accessibilityLabel="Перемикач" />
+        <View className="flex-row flex-wrap gap-2 rounded-2xl bg-surface-card p-3">
+          <FilterChip label="Концерти" selected onPress={() => {}} />
+          <FilterChip label="Виставки" onPress={() => {}} />
+          <FilterChip label="Обрати дати" icon="calendar" />
+          <FilterChip label="Поруч зі мною" icon="pin" />
+        </View>
       </Section>
 
       <Section title="Картки">
         <EventCard
           title={mockEvents[0].title}
           category={mockEvents[0].category.name}
-          dateLabel="Сб, 18 жовт · 19:00"
+          dateLabel={formatEventDate(mockEvents[0].startsAt)}
           place="Поділ"
           cover={mockEvents[0].cover}
         />
+        <EventCard
+          title={mockEvents[2].title}
+          category={mockEvents[2].category.name}
+          dateLabel={formatEventDate(mockEvents[2].startsAt)}
+          place={mockEvents[2].venue.name}
+          inPool
+        />
+        <EventCardSkeleton />
       </Section>
 
       <Section title="Навігація">
