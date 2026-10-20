@@ -44,7 +44,7 @@
 
 ## Exit Criteria
 
-1. Every row is **done** and passes in CI: the `CI passed` job is green on `main`.
+Every row is **done** and passes in CI: the `CI passed` job is green on `main`.
 
 ## AI Usage Note
 
