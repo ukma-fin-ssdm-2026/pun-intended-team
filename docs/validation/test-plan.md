@@ -13,8 +13,8 @@
 |---|---|
 | Unit | `tests/unit/` |
 | Integration | `tests/e2e/` |
-| System | CI, planned |
-| Acceptance | `tests/e2e/` |
+| System | staging, planned |
+| Acceptance | deployed system, planned |
 
 ## Risks
 
