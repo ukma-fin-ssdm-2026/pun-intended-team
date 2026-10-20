@@ -32,8 +32,8 @@
 |---|---|---|---|---|---|---|---|
 | TC-01 | `ListingsService.create` | Unit | Negative | A listing dated yesterday is rejected and nothing is stored | Viktoriia Baran | FR-021 | done |
 | TC-02 | `POST /listings` | Integration | Negative | A listing with a past date is refused with `422` | Viktoriia Baran | FR-021 | done |
-| TC-03 | `GET /listings` | Acceptance | Positive | US-010 AC1: a listing posted by one user is visible to another | Vlad Redchuk | FR-021, FR-022 | planned |
-| TC-04 | `GET /listings` | System | Positive | Only active listings dated today or later are returned, in pages of the requested size | TBD | FR-022 | planned |
+| TC-03 | `GET /listings` | Integration | Positive | US-010 AC1: a listing posted by one user is visible to another | Vlad Redchuk | FR-021, FR-022 | planned |
+| TC-04 | `GET /listings` | Integration | Negative | A listing its author removed is no longer returned | TBD | FR-022 | planned |
 | TC-05 | `CategoriesService.listActive` | Unit | Negative | Inactive categories are left out of the list | Vlad Redchuk | FR-029 | planned |
 | TC-06 | `GET /categories` | Integration | Negative | Inactive categories are left out of the public list | Viktoriia Baran | FR-029 | done |
 | TC-07 | `POST /admin/categories` | Integration | Positive | An admin adds a category; it is saved as active and answered with `201` | Viktoriia Baran | FR-029 | done |
