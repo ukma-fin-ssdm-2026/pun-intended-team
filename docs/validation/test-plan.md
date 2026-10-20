@@ -2,8 +2,6 @@
 
 ## Scope
 
-**In scope** — the parts of the API that are built:
-
 - **Listings:** creating and browsing listings (FR-021, FR-022).
 - **Categories:** the public list and the admin endpoints (FR-029).
 - **Profile:** creating and editing the user's own profile (FR-002).
@@ -19,8 +17,6 @@
 | Acceptance | `tests/e2e/` |
 
 ## Risks
-
-The test table starts from these, the most likely and most costly first.
 
 | Risk | Why it matters | Tests |
 |---|---|---|
@@ -47,8 +43,6 @@ The test table starts from these, the most likely and most costly first.
 | TC-11 | Dependency audit in CI | System | Negative | `npm audit --audit-level=high` finds zero High and zero Critical advisories | Daryna Halytska | SEC-006 | done |
 
 ## Exit Criteria
-
-Testing of the scope above is finished when:
 
 1. Every row is **done** and passes in CI: the `CI passed` job is green on `main`.
 
