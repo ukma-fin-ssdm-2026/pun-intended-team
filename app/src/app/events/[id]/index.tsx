@@ -77,9 +77,24 @@ function GlassButton({
   );
 }
 
-function DetailRow({ icon, value, note }: { icon: IconName; value: string; note: string }) {
+function DetailRow({
+  icon,
+  value,
+  note,
+  onPress,
+}: {
+  icon: IconName;
+  value: string;
+  note: string;
+  onPress?: () => void;
+}) {
   return (
-    <View className="flex-row items-center gap-3.5 py-3.5">
+    <Pressable
+      accessibilityRole={onPress ? 'link' : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      className="flex-row items-center gap-3.5 py-3.5"
+    >
       <View className="size-10 items-center justify-center rounded-xl bg-surface-card">
         <Icon name={icon} size={20} color={colors.brand.coral} />
       </View>
@@ -87,7 +102,7 @@ function DetailRow({ icon, value, note }: { icon: IconName; value: string; note:
         <Text className="font-inter-medium text-body text-text-primary">{value}</Text>
         <Text className="font-inter text-caption text-text-secondary">{note}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -211,6 +226,8 @@ export default function EventScreen() {
               icon="pin"
               value={event.venue.name}
               note={[event.venue.address, event.district].filter(Boolean).join(' · ')}
+              // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
+              onPress={() => router.navigate('/map')}
             />
             <View className="h-px bg-border-default" />
             <DetailRow
@@ -219,7 +236,12 @@ export default function EventScreen() {
               note={formatTimeRange(event.startsAt, event.endsAt)}
             />
             <View className="h-px bg-border-default" />
-            <DetailRow icon="building" value={event.organizer} note="Організатор події" />
+            <DetailRow
+              icon="building"
+              value={event.organizer}
+              note="Організатор події"
+              onPress={() => router.push({ pathname: '/organizers/[name]', params: { name: event.organizer } })}
+            />
           </View>
 
           <View className="gap-3">
