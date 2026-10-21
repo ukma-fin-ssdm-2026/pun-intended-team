@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
@@ -56,6 +57,7 @@ export default function OrganizationSettingsScreen() {
   const [changes, setChanges] = useState(true);
   const [reminders, setReminders] = useState(true);
   const [nearbyPosts, setNearbyPosts] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   useStatusBarStyle('dark');
 
   return (
@@ -134,11 +136,26 @@ export default function OrganizationSettingsScreen() {
           </View>
         </View>
 
-        {/* "Вийти з акаунта" has no prototype link on О4. */}
+        {/* "Вийти з акаунта" opens О4.1, as on Т4. */}
         <View className="items-center px-5 pt-4">
-          <Text className="text-center font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
+          <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
+            <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
+          </Pressable>
         </View>
       </ScrollView>
+
+      <SignOutDialog
+        visible={signOutOpen}
+        icon="building"
+        note="Події та налаштування організації збережуться. Повернутися можна будь-коли."
+        onClose={() => setSignOutOpen(false)}
+        onSignOut={() => {
+          setSignOutOpen(false);
+          // As on П5: signing out starts a new history on the onboarding (В1).
+          router.dismissAll();
+          router.replace('/onboarding');
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }

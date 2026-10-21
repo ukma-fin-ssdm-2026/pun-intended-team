@@ -8,17 +8,16 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { Button } from '@/components/ui/button';
+import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
-import { Overlay } from '@/components/ui/overlay';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { mockProfile } from '@/mocks/profile';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { colors, shadows } from '@/styles/tokens';
+import { colors } from '@/styles/tokens';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
 // bottom 46 px. The page keeps 120 px under it for the tab bar.
@@ -105,40 +104,6 @@ function SavedEvents({ events, onOpen }: { events: MockEvent[]; onOpen: (id: str
         />
       ))}
     </View>
-  );
-}
-
-function SignOutDialog({
-  visible,
-  onClose,
-  onSignOut,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  onSignOut: () => void;
-}) {
-  return (
-    <Overlay visible={visible} onClose={onClose} placement="center">
-      <View
-        accessibilityViewIsModal
-        className="gap-5 rounded-[28px] bg-surface-card px-5 pb-5 pt-7"
-        style={{ boxShadow: shadows.medium }}
-      >
-        <View className="items-center gap-2.5">
-          <View className="size-14 items-center justify-center rounded-full bg-brand-coral">
-            <Icon name="user" size={26} color={colors.text['on-dark']} />
-          </View>
-          <Text accessibilityRole="header" className="text-center font-inter-bold text-h1 text-text-primary">
-            Вийти з акаунта?
-          </Text>
-          <Text className="text-center font-inter text-caption text-text-secondary">
-            Твої метчі, запити й контакти збережуться. Повернутися можна будь-коли.
-          </Text>
-        </View>
-        <Button label="Вийти" variant="dark" onPress={onSignOut} />
-        <Button label="Залишитися" variant="light" onPress={onClose} />
-      </View>
-    </Overlay>
   );
 }
 
@@ -252,6 +217,8 @@ export default function ProfileScreen() {
 
       <SignOutDialog
         visible={signOutOpen}
+        icon="user"
+        note="Твої метчі, запити й контакти збережуться. Повернутися можна будь-коли."
         onClose={() => setSignOutOpen(false)}
         onSignOut={() => {
           setSignOutOpen(false);
