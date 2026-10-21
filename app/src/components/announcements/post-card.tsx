@@ -15,11 +15,13 @@ import { colors } from '@/styles/tokens';
 type Props = {
   post: Post;
   onReport: () => void;
+  // Called after "Хочу піти"; Т3.3 returns to the feed, which shows Т3.2.
+  onRequest?: () => void;
 };
 
 // The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано"; "Ти йдеш" is a
 // post the user already joined.
-function JoinAction({ post }: { post: Post }) {
+function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void }) {
   const requested = usePostRequests().postIds.includes(post.id);
 
   if (post.going) {
@@ -35,7 +37,10 @@ function JoinAction({ post }: { post: Post }) {
     <Pressable
       accessibilityRole="button"
       disabled={requested}
-      onPress={() => requestPost(post.id)}
+      onPress={() => {
+        requestPost(post.id);
+        onRequest?.();
+      }}
       // Figma's 1 px stroke lies inside the pill: the padding is 1 px less than its 6 / 10 / 12.
       className="flex-row items-center gap-1.5 rounded-2xl border border-border-default py-[5px] pl-[9px] pr-[11px]"
     >
@@ -47,7 +52,7 @@ function JoinAction({ post }: { post: Post }) {
   );
 }
 
-export function PostCard({ post, onReport }: Props) {
+export function PostCard({ post, onReport, onRequest }: Props) {
   const liked = useLiked(post.id);
   const event = post.eventId ? findMockEvent(post.eventId) : undefined;
 
@@ -108,7 +113,7 @@ export function PostCard({ post, onReport }: Props) {
         )}
 
         <View className="flex-row items-center gap-5">
-          <JoinAction post={post} />
+          <JoinAction post={post} onRequest={onRequest} />
           {/* Share has no prototype link; shown as in Figma. */}
           <Icon name="share" size={18} color={colors.text.secondary} />
           <Pressable

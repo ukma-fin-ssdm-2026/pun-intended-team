@@ -9,8 +9,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '@/components/announcements/post-card';
 import { PostComposer } from '@/components/announcements/post-composer';
 import { ReportFlow, type ReportStep } from '@/components/matching/report-flow';
+import { MAP_SEARCH_ICON } from '@/components/map-background';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
+import { SearchField } from '@/components/ui/search-field';
 import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -29,6 +32,44 @@ const LIST_BOTTOM_GAP = 26;
 const SNACKBAR_GAP = 26;
 
 const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
+// Т3.3 Пошук оголошень: the tabs switch only visually; every tab shows the matching posts.
+const searchTabs = ['Популярне', 'Нове', 'Люди', 'Події'];
+// Figma's query on Т3.3.
+const SEARCH_QUERY = 'настолки';
+
+function HeaderTabs({
+  tabs,
+  selected,
+  onSelect,
+}: {
+  tabs: string[];
+  selected: string;
+  onSelect: (tab: string) => void;
+}) {
+  return (
+    <View accessibilityRole="tablist" className="flex-row">
+      {tabs.map((tab) => {
+        const isSelected = tab === selected;
+        return (
+          <Pressable
+            key={tab}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isSelected }}
+            onPress={() => onSelect(tab)}
+            className="flex-1 items-center gap-2.5"
+          >
+            <Text
+              className={`font-inter-medium text-label ${isSelected ? 'text-text-on-dark' : 'text-text-on-dark-muted'}`}
+            >
+              {tab}
+            </Text>
+            <View className={`h-[3px] rounded-sm ${isSelected ? 'w-12 bg-brand-coral' : 'w-px bg-transparent'}`} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
@@ -40,6 +81,10 @@ export default function AnnouncementsScreen() {
   const requestedPost = mockPosts.find((post) => post.id === lastPostId);
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
+  // The search button opens Т3.3 in place of the feed's header; its back button returns to the feed.
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState(SEARCH_QUERY);
+  const [searchTab, setSearchTab] = useState(searchTabs[0]);
   const [reported, setReported] = useState<Author>();
   const [report, setReport] = useState<ReportStep>('closed');
   useStatusBarStyle('light');
@@ -51,6 +96,8 @@ export default function AnnouncementsScreen() {
   };
 
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
+  const search = query.trim().toLocaleLowerCase('uk');
+  const posts = searching ? mockPosts.filter((post) => post.text.toLocaleLowerCase('uk').includes(search)) : mockPosts;
 
   return (
     <View className="flex-1 bg-surface-card">
@@ -65,37 +112,54 @@ export default function AnnouncementsScreen() {
           <View className="absolute inset-0">
             <CoralGradient preset="announcements" />
           </View>
-          <View className="flex-row items-center justify-between">
-            <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-on-dark">
-              Оголошення
-            </Text>
-            {/* Search has no prototype link; shown as in Figma. */}
-            <Icon name="search" size={22} color={colors.text['on-dark']} />
-          </View>
-          <View accessibilityRole="tablist" className="flex-row">
-            {feedTabs.map((tab) => {
-              const selected = tab === feedTab;
-              return (
-                <Pressable
-                  key={tab}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected }}
-                  onPress={() => setFeedTab(tab)}
-                  className="flex-1 items-center gap-2.5"
-                >
-                  <Text
-                    className={`font-inter-medium text-label ${selected ? 'text-text-on-dark' : 'text-text-on-dark-muted'}`}
+          {searching ? (
+            <>
+              <View className="flex-row items-center gap-2.5">
+                <Pressable accessibilityRole="button" accessibilityLabel="Назад" onPress={() => setSearching(false)}>
+                  <Glass
+                    className="size-10 items-center justify-center"
+                    radius={20}
+                    fill="rgba(255, 255, 255, 0.22)"
+                    border="rgba(255, 255, 255, 0.35)"
+                    blur={12}
+                    tone="light"
                   >
-                    {tab}
-                  </Text>
-                  <View className={`h-[3px] rounded-sm ${selected ? 'w-12 bg-brand-coral' : 'w-px bg-transparent'}`} />
+                    <Icon name="arrow-left" size={20} color={colors.text['on-dark']} />
+                  </Glass>
                 </Pressable>
-              );
-            })}
-          </View>
+                <View className="flex-1">
+                  <SearchField
+                    placeholder="Пошук оголошень"
+                    value={query}
+                    onChangeText={setQuery}
+                    iconColor={MAP_SEARCH_ICON}
+                    autoFocus
+                  />
+                </View>
+              </View>
+              <HeaderTabs tabs={searchTabs} selected={searchTab} onSelect={setSearchTab} />
+            </>
+          ) : (
+            <>
+              <View className="flex-row items-center justify-between">
+                <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-on-dark">
+                  Оголошення
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Пошук"
+                  onPress={() => setSearching(true)}
+                  hitSlop={10}
+                >
+                  <Icon name="search" size={22} color={colors.text['on-dark']} />
+                </Pressable>
+              </View>
+              <HeaderTabs tabs={feedTabs} selected={feedTab} onSelect={setFeedTab} />
+            </>
+          )}
         </View>
 
-        {editorOpen ? (
+        {searching ? null : editorOpen ? (
           <PostComposer onPublish={closeEditor} onAddPlace={() => router.push('/post-place')} />
         ) : (
           <Pressable
@@ -113,9 +177,9 @@ export default function AnnouncementsScreen() {
             </View>
           </Pressable>
         )}
-        <View className="h-px bg-border-default" />
+        {!searching && <View className="h-px bg-border-default" />}
 
-        {announcementsEmpty ? (
+        {announcementsEmpty && !searching ? (
           <View className="flex-1 items-center justify-center" style={{ paddingBottom: 120 - LIST_BOTTOM_GAP }}>
             <View className="w-full items-center gap-3.5 px-8">
               <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14]">
@@ -133,7 +197,7 @@ export default function AnnouncementsScreen() {
             </View>
           </View>
         ) : (
-          mockPosts.map((post) => (
+          posts.map((post) => (
             <View key={post.id}>
               <PostCard
                 post={post}
@@ -141,6 +205,7 @@ export default function AnnouncementsScreen() {
                   setReported(post.author);
                   setReport('form');
                 }}
+                onRequest={() => setSearching(false)}
               />
               <View className="h-px bg-border-default" />
             </View>
