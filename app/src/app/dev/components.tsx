@@ -19,6 +19,7 @@ import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-matc
 import { formatEventDate } from '@/dates';
 import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
 import { mockPeople } from '@/mocks/matching';
+import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import {
   setAnnouncementsEmpty,
   setGuest,
@@ -66,6 +67,7 @@ function SwitchRow({
 export default function ComponentsGallery() {
   const router = useRouter();
   const session = useSession();
+  const favoriteIds = useFavoriteIds();
   const [phone, setPhone] = useState('+380 67 123 45 67');
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(mockCategories[0].id);
@@ -174,6 +176,8 @@ export default function ComponentsGallery() {
           dateLabel={formatEventDate(mockEvents[0].startsAt)}
           place="Поділ"
           cover={mockEvents[0].cover}
+          favorite={favoriteIds.includes(mockEvents[0].id)}
+          onToggleFavorite={() => toggleFavorite(mockEvents[0].id)}
         />
         <EventCard
           title={mockEvents[2].title}
@@ -181,6 +185,8 @@ export default function ComponentsGallery() {
           dateLabel={formatEventDate(mockEvents[2].startsAt)}
           place={mockEvents[2].venue.name}
           inPool
+          favorite={favoriteIds.includes(mockEvents[2].id)}
+          onToggleFavorite={() => toggleFavorite(mockEvents[2].id)}
         />
         <EventCardSkeleton />
       </Section>

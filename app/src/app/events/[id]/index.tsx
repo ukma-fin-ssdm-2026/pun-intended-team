@@ -18,6 +18,7 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDay, formatShortDay, formatTimeRange } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
+import { toggleFavorite, useFavorite } from '@/state/favorites';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -113,7 +114,7 @@ export default function EventScreen() {
   const { isGuest } = session;
   // A guest sees the page under the sign-in dialog; closing the dialog leaves the page, as in the prototype.
   const [dialogOpen, setDialogOpen] = useState(isGuest);
-  const [favorite, setFavorite] = useState(false);
+  const favorite = useFavorite(id);
   const [expanded, setExpanded] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const coverRef = useRef<View>(null);
@@ -168,7 +169,7 @@ export default function EventScreen() {
               icon="heart"
               label="В обране"
               active={favorite}
-              onPress={() => setFavorite((value) => !value)}
+              onPress={() => toggleFavorite(id)}
               blurTarget={coverRef}
             />
           </View>

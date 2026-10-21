@@ -2,7 +2,7 @@
 // AI Usage: event card from the Figma catalog; reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
 import { Image, type ImageSource } from 'expo-image';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,9 @@ type Props = {
   cover?: ImageSource;
   // After a company request the button turns into the "У пулі" variant, as on the Figma catalog.
   inPool?: boolean;
+  // "В обране": the heart is filled in brand/coral while the event is a favourite.
+  favorite: boolean;
+  onToggleFavorite: () => void;
   // A tap anywhere on the card except the heart opens the event page.
   onPress?: () => void;
   // In the prototype "Знайти компанію" and "У пулі" have no target of their own and open the event page like the card;
@@ -34,16 +37,25 @@ const accessibilityActions = [
   { name: 'findCompany', label: 'Знайти компанію' },
 ];
 
-export function EventCard({ title, category, dateLabel, place, cover, inPool, onPress, onFindCompany }: Props) {
-  const [favorite, setFavorite] = useState(false);
+export function EventCard({
+  title,
+  category,
+  dateLabel,
+  place,
+  cover,
+  inPool,
+  favorite,
+  onToggleFavorite,
+  onPress,
+  onFindCompany,
+}: Props) {
   const coverRef = useRef<View>(null);
-  const toggleFavorite = () => setFavorite((value) => !value);
   const findCompany = onFindCompany ?? onPress;
 
   // A pressable card groups its content for screen readers, so the heart and the button are offered as its actions.
   const onAccessibilityAction = ({ nativeEvent }: AccessibilityActionEvent) => {
     if (nativeEvent.actionName === 'activate') onPress?.();
-    if (nativeEvent.actionName === 'favorite') toggleFavorite();
+    if (nativeEvent.actionName === 'favorite') onToggleFavorite();
     if (nativeEvent.actionName === 'findCompany') findCompany?.();
   };
 
@@ -81,7 +93,7 @@ export function EventCard({ title, category, dateLabel, place, cover, inPool, on
           accessibilityRole="button"
           accessibilityLabel="В обране"
           accessibilityState={{ selected: favorite }}
-          onPress={toggleFavorite}
+          onPress={onToggleFavorite}
           className="absolute right-2.5 top-2.5"
         >
           <Glass

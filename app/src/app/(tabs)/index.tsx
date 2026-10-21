@@ -21,6 +21,7 @@ import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
 import { filterEvents, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
+import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { finishCatalogLoading, useSession } from '@/state/session';
 
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
@@ -39,6 +40,7 @@ export default function CatalogScreen() {
   const { width } = useWindowDimensions();
   const { isGuest, catalogLoading } = useSession();
   const filters = useCatalogFilters();
+  const favoriteIds = useFavoriteIds();
   const [filtersOpen, setFiltersOpen] = useState(false);
   useStatusBarStyle('light');
 
@@ -118,6 +120,8 @@ export default function CatalogScreen() {
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
                   cover={event.cover}
+                  favorite={favoriteIds.includes(event.id)}
+                  onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.
                   onPress={() => openEvent(event.id)}
                 />
