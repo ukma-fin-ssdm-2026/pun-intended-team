@@ -84,12 +84,7 @@ export default function CatalogScreen() {
         )}
 
         <View className="gap-4 px-5 pt-6">
-          <View className="flex-row gap-2.5">
-            <View className="flex-1">
-              <SearchField value={filters.query} onChangeText={setQuery} returnKeyType="search" />
-            </View>
-            <IconButton icon="filter" accessibilityLabel="Фільтри" onPress={() => setFiltersOpen(true)} />
-          </View>
+          <SearchField value={filters.query} onChangeText={setQuery} returnKeyType="search" />
           <View className="flex-row items-center gap-2">
             {chips.map((chip) => (
               <View key={chip.id ?? 'all'} className="flex-1">
