@@ -151,8 +151,7 @@ app/
    │  ├─ matching/      screens' parts of the matching flow: request and safety sheets, report flow, radar, card, slider
    │  ├─ announcements/ post and post editor of the Оголошення tab
    │  ├─ organization/  the О3 cancel event sheet
-   │  ├─ system-state.tsx   shared layout of С1–С3
-   │  └─ screen-placeholder.tsx   stand-in for screens of later stages
+   │  └─ system-state.tsx   shared layout of С1–С3
    ├─ mocks/            mock data for screens that have no endpoint yet
    ├─ state/            app-wide client state: the mock session, the catalog filters and the Метчі tab
    ├─ styles/
