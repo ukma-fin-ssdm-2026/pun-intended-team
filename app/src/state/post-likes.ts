@@ -3,7 +3,8 @@
 import { createStore } from '@/state/store';
 
 // Ids of the posts the user liked; every heart of a post reads and toggles the same entry.
-const store = createStore<{ postIds: string[] }>({ postIds: [] });
+// Т3 shows Ірина's post as liked.
+const store = createStore<{ postIds: string[] }>({ postIds: ['post-1'] });
 
 export function useLiked(postId: string) {
   return store.use().postIds.includes(postId);
