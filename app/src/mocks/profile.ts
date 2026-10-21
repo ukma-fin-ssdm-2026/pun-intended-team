@@ -3,7 +3,6 @@
 import { mockUser } from '@/mocks/user';
 
 export const mockProfile = {
-  // Figma still shows "Д" on Т4 and П5; the initial follows the name.
   initial: 'С',
   firstName: mockUser.firstName,
   nameAge: `${mockUser.firstName}, 20`,

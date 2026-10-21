@@ -1,5 +1,6 @@
 // Written with the help of Claude
 // AI Usage: mock matching data from the Figma Stage 3 screens; reviewed by Daryna Halytska.
+import { mockProfile } from '@/mocks/profile';
 
 // The matching flow follows the jazz evening, as in Figma. Dates are shifted like the mock events (Figma's 15 жовт is
 // 21 жовт here, 20 жовт is 26 жовт).
@@ -89,7 +90,7 @@ export const mockProposal = {
 };
 
 // 07 Взаємний метч: the user's own initial next to the match's.
-export const mockMutual = { ownInitial: 'Д' };
+export const mockMutual = { ownInitial: mockProfile.initial };
 
 // Т2 Метчі: one card per event the user looks for company at, as in Figma.
 export const mockMatchesTab = {

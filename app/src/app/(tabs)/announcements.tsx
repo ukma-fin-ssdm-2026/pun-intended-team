@@ -14,6 +14,7 @@ import { Icon } from '@/components/ui/icon';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockPosts, type Author } from '@/mocks/announcements';
+import { mockProfile } from '@/mocks/profile';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -97,7 +98,7 @@ export default function AnnouncementsScreen() {
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
             <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-              <Text className="font-inter-semibold text-title text-text-on-dark">Д</Text>
+              <Text className="font-inter-semibold text-title text-text-on-dark">{mockProfile.initial}</Text>
             </View>
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
