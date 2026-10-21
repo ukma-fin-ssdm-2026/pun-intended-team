@@ -14,9 +14,11 @@ const tools: IconName[] = ['gallery-edit', 'calendar', 'ticket', 'category-all']
 type Props = {
   // "Опублікувати": the prototype returns to the feed (Т3).
   onPublish: () => void;
+  // "+ Місце" opens Д2.1 Місце на мапі.
+  onAddPlace: () => void;
 };
 
-export function PostComposer({ onPublish }: Props) {
+export function PostComposer({ onPublish, onAddPlace }: Props) {
   // Figma's draft, ready to edit.
   const [text, setText] = useState(mockDraft.text);
   const [dateShown, setDateShown] = useState(true);
@@ -55,10 +57,14 @@ export function PostComposer({ onPublish }: Props) {
               </Pressable>
             </View>
           )}
-          <View className="flex-row items-center gap-1.5 rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-3">
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAddPlace}
+            className="flex-row items-center gap-1.5 rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-3"
+          >
             <Icon name="pin" size={15} color={colors.text.secondary} />
             <Text className="font-inter-semibold text-tag text-text-secondary">+ Місце</Text>
-          </View>
+          </Pressable>
         </View>
 
         <View className="h-px bg-border-default" />

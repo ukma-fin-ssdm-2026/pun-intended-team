@@ -50,6 +50,7 @@ export default function RootLayout() {
         <Stack.Screen name="update" options={dissolve} />
         <Stack.Screen name="too-many-attempts" options={dissolve} />
         <Stack.Screen name="organizer" options={dissolve} />
+        <Stack.Screen name="post-place" options={dissolve} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog

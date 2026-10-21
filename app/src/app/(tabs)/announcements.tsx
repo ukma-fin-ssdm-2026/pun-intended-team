@@ -90,7 +90,7 @@ export default function AnnouncementsScreen() {
         </View>
 
         {editorOpen ? (
-          <PostComposer onPublish={closeEditor} />
+          <PostComposer onPublish={closeEditor} onAddPlace={() => router.push('/post-place')} />
         ) : (
           <Pressable
             accessibilityRole="button"

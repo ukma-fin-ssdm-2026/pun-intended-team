@@ -79,3 +79,9 @@ export const mapPins = [
 
 // "Ви тут": an 18 px dot at (150, 410).
 export const mapYouAreHere = { left: 150, top: 410 };
+
+// Д2.1 Місце на мапі: the place under the drop pin.
+export const mockPostPlace = {
+  name: 'Антикафе «Ліхтар»',
+  address: 'вул. Ярославська, 22 · Поділ',
+};
