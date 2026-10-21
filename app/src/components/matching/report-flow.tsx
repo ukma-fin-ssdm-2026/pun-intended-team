@@ -14,7 +14,7 @@ import { colors, shadows } from '@/styles/tokens';
 
 const reasons = [
   'Образливі повідомлення',
-  'Не прийшла і не попередила',
+  'Не прийшли на зустріч і не попередили',
   'Фейковий профіль',
   'Небезпечна поведінка',
   'Інше',
@@ -62,7 +62,9 @@ function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: (
   const { height: windowHeight } = useWindowDimensions();
   // Figma's filled-in example: two reasons and a comment.
   const [checked, setChecked] = useState([reasons[0], reasons[1]]);
-  const [comment, setComment] = useState('Домовилися зустрітися біля входу, не відповідала на повідомлення.');
+  const [comment, setComment] = useState(
+    'Домовилися зустрітися біля входу, але ніхто не прийшов і не відповідав на повідомлення.',
+  );
   const toggle = (reason: string) =>
     setChecked((current) =>
       current.includes(reason) ? current.filter((value) => value !== reason) : [...current, reason],
@@ -91,7 +93,7 @@ function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: (
               Поскаржитися на {person.accusative}
             </Text>
             <Text className="text-center font-inter text-caption text-text-secondary">
-              {person.name} не дізнається, хто надіслав скаргу. Модератор побачить її протягом хвилини.
+              {person.name} не дізнається, від кого скарга. Модератор побачить її протягом хвилини.
             </Text>
           </View>
 
@@ -140,7 +142,7 @@ function ReportSentDialog({ person, onDone }: { person: ReportedPerson; onDone: 
           Скаргу надіслано
         </Text>
         <Text className="text-center font-inter text-caption text-text-secondary">
-          Дякуємо, що допомагаєш тримати Nearby безпечним. {person.name} не дізнається, хто поскаржився.
+          Дякуємо, що допомагаєш тримати Nearby безпечним. {person.name} не дізнається, від кого скарга.
         </Text>
       </View>
       <View className="rounded-[20px] bg-surface-background px-4 py-1">
