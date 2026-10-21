@@ -8,11 +8,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CancelEventSheet } from '@/components/organization/cancel-event-sheet';
+import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockOrganization, type OrganizationEvent, type OrganizationEventStatus } from '@/mocks/organization';
+import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": padding 56 / 20 / 52 (9 px below the iPhone 14 status bar at the top); the list covers its bottom 28 px.
@@ -80,9 +82,29 @@ function EventRow({ item, onEdit, onCancel }: { item: OrganizationEvent; onEdit:
   );
 }
 
+// О1.1 "03.1 Порожньо": "Створити подію" opens О2.
+function EmptyEvents({ onCreate }: { onCreate: () => void }) {
+  return (
+    <View className="items-center gap-3 rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
+      <View
+        className="size-[76px] items-center justify-center rounded-full bg-brand-coral"
+        style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
+      >
+        <Icon name="empty-calendar" size={34} color={colors.text['on-dark']} />
+      </View>
+      <Text className="text-center font-inter-semibold text-h2 text-text-primary">Тут будуть твої події</Text>
+      <Text className="text-center font-inter text-body text-text-secondary">
+        Створи першу подію, і люди знайдуть її в каталозі.
+      </Text>
+      <Button label="Створити подію" size="sm" onPress={onCreate} />
+    </View>
+  );
+}
+
 export default function OrganizationEventsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { organizationEmpty } = useSession();
   const [sheetOpen, setSheetOpen] = useState(false);
   // Kept after closing, so the title does not change while the sheet fades out.
   const [cancelName, setCancelName] = useState('');
@@ -126,7 +148,9 @@ export default function OrganizationEventsScreen() {
             <Text accessibilityRole="header" className="font-inter-bold text-display text-text-on-dark">
               Мої події
             </Text>
-            <Text className="font-inter text-body text-text-on-dark-muted">{mockOrganization.summary}</Text>
+            <Text className="font-inter text-body text-text-on-dark-muted">
+              {organizationEmpty ? mockOrganization.emptySummary : mockOrganization.summary}
+            </Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -141,17 +165,19 @@ export default function OrganizationEventsScreen() {
       </View>
 
       <View className="gap-3.5 px-5 pb-10">
-        {mockOrganization.events.map((item) => (
-          <EventRow
-            key={item.event.id}
-            item={item}
-            onEdit={openEditor}
-            onCancel={() => {
-              setCancelName(item.event.shortTitle ?? item.event.title);
-              setSheetOpen(true);
-            }}
-          />
-        ))}
+        {organizationEmpty && <EmptyEvents onCreate={openEditor} />}
+        {!organizationEmpty &&
+          mockOrganization.events.map((item) => (
+            <EventRow
+              key={item.event.id}
+              item={item}
+              onEdit={openEditor}
+              onCancel={() => {
+                setCancelName(item.event.shortTitle ?? item.event.title);
+                setSheetOpen(true);
+              }}
+            />
+          ))}
       </View>
 
       <CancelEventSheet visible={sheetOpen} eventName={cancelName} onClose={() => setSheetOpen(false)} />

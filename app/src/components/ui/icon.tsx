@@ -23,6 +23,7 @@ import ContactSend from '@/assets/icons/contact-send.svg';
 import Copy from '@/assets/icons/copy.svg';
 import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
+import EmptyCalendar from '@/assets/icons/empty-calendar.svg';
 import EmptyList from '@/assets/icons/empty-list.svg';
 import EmptyMatches from '@/assets/icons/empty-matches.svg';
 import EmptySearch from '@/assets/icons/empty-search.svg';
@@ -89,6 +90,8 @@ const icons = {
   'decline-close': DeclineClose,
   // Т2.1 empty state (34 px), the snackbar and О2.1 list tick and the waiting badge clock (18 px), all with a 1.5 px stroke.
   'empty-matches': EmptyMatches,
+  // О1.1 empty state (34 px, 1.5 px stroke).
+  'empty-calendar': EmptyCalendar,
   // Т3.1 empty state (34 px, 1.5 px stroke).
   'empty-list': EmptyList,
   // 01.3 empty state (34 px, 1.5 px stroke).

@@ -16,6 +16,8 @@ const event = (id: string) => {
 export const mockOrganization = {
   name: 'Мистецький Арсенал',
   summary: '2 опубліковано · 1 чернетка',
+  // О1.1: the summary when there are no events.
+  emptySummary: 'Поки що жодної події',
   events: [
     { status: 'published', event: event('7a2d4b5c-0002-4b00-8000-000000000001') },
     { status: 'draft', event: event('7a2d4b5c-0002-4b00-8000-000000000003') },

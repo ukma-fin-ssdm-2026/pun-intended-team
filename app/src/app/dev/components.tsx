@@ -26,6 +26,7 @@ import {
   setInPool,
   setJoinRequest,
   setMatchesEmpty,
+  setOrganizationEmpty,
   setSimulateLoading,
   useSession,
 } from '@/state/session';
@@ -95,6 +96,11 @@ export default function ComponentsGallery() {
           onValueChange={setAnnouncementsEmpty}
         />
         <SwitchRow label="Запит на оголошення (Т5.1)" value={session.joinRequest} onValueChange={setJoinRequest} />
+        <SwitchRow
+          label="Події організації порожні (О1.1)"
+          value={session.organizationEmpty}
+          onValueChange={setOrganizationEmpty}
+        />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 
