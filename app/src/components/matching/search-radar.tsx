@@ -2,7 +2,7 @@
 // AI Usage: animated radar from the Figma "04 Пошук компанії" screen, keyframes taken from its motion data; reviewed by
 // Daryna Halytska.
 import { useEffect, type ReactNode } from 'react';
-import { View, type ViewStyle } from 'react-native';
+import { View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,6 +15,7 @@ import Animated, {
 
 // One 16 s loop drives every layer, as in the Figma timeline.
 const LOOP_MS = 16000;
+const RADAR_SIZE = 200;
 
 // motion.dev's named easings, which the Figma motion data uses.
 const easings = {
@@ -49,7 +50,9 @@ function sequence(values: number[], times: number[], ease: Track['ease']) {
   return withRepeat(withSequence(...steps), -1);
 }
 
-function Layer({ track, style, children }: { track: Track; style: ViewStyle; children?: ReactNode }) {
+// Figma scales each layer around its own centre; the web defaults to the top-left corner, so every layer gets an
+// explicit box and origin instead of taking its size from its content.
+function Layer({ track, size, children }: { track: Track; size: number; children?: ReactNode }) {
   const reduceMotion = useReducedMotion();
   const scale = useSharedValue(track.scale[0]);
   const opacity = useSharedValue(track.opacity?.[0] ?? 1);
@@ -62,7 +65,17 @@ function Layer({ track, style, children }: { track: Track; style: ViewStyle; chi
   }, [reduceMotion, track, scale, opacity]);
 
   const animated = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: scale.value }] }));
-  return <Animated.View style={[{ position: 'absolute' }, style, animated]}>{children}</Animated.View>;
+  const offset = (RADAR_SIZE - size) / 2;
+  return (
+    <Animated.View
+      style={[
+        { position: 'absolute', left: offset, top: offset, width: size, height: size, transformOrigin: 'center' },
+        animated,
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
 }
 
 // Keyframes of "02.1 Радар" (Figma motion data), node by node.
@@ -104,22 +117,22 @@ const avatar: Track = {
 
 export function SearchRadar() {
   return (
-    <View className="size-[200px]">
-      <Layer track={circle200} style={{ left: 0, top: 0 }}>
+    <View style={{ width: RADAR_SIZE, height: RADAR_SIZE }}>
+      <Layer track={circle200} size={200}>
         <View className="size-[200px] rounded-full bg-white/[0.06]" />
       </Layer>
-      <Layer track={circle150} style={{ left: 25, top: 25 }}>
+      <Layer track={circle150} size={150}>
         <View className="size-[150px] rounded-full bg-white/10" />
       </Layer>
-      <Layer track={circle100} style={{ left: 50, top: 50 }}>
+      <Layer track={circle100} size={100}>
         <View className="size-[100px] rounded-full bg-white/[0.16]" />
       </Layer>
       {[wave1, wave2].map((wave, index) => (
-        <Layer key={index} track={wave} style={{ left: 0, top: 0 }}>
+        <Layer key={index} track={wave} size={200}>
           <View className="size-[200px] rounded-full border-[1.5px] border-white" />
         </Layer>
       ))}
-      <Layer track={avatar} style={{ left: 68, top: 68 }}>
+      <Layer track={avatar} size={64}>
         <View
           className="size-16 rounded-full bg-surface-background"
           style={{ boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.12)' }}
