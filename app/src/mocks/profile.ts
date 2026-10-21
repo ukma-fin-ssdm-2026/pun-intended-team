@@ -3,7 +3,8 @@
 import { mockUser } from '@/mocks/user';
 
 export const mockProfile = {
-  initial: 'Д',
+  // Figma still shows "Д" on Т4 and П5; the initial follows the name.
+  initial: 'С',
   firstName: mockUser.firstName,
   nameAge: `${mockUser.firstName}, 20`,
   occupation: 'Студентка КМА',
@@ -11,7 +12,7 @@ export const mockProfile = {
   interests: ['Джаз', 'Сучасне мистецтво', 'Лекції'],
   // П1 offers these too; "+ ще" opens more later.
   moreInterests: ['Кіно', 'Театр', 'Стендап', 'Інді'],
-  telegram: '@daryna_h',
+  telegram: '@solomiia_h',
   phone: '+380 67 123 45 67',
   // As Т4 shows the number to the user.
   phoneMasked: '+380 67 ••• •• 67',

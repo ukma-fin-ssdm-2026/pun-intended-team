@@ -3,8 +3,8 @@
 
 export const mockUser = {
   // The same user as the profile (Т4).
-  firstName: 'Дарина',
-  // Ukrainian greets in the vocative case: "Привіт, Дарино".
-  firstNameVocative: 'Дарино',
+  firstName: 'Соломія',
+  // Ukrainian greets in the vocative case: "Привіт, Соломіє".
+  firstNameVocative: 'Соломіє',
   hasUnreadNotifications: true,
 };
