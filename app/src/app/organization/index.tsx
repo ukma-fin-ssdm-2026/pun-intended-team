@@ -50,7 +50,7 @@ function EventRow({ item, onEdit, onCancel }: { item: OrganizationEvent; onEdit:
   return (
     <View className="gap-3 rounded-[24px] bg-surface-card p-3" style={{ boxShadow: shadows.small }}>
       <View className="flex-row items-center gap-3">
-        <View className={`size-16 overflow-hidden rounded-2xl ${status === 'cancelled' ? 'opacity-50' : ''}`}>
+        <View className={`size-[94px] overflow-hidden rounded-2xl ${status === 'cancelled' ? 'opacity-50' : ''}`}>
           {event.cover ? (
             <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
           ) : (
