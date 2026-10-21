@@ -59,3 +59,11 @@ export const mockOrganizer = {
     event('7a2d4b5c-0002-4b00-8000-000000000007'),
   ],
 };
+
+// О4 Налаштування: the organization profile as filled in.
+export const mockOrganizationSettings = {
+  name: 'Мистецький Арсенал',
+  about: 'Культурний комплекс у центрі Києва',
+  site: 'artarsenal.in.ua',
+  instagram: '@artarsenal',
+};

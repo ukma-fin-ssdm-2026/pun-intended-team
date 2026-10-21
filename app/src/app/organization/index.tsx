@@ -111,10 +111,14 @@ export default function OrganizationEventsScreen() {
             </Text>
             <Text className="font-inter text-caption text-text-on-dark-muted">Акаунт організації</Text>
           </View>
-          {/* "Налаштування" has no prototype link yet. */}
-          <View className="size-10 items-center justify-center rounded-[20px] bg-white/[0.14]">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Налаштування"
+            onPress={() => router.push('/organization/settings')}
+            className="size-10 items-center justify-center rounded-[20px] bg-white/[0.14]"
+          >
             <Icon name="menu-dots" size={20} color={colors.text['on-dark']} />
-          </View>
+          </Pressable>
         </View>
 
         <View className="flex-row items-end justify-between">

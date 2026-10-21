@@ -46,6 +46,7 @@ export default function RootLayout() {
         <Stack.Screen name="mutual" options={dissolve} />
         <Stack.Screen name="organization/index" options={dissolve} />
         <Stack.Screen name="organization/event" options={dissolve} />
+        <Stack.Screen name="organization/settings" options={dissolve} />
         <Stack.Screen name="offline" options={dissolve} />
         <Stack.Screen name="update" options={dissolve} />
         <Stack.Screen name="too-many-attempts" options={dissolve} />
