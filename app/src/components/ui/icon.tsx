@@ -26,6 +26,8 @@ import Danger from '@/assets/icons/danger.svg';
 import EmptyList from '@/assets/icons/empty-list.svg';
 import EmptyMatches from '@/assets/icons/empty-matches.svg';
 import DeclineClose from '@/assets/icons/decline-close.svg';
+import DropdownCheck from '@/assets/icons/dropdown-check.svg';
+import FieldChevron from '@/assets/icons/field-chevron.svg';
 import Filter from '@/assets/icons/filter.svg';
 import GalleryEdit from '@/assets/icons/gallery-edit.svg';
 import Heart from '@/assets/icons/heart.svg';
@@ -85,10 +87,13 @@ const icons = {
   danger: Danger,
   // The 05 "Не цього разу" cross (24 px, 2 px stroke) and the 05.2 / 05.3 status icons (34 px, 1.5 px stroke).
   'decline-close': DeclineClose,
+  // The О2.1 dropdown tick and the "Список" field chevron (18 px, 1.5 px stroke).
+  'dropdown-check': DropdownCheck,
   // Т2.1 empty state (34 px), the Т2.2 toast tick and waiting badge clock (18 px), all with a 1.5 px stroke.
   'empty-matches': EmptyMatches,
   // Т3.1 empty state (34 px, 1.5 px stroke).
   'empty-list': EmptyList,
+  'field-chevron': FieldChevron,
   filter: Filter,
   'gallery-edit': GalleryEdit,
   heart: Heart,

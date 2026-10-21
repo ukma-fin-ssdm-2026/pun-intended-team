@@ -9,18 +9,55 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockEventDraft } from '@/mocks/organization';
-import { colors } from '@/styles/tokens';
+import { mockEventCategories, mockEventDraft } from '@/mocks/organization';
+import { colors, shadows } from '@/styles/tokens';
 
 // "01 Навігація" starts 56 px from the top (9 px below the iPhone 14 status bar); "03 Дія" has a 34 px bottom padding.
 const NAV_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 const ACTION_BOTTOM = 34;
+// "Список категорій" opens 6 px under the field (18 px label, 6 px gap, 52 px field) and shows four and a half rows.
+const LIST_TOP = 18 + 6 + 52 + 6;
+const LIST_HEIGHT = 232;
+
+function CategoryList({ selected, onSelect }: { selected: string; onSelect: (category: string) => void }) {
+  return (
+    <View
+      className="absolute left-0 right-0 overflow-hidden rounded-[18px] bg-surface-card"
+      style={{ top: LIST_TOP, height: LIST_HEIGHT, boxShadow: shadows.medium, elevation: 8 }}
+    >
+      <ScrollView nestedScrollEnabled contentContainerClassName="py-1">
+        {mockEventCategories.map((category) => {
+          const isSelected = category === selected;
+          return (
+            <Pressable
+              key={category}
+              accessibilityRole="menuitem"
+              accessibilityState={{ selected: isSelected }}
+              onPress={() => onSelect(category)}
+              className="flex-row items-center gap-3 px-4 py-[13px]"
+            >
+              <Text
+                className={`flex-1 text-body ${isSelected ? 'font-inter-medium text-brand-coral' : 'font-inter text-text-primary'}`}
+              >
+                {category}
+              </Text>
+              {isSelected && <Icon name="dropdown-check" size={18} color={colors.brand.coral} />}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
 
 export default function OrganizationEventEditorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState(mockEventDraft.title);
+  const [category, setCategory] = useState(mockEventDraft.category);
+  // О2.1: the field opens its list in place; picking a category closes it.
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [date, setDate] = useState(mockEventDraft.date);
   const [time, setTime] = useState(mockEventDraft.time);
   const [place, setPlace] = useState('');
@@ -69,8 +106,22 @@ export default function OrganizationEventEditorScreen() {
         </View>
 
         <TextField label="Назва" value={title} onChangeText={setTitle} />
-        {/* Figma draws the category as a field with "▾"; the picker is not designed yet. */}
-        <TextField label="Категорія" value={mockEventDraft.category} editable={false} />
+        <View className="z-10">
+          <TextField
+            label="Категорія"
+            value={category}
+            list={{ open: categoryOpen, onPress: () => setCategoryOpen((open) => !open) }}
+          />
+          {categoryOpen && (
+            <CategoryList
+              selected={category}
+              onSelect={(picked) => {
+                setCategory(picked);
+                setCategoryOpen(false);
+              }}
+            />
+          )}
+        </View>
         <View className="flex-row gap-2.5">
           <View className="flex-1">
             <TextField label="Дата" value={date} onChangeText={setDate} />
@@ -79,7 +130,14 @@ export default function OrganizationEventEditorScreen() {
             <TextField label="Початок" value={time} onChangeText={setTime} />
           </View>
         </View>
-        <TextField label="Місце" value={place} onChangeText={setPlace} placeholder="Почни вводити адресу…" />
+        {/* Figma shows the empty place in its error state: the event cannot be published without it. */}
+        <TextField
+          label="Місце"
+          value={place}
+          onChangeText={setPlace}
+          placeholder="Почни вводити адресу…"
+          error={place.trim() ? undefined : 'Вкажи місце, без нього подію не опублікувати'}
+        />
         <View className="gap-1.5">
           <Text className="font-inter text-caption text-text-secondary">Опис</Text>
           <TextInput
