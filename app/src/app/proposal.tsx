@@ -88,7 +88,7 @@ export default function ProposalScreen() {
     );
     const timer = setTimeout(
       () => {
-        markProposalAnswered();
+        markProposalAnswered(answer);
         router.dismissTo('/matches');
       },
       SLIDE_MS + MESSAGE_DELAY_MS + MESSAGE_MS + STATUS_MS,

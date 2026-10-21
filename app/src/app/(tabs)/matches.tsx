@@ -119,7 +119,8 @@ export default function MatchesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { matchesEmpty } = useSession();
-  const { answered } = useMatches();
+  const { answer } = useMatches();
+  const answered = answer !== undefined;
   useStatusBarStyle('light');
 
   const proposalEvent = findMockEvent(mockSearch.eventId);
@@ -219,7 +220,7 @@ export default function MatchesScreen() {
         </View>
       </ScrollView>
 
-      {answered && (
+      {answer && (
         <View
           className="absolute left-5 right-5 flex-row items-center gap-3 overflow-hidden rounded-[18px] bg-brand-ink px-4 py-3.5"
           style={{ bottom: tabBarSpace + TOAST_GAP, boxShadow: shadows.medium }}
@@ -228,8 +229,8 @@ export default function MatchesScreen() {
             <Icon name="toast-check" size={18} color={colors.text['on-dark']} />
           </View>
           <View className="flex-1 gap-0.5">
-            <Text className="font-inter-medium text-body text-text-on-dark">{mockMatchesTab.toast.title}</Text>
-            <Text className="font-inter text-caption text-text-on-dark-muted">{mockMatchesTab.toast.note}</Text>
+            <Text className="font-inter-medium text-body text-text-on-dark">{mockMatchesTab.toast[answer].title}</Text>
+            <Text className="font-inter text-caption text-text-on-dark-muted">{mockMatchesTab.toast[answer].note}</Text>
           </View>
         </View>
       )}

@@ -96,5 +96,9 @@ export const mockMatchesTab = {
   subtitle: '3 події · 1 нова пропозиція',
   answeredSubtitle: '3 події · 2 чекають на відповідь',
   search: { eventId: '7a2d4b5c-0002-4b00-8000-000000000003', nextPick: 'Наступний підбір: Пн, 26 жовт' },
-  toast: { title: 'Готово! Ти прийняла 2 метчі', note: 'Штурхнемо, щойно хтось відповість' },
+  // Т2.2 after accepting (05.2) and after declining (05.3).
+  toast: {
+    accepted: { title: 'Готово! Ти прийняла 2 метчі', note: 'Штурхнемо, щойно хтось відповість' },
+    declined: { title: 'Шукаємо тобі нову компанію', note: 'Штурхнемо, щойно хтось відповість' },
+  },
 };
