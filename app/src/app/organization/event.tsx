@@ -42,7 +42,7 @@ function CategoryList({ selected, onSelect }: { selected: string; onSelect: (cat
               >
                 {category}
               </Text>
-              {isSelected && <Icon name="dropdown-check" size={18} color={colors.brand.coral} />}
+              {isSelected && <Icon name="toast-check" size={18} color={colors.brand.coral} />}
             </Pressable>
           );
         })}

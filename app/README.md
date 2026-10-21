@@ -110,7 +110,7 @@ app/
 ├─ babel.config.js, metro.config.js   NativeWind and SVG imports
 ├─ tailwind.config.ts   Tailwind theme built from src/styles/tokens.ts
 ├─ global.css           Tailwind entry file
-├─ .svgrrc              turns the icons' stroke (#121212, white, or the grey and coral of a few exports) into currentColor at build time
+├─ .svgrrc              turns the icons' stroke (#121212, white, or the grey of the field chevron) into currentColor at build time
 ├─ .env.example
 ├─ assets/
 │  ├─ icons/            Solar Linear icons exported from Figma

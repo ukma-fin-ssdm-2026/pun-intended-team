@@ -26,7 +26,6 @@ import Danger from '@/assets/icons/danger.svg';
 import EmptyList from '@/assets/icons/empty-list.svg';
 import EmptyMatches from '@/assets/icons/empty-matches.svg';
 import DeclineClose from '@/assets/icons/decline-close.svg';
-import DropdownCheck from '@/assets/icons/dropdown-check.svg';
 import FieldChevron from '@/assets/icons/field-chevron.svg';
 import Filter from '@/assets/icons/filter.svg';
 import GalleryEdit from '@/assets/icons/gallery-edit.svg';
@@ -87,12 +86,11 @@ const icons = {
   danger: Danger,
   // The 05 "Не цього разу" cross (24 px, 2 px stroke) and the 05.2 / 05.3 status icons (34 px, 1.5 px stroke).
   'decline-close': DeclineClose,
-  // The О2.1 dropdown tick and the "Список" field chevron (18 px, 1.5 px stroke).
-  'dropdown-check': DropdownCheck,
-  // Т2.1 empty state (34 px), the Т2.2 toast tick and waiting badge clock (18 px), all with a 1.5 px stroke.
+  // Т2.1 empty state (34 px), the snackbar and О2.1 list tick and the waiting badge clock (18 px), all with a 1.5 px stroke.
   'empty-matches': EmptyMatches,
   // Т3.1 empty state (34 px, 1.5 px stroke).
   'empty-list': EmptyList,
+  // The "Список" field chevron (18 px, 1.5 px stroke).
   'field-chevron': FieldChevron,
   filter: Filter,
   'gallery-edit': GalleryEdit,
@@ -137,8 +135,8 @@ type Props = {
   filled?: boolean;
 };
 
-// The SVGs keep the exported stroke; .svgrrc turns it (#121212 or white) into currentColor at build time, and `color`
-// sets it.
+// The SVGs keep the exported stroke; .svgrrc turns it (#121212, white, or the field chevron's grey) into currentColor
+// at build time, and `color` sets it.
 export function Icon({ name, size = 24, color = colors.text.primary, filled = false }: Props) {
   const Svg = icons[name];
   return <Svg width={size} height={size} color={color} fill={filled ? color : 'none'} />;
