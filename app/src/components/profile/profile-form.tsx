@@ -154,10 +154,13 @@ export function InterestPicker({ options, selected, onToggle, note }: InterestPi
   return (
     <View className="gap-2.5">
       <View className="flex-row items-start justify-between">
-        <Text className="font-inter-semibold text-title text-text-primary">
+        {/* Both texts keep one line, as in Figma, so the note never wraps under the title. */}
+        <Text numberOfLines={1} className="shrink-0 font-inter-semibold text-title text-text-primary">
           Інтереси <Text className="text-brand-coral">*</Text>
         </Text>
-        <Text className="font-inter text-caption text-text-secondary">{note}</Text>
+        <Text numberOfLines={1} className="shrink-0 font-inter text-caption text-text-secondary">
+          {note}
+        </Text>
       </View>
       <View className="flex-row flex-wrap gap-2">
         {options.map((interest) => {
