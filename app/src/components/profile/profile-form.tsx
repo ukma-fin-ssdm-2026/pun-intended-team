@@ -147,10 +147,12 @@ type InterestPickerProps = {
   onToggle: (interest: string) => void;
   // The note on the right of "Інтереси *", e.g. "обрано 3".
   note: string;
+  // "+ ще" opens П1.2 on П1; without a handler it does nothing, as on В7.
+  onMore?: () => void;
 };
 
 // "Інтереси": selected chips are dark with a check; "+ ще" ends the list.
-export function InterestPicker({ options, selected, onToggle, note }: InterestPickerProps) {
+export function InterestPicker({ options, selected, onToggle, note, onMore }: InterestPickerProps) {
   return (
     <View className="gap-2.5">
       <View className="flex-row items-start justify-between">
@@ -184,10 +186,14 @@ export function InterestPicker({ options, selected, onToggle, note }: InterestPi
             </Pressable>
           );
         })}
-        {/* "+ ще" has no prototype link; shown as in Figma. */}
-        <View className="rounded-[18px] bg-surface-background px-3.5 py-2">
+        <Pressable
+          accessibilityRole="button"
+          disabled={!onMore}
+          onPress={onMore}
+          className="rounded-[18px] bg-surface-background px-3.5 py-2"
+        >
           <Text className="font-inter-medium text-label text-text-primary">+ ще</Text>
-        </View>
+        </Pressable>
       </View>
     </View>
   );
