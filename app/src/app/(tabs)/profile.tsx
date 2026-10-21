@@ -2,18 +2,22 @@
 // AI Usage: Профіль tab from the Figma "Т4 Профіль" frame with the "П5 Вийти з акаунта" dialog, on mock data; reviewed
 // by Daryna Halytska.
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { Button } from '@/components/ui/button';
+import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
+import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { mockProfile } from '@/mocks/profile';
+import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
@@ -36,6 +40,69 @@ function CoverShade() {
       </Defs>
       <Rect width="100%" height="100%" fill="url(#profile-cover-shade)" />
     </Svg>
+  );
+}
+
+// "3 збережені події", "1 збережена подія", "5 збережених подій".
+function savedLabel(count: number): string {
+  const lastTwo = count % 100;
+  const last = count % 10;
+  if (lastTwo < 11 || lastTwo > 14) {
+    if (last === 1) return `${count} збережена подія`;
+    if (last >= 2 && last <= 4) return `${count} збережені події`;
+  }
+  return `${count} збережених подій`;
+}
+
+const profileTabs = [
+  { key: 'about', label: 'Про мене' },
+  { key: 'saved', label: 'Збережені' },
+] as const;
+
+// "03 Вкладки профілю" of П6: "Про мене" returns to Т4.
+function ProfileTabs({ onAbout }: { onAbout: () => void }) {
+  return (
+    <View accessibilityRole="tablist" className="h-11 flex-row items-end border-b border-border-default px-5">
+      {profileTabs.map((tab) => {
+        const selected = tab.key === 'saved';
+        return (
+          <Pressable
+            key={tab.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            onPress={selected ? undefined : onAbout}
+            className="flex-1 items-center gap-2"
+          >
+            <Text className={`font-inter-medium text-label ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
+              {tab.label}
+            </Text>
+            <View className={`h-[3px] w-14 rounded-sm ${selected ? 'bg-brand-coral' : ''}`} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function SavedEvents({ events, onOpen }: { events: MockEvent[]; onOpen: (id: string) => void }) {
+  return (
+    <View className="gap-4 px-5 pt-4">
+      <Text className="font-inter text-caption text-text-secondary">{savedLabel(events.length)}</Text>
+      {events.map((event) => (
+        <EventCard
+          key={event.id}
+          title={event.title}
+          category={event.category.name}
+          dateLabel={formatEventDate(event.startsAt)}
+          place={event.venue.name}
+          cover={event.cover}
+          favorite
+          onToggleFavorite={() => toggleFavorite(event.id)}
+          // The button opens the event page too, as on the catalog cards.
+          onPress={() => onOpen(event.id)}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -77,6 +144,17 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [signOutOpen, setSignOutOpen] = useState(false);
+  // П6 Збережені події: opened from Т4 "Збережені події" and from С1 with `saved`.
+  const { saved } = useLocalSearchParams<{ saved?: string }>();
+  const [savedShown, setSavedShown] = useState(false);
+  const savedOpen = savedShown || saved === '1';
+  const showSaved = (open: boolean) => {
+    setSavedShown(open);
+    if (!open && saved) router.setParams({ saved: undefined });
+  };
+  const savedEvents = useFavoriteIds()
+    .map(findMockEvent)
+    .filter((event): event is MockEvent => !!event);
   useStatusBarStyle('light');
 
   return (
@@ -120,44 +198,72 @@ export default function ProfileScreen() {
             <Text className="font-inter-bold text-h1 text-text-primary">{mockProfile.nameAge}</Text>
             <Text className="font-inter text-caption text-text-secondary">{mockProfile.occupation}</Text>
           </View>
-          <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
-            <View className="gap-2">
-              <Text className="font-inter-medium text-label text-text-secondary">Про себе</Text>
-              <Text className="font-inter text-body text-text-primary">{mockProfile.about}</Text>
-            </View>
-            <View className="h-px bg-border-default" />
-            <View className="gap-2">
-              <Text className="font-inter-medium text-label text-text-secondary">Інтереси</Text>
-              <View className="flex-row flex-wrap gap-1.5">
-                {mockProfile.interests.map((interest) => (
-                  <View key={interest} className="rounded-[14px] bg-brand-ink px-3 py-1.5">
-                    <Text className="font-inter-semibold text-tag text-text-on-dark">{interest}</Text>
+          {!savedOpen && (
+            <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
+              <View className="gap-2">
+                <Text className="font-inter-medium text-label text-text-secondary">Про себе</Text>
+                <Text className="font-inter text-body text-text-primary">{mockProfile.about}</Text>
+              </View>
+              <View className="h-px bg-border-default" />
+              <View className="gap-2">
+                <Text className="font-inter-medium text-label text-text-secondary">Інтереси</Text>
+                <View className="flex-row flex-wrap gap-1.5">
+                  {mockProfile.interests.map((interest) => (
+                    <View key={interest} className="rounded-[14px] bg-brand-ink px-3 py-1.5">
+                      <Text className="font-inter-semibold text-tag text-text-on-dark">{interest}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className="h-px bg-border-default" />
+              <View className="gap-2">
+                <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
+                <View className="gap-1.5">
+                  <View className="flex-row items-center gap-2.5">
+                    <Icon name="contact-send" size={18} />
+                    <Text className="font-inter-medium text-body text-text-primary">{mockProfile.telegram}</Text>
                   </View>
-                ))}
-              </View>
-            </View>
-            <View className="h-px bg-border-default" />
-            <View className="gap-2">
-              <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
-              <View className="gap-1.5">
-                <View className="flex-row items-center gap-2.5">
-                  <Icon name="contact-send" size={18} />
-                  <Text className="font-inter-medium text-body text-text-primary">{mockProfile.telegram}</Text>
-                </View>
-                <View className="flex-row items-center gap-2.5">
-                  <Icon name="contact-phone" size={18} />
-                  <Text className="font-inter-medium text-body text-text-primary">{mockProfile.phoneMasked}</Text>
+                  <View className="flex-row items-center gap-2.5">
+                    <Icon name="contact-phone" size={18} />
+                    <Text className="font-inter-medium text-body text-text-primary">{mockProfile.phoneMasked}</Text>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
+          )}
         </View>
 
-        <View className="items-start px-5 pt-2.5">
-          <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
-            <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
-          </Pressable>
-        </View>
+        {savedOpen ? (
+          <>
+            {/* П6: the tabs start 4 px under the name (Figma: y=312 after the 62 px name block at y=246). */}
+            <View className="pt-1">
+              <ProfileTabs onAbout={() => showSaved(false)} />
+            </View>
+            <SavedEvents
+              events={savedEvents}
+              onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
+            />
+          </>
+        ) : (
+          <View className="items-start gap-3 px-5 pt-2.5">
+            <View className="self-stretch rounded-[20px] bg-surface-card px-4 py-1">
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => showSaved(true)}
+                className="flex-row items-center gap-3 py-3"
+              >
+                <View className="size-9 items-center justify-center rounded-[11px] bg-surface-background">
+                  <Icon name="heart" size={18} />
+                </View>
+                <Text className="flex-1 font-inter-medium text-body text-text-primary">Збережені події</Text>
+                <Icon name="arrow-right" size={18} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+            <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
+              <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
       <SignOutDialog
