@@ -240,7 +240,7 @@ export default function EventScreen() {
               icon="building"
               value={event.organizer}
               note="Організатор події"
-              onPress={() => router.push({ pathname: '/organizers/[name]', params: { name: event.organizer } })}
+              onPress={() => router.push('/organizer')}
             />
           </View>
 
