@@ -79,12 +79,7 @@ export default function OrganizationEventEditorScreen() {
             <TextField label="Початок" value={time} onChangeText={setTime} />
           </View>
         </View>
-        <TextField
-          label="Місце"
-          value={place}
-          onChangeText={setPlace}
-          placeholder="Почни вводити адресу…"
-        />
+        <TextField label="Місце" value={place} onChangeText={setPlace} placeholder="Почни вводити адресу…" />
         <View className="gap-1.5">
           <Text className="font-inter text-caption text-text-secondary">Опис</Text>
           <TextInput
