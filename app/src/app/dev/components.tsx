@@ -97,6 +97,9 @@ export default function ComponentsGallery() {
       {/* No screen of the prototype links to these yet. */}
       <Section title="Інші екрани">
         <Button label="О1 Організація · Мої події" variant="light" onPress={() => router.push('/organization')} />
+        <Button label="С1 Немає з’єднання" variant="light" onPress={() => router.push('/offline')} />
+        <Button label="С2 Потрібне оновлення" variant="light" onPress={() => router.push('/update')} />
+        <Button label="С3 Забагато спроб" variant="light" onPress={() => router.push('/too-many-attempts')} />
       </Section>
 
       <Section title="Іконки · Solar Linear">

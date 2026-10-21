@@ -31,7 +31,7 @@ export default function RootLayout() {
   // The splash screen stays up until the fonts are ready, so text never renders in the fallback font first.
   if (!fontsLoaded) return null;
 
-  // The matching and organization screens open with the prototype's 250 ms dissolve.
+  // The matching, organization and system state screens open with the prototype's 250 ms dissolve.
   const dissolve = { headerShown: false, animation: 'fade', animationDuration: 250 } as const;
 
   return (
@@ -44,6 +44,9 @@ export default function RootLayout() {
         <Stack.Screen name="mutual" options={dissolve} />
         <Stack.Screen name="organization/index" options={dissolve} />
         <Stack.Screen name="organization/event" options={dissolve} />
+        <Stack.Screen name="offline" options={dissolve} />
+        <Stack.Screen name="update" options={dissolve} />
+        <Stack.Screen name="too-many-attempts" options={dissolve} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog
