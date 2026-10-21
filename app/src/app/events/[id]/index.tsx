@@ -122,7 +122,8 @@ function TopShade() {
 }
 
 export default function EventScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `request` comes from "Змінити побажання" on 04.1, which opens 03 over the page.
+  const { id, request } = useLocalSearchParams<{ id: string; request?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const session = useSession();
@@ -131,7 +132,12 @@ export default function EventScreen() {
   const [dialogOpen, setDialogOpen] = useState(isGuest);
   const favorite = useFavorite(id);
   const [expanded, setExpanded] = useState(false);
-  const [requestOpen, setRequestOpen] = useState(false);
+  const [requestShown, setRequestShown] = useState(false);
+  const requestOpen = requestShown || request === '1';
+  const setRequestOpen = (open: boolean) => {
+    setRequestShown(open);
+    if (!open && request) router.setParams({ request: undefined });
+  };
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 

@@ -15,7 +15,7 @@ type Props = {
   title?: string;
   subtitle?: string;
   onBack: () => void;
-  // "Ще": a report on 05 and 07; without a handler the button is shown but does nothing, as on 04.
+  // "Ще": the menu on 04, a report on 05 and 07; without a handler the button is shown but does nothing.
   onMore?: () => void;
 };
 

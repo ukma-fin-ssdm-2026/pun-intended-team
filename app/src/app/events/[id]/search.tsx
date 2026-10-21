@@ -1,10 +1,11 @@
 // Written with the help of Claude
 // AI Usage: company search screen from the Figma "04 Пошук компанії" frame, on mock data; reviewed by Daryna Halytska.
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { MatchingNav } from '@/components/matching/matching-nav';
+import { LeavePoolDialog, SearchMenuSheet } from '@/components/matching/search-menu';
 import { SearchRadar } from '@/components/matching/search-radar';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
@@ -12,6 +13,7 @@ import { formatShortDay } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { mockSearch } from '@/mocks/matching';
+import { setInPool } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // The prototype shows the proposed match (05) after 4 s of searching.
@@ -45,13 +47,17 @@ function WaitingItem({
 export default function CompanySearchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  // "Ще" opens the 04.1 menu, whose "Вийти з пулу" opens the 04.2 dialog.
+  const [overlay, setOverlay] = useState<'menu' | 'leave' | null>(null);
   useStatusBarStyle('light');
 
+  // Only 04 itself moves on to 05; the menu and the dialog keep the search waiting.
   useFocusEffect(
     useCallback(() => {
+      if (overlay) return;
       const timer = setTimeout(() => router.push('/proposal'), SEARCH_MS);
       return () => clearTimeout(timer);
-    }, [router]),
+    }, [router, overlay]),
   );
 
   const event = findMockEvent(id);
@@ -64,7 +70,12 @@ export default function CompanySearchScreen() {
         <CoralGradient preset="search" />
       </View>
 
-      <MatchingNav title="Пошук компанії" subtitle={subtitle} onBack={() => router.back()} />
+      <MatchingNav
+        title="Пошук компанії"
+        subtitle={subtitle}
+        onBack={() => router.back()}
+        onMore={() => setOverlay('menu')}
+      />
 
       <View className="items-center gap-5 px-5 pb-2 pt-9">
         <SearchRadar />
@@ -130,6 +141,25 @@ export default function CompanySearchScreen() {
           />
         </View>
       </View>
+
+      <SearchMenuSheet
+        visible={overlay === 'menu'}
+        onClose={() => setOverlay(null)}
+        onChangeRequest={() => {
+          setOverlay(null);
+          router.dismissTo({ pathname: '/events/[id]', params: { id, request: '1' } });
+        }}
+        onLeave={() => setOverlay('leave')}
+      />
+      <LeavePoolDialog
+        visible={overlay === 'leave'}
+        onClose={() => setOverlay('menu')}
+        onLeave={() => {
+          setOverlay(null);
+          setInPool(false);
+          router.dismissTo({ pathname: '/events/[id]', params: { id } });
+        }}
+      />
     </ScrollView>
   );
 }
