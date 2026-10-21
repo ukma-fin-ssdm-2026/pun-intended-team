@@ -84,7 +84,6 @@ export default function OrganizationEventEditorScreen() {
           value={place}
           onChangeText={setPlace}
           placeholder="Почни вводити адресу…"
-          error={place.trim() ? undefined : 'Вкажи місце, без нього подію не опублікувати'}
         />
         <View className="gap-1.5">
           <Text className="font-inter text-caption text-text-secondary">Опис</Text>

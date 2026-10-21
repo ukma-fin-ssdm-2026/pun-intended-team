@@ -140,6 +140,13 @@ export default function ComponentsGallery() {
       <Section title="Поля і чіпси">
         <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <TextField label="Номер телефону" value="+380 67 123 45" error="Перевір номер, бракує цифр" editable={false} />
+        {/* О2 "Місце" in its Figma error state; the screen itself shows the field in its default state. */}
+        <TextField
+          label="Місце"
+          placeholder="Почни вводити адресу…"
+          error="Вкажи місце, без нього подію не опублікувати"
+          editable={false}
+        />
         <SearchField value={search} onChangeText={setSearch} />
         <View className="flex-row flex-wrap gap-2 rounded-2xl bg-brand-ink p-3">
           {mockCategories.map((item) => (
