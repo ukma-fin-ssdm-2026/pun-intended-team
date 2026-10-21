@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import type { Post } from '@/mocks/announcements';
 import { findMockEvent } from '@/mocks/events';
+import { toggleLike, useLiked } from '@/state/post-likes';
 import { colors } from '@/styles/tokens';
 
 type Props = {
@@ -19,6 +20,7 @@ type Props = {
 export function PostCard({ post, onReport }: Props) {
   // "Хочу піти" and "Ти йдеш" are the two Figma states of the same action.
   const [going, setGoing] = useState(post.going);
+  const liked = useLiked(post.id);
   const event = post.eventId ? findMockEvent(post.eventId) : undefined;
 
   return (
@@ -96,9 +98,18 @@ export function PostCard({ post, onReport }: Props) {
               {going ? 'Ти йдеш' : 'Хочу піти'}
             </Text>
           </Pressable>
-          {/* Share and save have no prototype link; shown as in Figma. */}
+          {/* Share has no prototype link; shown as in Figma. */}
           <Icon name="share" size={18} color={colors.text.secondary} />
-          <Icon name="heart" size={18} color={colors.text.secondary} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Подобається"
+            accessibilityState={{ selected: liked }}
+            onPress={() => toggleLike(post.id)}
+            hitSlop={10}
+          >
+            {/* Liked: the heart filled and outlined in brand/coral, as on the event card. */}
+            <Icon name="heart" size={18} color={liked ? colors.brand.coral : colors.text.secondary} filled={liked} />
+          </Pressable>
         </View>
       </View>
     </View>
