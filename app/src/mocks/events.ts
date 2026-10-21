@@ -111,8 +111,8 @@ export const mockEvents: MockEvent[] = [
   },
 ];
 
-// Events the other screens link to but the Figma catalog does not list: the open mic on the map (Т1) and the moved
-// ceramics workshop of Т5 "Подію змінено".
+// Events the other screens link to but the Figma catalog does not list: the open mic on the map (Т1), the moved
+// ceramics workshop of Т5 "Подію змінено" and the exhibition on the organizer page.
 export const mockOtherEvents: MockEvent[] = [
   {
     id: '7a2d4b5c-0002-4b00-8000-000000000005',
@@ -154,6 +154,27 @@ export const mockOtherEvents: MockEvent[] = [
     status: 'published',
     district: 'Поділ',
     organizer: 'Майстерня «Глина»',
+  },
+  {
+    id: '7a2d4b5c-0002-4b00-8000-000000000007',
+    title: 'Виставка «Тиша міста»',
+    description:
+      'Виставка про те, як звучить і мовчить місто: фотографії, інсталяції та звукові записи київських вулиць.',
+    category: { id: '6f1c2a3e-0001-4a00-8000-000000000002', name: 'Виставка' },
+    venue: {
+      id: '8b3e5c6d-0003-4c00-8000-000000000001',
+      name: 'Мистецький Арсенал',
+      address: 'вул. Лаврська, 10–12',
+      location: { lat: 50.4381, lng: 30.5576 },
+    },
+    startsAt: '2026-10-30T10:00:00Z',
+    endsAt: '2026-10-30T17:00:00Z',
+    source: 'organization',
+    status: 'published',
+    // Figma uses the jazz evening's photo on the organizer page.
+    cover: require('@/assets/images/events/jazz-evening.png'),
+    district: 'Печерськ',
+    organizer: 'Мистецький Арсенал',
   },
 ];
 

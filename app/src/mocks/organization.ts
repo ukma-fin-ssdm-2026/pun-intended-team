@@ -44,3 +44,18 @@ export const mockEventDraft = {
   time: '16:00',
   description: 'Відкрита лекція про те, як дивитися на сучасне мистецтво без страху «не зрозуміти». Вхід вільний.',
 };
+
+// Сторінка організатора: the organizer of the jazz evening, as the event page links to it.
+export const mockOrganizer = {
+  name: 'Мистецький Арсенал',
+  kind: 'Організація · Печерськ, Київ',
+  about: 'Культурний комплекс у центрі Києва: виставки сучасного мистецтва, концерти, лекції та фестивалі.',
+  // "Сайт" and "Instagram" open external pages that have no design yet.
+  links: ['Сайт', 'Instagram'],
+  eventsLabel: '3 події',
+  events: [
+    event('7a2d4b5c-0002-4b00-8000-000000000001'),
+    event('7a2d4b5c-0002-4b00-8000-000000000003'),
+    event('7a2d4b5c-0002-4b00-8000-000000000007'),
+  ],
+};
