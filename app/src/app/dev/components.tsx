@@ -94,6 +94,11 @@ export default function ComponentsGallery() {
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 
+      {/* No screen of the prototype links to these yet. */}
+      <Section title="Інші екрани">
+        <Button label="О1 Організація · Мої події" variant="light" onPress={() => router.push('/organization')} />
+      </Section>
+
       <Section title="Іконки · Solar Linear">
         <View className="flex-row flex-wrap gap-4">
           {iconNames.map((name) => (
