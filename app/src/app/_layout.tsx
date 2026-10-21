@@ -15,11 +15,13 @@ import { Stack, useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { GuestDialog } from '@/components/guest-dialog';
+import { useBlurOnNavigate } from '@/hooks/use-blur-on-navigate';
 import { closeGuestDialog, useSession } from '@/state/session';
 
 export default function RootLayout() {
   const router = useRouter();
   const { guestDialogOpen } = useSession();
+  useBlurOnNavigate();
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,

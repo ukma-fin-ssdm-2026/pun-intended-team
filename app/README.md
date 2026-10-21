@@ -143,7 +143,7 @@ app/
    ├─ api/
    │  ├─ schema.d.ts    types generated from the API spec (npm run api:types)
    │  └─ client.ts      typed API client; gets and renews the guest token
-   ├─ hooks/            API data hooks (not used by the mock screens yet) and use-status-bar-style.ts
+   ├─ hooks/            API data hooks (not used by the mock screens yet), use-status-bar-style.ts and use-blur-on-navigate.ts
    ├─ components/
    │  ├─ ui/            UI kit from the Figma design (see below)
    │  ├─ catalog-header.tsx   logo, notifications, avatar and greeting of the catalog
