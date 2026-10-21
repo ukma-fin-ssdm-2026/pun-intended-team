@@ -237,7 +237,7 @@ export default function ProfileScreen() {
         </View>
 
         {tab === 'about' ? (
-          <View className="items-start px-5 pt-2.5">
+          <View className="items-center px-5 pt-2.5">
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
