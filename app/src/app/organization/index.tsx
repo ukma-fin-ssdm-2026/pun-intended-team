@@ -133,13 +133,15 @@ export default function OrganizationEventsScreen() {
             </Text>
             <Text className="font-inter text-caption text-text-on-dark-muted">Акаунт організації</Text>
           </View>
+          {/* "Кнопка / Редагувати" links to П1 in the prototype, as copied from Т4; it opens О4, the organization's own
+              settings. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Налаштування"
+            accessibilityLabel="Редагувати"
             onPress={() => router.push('/organization/settings')}
-            className="size-10 items-center justify-center rounded-[20px] bg-white/[0.14]"
+            className="size-10 items-center justify-center rounded-[20px] bg-white/[0.16]"
           >
-            <Icon name="menu-dots" size={20} color={colors.text['on-dark']} />
+            <Icon name="gallery-edit" size={20} color={colors.text['on-dark']} />
           </Pressable>
         </View>
 
