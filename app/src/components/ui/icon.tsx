@@ -25,6 +25,7 @@ import Cup from '@/assets/icons/cup.svg';
 import Danger from '@/assets/icons/danger.svg';
 import EmptyList from '@/assets/icons/empty-list.svg';
 import EmptyMatches from '@/assets/icons/empty-matches.svg';
+import EmptySearch from '@/assets/icons/empty-search.svg';
 import DeclineClose from '@/assets/icons/decline-close.svg';
 import FieldChevron from '@/assets/icons/field-chevron.svg';
 import Filter from '@/assets/icons/filter.svg';
@@ -90,6 +91,8 @@ const icons = {
   'empty-matches': EmptyMatches,
   // Т3.1 empty state (34 px, 1.5 px stroke).
   'empty-list': EmptyList,
+  // 01.3 empty state (34 px, 1.5 px stroke).
+  'empty-search': EmptySearch,
   // The "Список" field chevron (18 px, 1.5 px stroke).
   'field-chevron': FieldChevron,
   filter: Filter,

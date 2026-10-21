@@ -9,10 +9,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CatalogHeader } from '@/components/catalog-header';
 import { FiltersSheet } from '@/components/filters-sheet';
+import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
+import { Icon } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
@@ -20,9 +22,10 @@ import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
-import { filterEvents, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
+import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { finishCatalogLoading, useSession } from '@/state/session';
+import { colors } from '@/styles/tokens';
 
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
 // the arrow after them opens the full list in the filters.
@@ -127,7 +130,27 @@ export default function CatalogScreen() {
                 />
               ))}
               {events.length === 0 && (
-                <Text className="py-10 text-center font-inter text-body text-text-secondary">Подій не знайшли</Text>
+                // 01.3: nothing matches the search or the filters.
+                <View className="items-center gap-3 overflow-hidden rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
+                  <View
+                    className="size-[76px] items-center justify-center rounded-[38px] bg-brand-coral"
+                    style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
+                  >
+                    <Icon name="empty-search" size={34} color={colors.text['on-dark']} />
+                  </View>
+                  <Text className="text-center font-inter-semibold text-h2 text-text-primary">Нічого не знайшли</Text>
+                  <Text className="text-center font-inter text-body text-text-secondary">
+                    Спробуй змінити фільтри або дати. Нові події зʼявляються щодня.
+                  </Text>
+                  <Button
+                    label="Скинути фільтри"
+                    size="sm"
+                    onPress={() => {
+                      setQuery('');
+                      resetFilters();
+                    }}
+                  />
+                </View>
               )}
             </View>
           </Animated.View>
