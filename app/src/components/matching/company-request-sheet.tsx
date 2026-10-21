@@ -18,9 +18,12 @@ const companyTypes: { value: CompanyType; icon: IconName; title: string; note: s
   { value: 'date', icon: 'heart', title: 'Побачення', note: 'Романтичне знайомство' },
 ];
 
+// "Лише подія" excludes the plans after the event, and any plan clears it.
+const EVENT_ONLY = 'Лише подія';
+
 const afterEventRows = [
   ['Прогулянка', 'Кава'],
-  ['Вечеря', 'Лише подія'],
+  ['Вечеря', EVENT_ONLY],
 ];
 
 const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
@@ -98,9 +101,11 @@ export function CompanyRequestSheet({ visible, onClose, eventLabel, onSubmit }: 
   const [companyType, setCompanyType] = useState<CompanyType>('evening');
   const [afterEvent, setAfterEvent] = useState(['Прогулянка', 'Кава']);
   const toggleAfterEvent = (label: string) =>
-    setAfterEvent((current) =>
-      current.includes(label) ? current.filter((value) => value !== label) : [...current, label],
-    );
+    setAfterEvent((current) => {
+      if (current.includes(label)) return current.filter((value) => value !== label);
+      if (label === EVENT_ONLY) return [EVENT_ONLY];
+      return [...current.filter((value) => value !== EVENT_ONLY), label];
+    });
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
