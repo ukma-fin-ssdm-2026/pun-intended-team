@@ -59,18 +59,20 @@ const profileTabs = [
   { key: 'saved', label: 'Збережені' },
 ] as const;
 
-// "03 Вкладки профілю" of П6: "Про мене" returns to Т4.
-function ProfileTabs({ onAbout }: { onAbout: () => void }) {
+type ProfileTab = (typeof profileTabs)[number]['key'];
+
+// "03 Вкладки профілю" of Т4 and П6.
+function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab: ProfileTab) => void }) {
   return (
-    <View accessibilityRole="tablist" className="h-11 flex-row items-end border-b border-border-default px-5">
+    <View accessibilityRole="tablist" className="h-11 flex-row items-end border-b border-border-default">
       {profileTabs.map((tab) => {
-        const selected = tab.key === 'saved';
+        const selected = tab.key === active;
         return (
           <Pressable
             key={tab.key}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            onPress={selected ? undefined : onAbout}
+            onPress={() => onSelect(tab.key)}
             className="flex-1 items-center gap-2"
           >
             <Text className={`font-inter-medium text-label ${selected ? 'text-text-primary' : 'text-text-secondary'}`}>
@@ -144,13 +146,13 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [signOutOpen, setSignOutOpen] = useState(false);
-  // П6 Збережені події: opened from Т4 "Збережені події" and from С1 with `saved`.
+  // Т4 shows "Про мене", П6 "Збережені"; С1 opens П6 with `saved`.
   const { saved } = useLocalSearchParams<{ saved?: string }>();
-  const [savedShown, setSavedShown] = useState(false);
-  const savedOpen = savedShown || saved === '1';
-  const showSaved = (open: boolean) => {
-    setSavedShown(open);
-    if (!open && saved) router.setParams({ saved: undefined });
+  const [chosenTab, setChosenTab] = useState<ProfileTab>('about');
+  const tab = saved === '1' ? 'saved' : chosenTab;
+  const selectTab = (next: ProfileTab) => {
+    setChosenTab(next);
+    if (saved) router.setParams({ saved: undefined });
   };
   const savedEvents = useFavoriteIds()
     .map(findMockEvent)
@@ -198,7 +200,8 @@ export default function ProfileScreen() {
             <Text className="font-inter-bold text-h1 text-text-primary">{mockProfile.nameAge}</Text>
             <Text className="font-inter text-caption text-text-secondary">{mockProfile.occupation}</Text>
           </View>
-          {!savedOpen && (
+          <ProfileTabs active={tab} onSelect={selectTab} />
+          {tab === 'about' && (
             <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
               <View className="gap-2">
                 <Text className="font-inter-medium text-label text-text-secondary">Про себе</Text>
@@ -233,36 +236,17 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {savedOpen ? (
-          <>
-            {/* П6: the tabs start 4 px under the name (Figma: y=312 after the 62 px name block at y=246). */}
-            <View className="pt-1">
-              <ProfileTabs onAbout={() => showSaved(false)} />
-            </View>
-            <SavedEvents
-              events={savedEvents}
-              onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
-            />
-          </>
-        ) : (
-          <View className="items-start gap-3 px-5 pt-2.5">
-            <View className="self-stretch rounded-[20px] bg-surface-card px-4 py-1">
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => showSaved(true)}
-                className="flex-row items-center gap-3 py-3"
-              >
-                <View className="size-9 items-center justify-center rounded-[11px] bg-surface-background">
-                  <Icon name="heart" size={18} />
-                </View>
-                <Text className="flex-1 font-inter-medium text-body text-text-primary">Збережені події</Text>
-                <Icon name="arrow-right" size={18} color={colors.text.secondary} />
-              </Pressable>
-            </View>
+        {tab === 'about' ? (
+          <View className="items-start px-5 pt-2.5">
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
           </View>
+        ) : (
+          <SavedEvents
+            events={savedEvents}
+            onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
+          />
         )}
       </ScrollView>
 
