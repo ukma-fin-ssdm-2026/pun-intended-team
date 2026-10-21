@@ -133,8 +133,6 @@ export default function OrganizationEventsScreen() {
             </Text>
             <Text className="font-inter text-caption text-text-on-dark-muted">Акаунт організації</Text>
           </View>
-          {/* "Кнопка / Редагувати" links to П1 in the prototype, as copied from Т4; it opens О4, the organization's own
-              settings. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Редагувати"
