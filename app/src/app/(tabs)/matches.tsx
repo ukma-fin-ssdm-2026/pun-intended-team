@@ -127,6 +127,9 @@ export default function MatchesScreen() {
   const mutual = mockPeople.maksym;
   const mutualEvent = findMockEvent(mutual.eventId);
   const searchEvent = findMockEvent(mockMatchesTab.search.eventId);
+  // The mutual card and "Написати" open 07; on Т2.2 the safety reminder (06) comes first, and "Зрозуміло" shows 07.
+  const openMutual = () =>
+    router.push({ pathname: '/mutual', params: answered ? { person: mutual.id, safety: '1' } : { person: mutual.id } });
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const subtitle = matchesEmpty
     ? 'Тут з’являтимуться твої пропозиції'
@@ -191,14 +194,19 @@ export default function MatchesScreen() {
           {mutualEvent && (
             <MatchCard
               event={mutualEvent}
-              onPress={() => router.push({ pathname: '/mutual', params: { person: mutual.id } })}
+              onPress={openMutual}
               status={
                 <>
                   <Initial letter={mutual.initial} />
                   <StatusText title={mutual.nameAge} note="Це взаємно · контакти відкрито" />
-                  <View className="size-9 items-center justify-center rounded-[18px] bg-surface-card">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Написати"
+                    onPress={openMutual}
+                    className="size-9 items-center justify-center rounded-[18px] bg-surface-card"
+                  >
                     <Icon name="send" size={18} color={colors.brand.coral} />
-                  </View>
+                  </Pressable>
                 </>
               }
             />
