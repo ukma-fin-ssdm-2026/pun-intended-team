@@ -1,7 +1,6 @@
 // Written with the help of Claude
 // AI Usage: post of the Figma "Т3 Оголошення" feed; reviewed by Daryna Halytska.
 import { Image } from 'expo-image';
-import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { CoralGradient } from '@/components/ui/coral-gradient';
@@ -10,6 +9,7 @@ import { formatEventDate } from '@/dates';
 import type { Post } from '@/mocks/announcements';
 import { findMockEvent } from '@/mocks/events';
 import { toggleLike, useLiked } from '@/state/post-likes';
+import { requestPost, usePostRequests } from '@/state/post-requests';
 import { colors } from '@/styles/tokens';
 
 type Props = {
@@ -17,9 +17,37 @@ type Props = {
   onReport: () => void;
 };
 
+// The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано"; "Ти йдеш" is a
+// post the user already joined.
+function JoinAction({ post }: { post: Post }) {
+  const requested = usePostRequests().postIds.includes(post.id);
+
+  if (post.going) {
+    return (
+      <View className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral py-1.5 pl-2.5 pr-3">
+        <Icon name="check" size={16} color={colors.text['on-dark']} />
+        <Text className="font-inter-semibold text-tag text-text-on-dark">Ти йдеш</Text>
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={requested}
+      onPress={() => requestPost(post.id)}
+      // Figma's 1 px stroke lies inside the pill: the padding is 1 px less than its 6 / 10 / 12.
+      className="flex-row items-center gap-1.5 rounded-2xl border border-border-default py-[5px] pl-[9px] pr-[11px]"
+    >
+      <Icon name="matches" size={16} />
+      <Text className="font-inter-semibold text-tag text-text-primary">
+        {requested ? 'Запит надіслано' : 'Хочу піти'}
+      </Text>
+    </Pressable>
+  );
+}
+
 export function PostCard({ post, onReport }: Props) {
-  // "Хочу піти" and "Ти йдеш" are the two Figma states of the same action.
-  const [going, setGoing] = useState(post.going);
   const liked = useLiked(post.id);
   const event = post.eventId ? findMockEvent(post.eventId) : undefined;
 
@@ -80,24 +108,7 @@ export function PostCard({ post, onReport }: Props) {
         )}
 
         <View className="flex-row items-center gap-5">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: going }}
-            onPress={() => setGoing((value) => !value)}
-            // Figma's 1 px stroke lies inside the pill: the padding is 1 px less than its 6 / 10 / 12.
-            className={`flex-row items-center gap-1.5 rounded-2xl border py-[5px] pl-[9px] pr-[11px] ${
-              going ? 'border-brand-coral bg-brand-coral' : 'border-border-default'
-            }`}
-          >
-            <Icon
-              name={going ? 'check' : 'matches'}
-              size={16}
-              color={going ? colors.text['on-dark'] : colors.text.primary}
-            />
-            <Text className={`font-inter-semibold text-tag ${going ? 'text-text-on-dark' : 'text-text-primary'}`}>
-              {going ? 'Ти йдеш' : 'Хочу піти'}
-            </Text>
-          </Pressable>
+          <JoinAction post={post} />
           {/* Share has no prototype link; shown as in Figma. */}
           <Icon name="share" size={18} color={colors.text.secondary} />
           <Pressable

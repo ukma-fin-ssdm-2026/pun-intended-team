@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
+import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -229,18 +230,11 @@ export default function MatchesScreen() {
       </ScrollView>
 
       {answer && (
-        <View
-          className="absolute left-5 right-5 flex-row items-center gap-3 overflow-hidden rounded-[18px] bg-brand-ink px-4 py-3.5"
-          style={{ bottom: tabBarSpace + TOAST_GAP, boxShadow: shadows.medium }}
-        >
-          <View className="size-8 items-center justify-center rounded-2xl bg-brand-coral">
-            <Icon name="toast-check" size={18} color={colors.text['on-dark']} />
-          </View>
-          <View className="flex-1 gap-0.5">
-            <Text className="font-inter-medium text-body text-text-on-dark">{mockMatchesTab.toast[answer].title}</Text>
-            <Text className="font-inter text-caption text-text-on-dark-muted">{mockMatchesTab.toast[answer].note}</Text>
-          </View>
-        </View>
+        <Snackbar
+          title={mockMatchesTab.toast[answer].title}
+          note={mockMatchesTab.toast[answer].note}
+          bottom={tabBarSpace + TOAST_GAP}
+        />
       )}
     </View>
   );

@@ -11,10 +11,12 @@ import { PostComposer } from '@/components/announcements/post-composer';
 import { ReportFlow, type ReportStep } from '@/components/matching/report-flow';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
+import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockPosts, type Author } from '@/mocks/announcements';
 import { mockProfile } from '@/mocks/profile';
+import { usePostRequests } from '@/state/post-requests';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -23,6 +25,8 @@ import { colors } from '@/styles/tokens';
 const HEADER_TOP = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 const LIST_BOTTOM_GAP = 26;
+// The Т3.2 snackbar ends 26 px above the tab bar (Figma: y=654, 70 px high, bar at y=750).
+const SNACKBAR_GAP = 26;
 
 const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
 
@@ -32,6 +36,8 @@ export default function AnnouncementsScreen() {
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
   const { announcementsEmpty } = useSession();
+  const { lastPostId } = usePostRequests();
+  const requestedPost = mockPosts.find((post) => post.id === lastPostId);
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
   const [reported, setReported] = useState<Author>();
@@ -141,6 +147,14 @@ export default function AnnouncementsScreen() {
           ))
         )}
       </ScrollView>
+
+      {requestedPost && (
+        <Snackbar
+          title="Запит надіслано"
+          note={`Дамо знати, щойно ${requestedPost.author.name} відповість.`}
+          bottom={tabBarSpace + SNACKBAR_GAP}
+        />
+      )}
 
       {/* The prototype ends the report on the Метчі tab from a match; from a post it stays on the feed. */}
       <ReportFlow person={reported} step={report} onStepChange={setReport} onDone={() => {}} />
