@@ -2,15 +2,15 @@
 // AI Usage: "Додати соцмережу" and "Інтереси" sheets from the Figma "П1.1" and "П1.2" frames, on mock data; reviewed
 // by Daryna Halytska.
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
-import { Icon, type IconName } from '@/components/ui/icon';
+import { type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
+import { SelectChip } from '@/components/ui/select-chip';
 import { Sheet } from '@/components/ui/sheet';
 import { TextField } from '@/components/ui/text-field';
 import { mockProfile } from '@/mocks/profile';
-import { colors } from '@/styles/tokens';
 
 const networks: { name: string; icon: IconName }[] = [
   { name: 'Instagram', icon: 'camera' },
@@ -51,24 +51,6 @@ export function AddSocialSheet({ visible, onClose }: SocialProps) {
   );
 }
 
-function InterestChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      onPress={onPress}
-      className={`flex-row items-center gap-1.5 rounded-[18px] px-4 py-[9px] ${
-        selected ? 'bg-brand-coral' : 'bg-surface-background'
-      }`}
-    >
-      {selected && <Icon name="check-bold" size={16} color={colors.text['on-dark']} />}
-      <Text className={`font-inter-medium text-label ${selected ? 'text-text-on-dark' : 'text-text-primary'}`}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 type InterestsProps = {
   visible: boolean;
   // П1's choice when the sheet opens.
@@ -101,7 +83,7 @@ export function InterestsSheet({ visible, selected, onClose, onSave }: Interests
       </View>
       <View className="flex-row flex-wrap gap-2">
         {options.map((interest) => (
-          <InterestChip
+          <SelectChip
             key={interest}
             label={interest}
             selected={draft.includes(interest)}

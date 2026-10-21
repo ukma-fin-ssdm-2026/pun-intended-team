@@ -1,10 +1,12 @@
 // Written with the help of Claude
 // AI Usage: filters sheet from the Figma "Д1 Фільтри" screen; reviewed by Daryna Halytska.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DatesSheet } from '@/components/dates-sheet';
+import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
@@ -12,6 +14,7 @@ import { mockCategories, mockDistricts, mockEvents } from '@/mocks/events';
 import {
   filterEvents,
   resetFilters,
+  setNearMe,
   toggleCategory,
   toggleDistrict,
   toggleWhen,
@@ -52,66 +55,90 @@ export function FiltersSheet({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const filters = useCatalogFilters();
   const count = filterEvents(mockEvents, filters).length;
+  // "Обрати дати" opens Д1.1 and "Поруч зі мною" Д1.2 in place of the sheet; both return to it.
+  const [view, setView] = useState<'filters' | 'dates' | 'location'>('filters');
+  const back = () => setView('filters');
 
   return (
-    <Overlay visible={visible} onClose={onClose} placement="bottom">
-      {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
-        <View
-          className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(insets.bottom, 20) }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
-          <View className="flex-row items-center justify-between">
-            <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-              Фільтри
-            </Text>
-            <Pressable accessibilityRole="button" onPress={resetFilters} hitSlop={8}>
-              <Text className="font-inter-medium text-label text-brand-coral">Скинути</Text>
-            </Pressable>
-          </View>
+    <>
+      <Overlay visible={visible && view === 'filters'} onClose={onClose} placement="bottom">
+        {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
+        <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
+          <View
+            className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
+            style={{ paddingBottom: Math.max(insets.bottom, 20) }}
+          >
+            <View className="items-center">
+              <View className="h-1 w-10 rounded-sm bg-border-default" />
+            </View>
+            <View className="flex-row items-center justify-between">
+              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
+                Фільтри
+              </Text>
+              <Pressable accessibilityRole="button" onPress={resetFilters} hitSlop={8}>
+                <Text className="font-inter-medium text-label text-brand-coral">Скинути</Text>
+              </Pressable>
+            </View>
 
-          <ScrollView className="shrink" contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
-            <Section title="Категорія">
-              {mockCategories.map((category) => (
+            <ScrollView className="shrink" contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
+              <Section title="Категорія">
+                {mockCategories.map((category) => (
+                  <FilterChip
+                    key={category.id}
+                    label={category.name}
+                    selected={filters.categoryIds.includes(category.id)}
+                    onPress={() => toggleCategory(category.id)}
+                  />
+                ))}
+              </Section>
+              <Section title="Коли">
+                {whenOptions.map((option) => (
+                  <FilterChip
+                    key={option.value}
+                    label={option.label}
+                    selected={filters.when === option.value}
+                    onPress={() => toggleWhen(option.value)}
+                  />
+                ))}
                 <FilterChip
-                  key={category.id}
-                  label={category.name}
-                  selected={filters.categoryIds.includes(category.id)}
-                  onPress={() => toggleCategory(category.id)}
+                  label="Обрати дати"
+                  icon="calendar"
+                  selected={!!filters.dates}
+                  onPress={() => setView('dates')}
                 />
-              ))}
-            </Section>
-            <Section title="Коли">
-              {whenOptions.map((option) => (
+              </Section>
+              <Section title="Де">
                 <FilterChip
-                  key={option.value}
-                  label={option.label}
-                  selected={filters.when === option.value}
-                  onPress={() => toggleWhen(option.value)}
+                  label="Поруч зі мною"
+                  icon="pin"
+                  selected={filters.nearMe}
+                  onPress={() => (filters.nearMe ? setNearMe(false) : setView('location'))}
                 />
-              ))}
-              {/* Date picker and location come in a later stage; the chips are shown as in Figma. */}
-              <FilterChip label="Обрати дати" icon="calendar" />
-            </Section>
-            <Section title="Де">
-              <FilterChip label="Поруч зі мною" icon="pin" />
-              {mockDistricts.map((district) => (
-                <FilterChip
-                  key={district}
-                  label={district}
-                  selected={filters.districts.includes(district)}
-                  onPress={() => toggleDistrict(district)}
-                />
-              ))}
-            </Section>
-          </ScrollView>
+                {mockDistricts.map((district) => (
+                  <FilterChip
+                    key={district}
+                    label={district}
+                    selected={filters.districts.includes(district)}
+                    onPress={() => toggleDistrict(district)}
+                  />
+                ))}
+              </Section>
+            </ScrollView>
 
-          <Button label={eventsLabel(count)} variant="dark" onPress={onClose} />
-        </View>
-      </Animated.View>
-    </Overlay>
+            <Button label={eventsLabel(count)} variant="dark" onPress={onClose} />
+          </View>
+        </Animated.View>
+      </Overlay>
+
+      {visible && view === 'dates' && <DatesSheet visible onClose={back} />}
+      <LocationDialog
+        visible={visible && view === 'location'}
+        onClose={back}
+        onAllow={() => {
+          setNearMe(true);
+          back();
+        }}
+      />
+    </>
   );
 }

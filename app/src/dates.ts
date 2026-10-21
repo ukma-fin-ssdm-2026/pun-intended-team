@@ -95,3 +95,48 @@ export function weekendDays(today: KyivDay): KyivDay[] {
   const saturday = addDays(today, 6 - weekday);
   return [saturday, addDays(saturday, 1)];
 }
+
+// Nominative, as in the calendar header "Жовтень 2026".
+const monthsNominative = [
+  'Січень',
+  'Лютий',
+  'Березень',
+  'Квітень',
+  'Травень',
+  'Червень',
+  'Липень',
+  'Серпень',
+  'Вересень',
+  'Жовтень',
+  'Листопад',
+  'Грудень',
+];
+
+export type CalendarMonth = { year: number; month: number };
+
+export function monthOf(day: KyivDay): CalendarMonth {
+  const [year, month] = day.split('-').map(Number);
+  return { year, month };
+}
+
+export function shiftMonth({ year, month }: CalendarMonth, by: number): CalendarMonth {
+  const index = year * 12 + month - 1 + by;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+
+export function formatMonth({ year, month }: CalendarMonth): string {
+  return `${monthsNominative[month - 1]} ${year}`;
+}
+
+// The month's days in weeks from Monday; null fills the days of the other months.
+export function monthWeeks({ year, month }: CalendarMonth): (KyivDay | null)[][] {
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const length = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const lead = (first.getUTCDay() + 6) % 7;
+  const cells: (KyivDay | null)[] = Array.from({ length: lead }, () => null);
+  for (let day = 1; day <= length; day += 1) {
+    cells.push([year, String(month).padStart(2, '0'), String(day).padStart(2, '0')].join('-'));
+  }
+  while (cells.length % 7) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
+}
