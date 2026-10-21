@@ -47,7 +47,7 @@ function WaitingItem({
 export default function CompanySearchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  // "Ще" opens the 04.1 menu, whose "Вийти з пулу" opens the 04.2 dialog.
+  // "Ще" opens the 04.1 menu, whose "Вийти з підбору" opens the 04.2 dialog.
   const [overlay, setOverlay] = useState<'menu' | 'leave' | null>(null);
   useStatusBarStyle('light');
 

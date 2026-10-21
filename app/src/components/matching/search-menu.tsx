@@ -42,7 +42,7 @@ type MenuProps = {
   onClose: () => void;
   // "Змінити побажання" opens 03 Запит на компанію.
   onChangeRequest: () => void;
-  // "Вийти з пулу" opens 04.2.
+  // "Вийти з підбору" opens 04.2.
   onLeave: () => void;
 };
 
@@ -67,7 +67,7 @@ export function SearchMenuSheet({ visible, onClose, onChangeRequest, onLeave }: 
             <View className="h-px bg-border-default" />
             <MenuItem icon="matches" label="Як працює метчинг" />
             <View className="h-px bg-border-default" />
-            <MenuItem icon="close" label="Вийти з пулу" danger onPress={onLeave} />
+            <MenuItem icon="close" label="Вийти з підбору" danger onPress={onLeave} />
           </View>
           <Button label="Закрити" onPress={onClose} />
         </View>
@@ -80,7 +80,7 @@ type DialogProps = {
   visible: boolean;
   // "Залишитися" and the backdrop go back to 04.1.
   onClose: () => void;
-  // "Вийти з пулу" opens the event page (02).
+  // "Вийти з підбору" opens the event page (02).
   onLeave: () => void;
 };
 
@@ -97,13 +97,13 @@ export function LeavePoolDialog({ visible, onClose, onLeave }: DialogProps) {
             <Icon name="danger" size={26} color={colors.text['on-dark']} />
           </View>
           <Text accessibilityRole="header" className="text-center font-inter-bold text-h1 text-text-primary">
-            Вийти з пулу?
+            Вийти з підбору?
           </Text>
           <Text className="text-center font-inter text-caption text-text-secondary">
             Повернутися можна будь-коли зі сторінки події.
           </Text>
         </View>
-        <Button label="Вийти з пулу" variant="dark" onPress={onLeave} />
+        <Button label="Вийти з підбору" variant="dark" onPress={onLeave} />
         <Button label="Залишитися" variant="light" onPress={onClose} />
       </View>
     </Overlay>
