@@ -105,10 +105,11 @@ export default function OrganizationEventEditorScreen() {
           <Text className="font-inter text-caption text-text-secondary">JPG або PNG, від 1200 px завширшки</Text>
         </View>
 
-        <TextField label="Назва" value={title} onChangeText={setTitle} />
+        <TextField label="Назва" required value={title} onChangeText={setTitle} />
         <View className="z-10">
           <TextField
             label="Категорія"
+            required
             value={category}
             list={{ open: categoryOpen, onPress: () => setCategoryOpen((open) => !open) }}
           />
@@ -124,22 +125,25 @@ export default function OrganizationEventEditorScreen() {
         </View>
         <View className="flex-row gap-2.5">
           <View className="flex-1">
-            <TextField label="Дата" value={date} onChangeText={setDate} />
+            <TextField label="Дата" required value={date} onChangeText={setDate} />
           </View>
           <View className="flex-1">
-            <TextField label="Початок" value={time} onChangeText={setTime} />
+            <TextField label="Початок" required value={time} onChangeText={setTime} />
           </View>
         </View>
         {/* Figma shows the empty place in its error state: the event cannot be published without it. */}
         <TextField
           label="Місце"
+          required
           value={place}
           onChangeText={setPlace}
           placeholder="Почни вводити адресу…"
           error={place.trim() ? undefined : 'Вкажи місце, без нього подію не опублікувати'}
         />
         <View className="gap-1.5">
-          <Text className="font-inter text-caption text-text-secondary">Опис</Text>
+          <Text className="font-inter text-caption text-text-secondary">
+            Опис <Text className="text-brand-coral">*</Text>
+          </Text>
           <TextInput
             accessibilityLabel="Опис"
             multiline
