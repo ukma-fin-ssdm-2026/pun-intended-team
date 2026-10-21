@@ -24,6 +24,7 @@ import {
   setAnnouncementsEmpty,
   setGuest,
   setInPool,
+  setJoinRequest,
   setMatchesEmpty,
   setSimulateLoading,
   useSession,
@@ -93,6 +94,7 @@ export default function ComponentsGallery() {
           value={session.announcementsEmpty}
           onValueChange={setAnnouncementsEmpty}
         />
+        <SwitchRow label="Запит на оголошення (Т5.1)" value={session.joinRequest} onValueChange={setJoinRequest} />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 

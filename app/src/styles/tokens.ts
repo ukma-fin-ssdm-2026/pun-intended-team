@@ -6,6 +6,7 @@ export const colors = {
   brand: {
     coral: '#DF544A',
     'coral-dark': '#B83E35',
+    'coral-soft': '#FCEBE9',
     ink: '#121212',
   },
   text: {
@@ -37,6 +38,7 @@ export const typography = {
   logo: { fontSize: 30, lineHeight: 34 },
   display: { fontSize: 28, lineHeight: 34 },
   h1: { fontSize: 22, lineHeight: 28 },
+  h2: { fontSize: 18, lineHeight: 24 },
   title: { fontSize: 16, lineHeight: 22 },
   body: { fontSize: 15, lineHeight: 22 },
   label: { fontSize: 13, lineHeight: 18 },
