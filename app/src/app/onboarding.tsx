@@ -2,10 +2,20 @@
 // AI Usage: onboarding carousel from the Figma "В1 Онбординг · Події", "В2 · Як це працює" and "В3 · Безпека" frames;
 // reviewed by Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
-import { useRef, useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedReaction,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { EventsCollage } from '@/components/onboarding/events-collage';
 import { Button } from '@/components/ui/button';
@@ -19,6 +29,8 @@ import { colors } from '@/styles/tokens';
 const PAGES = 3;
 // "02 Дії" sits 34 px above the bottom; a larger bottom inset replaces the 34 px.
 const ACTIONS_BOTTOM = 34;
+// В1's text sits 20 px above the step indicator.
+const INTRO_GAP = 20;
 
 const steps: { icon: IconName; title: string; note: string; accent?: boolean }[] = [
   { icon: 'home', title: '1. Обери подію', note: 'Концерти, виставки, лекції у твоєму місті' },
@@ -55,39 +67,39 @@ function CollageFade() {
 type ActionsProps = {
   page: number;
   onDot: (page: number) => void;
+  onNext: () => void;
   onSignUp: () => void;
   onSignIn: () => void;
   onGuest: () => void;
-  // В1 puts its text above the dots, 20 px apart; В2 and В3 start with the dots, 18 px apart.
-  intro?: ReactNode;
+  onHeight: (height: number) => void;
 };
 
-function Actions({ page, onDot, onSignUp, onSignIn, onGuest, intro }: ActionsProps) {
+// "02 Дії" stays in place while the slides move: the step indicator only moves its active dot, and the main button is
+// "Далі" until В3, where it becomes "Зареєструватися". Figma spaces it 18 px apart (В2, В3).
+function Actions({ page, onDot, onNext, onSignUp, onSignIn, onGuest, onHeight }: ActionsProps) {
   const insets = useSafeAreaInsets();
+  const last = page === PAGES - 1;
   return (
     <View
-      className={`absolute bottom-0 left-0 right-0 items-center px-5 ${intro ? 'gap-5' : 'gap-[18px]'}`}
-      style={{ paddingBottom: Math.max(ACTIONS_BOTTOM, insets.bottom) }}
+      className="absolute bottom-0 left-0 right-0 items-center gap-[18px] px-5"
+      style={{ paddingBottom: Math.max(ACTIONS_BOTTOM, insets.bottom), pointerEvents: 'box-none' }}
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
     >
-      {intro}
       <View className="flex-row items-center gap-1.5">
-        {Array.from({ length: PAGES }, (_, index) =>
-          index === page ? (
-            <View key={index} className="h-1.5 w-[22px] rounded-[3px] bg-brand-coral" />
-          ) : (
-            <Pressable
-              key={index}
-              accessibilityRole="button"
-              accessibilityLabel={`Крок ${index + 1}`}
-              onPress={() => onDot(index)}
-              hitSlop={8}
-              className="size-1.5 rounded-[3px] bg-white/[0.35]"
-            />
-          ),
-        )}
+        {Array.from({ length: PAGES }, (_, index) => (
+          <Pressable
+            key={index}
+            accessibilityRole="button"
+            accessibilityLabel={`Крок ${index + 1}`}
+            accessibilityState={{ selected: index === page }}
+            onPress={() => onDot(index)}
+            hitSlop={8}
+            className={`h-1.5 rounded-[3px] ${index === page ? 'w-[22px] bg-brand-coral' : 'w-1.5 bg-white/[0.35]'}`}
+          />
+        ))}
       </View>
       <View className="w-full">
-        <Button label="Зареєструватися" onPress={onSignUp} />
+        <Button label={last ? 'Зареєструватися' : 'Далі'} onPress={last ? onSignUp : onNext} />
       </View>
       <View className="flex-row items-center gap-3.5">
         <Pressable accessibilityRole="link" onPress={onSignIn}>
@@ -105,60 +117,67 @@ function Actions({ page, onDot, onSignUp, onSignIn, onGuest, intro }: ActionsPro
 export default function OnboardingScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useAnimatedRef<Animated.ScrollView>();
+  const offset = useSharedValue(0);
   const [page, setPage] = useState(0);
+  const [actionsHeight, setActionsHeight] = useState(0);
   useStatusBarStyle('light');
 
-  const goTo = (target: number) => scroll.current?.scrollTo({ x: target * width, animated: true });
-  const actions = {
-    page,
-    onDot: goTo,
-    onSignUp: () => router.push('/sign-up'),
-    onSignIn: () => router.push('/sign-in'),
-    // A guest starts a new history on the catalog (01.2).
-    onGuest: () => {
-      setGuest(true);
-      router.dismissAll();
-      router.replace('/');
+  const onScroll = useAnimatedScrollHandler((event) => {
+    offset.value = event.contentOffset.x;
+  });
+  // The active dot follows the swipe: it moves as soon as the next slide is more than half in view.
+  useAnimatedReaction(
+    () => Math.round(offset.value / width),
+    (current, previous) => {
+      if (current !== previous) scheduleOnRN(setPage, current);
     },
-  };
+    [width],
+  );
+  // В1 is on ink and В2, В3 on the coral gradient: the ink fades out as В1 slides away.
+  const inkStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(offset.value, [0, width], [1, 0], Extrapolation.CLAMP),
+  }));
+
+  const goTo = (target: number) => scroll.current?.scrollTo({ x: target * width, animated: true });
 
   return (
-    <View className="flex-1 bg-brand-ink">
+    <View className="flex-1">
       <Stack.Screen options={{ headerShown: false }} />
-      {/* Swiping pages the whole frame, as the prototype's 350 ms push between В1, В2 and В3. */}
-      <ScrollView
+      <View className="absolute inset-0">
+        <CoralGradient preset="screen" />
+      </View>
+      <Animated.View
+        style={[
+          { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.brand.ink },
+          inkStyle,
+        ]}
+      />
+
+      <Animated.ScrollView
         ref={scroll}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / width))}
-        // The web has no momentum end event for programmatic and wheel scrolls; this keeps the dots in sync.
-        onScroll={(event) => setPage(Math.round(event.nativeEvent.contentOffset.x / width))}
-        scrollEventThrottle={32}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
       >
-        <View className="h-full bg-brand-ink" style={{ width }}>
+        <View className="h-full overflow-hidden" style={{ width }}>
           <EventsCollage />
           <CollageFade />
-          <Actions
-            {...actions}
-            intro={
-              <View className="w-full items-center gap-3">
-                <Text accessibilityRole="header" className="text-center font-inter-bold text-display text-text-on-dark">
-                  {'Обери подію,\nа ми знайдемо компанію'}
-                </Text>
-                <Text className="text-center font-inter text-body text-text-on-dark-muted">
-                  Концерти, виставки, лекції й вечірки у твоєму місті. І люди, які теж хочуть піти.
-                </Text>
-              </View>
-            }
-          />
-        </View>
-
-        <View className="h-full" style={{ width }}>
-          <View className="absolute inset-0">
-            <CoralGradient preset="screen" />
+          <View
+            className="absolute left-0 right-0 items-center gap-3 px-5"
+            style={{ bottom: actionsHeight + INTRO_GAP }}
+          >
+            <Text accessibilityRole="header" className="text-center font-inter-bold text-display text-text-on-dark">
+              {'Обери подію,\nа ми знайдемо компанію'}
+            </Text>
+            <Text className="text-center font-inter text-body text-text-on-dark-muted">
+              Концерти, виставки, лекції й вечірки у твоєму місті. І люди, які теж хочуть піти.
+            </Text>
           </View>
+        </View>
+        <View className="h-full" style={{ width }}>
           <View className="absolute left-0 right-0 top-[130px] gap-7 px-5">
             <View className="gap-2">
               <Text accessibilityRole="header" className="font-inter-bold text-display text-text-on-dark">
@@ -198,13 +217,9 @@ export default function OnboardingScreen() {
               ))}
             </View>
           </View>
-          <Actions {...actions} />
         </View>
 
         <View className="h-full" style={{ width }}>
-          <View className="absolute inset-0">
-            <CoralGradient preset="screen" />
-          </View>
           <View className="absolute left-0 right-0 top-[150px] items-center gap-7 px-5">
             <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.08]">
               <View
@@ -228,9 +243,23 @@ export default function OnboardingScreen() {
               ))}
             </View>
           </View>
-          <Actions {...actions} />
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
+
+      <Actions
+        page={page}
+        onDot={goTo}
+        onNext={() => goTo(page + 1)}
+        onSignUp={() => router.push('/sign-up')}
+        onSignIn={() => router.push('/sign-in')}
+        // A guest starts a new history on the catalog (01.2).
+        onGuest={() => {
+          setGuest(true);
+          router.dismissAll();
+          router.replace('/');
+        }}
+        onHeight={setActionsHeight}
+      />
     </View>
   );
 }
