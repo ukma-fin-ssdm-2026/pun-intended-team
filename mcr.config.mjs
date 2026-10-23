@@ -3,6 +3,8 @@
 // How it was verified: unit and combined test runs report exactly the files of the measured categories,
 // untested files appear with 0%, and the HTML report is a single file.
 // Reviewed by: viktoriyabaran
+// Changed by Claude (Claude Code): added the coverage thresholds that fail the run.
+// How it was verified: a run of all tests passes at the set thresholds and exits with code 1 when one is raised above the coverage.
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +34,12 @@ const excluded = [
   /\/scripts\//,
 ];
 
+// Minimum coverage in percent, per report name (`mcr -n`). The unit report alone has none: most of the code
+// is covered only by the e2e tests.
+const thresholds = {
+  'All tests': { lines: 90, branches: 80 },
+};
+
 export default {
   name: 'Nearby test coverage',
   reports: [['v8', { inline: true }], 'console-summary'],
@@ -51,5 +59,15 @@ export default {
       );
       entry.sourceMap = map;
     },
+  },
+  // MCR has no threshold option; its CLI exits with process.exitCode when it is set.
+  onEnd: ({ name, summary }) => {
+    const failures = Object.entries(thresholds[name] ?? {})
+      .filter(([metric, min]) => !(Number(summary[metric].pct) >= min))
+      .map(([metric, min]) => `${metric} ${summary[metric].pct} % is below the threshold of ${min} %`);
+    if (failures.length > 0) {
+      console.error(`Coverage of "${name}" is too low:\n  ${failures.join('\n  ')}`);
+      process.exitCode = 1;
+    }
   },
 };
