@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { CodeSender } from './code-sender.ts';
 
 const BASE_URL = 'https://gatewayapi.telegram.org';
-// Short, so SMS still goes out in time when Telegram does not answer (SEC-008).
+// Short, so SMS still goes out soon when Telegram does not answer.
 const TIMEOUT_MS = 3000;
 // The code lifetime (SEC-008); Telegram refunds a code it could not deliver within it.
 const TTL_SECONDS = 10 * 60;
