@@ -4,9 +4,11 @@ import { Injectable } from '@nestjs/common';
 import { VerificationCodesRepository } from '../../core/identity/repositories/verification-codes.repository.ts';
 import type {
   CodePurpose,
+  CodeSendLimit,
   VerificationCode,
   VerificationCodeRecord,
 } from '../../core/identity/types/verification-code.ts';
+import type { CodeDelivery } from '../../core/notifications/types/code-delivery.ts';
 import { verificationCodes } from './data.ts';
 
 @Injectable()
@@ -20,16 +22,32 @@ export class StubVerificationCodesRepository implements VerificationCodesReposit
       );
   }
 
-  async findLastSentAt(phone: string): Promise<Date | undefined> {
-    return verificationCodes
-      .filter((code) => code.phone === phone)
-      .reduce<Date | undefined>((latest, code) => (latest && latest > code.sentAt ? latest : code.sentAt), undefined);
-  }
-
-  async create(record: VerificationCodeRecord): Promise<VerificationCode> {
-    const code: VerificationCode = { id: randomUUID(), ...record, failedAttempts: 0, usedAt: null };
+  async createWithinLimit(record: VerificationCodeRecord, limit: CodeSendLimit): Promise<VerificationCode | undefined> {
+    const sent = verificationCodes.filter((code) => code.phone === record.phone);
+    if (
+      sent.some((code) => code.sentAt > limit.noneSentAfter) ||
+      sent.filter((code) => code.sentAt > limit.since).length >= limit.atMost
+    ) {
+      return undefined;
+    }
+    const code: VerificationCode = {
+      id: randomUUID(),
+      ...record,
+      channel: null,
+      providerRequestId: null,
+      failedAttempts: 0,
+      usedAt: null,
+    };
     verificationCodes.push(code);
     return code;
+  }
+
+  async saveDelivery(id: string, delivery: CodeDelivery): Promise<void> {
+    Object.assign(this.byId(id), delivery);
+  }
+
+  async delete(id: string): Promise<void> {
+    verificationCodes.splice(verificationCodes.indexOf(this.byId(id)), 1);
   }
 
   async addFailedAttempt(id: string): Promise<number> {

@@ -43,14 +43,13 @@ export class AuthController {
     summary: 'Start registration',
     description:
       'Start registration: sends a one-time code to the phone number. The answer is the same whether or not ' +
-      'the number already has an account.',
+      'the number already has an account, and a code requested within a minute of the last one is silently not sent.',
     tags: ['Auth'],
     access: 'public',
     mcp: false,
     request: RegisterRequest,
     responses: {
       202: { description: 'The code is on its way; it is valid for 10 minutes' },
-      429: { description: '`CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago', schema: ErrorResponse },
     },
   })
   async register(@Input() { body }: RouteInput<typeof RegisterRequest>): Promise<void> {

@@ -398,10 +398,16 @@ describe('POST /api/v1/auth/sign-in', () => {
 });
 
 describe('POST /api/v1/auth/register', () => {
-  test('sends a code, and refuses another within a minute with 429', async () => {
+  // SEC-007: a 429 would show that a reset code went to the number, so that it has an account.
+  test('sends a code, and within a minute answers the same but sends no other', async () => {
     const phone = newPhone();
     assert.match(await requestCode(phone), /^\d{6}$/);
-    assertRejected(await call('POST', '/api/v1/auth/register', { body: { phone } }), 429, 'CODE_RESEND_TOO_SOON');
+    const logged = serverOutput.length;
+
+    const res = await call('POST', '/api/v1/auth/register', { body: { phone } });
+
+    assert.equal(res.status, 202);
+    assert.equal(await loggedCode(phone, logged), undefined);
   });
 
   test('answers a registered number the same as a new one', async () => {

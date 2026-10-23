@@ -11,6 +11,7 @@ import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
 import { afterFailedSignIn, isLocked, NO_LOCKOUT } from './sign-in-lockout.ts';
+import type { CodeDelivery } from '../../notifications/types/code-delivery.ts';
 import type { AccessToken, PasswordReset, Registration } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
@@ -21,6 +22,8 @@ const REGISTRATION_TOKEN_SECONDS = 15 * 60;
 const CODE_DIGITS = 6;
 const CODE_LIFETIME_MS = 10 * 60 * 1000;
 const CODE_RESEND_INTERVAL_MS = 60 * 1000;
+const CODES_PER_DAY = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_FAILED_ATTEMPTS = 3;
 const MINIMUM_AGE = 18; // SAFE-001
 
@@ -43,13 +46,12 @@ export class AuthService implements OnModuleInit {
     this.dummyPasswordHash = await this.passwordHasher.hash(randomUUID());
   }
 
-  /** Answers the same whether or not the phone already has an account (SEC-007). */
+  /**
+   * Answers the same whether or not the phone has an account and whether or not it reached a code limit,
+   * since reset codes to an account count towards them (SEC-007).
+   */
   async register(phone: string): Promise<void> {
-    const now = new Date();
-    if (!(await this.canSendCode(phone, now))) {
-      throw new DomainError('CODE_RESEND_TOO_SOON', 'A code was sent less than a minute ago. Wait, then try again');
-    }
-    await this.sendCode(phone, 'registration', now);
+    await this.sendCode(phone, 'registration', new Date());
   }
 
   /** A phone that verified before but never finished registration continues with its pending account. */
@@ -96,12 +98,11 @@ export class AuthService implements OnModuleInit {
    * for the provider, so neither the answer nor its timing reveals an account (SEC-007).
    */
   async requestPasswordReset(phone: string): Promise<void> {
-    const now = new Date();
     const account = await this.accountsRepository.findByPhone(phone);
-    if (account?.status !== 'active' || !(await this.canSendCode(phone, now))) {
+    if (account?.status !== 'active') {
       return;
     }
-    this.sendCode(phone, 'reset', now).catch((error: unknown) => {
+    this.sendCode(phone, 'reset', new Date()).catch((error: unknown) => {
       this.logger.error('A password reset code could not be sent', error instanceof Error ? error.stack : error);
     });
   }
@@ -188,25 +189,39 @@ export class AuthService implements OnModuleInit {
     return this.accessTokens.verify(accessToken);
   }
 
-  private async canSendCode(phone: string, now: Date): Promise<boolean> {
-    const lastSentAt = await this.verificationCodesRepository.findLastSentAt(phone);
-    return !lastSentAt || now.getTime() - lastSentAt.getTime() >= CODE_RESEND_INTERVAL_MS;
-  }
-
-  /** Stored only once sent, with the channel it went through. */
+  /**
+   * Sends nothing if a code of any purpose went to this phone less than a minute ago, or 5 in the last 24 hours
+   * (SEC-008). The code is stored before it is sent, so a parallel request sees it, and removed if no channel takes it.
+   */
   private async sendCode(phone: string, purpose: CodePurpose, now: Date): Promise<void> {
     const code = randomInt(0, 10 ** CODE_DIGITS)
       .toString()
       .padStart(CODE_DIGITS, '0');
-    const delivery = await this.notificationsService.sendCode(phone, code);
-    await this.verificationCodesRepository.create({
-      phone,
-      purpose,
-      codeHash: this.codeHasher.hash(phone, code),
-      ...delivery,
-      sentAt: now,
-      expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
-    });
+    const stored = await this.verificationCodesRepository.createWithinLimit(
+      {
+        phone,
+        purpose,
+        codeHash: this.codeHasher.hash(phone, code),
+        sentAt: now,
+        expiresAt: new Date(now.getTime() + CODE_LIFETIME_MS),
+      },
+      {
+        noneSentAfter: new Date(now.getTime() - CODE_RESEND_INTERVAL_MS),
+        since: new Date(now.getTime() - DAY_MS),
+        atMost: CODES_PER_DAY,
+      },
+    );
+    if (!stored) {
+      return;
+    }
+    let delivery: CodeDelivery;
+    try {
+      delivery = await this.notificationsService.sendCode(phone, code);
+    } catch (error) {
+      await this.verificationCodesRepository.delete(stored.id);
+      throw error;
+    }
+    await this.verificationCodesRepository.saveDelivery(stored.id, delivery);
   }
 
   /** Throws INVALID_CODE unless the code is the latest for this purpose and still usable (SEC-008). */

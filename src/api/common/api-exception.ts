@@ -22,7 +22,6 @@ const errorStatus: Record<ErrorCode, number> = {
   GOOGLE_ALREADY_LINKED: 409,
   UNDERAGE: 422,
   RATE_LIMITED: 429,
-  CODE_RESEND_TOO_SOON: 429,
   INTERNAL_ERROR: 500,
 };
 

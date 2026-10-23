@@ -23,7 +23,12 @@ const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
 const REGISTRATION_TOKEN_SECONDS = 15 * 60;
 const ADULT_BIRTH_DATE = '2000-05-17';
 const CODE_LIFETIME_MS = 10 * 60 * 1000; // SEC-008
-const CODE_RESEND_INTERVAL_MS = 60 * 1000; // SEC-008
+// SEC-008: a phone gets no code within a minute of the last one, and at most 5 a day.
+const CODE_SEND_LIMIT = {
+  noneSentAfter: new Date(NOW.getTime() - 60 * 1000),
+  since: new Date(NOW.getTime() - 24 * 60 * 60 * 1000),
+  atMost: 5,
+};
 const MAX_FAILED_ATTEMPTS = 3; // SEC-008
 const DELIVERY: CodeDelivery = { channel: 'sms', providerRequestId: 'provider-request-1' };
 const GOOGLE_ID_TOKEN = 'google-id-token';
@@ -97,10 +102,18 @@ function makeService() {
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
-    findLastSentAt: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
-    create: mock.fn((record: VerificationCodeRecord): Promise<VerificationCode> =>
-      Promise.resolve({ ...record, id: 'code-1', failedAttempts: 0, usedAt: null }),
+    createWithinLimit: mock.fn((record: VerificationCodeRecord): Promise<VerificationCode | undefined> =>
+      Promise.resolve({
+        ...record,
+        id: 'code-1',
+        channel: null,
+        providerRequestId: null,
+        failedAttempts: 0,
+        usedAt: null,
+      }),
     ),
+    saveDelivery: mock.fn(() => Promise.resolve()),
+    delete: mock.fn(() => Promise.resolve()),
     addFailedAttempt: mock.fn(() => Promise.resolve(1)),
     markUsed: mock.fn(() => Promise.resolve(true)),
   };
@@ -142,55 +155,52 @@ function isDomainError(code: string) {
 describe('AuthService.register', () => {
   useFixedClock();
 
-  test('sends a code, then stores it hashed with its delivery channel and a 10-minute lifetime', async () => {
+  // SEC-008: stored before it is sent, so a parallel request finds it and sends nothing.
+  test('stores the code hashed with a 10-minute lifetime before sending it, then saves the channel', async () => {
     const { service, verificationCodes, notifications } = makeService();
+    let storedBeforeSending = false;
+    notifications.sendCode.mock.mockImplementation(() => {
+      storedBeforeSending = verificationCodes.createWithinLimit.mock.callCount() === 1;
+      return Promise.resolve(DELIVERY);
+    });
 
     await service.register(PHONE);
 
     const [phone, sentCode] = notifications.sendCode.mock.calls[0]?.arguments as unknown as [string, string];
     assert.equal(phone, PHONE);
     assert.match(sentCode, /^\d{6}$/);
-    assert.deepEqual(verificationCodes.create.mock.calls[0]?.arguments, [
+    assert.ok(storedBeforeSending);
+    assert.deepEqual(verificationCodes.createWithinLimit.mock.calls[0]?.arguments, [
       {
         phone: PHONE,
         purpose: 'registration',
         codeHash: `${PHONE}:${sentCode}`,
-        ...DELIVERY,
         sentAt: NOW,
         expiresAt: new Date(NOW.getTime() + CODE_LIFETIME_MS),
       },
+      CODE_SEND_LIMIT,
     ]);
+    assert.deepEqual(verificationCodes.saveDelivery.mock.calls[0]?.arguments, ['code-1', DELIVERY]);
   });
 
-  test('refuses a new code less than a minute after the last one', async () => {
+  // SEC-007: a 429 here would tell that a reset code went to the number, so that it has an account.
+  test('silently sends nothing when the phone reached a code limit', async () => {
     const { service, verificationCodes, notifications } = makeService();
-    const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS + 1);
-    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
-
-    const registering = service.register(PHONE);
-
-    await assert.rejects(registering, isDomainError('CODE_RESEND_TOO_SOON'));
-    assert.equal(verificationCodes.create.mock.callCount(), 0);
-    assert.equal(notifications.sendCode.mock.callCount(), 0);
-  });
-
-  test('sends a new code exactly a minute after the last one', async () => {
-    const { service, verificationCodes, notifications } = makeService();
-    const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS);
-    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
+    verificationCodes.createWithinLimit.mock.mockImplementation(() => Promise.resolve(undefined));
 
     await service.register(PHONE);
 
-    assert.equal(notifications.sendCode.mock.callCount(), 1);
+    assert.equal(notifications.sendCode.mock.callCount(), 0);
   });
 
-  test('stores no code when sending it fails', async () => {
+  test('removes the stored code when no channel takes it', async () => {
     const { service, verificationCodes, notifications } = makeService();
     notifications.sendCode.mock.mockImplementation(() => Promise.reject(new Error('provider is down')));
 
     await assert.rejects(service.register(PHONE), /provider is down/);
 
-    assert.equal(verificationCodes.create.mock.callCount(), 0);
+    assert.deepEqual(verificationCodes.delete.mock.calls[0]?.arguments, ['code-1']);
+    assert.equal(verificationCodes.saveDelivery.mock.callCount(), 0);
   });
 });
 
@@ -202,7 +212,7 @@ describe('AuthService.verify', () => {
     await service.register(PHONE);
     const [, sentCode] = notifications.sendCode.mock.calls[0]?.arguments as unknown as [string, string];
     // The repository hands back the row it stored, as a real one would.
-    const stored = await verificationCodes.create.mock.calls[0]?.result;
+    const stored = await verificationCodes.createWithinLimit.mock.calls[0]?.result;
     verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(stored));
     mock.timers.tick(CODE_LIFETIME_MS + 1000);
 
@@ -432,16 +442,17 @@ describe('AuthService.requestPasswordReset', () => {
 
     const [phone, sentCode] = notifications.sendCode.mock.calls[0]?.arguments as unknown as [string, string];
     assert.equal(phone, PHONE);
-    assert.deepEqual(verificationCodes.create.mock.calls[0]?.arguments, [
+    assert.deepEqual(verificationCodes.createWithinLimit.mock.calls[0]?.arguments, [
       {
         phone: PHONE,
         purpose: 'reset',
         codeHash: `${PHONE}:${sentCode}`,
-        ...DELIVERY,
         sentAt: NOW,
         expiresAt: new Date(NOW.getTime() + CODE_LIFETIME_MS),
       },
+      CODE_SEND_LIMIT,
     ]);
+    assert.deepEqual(verificationCodes.saveDelivery.mock.calls[0]?.arguments, ['code-1', DELIVERY]);
   });
 
   // SEC-007: the provider's response time must not tell an account from an unknown phone.
@@ -465,7 +476,7 @@ describe('AuthService.requestPasswordReset', () => {
     await setImmediate();
 
     assert.equal(logError.mock.callCount(), 1);
-    assert.equal(verificationCodes.create.mock.callCount(), 0);
+    assert.deepEqual(verificationCodes.delete.mock.calls[0]?.arguments, ['code-1']);
     logError.mock.restore();
   });
 
@@ -486,11 +497,10 @@ describe('AuthService.requestPasswordReset', () => {
     });
   }
 
-  test('silently sends nothing less than a minute after the last code', async () => {
+  test('silently sends nothing when the phone reached a code limit', async () => {
     const { service, accounts, verificationCodes, notifications } = makeService();
     accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
-    const sentAt = new Date(NOW.getTime() - CODE_RESEND_INTERVAL_MS + 1);
-    verificationCodes.findLastSentAt.mock.mockImplementation(() => Promise.resolve(sentAt));
+    verificationCodes.createWithinLimit.mock.mockImplementation(() => Promise.resolve(undefined));
 
     await service.requestPasswordReset(PHONE);
     await setImmediate();

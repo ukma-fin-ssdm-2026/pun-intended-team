@@ -8,7 +8,8 @@ export interface VerificationCode {
   phone: string;
   purpose: CodePurpose;
   codeHash: string;
-  channel: DeliveryChannel;
+  /** Null until the provider takes the code. */
+  channel: DeliveryChannel | null;
   providerRequestId: string | null;
   sentAt: Date;
   expiresAt: Date;
@@ -16,5 +17,15 @@ export interface VerificationCode {
   usedAt: Date | null;
 }
 
-/** A new row as the repository stores it. */
-export type VerificationCodeRecord = Omit<VerificationCode, 'id' | 'failedAttempts' | 'usedAt'>;
+/** When a phone may get another code: none sent after `noneSentAfter`, and fewer than `atMost` since `since`. */
+export interface CodeSendLimit {
+  noneSentAfter: Date;
+  since: Date;
+  atMost: number;
+}
+
+/** A new row as the repository stores it, before the code is handed to the provider. */
+export type VerificationCodeRecord = Omit<
+  VerificationCode,
+  'id' | 'channel' | 'providerRequestId' | 'failedAttempts' | 'usedAt'
+>;
