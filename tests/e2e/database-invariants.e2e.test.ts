@@ -1,7 +1,7 @@
 // Written with the help of Claude
-// Integration tests of the database constraints: the indexes and checks of the database_invariants migration
-// and the unique (profile_id, app) of linked_accounts. They write to the database directly, since the services
-// check the same rules before a query and no HTTP request reaches the constraint.
+// Integration tests of the database constraints: the indexes and checks of the database_invariants migration,
+// the failed sign-in checks of accounts and the unique (profile_id, app) of linked_accounts. They write to the
+// database directly, since the services check the same rules before a query and no HTTP request reaches the constraint.
 // Each test runs in a transaction that is rolled back, so nothing stays in the database.
 // Run with `npm run test:e2e`; the database must have all migrations applied.
 import assert from 'node:assert/strict';
@@ -154,6 +154,67 @@ describe('profiles_username_lower_key', () => {
       await aProfile(db, `Alice-${suffix}`);
 
       await aProfile(db, `Bob-${suffix}`);
+    }));
+});
+
+describe('accounts_active_has_date_of_birth_check', () => {
+  test('rejects an active account without a date of birth', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      const update = db.query(`UPDATE accounts SET status = 'active' WHERE id = $1`, [accountId]);
+
+      await assertViolates(update, CHECK_VIOLATION, 'accounts_active_has_date_of_birth_check');
+    }));
+
+  test('accepts an active account with a date of birth', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      await db.query(`UPDATE accounts SET status = 'active', date_of_birth = $2 WHERE id = $1`, [
+        accountId,
+        randomBytes(16),
+      ]);
+    }));
+});
+
+describe('accounts_failed_signins_window_check', () => {
+  test('rejects failed sign-ins without the start of their window', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      const update = db.query('UPDATE accounts SET failed_signins = 1 WHERE id = $1', [accountId]);
+
+      await assertViolates(update, CHECK_VIOLATION, 'accounts_failed_signins_window_check');
+    }));
+
+  test('rejects a window start without failed sign-ins', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      const update = db.query('UPDATE accounts SET failed_signins_since = now() WHERE id = $1', [accountId]);
+
+      await assertViolates(update, CHECK_VIOLATION, 'accounts_failed_signins_window_check');
+    }));
+
+  test('accepts failed sign-ins with the start of their window', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      await db.query('UPDATE accounts SET failed_signins = 1, failed_signins_since = now() WHERE id = $1', [accountId]);
+    }));
+});
+
+describe('accounts_failed_signins_not_negative_check', () => {
+  test('rejects a negative number of failed sign-ins', () =>
+    inTransaction(async (db) => {
+      const accountId = await anAccount(db);
+
+      const update = db.query('UPDATE accounts SET failed_signins = -1, failed_signins_since = now() WHERE id = $1', [
+        accountId,
+      ]);
+
+      await assertViolates(update, CHECK_VIOLATION, 'accounts_failed_signins_not_negative_check');
     }));
 });
 
