@@ -283,6 +283,10 @@ before(async () => {
     serverOutput += chunk;
   }));
   tokens.guest = (await call('POST', '/api/v1/auth/guest')).body.accessToken;
+  // Categories are in Postgres: without it, stop here rather than fail every catalog test.
+  if ((await call('GET', '/api/v1/categories', { token: tokens.guest })).status !== 200) {
+    throw new Error('The database is not reachable: start it with `docker compose up -d`, then run the tests again');
+  }
   tokens.user = await signIn(phones.user);
   tokens.org = await signIn(phones.org);
   tokens.orgPending = await signIn(phones.orgPending);
@@ -290,16 +294,20 @@ before(async () => {
 });
 
 after(async () => {
-  // Categories are in the database and outlive the run, so remove the ones the tests made (also from a run that crashed).
-  const all = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
-  for (const { id, name } of all.body.items) {
-    if (name.startsWith(TEST_CATEGORY_PREFIX)) {
-      await call('DELETE', `/api/v1/admin/categories/${id}`, { token: tokens.admin });
+  // Stops the servers even when the clean-up fails, so the run ends instead of waiting on them.
+  try {
+    // Categories are in the database and outlive the run, so remove the ones the tests made (also from a run that crashed).
+    const all = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
+    for (const { id, name } of all.body.items) {
+      if (name.startsWith(TEST_CATEGORY_PREFIX)) {
+        await call('DELETE', `/api/v1/admin/categories/${id}`, { token: tokens.admin });
+      }
     }
+  } finally {
+    server?.kill();
+    jwksServer?.close();
+    rmSync(keysDir, { recursive: true, force: true });
   }
-  server?.kill();
-  jwksServer?.close();
-  rmSync(keysDir, { recursive: true, force: true });
 });
 
 describe('GET /health', () => {
