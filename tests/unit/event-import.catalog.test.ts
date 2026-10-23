@@ -15,7 +15,7 @@ import { concertUaSampleFeed } from '../../dist/infra/providers/concert-ua-sampl
 import { StubEventsRepository } from '../../dist/infra/stubs/events.repository.js';
 import { StubVenuesRepository } from '../../dist/infra/stubs/venues.repository.js';
 import { aCategory } from './fixtures/catalog.ts';
-import { NOW, TODAY } from './fixtures/clock.ts';
+import { NOW, useFixedClock } from './fixtures/clock.ts';
 
 /** A provider that is not Concert.ua: another id, another raw shape, nothing shared with the first one. */
 class ArtWizardEventProvider extends EventProvider {
@@ -77,14 +77,15 @@ const titlesIn = async (eventsService: EventsService) =>
   (await eventsService.list({}, { limit: 100, offset: 0 })).items.map((event) => event.title);
 
 describe('import into the catalog', () => {
+  // The catalog shows only the 28 days from today, so the whole test, the catalog read included, runs at NOW.
+  useFixedClock();
+
   test('imported Concert.ua events are served by the catalog as imported events', async () => {
-    mock.timers.enable({ apis: ['Date'], now: NOW });
     const { importService, eventsService } = makeCatalog(
       new ConcertUaEventProvider(() => Promise.resolve(concertUaSampleFeed(NOW))),
     );
 
     const report = await importService.run();
-    mock.timers.reset();
 
     assert.equal(report.created, 3);
     const titles = await titlesIn(eventsService);
@@ -106,13 +107,12 @@ describe('import into the catalog', () => {
   });
 
   test('a second provider is served with no change in the catalog code', async () => {
-    mock.timers.enable({ apis: ['Date'], now: NOW });
     const { importService, eventsService } = makeCatalog(new ArtWizardEventProvider());
 
     const report = await importService.run();
-    mock.timers.reset();
 
     assert.equal(report.provider, 'art_wizard');
-    assert.ok((await titlesIn(eventsService)).includes('Gallery opening'), TODAY);
+    const titles = await titlesIn(eventsService);
+    assert.ok(titles.includes('Gallery opening'), titles.join(', '));
   });
 });
