@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { randomInt, randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
@@ -21,8 +21,8 @@ const MAX_FAILED_ATTEMPTS = 3;
 const MINIMUM_AGE = 18; // SAFE-001
 
 @Injectable()
-export class AuthService {
-  private dummyPasswordHash: Promise<string> | undefined;
+export class AuthService implements OnModuleInit {
+  private dummyPasswordHash!: string;
 
   constructor(
     private readonly accountsRepository: AccountsRepository,
@@ -32,6 +32,10 @@ export class AuthService {
     private readonly accessTokens: AccessTokens,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.dummyPasswordHash = await this.passwordHasher.hash(randomUUID());
+  }
 
   /** Answers the same whether or not the phone already has an account (SEC-007). */
   async register(phone: string): Promise<void> {
@@ -84,7 +88,7 @@ export class AuthService {
     const credential = await this.accountsRepository.findPasswordCredential(phone);
     // An unknown phone still costs one hash, so the response time does not reveal it (SEC-007).
     const passwordMatches = await this.passwordHasher.verify(
-      credential?.passwordHash ?? (await this.dummyHash()),
+      credential?.passwordHash ?? this.dummyPasswordHash,
       password,
     );
     if (!credential || !passwordMatches || credential.status !== 'active') {
@@ -109,11 +113,6 @@ export class AuthService {
   private async issue(caller: Caller): Promise<AccessToken> {
     const accessToken = await this.accessTokens.issue(caller, ACCESS_TOKEN_SECONDS);
     return { accessToken, expiresIn: ACCESS_TOKEN_SECONDS };
-  }
-
-  private dummyHash(): Promise<string> {
-    this.dummyPasswordHash ??= this.passwordHasher.hash(randomUUID());
-    return this.dummyPasswordHash;
   }
 }
 
