@@ -556,6 +556,7 @@ describe('AuthService.resetPassword', () => {
 });
 
 describe('AuthService.setPassword', () => {
+  useFixedClock();
   const NEW_PASSWORD = 'a new long passphrase';
 
   test('sets the first password without asking for a current one', async () => {
@@ -577,15 +578,17 @@ describe('AuthService.setPassword', () => {
     assert.deepEqual(accounts.setPasswordHash.mock.calls[0]?.arguments, [ACCOUNT_ID, `hash(${NEW_PASSWORD})`]);
   });
 
-  test('refuses to replace a password without the current one', async () => {
+  test('refuses to replace a password without the current one, counting nothing', async () => {
     const { service, accounts } = makeService();
     accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
 
     await assert.rejects(service.setPassword(ACCOUNT_ID, NEW_PASSWORD), isDomainError('WRONG_PASSWORD'));
     assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
+    assert.equal(accounts.updateLockout.mock.callCount(), 0);
   });
 
-  test('refuses to replace a password when the current one is wrong', async () => {
+  // SEC-007: a stolen session must not give unlimited guesses at the password.
+  test('refuses a wrong current password and counts it as a failed sign-in', async () => {
     const { service, accounts, passwordHasher } = makeService();
     accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
     passwordHasher.verify.mock.mockImplementation(() => Promise.resolve(false));
@@ -593,6 +596,20 @@ describe('AuthService.setPassword', () => {
     const setting = service.setPassword(ACCOUNT_ID, NEW_PASSWORD, 'wrong-password');
 
     await assert.rejects(setting, isDomainError('WRONG_PASSWORD'));
+    assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
+    assert.equal(accounts.updateLockout.mock.calls[0]?.arguments[0], ACCOUNT_ID);
+    assert.deepEqual(await accounts.updateLockout.mock.calls[0]?.result, {
+      failedSignins: 1,
+      failedSigninsSince: NOW,
+      lockedUntil: null,
+    });
+  });
+
+  test('refuses even the right current password on a locked account', async () => {
+    const { service, accounts } = makeService({ lockout: { ...NO_LOCKOUT, lockedUntil: new Date(NOW.getTime() + 1) } });
+    accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
+
+    await assert.rejects(service.setPassword(ACCOUNT_ID, NEW_PASSWORD, PASSWORD), isDomainError('WRONG_PASSWORD'));
     assert.equal(accounts.setPasswordHash.mock.callCount(), 0);
   });
 });

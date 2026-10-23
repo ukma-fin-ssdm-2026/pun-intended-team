@@ -84,11 +84,23 @@ export class AuthService implements OnModuleInit {
     return this.issue({ kind: 'account', accountId, role: account.role, sessionId: randomUUID() });
   }
 
-  /** The current password is required only once the account has one. */
+  /**
+   * The current password is required only once the account has one. A wrong one counts like a failed sign-in,
+   * so a stolen session cannot be used to guess it (SEC-007).
+   */
   async setPassword(accountId: string, password: string, currentPassword?: string): Promise<void> {
     const currentHash = await this.accountsRepository.findPasswordHash(accountId);
-    if (currentHash && !(currentPassword && (await this.passwordHasher.verify(currentHash, currentPassword)))) {
-      throw new DomainError('WRONG_PASSWORD', 'The current password is missing or wrong. Enter it to set a new one');
+    if (currentHash) {
+      if (currentPassword === undefined) {
+        throw new DomainError('WRONG_PASSWORD', 'Enter your current password to set a new one');
+      }
+      const passwordMatches = await this.passwordHasher.verify(currentHash, currentPassword);
+      if (!(await this.passesLockout(accountId, passwordMatches))) {
+        throw new DomainError(
+          'WRONG_PASSWORD',
+          'The current password is wrong, or was entered wrong too many times. Wait 15 minutes or reset your password',
+        );
+      }
     }
     await this.accountsRepository.setPasswordHash(accountId, await this.passwordHasher.hash(password));
   }

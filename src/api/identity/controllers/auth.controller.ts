@@ -197,6 +197,7 @@ export class AuthController {
     return withType(await this.authService.resetPassword(body));
   }
 
+  @UseGuards(ThrottlerGuard)
   @Endpoint({
     method: 'put',
     path: Routes.account.password,
@@ -204,7 +205,7 @@ export class AuthController {
     summary: 'Set or change your password',
     description:
       'Set a password to sign in with, right after registration, or change it. ' +
-      'Changing an existing password needs the current one.',
+      'Changing an existing password needs the current one; wrong ones count towards the sign-in lockout.',
     tags: ['Auth'],
     access: 'user',
     mcp: false,
@@ -212,7 +213,9 @@ export class AuthController {
     responses: {
       204: { description: 'The password is set' },
       422: {
-        description: '`WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong',
+        description:
+          '`WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong, ' +
+          'or the account is locked after too many wrong passwords',
         schema: ErrorResponse,
       },
     },
