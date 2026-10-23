@@ -238,6 +238,15 @@ describe('AuthService.verify', () => {
     assert.equal(accounts.create.mock.callCount(), 0);
   });
 
+  test('checks the latest registration code, not a reset code', async () => {
+    const { service, verificationCodes } = makeService();
+    verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode()));
+
+    await service.verify(aRegistration());
+
+    assert.deepEqual(verificationCodes.findLatest.mock.calls[0]?.arguments, [PHONE, 'registration']);
+  });
+
   test('rejects a code that was already used', async () => {
     const { service, verificationCodes } = makeService();
     verificationCodes.findLatest.mock.mockImplementation(() => Promise.resolve(aCode({ usedAt: NOW })));
@@ -485,6 +494,7 @@ describe('AuthService.requestPasswordReset', () => {
   const noCodeCases = [
     { title: 'sends nothing to a phone without an account', account: undefined },
     { title: 'sends nothing to a banned account', account: anAccount({ status: 'banned' }) },
+    { title: 'sends nothing to an account that has not finished registration', account: aPendingAccount() },
   ];
 
   for (const { title, account } of noCodeCases) {
@@ -603,6 +613,17 @@ describe('AuthService.setPassword', () => {
       failedSigninsSince: NOW,
       lockedUntil: null,
     });
+  });
+
+  test('clears earlier failed sign-ins when the current password is right', async () => {
+    const { service, accounts } = makeService({
+      lockout: { failedSignins: 2, failedSigninsSince: NOW, lockedUntil: null },
+    });
+    accounts.findPasswordHash.mock.mockImplementation(() => Promise.resolve('stored-hash'));
+
+    await service.setPassword(ACCOUNT_ID, NEW_PASSWORD, PASSWORD);
+
+    assert.deepEqual(await accounts.updateLockout.mock.calls[0]?.result, NO_LOCKOUT);
   });
 
   test('refuses even the right current password on a locked account', async () => {

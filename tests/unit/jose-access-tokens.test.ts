@@ -27,15 +27,17 @@ function aGuestCaller(): GuestCaller {
 }
 
 /** A token with the claims the API issues, built by hand so a test can change one part of it. */
+/** `kid: null` leaves the key id out of the header. */
 function aToken({
   key = KEY,
+  kid = key.kid as string | null,
   typ = 'at+jwt',
   issuer = 'nearby-api',
   audience = 'nearby-api',
   claims = { role: 'user', sid: anAccountCaller().sessionId } as Record<string, unknown>,
 } = {}): Promise<string> {
   return new SignJWT(claims)
-    .setProtectedHeader({ alg: 'HS256', kid: key.kid, typ })
+    .setProtectedHeader({ alg: 'HS256', ...(kid === null ? {} : { kid }), typ })
     .setSubject(ACCOUNT_ID)
     .setIssuer(issuer)
     .setAudience(audience)
@@ -98,6 +100,7 @@ describe('JoseAccessTokens', () => {
 
   const forgedTokens = [
     { title: 'refuses a token signed with a key it does not know', token: () => aToken({ key: NEW_KEY }) },
+    { title: 'refuses a token without a key id', token: () => aToken({ kid: null }) },
     {
       title: 'refuses a token signed with another secret under a known kid',
       token: () => aToken({ key: { kid: KEY.kid, secret: Buffer.alloc(32, 1) } }),

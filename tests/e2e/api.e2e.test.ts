@@ -169,6 +169,13 @@ async function loggedCode(phone: string, logged: number): Promise<string | undef
   return undefined;
 }
 
+/** Five wrong passwords lock `phone` for 15 minutes (SEC-007). */
+async function lock(phone: string): Promise<void> {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } });
+  }
+}
+
 /** An ID token for `subject` as Google Sign-In returns it on the device. */
 function googleIdToken(subject: string, { audience = googleClientId } = {}): Promise<string> {
   return new SignJWT({})
@@ -400,6 +407,23 @@ describe('POST /api/v1/auth/sign-in', () => {
     assert.deepEqual(locked.body, wrongPassword.body);
   });
 
+  // TM-09: a lock stops only password sign-in.
+  test('still signs a locked account in with Google', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password: 'a long passphrase' } });
+    const subject = newGoogleSubject();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+    await lock(phone);
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  });
+
+  test('rejects a body without a password with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user } }), 'body', 'password');
+  });
+
   test('rejects a number that is not Ukrainian with 400', async () => {
     const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: '+15551234567', password: 'x' } });
     assertInvalid(res, 'body', 'phone');
@@ -459,6 +483,12 @@ describe('POST /api/v1/auth/verify', () => {
     });
     assertRejected(res, 409, 'CONFLICT');
   });
+
+  test('rejects a code that is not 6 digits with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/verify', { body: { phone: newPhone(), code: '12345' } });
+
+    assertInvalid(res, 'body', 'code');
+  });
 });
 
 describe('POST /api/v1/auth/complete-registration', () => {
@@ -499,6 +529,23 @@ describe('POST /api/v1/auth/complete-registration', () => {
     assertRejected(await call('POST', '/api/v1/auth/complete-registration', { token, body }), 409, 'CONFLICT');
   });
 
+  test('rejects a date of birth that is not a calendar date with 400', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: '2000-02-30' },
+    });
+
+    assertInvalid(res, 'body', 'dateOfBirth');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/complete-registration', { body: { dateOfBirth: '2000-05-17' } });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+
   test('rejects a signed-in account token with 401', async () => {
     const res = await call('POST', '/api/v1/auth/complete-registration', {
       token: tokens.user,
@@ -527,6 +574,10 @@ describe('POST /api/v1/auth/google', () => {
     });
 
     assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('rejects a body without an ID token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/google', { body: {} }), 'body', 'idToken');
   });
 
   test('refuses an ID token issued to another app with 401', async () => {
@@ -621,6 +672,33 @@ describe('Per-IP limit on the auth endpoints', () => {
     assert.ok(Number(res.headers.get('retry-after')) > 0, String(res.headers.get('retry-after')));
   });
 
+  // The limit counts a request before its body is checked, so an empty body is enough.
+  const limitedEndpoints = [
+    ['POST', '/api/v1/auth/register'],
+    ['POST', '/api/v1/auth/verify'],
+    ['POST', '/api/v1/auth/google'],
+    ['POST', '/api/v1/auth/password-reset'],
+    ['POST', '/api/v1/auth/password-reset/confirm'],
+    ['PUT', '/api/v1/me/password'],
+  ];
+
+  for (const [method, path] of limitedEndpoints) {
+    test(`refuses a third ${method} ${path} from one IP within a minute with 429`, async () => {
+      const send = () =>
+        fetch(limited.url + path, {
+          method,
+          headers: { authorization: `Bearer ${tokens.user}`, 'content-type': 'application/json' },
+          body: '{}',
+        });
+      await send();
+      await send();
+
+      const res = await send();
+
+      assert.equal(res.status, 429);
+    });
+  }
+
   test('does not limit guest tokens, which every app start asks for', async () => {
     const statuses = [];
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -651,9 +729,11 @@ describe('POST /api/v1/auth/password-reset', () => {
 });
 
 describe('POST /api/v1/auth/password-reset/confirm', () => {
-  test('replaces the password and signs in; the code works only once', async () => {
+  // SEC-007: a reset lifts the lock, so a user locked out by someone else can get back in.
+  test('replaces the password, lifts a lock and signs in; the code works only once', async () => {
     const phone = phones.taras;
     const password = 'a new long passphrase';
+    await lock(phone);
     const body = { phone, code: await requestCode(phone, '/api/v1/auth/password-reset'), password };
 
     const res = await call('POST', '/api/v1/auth/password-reset/confirm', { body });
@@ -664,6 +744,14 @@ describe('POST /api/v1/auth/password-reset/confirm', () => {
     const oldPassword = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
     assertRejected(oldPassword, 401, 'INVALID_CREDENTIALS');
     assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  });
+
+  test('rejects a new password shorter than 8 characters with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
+      body: { phone: newPhone(), code: '123456', password: 'short' },
+    });
+
+    assertInvalid(res, 'body', 'password');
   });
 
   test('does not accept a registration code', async () => {
@@ -710,6 +798,22 @@ describe('PUT /api/v1/me/password', () => {
     assert.equal(withCurrent.status, 204, JSON.stringify(withCurrent.body));
     const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: newPassword } });
     assert.equal(signIn.status, 200);
+  });
+
+  // SEC-007: a stolen session must not give unlimited guesses at the password.
+  test('counts wrong current passwords towards the sign-in lockout', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      await call('PUT', '/api/v1/me/password', {
+        token,
+        body: { password: 'another long passphrase', currentPassword: 'not-the-password' },
+      });
+    }
+
+    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
   });
 
   test('rejects a password shorter than 8 characters with 400', async () => {
@@ -1311,5 +1415,17 @@ describe('PUT /api/v1/me/profile/interests', () => {
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
+  });
+});
+
+// SEC-002, SEC-004: last, so the log holds what every test above did.
+describe('Server log', () => {
+  test('contains no password or access token', () => {
+    const passwords = [seededPassword, 'a long passphrase', 'a new long passphrase', 'another long passphrase'];
+    const secrets = [...passwords, 'not-the-password', ...Object.values(tokens)];
+
+    for (const secret of secrets) {
+      assert.equal(serverOutput.includes(secret), false, `the log contains ${secret.slice(0, 12)}…`);
+    }
   });
 });
