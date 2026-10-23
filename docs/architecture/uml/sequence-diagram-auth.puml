@@ -29,26 +29,26 @@ end box
 
 APP -> API : POST /auth/register {phone}
 API -> SVC : register(phone)
-SVC -> CODES : findLastSentAt(phone) — codes of any purpose
-alt a code was sent less than a minute ago
-  SVC --> APP : 429 CODE_RESEND_TOO_SOON
-end
 SVC -> SVC : random 6-digit code
-SVC -> MSG : sendCode(phone, code)
-note right of MSG : Telegram Gateway, SMS (TurboSMS) if Telegram\nrefuses or does not answer; console in development
 SVC -> HASH : HMAC(phone:code)
-SVC -> CODES : create(hash, channel, provider request id, expires in 10 min)
-API --> APP : 202 — same answer for a registered phone
+SVC -> CODES : createWithinLimit(hash, expires in 10 min)\n— one step, codes of any purpose
+opt none in the last minute and fewer than 5 in 24 hours
+  SVC -> MSG : sendCode(phone, code)
+  note right of MSG : Telegram Gateway, SMS (TurboSMS) if Telegram\nrefuses or does not answer; console in development
+  SVC -> CODES : saveDelivery(channel, provider request id)\n— or delete if no channel took it
+end
+API --> APP : 202 — same answer for a registered phone and within the minute
 
 == Verify the code ==
 
 APP -> API : POST /auth/verify {phone, code}
 API -> SVC : verify(…)
 SVC -> CODES : findLatest(phone, registration)
-alt no code, expired, used or 3 failed attempts
+alt no code, expired or used
   SVC --> APP : 422 INVALID_CODE
-else HMAC does not match
-  SVC -> CODES : addFailedAttempt
+end
+SVC -> CODES : addAttempt — counted before the check
+alt more than 3 attempts, or HMAC does not match
   SVC --> APP : 422 INVALID_CODE
 end
 SVC -> CODES : markUsed — false if another request used it first
@@ -82,15 +82,15 @@ note right of APP : next: PUT /me/password\nand / or PUT /me/google
 
 APP -> API : POST /auth/sign-in {phone, password}
 API -> SVC : signIn(phone, password)
-SVC -> ACC : findPasswordCredential(phone) — with the lockout state
+SVC -> ACC : findPasswordCredential(phone)
 SVC -> HASH : verify(hash, password)\n— a stand-in hash for an unknown phone
-alt unknown phone, not active, or locked
+alt unknown phone or not active
   SVC --> APP : 401 INVALID_CREDENTIALS
-else wrong password
-  SVC -> ACC : saveLockout — the 5th failure in 15 min locks for 15 min
+end
+SVC -> ACC : updateLockout — one step on the stored state:\nlocked stays locked, a failure counts\n(the 5th in 15 min locks for 15 min), a success clears
+alt locked or wrong password
   SVC --> APP : 401 INVALID_CREDENTIALS — the same answer every time
 end
-SVC -> ACC : saveLockout(no failures) — only after earlier failures
 SVC -> TOK : issue(account caller, 3600 s)
 API --> APP : 200 {accessToken, expiresIn: 3600}
 
@@ -111,14 +111,14 @@ API --> APP : 200 {accessToken, expiresIn: 3600}
 APP -> API : POST /auth/password-reset {phone}
 API -> SVC : requestPasswordReset(phone)
 SVC -> ACC : findByPhone(phone)
-opt an active account and no code in the last minute
+opt an active account
   SVC ->> MSG : reset code, sent in the background as in Register
 end
 API --> APP : 202 — the same answer for any phone
 APP -> API : POST /auth/password-reset/confirm {phone, code, password}
 API -> SVC : resetPassword(…)
 SVC -> CODES : check the latest reset code, as in Verify
-SVC -> ACC : setPasswordHash, saveLockout(no failures)
+SVC -> ACC : setPasswordHash, updateLockout(no failures)
 SVC -> TOK : issue(account caller, 3600 s)
 API --> APP : 200 {accessToken, expiresIn: 3600}
 
@@ -142,7 +142,7 @@ API -> API : handler runs with the Caller
 note over APP, MSG
   Errors: AuthService throws a DomainError with a code; ApiExceptionFilter (api) turns it into the status shown.
   Token: header {alg HS256, kid, typ at+jwt}; claims sub, role (guest, registrant, user, admin), sid (accounts only), iss/aud nearby-api, iat, exp.
-  Limits: register, verify, sign-in, Google and both reset calls allow 20 requests a minute per IP each (429 RATE_LIMITED).
+  Limits: register, verify, sign-in, Google, both reset calls and PUT /me/password allow 20 requests a minute per IP each (429 RATE_LIMITED).
   Planned, not shown: refresh tokens and a revocation check by sid (SEC-005), audit records (SEC-004).
 end note
 @enduml

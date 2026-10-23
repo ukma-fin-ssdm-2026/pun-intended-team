@@ -155,7 +155,7 @@ export interface paths {
         put?: never;
         /**
          * Start registration
-         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account. No access token needed.
+         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account, and a code requested within a minute of the last one is silently not sent. No access token needed.
          */
         post: operations["register"];
         delete?: never;
@@ -294,7 +294,7 @@ export interface paths {
         get?: never;
         /**
          * Set or change your password
-         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one. Needs a signed-in account; a guest token gets 401.
+         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["setPassword"];
         post?: never;
@@ -541,7 +541,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "CODE_RESEND_TOO_SOON" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1675,15 +1675,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     verify: {
@@ -2001,7 +1992,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong */
+            /** @description `WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong, or the account is locked after too many wrong passwords */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -126,11 +126,11 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 | `PUT` | `/api/v1/me/password` | Signed-in user | `204` | `400`, `401`, `422` |
 | `PUT` | `/api/v1/me/google` | Signed-in user | `204` | `400`, `401`, `409`, `422` |
 
-Registration takes three calls: `register` sends a one-time code to a `+380` number; `verify` checks the code and returns a registration token, valid for 15 minutes, that only `complete-registration` accepts; `complete-registration` takes the date of birth and activates the account. Under 18, the registration is removed and the number can start again. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; one code a minute goes to a number, for registration and reset together (SEC-008).
+Registration takes three calls: `register` sends a one-time code to a `+380` number; `verify` checks the code and returns a registration token, valid for 15 minutes, that only `complete-registration` accepts; `complete-registration` takes the date of birth and activates the account. Under 18, the registration is removed and the number can start again. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; a number gets one code a minute and at most five in 24 hours, for registration and reset together, and a request over either limit is answered the same but sends nothing (SEC-008).
 
 A new account has no sign-in method yet: the app sets a password with `PUT /me/password` (8 to 128 characters; changing it needs `currentPassword`) and / or links Google with `PUT /me/google`, which takes the ID token from Google Sign-In. `POST /auth/google` signs in only a Google account linked this way. A forgotten password is replaced with a code: `password-reset` sends one, `password-reset/confirm` takes it with the new password.
 
-`register` and `password-reset` answer the same whether or not the number has an account, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in for 15 minutes; Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google` and both reset calls take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
+`register` and `password-reset` answer the same whether or not the number has an account or reached a code limit, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in and password changes for 15 minutes; a wrong `currentPassword` in `PUT /me/password` counts too. Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google`, both reset calls and `PUT /me/password` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
 
 ### Events
 
@@ -269,7 +269,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
-| `429 Too Many Requests` | `RATE_LIMITED`, `CODE_RESEND_TOO_SOON` | A rate limit was hit (SEC-007), with `Retry-After` in seconds, or a registration code was requested again within a minute (SEC-008) |
+| `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007), with `Retry-After` in seconds |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
@@ -283,7 +283,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `INVALID_CODE` | `POST /auth/verify`, `POST /auth/password-reset/confirm` | The code is wrong, expired, already used, or has failed 3 times |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
-| `WRONG_PASSWORD` | `PUT /me/password` | The account has a password and `currentPassword` is missing or wrong |
+| `WRONG_PASSWORD` | `PUT /me/password` | The account has a password and `currentPassword` is missing or wrong, or the account is locked after five wrong passwords |
 | `INVALID_GOOGLE_TOKEN` | `PUT /me/google` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
