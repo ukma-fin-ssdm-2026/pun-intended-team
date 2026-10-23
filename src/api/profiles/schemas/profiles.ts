@@ -13,7 +13,7 @@ const InterestFields = z.object({
 
 export const interestExample: Interest = {
   id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01',
-  name: 'Cinema',
+  name: 'Books',
 };
 
 export const Interest = InterestFields.meta({
