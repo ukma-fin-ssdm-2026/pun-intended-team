@@ -424,6 +424,7 @@ describe('POST /api/v1/auth/sign-in', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.tokenType, 'Bearer');
     assert.equal(res.body.expiresIn, 3600);
+    assert.match(res.body.refreshToken, /^[0-9a-f-]{36}\.[\w-]{43}$/);
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
@@ -779,9 +780,11 @@ describe('POST /api/v1/auth/password-reset', () => {
 
 describe('POST /api/v1/auth/password-reset/confirm', () => {
   // SEC-007: a reset lifts the lock, so a user locked out by someone else can get back in.
-  test('replaces the password, lifts a lock and signs in; the code works only once', async () => {
+  // TM-01: it also signs out whoever signed in with the old password.
+  test('replaces the password, lifts a lock, ends the other sessions and signs in; the code works only once', async () => {
     const phone = phones.taras;
     const password = 'a new long passphrase';
+    const earlierSession = await signIn(phone);
     await lock(phone);
     const body = { phone, code: await requestCode(phone, '/api/v1/auth/password-reset'), password };
 
@@ -789,6 +792,7 @@ describe('POST /api/v1/auth/password-reset/confirm', () => {
 
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+    assertRejected(await call('GET', '/api/v1/listings', { token: earlierSession }), 401, 'UNAUTHENTICATED');
     assertRejected(await call('POST', '/api/v1/auth/password-reset/confirm', { body }), 422, 'INVALID_CODE');
     const oldPassword = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
     assertRejected(oldPassword, 401, 'INVALID_CREDENTIALS');
@@ -849,6 +853,24 @@ describe('PUT /api/v1/me/password', () => {
     assert.equal(signIn.status, 200);
   });
 
+  test('ends the other sessions of the account, but not this one', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const other = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    const res = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: 'another long passphrase', currentPassword: password },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token })).status, 200);
+    assertRejected(await call('GET', '/api/v1/listings', { token: other.body.accessToken }), 401, 'UNAUTHENTICATED');
+    const refresh = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: other.body.refreshToken } });
+    assertRejected(refresh, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  // SEC-007: a stolen session must not give unlimited guesses at the password.
   test('counts wrong current passwords towards the sign-in lockout', async () => {
     const { phone, token } = await newAccount();
     await call('PUT', '/api/v1/me/password', { token, body: { password } });
@@ -877,12 +899,109 @@ describe('PUT /api/v1/me/password', () => {
   });
 });
 
+// SEC-005: sessions renew without signing in again, and end at once on sign-out.
+describe('POST /api/v1/auth/refresh', () => {
+  async function newSession(): Promise<{ accessToken: string; refreshToken: string }> {
+    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body;
+  }
+
+  test('returns new tokens, and the old refresh token stops working', async () => {
+    const session = await newSession();
+
+    const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.expiresIn, 3600);
+    assert.notEqual(res.body.refreshToken, session.refreshToken);
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('ends the session when a refresh token is used a second time', async () => {
+    const session = await newSession();
+    const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assertRejected(reused, 401, 'INVALID_REFRESH_TOKEN');
+    const afterReuse = await call('POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: renewed.body.refreshToken },
+    });
+    assertRejected(afterReuse, 401, 'INVALID_REFRESH_TOKEN');
+    assertRejected(await call('GET', '/api/v1/listings', { token: renewed.body.accessToken }), 401, 'UNAUTHENTICATED');
+  });
+
+  // A token rotated more than once cannot be told from a guess, so any wrong secret ends the session.
+  test('ends the session on a wrong secret', async () => {
+    const session = await newSession();
+    const [sessionId] = session.refreshToken.split('.');
+
+    const res = await call('POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: `${sessionId}.${randomBytes(32).toString('base64url')}` },
+    });
+
+    assertRejected(res, 401, 'INVALID_REFRESH_TOKEN');
+    const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    assertRejected(renewed, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('rejects a refresh token of no session with 401', async () => {
+    const refreshToken = `${randomUUID()}.${randomBytes(32).toString('base64url')}`;
+
+    const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken } });
+
+    assertRejected(res, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('rejects a body without a refresh token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/refresh', { body: {} }), 'body', 'refreshToken');
+  });
+});
+
+describe('POST /api/v1/auth/sign-out', () => {
+  test('ends this session at once and leaves the others signed in', async () => {
+    const session = (
+      await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } })
+    ).body;
+
+    const res = await call('POST', '/api/v1/auth/sign-out', { token: session.accessToken });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assertRejected(await call('GET', '/api/v1/listings', { token: session.accessToken }), 401, 'UNAUTHENTICATED');
+    const refresh = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    assertRejected(refresh, 401, 'INVALID_REFRESH_TOKEN');
+    assert.equal((await call('GET', '/api/v1/listings', { token: tokens.user })).status, 200);
+  });
+
+  test('rejects a guest with 401', async () => {
+    assertRejected(await call('POST', '/api/v1/auth/sign-out', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+// SEC-005: there is no ban endpoint yet, so the test bans the account in the database.
+describe('A ban', () => {
+  test('rejects the next request of a session that was signed in before', async () => {
+    const { token } = await newAccount();
+    assert.equal((await call('GET', '/api/v1/listings', { token })).status, 200);
+    await withDatabase((client) =>
+      client.query(`UPDATE accounts SET status = 'banned' WHERE id = $1`, [accountIdOf(token)]),
+    );
+
+    const res = await call('GET', '/api/v1/listings', { token });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 // SEC-005: a missing, expired or tampered token gets 401. The admin endpoint shows a forged role gets nowhere.
 describe('Access tokens', () => {
   const accountId = 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e';
+  // The session the admin signed in with before the tests.
+  const adminSession = () => JSON.parse(Buffer.from(tokens.admin.split('.')[1] ?? '', 'base64url').toString()).sid;
 
   function token(
-    claims: Record<string, unknown> = { role: 'admin', sid: randomUUID() },
+    claims: Record<string, unknown> = { role: 'admin', sid: adminSession() },
     { header = {}, secret = jwtKey.secret, audience = 'nearby-api', expiresIn = '1h' } = {},
   ): Promise<string> {
     return new SignJWT(claims)
@@ -917,6 +1036,7 @@ describe('Access tokens', () => {
     'for another audience': () => token(undefined, { audience: 'another-api' }),
     'that is not an access token': () => token(undefined, { header: { typ: 'JWT' } }),
     'of an account without a session': () => token({ role: 'admin' }),
+    'of a session that does not exist': () => token({ role: 'admin', sid: randomUUID() }),
     'that is not a JWT': async () => 'not-a-token',
     // SA-01: inherited object keys were once accepted as tokens.
     'named like an object property': async () => 'constructor',
@@ -1518,6 +1638,20 @@ describe('Parallel requests', () => {
     assert.ok(responses.every((res) => res.status === 202));
     const codes = serverOutput.slice(logged).match(new RegExp(`for \\+380\\S*${phone.slice(-4)}: \\d{6}`, 'g'));
     assert.equal(codes?.length, 1);
+  });
+
+  // SEC-005
+  test('renew a session once when one refresh token is sent 5 times at once', async () => {
+    const { body: session } = await call('POST', '/api/v1/auth/sign-in', {
+      body: { phone: phones.user, password: seededPassword },
+    });
+    await openConnections();
+
+    const responses = await parallel(5, () =>
+      call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
+    );
+
+    assert.equal(responses.filter((res) => res.status === 200).length, 1);
   });
 
   // SEC-007: five failures lock the account only if no one overwrites another.

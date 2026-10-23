@@ -275,7 +275,7 @@ export interface paths {
         put?: never;
         /**
          * Finish a password reset
-         * @description Finish a password reset with the code and a new password, and sign in. No access token needed.
+         * @description Finish a password reset with the code and a new password, and sign in. Every other session of the account ends. No access token needed.
          */
         post: operations["resetPassword"];
         delete?: never;
@@ -294,7 +294,7 @@ export interface paths {
         get?: never;
         /**
          * Set or change your password
-         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. Needs a signed-in account; a guest token gets 401.
+         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. Every other session of the account ends; this one stays signed in. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["setPassword"];
         post?: never;
@@ -338,6 +338,46 @@ export interface paths {
          * @description Get a guest token: browse the catalog without an account. No access token needed.
          */
         post: operations["getGuestToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew the access token
+         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one, since the old one no longer works, and using it again ends the session. No access token needed.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description End this session: its access token and refresh token stop working at once. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["signOut"];
         delete?: never;
         options?: never;
         head?: never;
@@ -541,7 +581,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -789,6 +829,24 @@ export interface components {
         };
         /**
          * @example {
+         *       "accessToken": "eyJhbGciOiJIUzI1NiIs…",
+         *       "tokenType": "Bearer",
+         *       "expiresIn": 3600,
+         *       "refreshToken": "<session id>.<secret>"
+         *     }
+         */
+        SessionTokensResponse: {
+            /** @description Send as `Authorization: Bearer <accessToken>` */
+            accessToken: string;
+            /** @enum {string} */
+            tokenType: "Bearer";
+            /** @description Seconds until the token expires */
+            expiresIn: number;
+            /** @description Renews the access token with `refreshSession`; valid for 30 days, and replaced by every renewal */
+            refreshToken: string;
+        };
+        /**
+         * @example {
          *       "dateOfBirth": "2000-05-17"
          *     }
          */
@@ -851,6 +909,15 @@ export interface components {
             password: string;
             /** @description Required once the account has a password */
             currentPassword?: string;
+        };
+        /**
+         * @example {
+         *       "refreshToken": "<session id>.<secret>"
+         *     }
+         */
+        RefreshSessionBody: {
+            /** @description The refresh token from the last sign-in or renewal */
+            refreshToken: string;
         };
         /**
          * @example {
@@ -1741,13 +1808,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The account is active; an access token for it */
+            /** @description The account is active; the tokens of its first session */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["SessionTokensResponse"];
                 };
             };
             /** @description The request is invalid */
@@ -1810,13 +1877,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description An access token */
+            /** @description The tokens of a new session */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["SessionTokensResponse"];
                 };
             };
             /** @description The request is invalid */
@@ -1852,13 +1919,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description An access token */
+            /** @description The tokens of a new session */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["SessionTokensResponse"];
                 };
             };
             /** @description The request is invalid */
@@ -1925,13 +1992,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The password is replaced; an access token */
+            /** @description The password is replaced; the tokens of a new session */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["SessionTokensResponse"];
                 };
             };
             /** @description The request is invalid */
@@ -2077,6 +2144,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccessTokenResponse"];
+                };
+            };
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshSessionBody"];
+            };
+        };
+        responses: {
+            /** @description A new access token and refresh token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionTokensResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the token was already used */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

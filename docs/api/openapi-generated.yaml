@@ -119,6 +119,7 @@ components:
         - GOOGLE_ACCOUNT_TAKEN
         - GOOGLE_ALREADY_LINKED
         - INVALID_CODE
+        - INVALID_REFRESH_TOKEN
         - UNDERAGE
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
@@ -441,6 +442,34 @@ components:
       example:
         phone: '+380501119999'
         code: '123456'
+    SessionTokensResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 'Send as `Authorization: Bearer <accessToken>`'
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires
+        refreshToken:
+          type: string
+          description: >-
+            Renews the access token with `refreshSession`; valid for 30 days,
+            and replaced by every renewal
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - refreshToken
+      example:
+        accessToken: eyJhbGciOiJIUzI1NiIs…
+        tokenType: Bearer
+        expiresIn: 3600
+        refreshToken: <session id>.<secret>
     CompleteRegistrationBody:
       type: object
       properties:
@@ -534,6 +563,19 @@ components:
       example:
         password: a new long passphrase
         currentPassword: a long passphrase
+    RefreshSessionBody:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: The refresh token from the last sign-in or renewal
+      required:
+        - refreshToken
+      additionalProperties: false
+      example:
+        refreshToken: <session id>.<secret>
     ListingsPage:
       type: object
       properties:
@@ -1461,11 +1503,11 @@ paths:
               $ref: '#/components/schemas/CompleteRegistrationBody'
       responses:
         '200':
-          description: The account is active; an access token for it
+          description: The account is active; the tokens of its first session
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
+                $ref: '#/components/schemas/SessionTokensResponse'
         '400':
           description: The request is invalid
           content:
@@ -1511,11 +1553,11 @@ paths:
               $ref: '#/components/schemas/SignInBody'
       responses:
         '200':
-          description: An access token
+          description: The tokens of a new session
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
+                $ref: '#/components/schemas/SessionTokensResponse'
         '400':
           description: The request is invalid
           content:
@@ -1547,11 +1589,11 @@ paths:
               $ref: '#/components/schemas/GoogleIdTokenBody'
       responses:
         '200':
-          description: An access token
+          description: The tokens of a new session
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
+                $ref: '#/components/schemas/SessionTokensResponse'
         '400':
           description: The request is invalid
           content:
@@ -1600,7 +1642,7 @@ paths:
       summary: Finish a password reset
       description: >-
         Finish a password reset with the code and a new password, and sign in.
-        No access token needed.
+        Every other session of the account ends. No access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1611,11 +1653,11 @@ paths:
               $ref: '#/components/schemas/ConfirmPasswordResetBody'
       responses:
         '200':
-          description: The password is replaced; an access token
+          description: The password is replaced; the tokens of a new session
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
+                $ref: '#/components/schemas/SessionTokensResponse'
         '400':
           description: The request is invalid
           content:
@@ -1637,8 +1679,9 @@ paths:
       description: >-
         Set a password to sign in with, right after registration, or change it.
         Changing an existing password needs the current one; wrong ones count
-        towards the sign-in lockout. Needs a signed-in account; a guest token
-        gets 401.
+        towards the sign-in lockout. Every other session of the account ends;
+        this one stays signed in. Needs a signed-in account; a guest token gets
+        401.
       tags:
         - Auth
       security:
@@ -1738,6 +1781,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessTokenResponse'
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Renew the access token
+      description: >-
+        Renew the access token with the refresh token, without signing in again.
+        The refresh token is replaced: keep the new one, since the old one no
+        longer works, and using it again ends the session. No access token
+        needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionBody'
+      responses:
+        '200':
+          description: A new access token and refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the
+            token was already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/sign-out:
+    post:
+      operationId: signOut
+      summary: Sign out
+      description: >-
+        End this session: its access token and refresh token stop working at
+        once. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      responses:
+        '204':
+          description: Signed out
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/listings:
     get:
       operationId: listListings

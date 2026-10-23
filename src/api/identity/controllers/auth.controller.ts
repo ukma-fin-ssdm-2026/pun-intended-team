@@ -2,7 +2,8 @@
 import { Controller, UseGuards } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from '../../../core/identity/services/auth.service.ts';
-import type { AccessToken } from '../../../core/identity/types/auth.ts';
+import { SessionsService } from '../../../core/identity/services/sessions.service.ts';
+import type { AccessToken, SessionTokens } from '../../../core/identity/types/auth.ts';
 import type { AccountCaller, RegistrantCaller } from '../../../core/identity/types/caller.ts';
 import { CurrentAccount, CurrentRegistrant } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
@@ -14,7 +15,9 @@ import {
   ConfirmPasswordResetBody,
   GoogleIdTokenBody,
   PasswordResetBody,
+  RefreshSessionBody,
   RegisterBody,
+  SessionTokensResponse,
   SetPasswordBody,
   SignInBody,
   VerifyBody,
@@ -28,12 +31,16 @@ const SetPasswordRequest = { body: SetPasswordBody } satisfies RequestSchemas;
 const GoogleIdTokenRequest = { body: GoogleIdTokenBody } satisfies RequestSchemas;
 const PasswordResetRequest = { body: PasswordResetBody } satisfies RequestSchemas;
 const ConfirmPasswordResetRequest = { body: ConfirmPasswordResetBody } satisfies RequestSchemas;
+const RefreshSessionRequest = { body: RefreshSessionBody } satisfies RequestSchemas;
 
 // Not MCP tools (mcp: false): an agent cannot use a token it gets back, register sends a code,
 // and an agent should not set a user's password.
 @Controller()
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionsService: SessionsService,
+  ) {}
 
   @UseGuards(ThrottlerGuard)
   @Endpoint({
@@ -95,7 +102,7 @@ export class AuthController {
     mcp: false,
     request: CompleteRegistrationRequest,
     responses: {
-      200: { description: 'The account is active; an access token for it', schema: AccessTokenResponse },
+      200: { description: 'The account is active; the tokens of its first session', schema: SessionTokensResponse },
       404: { description: 'The registration was removed; start again', schema: ErrorResponse },
       409: { description: 'Registration is already complete', schema: ErrorResponse },
       422: { description: '`UNDERAGE`: younger than 18', schema: ErrorResponse },
@@ -104,7 +111,7 @@ export class AuthController {
   async completeRegistration(
     @CurrentRegistrant() registrant: RegistrantCaller,
     @Input() { body }: RouteInput<typeof CompleteRegistrationRequest>,
-  ): Promise<AccessTokenResponse> {
+  ): Promise<SessionTokensResponse> {
     return withType(await this.authService.completeRegistration(registrant.accountId, body.dateOfBirth));
   }
 
@@ -119,14 +126,14 @@ export class AuthController {
     mcp: false,
     request: SignInRequest,
     responses: {
-      200: { description: 'An access token', schema: AccessTokenResponse },
+      200: { description: 'The tokens of a new session', schema: SessionTokensResponse },
       401: {
         description: '`INVALID_CREDENTIALS`: wrong phone number or password; it does not say which',
         schema: ErrorResponse,
       },
     },
   })
-  async signIn(@Input() { body }: RouteInput<typeof SignInRequest>): Promise<AccessTokenResponse> {
+  async signIn(@Input() { body }: RouteInput<typeof SignInRequest>): Promise<SessionTokensResponse> {
     return withType(await this.authService.signIn(body.phone, body.password));
   }
 
@@ -142,14 +149,14 @@ export class AuthController {
     mcp: false,
     request: GoogleIdTokenRequest,
     responses: {
-      200: { description: 'An access token', schema: AccessTokenResponse },
+      200: { description: 'The tokens of a new session', schema: SessionTokensResponse },
       401: {
         description: '`INVALID_CREDENTIALS`: the ID token is invalid, or no account linked this Google account',
         schema: ErrorResponse,
       },
     },
   })
-  async signInWithGoogle(@Input() { body }: RouteInput<typeof GoogleIdTokenRequest>): Promise<AccessTokenResponse> {
+  async signInWithGoogle(@Input() { body }: RouteInput<typeof GoogleIdTokenRequest>): Promise<SessionTokensResponse> {
     return withType(await this.authService.signInWithGoogle(body.idToken));
   }
 
@@ -180,20 +187,23 @@ export class AuthController {
     path: Routes.auth.passwordResetConfirm,
     operationId: 'resetPassword',
     summary: 'Finish a password reset',
-    description: 'Finish a password reset with the code and a new password, and sign in.',
+    description:
+      'Finish a password reset with the code and a new password, and sign in. Every other session of the account ends.',
     tags: ['Auth'],
     access: 'public',
     mcp: false,
     request: ConfirmPasswordResetRequest,
     responses: {
-      200: { description: 'The password is replaced; an access token', schema: AccessTokenResponse },
+      200: { description: 'The password is replaced; the tokens of a new session', schema: SessionTokensResponse },
       422: {
         description: '`INVALID_CODE`: the code is wrong, expired, already used or failed 3 times',
         schema: ErrorResponse,
       },
     },
   })
-  async resetPassword(@Input() { body }: RouteInput<typeof ConfirmPasswordResetRequest>): Promise<AccessTokenResponse> {
+  async resetPassword(
+    @Input() { body }: RouteInput<typeof ConfirmPasswordResetRequest>,
+  ): Promise<SessionTokensResponse> {
     return withType(await this.authService.resetPassword(body));
   }
 
@@ -205,7 +215,8 @@ export class AuthController {
     summary: 'Set or change your password',
     description:
       'Set a password to sign in with, right after registration, or change it. ' +
-      'Changing an existing password needs the current one; wrong ones count towards the sign-in lockout.',
+      'Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. ' +
+      'Every other session of the account ends; this one stays signed in.',
     tags: ['Auth'],
     access: 'user',
     mcp: false,
@@ -224,7 +235,7 @@ export class AuthController {
     @CurrentAccount() account: AccountCaller,
     @Input() { body }: RouteInput<typeof SetPasswordRequest>,
   ): Promise<void> {
-    await this.authService.setPassword(account.accountId, body.password, body.currentPassword);
+    await this.authService.setPassword(account.accountId, account.sessionId, body.password, body.currentPassword);
   }
 
   @Endpoint({
@@ -272,8 +283,50 @@ export class AuthController {
   async getGuestToken(): Promise<AccessTokenResponse> {
     return withType(await this.authService.issueGuestToken());
   }
+
+  @UseGuards(ThrottlerGuard)
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.refresh,
+    operationId: 'refreshSession',
+    summary: 'Renew the access token',
+    description:
+      'Renew the access token with the refresh token, without signing in again. The refresh token is replaced: ' +
+      'keep the new one, since the old one no longer works, and using it again ends the session.',
+    tags: ['Auth'],
+    access: 'public',
+    mcp: false,
+    request: RefreshSessionRequest,
+    responses: {
+      200: { description: 'A new access token and refresh token', schema: SessionTokensResponse },
+      401: {
+        description: '`INVALID_REFRESH_TOKEN`: the session expired, was ended, or the token was already used',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async refreshSession(@Input() { body }: RouteInput<typeof RefreshSessionRequest>): Promise<SessionTokensResponse> {
+    return withType(await this.sessionsService.refresh(body.refreshToken));
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.signOut,
+    operationId: 'signOut',
+    summary: 'Sign out',
+    description: 'End this session: its access token and refresh token stop working at once.',
+    tags: ['Auth'],
+    access: 'user',
+    mcp: false,
+    responses: {
+      204: { description: 'Signed out' },
+    },
+  })
+  async signOut(@CurrentAccount() account: AccountCaller): Promise<void> {
+    await this.sessionsService.end(account.sessionId);
+  }
 }
 
-function withType(token: AccessToken): AccessTokenResponse {
+function withType<T extends AccessToken | SessionTokens>(token: T): T & { tokenType: 'Bearer' } {
   return { ...token, tokenType: 'Bearer' };
 }

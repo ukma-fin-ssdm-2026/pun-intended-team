@@ -10,13 +10,13 @@ import { GoogleIdTokens } from '../adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
+import { ACCESS_TOKEN_SECONDS, SessionsService } from './sessions.service.ts';
 import { afterFailedSignIn, isLocked, NO_LOCKOUT } from './sign-in-lockout.ts';
 import type { CodeDelivery } from '../../notifications/types/code-delivery.ts';
-import type { AccessToken, PasswordReset, Registration } from '../types/auth.ts';
+import type { AccessToken, PasswordReset, Registration, SessionTokens } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
 
-const ACCESS_TOKEN_SECONDS = 60 * 60; // SEC-005
 const REGISTRATION_TOKEN_SECONDS = 15 * 60;
 // SEC-008
 const CODE_DIGITS = 6;
@@ -40,6 +40,7 @@ export class AuthService implements OnModuleInit {
     private readonly accessTokens: AccessTokens,
     private readonly googleIdTokens: GoogleIdTokens,
     private readonly notificationsService: NotificationsService,
+    private readonly sessionsService: SessionsService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -68,7 +69,7 @@ export class AuthService implements OnModuleInit {
   }
 
   /** An applicant under 18 is refused and the pending account removed, so the number can register again (SAFE-001). */
-  async completeRegistration(accountId: string, dateOfBirth: string): Promise<AccessToken> {
+  async completeRegistration(accountId: string, dateOfBirth: string): Promise<SessionTokens> {
     const account = await this.accountsRepository.findById(accountId);
     if (!account) {
       throw new DomainError('NOT_FOUND', 'No registration in progress. Start again with your phone number');
@@ -81,14 +82,14 @@ export class AuthService implements OnModuleInit {
       throw new DomainError('UNDERAGE', `You must be at least ${MINIMUM_AGE} to use Nearby`);
     }
     await this.accountsRepository.activate(accountId, dateOfBirth);
-    return this.issue({ kind: 'account', accountId, role: account.role, sessionId: randomUUID() });
+    return this.sessionsService.start(accountId, account.role);
   }
 
   /**
    * The current password is required only once the account has one. A wrong one counts like a failed sign-in,
-   * so a stolen session cannot be used to guess it (SEC-007).
+   * so a stolen session cannot be used to guess it (SEC-007). A new password ends every other session.
    */
-  async setPassword(accountId: string, password: string, currentPassword?: string): Promise<void> {
+  async setPassword(accountId: string, sessionId: string, password: string, currentPassword?: string): Promise<void> {
     const currentHash = await this.accountsRepository.findPasswordHash(accountId);
     if (currentHash) {
       if (currentPassword === undefined) {
@@ -103,6 +104,7 @@ export class AuthService implements OnModuleInit {
       }
     }
     await this.accountsRepository.setPasswordHash(accountId, await this.passwordHasher.hash(password));
+    await this.sessionsService.endAll(accountId, sessionId);
   }
 
   /**
@@ -119,7 +121,8 @@ export class AuthService implements OnModuleInit {
     });
   }
 
-  async resetPassword({ phone, code, password }: PasswordReset): Promise<AccessToken> {
+  /** Ends every session, so whoever knew the old password is signed out (TM-01). */
+  async resetPassword({ phone, code, password }: PasswordReset): Promise<SessionTokens> {
     const now = new Date();
     await this.useCode(phone, 'reset', code, now);
     const account = await this.accountsRepository.findByPhone(phone);
@@ -128,10 +131,11 @@ export class AuthService implements OnModuleInit {
     }
     await this.accountsRepository.setPasswordHash(account.id, await this.passwordHasher.hash(password));
     await this.accountsRepository.updateLockout(account.id, () => NO_LOCKOUT);
-    return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
+    await this.sessionsService.endAll(account.id);
+    return this.sessionsService.start(account.id, account.role);
   }
 
-  async signIn(phone: string, password: string): Promise<AccessToken> {
+  async signIn(phone: string, password: string): Promise<SessionTokens> {
     const credential = await this.accountsRepository.findPasswordCredential(phone);
     // An unknown phone still costs one hash, so the response time does not reveal it (SEC-007).
     const passwordMatches = await this.passwordHasher.verify(
@@ -146,16 +150,11 @@ export class AuthService implements OnModuleInit {
     ) {
       throw invalidCredentials();
     }
-    return this.issue({
-      kind: 'account',
-      accountId: credential.accountId,
-      role: credential.role,
-      sessionId: randomUUID(),
-    });
+    return this.sessionsService.start(credential.accountId, credential.role);
   }
 
   /** Only an account that linked this Google account signs in; the password lockout does not apply (TM-09). */
-  async signInWithGoogle(idToken: string): Promise<AccessToken> {
+  async signInWithGoogle(idToken: string): Promise<SessionTokens> {
     const subject = await this.googleIdTokens.verify(idToken);
     if (subject === undefined) {
       throw new DomainError('INVALID_CREDENTIALS', 'Google sign-in did not go through. Try again');
@@ -167,7 +166,7 @@ export class AuthService implements OnModuleInit {
         'This Google account is not linked to Nearby. Sign in with your phone number, then link it',
       );
     }
-    return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
+    return this.sessionsService.start(account.id, account.role);
   }
 
   /** Only from a signed-in session, never by matching email (TM-12). Linking the same Google account again is a no-op. */
@@ -193,8 +192,13 @@ export class AuthService implements OnModuleInit {
     return this.issue({ kind: 'guest', guestId: randomUUID() });
   }
 
+  /** An account's token is valid only while its session is (SEC-005). */
   async authenticate(accessToken: string): Promise<Caller | undefined> {
-    return this.accessTokens.verify(accessToken);
+    const caller = await this.accessTokens.verify(accessToken);
+    if (caller?.kind === 'account' && !(await this.sessionsService.isActive(caller.sessionId, caller.accountId))) {
+      return undefined;
+    }
+    return caller;
   }
 
   /**

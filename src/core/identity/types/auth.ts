@@ -15,3 +15,8 @@ export interface AccessToken {
   /** Seconds until the token expires. */
   expiresIn: number;
 }
+
+/** What a signed-in account gets: the refresh token renews the access token without signing in again (SEC-005). */
+export interface SessionTokens extends AccessToken {
+  refreshToken: string;
+}

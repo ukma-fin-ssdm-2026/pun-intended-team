@@ -100,3 +100,30 @@ export const AccessTokenResponse = AccessTokenFields.meta({
 });
 
 export type AccessTokenResponse = z.infer<typeof AccessTokenFields>;
+
+const SessionTokensFields = AccessTokenFields.extend({
+  refreshToken: z
+    .string()
+    .describe('Renews the access token with `refreshSession`; valid for 30 days, and replaced by every renewal'),
+});
+
+export const SessionTokensResponse = SessionTokensFields.meta({
+  id: 'SessionTokensResponse',
+  example: {
+    accessToken: 'eyJhbGciOiJIUzI1NiIs…',
+    tokenType: 'Bearer',
+    expiresIn: 3600,
+    refreshToken: '<session id>.<secret>',
+  },
+});
+
+export type SessionTokensResponse = z.infer<typeof SessionTokensFields>;
+
+const RefreshSessionFields = z.strictObject({
+  refreshToken: z.string().min(1).max(256).describe('The refresh token from the last sign-in or renewal'),
+});
+
+export const RefreshSessionBody = RefreshSessionFields.meta({
+  id: 'RefreshSessionBody',
+  example: { refreshToken: '<session id>.<secret>' },
+});

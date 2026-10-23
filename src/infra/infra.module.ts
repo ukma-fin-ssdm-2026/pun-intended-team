@@ -12,6 +12,7 @@ import { AccessTokens } from '../core/identity/adapters/access-tokens.ts';
 import { CodeHasher } from '../core/identity/adapters/code-hasher.ts';
 import { GoogleIdTokens } from '../core/identity/adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
+import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
@@ -29,6 +30,7 @@ import { TurboSmsSender } from './messaging/turbosms-sender.ts';
 import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
@@ -45,6 +47,7 @@ const repositories = [
   { provide: OrganizationsRepository, useClass: StubOrganizationsRepository },
   { provide: AccountsRepository, useClass: PrismaAccountsRepository },
   { provide: VerificationCodesRepository, useClass: PrismaVerificationCodesRepository },
+  { provide: SessionsRepository, useClass: PrismaSessionsRepository },
   { provide: ProfilesRepository, useClass: StubProfilesRepository },
   { provide: ListingsRepository, useClass: StubListingsRepository },
   { provide: InterestsRepository, useClass: StubInterestsRepository },

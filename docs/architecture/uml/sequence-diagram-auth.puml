@@ -3,7 +3,7 @@
   AI Usage Note
   Drafted with Claude from the code and authentication.md.
 '/
-title Nearby — Sequence Diagram: Registration, Sign-in and Access Tokens
+title Nearby — Sequence Diagram: Registration, Sign-in and Sessions
 
 skinparam shadowing false
 skinparam sequenceMessageAlign center
@@ -16,10 +16,12 @@ box "api" #F5F5F5
 end box
 box "core: identity" #EEF4FB
   participant "AuthService" as SVC
+  participant "SessionsService" as SES
 end box
 box "infra (behind core interfaces)" #F3F8EE
   database "VerificationCodes\nRepository" as CODES
   database "Accounts\nRepository" as ACC
+  database "Sessions\nRepository\n(refresh_tokens)" as SESS
   participant "CodeHasher (HMAC)\nPasswordHasher (argon2id)" as HASH
   participant "AccessTokens (jose, HS256)\nGoogleIdTokens (jose, RS256)" as TOK
   participant "MessagingProvider\n(via core notifications)" as MSG
@@ -74,8 +76,10 @@ else under 18 by the Kyiv date
   SVC --> APP : 422 UNDERAGE
 end
 SVC -> ACC : activate(accountId, dateOfBirth)
-SVC -> TOK : issue(account caller, 3600 s)
-API --> APP : 200 {accessToken, expiresIn: 3600}
+SVC -> SES : start(accountId, role)
+SES -> SESS : create(accountId, SHA-256(random secret), expires in 30 days)
+SES -> TOK : issue(account caller with sid = session id, 3600 s)
+API --> APP : 200 {accessToken, expiresIn: 3600,\nrefreshToken: <session id>.<secret>}
 note right of APP : next: PUT /me/password\nand / or PUT /me/google
 
 == Sign in with a password ==
@@ -91,8 +95,8 @@ SVC -> ACC : updateLockout — one step on the stored state:\nlocked stays locke
 alt locked or wrong password
   SVC --> APP : 401 INVALID_CREDENTIALS — the same answer every time
 end
-SVC -> TOK : issue(account caller, 3600 s)
-API --> APP : 200 {accessToken, expiresIn: 3600}
+SVC -> SES : start(accountId, role) — as in Finish registration
+API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken}
 
 == Sign in with Google ==
 
@@ -103,8 +107,8 @@ SVC -> ACC : findByGoogleSubject(sub) — linked earlier with PUT /me/google
 alt invalid token, not linked or not active
   SVC --> APP : 401 INVALID_CREDENTIALS
 end
-SVC -> TOK : issue(account caller, 3600 s)
-API --> APP : 200 {accessToken, expiresIn: 3600}
+SVC -> SES : start(accountId, role)
+API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken}
 
 == Forgot the password ==
 
@@ -119,8 +123,32 @@ APP -> API : POST /auth/password-reset/confirm {phone, code, password}
 API -> SVC : resetPassword(…)
 SVC -> CODES : check the latest reset code, as in Verify
 SVC -> ACC : setPasswordHash, updateLockout(no failures)
-SVC -> TOK : issue(account caller, 3600 s)
-API --> APP : 200 {accessToken, expiresIn: 3600}
+SVC -> SES : endAll(accountId) — whoever knew the old password is signed out
+SES -> SESS : revokeAll
+SVC -> SES : start(accountId, role)
+API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken}
+
+== Renew the access token ==
+
+APP -> API : POST /auth/refresh {refreshToken}
+API -> SES : refresh(refreshToken)
+SES -> SESS : findById(session id)
+alt unknown, revoked or expired
+  SES --> APP : 401 INVALID_REFRESH_TOKEN
+else wrong secret (already replaced: stolen or replayed), or account not active
+  SES -> SESS : revoke — the session ends for every holder
+  SES --> APP : 401 INVALID_REFRESH_TOKEN
+end
+SES -> SESS : rotate — new secret and 30 days, only if the hash is still the old one\n(a concurrent refresh that lost ends the session too)
+SES -> TOK : issue(account caller, 3600 s)
+API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken} — keep the new one
+
+== Sign out ==
+
+APP -> API : POST /auth/sign-out — access token
+API -> SES : end(sid)
+SES -> SESS : revoke
+API --> APP : 204
 
 == Any protected request ==
 
@@ -128,7 +156,11 @@ APP -> API : GET /api/v1/… — Authorization: Bearer <token>
 API -> SVC : authenticate(token)
 SVC -> TOK : verify(token)
 TOK -> TOK : key by kid; HS256 only; signature;\niss, aud, typ at+jwt; not expired;\nclaims parsed into a Caller
-alt any check fails
+opt an account's token
+  SVC -> SES : isActive(sid, accountId)
+  SES -> SESS : findById(sid) — not revoked, not expired, same account
+end
+alt any check fails, or the session ended
   API --> APP : 401 UNAUTHENTICATED
 else registration token anywhere but complete-registration
   API --> APP : 401 UNAUTHENTICATED
@@ -143,6 +175,8 @@ note over APP, MSG
   Errors: AuthService throws a DomainError with a code; ApiExceptionFilter (api) turns it into the status shown.
   Token: header {alg HS256, kid, typ at+jwt}; claims sub, role (guest, registrant, user, admin), sid (accounts only), iss/aud nearby-api, iat, exp.
   Limits: register, verify, sign-in, Google, both reset calls and PUT /me/password allow 20 requests a minute per IP each (429 RATE_LIMITED).
-  Planned, not shown: refresh tokens and a revocation check by sid (SEC-005), audit records (SEC-004).
+  Sessions: PUT /me/password ends every other session of the account (endAll except sid).
+  Storage: phone numbers and dates of birth are encrypted (AES-256-GCM), phones looked up by HMAC (contact_hash) inside the repositories.
+  Planned, not shown: audit records (SEC-004).
 end note
 @enduml

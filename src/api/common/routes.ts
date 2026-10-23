@@ -12,6 +12,8 @@ export const Routes = {
     signIn: '/api/v1/auth/sign-in',
     google: '/api/v1/auth/google',
     guest: '/api/v1/auth/guest',
+    refresh: '/api/v1/auth/refresh',
+    signOut: '/api/v1/auth/sign-out',
     passwordReset: '/api/v1/auth/password-reset',
     passwordResetConfirm: '/api/v1/auth/password-reset/confirm',
   },

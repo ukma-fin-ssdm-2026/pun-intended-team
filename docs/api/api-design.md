@@ -9,7 +9,7 @@
 | Style | REST, resources as plural nouns |
 | Transport | Clients reach the API only over HTTPS (TLS 1.2+); plain HTTP is redirected. TLS ends at the load balancer, which forwards plain HTTP to the server inside the private network ([high-level design](../architecture/high-level-design.md), threat model TB1/TB2). The server itself never handles TLS, so locally it is plain HTTP |
 | Format | JSON in and out; times are ISO 8601 with an offset (`2026-10-17T19:00:00+03:00`), ids are UUIDs |
-| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Access tokens are valid for 60 minutes, with no refresh yet. Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
+| Authentication | JWT bearer access token ([authentication](../architecture/mechanisms/authentication.md)). Access tokens are valid for 60 minutes; a signed-in account also gets a refresh token, valid for 30 days, that renews them. Catalog reads accept a guest token from `/auth/guest`, so even guests send a token ([catalog access](../architecture/mechanisms/catalog-access.md)) |
 | Versioning | In the URL path: every business endpoint starts with `/api/v1`. Service endpoints such as `/health` have no version |
 | Specification | Generated from the code into [`openapi-generated.yaml`](openapi-generated.yaml); Swagger UI at `/api-docs` outside production, or in production when `SWAGGER_UI=true` (e.g. on staging) |
 
@@ -117,11 +117,13 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 |---|---|---|---|---|
 | `POST` | `/api/v1/auth/register` | Anyone, no token | `202`, a code is sent to the phone | `400`, `429` |
 | `POST` | `/api/v1/auth/verify` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
-| `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` an access token for the new account | `400`, `401`, `404`, `409`, `422` |
-| `POST` | `/api/v1/auth/sign-in` | Anyone, no token | `200` an access token | `400`, `401` |
-| `POST` | `/api/v1/auth/google` | Anyone, no token | `200` an access token | `400`, `401` |
+| `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` the tokens of the new account's first session | `400`, `401`, `404`, `409`, `422` |
+| `POST` | `/api/v1/auth/sign-in` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
+| `POST` | `/api/v1/auth/google` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
 | `POST` | `/api/v1/auth/password-reset` | Anyone, no token | `202`, a code is sent if the number has an account | `400` |
-| `POST` | `/api/v1/auth/password-reset/confirm` | Anyone, no token | `200` an access token | `400`, `422` |
+| `POST` | `/api/v1/auth/password-reset/confirm` | Anyone, no token | `200` the tokens of a new session | `400`, `422` |
+| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401`, `429` |
+| `POST` | `/api/v1/auth/sign-out` | Signed-in user | `204` | `401` |
 | `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
 | `PUT` | `/api/v1/me/password` | Signed-in user | `204` | `400`, `401`, `422` |
 | `PUT` | `/api/v1/me/google` | Signed-in user | `204` | `400`, `401`, `409`, `422` |
@@ -130,7 +132,9 @@ Registration takes three calls: `register` sends a one-time code to a `+380` num
 
 A new account has no sign-in method yet: the app sets a password with `PUT /me/password` (8 to 128 characters; changing it needs `currentPassword`) and / or links Google with `PUT /me/google`, which takes the ID token from Google Sign-In. `POST /auth/google` signs in only a Google account linked this way. A forgotten password is replaced with a code: `password-reset` sends one, `password-reset/confirm` takes it with the new password.
 
-`register` and `password-reset` answer the same whether or not the number has an account or reached a code limit, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in and password changes for 15 minutes; a wrong `currentPassword` in `PUT /me/password` counts too. Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google`, both reset calls and `PUT /me/password` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`.
+`register` and `password-reset` answer the same whether or not the number has an account or reached a code limit, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in and password changes for 15 minutes; a wrong `currentPassword` in `PUT /me/password` counts too. Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google`, both reset calls and `PUT /me/password` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`; the ones that sign in add `refreshToken`.
+
+A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one; a wrong refresh token for the session, such as a replaced one used again, ends the session. `sign-out` ends the current session, a new password ends every other session, and a password reset ends them all. An ended session's access token gets `401` on the next request, before it expires.
 
 ### Events
 
@@ -264,7 +268,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | Status | `code` | When |
 |---|---|---|
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
-| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS` | `UNAUTHENTICATED`: no access token, an invalid or expired one, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password, or a Google account no account linked; it does not say which |
+| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN` | `UNAUTHENTICATED`: no access token, an invalid or expired one, one of an ended session, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password, or a Google account no account linked; it does not say which. `INVALID_REFRESH_TOKEN`: the session expired or was ended, or the refresh token was already replaced; the app signs in again |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
@@ -303,7 +307,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 
 The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`. The seeded accounts are created by `npm run db:seed` ([local database](../../README.md#local-database)).
 
-Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Authorize** and paste it; with curl, send `Authorization: Bearer <token>`. Tokens last 60 minutes.
+Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Authorize** and paste the `accessToken`; with curl, send `Authorization: Bearer <token>`. Access tokens last 60 minutes; `POST /api/v1/auth/refresh` with the `refreshToken` gets a new one.
 
 - **Guest** (catalog reads only): `POST /api/v1/auth/guest`.
 - **Seeded account:** `POST /api/v1/auth/sign-in` with one of the numbers below and the password `nearby-dev-password`.
@@ -318,7 +322,7 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 | `+380501110004` | New Gallery, an organization still awaiting verification; no profile, so `POST /me/profile` creates one |
 | `+380501110005` | An administrator; no profile, so it shows the `404` of the profile endpoints |
 
-Accounts and verification codes are in the database; `npm run db:seed` resets the seeded accounts. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts.
+Accounts, verification codes and sessions are in the database; `npm run db:seed` resets the seeded accounts. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts.
 
 ## AI Usage Note
 
