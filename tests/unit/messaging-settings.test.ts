@@ -29,10 +29,10 @@ describe('loadMessagingSettings', () => {
     });
   });
 
-  test('keeps the console when asked for it in production', () => {
-    assert.deepEqual(loadMessagingSettings({ NODE_ENV: 'production', MESSAGING_PROVIDER: 'console' }), {
-      provider: 'console',
-    });
+  test('keeps the console in production only when test adapters are allowed', () => {
+    const env = { NODE_ENV: 'production', MESSAGING_PROVIDER: 'console', ALLOW_TEST_ADAPTERS: 'true' };
+
+    assert.deepEqual(loadMessagingSettings(env), { provider: 'console' });
   });
 
   const refused = [
@@ -47,6 +47,11 @@ describe('loadMessagingSettings', () => {
       error: /TURBOSMS_SENDER/,
     },
     { title: 'refuses an unknown provider', env: { MESSAGING_PROVIDER: 'pigeon' }, error: /MESSAGING_PROVIDER/ },
+    {
+      title: 'refuses the console in production, where it would log the codes',
+      env: { NODE_ENV: 'production', MESSAGING_PROVIDER: 'console' },
+      error: /MESSAGING_PROVIDER=console/,
+    },
   ];
 
   for (const { title, env, error } of refused) {

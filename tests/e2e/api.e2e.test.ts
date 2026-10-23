@@ -275,6 +275,7 @@ before(async () => {
     MESSAGING_PROVIDER: 'console',
     GOOGLE_CLIENT_IDS: googleClientId,
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
+    ALLOW_TEST_ADAPTERS: 'true',
   };
   // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
   // stdout carries the verification codes the console messaging provider logs.

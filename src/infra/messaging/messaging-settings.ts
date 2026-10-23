@@ -6,10 +6,15 @@ export type MessagingSettings =
 /**
  * Read at startup. Codes go to the console unless MESSAGING_PROVIDER is `telegram`, the default in production;
  * then the Telegram token is required, and TurboSMS, when configured, is the SMS fallback.
+ * Production refuses the console unless ALLOW_TEST_ADAPTERS is `true`, which only the e2e tests set.
  */
 export function loadMessagingSettings(env: NodeJS.ProcessEnv = process.env): MessagingSettings {
-  const provider = env.MESSAGING_PROVIDER || (env.NODE_ENV === 'production' ? 'telegram' : 'console');
+  const isProduction = env.NODE_ENV === 'production';
+  const provider = env.MESSAGING_PROVIDER || (isProduction ? 'telegram' : 'console');
   if (provider === 'console') {
+    if (isProduction && env.ALLOW_TEST_ADAPTERS !== 'true') {
+      throw new Error('MESSAGING_PROVIDER=console would log the codes instead of sending them: not in production');
+    }
     return { provider };
   }
   if (provider !== 'telegram') {

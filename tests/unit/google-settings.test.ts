@@ -27,4 +27,20 @@ describe('loadGoogleSettings', () => {
   test('refuses to start in production without client ids', () => {
     assert.throws(() => loadGoogleSettings({ NODE_ENV: 'production' }), /GOOGLE_CLIENT_IDS/);
   });
+
+  const productionWithOtherKeys = {
+    NODE_ENV: 'production',
+    GOOGLE_CLIENT_IDS: 'ios-client',
+    GOOGLE_JWKS_URL: 'http://localhost:4999/jwks',
+  };
+
+  test('refuses another key set in production', () => {
+    assert.throws(() => loadGoogleSettings(productionWithOtherKeys), /GOOGLE_JWKS_URL/);
+  });
+
+  test('takes another key set in production only when test adapters are allowed', () => {
+    const settings = loadGoogleSettings({ ...productionWithOtherKeys, ALLOW_TEST_ADAPTERS: 'true' });
+
+    assert.equal(settings.jwksUrl.href, 'http://localhost:4999/jwks');
+  });
 });
