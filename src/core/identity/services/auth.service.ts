@@ -157,7 +157,10 @@ export class AuthService implements OnModuleInit {
   /** Only an account that linked this Google account signs in; the password lockout does not apply (TM-09). */
   async signInWithGoogle(idToken: string): Promise<AccessToken> {
     const subject = await this.googleIdTokens.verify(idToken);
-    const account = subject === undefined ? undefined : await this.accountsRepository.findByGoogleSubject(subject);
+    if (subject === undefined) {
+      throw new DomainError('INVALID_CREDENTIALS', 'Google sign-in did not go through. Try again');
+    }
+    const account = await this.accountsRepository.findByGoogleSubject(subject);
     if (account?.status !== 'active') {
       throw new DomainError(
         'INVALID_CREDENTIALS',

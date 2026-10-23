@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { before, describe, test } from 'node:test';
-import { createLocalJWKSet, exportJWK, generateKeyPair, type JWTVerifyGetKey, SignJWT } from 'jose';
+import { createLocalJWKSet, errors, exportJWK, generateKeyPair, type JWTVerifyGetKey, SignJWT } from 'jose';
 import { JoseGoogleIdTokens } from '../../dist/infra/auth/jose-google-id-tokens.js';
 import { useFixedClock } from './fixtures/clock.ts';
 
@@ -65,6 +65,20 @@ describe('JoseGoogleIdTokens', () => {
       const idTokens = new JoseGoogleIdTokens([CLIENT_ID], googleKeys);
 
       assert.equal(await idTokens.verify(await make()), undefined);
+    });
+  }
+
+  const keyFetchFailures: Record<string, Error> = {
+    'Google answers with an error': new errors.JOSEError('Expected 200 OK from the JSON Web Key Set HTTP response'),
+    'Google does not answer in time': new errors.JWKSTimeout(),
+    'Google sends a broken key set': new errors.JWKSInvalid(),
+  };
+
+  for (const [name, failure] of Object.entries(keyFetchFailures)) {
+    test(`fails instead of rejecting the token when ${name}`, async () => {
+      const idTokens = new JoseGoogleIdTokens([CLIENT_ID], () => Promise.reject(failure));
+
+      await assert.rejects(idTokens.verify(await anIdToken()), failure);
     });
   }
 
