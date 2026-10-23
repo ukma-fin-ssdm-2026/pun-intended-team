@@ -100,6 +100,8 @@ describe('import into the catalog', () => {
 
   test('a second run changes nothing', async () => {
     const { importService } = makeCatalog(new ConcertUaEventProvider(() => Promise.resolve(concertUaSampleFeed(NOW))));
+    // Runs once itself: the stub keeps events between tests, so it must not depend on the test before it.
+    await importService.run();
 
     const second = await importService.run();
 
