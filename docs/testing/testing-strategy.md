@@ -18,18 +18,18 @@ Tools: `node:test`, MCR (monocart-coverage-reports), Docker PostgreSQL. Planned:
 
 ## Coverage
 
-MCR, 17 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
+MCR, 23 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 96.06% | 88.86% | 97.34% | 95.78% |
-| Unit tests only | 49.44% | 58.29% | 38.83% | 35.75% |
+| All tests | 96.81% | 90.80% | 97.55% | 96.53% |
+| Unit tests only | 52.92% | 59.91% | 40.82% | 38.32% |
 
-Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 94%; matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 93%; matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
-- **`auth.ts` (94%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
+- **`auth.ts` (93%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
 - **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
 - **`api-exception.filter.ts` (branches 57%)**: the `500` for an unexpected error and the mapping of Nest's own `403`.
 - **Production and start-up only**: HSTS in production, a missing `DATABASE_URL`, a malformed stored password hash; these need another environment or a broken dependency.
