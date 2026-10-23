@@ -24,7 +24,7 @@ const CODE_LIFETIME_MS = 10 * 60 * 1000;
 const CODE_RESEND_INTERVAL_MS = 60 * 1000;
 const CODES_PER_DAY = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const MAX_FAILED_ATTEMPTS = 3;
+const MAX_CODE_ATTEMPTS = 3;
 const MINIMUM_AGE = 18; // SAFE-001
 
 @Injectable()
@@ -115,7 +115,7 @@ export class AuthService implements OnModuleInit {
       throw invalidCode();
     }
     await this.accountsRepository.setPasswordHash(account.id, await this.passwordHasher.hash(password));
-    await this.accountsRepository.saveLockout(account.id, NO_LOCKOUT);
+    await this.accountsRepository.updateLockout(account.id, () => NO_LOCKOUT);
     return this.issue({ kind: 'account', accountId: account.id, role: account.role, sessionId: randomUUID() });
   }
 
@@ -126,20 +126,13 @@ export class AuthService implements OnModuleInit {
       credential?.passwordHash ?? this.dummyPasswordHash,
       password,
     );
-    if (!credential || credential.status !== 'active') {
-      throw invalidCredentials();
-    }
     // A locked account answers like a wrong password, so a lock does not reveal the account (SEC-007).
-    const now = new Date();
-    if (isLocked(credential.lockout, now)) {
+    if (
+      !credential ||
+      credential.status !== 'active' ||
+      !(await this.passesLockout(credential.accountId, passwordMatches))
+    ) {
       throw invalidCredentials();
-    }
-    if (!passwordMatches) {
-      await this.accountsRepository.saveLockout(credential.accountId, afterFailedSignIn(credential.lockout, now));
-      throw invalidCredentials();
-    }
-    if (credential.lockout.failedSignins > 0) {
-      await this.accountsRepository.saveLockout(credential.accountId, NO_LOCKOUT);
     }
     return this.issue({
       kind: 'account',
@@ -190,6 +183,21 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
+   * Counts a password check on the stored lockout state, after the hash, so parallel guesses cannot get past the
+   * lock (SEC-007). True only for the right password on an account that is not locked.
+   */
+  private async passesLockout(accountId: string, passwordMatches: boolean): Promise<boolean> {
+    const now = new Date();
+    const lockout = await this.accountsRepository.updateLockout(accountId, (state) => {
+      if (isLocked(state, now)) {
+        return state;
+      }
+      return passwordMatches ? NO_LOCKOUT : afterFailedSignIn(state, now);
+    });
+    return passwordMatches && !isLocked(lockout, now);
+  }
+
+  /**
    * Sends nothing if a code of any purpose went to this phone less than a minute ago, or 5 in the last 24 hours
    * (SEC-008). The code is stored before it is sent, so a parallel request sees it, and removed if no channel takes it.
    */
@@ -227,11 +235,12 @@ export class AuthService implements OnModuleInit {
   /** Throws INVALID_CODE unless the code is the latest for this purpose and still usable (SEC-008). */
   private async useCode(phone: string, purpose: CodePurpose, code: string, now: Date): Promise<void> {
     const sent = await this.verificationCodesRepository.findLatest(phone, purpose);
-    if (!sent || sent.usedAt || sent.expiresAt <= now || sent.failedAttempts >= MAX_FAILED_ATTEMPTS) {
+    if (!sent || sent.usedAt || sent.expiresAt <= now) {
       throw invalidCode();
     }
-    if (!this.codeHasher.matches(phone, code, sent.codeHash)) {
-      await this.verificationCodesRepository.addFailedAttempt(sent.id);
+    // Counted before the comparison, so parallel guesses cannot get past the limit.
+    const attempts = await this.verificationCodesRepository.addAttempt(sent.id);
+    if (attempts > MAX_CODE_ATTEMPTS || !this.codeHasher.matches(phone, code, sent.codeHash)) {
       throw invalidCode();
     }
     if (!(await this.verificationCodesRepository.markUsed(sent.id, now))) {

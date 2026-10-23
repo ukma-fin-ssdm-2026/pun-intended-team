@@ -13,7 +13,8 @@ export interface VerificationCode {
   providerRequestId: string | null;
   sentAt: Date;
   expiresAt: Date;
-  failedAttempts: number;
+  /** Every check of the code, the right one included. */
+  attempts: number;
   usedAt: Date | null;
 }
 
@@ -27,5 +28,5 @@ export interface CodeSendLimit {
 /** A new row as the repository stores it, before the code is handed to the provider. */
 export type VerificationCodeRecord = Omit<
   VerificationCode,
-  'id' | 'channel' | 'providerRequestId' | 'failedAttempts' | 'usedAt'
+  'id' | 'channel' | 'providerRequestId' | 'attempts' | 'usedAt'
 >;

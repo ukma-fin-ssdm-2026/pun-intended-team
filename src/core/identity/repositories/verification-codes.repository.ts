@@ -21,8 +21,8 @@ export abstract class VerificationCodesRepository {
 
   abstract delete(id: string): Promise<void>;
 
-  /** Returns the new count. */
-  abstract addFailedAttempt(id: string): Promise<number>;
+  /** Counts a check of the code and returns the new count, in one step, so concurrent checks all count. */
+  abstract addAttempt(id: string): Promise<number>;
 
   /** False if the code was already used, so concurrent requests cannot use it twice. */
   abstract markUsed(id: string, usedAt: Date): Promise<boolean>;

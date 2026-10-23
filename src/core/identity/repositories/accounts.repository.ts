@@ -31,7 +31,11 @@ export abstract class AccountsRepository {
   /** Adds the Google sign-in method. */
   abstract linkGoogle(accountId: string, subject: string): Promise<void>;
 
-  abstract saveLockout(accountId: string, lockout: SignInLockout): Promise<void>;
+  /**
+   * Replaces the lockout state with `change(current state)` and returns the new state, in one step,
+   * so concurrent sign-ins all see each other's failures (SEC-007).
+   */
+  abstract updateLockout(accountId: string, change: (lockout: SignInLockout) => SignInLockout): Promise<SignInLockout>;
 
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;

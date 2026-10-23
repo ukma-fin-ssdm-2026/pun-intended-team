@@ -33,8 +33,7 @@ export class StubAccountsRepository implements AccountsRepository {
       return undefined;
     }
     const { id: accountId, role, status, passwordHash } = account;
-    const lockout = account.lockout ?? { failedSignins: 0, failedSigninsSince: null, lockedUntil: null };
-    return { accountId, role, status, passwordHash, lockout };
+    return { accountId, role, status, passwordHash };
   }
 
   async create(record: AccountRecord): Promise<Account> {
@@ -61,8 +60,10 @@ export class StubAccountsRepository implements AccountsRepository {
     this.byId(accountId).passwordHash = passwordHash;
   }
 
-  async saveLockout(accountId: string, lockout: SignInLockout): Promise<void> {
-    this.byId(accountId).lockout = lockout;
+  async updateLockout(accountId: string, change: (lockout: SignInLockout) => SignInLockout): Promise<SignInLockout> {
+    const account = this.byId(accountId);
+    account.lockout = change(account.lockout ?? { failedSignins: 0, failedSigninsSince: null, lockedUntil: null });
+    return account.lockout;
   }
 
   async findDateOfBirth(accountId: string): Promise<string | undefined> {

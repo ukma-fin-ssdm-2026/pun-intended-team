@@ -30,5 +30,4 @@ export interface PasswordCredential {
   role: AccountRole;
   status: AccountStatus;
   passwordHash: string;
-  lockout: SignInLockout;
 }

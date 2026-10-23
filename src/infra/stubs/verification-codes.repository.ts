@@ -35,7 +35,7 @@ export class StubVerificationCodesRepository implements VerificationCodesReposit
       ...record,
       channel: null,
       providerRequestId: null,
-      failedAttempts: 0,
+      attempts: 0,
       usedAt: null,
     };
     verificationCodes.push(code);
@@ -50,10 +50,10 @@ export class StubVerificationCodesRepository implements VerificationCodesReposit
     verificationCodes.splice(verificationCodes.indexOf(this.byId(id)), 1);
   }
 
-  async addFailedAttempt(id: string): Promise<number> {
+  async addAttempt(id: string): Promise<number> {
     const code = this.byId(id);
-    code.failedAttempts += 1;
-    return code.failedAttempts;
+    code.attempts += 1;
+    return code.attempts;
   }
 
   async markUsed(id: string, usedAt: Date): Promise<boolean> {
