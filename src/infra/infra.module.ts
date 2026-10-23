@@ -20,21 +20,22 @@ import { loadGoogleSettings } from './auth/google-settings.ts';
 import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
 import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
-import { loadCodeHmacKey, loadSigningKeys } from './auth/key-files.ts';
+import { loadCodeHmacKey, loadContactHmacKey, loadDataEncryptionKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
 import { loadMessagingSettings } from './messaging/messaging-settings.ts';
 import { TelegramGatewaySender } from './messaging/telegram-gateway-sender.ts';
 import { TurboSmsSender } from './messaging/turbosms-sender.ts';
+import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
+import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
-import { StubAccountsRepository } from './stubs/accounts.repository.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
 import { StubInterestsRepository } from './stubs/interests.repository.ts';
 import { StubListingsRepository } from './stubs/listings.repository.ts';
 import { StubOrganizationsRepository } from './stubs/organizations.repository.ts';
 import { StubProfilesRepository } from './stubs/profiles.repository.ts';
-import { StubVerificationCodesRepository } from './stubs/verification-codes.repository.ts';
 import { StubVenuesRepository } from './stubs/venues.repository.ts';
 
 const repositories = [
@@ -42,12 +43,11 @@ const repositories = [
   { provide: CategoriesRepository, useClass: PrismaCategoriesRepository },
   { provide: VenuesRepository, useClass: StubVenuesRepository },
   { provide: OrganizationsRepository, useClass: StubOrganizationsRepository },
-  { provide: AccountsRepository, useClass: StubAccountsRepository },
-  { provide: VerificationCodesRepository, useClass: StubVerificationCodesRepository },
+  { provide: AccountsRepository, useClass: PrismaAccountsRepository },
+  { provide: VerificationCodesRepository, useClass: PrismaVerificationCodesRepository },
   { provide: ProfilesRepository, useClass: StubProfilesRepository },
   { provide: ListingsRepository, useClass: StubListingsRepository },
   { provide: InterestsRepository, useClass: StubInterestsRepository },
-  { provide: AccountsRepository, useClass: StubAccountsRepository },
 ];
 
 const adapters = [
@@ -78,9 +78,13 @@ function messagingProvider(): MessagingProvider {
   ]);
 }
 
+export function personalDataCipher(): PersonalDataCipher {
+  return new PersonalDataCipher(loadDataEncryptionKey(), loadContactHmacKey());
+}
+
 @Global()
 @Module({
-  providers: [PrismaService, ...providers],
+  providers: [PrismaService, { provide: PersonalDataCipher, useFactory: personalDataCipher }, ...providers],
   exports: providers.map(({ provide }) => provide),
 })
 export class InfraModule {}

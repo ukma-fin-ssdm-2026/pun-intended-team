@@ -4,10 +4,16 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, test } from 'node:test';
-import { loadCodeHmacKey, loadSigningKeys } from '../../dist/infra/auth/key-files.js';
+import {
+  loadCodeHmacKey,
+  loadContactHmacKey,
+  loadDataEncryptionKey,
+  loadSigningKeys,
+} from '../../dist/infra/auth/key-files.js';
 
 const KEY = Buffer.alloc(32, 7);
 const SHORT_KEY = Buffer.alloc(31, 7);
+const VARIABLES = ['CODE_HMAC_KEY_FILE', 'CONTACT_HMAC_KEY_FILE', 'DATA_ENCRYPTION_KEY_FILE', 'JWT_KEYS_FILE'];
 
 interface Jwk {
   kty: string;
@@ -31,14 +37,12 @@ function useKeyFile(variable: string, content: string): void {
 
 beforeEach(() => {
   folder = mkdtempSync(path.join(tmpdir(), 'nearby-keys-'));
-  delete process.env.CODE_HMAC_KEY_FILE;
-  delete process.env.JWT_KEYS_FILE;
+  VARIABLES.forEach((variable) => delete process.env[variable]);
 });
 
 afterEach(() => {
   rmSync(folder, { recursive: true, force: true });
-  delete process.env.CODE_HMAC_KEY_FILE;
-  delete process.env.JWT_KEYS_FILE;
+  VARIABLES.forEach((variable) => delete process.env[variable]);
 });
 
 describe('loadCodeHmacKey', () => {
@@ -63,6 +67,42 @@ describe('loadCodeHmacKey', () => {
 
     assert.throws(() => loadCodeHmacKey(), /CODE_HMAC_KEY_FILE: cannot read/);
   });
+});
+
+describe('loadContactHmacKey', () => {
+  test('reads the key from its own variable', () => {
+    useKeyFile('CONTACT_HMAC_KEY_FILE', KEY.toString('base64url'));
+
+    assert.deepEqual(loadContactHmacKey(), KEY);
+  });
+
+  test('refuses a key shorter than 32 bytes', () => {
+    useKeyFile('CONTACT_HMAC_KEY_FILE', SHORT_KEY.toString('base64url'));
+
+    assert.throws(() => loadContactHmacKey(), /CONTACT_HMAC_KEY_FILE: the key must be at least 32 bytes/);
+  });
+});
+
+// AES-256 takes a key of exactly 32 bytes.
+describe('loadDataEncryptionKey', () => {
+  test('reads a 32-byte key', () => {
+    useKeyFile('DATA_ENCRYPTION_KEY_FILE', KEY.toString('base64url'));
+
+    assert.deepEqual(loadDataEncryptionKey(), KEY);
+  });
+
+  const wrongLengths = [
+    { title: 'refuses a key shorter than 32 bytes', key: SHORT_KEY, error: /at least 32 bytes/ },
+    { title: 'refuses a key longer than 32 bytes', key: Buffer.alloc(33, 7), error: /exactly 32 bytes/ },
+  ];
+
+  for (const { title, key, error } of wrongLengths) {
+    test(title, () => {
+      useKeyFile('DATA_ENCRYPTION_KEY_FILE', key.toString('base64url'));
+
+      assert.throws(() => loadDataEncryptionKey(), error);
+    });
+  }
 });
 
 describe('loadSigningKeys', () => {

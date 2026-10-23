@@ -3,17 +3,19 @@
 // For each endpoint, one request with valid input and one the API must reject.
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import pg from 'pg';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+// The run has a database of its own, created again every time, so no test sees rows a previous run left.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
@@ -23,7 +25,7 @@ const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestCinema = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06';
 
-// Seeded accounts from src/infra/stubs/data.ts.
+// Accounts from src/scripts/seed-dev-accounts.ts.
 const seededPassword = 'nearby-dev-password';
 const phones = {
   user: '+380501110001',
@@ -58,6 +60,7 @@ const newListing = {
 let server: ChildProcess;
 let baseUrl: string;
 let keysDir: string;
+let databaseUrl: string;
 // The environment every API this run starts shares: the run's own keys and Google key set.
 let apiEnv: NodeJS.ProcessEnv;
 let serverOutput = '';
@@ -121,11 +124,9 @@ async function signIn(phone: string): Promise<string> {
   return res.body.accessToken;
 }
 
-const TEST_CATEGORY_PREFIX = 'E2E ';
-
-/** A category of the test's own, so no test depends on rows a previous run left in the database. */
+/** A category of the test's own, so no test depends on another one's categories. */
 async function newCategory({ isActive = true } = {}): Promise<{ id: string; name: string }> {
-  const name = `${TEST_CATEGORY_PREFIX}${randomUUID().slice(0, 8)}`;
+  const name = `E2E ${randomUUID().slice(0, 8)}`;
   const created = await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name } });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   if (!isActive) {
@@ -228,6 +229,54 @@ async function freePort(): Promise<number> {
   });
 }
 
+/** Creates `<database>_e2e` next to the database in DATABASE_URL, dropping the one of the last run; returns its URL. */
+async function freshDatabase(): Promise<string> {
+  const devUrl = process.env.DATABASE_URL;
+  if (!devUrl) {
+    throw new Error('DATABASE_URL is not set: see .env.example');
+  }
+  const url = new URL(devUrl);
+  const name = `${url.pathname.slice(1)}_e2e`;
+  const client = new pg.Client({ connectionString: devUrl });
+  try {
+    await client.connect();
+  } catch {
+    throw new Error('The database is not reachable: start it with `docker compose up -d`, then run the tests again');
+  }
+  try {
+    await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    await client.query(`CREATE DATABASE "${name}"`);
+  } finally {
+    await client.end();
+  }
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+/** Runs `query` on the run's database, for what no endpoint can do or show. */
+async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promise<T> {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    return await query(client);
+  } finally {
+    await client.end();
+  }
+}
+
+/** The `sub` claim of an access token: the account id. */
+function accountIdOf(token: string): string {
+  return JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sub;
+}
+
+/** Runs a setup command to the end; throws with its output if it fails. */
+function runOrThrow(command: string, args: string[], env: NodeJS.ProcessEnv): void {
+  const result = spawnSync(command, args, { env, encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed:\n${result.stdout}${result.stderr}`);
+  }
+}
+
 /** Starts the built API on a free port with `apiEnv` and `env`; resolves once it answers /health. */
 async function startApi(
   env: NodeJS.ProcessEnv,
@@ -259,10 +308,18 @@ async function startApi(
 }
 
 before(async () => {
+  // The database URL comes from .env locally and from the environment in CI.
+  if (existsSync('.env')) {
+    process.loadEnvFile();
+  }
+  databaseUrl = await freshDatabase();
   // Test keys of its own, so the run never depends on a developer's keys/.
   keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
-  const codeHmacKeyFile = path.join(keysDir, 'code-hmac.key');
-  writeFileSync(codeHmacKeyFile, randomBytes(32).toString('base64url'));
+  const keyFile = (name: string) => {
+    const file = path.join(keysDir, name);
+    writeFileSync(file, randomBytes(32).toString('base64url'));
+    return file;
+  };
   const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
   const jwk = { kty: 'oct', alg: 'HS256', kid: jwtKey.kid, k: jwtKey.secret.toString('base64url') };
   writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwk] }));
@@ -276,7 +333,10 @@ before(async () => {
     ...process.env,
     // Production mode so the run does not rewrite the committed OpenAPI spec.
     NODE_ENV: 'production',
-    CODE_HMAC_KEY_FILE: codeHmacKeyFile,
+    DATABASE_URL: databaseUrl,
+    CODE_HMAC_KEY_FILE: keyFile('code-hmac.key'),
+    CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
+    DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
     JWT_KEYS_FILE: jwtKeysFile,
     // The codes are read from the log, so they must not go to Telegram, the production default.
     MESSAGING_PROVIDER: 'console',
@@ -284,37 +344,26 @@ before(async () => {
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     ALLOW_TEST_ADAPTERS: 'true',
   };
+  runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
+  // The seed refuses production mode; the accounts are encrypted with the run's keys.
+  runOrThrow(process.execPath, ['dist/scripts/seed-dev-accounts.js'], { ...apiEnv, NODE_ENV: 'test' });
   // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
   // stdout carries the verification codes the console messaging provider logs.
   ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
     serverOutput += chunk;
   }));
   tokens.guest = (await call('POST', '/api/v1/auth/guest')).body.accessToken;
-  // Categories are in Postgres: without it, stop here rather than fail every catalog test.
-  if ((await call('GET', '/api/v1/categories', { token: tokens.guest })).status !== 200) {
-    throw new Error('The database is not reachable: start it with `docker compose up -d`, then run the tests again');
-  }
   tokens.user = await signIn(phones.user);
   tokens.org = await signIn(phones.org);
   tokens.orgPending = await signIn(phones.orgPending);
   tokens.admin = await signIn(phones.admin);
 });
 
-after(async () => {
-  // Stops the servers even when the clean-up fails, so the run ends instead of waiting on them.
-  try {
-    // Categories are in the database and outlive the run, so remove the ones the tests made (also from a run that crashed).
-    const all = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
-    for (const { id, name } of all.body.items) {
-      if (name.startsWith(TEST_CATEGORY_PREFIX)) {
-        await call('DELETE', `/api/v1/admin/categories/${id}`, { token: tokens.admin });
-      }
-    }
-  } finally {
-    server?.kill();
-    jwksServer?.close();
-    rmSync(keysDir, { recursive: true, force: true });
-  }
+// The database stays until the next run, to look into after a failure.
+after(() => {
+  server?.kill();
+  jwksServer?.close();
+  rmSync(keysDir, { recursive: true, force: true });
 });
 
 describe('GET /health', () => {
@@ -800,7 +849,6 @@ describe('PUT /api/v1/me/password', () => {
     assert.equal(signIn.status, 200);
   });
 
-  // SEC-007: a stolen session must not give unlimited guesses at the password.
   test('counts wrong current passwords towards the sign-in lockout', async () => {
     const { phone, token } = await newAccount();
     await call('PUT', '/api/v1/me/password', { token, body: { password } });
@@ -1415,6 +1463,104 @@ describe('PUT /api/v1/me/profile/interests', () => {
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
+  });
+});
+
+// SEC-003: the columns hold ciphertext; the API never shows them, so the test reads them directly.
+describe('Personal data at rest', () => {
+  test('stores the phone number and the date of birth only encrypted', async () => {
+    const { phone, token } = await newAccount();
+
+    const { account, codes } = await withDatabase(async (client) => {
+      const accounts = await client.query(
+        'SELECT contact_identifier, contact_hash, date_of_birth FROM accounts WHERE id = $1',
+        [accountIdOf(token)],
+      );
+      const sent = await client.query('SELECT contact FROM verification_codes WHERE contact_hash = $1', [
+        accounts.rows[0]?.contact_hash,
+      ]);
+      return { account: accounts.rows[0], codes: sent.rows };
+    });
+
+    // newAccount registers with this date of birth.
+    const secrets = [phone, phone.slice(1), '2000-05-17'];
+    const stored = [
+      account.contact_identifier,
+      account.contact_hash,
+      account.date_of_birth,
+      ...codes.map((c) => c.contact),
+    ];
+    assert.equal(codes.length, 1);
+    for (const value of stored) {
+      assert.ok(Buffer.isBuffer(value));
+      for (const secret of secrets) {
+        assert.equal(value.includes(secret), false, `a stored value contains ${secret}`);
+      }
+    }
+  });
+});
+
+// The locks and conditional updates in the repositories, which the unit tests mock and one request at a time never reaches.
+describe('Parallel requests', () => {
+  const parallel = <T>(times: number, request: () => Promise<T>) => Promise.all(Array.from({ length: times }, request));
+
+  // On one database connection the requests would run one after another and never race.
+  const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
+
+  // SEC-008
+  test('send one code when one number registers 10 times at once', async () => {
+    const phone = newPhone();
+    await openConnections();
+    const logged = serverOutput.length;
+
+    const responses = await parallel(10, () => call('POST', '/api/v1/auth/register', { body: { phone } }));
+
+    assert.ok(responses.every((res) => res.status === 202));
+    const codes = serverOutput.slice(logged).match(new RegExp(`for \\+380\\S*${phone.slice(-4)}: \\d{6}`, 'g'));
+    assert.equal(codes?.length, 1);
+  });
+
+  // SEC-007: five failures lock the account only if no one overwrites another.
+  test('lock an account after 5 wrong passwords sent at once', async () => {
+    const { phone, token } = await newAccount();
+    const password = 'a long passphrase';
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+
+    await parallel(5, () => call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } }));
+
+    assertRejected(
+      await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
+  });
+
+  // Both requests can pass the service's checks; then the unique index stops one, with the same answer.
+  test('link one Google account to only one of two accounts asking at once', async () => {
+    const subject = newGoogleSubject();
+    const [first, second] = [await newAccount(), await newAccount()];
+
+    const responses = await Promise.all(
+      [first, second].map(async ({ token }) =>
+        call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } }),
+      ),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
+    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  test('link only one of two Google accounts one account sends at once', async () => {
+    const { token } = await newAccount();
+
+    const responses = await parallel(2, async () =>
+      call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } }),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
+    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ALREADY_LINKED');
   });
 });
 

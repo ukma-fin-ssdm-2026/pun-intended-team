@@ -4,9 +4,15 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const keys = [
-  { file: 'keys/code-hmac.key', content: () => `${randomBytes(32).toString('base64url')}\n` },
+  { file: 'keys/code-hmac.key', content: randomKey },
+  { file: 'keys/contact-hmac.key', content: randomKey },
+  { file: 'keys/data-encryption.key', content: randomKey },
   { file: 'keys/jwt-keys.json', content: () => `${JSON.stringify({ keys: [jwtKey()] }, null, 2)}\n` },
 ];
+
+function randomKey() {
+  return `${randomBytes(32).toString('base64url')}\n`;
+}
 
 // The kid is the creation date, so during a rotation it is clear which key is newer.
 function jwtKey() {

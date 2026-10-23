@@ -21,8 +21,9 @@ How registration, sign-in and the token check work in the code: [auth sequence d
 2. **Google is linked only from a signed-in session**, never automatically by matching email.
 3. Passwords are stored as argon2id (SEC-002); a lockout covers password sign-in and password changes (SEC-007), and codes are limited per code and per number (SEC-008).
 4. Tokens are the same whichever method was used (SEC-005).
-5. Codes go out through one messaging adapter (FLEX-003). They are sent through the **Telegram Gateway API** as an official Telegram message to the account registered with that number, so no bot or chat ID is needed. If Telegram refuses the code or does not answer, it goes by SMS through TurboSMS. We generate and check the code ourselves, so the SEC-008 limits stay in our hands.
-6. **Organizations** are regular user accounts: they register the same way, then request organization status, and publish events only after the team has verified them (FR-003). Administrator accounts are created by the team, not through registration.
+5. Phone numbers and dates of birth are stored encrypted with AES-256-GCM (SEC-003); accounts and codes are found by `contact_hash`, an HMAC-SHA256 of the number. Both keys are files outside the repository, separate from the token and code keys.
+6. Codes go out through one messaging adapter (FLEX-003). They are sent through the **Telegram Gateway API** as an official Telegram message to the account registered with that number, so no bot or chat ID is needed. If Telegram refuses the code or does not answer, it goes by SMS through TurboSMS. We generate and check the code ourselves, so the SEC-008 limits stay in our hands.
+7. **Organizations** are regular user accounts: they register the same way, then request organization status, and publish events only after the team has verified them (FR-003). Administrator accounts are created by the team, not through registration.
 
 ## Consequences
 

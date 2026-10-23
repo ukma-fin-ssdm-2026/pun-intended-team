@@ -70,7 +70,7 @@ Requires Node.js 26 or later.
 ```bash
 npm install
 cp .env.example .env    # first time only: it overwrites an existing .env
-npm run keys:generate   # key files for tokens and verification codes in keys/, never committed; keeps existing ones
+npm run keys:generate   # key files for tokens, verification codes and contact encryption in keys/, never committed; keeps existing ones
 npm run dev             # http://localhost:4100, Swagger UI at /api-docs; restarts on changes
 ```
 
@@ -85,6 +85,10 @@ For a production build: `npm run build`, then `npm start`.
 | `DATABASE_URL` | — | PostgreSQL connection string, set in `.env.example`; the server does not start without it, see [Local database](#local-database) |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
+| `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
+| `DATA_ENCRYPTION_KEY_FILE` | — | Key that encrypts phone numbers and dates of birth in the database (SEC-003), created by `npm run keys:generate`; the server does not start without it. Losing or changing it makes the stored values unreadable |
+
+The two database keys, `CONTACT_HMAC_KEY_FILE` and `DATA_ENCRYPTION_KEY_FILE`, cannot be created again: every database needs its own pair, backed up outside the repository and the server, for example in the team vault. Locally, new keys mean a new database: `docker compose down -v`, then the [Local database](#local-database) commands.
 
 Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
@@ -124,14 +128,17 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts and verification codes are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
 npx prisma migrate deploy   # creates the tables and the starting categories
+npm run db:seed             # the development accounts, encrypted with your keys; run again after new keys
 ```
 
-To reset the database, delete its data and migrate again: `docker compose down -v`, then the two commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
+`npm run test:e2e` never touches this database: it creates `<POSTGRES_DB>_e2e` next to it on every run, with keys of its own.
+
+To reset the database, delete its data and migrate again: `docker compose down -v`, then the three commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
 
 ## ൬ Running the client
 

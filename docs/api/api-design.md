@@ -301,7 +301,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 
 ### Trying It Out
 
-The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`.
+The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`. The seeded accounts are created by `npm run db:seed` ([local database](../../README.md#local-database)).
 
 Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Authorize** and paste it; with curl, send `Authorization: Bearer <token>`. Tokens last 60 minutes.
 
@@ -318,7 +318,7 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 | `+380501110004` | New Gallery, an organization still awaiting verification; no profile, so `POST /me/profile` creates one |
 | `+380501110005` | An administrator; no profile, so it shows the `404` of the profile endpoints |
 
-The stub data lives in `src/infra/stubs/data.ts` and is kept in memory, so changes, registered accounts included, last until the server restarts.
+Accounts and verification codes are in the database; `npm run db:seed` resets the seeded accounts. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts.
 
 ## AI Usage Note
 
