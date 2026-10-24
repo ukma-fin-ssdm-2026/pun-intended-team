@@ -43,8 +43,19 @@ Documentation related to system architecture for this project is located [here](
 - [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
+  - [`ADR-001.md`](docs/architecture/decisions/ADR-001.md) — modular monolith with a separate import service
+  - [`ADR-002.md`](docs/architecture/decisions/ADR-002.md) — PostgreSQL as the single data store
+  - [`ADR-003.md`](docs/architecture/decisions/ADR-003.md) — TypeScript for the event import service
 - [`mechanisms/`](docs/architecture/mechanisms/) — architectural and code mechanisms
+  - [`code-structure.md`](docs/architecture/mechanisms/code-structure.md) — the `api` / `core` / `infra` layers and how they depend on each other
+  - [`authentication.md`](docs/architecture/mechanisms/authentication.md) — registration by phone code, sign-in methods and tokens
+  - [`catalog-access.md`](docs/architecture/mechanisms/catalog-access.md) — public catalog reads, guest tokens and rate limits
+  - [`database-access.md`](docs/architecture/mechanisms/database-access.md) — a database role per process and schema migrations
+  - [`matching.md`](docs/architecture/mechanisms/matching.md) — applications, scheduled matching rounds, instant match and proposals
+  - [`notifications.md`](docs/architecture/mechanisms/notifications.md) — in-app inbox first, push notifications second
+  - [`testing.md`](docs/architecture/mechanisms/testing.md) — the unit and integration test layers and the coverage scope
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`. Render them with `npm run docs:diagrams` (needs Docker).
+  - Rendered: [component](docs/architecture/uml/rendered/component-diagram.svg), [main server components](docs/architecture/uml/rendered/main-server-components.svg), [code structure](docs/architecture/uml/rendered/code-structure.svg), [deployment](docs/architecture/uml/rendered/deployment-diagram.svg), [data model](docs/architecture/uml/rendered/data-model.svg), [sequence: matching](docs/architecture/uml/rendered/sequence-diagram-matching.svg), [sequence: registration and sign-in](docs/architecture/uml/rendered/sequence-diagram-auth.svg)
 
 ## ൭ API Documentation
 
@@ -59,9 +70,20 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 ## ⟡ Code Quality
 
+Documentation related to code quality for this project is located [here](docs/code-quality/):
+
 - [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
+
+## ꔮ Testing and Validation Artifacts
+
+Documentation related to testing is located [here](docs/testing/), the test plan [here](docs/validation/):
+
+- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
+- [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
+- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
+- [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
 
 ## ര Running the API
 
@@ -112,6 +134,10 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
+The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+
+<a id="commit-hooks"></a>
+
 ## 𓂀 Commit hooks
 
 Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
@@ -125,6 +151,8 @@ pipx install pre-commit
 The hooks run through `.githooks/pre-commit`, which is enabled by the same `git config core.hooksPath .githooks` as above. Without pre-commit the commit is refused and the hook prints this command. The first run downloads gitleaks and takes longer. To check the whole repository: `pre-commit run --all-files`.
 
 If a commit from VS Code fails with "pre-commit is not installed", restart VS Code after `pipx ensurepath`, so it picks up the new `PATH`.
+
+<a id="local-database"></a>
 
 ## 𓊚 Local database
 
@@ -151,3 +179,5 @@ The Expo client in [`app/`](app/) lists the catalog events and opens their detai
 ## ༄ AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
+
+Claude later checked every link against the repository files, fixed broken section links and added links to the documents in `docs/` that were missing. Every link target was verified to exist; the changes were reviewed by Daryna Halytska.
