@@ -48,7 +48,7 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and all tests with coverage (`npm run test:coverage`) in one job. Actions are paused: the organization's minutes ran out. Once the self-hosted runner works, every pull request run `npm run test:coverage` with a gate just below the current coverage, so any drop fails the build; the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and all tests with coverage (`npm run test:coverage`) in one job, on every pull request, on the course's self-hosted runners. The coverage step fails the build below 90% of lines or 80% of branches (see Bonuses); the gate rises as coverage grows.
 
 Tests run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
@@ -61,6 +61,14 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 **Why it holds for any input.** `afterFailedSignIn` returns only two kinds of state: the 5th failure gives "locked, nothing counted"; any other failure gives "counting, with a window start", since the first failure sets the start and later ones keep it. Neither kind has a count without a start or a count of 5.
 
 **Evidence.** With the code before the window start was set (the cycle 2 `[GREEN]` of #208), the property fails on the first timeline, and fast-check shrinks it to a single failure at minute 0: `Counterexample: [[0]]`, the row the constraint rejects. The current code passes.
+
+### Coverage gate
+
+**Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` on every pull request and fails the build when either value is below the threshold.
+
+**Why this threshold.** Coverage of all tests is 95.07% of lines and 86.06% of branches (see Coverage). The gate sits about 5 points below both, so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover about 30% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
+
+**Evidence.** The step passes on `main` after the gate was added: [run 39924791190](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190), commit `63319ab`. When a threshold is raised above the current coverage, the run fails with `Coverage of "All tests" is too low` and exit code 1.
 
 ## AI Usage Note
 

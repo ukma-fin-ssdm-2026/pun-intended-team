@@ -1027,7 +1027,7 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Cinema"
+         *           "name": "Books"
          *         }
          *       ]
          *     }
@@ -1039,7 +1039,7 @@ export interface components {
          * @description An interest from the fixed list users pick from
          * @example {
          *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Cinema"
+         *       "name": "Books"
          *     }
          */
         Interest: {
@@ -1059,7 +1059,7 @@ export interface components {
          *       "interests": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Cinema"
+         *           "name": "Books"
          *         }
          *       ],
          *       "isComplete": true

@@ -22,8 +22,8 @@ const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
 const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
-const interestCinema = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01';
-const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06';
+const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
+const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
 // Accounts from src/scripts/seed-dev-accounts.ts.
 const seededPassword = 'nearby-dev-password';
@@ -1387,7 +1387,7 @@ describe('GET /api/v1/interests', () => {
     const res = await call('GET', '/api/v1/interests', { token: tokens.user });
     assert.equal(res.status, 200);
     assert.ok(res.body.items.length > 0);
-    assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestCinema));
+    assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestFilms));
   });
 
   test('rejects a guest token with 401', async () => {
@@ -1404,7 +1404,7 @@ describe('GET /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, true);
     assert.deepEqual(
       res.body.interests.map((interest: { name: string }) => interest.name),
-      ['Cinema', 'Art and exhibitions'],
+      ['Films', 'Drawing'],
     );
   });
 
@@ -1529,7 +1529,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,
-      body: { interestIds: [interestCinema, interestHiking, interestCinema] },
+      body: { interestIds: [interestFilms, interestHiking, interestFilms] },
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
@@ -1558,7 +1558,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
   test('rejects an unknown interest id with 422 and changes nothing', async () => {
     await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,
-      body: { interestIds: [interestCinema] },
+      body: { interestIds: [interestFilms] },
     });
     const res = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,
@@ -1568,7 +1568,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
     assert.deepEqual(
       profile.body.interests.map((interest: { id: string }) => interest.id),
-      [interestCinema],
+      [interestFilms],
     );
   });
 

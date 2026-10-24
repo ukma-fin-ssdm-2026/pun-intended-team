@@ -717,7 +717,7 @@ components:
       example:
         items:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Cinema
+            name: Books
     Interest:
       type: object
       properties:
@@ -732,7 +732,7 @@ components:
       description: An interest from the fixed list users pick from
       example:
         id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Cinema
+        name: Books
     Profile:
       type: object
       properties:
@@ -787,7 +787,7 @@ components:
         age: 28
         interests:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Cinema
+            name: Books
         isComplete: true
     CreateProfileBody:
       type: object
