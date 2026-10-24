@@ -2,9 +2,9 @@
   "name": "nearby-mcp-generator",
   "version": "0.1.0",
   "private": true,
-  "description": "Pins openapi-mcp-generator, which generates the MCP server in src/mcp/ from the OpenAPI spec. Kept apart from the root package because its peer dependency on zod 3 conflicts with the API's zod 4.",
+  "description": "Pins openapi-mcp-generator, which generates the MCP server in src/mcp/ from the OpenAPI spec.",
   "type": "module",
   "devDependencies": {
-    "openapi-mcp-generator": "4.1.0"
+    "openapi-mcp-generator": "5.0.0"
   }
 }
