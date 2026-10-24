@@ -5,6 +5,7 @@
 # Reviewed by: Vlad-Re
 # Changed by Claude (Claude Code): merged the API tests, API docs, dependency audit, code quality, client
 # checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
+# Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
@@ -28,7 +29,7 @@ concurrency:
 jobs:
   ci-passed:
     name: CI passed
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -188,17 +189,24 @@ jobs:
           IMPORT_DATABASE_URL: postgresql://nearby_import:nearby_import_dev_password@localhost:5432/nearby
         run: npm run db:set-passwords
 
-      - name: Run e2e tests
-        if: ${{ !cancelled() && steps.roles.outcome == 'success' }}
+      # Unit tests need no database and fail within seconds, so a break shows up before the long run below.
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:unit
+
+      # Unit and e2e tests in one run, so the e2e tests do not run twice; the report covers both.
+      # Fails if coverage is below the thresholds in mcr.config.mjs.
+      - name: Run all tests with coverage
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
-          MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
-        run: npm run test:e2e
+          DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
+        run: npm run test:coverage
 
   deploy:
     name: Deploy API docs
     needs: ci-passed
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     timeout-minutes: 5
     permissions:
       pages: write

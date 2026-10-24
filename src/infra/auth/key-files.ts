@@ -19,9 +19,19 @@ const JwkSet = z.object({
 
 /** Read at startup: a missing or short key stops the server instead of weakening it. */
 export function loadCodeHmacKey(): Buffer {
-  const key = Buffer.from(readKeyFile('CODE_HMAC_KEY_FILE').trim(), 'base64url');
-  if (key.length < MIN_KEY_BYTES) {
-    throw new Error(`CODE_HMAC_KEY_FILE: the key must be at least ${MIN_KEY_BYTES} bytes`);
+  return loadKey('CODE_HMAC_KEY_FILE');
+}
+
+/** The key of `Account.contact_hash` and `VerificationCode.contact_hash`; separate from the code key. */
+export function loadContactHmacKey(): Buffer {
+  return loadKey('CONTACT_HMAC_KEY_FILE');
+}
+
+/** The AES-256 key of the encrypted columns (SEC-003): exactly 32 bytes. */
+export function loadDataEncryptionKey(): Buffer {
+  const key = loadKey('DATA_ENCRYPTION_KEY_FILE');
+  if (key.length !== MIN_KEY_BYTES) {
+    throw new Error(`DATA_ENCRYPTION_KEY_FILE: the key must be exactly ${MIN_KEY_BYTES} bytes`);
   }
   return key;
 }
@@ -52,6 +62,14 @@ export function loadSigningKeys(): SigningKey[] {
     throw new Error('JWT_KEYS_FILE: every key needs its own kid');
   }
   return keys;
+}
+
+function loadKey(variable: string): Buffer {
+  const key = Buffer.from(readKeyFile(variable).trim(), 'base64url');
+  if (key.length < MIN_KEY_BYTES) {
+    throw new Error(`${variable}: the key must be at least ${MIN_KEY_BYTES} bytes`);
+  }
+  return key;
 }
 
 function readKeyFile(variable: string): string {

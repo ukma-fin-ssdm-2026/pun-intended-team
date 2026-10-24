@@ -155,7 +155,7 @@ export interface paths {
         put?: never;
         /**
          * Start registration
-         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account. No access token needed.
+         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account, and a code requested within a minute of the last one is silently not sent. No access token needed.
          */
         post: operations["register"];
         delete?: never;
@@ -174,10 +174,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Finish registration
-         * @description Finish registration with the code, a password and the date of birth. Creates the account and signs in. No access token needed.
+         * Verify the phone number
+         * @description Second registration step: check the code. Returns a registration token, valid for 15 minutes, that only `completeRegistration` accepts. No access token needed.
          */
         post: operations["verify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/complete-registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish registration
+         * @description Last registration step: the date of birth. Activates the account and signs in; add a sign-in method next with `setPassword`. Under 18, the registration is removed and the number can start again. Needs the registration token from `verify`; other tokens get 401.
+         */
+        post: operations["completeRegistration"];
         delete?: never;
         options?: never;
         head?: never;
@@ -204,6 +224,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with Google
+         * @description Sign in with a Google account the user linked earlier with `linkGoogle`. No access token needed.
+         */
+        post: operations["signInWithGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a password reset
+         * @description Start a password reset: sends a one-time code to the phone number if it has an account. The answer is the same for any number, and a code requested within a minute of the last one is silently not sent. No access token needed.
+         */
+        post: operations["requestPasswordReset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-reset/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a password reset
+         * @description Finish a password reset with the code and a new password, and sign in. Every other session of the account ends. No access token needed.
+         */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or change your password
+         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. Every other session of the account ends; this one stays signed in. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["setPassword"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link your Google account
+         * @description Link a Google account to sign in with from now on. Linking the same Google account again changes nothing. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["linkGoogle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/guest": {
         parameters: {
             query?: never;
@@ -218,6 +338,46 @@ export interface paths {
          * @description Get a guest token: browse the catalog without an account. No access token needed.
          */
         post: operations["getGuestToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renew the access token
+         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one, since the old one no longer works, and using it again ends the session. No access token needed.
+         */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sign-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description End this session: its access token and refresh token stop working at once. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["signOut"];
         delete?: never;
         options?: never;
         head?: never;
@@ -421,7 +581,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "INVALID_CODE" | "CODE_RESEND_TOO_SOON" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -659,17 +819,38 @@ export interface components {
         /**
          * @example {
          *       "phone": "+380501119999",
-         *       "code": "123456",
-         *       "password": "a long passphrase",
-         *       "dateOfBirth": "2000-05-17"
+         *       "code": "123456"
          *     }
          */
         VerifyBody: {
             phone: components["schemas"]["PhoneNumber"];
             /** @description The code sent to the phone */
             code: string;
-            /** @description 8 to 128 characters */
-            password: string;
+        };
+        /**
+         * @example {
+         *       "accessToken": "eyJhbGciOiJIUzI1NiIs…",
+         *       "tokenType": "Bearer",
+         *       "expiresIn": 3600,
+         *       "refreshToken": "<session id>.<secret>"
+         *     }
+         */
+        SessionTokensResponse: {
+            /** @description Send as `Authorization: Bearer <accessToken>` */
+            accessToken: string;
+            /** @enum {string} */
+            tokenType: "Bearer";
+            /** @description Seconds until the token expires */
+            expiresIn: number;
+            /** @description Renews the access token with `refreshSession`; valid for 30 days, and replaced by every renewal */
+            refreshToken: string;
+        };
+        /**
+         * @example {
+         *       "dateOfBirth": "2000-05-17"
+         *     }
+         */
+        CompleteRegistrationBody: {
             /**
              * Format: date
              * @description Checked on the server: at least 18 years old
@@ -685,6 +866,58 @@ export interface components {
         SignInBody: {
             phone: components["schemas"]["PhoneNumber"];
             password: string;
+        };
+        /**
+         * @example {
+         *       "idToken": "eyJhbGciOiJSUzI1NiIs…"
+         *     }
+         */
+        GoogleIdTokenBody: {
+            /** @description The ID token Google Sign-In returned on the device */
+            idToken: string;
+        };
+        /**
+         * @example {
+         *       "phone": "+380501110001"
+         *     }
+         */
+        PasswordResetBody: {
+            phone: components["schemas"]["PhoneNumber"];
+        };
+        /**
+         * @example {
+         *       "phone": "+380501110001",
+         *       "code": "123456",
+         *       "password": "a new long passphrase"
+         *     }
+         */
+        ConfirmPasswordResetBody: {
+            phone: components["schemas"]["PhoneNumber"];
+            /** @description The code sent to the phone */
+            code: string;
+            /** @description 8 to 128 characters */
+            password: string;
+        };
+        /**
+         * @example {
+         *       "password": "a new long passphrase",
+         *       "currentPassword": "a long passphrase"
+         *     }
+         */
+        SetPasswordBody: {
+            /** @description 8 to 128 characters */
+            password: string;
+            /** @description Required once the account has a password */
+            currentPassword?: string;
+        };
+        /**
+         * @example {
+         *       "refreshToken": "<session id>.<secret>"
+         *     }
+         */
+        RefreshSessionBody: {
+            /** @description The refresh token from the last sign-in or renewal */
+            refreshToken: string;
         };
         /**
          * @example {
@@ -794,7 +1027,7 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Cinema"
+         *           "name": "Books"
          *         }
          *       ]
          *     }
@@ -806,7 +1039,7 @@ export interface components {
          * @description An interest from the fixed list users pick from
          * @example {
          *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Cinema"
+         *       "name": "Books"
          *     }
          */
         Interest: {
@@ -826,7 +1059,7 @@ export interface components {
          *       "interests": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Cinema"
+         *           "name": "Books"
          *         }
          *       ],
          *       "isComplete": true
@@ -1509,15 +1742,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     verify: {
@@ -1533,7 +1757,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The account is created; an access token for it */
+            /** @description A registration token */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1560,7 +1784,76 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times. `UNDERAGE`: younger than 18. */
+            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    completeRegistration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteRegistrationBody"];
+            };
+        };
+        responses: {
+            /** @description The account is active; the tokens of its first session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionTokensResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The registration was removed; start again */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Registration is already complete */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `UNDERAGE`: younger than 18 */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1584,13 +1877,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description An access token */
+            /** @description The tokens of a new session */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AccessTokenResponse"];
+                    "application/json": components["schemas"]["SessionTokensResponse"];
                 };
             };
             /** @description The request is invalid */
@@ -1604,6 +1897,228 @@ export interface operations {
             };
             /** @description `INVALID_CREDENTIALS`: wrong phone number or password; it does not say which */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signInWithGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GoogleIdTokenBody"];
+            };
+        };
+        responses: {
+            /** @description The tokens of a new session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionTokensResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked this Google account */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    requestPasswordReset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetBody"];
+            };
+        };
+        responses: {
+            /** @description If the number has an account, a code is on its way; it is valid for 10 minutes */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConfirmPasswordResetBody"];
+            };
+        };
+        responses: {
+            /** @description The password is replaced; the tokens of a new session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionTokensResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["SetPasswordBody"];
+            };
+        };
+        responses: {
+            /** @description The password is set */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong, or the account is locked after too many wrong passwords */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    linkGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GoogleIdTokenBody"];
+            };
+        };
+        responses: {
+            /** @description The Google account is linked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account. `GOOGLE_ALREADY_LINKED`: this account has another Google account linked. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1629,6 +2144,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccessTokenResponse"];
+                };
+            };
+        };
+    };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefreshSessionBody"];
+            };
+        };
+        responses: {
+            /** @description A new access token and refresh token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionTokensResponse"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the token was already used */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    signOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

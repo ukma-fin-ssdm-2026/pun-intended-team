@@ -8,21 +8,36 @@ import type { EventsRepository } from '../../dist/core/catalog/repositories/even
 import type { OrganizationsRepository } from '../../dist/core/catalog/repositories/organizations.repository.js';
 import type { VenuesRepository } from '../../dist/core/catalog/repositories/venues.repository.js';
 import type { CategoriesService } from '../../dist/core/catalog/services/categories.service.js';
-import type { Event, EventChanges } from '../../dist/core/catalog/types/event.js';
+import type { Category } from '../../dist/core/catalog/types/category.js';
+import type { Event, EventChanges, EventFilter, EventRecord } from '../../dist/core/catalog/types/event.js';
+import type { Organization } from '../../dist/core/catalog/types/organization.js';
+import type { Venue } from '../../dist/core/catalog/types/venue.js';
+import type { Page, PageRequest } from '../../dist/core/common/page.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
-import { aCategory, anEvent, anOrganization, aVenue, EVENT_ID } from './fixtures/catalog.ts';
+import { aCategory, aNewEvent, anEvent, anOrganization, aVenue, EVENT_ID } from './fixtures/catalog.ts';
+import { TODAY, useFixedClock } from './fixtures/clock.ts';
+
+const PAGE: PageRequest = { limit: 20, offset: 0 };
+/** TODAY plus the 28-day catalog window. */
+const WINDOW_END = '2026-11-12';
 
 /** Every dependency of EventsService as a mock; a test changes only what it needs. */
 function makeService() {
   const eventsRepository = {
     findById: mock.fn((): Promise<Event | undefined> => Promise.resolve(anEvent())),
-    findPublished: mock.fn(),
-    create: mock.fn(),
+    findPublished: mock.fn((_filter: EventFilter, page: PageRequest): Promise<Page<Event>> =>
+      Promise.resolve({ items: [anEvent()], page: { ...page, hasMore: false } }),
+    ),
+    create: mock.fn((record: EventRecord): Promise<Event> => Promise.resolve(anEvent({ ...record }))),
     update: mock.fn((id: string, changes: EventChanges) => Promise.resolve({ ...anEvent({ id }), ...changes })),
   };
-  const organizationsRepository = { findByAccountId: mock.fn(() => Promise.resolve(anOrganization())) };
-  const venuesRepository = { findById: mock.fn(() => Promise.resolve(aVenue())) };
-  const categoriesService = { findActive: mock.fn(() => Promise.resolve(aCategory())) };
+  const organizationsRepository = {
+    findByAccountId: mock.fn((): Promise<Organization | undefined> => Promise.resolve(anOrganization())),
+  };
+  const venuesRepository = { findById: mock.fn((): Promise<Venue | undefined> => Promise.resolve(aVenue())) };
+  const categoriesService = {
+    findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
+  };
 
   const service = new EventsService(
     eventsRepository as unknown as EventsRepository,
@@ -30,8 +45,246 @@ function makeService() {
     venuesRepository as unknown as VenuesRepository,
     categoriesService as unknown as CategoriesService,
   );
-  return { service, eventsRepository };
+  return { service, eventsRepository, organizationsRepository, venuesRepository, categoriesService };
 }
+
+function isDomainError(code: string) {
+  return (error: unknown) => error instanceof DomainError && error.code === code;
+}
+
+// FR-006, FR-007; catalog access, rule 2: only the coming 28 days.
+describe('EventsService.list', () => {
+  useFixedClock();
+
+  const windowCases = [
+    { title: 'covers today to the end of the window without dates', query: {}, from: TODAY, to: WINDOW_END },
+    {
+      title: 'moves a start in the past to today',
+      query: { from: '2026-10-01', to: '2026-10-20' },
+      from: TODAY,
+      to: '2026-10-20',
+    },
+    {
+      title: 'moves an end beyond the window to its end',
+      query: { from: '2026-10-20', to: '2026-12-31' },
+      from: '2026-10-20',
+      to: WINDOW_END,
+    },
+    {
+      title: 'keeps dates inside the window',
+      query: { from: '2026-10-20', to: '2026-10-25' },
+      from: '2026-10-20',
+      to: '2026-10-25',
+    },
+  ];
+
+  for (const { title, query, from, to } of windowCases) {
+    test(title, async () => {
+      const { service, eventsRepository } = makeService();
+
+      await service.list(query, PAGE);
+
+      assert.deepEqual(eventsRepository.findPublished.mock.calls[0]?.arguments, [{ ...query, from, to }, PAGE]);
+    });
+  }
+
+  // Regression for #206: the end date was compared the wrong way round, so a client could read past the window.
+  const windowEndCases = [
+    { title: 'keeps the last day of the window', to: WINDOW_END, expected: WINDOW_END },
+    { title: 'keeps the day before the last day of the window', to: '2026-11-11', expected: '2026-11-11' },
+    { title: 'moves the day after the window to its last day', to: '2026-11-13', expected: WINDOW_END },
+    { title: 'moves a date a year ahead to the last day of the window', to: '2027-10-15', expected: WINDOW_END },
+  ];
+
+  for (const { title, to, expected } of windowEndCases) {
+    test(`end date: ${title}`, async () => {
+      const { service, eventsRepository } = makeService();
+
+      await service.list({ to }, PAGE);
+
+      assert.equal(eventsRepository.findPublished.mock.calls[0]?.arguments[0].to, expected);
+    });
+  }
+
+  test('passes the category and venue filters on unchanged', async () => {
+    const { service, eventsRepository } = makeService();
+    const query = { categoryId: aCategory().id, venueId: aVenue().id };
+
+    await service.list(query, PAGE);
+
+    assert.deepEqual(eventsRepository.findPublished.mock.calls[0]?.arguments[0], {
+      ...query,
+      from: TODAY,
+      to: WINDOW_END,
+    });
+  });
+
+  test('starts the window on the Kyiv date: at 00:30 in Kyiv, UTC is still on the day before', async () => {
+    mock.timers.setTime(Date.parse('2026-10-14T21:30:00Z'));
+    const { service, eventsRepository } = makeService();
+
+    await service.list({}, PAGE);
+
+    assert.equal(eventsRepository.findPublished.mock.calls[0]?.arguments[0].from, TODAY);
+  });
+});
+
+describe('EventsService.getById', () => {
+  test('returns the event', async () => {
+    const { service } = makeService();
+
+    assert.deepEqual(await service.getById(EVENT_ID), anEvent());
+  });
+
+  test('answers NOT_FOUND to an unknown event', async () => {
+    const { service, eventsRepository } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.getById(EVENT_ID), isDomainError('NOT_FOUND'));
+  });
+});
+
+// FR-009
+describe('EventsService.create', () => {
+  test('publishes the event as the organization’s own', async () => {
+    const { service, eventsRepository } = makeService();
+    const input = aNewEvent();
+
+    await service.create(ACCOUNT_ID, input);
+
+    assert.deepEqual(eventsRepository.create.mock.calls[0]?.arguments, [
+      { ...input, source: 'organization', status: 'published', organizationId: ACCOUNT_ID },
+    ]);
+  });
+
+  test('rejects an organization that is not verified yet', async () => {
+    const { service, eventsRepository, organizationsRepository } = makeService();
+    organizationsRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(anOrganization({ verificationStatus: 'pending' })),
+    );
+
+    await assert.rejects(service.create(ACCOUNT_ID, aNewEvent()), isDomainError('ORGANIZATION_NOT_VERIFIED'));
+    assert.equal(eventsRepository.create.mock.callCount(), 0);
+  });
+
+  test('rejects an account that is not an organization', async () => {
+    const { service, organizationsRepository } = makeService();
+    organizationsRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.create(ACCOUNT_ID, aNewEvent()), isDomainError('ORGANIZATION_NOT_VERIFIED'));
+  });
+
+  test('rejects a category that is not active', async () => {
+    const { service, eventsRepository, categoriesService } = makeService();
+    categoriesService.findActive.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.create(ACCOUNT_ID, aNewEvent()), isDomainError('REFERENCE_NOT_FOUND'));
+    assert.equal(eventsRepository.create.mock.callCount(), 0);
+  });
+
+  test('rejects a venue of another organization', async () => {
+    const { service, eventsRepository, venuesRepository } = makeService();
+    venuesRepository.findById.mock.mockImplementation(() =>
+      Promise.resolve(aVenue({ organizationId: OTHER_ACCOUNT_ID })),
+    );
+
+    await assert.rejects(service.create(ACCOUNT_ID, aNewEvent()), isDomainError('REFERENCE_NOT_FOUND'));
+    assert.equal(eventsRepository.create.mock.callCount(), 0);
+  });
+
+  test('rejects an unknown venue', async () => {
+    const { service, venuesRepository } = makeService();
+    venuesRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.create(ACCOUNT_ID, aNewEvent()), isDomainError('REFERENCE_NOT_FOUND'));
+  });
+
+  const timeCases = [
+    {
+      title: 'rejects an event that ends before it starts',
+      startsAt: '2026-10-22T19:00:00+03:00',
+      endsAt: '2026-10-22T18:00:00+03:00',
+    },
+    {
+      title: 'rejects an event that ends when it starts',
+      startsAt: '2026-10-22T19:00:00+03:00',
+      endsAt: '2026-10-22T19:00:00+03:00',
+    },
+    {
+      title: 'rejects an event that ends when it starts, written with another offset',
+      startsAt: '2026-10-22T19:00:00+03:00',
+      endsAt: '2026-10-22T18:00:00+02:00',
+    },
+  ];
+
+  test('compares instants: accepts an end that reads earlier but is 30 minutes later in another offset', async () => {
+    const { service, eventsRepository } = makeService();
+    const input = aNewEvent({ startsAt: '2026-10-22T19:00:00+03:00', endsAt: '2026-10-22T18:30:00+02:00' });
+
+    await service.create(ACCOUNT_ID, input);
+
+    assert.equal(eventsRepository.create.mock.callCount(), 1);
+  });
+
+  for (const { title, startsAt, endsAt } of timeCases) {
+    test(title, async () => {
+      const { service, eventsRepository } = makeService();
+
+      const creating = service.create(ACCOUNT_ID, aNewEvent({ startsAt, endsAt }));
+
+      await assert.rejects(creating, isDomainError('EVENT_ENDS_BEFORE_START'));
+      assert.equal(eventsRepository.create.mock.callCount(), 0);
+    });
+  }
+});
+
+// FR-011
+describe('EventsService.update', () => {
+  test('saves every editable field of the organization’s event', async () => {
+    const { service, eventsRepository } = makeService();
+    const input = aNewEvent({ title: 'Film quiz night: autumn edition' });
+
+    await service.update(ACCOUNT_ID, EVENT_ID, input);
+
+    assert.deepEqual(eventsRepository.update.mock.calls[0]?.arguments, [EVENT_ID, input]);
+  });
+
+  test('tells another organization the event does not exist, before checking anything else', async () => {
+    const { service, eventsRepository, organizationsRepository } = makeService();
+
+    await assert.rejects(service.update(OTHER_ACCOUNT_ID, EVENT_ID, aNewEvent()), isDomainError('NOT_FOUND'));
+    assert.equal(organizationsRepository.findByAccountId.mock.callCount(), 0);
+    assert.equal(eventsRepository.update.mock.callCount(), 0);
+  });
+
+  test('rejects an organization that has lost its verification', async () => {
+    const { service, eventsRepository, organizationsRepository } = makeService();
+    organizationsRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(anOrganization({ verificationStatus: 'revoked' })),
+    );
+
+    const updating = service.update(ACCOUNT_ID, EVENT_ID, aNewEvent());
+
+    await assert.rejects(updating, isDomainError('ORGANIZATION_NOT_VERIFIED'));
+    assert.equal(eventsRepository.update.mock.callCount(), 0);
+  });
+
+  test('rejects editing a cancelled event', async () => {
+    const { service, eventsRepository } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(anEvent({ status: 'cancelled' })));
+
+    await assert.rejects(service.update(ACCOUNT_ID, EVENT_ID, aNewEvent()), isDomainError('EVENT_CANCELLED'));
+    assert.equal(eventsRepository.update.mock.callCount(), 0);
+  });
+
+  test('rejects new times where the event ends before it starts', async () => {
+    const { service, eventsRepository } = makeService();
+    const input = aNewEvent({ startsAt: '2026-10-22T19:00:00+03:00', endsAt: '2026-10-22T18:00:00+03:00' });
+
+    await assert.rejects(service.update(ACCOUNT_ID, EVENT_ID, input), isDomainError('EVENT_ENDS_BEFORE_START'));
+    assert.equal(eventsRepository.update.mock.callCount(), 0);
+  });
+});
 
 // FR-011
 describe('EventsService.cancel', () => {
@@ -50,7 +303,7 @@ describe('EventsService.cancel', () => {
 
     const cancelling = service.cancel(OTHER_ACCOUNT_ID, EVENT_ID);
 
-    await assert.rejects(cancelling, (error) => error instanceof DomainError && error.code === 'NOT_FOUND');
+    await assert.rejects(cancelling, isDomainError('NOT_FOUND'));
     assert.equal(eventsRepository.update.mock.callCount(), 0);
   });
 
