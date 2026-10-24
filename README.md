@@ -76,15 +76,6 @@ Documentation related to code quality for this project is located [here](docs/co
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
 
-## ꔮ Testing and Validation Artifacts
-
-Documentation related to testing is located [here](docs/testing/), the test plan [here](docs/validation/):
-
-- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
-- [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
-- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
-- [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
-
 ## ര Running the API
 
 Requires Node.js 26 or later.
@@ -116,7 +107,11 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
 
+<a id="tests"></a>
+
 ## ꕤ Tests
+
+### Running tests
 
 Unit tests in [`tests/unit/`](tests/unit/) check the services in `src/core/` with mocked repositories. The tests in [`tests/e2e/`](tests/e2e/) are integration tests, despite the folder name: they start the API and call it over HTTP, through every layer and the real database. They need `.env` and the [local database](#local-database). Every command builds first, since the tests import the compiled code from `dist/`.
 
@@ -135,6 +130,15 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
 The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+
+### Test documentation
+
+Documentation related to testing is located [here](docs/testing/), the test plan [here](docs/validation/):
+
+- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
+- [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
+- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
+- [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
 
 <a id="commit-hooks"></a>
 
