@@ -23,6 +23,7 @@
     "test:unit": "nest build && node --test \"tests/unit/**/*.test.ts\"",
     "test:coverage": "nest build && mcr -o coverage -n \"All tests\" node --test \"tests/**/*.test.ts\"",
     "test:coverage:unit": "nest build && mcr -o coverage -n \"Unit tests\" node --test \"tests/unit/**/*.test.ts\"",
+    "test:perf": "docker run --rm -i --add-host=host.docker.internal:host-gateway -e BASE_URL=\"${BASE_URL:-http://host.docker.internal:4100}\" -e PERF_PHONE -e PERF_PASSWORD -e PERF_VUS -e PERF_DURATION grafana/k6:2.3.0 run - < tests/perf/listings.k6.js",
     "docs:coverage": "nest build && mcr -o docs/testing/coverage/unit -n \"Unit tests\" node --test \"tests/unit/**/*.test.ts\" && mcr -o docs/testing/coverage/all -n \"All tests\" node --test \"tests/**/*.test.ts\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

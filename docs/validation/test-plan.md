@@ -53,7 +53,7 @@
 | TC-07 | `POST /admin/categories` | Integration | Positive | An admin adds a category; it is saved as active and answered with `201` | Viktoriia Baran | FR-029 | done |
 | TC-08 | `ageOn` | Unit | Positive | The birthday counts as a full year, and a 29 February birthday counts from 1 March | Viktoriia Baran | FR-002, SAFE-001 | done |
 | TC-09 | `interestOverlap` | Unit | Positive | The score is shared interests over all distinct interests; identical lists score 1, disjoint lists 0 | Daryna Halytska | FR-017 | done |
-| TC-10 | Listings under load (k6) | System | Positive | 500 concurrent sessions for 10 minutes on `GET /listings`: p95 ≤ 1000 ms, p99 ≤ 2000 ms, max ≤ 5000 ms | Oleh Moshenskyi | FR-022, PERF-001 | planned |
+| TC-10 | Listings under load (k6) | System | Positive | 500 concurrent sessions for 10 minutes on `GET /listings`: p95 ≤ 1000 ms, p99 ≤ 2000 ms, max ≤ 5000 ms | Daryna Halytska | FR-022, PERF-001 | planned |
 | TC-11 | Dependency audit in CI | System | Negative | `npm audit --audit-level=high` finds zero High and zero Critical advisories | Daryna Halytska | SEC-006 | done |
 | TC-12 | `POST /me/profile` | Integration | Positive | A new profile is answered with `201` and `Location: /api/v1/me/profile`, with no interests and `isComplete: false` | Oleh Moshenskyi | FR-002 | done |
 | TC-13 | Matching round over one event session | Integration | Positive | US-009 AC1: of three applicants, A and B score 0.75 and A and C score 0.2; the round proposes A with B and leaves C in the pool | TBD | FR-017 | planned |
@@ -78,6 +78,36 @@ Testing under this plan is complete when all of the following hold:
 - Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 with matching, and TC-10 once the staging environment exists.
 - The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
 - No critical defect is open.
+
+## Bonuses
+
+### Executable non-functional test: TC-10, local run
+
+TC-10 is an executable k6 script, [`tests/perf/listings.k6.js`](../../tests/perf/listings.k6.js). 500 virtual users (`constant-vus`) run for 10 minutes; each iteration calls `GET /api/v1/listings`, checks for `200` and waits 1 s. `setup()` signs in once with a seeded account and shares the access token, since sign-in is rate-limited. The PERF-001 thresholds apply to the listings requests only, and k6 exits non-zero when one fails. It is not part of CI.
+
+```bash
+npx prisma migrate deploy && npm run db:seed   # local database with the development accounts
+npm run build && npm start                     # production build of the API on port 4100
+npm run test:perf                              # k6 2.3.0 in Docker (grafana/k6) against http://host.docker.internal:4100
+```
+
+Result of the run on 2026-10-24: **failed**, k6 exited with code 99.
+
+| Metric | PERF-001 threshold | Measured | Result |
+|---|---|---|---|
+| p95 | ≤ 1000 ms | 699.97 ms | pass |
+| p99 | ≤ 2000 ms | 953.13 ms | pass |
+| max | ≤ 5000 ms | 30.01 s | fail |
+| Error rate | 0 | 2 of 215,260 requests (0.0009%) | fail |
+
+The run made 215,260 requests, 357 a second. The slowest request, 30.01 s, was one of the two failures; the slowest successful one took 7.93 s, so the maximum fails without them too. The cause is not investigated yet.
+
+**Machine:** one laptop ran the API, PostgreSQL and k6 together: Intel Core i5-1135G7 (4 cores, 8 threads), 7.6 GiB RAM for WSL 2, Ubuntu 24.04 on WSL 2 under Windows, Docker Desktop 29.2.0, Node.js 26.10.0, `NODE_ENV=development`.
+
+**What this result does not show:**
+
+- It is a local run, not the staging run PERF-001 asks for. k6 shared the CPU with the API, which adds to the measured times. TC-10 on staging stays planned.
+- Listings are still served from the in-memory stub repository; only the session check of each request reaches PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
 
 ## AI Usage Note
 
