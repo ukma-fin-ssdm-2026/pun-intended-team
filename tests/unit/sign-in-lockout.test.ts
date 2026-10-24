@@ -24,7 +24,7 @@ const LAST_MOMENT_OF_WINDOW = new Date(minute(WINDOW_MINUTES).getTime() - 1);
 const LAST_MOMENT_OF_LOCK = new Date(minute(LOCK_MINUTES).getTime() - 1);
 
 // SEC-007: 5 failed sign-ins for one account within 15 minutes lock it for 15 minutes.
-// One case per row of the state transition table in docs/testing/testing-strategy.md (Bonuses).
+// One case per row of the state transition table in docs/validation/test-plan.md (Bonuses).
 describe('afterSignIn, state transitions', () => {
   const transitions = [
     {
