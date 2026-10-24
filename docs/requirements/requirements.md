@@ -169,11 +169,11 @@ The application shall meet a named published security baseline and ship free of 
 The system shall rate-limit sign-in attempts and public endpoint requests, so that credentials cannot be guessed and the catalog cannot be scraped by brute force.
 - *Fit criterion:* after 5 failed sign-ins for one account within 15 min, further attempts are refused for 15 min; public endpoints cap at 100 requests/min per guest or user token, with a backstop of 1000 requests/min per IP so that users behind a shared address are not blocked, returning `429` with `Retry-After`; failure messages do not reveal whether an account exists.
 - *Verification:* test firing six bad sign-ins and asserting the lockout; tests exceeding the per-token cap and the per-IP backstop and asserting `429`; message wording reviewed for account enumeration.
-- *Note:* the lockout applies to password sign-in and to verification-code attempts alike; code resends are throttled by SEC-008.
+- *Note:* the lockout applies to password sign-in and password changes; code guessing is limited by SEC-008: 3 attempts per code, 5 codes a day.
 
 **SEC-008**
 A registration verification code — FR-005 — shall be short-lived, single-use and attempt-limited, and shall be handed to the messaging provider within a bounded time.
-- *Fit criterion:* 6-digit code, valid 10 min, usable once, invalidated after 3 failed attempts, at most 1 resend per minute; p95 of the time from request to the code reaching the provider ≤ 2 s. Delivery time from the provider to the device is out of scope — it depends on the carrier and cannot be measured by us.
+- *Fit criterion:* 6-digit code, valid 10 min, usable once, invalidated after 3 failed attempts, at most 1 resend per minute and 5 codes per number in 24 hours; p95 of the time from request to the code reaching the provider ≤ 2 s. Delivery time from the provider to the device is out of scope — it depends on the carrier and cannot be measured by us.
 - *Verification:* tests for expiry, reuse, attempt limit and resend throttle; p95 dispatch latency measured from our own logs.
 
 ### 4.4 Interaction Capability
