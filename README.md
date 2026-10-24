@@ -18,10 +18,10 @@ Look [here](Project-Description.md) for a more detailed project description
 
 | Member | Role | GitHub |
 |---|---|---|
-| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead, Documentation Lead, Testing Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
-| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API), Security Analyst, Testing Strategist | [@DarynaHalytska](https://github.com/DarynaHalytska) |
-| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API), Code Reviewer, Prototype Lead, Debugging Lead | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
-| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead, Quality Lead (code) | [@Vlad-Re](https://github.com/Vlad-Re) |
+| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead, Documentation Lead, Testing Lead, Quality Analyst | [@viktoriyabaran](https://github.com/viktoriyabaran) |
+| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API), Security Analyst, Testing Strategist, Test Planner | [@DarynaHalytska](https://github.com/DarynaHalytska) |
+| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API), Code Reviewer, Prototype Lead, Debugging Lead, Documentation Owner | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
+| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead, Quality Lead (code), Review Manager, AI Code Reviewer | [@Vlad-Re](https://github.com/Vlad-Re) |
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
