@@ -4,11 +4,11 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 ## Current Status
 
-| Layer | Where | Tests |
-|---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 273 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 150 |
-| End-to-end | through the Expo client | planned |
+| Layer       | Where                                                                                                        | Tests   |
+| ----------- | ------------------------------------------------------------------------------------------------------------ | ------- |
+| Unit        | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 278     |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs                            | 150     |
+| End-to-end  | through the Expo client                                                                                      | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
 
@@ -20,14 +20,15 @@ Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreS
 
 MCR, 23 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
 
-| Run | Statements | Branches | Functions | Lines |
-|---|---|---|---|---|
-| All tests | 96.83% | 90.85% | 97.56% | 96.54% |
-| Unit tests only | 53.22% | 60.09% | 41.06% | 38.53% |
+| Run             | Statements | Branches | Functions | Lines  |
+| --------------- | ---------- | -------- | --------- | ------ |
+| All tests       | 96.83%     | 90.85%   | 97.56%    | 96.54% |
+| Unit tests only | 53.22%     | 60.09%   | 41.06%    | 38.53% |
 
 Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 93%; matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
+
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
 - **`auth.ts` (93%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
 - **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
@@ -69,6 +70,27 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 **Why this threshold.** Coverage of all tests is 95.07% of lines and 86.06% of branches (see Coverage). The gate sits about 5 points below both, so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover about 30% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
 
 **Evidence.** The step passes on `main` after the gate was added: [run 39924791190](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190), commit `63319ab`. When a threshold is raised above the current coverage, the run fails with `Coverage of "All tests" is too low` and exit code 1.
+
+### State transition table: sign-in lockout
+
+SEC-007: 5 failed sign-ins for one account within 15 minutes lock it for 15 minutes. `afterSignIn` in [`sign-in-lockout.ts`](../../src/core/identity/services/sign-in-lockout.ts) returns the lockout state to save after each password sign-in.
+
+States: **Clean**, no failures counted and no active lock; **Counting(n)**, n failures since the window start, 1 ≤ n ≤ 4; **Locked**, the lock end is in the future.
+
+| ID  | From            | Event          | Guard                | To                                   |
+| --- | --------------- | -------------- | -------------------- | ------------------------------------ |
+| T1  | Clean           | wrong password |                      | Counting(1), window starts now       |
+| T2  | Clean           | right password |                      | Clean                                |
+| T3  | Counting(n < 4) | wrong password | inside the window    | Counting(n + 1)                      |
+| T4  | Counting(4)     | wrong password | inside the window    | Locked for 15 minutes, count cleared |
+| T5  | Counting(n)     | wrong password | window passed        | Counting(1), window starts now       |
+| T6  | Counting(n)     | right password |                      | Clean                                |
+| T7  | Locked          | wrong password | before the lock ends | Locked, unchanged                    |
+| T8  | Locked          | right password | before the lock ends | Locked, unchanged; sign-in rejected  |
+| T9  | Locked          | wrong password | lock ended           | Counting(1), window starts now       |
+| T10 | Locked          | right password | lock ended           | Clean                                |
+
+[`sign-in-lockout.test.ts`](../../tests/unit/sign-in-lockout.test.ts), "afterSignIn, state transitions", has one case per row, named by its ID, e.g. `T4: Counting(4) --wrong password inside the window--> Locked`. Guards are tested at their boundaries: T4 at the last millisecond of the window, T5 the moment it passes, T7 and T8 at the last millisecond of the lock, T9 and T10 the moment it ends. A password reset also sets Clean; it is outside this table, since it does not go through `afterSignIn`.
 
 ## AI Usage Note
 
