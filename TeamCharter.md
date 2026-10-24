@@ -18,6 +18,7 @@
   - API Design Lead — owns `docs/api/api-design.md` (resource model, status codes, versioning) and checks that endpoints are consistent with it.
   - Documentation Lead (Lab 5) — updates the charter and the summary reports.
   - Testing Lead (Lab 6) — coordinates unit testing and coverage measurement; owns the shared fixtures, mocks, and edge cases in the test suite.
+  - Quality Analyst (Lab 7) — summarizes the results of the other team's review.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
@@ -26,6 +27,7 @@
   - Documentation Lead (API) — sets up automatic documentation generation and GitHub Pages.
   - Security Analyst — checks how data is handled, runs the security analyzer, documents vulnerabilities, and owns the dependency audit (Dependabot, `npm audit` in CI).
   - Testing Strategist (Lab 6) — writes the testing strategy (`docs/testing/testing-strategy.md`) and plans how tests are integrated into CI.
+  - Test Planner (Lab 7) — coordinates writing the test plan (`docs/validation/test-plan.md`) and the structure of its table.
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
@@ -36,6 +38,7 @@
   - Code Reviewer — reviews the other team's code.
   - Prototype Lead — owns the base code structure, the first working component, and `progress.md`.
   - Debugging Lead (Lab 6) — leads the "break, then debug" challenge and documents the findings in `docs/testing/debugging-log.md`.
+  - Documentation Owner (Lab 7) — maintains `docs/validation/test-plan.md` and creates `docs/validation/review-log.md`.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
@@ -43,6 +46,8 @@
   - UML Lead — responsible for the correctness of UML diagrams.
   - Integration Lead — integrates all components, the tests and the CI/CD pipeline.
   - Quality Lead (code) — coordinates the code review and sets up static analysis.
+  - Review Manager (Lab 7) — passes the test plans between teams and records the feedback.
+  - AI Code Reviewer (Lab 7) — leads the review of an AI-generated pull request with the course checklist and records it in `docs/validation/review-log.md`.
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
