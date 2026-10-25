@@ -2,8 +2,12 @@
 // AI Usage: mock session with the development switches for guest mode and catalog loading; reviewed by Daryna Halytska.
 import { createStore } from '@/state/store';
 
-// There is no sign-in yet: the session is a mock, and development builds switch it in the gallery (/dev/components).
+// Whether an account is signed in comes from src/api/session.ts; the rest are mock switches that development builds
+// change in the gallery (/dev/components).
 type Session = {
+  // False until the stored session is read on launch.
+  restored: boolean;
+  signedIn: boolean;
   isGuest: boolean;
   // The catalog shows its skeleton (01.1) before the events, as the prototype does with mock data.
   simulateLoading: boolean;
@@ -24,6 +28,8 @@ type Session = {
 };
 
 const store = createStore<Session>({
+  restored: false,
+  signedIn: false,
   isGuest: false,
   simulateLoading: true,
   catalogLoading: true,
@@ -42,7 +48,12 @@ export function setGuest(isGuest: boolean) {
   store.set(({ simulateLoading }) => ({ isGuest, catalogLoading: simulateLoading }));
 }
 
-// Signing in (В4, В4.2, В8) ends guest mode.
+// Signing in or out ends guest mode.
+export function setSignedIn(signedIn: boolean) {
+  store.set({ restored: true, signedIn, isGuest: false });
+}
+
+// Opening the catalog after signing in (В4, В4.2, В8) replays its loading.
 export function signIn() {
   store.set(({ simulateLoading }) => ({ isGuest: false, catalogLoading: simulateLoading }));
 }

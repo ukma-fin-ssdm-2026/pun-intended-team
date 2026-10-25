@@ -10,7 +10,7 @@ servers:
     description: Local development
 tags:
   - name: Auth
-    description: Registration, sign-in and guest tokens
+    description: Registration, sign-in methods and guest tokens
   - name: Events
     description: Events users can go to together
   - name: Listings
@@ -114,8 +114,12 @@ components:
         - USERNAME_TAKEN
         - PROFILE_EXISTS
         - INVALID_CREDENTIALS
+        - WRONG_PASSWORD
+        - INVALID_GOOGLE_TOKEN
+        - GOOGLE_ACCOUNT_TAKEN
+        - GOOGLE_ALREADY_LINKED
         - INVALID_CODE
-        - CODE_RESEND_TOO_SOON
+        - INVALID_REFRESH_TOKEN
         - UNDERAGE
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
@@ -431,25 +435,52 @@ components:
           type: string
           pattern: ^\d{6}$
           description: The code sent to the phone
-        password:
+      required:
+        - phone
+        - code
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+        code: '123456'
+    SessionTokensResponse:
+      type: object
+      properties:
+        accessToken:
           type: string
-          minLength: 8
-          maxLength: 128
-          description: 8 to 128 characters
+          description: 'Send as `Authorization: Bearer <accessToken>`'
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires
+        refreshToken:
+          type: string
+          description: >-
+            Renews the access token with `refreshSession`; valid for 30 days,
+            and replaced by every renewal
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - refreshToken
+      example:
+        accessToken: eyJhbGciOiJIUzI1NiIs…
+        tokenType: Bearer
+        expiresIn: 3600
+        refreshToken: <session id>.<secret>
+    CompleteRegistrationBody:
+      type: object
+      properties:
         dateOfBirth:
           type: string
           format: date
           description: 'Checked on the server: at least 18 years old'
       required:
-        - phone
-        - code
-        - password
         - dateOfBirth
       additionalProperties: false
       example:
-        phone: '+380501119999'
-        code: '123456'
-        password: a long passphrase
         dateOfBirth: '2000-05-17'
     SignInBody:
       type: object
@@ -467,6 +498,84 @@ components:
       example:
         phone: '+380501110001'
         password: nearby-dev-password
+    GoogleIdTokenBody:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The ID token Google Sign-In returned on the device
+      required:
+        - idToken
+      additionalProperties: false
+      example:
+        idToken: eyJhbGciOiJSUzI1NiIs…
+    PasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+      required:
+        - phone
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+    ConfirmPasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: The code sent to the phone
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+      required:
+        - phone
+        - code
+        - password
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+        code: '123456'
+        password: a new long passphrase
+    SetPasswordBody:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Required once the account has a password
+      required:
+        - password
+      additionalProperties: false
+      example:
+        password: a new long passphrase
+        currentPassword: a long passphrase
+    RefreshSessionBody:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: The refresh token from the last sign-in or renewal
+      required:
+        - refreshToken
+      additionalProperties: false
+      example:
+        refreshToken: <session id>.<secret>
     ListingsPage:
       type: object
       properties:
@@ -1310,8 +1419,9 @@ paths:
       summary: Start registration
       description: >-
         Start registration: sends a one-time code to the phone number. The
-        answer is the same whether or not the number already has an account. No
-        access token needed.
+        answer is the same whether or not the number already has an account, and
+        a code requested within a minute of the last one is silently not sent.
+        No access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1329,19 +1439,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '429':
-          description: '`CODE_RESEND_TOO_SOON`: a code was sent less than a minute ago'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/verify:
     post:
       operationId: verify
-      summary: Finish registration
+      summary: Verify the phone number
       description: >-
-        Finish registration with the code, a password and the date of birth.
-        Creates the account and signs in. No access token needed.
+        Second registration step: check the code. Returns a registration token,
+        valid for 15 minutes, that only `completeRegistration` accepts. No
+        access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1352,7 +1457,7 @@ paths:
               $ref: '#/components/schemas/VerifyBody'
       responses:
         '200':
-          description: The account is created; an access token for it
+          description: A registration token
           content:
             application/json:
               schema:
@@ -1372,7 +1477,63 @@ paths:
         '422':
           description: >-
             `INVALID_CODE`: the code is wrong, expired, already used or failed 3
-            times. `UNDERAGE`: younger than 18.
+            times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/complete-registration:
+    post:
+      operationId: completeRegistration
+      summary: Finish registration
+      description: >-
+        Last registration step: the date of birth. Activates the account and
+        signs in; add a sign-in method next with `setPassword`. Under 18, the
+        registration is removed and the number can start again. Needs the
+        registration token from `verify`; other tokens get 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRegistrationBody'
+      responses:
+        '200':
+          description: The account is active; the tokens of its first session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The registration was removed; start again
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Registration is already complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`UNDERAGE`: younger than 18'
           content:
             application/json:
               schema:
@@ -1392,11 +1553,11 @@ paths:
               $ref: '#/components/schemas/SignInBody'
       responses:
         '200':
-          description: An access token
+          description: The tokens of a new session
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
+                $ref: '#/components/schemas/SessionTokensResponse'
         '400':
           description: The request is invalid
           content:
@@ -1407,6 +1568,198 @@ paths:
           description: >-
             `INVALID_CREDENTIALS`: wrong phone number or password; it does not
             say which
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/google:
+    post:
+      operationId: signInWithGoogle
+      summary: Sign in with Google
+      description: >-
+        Sign in with a Google account the user linked earlier with `linkGoogle`.
+        No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '200':
+          description: The tokens of a new session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked
+            this Google account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      summary: Start a password reset
+      description: >-
+        Start a password reset: sends a one-time code to the phone number if it
+        has an account. The answer is the same for any number, and a code
+        requested within a minute of the last one is silently not sent. No
+        access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetBody'
+      responses:
+        '202':
+          description: >-
+            If the number has an account, a code is on its way; it is valid for
+            10 minutes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset/confirm:
+    post:
+      operationId: resetPassword
+      summary: Finish a password reset
+      description: >-
+        Finish a password reset with the code and a new password, and sign in.
+        Every other session of the account ends. No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetBody'
+      responses:
+        '200':
+          description: The password is replaced; the tokens of a new session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
+            times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/password:
+    put:
+      operationId: setPassword
+      summary: Set or change your password
+      description: >-
+        Set a password to sign in with, right after registration, or change it.
+        Changing an existing password needs the current one; wrong ones count
+        towards the sign-in lockout. Every other session of the account ends;
+        this one stays signed in. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordBody'
+      responses:
+        '204':
+          description: The password is set
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `WRONG_PASSWORD`: the account has a password and `currentPassword`
+            is missing or wrong, or the account is locked after too many wrong
+            passwords
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/google:
+    put:
+      operationId: linkGoogle
+      summary: Link your Google account
+      description: >-
+        Link a Google account to sign in with from now on. Linking the same
+        Google account again changes nothing. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '204':
+          description: The Google account is linked
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account.
+            `GOOGLE_ALREADY_LINKED`: this account has another Google account
+            linked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired'
           content:
             application/json:
               schema:
@@ -1428,6 +1781,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccessTokenResponse'
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Renew the access token
+      description: >-
+        Renew the access token with the refresh token, without signing in again.
+        The refresh token is replaced: keep the new one, since the old one no
+        longer works, and using it again ends the session. No access token
+        needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionBody'
+      responses:
+        '200':
+          description: A new access token and refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the
+            token was already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/sign-out:
+    post:
+      operationId: signOut
+      summary: Sign out
+      description: >-
+        End this session: its access token and refresh token stop working at
+        once. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      responses:
+        '204':
+          description: Signed out
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/listings:
     get:
       operationId: listListings

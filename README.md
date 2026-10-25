@@ -18,10 +18,10 @@ Look [here](Project-Description.md) for a more detailed project description
 
 | Member | Role | GitHub |
 |---|---|---|
-| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead, Documentation Lead, Testing Lead | [@viktoriyabaran](https://github.com/viktoriyabaran) |
-| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API), Security Analyst, Testing Strategist | [@DarynaHalytska](https://github.com/DarynaHalytska) |
-| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API), Code Reviewer, Prototype Lead, Debugging Lead | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
-| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead, Quality Lead (code) | [@Vlad-Re](https://github.com/Vlad-Re) |
+| Viktoriya Baran | Repo Maintainer, Quality Lead, Architecture Lead, Backend Lead, API Design Lead, Documentation Lead, Testing Lead, Quality Analyst | [@viktoriyabaran](https://github.com/viktoriyabaran) |
+| Daryna Halytska | Documentation Lead, Project Brief Lead, Data & Threat Modeler, Documentation Lead (API), Security Analyst, Testing Strategist, Test Planner | [@DarynaHalytska](https://github.com/DarynaHalytska) |
+| Oleh Moshenskyi | Issue Tracker Lead, Requirements Lead, FR Lead, Requirements-Architecture Mapper, Quality Lead (API), Code Reviewer, Prototype Lead, Debugging Lead, Documentation Owner | [@OLEGkn-coder](https://github.com/OLEGkn-coder) |
+| Vladyslav Redchuk | CI Maintainer, Traceability Lead, UML Lead, Integration Lead, Quality Lead (code), Review Manager, AI Code Reviewer | [@Vlad-Re](https://github.com/Vlad-Re) |
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
@@ -59,6 +59,8 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 ## ⟡ Code Quality
 
+Documentation related to code quality for this project is located [here](docs/code-quality/):
+
 - [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
@@ -70,7 +72,7 @@ Requires Node.js 26 or later.
 ```bash
 npm install
 cp .env.example .env    # first time only: it overwrites an existing .env
-npm run keys:generate   # key files for tokens and verification codes in keys/, never committed; keeps existing ones
+npm run keys:generate   # key files for tokens, verification codes and contact encryption in keys/, never committed; keeps existing ones
 npm run dev             # http://localhost:4100, Swagger UI at /api-docs; restarts on changes
 ```
 
@@ -85,23 +87,20 @@ For a production build: `npm run build`, then `npm start`.
 | `DATABASE_URL` | — | PostgreSQL connection string, set in `.env.example`; the server does not start without it, see [Local database](#local-database) |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
-| `IMPORT_ON_START` | `false` | Development only: `true` runs one event import after the API starts, so the imported events appear in `GET /events`; see [Event import](#event-import) |
+| `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
+| `DATA_ENCRYPTION_KEY_FILE` | — | Key that encrypts phone numbers and dates of birth in the database (SEC-003), created by `npm run keys:generate`; the server does not start without it. Losing or changing it makes the stored values unreadable |
+
+The two database keys, `CONTACT_HMAC_KEY_FILE` and `DATA_ENCRYPTION_KEY_FILE`, cannot be created again: every database needs its own pair, backed up outside the repository and the server, for example in the team vault. Locally, new keys mean a new database: `docker compose down -v`, then the [Local database](#local-database) commands.
 
 Other scripts: `npm run typecheck` checks types without building, `npm run lint` and `npm run format` run ESLint and Prettier, and `npm run docs:generate` regenerates [`openapi-generated.yaml`](docs/api/openapi-generated.yaml).
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
 
-### Event import
-
-The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. The provider sits behind the `EventProvider` adapter in `src/core/catalog/adapters/`, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it in `InfraModule`; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. A record that cannot be mapped is skipped and logged (FR-015), and a second run changes only what the provider changed.
-
-```bash
-npm run import:events   # one run: fetch, normalize, save, print a report
-```
-
-Events are kept in memory until the database holds them (#144), so a run in its own process is lost on exit. For development, start the API with `IMPORT_ON_START=true` in `.env` to see the imported events in the catalog.
+<a id="tests"></a>
 
 ## ꕤ Tests
+
+### Running tests
 
 Unit tests in [`tests/unit/`](tests/unit/) check the services in `src/core/` with mocked repositories. The tests in [`tests/e2e/`](tests/e2e/) are integration tests, despite the folder name: they start the API and call it over HTTP, through every layer and the real database. They need `.env` and the [local database](#local-database). Every command builds first, since the tests import the compiled code from `dist/`.
 
@@ -119,6 +118,19 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
+The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+
+### Test documentation
+
+Documentation related to testing is located [here](docs/testing/), the test plan [here](docs/validation/):
+
+- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
+- [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
+- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
+- [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
+
+<a id="commit-hooks"></a>
+
 ## 𓂀 Commit hooks
 
 Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
@@ -133,16 +145,21 @@ The hooks run through `.githooks/pre-commit`, which is enabled by the same `git 
 
 If a commit from VS Code fails with "pre-commit is not installed", restart VS Code after `pipx ensurepath`, so it picks up the new `PATH`.
 
+<a id="local-database"></a>
+
 ## 𓊚 Local database
 
-Categories are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes and sessions are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
 npx prisma migrate deploy   # creates the tables and the starting categories
+npm run db:seed             # the development accounts, encrypted with your keys; run again after new keys
 ```
 
-To reset the database, delete its data and migrate again: `docker compose down -v`, then the two commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
+`npm run test:e2e` never touches this database: it creates `<POSTGRES_DB>_e2e` next to it on every run, with keys of its own.
+
+To reset the database, delete its data and migrate again: `docker compose down -v`, then the three commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
 
 ## ൬ Running the client
 
@@ -155,3 +172,5 @@ The Expo client in [`app/`](app/) lists the catalog events and opens their detai
 ## ༄ AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
+
+Claude later checked every link against the repository files, fixed broken section links and added links to the documents in `docs/` that were missing. Every link target was verified to exist; the changes were reviewed by Daryna Halytska.

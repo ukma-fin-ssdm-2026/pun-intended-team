@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { signOut } from '@/api/session';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
@@ -151,6 +152,7 @@ export default function OrganizationSettingsScreen() {
         onClose={() => setSignOutOpen(false)}
         onSignOut={() => {
           setSignOutOpen(false);
+          void signOut();
           // As on П5: signing out starts a new history on the onboarding (В1).
           router.dismissAll();
           router.replace('/onboarding');

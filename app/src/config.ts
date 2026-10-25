@@ -22,4 +22,5 @@ function detectApiUrl(): string {
 // Expo inlines EXPO_PUBLIC_* values only for direct `process.env.EXPO_PUBLIC_...` access, so keep the names literal.
 export const config = {
   apiUrl: process.env.EXPO_PUBLIC_API_URL || detectApiUrl(),
+  googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
 };

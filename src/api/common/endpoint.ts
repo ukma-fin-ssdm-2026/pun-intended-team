@@ -79,6 +79,7 @@ const NOT_AN_ADMIN: ResponseDefinition = {
 const ACCESS_NOTE: Record<Access, string> = {
   public: 'No access token needed.',
   guest: 'Needs an access token: a guest token or a signed-in account.',
+  registrant: 'Needs the registration token from `verify`; other tokens get 401.',
   user: 'Needs a signed-in account; a guest token gets 401.',
   admin: 'Needs an administrator account; other accounts get 404.',
 };
