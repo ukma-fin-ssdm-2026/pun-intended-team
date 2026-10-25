@@ -43,19 +43,8 @@ Documentation related to system architecture for this project is located [here](
 - [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
-  - [`ADR-001.md`](docs/architecture/decisions/ADR-001.md) — modular monolith with a separate import service
-  - [`ADR-002.md`](docs/architecture/decisions/ADR-002.md) — PostgreSQL as the single data store
-  - [`ADR-003.md`](docs/architecture/decisions/ADR-003.md) — TypeScript for the event import service
 - [`mechanisms/`](docs/architecture/mechanisms/) — architectural and code mechanisms
-  - [`code-structure.md`](docs/architecture/mechanisms/code-structure.md) — the `api` / `core` / `infra` layers and how they depend on each other
-  - [`authentication.md`](docs/architecture/mechanisms/authentication.md) — registration by phone code, sign-in methods and tokens
-  - [`catalog-access.md`](docs/architecture/mechanisms/catalog-access.md) — public catalog reads, guest tokens and rate limits
-  - [`database-access.md`](docs/architecture/mechanisms/database-access.md) — a database role per process and schema migrations
-  - [`matching.md`](docs/architecture/mechanisms/matching.md) — applications, scheduled matching rounds, instant match and proposals
-  - [`notifications.md`](docs/architecture/mechanisms/notifications.md) — in-app inbox first, push notifications second
-  - [`testing.md`](docs/architecture/mechanisms/testing.md) — the unit and integration test layers and the coverage scope
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`. Render them with `npm run docs:diagrams` (needs Docker).
-  - Rendered: [component](docs/architecture/uml/rendered/component-diagram.svg), [main server components](docs/architecture/uml/rendered/main-server-components.svg), [code structure](docs/architecture/uml/rendered/code-structure.svg), [deployment](docs/architecture/uml/rendered/deployment-diagram.svg), [data model](docs/architecture/uml/rendered/data-model.svg), [sequence: matching](docs/architecture/uml/rendered/sequence-diagram-matching.svg), [sequence: registration and sign-in](docs/architecture/uml/rendered/sequence-diagram-auth.svg)
 
 ## ൭ API Documentation
 
