@@ -18,6 +18,8 @@
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
 - **The real Concert.ua feed:** the adapter reads a sample feed until the provider gives us access (R-001); the tests use the sample feed and fake providers.
 - **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
+- **Editing another user's profile:** there is no such request. The profile endpoints are `/me/profile` only, and the account comes from the access token; TC-34 covers a request without one.
+- **Keeping unsaved form values on the device** (INTC-003): client behaviour, part of the Expo client UI above.
 
 ## Test Levels
 
@@ -44,6 +46,8 @@
 | A signed-out session keeps working | A lost or shared phone stays signed in until the token expires | TC-21, TC-22 |
 | One bad provider record stops the import, or a second run duplicates events | The catalog loses every imported event, or shows the same concert twice | TC-24, TC-25, TC-26 |
 | A failed import run empties the catalog | Users see no events while the provider is down | TC-28 |
+| Someone under 18 completes registration | A minor gets an active account and can be matched with adults (SAFE-001) | TC-08, TC-30, TC-31 |
+| A profile change is lost, or a username is taken twice | The user sees old data after saving, or two people share one name | TC-32, TC-33, TC-34, TC-35 |
 
 ## Test Cases
 
@@ -78,6 +82,17 @@
 | TC-27 | Second provider (FLEX-003) | Unit | Positive | A second adapter with its own id and record shape is imported and served by `EventsService.list`, with no change outside the adapter | Oleh Moshenskyi | FR-008, FLEX-003 | done |
 | TC-28 | `EventImportService.run` | Unit | Negative | When the provider's fetch fails, the run rejects and saves nothing, so the events of the last run stay in the catalog | Oleh Moshenskyi | FR-014, REL-003 | done |
 | TC-29 | `npm run import:events`, then `GET /events` | Integration | Positive | Events imported by the import's own process are returned by the API next to organization events | Oleh Moshenskyi | FR-008 | planned |
+| TC-30 | `AuthService.completeRegistration` | Unit | Negative | Someone who turns 18 tomorrow, someone an hour before Kyiv midnight on their 18th birthday, and someone born on 29 February on 28 February are refused with `UNDERAGE`; the pending account is deleted and no session is started | Viktoriia Baran | FR-001, SAFE-001 | done |
+| TC-31 | `POST /auth/complete-registration` | Integration | Negative | Someone who turns 18 tomorrow is refused with `422 UNDERAGE` and gets no tokens; the registration is removed, so the same registration token then gets `404` | Viktoriia Baran | FR-001, SAFE-001 | done |
+| TC-32 | `ProfilesService.update` | Unit | Negative | A username another account has is refused with `USERNAME_TAKEN` and nothing is saved; the owner's own username in another case is accepted; before the profile exists the answer is `NOT_FOUND` | Oleh Moshenskyi | FR-002 | done |
+| TC-33 | `PATCH /me/profile` | Integration | Positive | Only the fields sent change, and a later `GET /me/profile` returns the new values while the fields not sent keep theirs | Oleh Moshenskyi | FR-002 | done |
+| TC-34 | `PATCH /me/profile` | Integration | Negative | No token gets `401`; an unknown `communicationFormat` or an empty body gets `400`; another user's username gets `409 USERNAME_TAKEN`; an account without a profile gets `404` | Oleh Moshenskyi | FR-002 | done |
+| TC-35 | `PUT /me/profile/interests` | Integration | Negative | A list with an unknown interest id is refused with `422 REFERENCE_NOT_FOUND`, and `GET /me/profile` still returns the interests from before | Oleh Moshenskyi | FR-002 | done |
+| TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | TBD | FR-017, FUNC-001 | planned |
+| TC-37 | `match(pool, exclusions, seed)` | Unit | Negative | The user themselves, banned accounts, users they reported, and candidates declined or expired for this event are never proposed; a user with no candidate left stays in the pool unmatched | TBD | FR-018, FR-020 | planned |
+| TC-38 | Contact reveal | Integration | Positive | After both users accept the match, each gets the other's contact details with `200` | TBD | FR-019 | planned |
+| TC-39 | Contact reveal | Integration | Negative | On a user's first match, a contact request before the safety notice is acknowledged returns no contact details, also when the API is called directly; after the acknowledgment the same request gets them | TBD | FR-032, SAFE-002 | planned |
+| TC-40 | Matching under concurrent requests | Integration | Negative | Overlapping match requests that all rank the same candidate first: exactly one of them gets that candidate | TBD | FR-017, FUNC-002 | planned |
 
 Owners marked TBD are assigned when the team schedules the test.
 
@@ -86,7 +101,7 @@ Owners marked TBD are assigned when the team schedules the test.
 Testing under this plan is complete when all of the following hold:
 
 - Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
-- Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 with matching, TC-29 once events are stored in the database, and TC-10 once the staging environment exists.
+- Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 and TC-36 to TC-40 with matching, TC-29 once events are stored in the database, and TC-10 once the staging environment exists.
 - The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
 - No critical defect is open.
 

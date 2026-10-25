@@ -1489,6 +1489,21 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, false, 'still no interests');
   });
 
+  test('keeps the changes, so a later GET returns them', async () => {
+    const patched = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { description: 'Concerts on weekdays.', sharePhone: true },
+    });
+    assert.equal(patched.status, 200, JSON.stringify(patched.body));
+
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.description, 'Concerts on weekdays.');
+    assert.equal(res.body.sharePhone, true);
+    assert.equal(res.body.communicationFormat, 'dating', 'a field not sent keeps its value');
+  });
+
   test('lets a user change the case of their own username', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
@@ -1522,6 +1537,10 @@ describe('PATCH /api/v1/me/profile', () => {
       400,
       'VALIDATION_ERROR',
     );
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    assertRejected(await call('PATCH', '/api/v1/me/profile', { body: { description: 'Hi' } }), 401, 'UNAUTHENTICATED');
   });
 });
 
