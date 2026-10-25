@@ -62,7 +62,7 @@
 | TC-16 | `AuthService.verify` | Unit | Negative | After 3 failed attempts even the right code is refused with `INVALID_CODE` and is not marked used | Viktoriia Baran | FR-005, SEC-008 | done |
 | TC-17 | `POST /auth/verify` | Integration | Negative | After 3 wrong codes the right code is refused with `422 INVALID_CODE` | Viktoriia Baran | FR-005, SEC-008 | done |
 | TC-18 | `POST /auth/register` | Integration | Negative | A second request for the same number within a minute is answered with `202` like the first, and no second code is sent | Viktoriia Baran | FR-005, SEC-008 | done |
-| TC-19 | `afterFailedSignIn` | Unit | Negative | The 5th failed sign-in within 15 minutes locks the account for 15 minutes and clears the count | Viktoriia Baran | FR-001, SEC-007 | done |
+| TC-19 | `afterSignIn` | Unit | Negative | The 5th failed sign-in within 15 minutes locks the account for 15 minutes and clears the count | Viktoriia Baran | FR-001, SEC-007 | done |
 | TC-20 | `POST /auth/sign-in` | Integration | Negative | After 5 wrong passwords the right password is refused with `401` and the same body as a wrong password | Viktoriia Baran | FR-001, SEC-007 | done |
 | TC-21 | `SessionsService.end` | Unit | Positive | Sign-out revokes the session with the current time as its revocation time | Viktoriia Baran | FR-001, SEC-005 | done |
 | TC-22 | `POST /auth/sign-out` | Integration | Negative | Sign-out answers `204`; then its access token gets `401` and its refresh token `401 INVALID_REFRESH_TOKEN`, while another session of the account still gets `200` | Viktoriia Baran | FR-001, SEC-005 | done |
@@ -108,6 +108,27 @@ The run made 215,260 requests, 357 a second. The slowest request, 30.01 s, was o
 
 - It is a local run, not the staging run PERF-001 asks for. k6 shared the CPU with the API, which adds to the measured times. TC-10 on staging stays planned.
 - Listings are still served from the in-memory stub repository; only the session check of each request reaches PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
+
+### State transition table: sign-in lockout
+
+SEC-007: 5 failed sign-ins for one account within 15 minutes lock it for 15 minutes. `afterSignIn` in [`sign-in-lockout.ts`](../../src/core/identity/services/sign-in-lockout.ts) returns the lockout state to save after each password sign-in.
+
+States: **Clean**, no failures counted and no active lock; **Counting(n)**, n failures since the window start, 1 ≤ n ≤ 4; **Locked**, the lock end is in the future.
+
+| ID | From | Event | Guard | To |
+|---|---|---|---|---|
+| T1 | Clean | wrong password | | Counting(1), window starts now |
+| T2 | Clean | right password | | Clean |
+| T3 | Counting(n < 4) | wrong password | inside the window | Counting(n + 1) |
+| T4 | Counting(4) | wrong password | inside the window | Locked for 15 minutes, count cleared |
+| T5 | Counting(n) | wrong password | window passed | Counting(1), window starts now |
+| T6 | Counting(n) | right password | | Clean |
+| T7 | Locked | wrong password | before the lock ends | Locked, unchanged |
+| T8 | Locked | right password | before the lock ends | Locked, unchanged; sign-in rejected |
+| T9 | Locked | wrong password | lock ended | Counting(1), window starts now |
+| T10 | Locked | right password | lock ended | Clean |
+
+[`sign-in-lockout.test.ts`](../../tests/unit/sign-in-lockout.test.ts), "afterSignIn, state transitions", has one case per row, named by its ID, e.g. `T4: Counting(4) --wrong password inside the window--> Locked`. Guards are tested at their boundaries: T4 at the last millisecond of the window, T5 the moment it passes, T7 and T8 at the last millisecond of the lock, T9 and T10 the moment it ends. A password reset also sets Clean; it is outside this table, since it does not go through `afterSignIn`.
 
 ## AI Usage Note
 
