@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { EventProvider } from '../../core/catalog/adapters/event-provider.ts';
-import type { NormalizeResult } from '../../core/catalog/types/import.ts';
+import { EventProvider } from '../../core/import/adapters/event-provider.ts';
+import type { NormalizeResult } from '../../core/import/types/import.ts';
 import { concertUaSampleFeed } from './concert-ua-sample-feed.ts';
 
 /** Concert.ua genres we take, and our category each one goes to. */

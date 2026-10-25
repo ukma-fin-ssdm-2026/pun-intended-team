@@ -28,14 +28,20 @@ src/
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
-      adapters/                 event-provider.ts (abstract: one external listing service)
-      services/                 events.service.ts, categories.service.ts, event-import.service.ts
+      services/                 events.service.ts, categories.service.ts
       types/                    event, category, venue, organization
+    import/                     the import (CMP-03); only src/import/ loads it, never the API
+      import.module.ts          provides + exports EventImportService; imports CatalogModule for the categories
+      adapters/                 event-provider.ts (abstract: one external listing service)
+      repositories/             imported-events (the import's writes, role nearby_import)
+      services/                 event-import.service.ts
+      types/                    import
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
+    import-infra.module.ts      the import's bindings (ImportedEventsRepository, EventProvider), loaded by src/import/ only
     stubs/                      stand-in for the database, deleted as one folder: one repository per core repository, data.ts, paginate.ts
     providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
-  import/                       main.ts, import.module.ts: the import service (CMP-03), no HTTP
+  import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP
   scripts/                      generate-spec.ts (npm run docs:generate)
   mcp/                          MCP server generated from the spec; a separate Node project, not edited by hand
 ```

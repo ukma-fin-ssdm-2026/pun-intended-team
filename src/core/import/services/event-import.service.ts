@@ -1,11 +1,15 @@
 // Written with the help of Claude
 import { Injectable, Logger } from '@nestjs/common';
+import { CategoriesService } from '../../catalog/services/categories.service.ts';
 import { EventProvider } from '../adapters/event-provider.ts';
-import { EventsRepository } from '../repositories/events.repository.ts';
-import { VenuesRepository } from '../repositories/venues.repository.ts';
-import type { Event } from '../types/event.ts';
-import type { ImportedEvent, ImportReport, SkippedRecord } from '../types/import.ts';
-import { CategoriesService } from './categories.service.ts';
+import { ImportedEventsRepository } from '../repositories/imported-events.repository.ts';
+import type {
+  ImportedEvent,
+  ImportedEventFields,
+  ImportedEventRow,
+  ImportReport,
+  SkippedRecord,
+} from '../types/import.ts';
 
 /** FR-008: takes the events of one external provider into the catalog. */
 @Injectable()
@@ -14,8 +18,7 @@ export class EventImportService {
 
   constructor(
     private readonly provider: EventProvider,
-    private readonly eventsRepository: EventsRepository,
-    private readonly venuesRepository: VenuesRepository,
+    private readonly importedEventsRepository: ImportedEventsRepository,
     private readonly categoriesService: CategoriesService,
   ) {}
 
@@ -66,26 +69,19 @@ export class EventImportService {
   private async save(imported: ImportedEvent, categoryId: string): Promise<'created' | 'updated' | 'unchanged'> {
     const { venue: importedVenue, externalId, title, description, startsAt, endsAt } = imported;
     const venue =
-      (await this.venuesRepository.findImported(importedVenue.name, importedVenue.address)) ??
-      (await this.venuesRepository.createImported(importedVenue));
-    const fields = { title, description, categoryId, venueId: venue.id, startsAt, endsAt };
+      (await this.importedEventsRepository.findVenue(importedVenue.name, importedVenue.address)) ??
+      (await this.importedEventsRepository.createVenue(importedVenue));
+    const fields: ImportedEventFields = { title, description, categoryId, venueId: venue.id, startsAt, endsAt };
 
-    const existing = await this.eventsRepository.findByExternalId(this.provider.id, externalId);
+    const existing = await this.importedEventsRepository.findEvent(this.provider.id, externalId);
     if (!existing) {
-      await this.eventsRepository.createImported({
-        ...fields,
-        source: 'import',
-        status: 'published',
-        organizationId: null,
-        provider: this.provider.id,
-        externalId,
-      });
+      await this.importedEventsRepository.createEvent({ ...fields, provider: this.provider.id, externalId });
       return 'created';
     }
     if (isSame(existing, fields)) {
       return 'unchanged';
     }
-    await this.eventsRepository.update(existing.id, fields);
+    await this.importedEventsRepository.updateEvent(existing.id, fields);
     return 'updated';
   }
 
@@ -95,15 +91,12 @@ export class EventImportService {
   }
 }
 
-function isSame(
-  event: Event,
-  fields: { title: string; description: string; categoryId: string; venueId: string; startsAt: string; endsAt: string },
-): boolean {
+function isSame(event: ImportedEventRow, fields: ImportedEventFields): boolean {
   return (
     event.title === fields.title &&
     event.description === fields.description &&
-    event.category.id === fields.categoryId &&
-    event.venue.id === fields.venueId &&
+    event.categoryId === fields.categoryId &&
+    event.venueId === fields.venueId &&
     Date.parse(event.startsAt) === Date.parse(fields.startsAt) &&
     Date.parse(event.endsAt) === Date.parse(fields.endsAt)
   );

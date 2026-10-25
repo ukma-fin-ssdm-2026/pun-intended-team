@@ -1,11 +1,6 @@
 // Written with the help of Claude
-import type { NewImportedVenue, Venue } from '../types/venue.ts';
+import type { Venue } from '../types/venue.ts';
 
 export abstract class VenuesRepository {
   abstract findById(id: string): Promise<Venue | undefined>;
-
-  /** A venue the import created earlier (`source` import), found by its name and address. */
-  abstract findImported(name: string, address: string): Promise<Venue | undefined>;
-
-  abstract createImported(venue: NewImportedVenue): Promise<Venue>;
 }

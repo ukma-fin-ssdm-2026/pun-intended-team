@@ -11,5 +11,3 @@ export interface Venue {
   /** The owning organization; set only for organization venues. */
   organizationId: string | null;
 }
-
-export type NewImportedVenue = Pick<Venue, 'name' | 'address' | 'location'>;

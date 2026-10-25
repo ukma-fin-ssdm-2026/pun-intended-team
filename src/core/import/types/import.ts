@@ -1,6 +1,5 @@
 // Written with the help of Claude
-import type { EventRecord } from './event.ts';
-import type { Venue } from './venue.ts';
+import type { Venue } from '../../catalog/types/venue.ts';
 
 /** An external event in our own shape: what an adapter's `normalize` returns. */
 export interface ImportedEvent {
@@ -10,7 +9,7 @@ export interface ImportedEvent {
   description: string;
   /** Name of one of our categories; the provider's adapter maps its own genres to it. */
   categoryName: string;
-  venue: Pick<Venue, 'name' | 'address' | 'location'>;
+  venue: NewImportedVenue;
   startsAt: string;
   endsAt: string;
 }
@@ -32,4 +31,21 @@ export interface ImportReport {
   skipped: SkippedRecord[];
 }
 
-export type ImportedEventRecord = EventRecord & { provider: string; externalId: string };
+export type NewImportedVenue = Pick<Venue, 'name' | 'address' | 'location'>;
+
+/** The fields of an imported event that a later run may change. */
+export interface ImportedEventFields {
+  title: string;
+  description: string;
+  categoryId: string;
+  venueId: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+/** An imported event as the import stores it. */
+export interface ImportedEventRow extends ImportedEventFields {
+  id: string;
+  provider: string;
+  externalId: string;
+}
