@@ -8,7 +8,7 @@ export function match(pool: PoolMember[], exclusions: Exclusion[], seed: number)
   const candidates: Pairing[] = [];
   pool.forEach((a, i) => {
     for (const b of pool.slice(i + 1)) {
-      if (excluded.has(pairKey(a.userId, b.userId))) continue;
+      if (a.userId === b.userId || excluded.has(pairKey(a.userId, b.userId))) continue;
       candidates.push({ a: a.userId, b: b.userId, score: interestOverlap(a.interests, b.interests) });
     }
   });
