@@ -253,6 +253,17 @@ async function freshDatabase(): Promise<string> {
   return url.toString();
 }
 
+/** MAIN_DATABASE_URL pointed at the run's database: the API and the seed connect as nearby_main. */
+function mainDatabaseUrl(): string {
+  const mainUrl = process.env.MAIN_DATABASE_URL;
+  if (!mainUrl) {
+    throw new Error('MAIN_DATABASE_URL is not set: see .env.example');
+  }
+  const url = new URL(mainUrl);
+  url.pathname = new URL(databaseUrl).pathname;
+  return url.toString();
+}
+
 /** Runs `query` on the run's database, for what no endpoint can do or show. */
 async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promise<T> {
   const client = new pg.Client({ connectionString: databaseUrl });
@@ -334,6 +345,7 @@ before(async () => {
     // Production mode so the run does not rewrite the committed OpenAPI spec.
     NODE_ENV: 'production',
     DATABASE_URL: databaseUrl,
+    MAIN_DATABASE_URL: mainDatabaseUrl(),
     CODE_HMAC_KEY_FILE: keyFile('code-hmac.key'),
     CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
     DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
