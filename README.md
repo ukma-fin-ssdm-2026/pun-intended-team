@@ -139,6 +139,7 @@ Documentation related to testing is located [here](docs/testing/), the test plan
 - [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
 - [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
 - [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
+- [`review-log.md`](docs/validation/review-log.md) — the Lab 7 peer review of the test plan by Whadio, what we changed after it, and the review of an AI-generated pull request
 
 <a id="commit-hooks"></a>
 
