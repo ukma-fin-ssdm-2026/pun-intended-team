@@ -9,21 +9,32 @@ How the [test plan](test-plan.md) was reviewed by another team, what we changed 
 
 ### Checklist
 
-Whadio sent their findings as an issue and did not fill in the course checklist. The findings touch these criteria (our mapping):
+Whadio's checklist, from the updated issue. They marked all five criteria Blocking; the review describes the plan before the changes below.
 
-| № | Criterion | Findings |
-|---|---|---|
-| 1 | Key requirements and critical paths are covered | 1 (profile editing), 3 (matching and contact reveal) |
-| 2 | Acceptance criteria are clearly stated | none |
-| 3 | Negative scenarios are tested | 2 (underage registration), 3 (contact reveal) |
-| 4 | Each test traces to a requirement (Lab 2) | 1 and 2: the tests existed but had no row in the plan |
-| 5 | The plan is realistic and runs in CI | 4 (failed k6 run) |
+| № | Criterion | Yes/No | Their comment |
+|---|---|---|---|
+| 1 | Key requirements and critical paths are covered | No, Blocking | Profile editing, underage rejection, the full matching behaviour, the positive contact reveal and the failed performance run are not fully covered. |
+| 2 | Acceptance criteria are clearly stated | No, Blocking | Several cases lack exact expected results, boundary values, authorization outcomes and measurable performance thresholds. |
+| 3 | Negative scenarios are tested | No, Blocking | Invalid profile updates, underage users, excluded or unmatched candidates, unauthorized contact requests and performance failures are not fully covered. |
+| 4 | Each test traces to a requirement (Lab 2) | No, Blocking | Existing tests are not consistently mapped to test cases or to requirement IDs such as SAFE-001 and PERF-001. |
+| 5 | The plan is realistic and runs in CI | No, Blocking | The k6 run failed with the cause unresolved, and there is no reproducible setup for the tests against the real persistence layer. |
 
 ### Strengths
 
-We did not receive strengths in writing. In class, the plan was discussed with the reviewers orally: the test cases were called sound, with the positive and negative types used correctly. They also noted that every risk in the Risks table points to specific test cases, so the plan starts from what would be most costly to break.
+From the updated issue:
+
+1. The plan targets the safety-sensitive areas: age validation, matching, contact disclosure and performance.
+2. Existing tests in the repository already give evidence the plan can link to.
+3. The performance goals are measurable, and the failed run is recorded rather than hidden.
+
+In class, the reviewers also said orally that the test cases are sound, the positive and negative types are used correctly, and every risk points to specific test cases.
 
 ### Areas for Improvement
+
+Their two improvement proposals:
+
+1. **Complete the RTM:** test IDs, references to the tests, owners and execution results.
+2. **Separate CI tests from staging load tests,** with the environment, fixtures, commands and pass/fail thresholds of each.
 
 Their four findings; the first three are accepted, the fourth is left for the staging run:
 
@@ -38,8 +49,11 @@ Their four findings; the first three are accepted, the fourth is left for the st
 |---|---|---|
 | 1. Profile editing | Accepted | TC-32 to TC-35: unit tests for `ProfilesService.update` and `replaceInterests` (new), the existing e2e tests for `PATCH /me/profile` and the interests, and two new e2e tests: a change is still there on the next `GET`, and `PATCH` without a token gets `401`. Editing another user's profile is out of scope with the reason: the endpoints are `/me/profile` only, so no request can name another profile. Unsaved form values (INTC-003) are out of scope as client behaviour. |
 | 2. Underage users | Accepted | TC-30 (unit: the day before the 18th birthday, an hour before Kyiv midnight on it, 29 February on 28 February; the account is deleted and no session starts) and TC-31 (integration: `422 UNDERAGE`, then `404` for the same token), both pointing at existing tests, and a SAFE-001 risk row. |
-| 3. Matching and contact reveal | Accepted as planned rows | TC-36 determinism and tie order (FUNC-001), TC-37 exclusions and unmatched users (FR-020, FR-018), TC-38 the reveal after both accept (FR-019), TC-39 no contact before the safety notice is acknowledged (SAFE-002, FR-032), TC-40 concurrent requests (FUNC-002). They become due with matching, which is not built yet. |
+| 3. Matching and contact reveal | Accepted as planned rows | TC-36 determinism and tie order (FUNC-001), TC-37 exclusions and unmatched users (FR-020, FR-018), TC-38 the reveal after both accept (FR-019), TC-39 no contact before the safety notice is acknowledged (SAFE-002, FR-032), TC-40 concurrent requests (FUNC-002). They become due with matching, which is not built yet. TC-14 and TC-36 are done now that `match` is built (Bonuses in the test plan). |
 | 4. Failed k6 run | Not changed now | The run is a local measurement on one laptop shared by the API, PostgreSQL and k6, with listings still served from memory; the test plan already says so and keeps TC-10 planned until staging, where it is repeated with the real persistence layer. The cause of the two failures and the 30 s request is not investigated in this lab. |
+| Checklist 2. Acceptance criteria | Open | Not changed yet. Each row states one expected result; preconditions, request data and database changes per row were not added. |
+| Proposal 1. Complete the RTM | Partly | The new test case IDs are in the Tests column of `rtm.md`. Owners and status are kept in the test plan (Owner and Status columns), not in the RTM. |
+| Proposal 2. CI and staging tests | Already in the plan | TC-10 is a k6 script outside CI and stays planned until staging; its command and environment are in Bonuses. The other rows run in CI. |
 
 The new test case IDs are in the Tests column of `rtm.md` (FR-001, FR-002, FR-017 to FR-020, FR-032).
 
