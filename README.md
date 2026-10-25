@@ -63,6 +63,7 @@ Documentation related to code quality for this project is located [here](docs/co
 
 - [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
+- [`review-response.md`](docs/code-quality/review-response.md) — how we handled the review of our code
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
 
 ## ര Running the API
