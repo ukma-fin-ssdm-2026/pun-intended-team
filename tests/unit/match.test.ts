@@ -98,6 +98,18 @@ describe('match', () => {
     });
   }
 
+  // FUNC-002
+  test('never pairs a user with themselves when the pool lists them twice', () => {
+    const u1 = aMember({ userId: 'u1' });
+    const u2 = aMember({ userId: 'u2' });
+
+    const alone = match([u1, { ...u1 }], [], SEED);
+    const withOther = match([u1, { ...u1 }, u2], [], SEED);
+
+    assert.deepEqual(alone, []);
+    assert.deepEqual(pairKeys(withOther), ['u1+u2']);
+  });
+
   // Property-based: fast-check makes up the pools, so these hold for any pool, not only the ones above.
   // FUNC-002, TC-14
   test('never pairs a user twice, with themselves, from outside the pool or with an excluded user', () => {
