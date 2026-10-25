@@ -157,8 +157,8 @@ describe('match', () => {
   });
 
   // FUNC-001
-  test('orders tied pairs by the seed, so seeds 1 to 10 do not all give the same result', () => {
-    const results = SEEDS.map((seed) => JSON.stringify(match(TIED_POOL, [], seed)));
+  test('breaks ties by the seed, so seeds 1 to 10 do not all pair the same users together', () => {
+    const results = SEEDS.map((seed) => pairKeys(match(TIED_POOL, [], seed)).join(','));
 
     assert.ok(new Set(results).size > 1);
   });
