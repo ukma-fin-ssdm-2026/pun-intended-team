@@ -58,7 +58,10 @@ export class StubEventsRepository implements EventsRepository {
   }
 }
 
-function toEvent({ categoryId, venueId, ...event }: StoredEvent, categories: Map<string, Category>): Event {
+function toEvent(
+  { categoryId, venueId, provider: _provider, externalId: _externalId, ...event }: StoredEvent,
+  categories: Map<string, Category>,
+): Event {
   const category = categories.get(categoryId);
   if (!category) {
     throw new Error(`No category ${categoryId} for event ${event.id}`);

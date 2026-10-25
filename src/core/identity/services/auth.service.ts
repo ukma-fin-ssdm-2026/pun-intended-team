@@ -11,7 +11,7 @@ import { PasswordHasher } from '../adapters/password-hasher.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { VerificationCodesRepository } from '../repositories/verification-codes.repository.ts';
 import { ACCESS_TOKEN_SECONDS, SessionsService } from './sessions.service.ts';
-import { afterFailedSignIn, isLocked, NO_LOCKOUT } from './sign-in-lockout.ts';
+import { afterSignIn, isLocked, NO_LOCKOUT } from './sign-in-lockout.ts';
 import type { CodeDelivery } from '../../notifications/types/code-delivery.ts';
 import type { AccessToken, PasswordReset, Registration, SessionTokens } from '../types/auth.ts';
 import type { Caller } from '../types/caller.ts';
@@ -207,12 +207,9 @@ export class AuthService implements OnModuleInit {
    */
   private async passesLockout(accountId: string, passwordMatches: boolean): Promise<boolean> {
     const now = new Date();
-    const lockout = await this.accountsRepository.updateLockout(accountId, (state) => {
-      if (isLocked(state, now)) {
-        return state;
-      }
-      return passwordMatches ? NO_LOCKOUT : afterFailedSignIn(state, now);
-    });
+    const lockout = await this.accountsRepository.updateLockout(accountId, (state) =>
+      afterSignIn(state, passwordMatches, now),
+    );
     return passwordMatches && !isLocked(lockout, now);
   }
 

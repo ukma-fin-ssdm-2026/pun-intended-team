@@ -12,6 +12,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/api/main.js",
+    "import:events": "nest build && node dist/import/main.js",
     "typecheck": "tsc --noEmit",
     "db:set-passwords": "node --env-file-if-exists=.env src/scripts/set-role-passwords.ts",
     "keys:generate": "node src/scripts/generate-keys.ts",

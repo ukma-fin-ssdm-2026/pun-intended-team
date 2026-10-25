@@ -6,7 +6,7 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 273 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 278 |
 | Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 150 |
 | End-to-end | through the Expo client | planned |
 

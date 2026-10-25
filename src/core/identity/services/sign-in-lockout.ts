@@ -26,6 +26,14 @@ export function afterFailedSignIn(state: SignInLockout, now: Date): SignInLockou
   return { ...counted, failedSignins, failedSigninsSince };
 }
 
+/** The lockout state to save after a sign-in: a locked account stays as it is, whatever the password. */
+export function afterSignIn(state: SignInLockout, passwordMatches: boolean, now: Date): SignInLockout {
+  if (isLocked(state, now)) {
+    return state;
+  }
+  return passwordMatches ? NO_LOCKOUT : afterFailedSignIn(state, now);
+}
+
 export function isLocked(state: SignInLockout, now: Date): boolean {
   return state.lockedUntil !== null && now < state.lockedUntil;
 }

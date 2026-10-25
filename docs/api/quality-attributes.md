@@ -250,6 +250,8 @@ Three scenarios show how the most important goals behave in practice.
 
 ## 4. Validation Log
 
+> **History:** this log was run in Lab 4, when events were edited with `PATCH /events/{id}`. Since #142 the endpoint is `PUT /events/{id}`, which replaces every editable field; the `PATCH` rows below describe the run as it was and are not updated. The current contract is in [`api-design.md`](api-design.md).
+
 Run for issue #98: every endpoint, every applicable input class, expected result from [`api-design.md`](api-design.md), actual result from the running API. A row passes only when both the status code and the error body match. The *Actual* column comes from requests sent to a local copy of the API on 4 October 2026 (stub data, fresh server), and every row was repeated in Swagger UI or with `curl`, as the table *Swagger UI verification* below shows.
 
 ### How to run it
