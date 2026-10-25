@@ -55,7 +55,7 @@ describe('match', () => {
     const pairings = match([A, B, C], [], SEED);
 
     assert.deepEqual(pairKeys(pairings), ['A+B']);
-    assert.equal(pairings[0].score, interestOverlap(A.interests, B.interests));
+    assert.equal(pairings[0]?.score, interestOverlap(A.interests, B.interests));
   });
 
   // FR-017: greedy from the highest score down, not the highest total.
