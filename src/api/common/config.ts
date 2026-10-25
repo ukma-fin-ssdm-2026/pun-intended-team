@@ -22,7 +22,3 @@ export const corsOrigins = (process.env.CORS_ORIGINS ?? '')
   .split(',')
   .map((origin) => origin.trim())
   .filter((origin) => origin !== '');
-
-// Development stand-in: events live in memory until the database holds them (#144), so an import run by another
-// process would not reach the API. With this set, the API runs one import after it starts.
-export const importOnStart = process.env.IMPORT_ON_START === 'true';
