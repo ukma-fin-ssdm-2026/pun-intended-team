@@ -6,8 +6,8 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 134 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 99 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 278 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 150 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
@@ -18,18 +18,18 @@ Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreS
 
 ## Coverage
 
-MCR, 17 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
+MCR, 23 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 95.33% | 86.06% | 96.79% | 95.07% |
-| Unit tests only | 40.65% | 47.01% | 30.77% | 29.36% |
+| All tests | 96.83% | 90.85% | 97.56% | 96.54% |
+| Unit tests only | 53.22% | 60.09% | 41.06% | 38.53% |
 
-Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 94%; matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 93%; matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
-- **`auth.ts` (94%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
+- **`auth.ts` (93%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
 - **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
 - **`api-exception.filter.ts` (branches 57%)**: the `500` for an unexpected error and the mapping of Nest's own `403`.
 - **Production and start-up only**: HSTS in production, a missing `DATABASE_URL`, a malformed stored password hash; these need another environment or a broken dependency.

@@ -1,6 +1,6 @@
 // Written with the help of Claude
-// AI Usage: font loading, global styles, the tab group and the guest dialog in the root layout; reviewed by Daryna
-// Halytska.
+// AI Usage: font loading, global styles, the session restore, the tab group and the guest dialog in the root layout;
+// reviewed by Daryna Halytska.
 import '../../global.css';
 
 import { Alice_400Regular } from '@expo-google-fonts/alice';
@@ -12,16 +12,21 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { Stack, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { restoreSession } from '@/api/session';
 import { GuestDialog } from '@/components/guest-dialog';
 import { useBlurOnNavigate } from '@/hooks/use-blur-on-navigate';
 import { closeGuestDialog, useSession } from '@/state/session';
 
 export default function RootLayout() {
   const router = useRouter();
-  const { guestDialogOpen } = useSession();
+  const { guestDialogOpen, restored } = useSession();
   useBlurOnNavigate();
+  useEffect(() => {
+    void restoreSession();
+  }, []);
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -30,8 +35,9 @@ export default function RootLayout() {
     Alice_400Regular,
   });
 
-  // The splash screen stays up until the fonts are ready, so text never renders in the fallback font first.
-  if (!fontsLoaded) return null;
+  // The splash screen stays up until the fonts are ready, so text never renders in the fallback font first, and until the
+  // stored session is read, so the first screen is the right one.
+  if (!fontsLoaded || !restored) return null;
 
   // The matching, organization and system state screens open with the prototype's 250 ms dissolve.
   const dissolve = { headerShown: false, animation: 'fade', animationDuration: 250 } as const;

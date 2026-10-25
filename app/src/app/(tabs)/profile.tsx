@@ -3,11 +3,16 @@
 // by Daryna Halytska.
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { apiClient } from '@/api/client';
+import { call } from '@/api/public-client';
+import { signOut } from '@/api/session';
+import { failureMessage } from '@/auth/messages';
+import { GoogleButton } from '@/components/auth/google-button';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
@@ -107,6 +112,31 @@ function SavedEvents({ events, onOpen }: { events: MockEvent[]; onOpen: (id: str
   );
 }
 
+const linkGoogleMessages: Record<string, string> = {
+  GOOGLE_ACCOUNT_TAKEN: 'Цей Google-акаунт уже прив’язаний до іншого профілю',
+  GOOGLE_ALREADY_LINKED: 'До профілю вже прив’язаний інший Google-акаунт',
+};
+
+// Not in Figma: links a Google account, which "Увійти через Google" on В4 then signs in with. Web build only.
+function LinkGoogle() {
+  const [message, setMessage] = useState<string>();
+  const link = useCallback(async (idToken: string) => {
+    const result = await call(() => apiClient.PUT('/api/v1/me/google', { body: { idToken } }));
+    setMessage(
+      result.ok
+        ? 'Google прив’язано: тепер можна входити через нього'
+        : ((result.code && linkGoogleMessages[result.code]) ?? failureMessage(result)),
+    );
+  }, []);
+
+  return (
+    <View className="items-center gap-2">
+      <GoogleButton text="continue_with" onIdToken={link} />
+      {message && <Text className="text-center font-inter text-caption text-text-secondary">{message}</Text>}
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -202,7 +232,8 @@ export default function ProfileScreen() {
         </View>
 
         {tab === 'about' ? (
-          <View className="items-center px-5 pt-2.5">
+          <View className="items-center gap-4 px-5 pt-2.5">
+            <LinkGoogle />
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
@@ -222,6 +253,7 @@ export default function ProfileScreen() {
         onClose={() => setSignOutOpen(false)}
         onSignOut={() => {
           setSignOutOpen(false);
+          void signOut();
           // Signing out starts a new history on the onboarding, so back cannot return to the account.
           router.dismissAll();
           router.replace('/onboarding');

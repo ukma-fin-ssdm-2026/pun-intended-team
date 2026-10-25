@@ -13,6 +13,7 @@ const TYPE = 'at+jwt';
 
 const Claims = z.union([
   z.object({ role: z.literal('guest'), sub: z.uuid() }),
+  z.object({ role: z.literal('registrant'), sub: z.uuid() }),
   z.object({ role: z.enum(['user', 'admin']), sub: z.uuid(), sid: z.uuid() }),
 ]);
 
@@ -34,7 +35,9 @@ export class JoseAccessTokens implements AccessTokens {
     const [subject, claims] =
       caller.kind === 'guest'
         ? [caller.guestId, { role: 'guest' }]
-        : [caller.accountId, { role: caller.role, sid: caller.sessionId }];
+        : caller.kind === 'registrant'
+          ? [caller.accountId, { role: 'registrant' }]
+          : [caller.accountId, { role: caller.role, sid: caller.sessionId }];
     return new SignJWT(claims)
       .setProtectedHeader({ alg: ALGORITHM, kid: this.signingKey.kid, typ: TYPE })
       .setSubject(subject)
@@ -66,9 +69,14 @@ export class JoseAccessTokens implements AccessTokens {
       return undefined;
     }
     const { data } = claims;
-    return data.role === 'guest'
-      ? { kind: 'guest', guestId: data.sub }
-      : { kind: 'account', accountId: data.sub, role: data.role, sessionId: data.sid };
+    switch (data.role) {
+      case 'guest':
+        return { kind: 'guest', guestId: data.sub };
+      case 'registrant':
+        return { kind: 'registrant', accountId: data.sub };
+      default:
+        return { kind: 'account', accountId: data.sub, role: data.role, sessionId: data.sid };
+    }
   }
 
   private secretFor({ kid }: JWTHeaderParameters): Uint8Array {

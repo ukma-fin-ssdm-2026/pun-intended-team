@@ -249,24 +249,27 @@ model AuthMethod {
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@unique([accountId, type])
+  @@unique([type, secret])
   @@map("auth_methods")
 }
 
 model VerificationCode {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   contact           Bytes
-  contactHash       Bytes               @map("contact_hash")
-  channel           VerificationChannel
-  providerRequestId String?             @map("provider_request_id")
-  codeHash          String              @map("code_hash")
+  contactHash       Bytes                @map("contact_hash")
+  channel           VerificationChannel?
+  providerRequestId String?              @map("provider_request_id")
+  codeHash          String               @map("code_hash")
   purpose           VerificationPurpose
-  sentAt            DateTime            @default(now()) @map("sent_at") @db.Timestamptz(3)
-  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  expiresAt         DateTime            @map("expires_at") @db.Timestamptz(3)
-  attempts          Int                 @default(0)
-  usedAt            DateTime?           @map("used_at") @db.Timestamptz(3)
-  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sentAt            DateTime             @default(now()) @map("sent_at") @db.Timestamptz(3)
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  expiresAt         DateTime             @map("expires_at") @db.Timestamptz(3)
+  attempts          Int                  @default(0)
+  usedAt            DateTime?            @map("used_at") @db.Timestamptz(3)
+  updatedAt         DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  @@index([contactHash, sentAt])
   @@map("verification_codes")
 }
 
@@ -282,6 +285,7 @@ model RefreshToken {
   account     Account      @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   deviceToken DeviceToken?
 
+  @@index([accountId])
   @@map("refresh_tokens")
 }
 
