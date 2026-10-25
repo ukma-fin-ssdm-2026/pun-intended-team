@@ -66,7 +66,7 @@
 | TC-11 | Dependency audit in CI | System | Negative | `npm audit --audit-level=high` finds zero High and zero Critical advisories | Daryna Halytska | SEC-006 | done |
 | TC-12 | `POST /me/profile` | Integration | Positive | A new profile is answered with `201` and `Location: /api/v1/me/profile`, with no interests and `isComplete: false` | Oleh Moshenskyi | FR-002 | done |
 | TC-13 | Matching round over one event session | Integration | Positive | US-009 AC1: of three applicants, A and B score 0.75 and A and C score 0.2; the round proposes A with B and leaves C in the pool | TBD | FR-017 | planned |
-| TC-14 | `match(pool, exclusions, seed)` | Unit | Negative | Property test over generated pools: zero pairings where A → B without B → A, and zero users in two pairings of one round | TBD | FR-017, FUNC-002 | planned |
+| TC-14 | `match(pool, exclusions, seed)` | Unit | Negative | Property test over generated pools: zero pairings where A → B without B → A, and zero users in two pairings of one round | TBD | FR-017, FUNC-002 | done |
 | TC-15 | Contact reveal | Integration | Negative | A contact request for a match with only one acceptance is answered with `404`, as if the match did not exist | TBD | FR-019, SEC-001 | planned |
 | TC-16 | `AuthService.verify` | Unit | Negative | After 3 failed attempts even the right code is refused with `INVALID_CODE` and is not marked used | Viktoriia Baran | FR-005, SEC-008 | done |
 | TC-17 | `POST /auth/verify` | Integration | Negative | After 3 wrong codes the right code is refused with `422 INVALID_CODE` | Viktoriia Baran | FR-005, SEC-008 | done |
@@ -88,7 +88,7 @@
 | TC-33 | `PATCH /me/profile` | Integration | Positive | Only the fields sent change, and a later `GET /me/profile` returns the new values while the fields not sent keep theirs | Oleh Moshenskyi | FR-002 | done |
 | TC-34 | `PATCH /me/profile` | Integration | Negative | No token gets `401`; an unknown `communicationFormat` or an empty body gets `400`; another user's username gets `409 USERNAME_TAKEN`; an account without a profile gets `404` | Oleh Moshenskyi | FR-002 | done |
 | TC-35 | `PUT /me/profile/interests` | Integration | Negative | A list with an unknown interest id is refused with `422 REFERENCE_NOT_FOUND`, and `GET /me/profile` still returns the interests from before | Oleh Moshenskyi | FR-002 | done |
-| TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | TBD | FR-017, FUNC-001 | planned |
+| TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | TBD | FR-017, FUNC-001 | done |
 | TC-37 | `match(pool, exclusions, seed)` | Unit | Negative | The user themselves, banned accounts, users they reported, and candidates declined or expired for this event are never proposed; a user with no candidate left stays in the pool unmatched | TBD | FR-018, FR-020 | planned |
 | TC-38 | Contact reveal | Integration | Positive | After both users accept the match, each gets the other's contact details with `200` | TBD | FR-019 | planned |
 | TC-39 | Contact reveal | Integration | Negative | On a user's first match, a contact request before the safety notice is acknowledged returns no contact details, also when the API is called directly; after the acknowledgment the same request gets them | TBD | FR-032, SAFE-002 | planned |
@@ -155,6 +155,25 @@ States: **Clean**, no failures counted and no active lock; **Counting(n)**, n fa
 | T10 | Locked | right password | lock ended | Clean |
 
 [`sign-in-lockout.test.ts`](../../tests/unit/sign-in-lockout.test.ts), "afterSignIn, state transitions", has one case per row, named by its ID, e.g. `T4: Counting(4) --wrong password inside the window--> Locked`. Guards are tested at their boundaries: T4 at the last millisecond of the window, T5 the moment it passes, T7 and T8 at the last millisecond of the lock, T9 and T10 the moment it ends. A password reset also sets Clean; it is outside this table, since it does not go through `afterSignIn`.
+
+### Tests as a specification for an agent: `match`
+
+The tests for `match(pool, exclusions, seed)`, the pairing of one matching round, were written in [`match.test.ts`](../../tests/unit/match.test.ts) and committed failing before the function existed. Claude Code then wrote [`match.ts`](../../src/core/matching/services/match.ts) until they passed. The code was reviewed with the Lab 7 AI code review checklist; the review is in the [review log](review-log.md).
+
+| Commit | What it contains |
+|---|---|
+| `cbcbf7f` | Failing tests: the module does not exist yet |
+| `9f3ec67` | Tie test fix: compare which users are paired, not the JSON of the result |
+| `af94ad1` | Score check fix: `pairings[0]?.score`, for `noUncheckedIndexedAccess` |
+| `c551e99` | Implementation; all tests pass |
+| `6a764d1` | Failing test from the review: a user listed twice in the pool is paired with themselves |
+| `0eb195a` | Fix from the review: a user is never paired with themselves |
+
+**AI usage:** Claude Code generated the tests and the function. It took 3 runs to get the tests green; none failed on the logic, only the types needed fixing (`noUncheckedIndexedAccess`). Changed by a person: after reading the tests, the reviewer asked for the tie test to compare which users are paired rather than the JSON, and fixed the score check on line 58 (`pairings[0]?.score`) themselves. The review found that a user could be paired with themselves; it was fixed with a failing test first, then the fix.
+
+```bash
+npx nest build && node --test tests/unit/match.test.ts
+```
 
 ## AI Usage Note
 
