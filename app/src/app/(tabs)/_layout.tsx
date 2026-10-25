@@ -1,5 +1,6 @@
 // Written with the help of Claude
 // AI Usage: tab navigator with the Figma tab bar; reviewed by Daryna Halytska.
+import { Redirect } from 'expo-router';
 import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { View } from 'react-native';
 
@@ -52,6 +53,10 @@ function NearbyTabBar({ state, navigation, insets }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  const { signedIn, isGuest } = useSession();
+  // Without an account or the guest choice, the app opens on the onboarding (В1).
+  if (!signedIn && !isGuest) return <Redirect href="/onboarding" />;
+
   return (
     <Tabs tabBar={(props) => <NearbyTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="index" />

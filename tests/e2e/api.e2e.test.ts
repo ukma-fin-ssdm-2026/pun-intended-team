@@ -3,16 +3,19 @@
 // For each endpoint, one request with valid input and one the API must reject.
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer as createHttpServer, type Server } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
-import { SignJWT } from 'jose';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
+import pg from 'pg';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+// The run has a database of its own, created again every time, so no test sees rows a previous run left.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
@@ -22,9 +25,16 @@ const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
-// Seeded accounts from src/infra/stubs/data.ts.
+// Accounts from src/scripts/seed-dev-accounts.ts.
 const seededPassword = 'nearby-dev-password';
-const phones = { user: '+380501110001', org: '+380501110003', orgPending: '+380501110004', admin: '+380501110005' };
+const phones = {
+  user: '+380501110001',
+  // No other test signs in as Taras, so the password reset test can change his password.
+  taras: '+380501110002',
+  org: '+380501110003',
+  orgPending: '+380501110004',
+  admin: '+380501110005',
+};
 
 const newEvent = {
   title: 'Film quiz night',
@@ -50,10 +60,18 @@ const newListing = {
 let server: ChildProcess;
 let baseUrl: string;
 let keysDir: string;
+let databaseUrl: string;
+// The environment every API this run starts shares: the run's own keys and Google key set.
+let apiEnv: NodeJS.ProcessEnv;
 let serverOutput = '';
 // The test signs tokens with the server's own key to check how bad tokens are refused.
 const jwtKey = { kid: 'e2e', secret: randomBytes(32) };
 const tokens = { guest: '', user: '', org: '', orgPending: '', admin: '' };
+// Google's keys are served by the test itself, so it can sign ID tokens the API accepts.
+const googleClientId = 'nearby-e2e.apps.googleusercontent.com';
+const googleKid = 'e2e-google';
+let googleKey: CryptoKey;
+let jwksServer: Server;
 
 interface Response {
   status: number;
@@ -106,11 +124,9 @@ async function signIn(phone: string): Promise<string> {
   return res.body.accessToken;
 }
 
-const TEST_CATEGORY_PREFIX = 'E2E ';
-
-/** A category of the test's own, so no test depends on rows a previous run left in the database. */
+/** A category of the test's own, so no test depends on another one's categories. */
 async function newCategory({ isActive = true } = {}): Promise<{ id: string; name: string }> {
-  const name = `${TEST_CATEGORY_PREFIX}${randomUUID().slice(0, 8)}`;
+  const name = `E2E ${randomUUID().slice(0, 8)}`;
   const created = await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name } });
   assert.equal(created.status, 201, JSON.stringify(created.body));
   if (!isActive) {
@@ -129,10 +145,19 @@ function newPhone(): string {
 }
 
 /** Requests a code and reads it from the server's log, which shows only the last 4 digits of the phone. */
-async function requestCode(phone: string): Promise<string> {
+async function requestCode(phone: string, path = '/api/v1/auth/register'): Promise<string> {
   const logged = serverOutput.length;
-  const res = await call('POST', '/api/v1/auth/register', { body: { phone } });
+  const res = await call('POST', path, { body: { phone } });
   assert.equal(res.status, 202, JSON.stringify(res.body));
+  const code = await loggedCode(phone, logged);
+  if (!code) {
+    throw new Error(`No code logged for ${phone}`);
+  }
+  return code;
+}
+
+/** The code logged for `phone` after `logged` characters of server output, or undefined if none came within 2 s. */
+async function loggedCode(phone: string, logged: number): Promise<string | undefined> {
   const pattern = new RegExp(`for \\+380\\S*${phone.slice(-4)}: (\\d{6})`);
   const deadline = Date.now() + 2000;
   while (Date.now() < deadline) {
@@ -142,11 +167,47 @@ async function requestCode(phone: string): Promise<string> {
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error(`No code logged for ${phone}`);
+  return undefined;
 }
 
-function registration(phone: string, code: string, dateOfBirth = '2000-05-17') {
-  return { phone, code, password: 'a long passphrase', dateOfBirth };
+/** Five wrong passwords lock `phone` for 15 minutes (SEC-007). */
+async function lock(phone: string): Promise<void> {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } });
+  }
+}
+
+/** An ID token for `subject` as Google Sign-In returns it on the device. */
+function googleIdToken(subject: string, { audience = googleClientId } = {}): Promise<string> {
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'RS256', kid: googleKid })
+    .setSubject(subject)
+    .setIssuer('https://accounts.google.com')
+    .setAudience(audience)
+    .setIssuedAt()
+    .setExpirationTime('1h')
+    .sign(googleKey);
+}
+
+/** A random Google subject id, so every test links a Google account of its own. */
+function newGoogleSubject(): string {
+  return String(Math.floor(Math.random() * 1e15)).padStart(21, '1');
+}
+
+/** Verifies a new number and returns its phone and registration token. */
+async function newRegistrant(): Promise<{ phone: string; token: string }> {
+  const phone = newPhone();
+  const res = await call('POST', '/api/v1/auth/verify', { body: { phone, code: await requestCode(phone) } });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return { phone, token: res.body.accessToken };
+}
+
+/** Registers a new number and returns its phone and access token; the account has no password yet. */
+async function newAccount(): Promise<{ phone: string; token: string }> {
+  const { phone, token } = await newRegistrant();
+  const res = await call('POST', '/api/v1/auth/complete-registration', { token, body: { dateOfBirth: '2000-05-17' } });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return { phone, token: res.body.accessToken };
 }
 
 /** Kyiv date `years` years before today. */
@@ -168,48 +229,129 @@ async function freePort(): Promise<number> {
   });
 }
 
-before(async () => {
+/** Creates `<database>_e2e` next to the database in DATABASE_URL, dropping the one of the last run; returns its URL. */
+async function freshDatabase(): Promise<string> {
+  const devUrl = process.env.DATABASE_URL;
+  if (!devUrl) {
+    throw new Error('DATABASE_URL is not set: see .env.example');
+  }
+  const url = new URL(devUrl);
+  const name = `${url.pathname.slice(1)}_e2e`;
+  const client = new pg.Client({ connectionString: devUrl });
+  try {
+    await client.connect();
+  } catch {
+    throw new Error('The database is not reachable: start it with `docker compose up -d`, then run the tests again');
+  }
+  try {
+    await client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`);
+    await client.query(`CREATE DATABASE "${name}"`);
+  } finally {
+    await client.end();
+  }
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+/** Runs `query` on the run's database, for what no endpoint can do or show. */
+async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promise<T> {
+  const client = new pg.Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    return await query(client);
+  } finally {
+    await client.end();
+  }
+}
+
+/** The `sub` claim of an access token: the account id. */
+function accountIdOf(token: string): string {
+  return JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sub;
+}
+
+/** Runs a setup command to the end; throws with its output if it fails. */
+function runOrThrow(command: string, args: string[], env: NodeJS.ProcessEnv): void {
+  const result = spawnSync(command, args, { env, encoding: 'utf8' });
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed:\n${result.stdout}${result.stderr}`);
+  }
+}
+
+/** Starts the built API on a free port with `apiEnv` and `env`; resolves once it answers /health. */
+async function startApi(
+  env: NodeJS.ProcessEnv,
+  onOutput?: (chunk: string) => void,
+): Promise<{ child: ChildProcess; url: string }> {
   const port = await freePort();
-  baseUrl = `http://localhost:${port}`;
-  // Test keys of its own, so the run never depends on a developer's keys/.
-  keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
-  const codeHmacKeyFile = path.join(keysDir, 'code-hmac.key');
-  writeFileSync(codeHmacKeyFile, randomBytes(32).toString('base64url'));
-  const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
-  const jwk = { kty: 'oct', alg: 'HS256', kid: jwtKey.kid, k: jwtKey.secret.toString('base64url') };
-  writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwk] }));
-  // Production mode so the run does not rewrite the committed OpenAPI spec.
-  server = spawn(process.execPath, ['dist/api/main.js'], {
-    env: {
-      ...process.env,
-      PORT: String(port),
-      NODE_ENV: 'production',
-      CODE_HMAC_KEY_FILE: codeHmacKeyFile,
-      JWT_KEYS_FILE: jwtKeysFile,
-    },
-    // stdout carries the verification codes the console messaging provider logs.
+  const url = `http://localhost:${port}`;
+  const child = spawn(process.execPath, ['dist/api/main.js'], {
+    env: { ...apiEnv, ...env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
-  server.stdout?.on('data', (chunk: Buffer) => {
-    serverOutput += chunk.toString();
-  });
+  child.stdout?.on('data', (chunk: Buffer) => onOutput?.(chunk.toString()));
   const deadline = Date.now() + 15_000;
   while (Date.now() < deadline) {
-    if (server.exitCode !== null) {
-      throw new Error(`The API exited with code ${server.exitCode}; run npm run build first`);
+    if (child.exitCode !== null) {
+      throw new Error(`The API exited with code ${child.exitCode}; run npm run build first`);
     }
     try {
-      if ((await fetch(`${baseUrl}/health`)).ok) {
-        break;
+      if ((await fetch(`${url}/health`)).ok) {
+        return { child, url };
       }
     } catch {
       // Not listening yet.
     }
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  if (Date.now() >= deadline) {
-    throw new Error('The API did not start within 15 s');
+  child.kill();
+  throw new Error('The API did not start within 15 s');
+}
+
+before(async () => {
+  // The database URL comes from .env locally and from the environment in CI.
+  if (existsSync('.env')) {
+    process.loadEnvFile();
   }
+  databaseUrl = await freshDatabase();
+  // Test keys of its own, so the run never depends on a developer's keys/.
+  keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
+  const keyFile = (name: string) => {
+    const file = path.join(keysDir, name);
+    writeFileSync(file, randomBytes(32).toString('base64url'));
+    return file;
+  };
+  const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
+  const jwk = { kty: 'oct', alg: 'HS256', kid: jwtKey.kid, k: jwtKey.secret.toString('base64url') };
+  writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwk] }));
+  const google = await generateKeyPair('RS256', { extractable: true });
+  googleKey = google.privateKey;
+  const jwks = JSON.stringify({ keys: [{ ...(await exportJWK(google.publicKey)), kid: googleKid, alg: 'RS256' }] });
+  jwksServer = createHttpServer((_req, res) => res.writeHead(200, { 'content-type': 'application/json' }).end(jwks));
+  const jwksPort = await freePort();
+  await new Promise<void>((resolve) => jwksServer.listen(jwksPort, resolve));
+  apiEnv = {
+    ...process.env,
+    // Production mode so the run does not rewrite the committed OpenAPI spec.
+    NODE_ENV: 'production',
+    DATABASE_URL: databaseUrl,
+    CODE_HMAC_KEY_FILE: keyFile('code-hmac.key'),
+    CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
+    DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
+    JWT_KEYS_FILE: jwtKeysFile,
+    // The codes are read from the log, so they must not go to Telegram, the production default.
+    MESSAGING_PROVIDER: 'console',
+    GOOGLE_CLIENT_IDS: googleClientId,
+    GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
+    ALLOW_TEST_ADAPTERS: 'true',
+  };
+  runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
+  // The seed refuses production mode; the accounts are encrypted with the run's keys.
+  runOrThrow(process.execPath, ['dist/scripts/seed-dev-accounts.js'], { ...apiEnv, NODE_ENV: 'test' });
+  // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
+  // stdout carries the verification codes the console messaging provider logs.
+  ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
+    serverOutput += chunk;
+  }));
   tokens.guest = (await call('POST', '/api/v1/auth/guest')).body.accessToken;
   tokens.user = await signIn(phones.user);
   tokens.org = await signIn(phones.org);
@@ -217,15 +359,10 @@ before(async () => {
   tokens.admin = await signIn(phones.admin);
 });
 
-after(async () => {
-  // Categories are in the database and outlive the run, so remove the ones the tests made (also from a run that crashed).
-  const all = await call('GET', '/api/v1/admin/categories', { token: tokens.admin });
-  for (const { id, name } of all.body.items) {
-    if (name.startsWith(TEST_CATEGORY_PREFIX)) {
-      await call('DELETE', `/api/v1/admin/categories/${id}`, { token: tokens.admin });
-    }
-  }
+// The database stays until the next run, to look into after a failure.
+after(() => {
   server?.kill();
+  jwksServer?.close();
   rmSync(keysDir, { recursive: true, force: true });
 });
 
@@ -287,6 +424,7 @@ describe('POST /api/v1/auth/sign-in', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.tokenType, 'Bearer');
     assert.equal(res.body.expiresIn, 3600);
+    assert.match(res.body.refreshToken, /^[0-9a-f-]{36}\.[\w-]{43}$/);
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
@@ -302,6 +440,40 @@ describe('POST /api/v1/auth/sign-in', () => {
     assert.equal(unknownPhone.status, wrongPassword.status);
   });
 
+  // SEC-007: six bad sign-ins; the sixth, with the right password, is refused like a wrong one.
+  test('locks an account after 5 wrong passwords, answering like a wrong password', async () => {
+    const { phone, token } = await newAccount();
+    const password = 'a long passphrase';
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const wrong = { phone, password: 'not-the-password' };
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      assertRejected(await call('POST', '/api/v1/auth/sign-in', { body: wrong }), 401, 'INVALID_CREDENTIALS');
+    }
+
+    const locked = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    const wrongPassword = await call('POST', '/api/v1/auth/sign-in', { body: wrong });
+    assert.equal(locked.status, wrongPassword.status);
+    assert.deepEqual(locked.body, wrongPassword.body);
+  });
+
+  // TM-09: a lock stops only password sign-in.
+  test('still signs a locked account in with Google', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password: 'a long passphrase' } });
+    const subject = newGoogleSubject();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+    await lock(phone);
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  });
+
+  test('rejects a body without a password with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user } }), 'body', 'password');
+  });
+
   test('rejects a number that is not Ukrainian with 400', async () => {
     const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: '+15551234567', password: 'x' } });
     assertInvalid(res, 'body', 'phone');
@@ -309,10 +481,16 @@ describe('POST /api/v1/auth/sign-in', () => {
 });
 
 describe('POST /api/v1/auth/register', () => {
-  test('sends a code, and refuses another within a minute with 429', async () => {
+  // SEC-007: a 429 would show that a reset code went to the number, so that it has an account.
+  test('sends a code, and within a minute answers the same but sends no other', async () => {
     const phone = newPhone();
     assert.match(await requestCode(phone), /^\d{6}$/);
-    assertRejected(await call('POST', '/api/v1/auth/register', { body: { phone } }), 429, 'CODE_RESEND_TOO_SOON');
+    const logged = serverOutput.length;
+
+    const res = await call('POST', '/api/v1/auth/register', { body: { phone } });
+
+    assert.equal(res.status, 202);
+    assert.equal(await loggedCode(phone, logged), undefined);
   });
 
   test('answers a registered number the same as a new one', async () => {
@@ -327,15 +505,16 @@ describe('POST /api/v1/auth/register', () => {
 });
 
 describe('POST /api/v1/auth/verify', () => {
-  test('creates the account and signs in; the code works only once', async () => {
+  test('returns a registration token that only finishing registration accepts; the code works only once', async () => {
     const phone = newPhone();
-    const body = registration(phone, await requestCode(phone));
+    const body = { phone, code: await requestCode(phone) };
+
     const res = await call('POST', '/api/v1/auth/verify', { body });
+
     assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+    assert.equal(res.body.expiresIn, 15 * 60);
+    assertRejected(await call('GET', '/api/v1/listings', { token: res.body.accessToken }), 401, 'UNAUTHENTICATED');
     assertRejected(await call('POST', '/api/v1/auth/verify', { body }), 422, 'INVALID_CODE');
-    const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: body.password } });
-    assert.equal(signIn.status, 200);
   });
 
   test('refuses even the right code after 3 wrong ones', async () => {
@@ -343,53 +522,486 @@ describe('POST /api/v1/auth/verify', () => {
     const code = await requestCode(phone);
     const wrong = String((Number(code) + 1) % 1e6).padStart(6, '0');
     for (let attempt = 1; attempt <= 3; attempt++) {
-      assertRejected(
-        await call('POST', '/api/v1/auth/verify', { body: registration(phone, wrong) }),
-        422,
-        'INVALID_CODE',
-      );
+      assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code: wrong } }), 422, 'INVALID_CODE');
     }
-    assertRejected(await call('POST', '/api/v1/auth/verify', { body: registration(phone, code) }), 422, 'INVALID_CODE');
-  });
-
-  // SAFE-001 boundary: 18 today passes, one day short does not.
-  test('accepts someone who turns 18 today', async () => {
-    const phone = newPhone();
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phone, await requestCode(phone), yearsAgo(18)),
-    });
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-  });
-
-  test('refuses someone who turns 18 tomorrow with 422', async () => {
-    const phone = newPhone();
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phone, await requestCode(phone), yearsAgo(18, 1)),
-    });
-    assertRejected(res, 422, 'UNDERAGE');
+    assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code } }), 422, 'INVALID_CODE');
   });
 
   test('refuses a registered number with 409 once the code is right', async () => {
     const res = await call('POST', '/api/v1/auth/verify', {
-      body: registration(phones.admin, await requestCode(phones.admin)),
+      body: { phone: phones.admin, code: await requestCode(phones.admin) },
     });
     assertRejected(res, 409, 'CONFLICT');
   });
 
-  test('rejects a password shorter than 8 characters with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: { ...registration(newPhone(), '123456'), password: 'short' },
+  test('rejects a code that is not 6 digits with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/verify', { body: { phone: newPhone(), code: '12345' } });
+
+    assertInvalid(res, 'body', 'code');
+  });
+});
+
+describe('POST /api/v1/auth/complete-registration', () => {
+  // SAFE-001 boundary: 18 today passes, one day short does not.
+  test('activates someone who turns 18 today and signs them in', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(18) },
     });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('refuses someone who turns 18 tomorrow with 422 and removes the registration', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(18, 1) },
+    });
+
+    assertRejected(res, 422, 'UNDERAGE');
+    const again = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: yearsAgo(30) },
+    });
+    assertRejected(again, 404, 'NOT_FOUND');
+  });
+
+  test('refuses a finished registration with 409', async () => {
+    const { token } = await newRegistrant();
+    const body = { dateOfBirth: '2000-05-17' };
+    await call('POST', '/api/v1/auth/complete-registration', { token, body });
+
+    assertRejected(await call('POST', '/api/v1/auth/complete-registration', { token, body }), 409, 'CONFLICT');
+  });
+
+  test('rejects a date of birth that is not a calendar date with 400', async () => {
+    const { token } = await newRegistrant();
+
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token,
+      body: { dateOfBirth: '2000-02-30' },
+    });
+
+    assertInvalid(res, 'body', 'dateOfBirth');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/complete-registration', { body: { dateOfBirth: '2000-05-17' } });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+
+  test('rejects a signed-in account token with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/complete-registration', {
+      token: tokens.user,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('POST /api/v1/auth/google', () => {
+  test('signs in an account that linked the Google account', async () => {
+    const { token } = await newAccount();
+    const subject = newGoogleSubject();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('refuses a Google account no account linked with 401', async () => {
+    const res = await call('POST', '/api/v1/auth/google', {
+      body: { idToken: await googleIdToken(newGoogleSubject()) },
+    });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('rejects a body without an ID token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/google', { body: {} }), 'body', 'idToken');
+  });
+
+  test('refuses an ID token issued to another app with 401', async () => {
+    const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
+
+    assertRejected(await call('POST', '/api/v1/auth/google', { body: { idToken } }), 401, 'INVALID_CREDENTIALS');
+  });
+});
+
+describe('PUT /api/v1/me/google', () => {
+  test('links a Google account, and linking it again changes nothing', async () => {
+    const { token } = await newAccount();
+    const body = { idToken: await googleIdToken(newGoogleSubject()) };
+
+    const first = await call('PUT', '/api/v1/me/google', { token, body });
+    const again = await call('PUT', '/api/v1/me/google', { token, body });
+
+    assert.equal(first.status, 204, JSON.stringify(first.body));
+    assert.equal(again.status, 204, JSON.stringify(again.body));
+  });
+
+  test('refuses a Google account another account linked with 409', async () => {
+    const subject = newGoogleSubject();
+    const owner = await newAccount();
+    await call('PUT', '/api/v1/me/google', { token: owner.token, body: { idToken: await googleIdToken(subject) } });
+    const { token } = await newAccount();
+
+    const res = await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+
+    assertRejected(res, 409, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  test('refuses a second Google account with 409', async () => {
+    const { token } = await newAccount();
+    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } });
+
+    const res = await call('PUT', '/api/v1/me/google', {
+      token,
+      body: { idToken: await googleIdToken(newGoogleSubject()) },
+    });
+
+    assertRejected(res, 409, 'GOOGLE_ALREADY_LINKED');
+  });
+
+  test('rejects an ID token issued to another app with 422', async () => {
+    const { token } = await newAccount();
+    const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
+
+    assertRejected(await call('PUT', '/api/v1/me/google', { token, body: { idToken } }), 422, 'INVALID_GOOGLE_TOKEN');
+  });
+
+  test('rejects a guest with 401', async () => {
+    const idToken = await googleIdToken(newGoogleSubject());
+
+    assertRejected(
+      await call('PUT', '/api/v1/me/google', { token: tokens.guest, body: { idToken } }),
+      401,
+      'UNAUTHENTICATED',
+    );
+  });
+});
+
+// SEC-007, TM-08: an API of its own with a limit of 2, so the rest of the suite keeps its budget.
+describe('Per-IP limit on the auth endpoints', () => {
+  let limited: { child: ChildProcess; url: string };
+
+  before(async () => {
+    limited = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
+  });
+
+  after(() => {
+    limited?.child.kill();
+  });
+
+  function post(path: string, body?: object): Promise<globalThis.Response> {
+    return fetch(limited.url + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: body && JSON.stringify(body),
+    });
+  }
+
+  test('refuses a third sign-in from one IP within a minute with 429 and Retry-After', async () => {
+    const attempt = { phone: phones.user, password: 'not-the-password' };
+    await post('/api/v1/auth/sign-in', attempt);
+    await post('/api/v1/auth/sign-in', attempt);
+
+    const res = await post('/api/v1/auth/sign-in', attempt);
+
+    assert.equal(res.status, 429);
+    assert.equal((await res.json()).error.code, 'RATE_LIMITED');
+    assert.ok(Number(res.headers.get('retry-after')) > 0, String(res.headers.get('retry-after')));
+  });
+
+  // The limit counts a request before its body is checked, so an empty body is enough.
+  const limitedEndpoints = [
+    ['POST', '/api/v1/auth/register'],
+    ['POST', '/api/v1/auth/verify'],
+    ['POST', '/api/v1/auth/google'],
+    ['POST', '/api/v1/auth/password-reset'],
+    ['POST', '/api/v1/auth/password-reset/confirm'],
+    ['PUT', '/api/v1/me/password'],
+  ];
+
+  for (const [method, path] of limitedEndpoints) {
+    test(`refuses a third ${method} ${path} from one IP within a minute with 429`, async () => {
+      const send = () =>
+        fetch(limited.url + path, {
+          method,
+          headers: { authorization: `Bearer ${tokens.user}`, 'content-type': 'application/json' },
+          body: '{}',
+        });
+      await send();
+      await send();
+
+      const res = await send();
+
+      assert.equal(res.status, 429);
+    });
+  }
+
+  test('does not limit guest tokens, which every app start asks for', async () => {
+    const statuses = [];
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      statuses.push((await post('/api/v1/auth/guest')).status);
+    }
+
+    assert.deepEqual(statuses, [200, 200, 200]);
+  });
+});
+
+describe('POST /api/v1/auth/password-reset', () => {
+  test('sends no code to a number without an account, and answers it like one with an account', async () => {
+    const phone = newPhone();
+    const logged = serverOutput.length;
+
+    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone } });
+
+    assert.equal(res.status, 202, JSON.stringify(res.body));
+    assert.equal(res.body, undefined);
+    assert.equal(await loggedCode(phone, logged), undefined);
+  });
+
+  test('rejects a number that is not Ukrainian with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone: '0501234567' } });
+
+    assertInvalid(res, 'body', 'phone');
+  });
+});
+
+describe('POST /api/v1/auth/password-reset/confirm', () => {
+  // SEC-007: a reset lifts the lock, so a user locked out by someone else can get back in.
+  // TM-01: it also signs out whoever signed in with the old password.
+  test('replaces the password, lifts a lock, ends the other sessions and signs in; the code works only once', async () => {
+    const phone = phones.taras;
+    const password = 'a new long passphrase';
+    const earlierSession = await signIn(phone);
+    await lock(phone);
+    const body = { phone, code: await requestCode(phone, '/api/v1/auth/password-reset'), password };
+
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', { body });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+    assertRejected(await call('GET', '/api/v1/listings', { token: earlierSession }), 401, 'UNAUTHENTICATED');
+    assertRejected(await call('POST', '/api/v1/auth/password-reset/confirm', { body }), 422, 'INVALID_CODE');
+    const oldPassword = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
+    assertRejected(oldPassword, 401, 'INVALID_CREDENTIALS');
+    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  });
+
+  test('rejects a new password shorter than 8 characters with 400', async () => {
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
+      body: { phone: newPhone(), code: '123456', password: 'short' },
+    });
+
     assertInvalid(res, 'body', 'password');
+  });
+
+  test('does not accept a registration code', async () => {
+    const phone = newPhone();
+    const code = await requestCode(phone);
+
+    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
+      body: { phone, code, password: 'a new long passphrase' },
+    });
+
+    assertRejected(res, 422, 'INVALID_CODE');
+  });
+});
+
+describe('PUT /api/v1/me/password', () => {
+  const password = 'a long passphrase';
+
+  test('sets the first password of a new account, which then signs in with it', async () => {
+    const { phone, token } = await newAccount();
+
+    const res = await call('PUT', '/api/v1/me/password', { token, body: { password } });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  });
+
+  test('changes a password only with the right current one', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const newPassword = 'another long passphrase';
+
+    const withoutCurrent = await call('PUT', '/api/v1/me/password', { token, body: { password: newPassword } });
+    const withWrongCurrent = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: newPassword, currentPassword: 'not-the-password' },
+    });
+    const withCurrent = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: newPassword, currentPassword: password },
+    });
+
+    assertRejected(withoutCurrent, 422, 'WRONG_PASSWORD');
+    assertRejected(withWrongCurrent, 422, 'WRONG_PASSWORD');
+    assert.equal(withCurrent.status, 204, JSON.stringify(withCurrent.body));
+    const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: newPassword } });
+    assert.equal(signIn.status, 200);
+  });
+
+  test('ends the other sessions of the account, but not this one', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    const other = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    const res = await call('PUT', '/api/v1/me/password', {
+      token,
+      body: { password: 'another long passphrase', currentPassword: password },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token })).status, 200);
+    assertRejected(await call('GET', '/api/v1/listings', { token: other.body.accessToken }), 401, 'UNAUTHENTICATED');
+    const refresh = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: other.body.refreshToken } });
+    assertRejected(refresh, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  // SEC-007: a stolen session must not give unlimited guesses at the password.
+  test('counts wrong current passwords towards the sign-in lockout', async () => {
+    const { phone, token } = await newAccount();
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      await call('PUT', '/api/v1/me/password', {
+        token,
+        body: { password: 'another long passphrase', currentPassword: 'not-the-password' },
+      });
+    }
+
+    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('rejects a password shorter than 8 characters with 400', async () => {
+    const { token } = await newAccount();
+
+    assertInvalid(await call('PUT', '/api/v1/me/password', { token, body: { password: 'short' } }), 'body', 'password');
+  });
+
+  test('rejects a guest with 401', async () => {
+    const res = await call('PUT', '/api/v1/me/password', { token: tokens.guest, body: { password } });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
+// SEC-005: sessions renew without signing in again, and end at once on sign-out.
+describe('POST /api/v1/auth/refresh', () => {
+  async function newSession(): Promise<{ accessToken: string; refreshToken: string }> {
+    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body;
+  }
+
+  test('returns new tokens, and the old refresh token stops working', async () => {
+    const session = await newSession();
+
+    const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.expiresIn, 3600);
+    assert.notEqual(res.body.refreshToken, session.refreshToken);
+    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
+  });
+
+  test('ends the session when a refresh token is used a second time', async () => {
+    const session = await newSession();
+    const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assertRejected(reused, 401, 'INVALID_REFRESH_TOKEN');
+    const afterReuse = await call('POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: renewed.body.refreshToken },
+    });
+    assertRejected(afterReuse, 401, 'INVALID_REFRESH_TOKEN');
+    assertRejected(await call('GET', '/api/v1/listings', { token: renewed.body.accessToken }), 401, 'UNAUTHENTICATED');
+  });
+
+  // A token rotated more than once cannot be told from a guess, so any wrong secret ends the session.
+  test('ends the session on a wrong secret', async () => {
+    const session = await newSession();
+    const [sessionId] = session.refreshToken.split('.');
+
+    const res = await call('POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: `${sessionId}.${randomBytes(32).toString('base64url')}` },
+    });
+
+    assertRejected(res, 401, 'INVALID_REFRESH_TOKEN');
+    const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    assertRejected(renewed, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('rejects a refresh token of no session with 401', async () => {
+    const refreshToken = `${randomUUID()}.${randomBytes(32).toString('base64url')}`;
+
+    const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken } });
+
+    assertRejected(res, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('rejects a body without a refresh token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/refresh', { body: {} }), 'body', 'refreshToken');
+  });
+});
+
+describe('POST /api/v1/auth/sign-out', () => {
+  test('ends this session at once and leaves the others signed in', async () => {
+    const session = (
+      await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } })
+    ).body;
+
+    const res = await call('POST', '/api/v1/auth/sign-out', { token: session.accessToken });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assertRejected(await call('GET', '/api/v1/listings', { token: session.accessToken }), 401, 'UNAUTHENTICATED');
+    const refresh = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    assertRejected(refresh, 401, 'INVALID_REFRESH_TOKEN');
+    assert.equal((await call('GET', '/api/v1/listings', { token: tokens.user })).status, 200);
+  });
+
+  test('rejects a guest with 401', async () => {
+    assertRejected(await call('POST', '/api/v1/auth/sign-out', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+// SEC-005: there is no ban endpoint yet, so the test bans the account in the database.
+describe('A ban', () => {
+  test('rejects the next request of a session that was signed in before', async () => {
+    const { token } = await newAccount();
+    assert.equal((await call('GET', '/api/v1/listings', { token })).status, 200);
+    await withDatabase((client) =>
+      client.query(`UPDATE accounts SET status = 'banned' WHERE id = $1`, [accountIdOf(token)]),
+    );
+
+    const res = await call('GET', '/api/v1/listings', { token });
+
+    assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });
 
 // SEC-005: a missing, expired or tampered token gets 401. The admin endpoint shows a forged role gets nowhere.
 describe('Access tokens', () => {
   const accountId = 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e';
+  // The session the admin signed in with before the tests.
+  const adminSession = () => JSON.parse(Buffer.from(tokens.admin.split('.')[1] ?? '', 'base64url').toString()).sid;
 
   function token(
-    claims: Record<string, unknown> = { role: 'admin', sid: randomUUID() },
+    claims: Record<string, unknown> = { role: 'admin', sid: adminSession() },
     { header = {}, secret = jwtKey.secret, audience = 'nearby-api', expiresIn = '1h' } = {},
   ): Promise<string> {
     return new SignJWT(claims)
@@ -424,6 +1036,7 @@ describe('Access tokens', () => {
     'for another audience': () => token(undefined, { audience: 'another-api' }),
     'that is not an access token': () => token(undefined, { header: { typ: 'JWT' } }),
     'of an account without a session': () => token({ role: 'admin' }),
+    'of a session that does not exist': () => token({ role: 'admin', sid: randomUUID() }),
     'that is not a JWT': async () => 'not-a-token',
     // SA-01: inherited object keys were once accepted as tokens.
     'named like an object property': async () => 'constructor',
@@ -970,5 +1583,129 @@ describe('PUT /api/v1/me/profile/interests', () => {
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
+  });
+});
+
+// SEC-003: the columns hold ciphertext; the API never shows them, so the test reads them directly.
+describe('Personal data at rest', () => {
+  test('stores the phone number and the date of birth only encrypted', async () => {
+    const { phone, token } = await newAccount();
+
+    const { account, codes } = await withDatabase(async (client) => {
+      const accounts = await client.query(
+        'SELECT contact_identifier, contact_hash, date_of_birth FROM accounts WHERE id = $1',
+        [accountIdOf(token)],
+      );
+      const sent = await client.query('SELECT contact FROM verification_codes WHERE contact_hash = $1', [
+        accounts.rows[0]?.contact_hash,
+      ]);
+      return { account: accounts.rows[0], codes: sent.rows };
+    });
+
+    // newAccount registers with this date of birth.
+    const secrets = [phone, phone.slice(1), '2000-05-17'];
+    const stored = [
+      account.contact_identifier,
+      account.contact_hash,
+      account.date_of_birth,
+      ...codes.map((c) => c.contact),
+    ];
+    assert.equal(codes.length, 1);
+    for (const value of stored) {
+      assert.ok(Buffer.isBuffer(value));
+      for (const secret of secrets) {
+        assert.equal(value.includes(secret), false, `a stored value contains ${secret}`);
+      }
+    }
+  });
+});
+
+// The locks and conditional updates in the repositories, which the unit tests mock and one request at a time never reaches.
+describe('Parallel requests', () => {
+  const parallel = <T>(times: number, request: () => Promise<T>) => Promise.all(Array.from({ length: times }, request));
+
+  // On one database connection the requests would run one after another and never race.
+  const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
+
+  // SEC-008
+  test('send one code when one number registers 10 times at once', async () => {
+    const phone = newPhone();
+    await openConnections();
+    const logged = serverOutput.length;
+
+    const responses = await parallel(10, () => call('POST', '/api/v1/auth/register', { body: { phone } }));
+
+    assert.ok(responses.every((res) => res.status === 202));
+    const codes = serverOutput.slice(logged).match(new RegExp(`for \\+380\\S*${phone.slice(-4)}: \\d{6}`, 'g'));
+    assert.equal(codes?.length, 1);
+  });
+
+  // SEC-005
+  test('renew a session once when one refresh token is sent 5 times at once', async () => {
+    const { body: session } = await call('POST', '/api/v1/auth/sign-in', {
+      body: { phone: phones.user, password: seededPassword },
+    });
+    await openConnections();
+
+    const responses = await parallel(5, () =>
+      call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
+    );
+
+    assert.equal(responses.filter((res) => res.status === 200).length, 1);
+  });
+
+  // SEC-007: five failures lock the account only if no one overwrites another.
+  test('lock an account after 5 wrong passwords sent at once', async () => {
+    const { phone, token } = await newAccount();
+    const password = 'a long passphrase';
+    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+
+    await parallel(5, () => call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } }));
+
+    assertRejected(
+      await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
+  });
+
+  // Both requests can pass the service's checks; then the unique index stops one, with the same answer.
+  test('link one Google account to only one of two accounts asking at once', async () => {
+    const subject = newGoogleSubject();
+    const [first, second] = [await newAccount(), await newAccount()];
+
+    const responses = await Promise.all(
+      [first, second].map(async ({ token }) =>
+        call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } }),
+      ),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
+    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  test('link only one of two Google accounts one account sends at once', async () => {
+    const { token } = await newAccount();
+
+    const responses = await parallel(2, async () =>
+      call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } }),
+    );
+
+    const statuses = responses.map((res) => res.status).sort();
+    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
+    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ALREADY_LINKED');
+  });
+});
+
+// SEC-002, SEC-004: last, so the log holds what every test above did.
+describe('Server log', () => {
+  test('contains no password or access token', () => {
+    const passwords = [seededPassword, 'a long passphrase', 'a new long passphrase', 'another long passphrase'];
+    const secrets = [...passwords, 'not-the-password', ...Object.values(tokens)];
+
+    for (const secret of secrets) {
+      assert.equal(serverOutput.includes(secret), false, `the log contains ${secret.slice(0, 12)}…`);
+    }
   });
 });
