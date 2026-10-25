@@ -12,11 +12,11 @@ export class StubVenuesRepository implements VenuesRepository {
   }
 
   async findImported(name: string, address: string): Promise<Venue | undefined> {
-    return venues.find((venue) => venue.organizationId === null && venue.name === name && venue.address === address);
+    return venues.find((venue) => venue.source === 'import' && venue.name === name && venue.address === address);
   }
 
   async createImported(input: NewImportedVenue): Promise<Venue> {
-    const venue: Venue = { id: randomUUID(), ...input, organizationId: null };
+    const venue: Venue = { id: randomUUID(), ...input, source: 'import', organizationId: null };
     venues.push(venue);
     return venue;
   }

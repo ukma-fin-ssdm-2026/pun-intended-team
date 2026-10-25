@@ -102,6 +102,7 @@ export const venues: Venue[] = [
     name: 'Natalka Park lawn',
     address: 'Naberezhno-Luhova St, Kyiv',
     location: { lat: 50.4825, lng: 30.5181 },
+    source: 'organization',
     organizationId: accounts.filmClub,
   },
   {
@@ -109,6 +110,7 @@ export const venues: Venue[] = [
     name: 'Mystetskyi Arsenal',
     address: '10-12 Lavrska St, Kyiv',
     location: { lat: 50.4357, lng: 30.5555 },
+    source: 'import',
     organizationId: null,
   },
   {
@@ -116,6 +118,7 @@ export const venues: Venue[] = [
     name: 'New Gallery hall',
     address: '5 Velyka Vasylkivska St, Kyiv',
     location: { lat: 50.4401, lng: 30.5203 },
+    source: 'organization',
     organizationId: accounts.newGallery,
   },
 ];
