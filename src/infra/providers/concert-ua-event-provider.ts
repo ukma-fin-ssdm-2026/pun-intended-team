@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
+import { kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import type { NormalizeResult } from '../../core/import/types/import.ts';
 import { concertUaSampleFeed } from './concert-ua-sample-feed.ts';
 
@@ -14,7 +15,6 @@ const CATEGORY_BY_GENRE: Record<string, string> = {
 /** Limits of our API's event schema: the catalog answers 500 for an event outside them. */
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 5000;
-const DEFAULT_DURATION_MS = 2 * 60 * 60 * 1000;
 
 const RawConcertUaEvent = z.object({
   id: z.union([z.string().trim().min(1), z.number()]).transform(String),
@@ -68,7 +68,8 @@ export class ConcertUaEventProvider extends EventProvider {
         categoryName,
         venue: { name: venue.name, address: venue.address, location: { lat: venue.lat, lng: venue.lng } },
         startsAt: start.toISOString(),
-        endsAt: (endsAt ? new Date(endsAt) : new Date(start.getTime() + DEFAULT_DURATION_MS)).toISOString(),
+        // With no end from the provider, the event lasts until the end of its day in Kyiv (data-model.md).
+        endsAt: (endsAt ? new Date(endsAt) : kyivEndOfDay(start)).toISOString(),
       },
     };
   }

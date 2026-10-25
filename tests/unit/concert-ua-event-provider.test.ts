@@ -39,12 +39,13 @@ describe('ConcertUaEventProvider.normalize', () => {
     assert.equal('event' in result && result.event.externalId, '1002');
   });
 
-  test('gives an event without an end time a length of two hours', () => {
+  test('ends an event without an end time at the end of its day in Kyiv', () => {
     const { endsAt: _endsAt, ...withoutEnd } = aRecord();
 
     const result = provider.normalize(withoutEnd);
 
-    assert.equal('event' in result && result.event.endsAt, '2026-10-22T18:00:00.000Z');
+    // Starts 19:00 on 22 October in Kyiv (UTC+3), so it ends at 23:59:59.999 that day.
+    assert.equal('event' in result && result.event.endsAt, '2026-10-22T20:59:59.999Z');
   });
 
   const genres = [
