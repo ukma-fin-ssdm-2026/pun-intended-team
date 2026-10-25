@@ -21,13 +21,9 @@ Whadio's checklist, from the updated issue. They marked all five criteria Blocki
 
 ### Strengths
 
-From the updated issue:
-
 1. The plan targets the safety-sensitive areas: age validation, matching, contact disclosure and performance.
 2. Existing tests in the repository already give evidence the plan can link to.
 3. The performance goals are measurable, and the failed run is recorded rather than hidden.
-
-In class, the reviewers also said orally that the test cases are sound, the positive and negative types are used correctly, and every risk points to specific test cases.
 
 ### Areas for Improvement
 
