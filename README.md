@@ -59,6 +59,8 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 
 ## ⟡ Code Quality
 
+Documentation related to code quality for this project is located [here](docs/code-quality/):
+
 - [`static-analysis.md`](docs/code-quality/static-analysis.md) — manual security review of the API code, security analyzer results and dependency audit
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
@@ -94,7 +96,11 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
 
+<a id="tests"></a>
+
 ## ꕤ Tests
+
+### Running tests
 
 Unit tests in [`tests/unit/`](tests/unit/) check the services in `src/core/` with mocked repositories. The tests in [`tests/e2e/`](tests/e2e/) are integration tests, despite the folder name: they start the API and call it over HTTP, through every layer and the real database. They need `.env` and the [local database](#local-database). Every command builds first, since the tests import the compiled code from `dist/`.
 
@@ -112,6 +118,19 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
+The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+
+### Test documentation
+
+Documentation related to testing is located [here](docs/testing/), the test plan [here](docs/validation/):
+
+- [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
+- [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
+- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
+- [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
+
+<a id="commit-hooks"></a>
+
 ## 𓂀 Commit hooks
 
 Every commit runs [pre-commit](https://pre-commit.com/) with the hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml): [gitleaks](https://github.com/gitleaks/gitleaks) looks for secrets in the staged changes, Prettier formats `.ts` and `.mjs` files and ESLint checks them. If a hook changes a file, the commit stops: review the change, `git add` it and commit again.
@@ -125,6 +144,8 @@ pipx install pre-commit
 The hooks run through `.githooks/pre-commit`, which is enabled by the same `git config core.hooksPath .githooks` as above. Without pre-commit the commit is refused and the hook prints this command. The first run downloads gitleaks and takes longer. To check the whole repository: `pre-commit run --all-files`.
 
 If a commit from VS Code fails with "pre-commit is not installed", restart VS Code after `pipx ensurepath`, so it picks up the new `PATH`.
+
+<a id="local-database"></a>
 
 ## 𓊚 Local database
 
@@ -151,3 +172,5 @@ The Expo client in [`app/`](app/) lists the catalog events and opens their detai
 ## ༄ AI Usage Note
 
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
+
+Claude later checked every link against the repository files, fixed broken section links and added links to the documents in `docs/` that were missing. Every link target was verified to exist; the changes were reviewed by Daryna Halytska.
