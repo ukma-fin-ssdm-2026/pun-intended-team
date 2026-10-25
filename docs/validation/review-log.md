@@ -58,6 +58,16 @@ The new test case IDs are in the Tests column of `rtm.md` (FR-001, FR-002, FR-01
 
 The review also moved the import out of the catalog into its own module with its own repository (`src/core/import/`), so the API never builds it. That was a design comment rather than a checklist item.
 
+## Review for AI-generated code  (#285)
+
+| № | Criterion | Yes/No | Comment |
+|---|---|---|---|
+| 1 | All imported packages are real and used | Yes | Only local imports, no external packages. Unused imports are caught by ESLint (`no-unused-vars`); a missing module fails the build (TS2307). |
+| 2 | Error handling covers realistic failures | Yes, Nit | Empty pool and fully excluded pool are tested. **Nit:** a duplicated `userId` in the pool produces a pairing of a user with themselves (confirmed: `[u1, u1]` → `u1+u1`). The pool builder is expected to prevent duplicates, but `match` relies on it silently. |
+| 3 | Logic matches the requirements and the test plan | Yes | Mutation check: ignoring the seed, sorting from the lowest score, ignoring exclusions and dropping the greedy check each made 1–7 tests fail. |
+| 4 | No dead code | Yes | Line, branch and function coverage of `match.ts` is 100%; every helper is called. |
+| 5 | The author explained key decisions on request | Yes | Asked about duplicated users and about sorting after the shuffle; both answered (stable sort keeps the shuffled order only among equal scores). |
+
 ## AI Usage Note
 
 Drafted with Claude Code from the pull request, its review comments and the test plan; the review results come from the reviewers and were checked by the team.
