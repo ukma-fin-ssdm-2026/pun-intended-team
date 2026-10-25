@@ -200,6 +200,7 @@ jobs:
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
+          MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
         run: npm run test:coverage
 
   deploy:
