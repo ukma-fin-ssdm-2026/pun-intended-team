@@ -97,6 +97,16 @@ Other scripts: `npm run typecheck` checks types without building, `npm run lint`
 
 Before the first commit, enable the commit message hook: `git config core.hooksPath .githooks`. The coding standard and review rules are in [§5 of the charter](TeamCharter.md#5-code-quality-and-review-policy).
 
+### Event import
+
+The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. It is a separate start command, not part of the API: [`src/import/`](src/import/) loads the import module [`src/core/import/`](src/core/import/) and its bindings in [`ImportInfraModule`](src/infra/import-infra.module.ts). The provider sits behind the `EventProvider` adapter, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. A record that cannot be mapped is skipped and logged (FR-015), and a second run changes only what the provider changed.
+
+```bash
+npm run import:events   # one run: fetch, normalize, save, print a report; needs .env, the keys and the local database
+```
+
+Events are still kept in memory, so the API does not see what a run imported until events are in the database. Until then, the unit tests check that the catalog serves imported events (`tests/unit/event-import.catalog.test.ts`).
+
 <a id="tests"></a>
 
 ## ꕤ Tests

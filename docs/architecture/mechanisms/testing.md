@@ -25,7 +25,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
    | Types | `**/types/`, `core/common/page.ts` | Erased when compiled |
    | Ports | `core/*/repositories/`, `core/*/adapters/` | Empty abstract classes |
    | Temporary stand-ins | `infra/stubs/`, `infra/messaging/console-messaging-provider.ts` | Replaced by the database and the Telegram gateway |
-   | Wiring and start-up | `*.module.ts`, `api/main.ts`, `api/common/config.ts` | Dependency injection and environment; run whenever the app starts |
+   | Wiring and start-up | `*.module.ts`, `api/main.ts`, `import/main.ts`, `api/common/config.ts` | Dependency injection and environment; run whenever the app starts |
    | Declarations | `api/*/schemas/`, `api/common/schemas/`, `routes.ts`, `tags.ts`, `registry.ts`, `domain-error.ts`, `api-exception.ts` | Run on import |
    | Tooling | `api/common/openapi.ts`, `scripts/` | Generates the spec; CI checks it is up to date |
 

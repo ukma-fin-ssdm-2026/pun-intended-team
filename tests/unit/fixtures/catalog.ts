@@ -20,6 +20,7 @@ export function aVenue(overrides: Partial<Venue> = {}): Venue {
     name: 'Natalka Park lawn',
     address: 'Naberezhno-Luhova St, Kyiv',
     location: { lat: 50.4825, lng: 30.5181 },
+    source: 'organization',
     organizationId: ACCOUNT_ID,
     ...overrides,
   };

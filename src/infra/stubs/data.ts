@@ -102,6 +102,7 @@ export const venues: Venue[] = [
     name: 'Natalka Park lawn',
     address: 'Naberezhno-Luhova St, Kyiv',
     location: { lat: 50.4825, lng: 30.5181 },
+    source: 'organization',
     organizationId: accounts.filmClub,
   },
   {
@@ -109,6 +110,7 @@ export const venues: Venue[] = [
     name: 'Mystetskyi Arsenal',
     address: '10-12 Lavrska St, Kyiv',
     location: { lat: 50.4357, lng: 30.5555 },
+    source: 'import',
     organizationId: null,
   },
   {
@@ -116,6 +118,7 @@ export const venues: Venue[] = [
     name: 'New Gallery hall',
     address: '5 Velyka Vasylkivska St, Kyiv',
     location: { lat: 50.4401, lng: 30.5203 },
+    source: 'organization',
     organizationId: accounts.newGallery,
   },
 ];
@@ -124,7 +127,13 @@ export const venues: Venue[] = [
 const inDays = (days: number) => addDays(kyivDate(), days);
 
 /** How an event row is stored: category and venue by id, joined on read. */
-export type StoredEvent = Omit<Event, 'category' | 'venue'> & { categoryId: string; venueId: string };
+export type StoredEvent = Omit<Event, 'category' | 'venue'> & {
+  categoryId: string;
+  venueId: string;
+  /** Set on imported events: the provider and its id for the record. */
+  provider?: string;
+  externalId?: string;
+};
 
 export const events: StoredEvent[] = [
   {
