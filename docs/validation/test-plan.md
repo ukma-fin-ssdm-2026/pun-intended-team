@@ -8,6 +8,7 @@
 - **Interest overlap:** the score of shared interests between two users (FR-017).
 - **Matching:** pairing by interest score in a round, the pairing rules and the contact reveal (FR-017, FR-019, FUNC-002, SEC-001); planned until matching is built.
 - **Registration and sign-in** (critical path): the verification code, the age check, password sign-in and its lockout, and sign-out (FR-001, FR-005, SAFE-001, SEC-005, SEC-007, SEC-008).
+- **Event import:** taking a provider's events into the catalog, skipping records that cannot be mapped, keeping the last events when a run fails, and adding a provider behind one adapter (FR-008, FR-014, FR-015, FLEX-003).
 
 **Out of scope:**
 
@@ -15,6 +16,8 @@
 - **The live external services** (Telegram Gateway, TurboSMS, Google): tests replace them with stubs and local fake servers and never call the real services.
 - **The Expo client UI:** the project has no UI test tooling yet.
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
+- **The real Concert.ua feed:** the adapter reads a sample feed until the provider gives us access (R-001); the tests use the sample feed and fake providers.
+- **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
 
 ## Test Levels
 
@@ -39,6 +42,8 @@
 | Contacts are revealed before both users accept | A phone number reaches someone its owner never agreed to meet | TC-15 |
 | A verification code or a password can be guessed | An attacker takes over an account or registers a number that is not theirs | TC-16, TC-17, TC-18, TC-19, TC-20 |
 | A signed-out session keeps working | A lost or shared phone stays signed in until the token expires | TC-21, TC-22 |
+| One bad provider record stops the import, or a second run duplicates events | The catalog loses every imported event, or shows the same concert twice | TC-24, TC-25, TC-26 |
+| A failed import run empties the catalog | Users see no events while the provider is down | TC-28 |
 
 ## Test Cases
 
@@ -67,6 +72,12 @@
 | TC-21 | `SessionsService.end` | Unit | Positive | Sign-out revokes the session with the current time as its revocation time | Viktoriia Baran | FR-001, SEC-005 | done |
 | TC-22 | `POST /auth/sign-out` | Integration | Negative | Sign-out answers `204`; then its access token gets `401` and its refresh token `401 INVALID_REFRESH_TOKEN`, while another session of the account still gets `200` | Viktoriia Baran | FR-001, SEC-005 | done |
 | TC-23 | `POST /auth/complete-registration` | Integration | Positive | Someone who turns 18 today is activated with `200`, and the returned access token reads listings with `200` | Viktoriia Baran | FR-001, FR-005, SAFE-001 | done |
+| TC-24 | `EventImportService.run` | Unit | Negative | Of two records, one the adapter cannot map is reported in `skipped` with its id and reason, and the other is still created | Oleh Moshenskyi | FR-015 | done |
+| TC-25 | `EventImportService.run` | Unit | Positive | A record whose event was saved before with the same fields is counted as `unchanged`; nothing is created or updated | Oleh Moshenskyi | FR-008 | done |
+| TC-26 | Import into the catalog (in-memory repositories) | Unit | Positive | After one run of the Concert.ua sample feed, `EventsService.list` returns its 3 usable events with `source: import` and no organization; a second run reports 0 created, 0 updated, 3 unchanged | Oleh Moshenskyi | FR-008, FR-015 | done |
+| TC-27 | Second provider (FLEX-003) | Unit | Positive | A second adapter with its own id and record shape is imported and served by `EventsService.list`, with no change outside the adapter | Oleh Moshenskyi | FR-008, FLEX-003 | done |
+| TC-28 | `EventImportService.run` | Unit | Negative | When the provider's fetch fails, the run rejects and saves nothing, so the events of the last run stay in the catalog | Oleh Moshenskyi | FR-014, REL-003 | done |
+| TC-29 | `npm run import:events`, then `GET /events` | Integration | Positive | Events imported by the import's own process are returned by the API next to organization events | Oleh Moshenskyi | FR-008 | planned |
 
 Owners marked TBD are assigned when the team schedules the test.
 
@@ -75,7 +86,7 @@ Owners marked TBD are assigned when the team schedules the test.
 Testing under this plan is complete when all of the following hold:
 
 - Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
-- Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 with matching, and TC-10 once the staging environment exists.
+- Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 with matching, TC-29 once events are stored in the database, and TC-10 once the staging environment exists.
 - The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
 - No critical defect is open.
 
