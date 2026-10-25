@@ -21,7 +21,7 @@ Whadio sent their findings as an issue and did not fill in the course checklist.
 
 ### Strengths
 
-We did not receive strengths in writing. In class, the plan was discussed with the reviewers orally: the test cases were called sound, with the positive and negative types used correctly.
+We did not receive strengths in writing. In class, the plan was discussed with the reviewers orally: the test cases were called sound, with the positive and negative types used correctly. They also noted that every risk in the Risks table points to specific test cases, so the plan starts from what would be most costly to break.
 
 ### Areas for Improvement
 
