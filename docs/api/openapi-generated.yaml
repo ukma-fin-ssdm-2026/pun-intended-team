@@ -1,0 +1,2236 @@
+openapi: 3.0.3
+info:
+  title: Nearby API
+  version: 0.1.0
+  description: >-
+    REST API of Nearby, an app for going to events and meeting people along the
+    way.
+servers:
+  - url: http://localhost:4100
+    description: Local development
+tags:
+  - name: Auth
+    description: Registration, sign-in methods and guest tokens
+  - name: Events
+    description: Events users can go to together
+  - name: Listings
+    description: '"Looking for company" posts'
+  - name: Profiles
+    description: The signed-in user’s profile, filled in step by step during onboarding
+  - name: Interests
+    description: The fixed list of interests users pick from
+  - name: Categories
+    description: The event category directory
+  - name: System
+    description: Service endpoints
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
+        a guest token from `/api/v1/auth/guest` for catalog reads.
+  schemas:
+    AdminCategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategory'
+      required:
+        - items
+      example:
+        items:
+          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+            name: Concerts
+            isActive: true
+    AdminCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+          description: Inactive categories are hidden from filters and cannot be picked
+      required:
+        - id
+        - name
+        - isActive
+      description: A category as administrators see it
+      example:
+        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+        name: Concerts
+        isActive: true
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+              description: Every invalid field, for validation errors that can name them
+          required:
+            - code
+            - message
+      required:
+        - error
+      description: The body of every error response
+      example:
+        error:
+          code: VALIDATION_ERROR
+          message: The request is invalid
+          details:
+            - location: params
+              field: id
+              message: Invalid UUID
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - PAYLOAD_TOO_LARGE
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+        - NOT_FOUND
+        - CONFLICT
+        - REFERENCE_NOT_FOUND
+        - ORGANIZATION_NOT_VERIFIED
+        - EVENT_CANCELLED
+        - EVENT_ENDS_BEFORE_START
+        - LISTING_DATE_IN_PAST
+        - USERNAME_TAKEN
+        - PROFILE_EXISTS
+        - INVALID_CREDENTIALS
+        - WRONG_PASSWORD
+        - INVALID_GOOGLE_TOKEN
+        - GOOGLE_ACCOUNT_TAKEN
+        - GOOGLE_ALREADY_LINKED
+        - INVALID_CODE
+        - INVALID_REFRESH_TOKEN
+        - UNDERAGE
+      description: Machine-readable code; clients branch on it, not on the message
+    ValidationIssue:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/ValidationLocation'
+        field:
+          type: string
+        message:
+          type: string
+      required:
+        - location
+        - field
+        - message
+      description: One invalid field of the request
+    ValidationLocation:
+      type: string
+      enum:
+        - params
+        - query
+        - body
+      description: Part of the request the invalid field is in
+    CreateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: Unique, case-insensitive
+        isActive:
+          type: boolean
+          default: true
+          description: Whether users can pick the category
+      required:
+        - name
+      additionalProperties: false
+      example:
+        name: Workshops
+    UpdateCategoryBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: Unique, case-insensitive
+        isActive:
+          type: boolean
+          description: Whether users can pick the category
+      additionalProperties: false
+      description: Only the fields to change
+      example:
+        isActive: false
+    CategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required:
+        - items
+      example:
+        items:
+          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+            name: Concerts
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+      description: An event category from the directory administrators manage
+      example:
+        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+        name: Concerts
+    EventsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+              name: Concerts
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            endsAt: '2026-10-17T21:30:00+03:00'
+            source: organization
+            status: published
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        venue:
+          $ref: '#/components/schemas/Venue'
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        source:
+          $ref: '#/components/schemas/EventSource'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+      required:
+        - id
+        - title
+        - description
+        - category
+        - venue
+        - startsAt
+        - endsAt
+        - source
+        - status
+      description: An event users can go to together
+      example:
+        id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+        title: 'Open-air film night: Shadows of Forgotten Ancestors'
+        description: Screening in the park, bring a blanket.
+        category:
+          id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+          name: Concerts
+        venue:
+          id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+          name: Natalka Park lawn
+          address: Naberezhno-Luhova St, Kyiv
+          location:
+            lat: 50.4825
+            lng: 30.5181
+        startsAt: '2026-10-17T19:00:00+03:00'
+        endsAt: '2026-10-17T21:30:00+03:00'
+        source: organization
+        status: published
+    Venue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+      required:
+        - id
+        - name
+        - address
+        - location
+      description: Where an event takes place
+    EventSource:
+      type: string
+      enum:
+        - organization
+        - import
+      description: 'Who added the event: a verified organization or the importer'
+    EventStatus:
+      type: string
+      enum:
+        - published
+        - cancelled
+    PageInfo:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+          description: Whether another page follows
+      required:
+        - limit
+        - offset
+        - hasMore
+      example:
+        limit: 20
+        offset: 0
+        hasMore: false
+    CreateEventBody:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Title shown in the catalog
+        description:
+          type: string
+          maxLength: 5000
+          description: Can be empty
+        categoryId:
+          type: string
+          format: uuid
+          description: An active category from listCategories
+        venueId:
+          type: string
+          format: uuid
+          description: One of the organization's own venues
+        startsAt:
+          type: string
+          format: date-time
+          description: Start time with an offset, e.g. 2026-10-25T19:00:00+03:00
+        endsAt:
+          type: string
+          format: date-time
+          description: End time with an offset; must be after startsAt
+      required:
+        - title
+        - description
+        - categoryId
+        - venueId
+        - startsAt
+        - endsAt
+      additionalProperties: false
+      description: All editable fields of an event; PUT /events/{id} takes the same body
+      example:
+        title: Film quiz night
+        description: Teams of up to four, questions on Ukrainian cinema.
+        categoryId: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+        venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+        startsAt: '2026-10-25T19:00:00+03:00'
+        endsAt: '2026-10-25T21:00:00+03:00'
+    RegisterBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+      required:
+        - phone
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+    PhoneNumber:
+      type: string
+      pattern: ^\+380\d{9}$
+      description: Ukrainian number, E.164
+      example: '+380501110001'
+    AccessTokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 'Send as `Authorization: Bearer <accessToken>`'
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+      example:
+        accessToken: eyJhbGciOiJIUzI1NiIs…
+        tokenType: Bearer
+        expiresIn: 3600
+    VerifyBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: The code sent to the phone
+      required:
+        - phone
+        - code
+      additionalProperties: false
+      example:
+        phone: '+380501119999'
+        code: '123456'
+    SessionTokensResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: 'Send as `Authorization: Bearer <accessToken>`'
+        tokenType:
+          type: string
+          enum:
+            - Bearer
+        expiresIn:
+          type: integer
+          description: Seconds until the token expires
+        refreshToken:
+          type: string
+          description: >-
+            Renews the access token with `refreshSession`; valid for 30 days,
+            and replaced by every renewal
+      required:
+        - accessToken
+        - tokenType
+        - expiresIn
+        - refreshToken
+      example:
+        accessToken: eyJhbGciOiJIUzI1NiIs…
+        tokenType: Bearer
+        expiresIn: 3600
+        refreshToken: <session id>.<secret>
+    CompleteRegistrationBody:
+      type: object
+      properties:
+        dateOfBirth:
+          type: string
+          format: date
+          description: 'Checked on the server: at least 18 years old'
+      required:
+        - dateOfBirth
+      additionalProperties: false
+      example:
+        dateOfBirth: '2000-05-17'
+    SignInBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+        - phone
+        - password
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+        password: nearby-dev-password
+    GoogleIdTokenBody:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The ID token Google Sign-In returned on the device
+      required:
+        - idToken
+      additionalProperties: false
+      example:
+        idToken: eyJhbGciOiJSUzI1NiIs…
+    PasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+      required:
+        - phone
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+    ConfirmPasswordResetBody:
+      type: object
+      properties:
+        phone:
+          $ref: '#/components/schemas/PhoneNumber'
+        code:
+          type: string
+          pattern: ^\d{6}$
+          description: The code sent to the phone
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+      required:
+        - phone
+        - code
+        - password
+      additionalProperties: false
+      example:
+        phone: '+380501110001'
+        code: '123456'
+        password: a new long passphrase
+    SetPasswordBody:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: 8 to 128 characters
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Required once the account has a password
+      required:
+        - password
+      additionalProperties: false
+      example:
+        password: a new long passphrase
+        currentPassword: a long passphrase
+    RefreshSessionBody:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: The refresh token from the last sign-in or renewal
+      required:
+        - refreshToken
+      additionalProperties: false
+      example:
+        refreshToken: <session id>.<secret>
+    ListingsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Listing'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+            author:
+              username: olena_k
+              displayName: Olena
+            category:
+              id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+              name: Exhibitions
+            eventId: null
+            title: Looking for company for an exhibition on Saturday
+            description: Planning to go in the evening, happy to grab a coffee after.
+            date: '2026-10-17'
+            status: active
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    Listing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        category:
+          $ref: '#/components/schemas/Category'
+        eventId:
+          type: string
+          nullable: true
+          format: uuid
+          description: The catalog event the listing is about, if any
+        title:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+      required:
+        - id
+        - author
+        - category
+        - eventId
+        - title
+        - description
+        - date
+        - status
+      description: A "looking for company" post
+      example:
+        id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+        author:
+          username: olena_k
+          displayName: Olena
+        category:
+          id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+          name: Exhibitions
+        eventId: null
+        title: Looking for company for an exhibition on Saturday
+        description: Planning to go in the evening, happy to grab a coffee after.
+        date: '2026-10-17'
+        status: active
+    ListingAuthor:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: string
+      required:
+        - username
+        - displayName
+      description: Who posted the listing; never their contacts
+    ListingStatus:
+      type: string
+      enum:
+        - active
+        - removed
+    CreateListingBody:
+      type: object
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+          description: An active category from listCategories
+        eventId:
+          type: string
+          format: uuid
+          description: A catalog event the listing is about
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Title shown in the listing feed
+        description:
+          type: string
+          maxLength: 2000
+          description: Can be empty
+        date:
+          type: string
+          format: date
+          description: The day, Kyiv time; today or later
+      required:
+        - categoryId
+        - title
+        - description
+        - date
+      additionalProperties: false
+      example:
+        categoryId: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
+        eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+        title: Looking for company for the Arsenal exhibition
+        description: Planning to go in the evening, happy to grab a coffee after.
+        date: '2026-10-20'
+    InterestList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interest'
+      required:
+        - items
+      example:
+        items:
+          - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+            name: Books
+    Interest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+        - id
+        - name
+      description: An interest from the fixed list users pick from
+      example:
+        id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+        name: Books
+    Profile:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+        communicationFormat:
+          type: string
+          nullable: true
+          enum:
+            - friends
+            - dating
+            - company
+            - null
+          description: Null until the user picks one
+        sharePhone:
+          type: boolean
+          description: Whether the phone number is revealed on a mutual match
+        age:
+          type: integer
+          description: >-
+            Whole years, computed from the account’s date of birth; the date
+            itself is never returned
+        interests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interest'
+        isComplete:
+          type: boolean
+          description: >-
+            True once communicationFormat and at least one interest are set;
+            matching needs both
+      required:
+        - username
+        - displayName
+        - description
+        - communicationFormat
+        - sharePhone
+        - age
+        - interests
+        - isComplete
+      description: The signed-in user’s own profile
+      example:
+        username: olena_k
+        displayName: Olena
+        description: Cinema, galleries and long walks.
+        communicationFormat: friends
+        sharePhone: true
+        age: 28
+        interests:
+          - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+            name: Books
+        isComplete: true
+    CreateProfileBody:
+      type: object
+      properties:
+        username:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._]{2,29}$
+          description: >-
+            Unique, case-insensitive; 3 to 30 letters, digits, dots or
+            underscores
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: The name other users see
+      required:
+        - username
+        - displayName
+      additionalProperties: false
+      description: The first onboarding step; everything else is added with PATCH
+      example:
+        username: olena_k
+        displayName: Olena
+    UpdateProfileBody:
+      type: object
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: The name other users see
+        username:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._]{2,29}$
+          description: >-
+            Unique, case-insensitive; 3 to 30 letters, digits, dots or
+            underscores
+        description:
+          type: string
+          maxLength: 500
+          description: Free text about the user; can be empty
+        communicationFormat:
+          $ref: '#/components/schemas/CommunicationFormat'
+        sharePhone:
+          type: boolean
+          description: Whether the phone number is revealed on a mutual match
+      additionalProperties: false
+      description: Only the fields to change; at least one
+      example:
+        communicationFormat: friends
+    CommunicationFormat:
+      type: string
+      enum:
+        - friends
+        - dating
+        - company
+      description: What the user is looking for when they go to an event
+    ReplaceInterestsBody:
+      type: object
+      properties:
+        interestIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 30
+          description: >-
+            Ids from listInterests; the whole set is replaced, so an empty list
+            clears it
+      required:
+        - interestIds
+      additionalProperties: false
+      example:
+        interestIds:
+          - b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+      required:
+        - status
+      description: Returned while the API is up
+      example:
+        status: ok
+  parameters: {}
+paths:
+  /api/v1/admin/categories:
+    get:
+      operationId: adminListCategories
+      summary: List all categories
+      description: >-
+        List all categories, including inactive ones, to manage the directory.
+        To pick a category for an event or listing, use listCategories. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All categories, active or not
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: adminCreateCategory
+      summary: Add a category
+      description: Add a category. Needs an administrator account; other accounts get 404.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryBody'
+      responses:
+        '201':
+          description: The new category
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another category already has this name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/categories/{id}:
+    get:
+      operationId: adminGetCategory
+      summary: Get a category
+      description: >-
+        Get one category, including whether it is active. Needs an administrator
+        account; other accounts get 404.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: adminUpdateCategory
+      summary: Rename, deactivate or reactivate a category
+      description: >-
+        Rename, deactivate or reactivate a category. Needs an administrator
+        account; other accounts get 404.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryBody'
+      responses:
+        '200':
+          description: The updated category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another category already has this name
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: adminDeleteCategory
+      summary: Delete an unused category
+      description: >-
+        Delete an unused category. Needs an administrator account; other
+        accounts get 404.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Category id
+          required: true
+          description: Category id
+          name: id
+          in: path
+      responses:
+        '204':
+          description: The category was deleted
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No category with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: An event or listing uses the category; deactivate it instead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/categories:
+    get:
+      operationId: listCategories
+      summary: List the categories users can pick
+      description: >-
+        List the active categories users can pick for events and listings; their
+        ids go in categoryId. Needs an access token: a guest token or a
+        signed-in account.
+      tags:
+        - Categories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The active categories
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events:
+    get:
+      operationId: listEvents
+      summary: Browse the event catalog
+      description: >-
+        Browse the event catalog: published events in the catalog window,
+        soonest first. Needs an access token: a guest token or a signed-in
+        account.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events of this category
+          required: false
+          description: Only events of this category
+          name: categoryId
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events at this venue, e.g. after tapping its map pin
+          required: false
+          description: Only events at this venue, e.g. after tapping its map pin
+          name: venueId
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: First day, Kyiv time; earlier dates count as today
+          required: false
+          description: First day, Kyiv time; earlier dates count as today
+          name: from
+          in: query
+        - schema:
+            type: string
+            format: date
+            description: >-
+              Last day, Kyiv time; later dates count as the end of the catalog
+              window
+          required: false
+          description: >-
+            Last day, Kyiv time; later dates count as the end of the catalog
+            window
+          name: to
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createEvent
+      summary: Publish an event
+      description: Publish an event. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+      responses:
+        '201':
+          description: The published event
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified
+            organization. `REFERENCE_NOT_FOUND`: no such active category, or the
+            venue is not one of the organization’s own.
+            `EVENT_ENDS_BEFORE_START`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}:
+    get:
+      operationId: getEvent
+      summary: Get an event
+      description: >-
+        Get one event with its category and venue. Needs an access token: a
+        guest token or a signed-in account.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or the caller may not access it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: updateEvent
+      summary: Edit an event
+      description: >-
+        Replace the editable fields of one of the organization’s own events; the
+        body is the same as when publishing. A cancelled event cannot be edited.
+        Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventBody'
+      responses:
+        '200':
+          description: The updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `EVENT_CANCELLED`: a cancelled event cannot be edited.
+            `ORGANIZATION_NOT_VERIFIED`, `REFERENCE_NOT_FOUND`,
+            `EVENT_ENDS_BEFORE_START`: as when publishing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/cancel:
+    post:
+      operationId: cancelEvent
+      summary: Cancel an event
+      description: >-
+        Cancel one of the organization’s own events. It stays readable with
+        status `cancelled`; cancelling it again changes nothing. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The cancelled event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: Start registration
+      description: >-
+        Start registration: sends a one-time code to the phone number. The
+        answer is the same whether or not the number already has an account, and
+        a code requested within a minute of the last one is silently not sent.
+        No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterBody'
+      responses:
+        '202':
+          description: The code is on its way; it is valid for 10 minutes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/verify:
+    post:
+      operationId: verify
+      summary: Verify the phone number
+      description: >-
+        Second registration step: check the code. Returns a registration token,
+        valid for 15 minutes, that only `completeRegistration` accepts. No
+        access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyBody'
+      responses:
+        '200':
+          description: A registration token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The phone number is already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
+            times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/complete-registration:
+    post:
+      operationId: completeRegistration
+      summary: Finish registration
+      description: >-
+        Last registration step: the date of birth. Activates the account and
+        signs in; add a sign-in method next with `setPassword`. Under 18, the
+        registration is removed and the number can start again. Needs the
+        registration token from `verify`; other tokens get 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRegistrationBody'
+      responses:
+        '200':
+          description: The account is active; the tokens of its first session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The registration was removed; start again
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Registration is already complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`UNDERAGE`: younger than 18'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Sign in with phone number and password
+      description: Sign in with phone number and password. No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInBody'
+      responses:
+        '200':
+          description: The tokens of a new session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_CREDENTIALS`: wrong phone number or password; it does not
+            say which
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/google:
+    post:
+      operationId: signInWithGoogle
+      summary: Sign in with Google
+      description: >-
+        Sign in with a Google account the user linked earlier with `linkGoogle`.
+        No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '200':
+          description: The tokens of a new session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked
+            this Google account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      summary: Start a password reset
+      description: >-
+        Start a password reset: sends a one-time code to the phone number if it
+        has an account. The answer is the same for any number, and a code
+        requested within a minute of the last one is silently not sent. No
+        access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetBody'
+      responses:
+        '202':
+          description: >-
+            If the number has an account, a code is on its way; it is valid for
+            10 minutes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/password-reset/confirm:
+    post:
+      operationId: resetPassword
+      summary: Finish a password reset
+      description: >-
+        Finish a password reset with the code and a new password, and sign in.
+        Every other session of the account ends. No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmPasswordResetBody'
+      responses:
+        '200':
+          description: The password is replaced; the tokens of a new session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
+            times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/password:
+    put:
+      operationId: setPassword
+      summary: Set or change your password
+      description: >-
+        Set a password to sign in with, right after registration, or change it.
+        Changing an existing password needs the current one; wrong ones count
+        towards the sign-in lockout. Every other session of the account ends;
+        this one stays signed in. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordBody'
+      responses:
+        '204':
+          description: The password is set
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `WRONG_PASSWORD`: the account has a password and `currentPassword`
+            is missing or wrong, or the account is locked after too many wrong
+            passwords
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/google:
+    put:
+      operationId: linkGoogle
+      summary: Link your Google account
+      description: >-
+        Link a Google account to sign in with from now on. Linking the same
+        Google account again changes nothing. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '204':
+          description: The Google account is linked
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account.
+            `GOOGLE_ALREADY_LINKED`: this account has another Google account
+            linked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/guest:
+    post:
+      operationId: getGuestToken
+      summary: Get a guest token
+      description: >-
+        Get a guest token: browse the catalog without an account. No access
+        token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      responses:
+        '200':
+          description: A guest access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      summary: Renew the access token
+      description: >-
+        Renew the access token with the refresh token, without signing in again.
+        The refresh token is replaced: keep the new one, since the old one no
+        longer works, and using it again ends the session. No access token
+        needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshSessionBody'
+      responses:
+        '200':
+          description: A new access token and refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionTokensResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: >-
+            `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the
+            token was already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/sign-out:
+    post:
+      operationId: signOut
+      summary: Sign out
+      description: >-
+        End this session: its access token and refresh token stop working at
+        once. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Auth
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      responses:
+        '204':
+          description: Signed out
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings:
+    get:
+      operationId: listListings
+      summary: Browse listings
+      description: >-
+        Browse listings: active "looking for company" posts from today on,
+        soonest first. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of listings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createListing
+      summary: Post a listing
+      description: Post a listing. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingBody'
+      responses:
+        '201':
+          description: The posted listing
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `REFERENCE_NOT_FOUND`: no such active category or event.
+            `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`:
+            the date is before today.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings/{id}:
+    get:
+      operationId: getListing
+      summary: Get a listing
+      description: >-
+        Get one active listing with its author and category. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteListing
+      summary: Remove your listing
+      description: Remove your listing. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '204':
+          description: The listing was removed
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/interests:
+    get:
+      operationId: listInterests
+      summary: List the interests users can pick
+      description: >-
+        List the fixed set of interests users can pick for their profile; their
+        ids go in interestIds. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Interests
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All interests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterestList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile:
+    get:
+      operationId: getMyProfile
+      summary: Get your profile
+      description: >-
+        Get the caller’s own profile with the age computed from the account’s
+        date of birth. `isComplete` is true once a communication format and at
+        least one interest are set. Needs a signed-in account; a guest token
+        gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createMyProfile
+      summary: Start your profile
+      description: >-
+        First onboarding step: create the caller’s profile with a username and a
+        display name. Every later step is `updateMyProfile` and
+        `replaceMyInterests`. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileBody'
+      responses:
+        '201':
+          description: The new profile
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `USERNAME_TAKEN`: another user has this username. `PROFILE_EXISTS`:
+            the account already has a profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateMyProfile
+      summary: Edit your profile
+      description: >-
+        Change the caller’s profile: any of displayName, username, description,
+        communicationFormat and sharePhone; only the fields sent change. Used
+        for every later onboarding step and for the edit screen. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileBody'
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`USERNAME_TAKEN`: another user has this username.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/interests:
+    put:
+      operationId: replaceMyInterests
+      summary: Set your interests
+      description: >-
+        Replace the whole set of the caller’s interests with the given ids; an
+        empty list clears it. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceInterestsBody'
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: '`REFERENCE_NOT_FOUND`: one of the interest ids does not exist.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check that the API is running
+      description: Check that the API is running. No access token needed.
+      tags:
+        - System
+      responses:
+        '200':
+          description: The API is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'

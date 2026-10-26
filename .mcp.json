@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "nearby-api": {
+      "type": "stdio",
+      "command": "sh",
+      "args": ["-c", "exec node \"$CLAUDE_PROJECT_DIR/tools/mcp-start.mjs\""]
+    }
+  }
+}

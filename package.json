@@ -1,0 +1,73 @@
+{
+  "name": "nearby-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nearby REST API (Code-First: the OpenAPI spec is generated from zod schemas)",
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/api/main.js",
+    "import:events": "nest build && node dist/import/main.js",
+    "typecheck": "tsc --noEmit",
+    "db:set-passwords": "node --env-file-if-exists=.env src/scripts/set-role-passwords.ts",
+    "keys:generate": "node src/scripts/generate-keys.ts",
+    "db:seed": "nest build && node dist/scripts/seed-dev-accounts.js",
+    "docs:generate": "nest build && node dist/scripts/generate-spec.js",
+    "docs:diagrams": "docker run --rm --user \"$(id -u):$(id -g)\" -v \"$PWD/docs/architecture/uml:/data\" plantuml/plantuml:1.2026.8 -tsvg -o rendered /data",
+    "mcp:generate": "npm ci --prefix tools/mcp-generator && tools/mcp-generator/node_modules/.bin/openapi-mcp-generator --input docs/api/openapi-generated.yaml --output src/mcp --server-name nearby-api-mcp --force && npm install --prefix src/mcp --save-dev --save-exact shx@0.3.4",
+    "mcp:build": "npm ci --prefix src/mcp && npm run build --prefix src/mcp",
+    "test:e2e": "nest build && node --test \"tests/e2e/**/*.test.ts\"",
+    "test:unit": "nest build && node --test \"tests/unit/**/*.test.ts\"",
+    "test:coverage": "nest build && mcr -o coverage -n \"All tests\" node --test \"tests/**/*.test.ts\"",
+    "test:coverage:unit": "nest build && mcr -o coverage -n \"Unit tests\" node --test \"tests/unit/**/*.test.ts\"",
+    "test:perf": "docker run --rm -i --add-host=host.docker.internal:host-gateway -e BASE_URL=\"${BASE_URL:-http://host.docker.internal:4100}\" -e PERF_PHONE -e PERF_PASSWORD -e PERF_VUS -e PERF_DURATION grafana/k6:2.3.0 run - < tests/perf/listings.k6.js",
+    "docs:coverage": "nest build && mcr -o docs/testing/coverage/unit -n \"Unit tests\" node --test \"tests/unit/**/*.test.ts\" && mcr -o docs/testing/coverage/all -n \"All tests\" node --test \"tests/**/*.test.ts\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,mjs}\"",
+    "format:check": "prettier --check \"**/*.{ts,mjs}\""
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "@nestjs/swagger": "^12.0.2",
+    "@nestjs/throttler": "^6.7.1",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "jose": "^6.2.12",
+    "js-yaml": "^4.3.2",
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@nestjs/cli": "^12.0.9",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^18.0.8",
+    "eslint": "^10.13.0",
+    "eslint-plugin-security": "^4.2.0",
+    "fast-check": "^4.10.2",
+    "globals": "^17.13.0",
+    "monocart-coverage-reports": "^3.0.0",
+    "prettier": "^3.9.10",
+    "prisma": "^7.10.1",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.72.0"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.5",
+    "multer": "2.5.0"
+  }
+}
