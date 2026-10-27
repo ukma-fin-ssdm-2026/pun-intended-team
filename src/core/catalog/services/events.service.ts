@@ -73,8 +73,8 @@ export class EventsService {
   }
 
   private async getOwned(accountId: string, id: string): Promise<Event> {
-    const event = await this.eventsRepository.findById(id);
-    if (!event || event.organizationId !== accountId) {
+    const event = await this.getById(id);
+    if (event.organizationId !== accountId) {
       throw new DomainError('NOT_FOUND', 'Event not found');
     }
     return event;
