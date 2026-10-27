@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { Account, AccountRecord, PasswordCredential, SignInLockout } from '../types/account.ts';
+import type { Account, AccountRecord, GoogleLinkResult, PasswordCredential, SignInLockout } from '../types/account.ts';
 
 export abstract class AccountsRepository {
   abstract findById(accountId: string): Promise<Account | undefined>;
@@ -28,8 +28,8 @@ export abstract class AccountsRepository {
   /** Undefined when the account has no Google account linked. */
   abstract findGoogleSubject(accountId: string): Promise<string | undefined>;
 
-  /** Adds the Google sign-in method. */
-  abstract linkGoogle(accountId: string, subject: string): Promise<void>;
+  /** Adds the Google sign-in method, unless another account has this subject or this account has a Google account. */
+  abstract linkGoogle(accountId: string, subject: string): Promise<GoogleLinkResult>;
 
   /**
    * Replaces the lockout state with `change(current state)` and returns the new state, in one step,

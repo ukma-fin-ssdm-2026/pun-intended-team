@@ -181,12 +181,19 @@ export class AuthService implements OnModuleInit {
       return;
     }
     if (owner) {
-      throw new DomainError('GOOGLE_ACCOUNT_TAKEN', 'This Google account is linked to another Nearby account');
+      throw googleAccountTaken();
     }
     if ((await this.accountsRepository.findGoogleSubject(accountId)) !== undefined) {
-      throw new DomainError('GOOGLE_ALREADY_LINKED', 'Your account already has a Google account linked');
+      throw googleAlreadyLinked();
     }
-    await this.accountsRepository.linkGoogle(accountId, subject);
+    // Two requests can both pass the checks above; the unique indexes stop all but one.
+    const result = await this.accountsRepository.linkGoogle(accountId, subject);
+    if (result === 'subject-taken') {
+      throw googleAccountTaken();
+    }
+    if (result === 'account-has-google') {
+      throw googleAlreadyLinked();
+    }
   }
 
   async issueGuestToken(): Promise<AccessToken> {
@@ -273,6 +280,14 @@ export class AuthService implements OnModuleInit {
 
 function invalidCredentials(): DomainError {
   return new DomainError('INVALID_CREDENTIALS', 'Wrong phone number or password');
+}
+
+function googleAccountTaken(): DomainError {
+  return new DomainError('GOOGLE_ACCOUNT_TAKEN', 'This Google account is linked to another Nearby account');
+}
+
+function googleAlreadyLinked(): DomainError {
+  return new DomainError('GOOGLE_ALREADY_LINKED', 'Your account already has a Google account linked');
 }
 
 function invalidCode(): DomainError {
