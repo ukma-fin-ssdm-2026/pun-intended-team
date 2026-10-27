@@ -5,7 +5,8 @@ import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
 import type { InterestsRepository } from '../../dist/core/profiles/repositories/interests.repository.js';
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
-import { ageOn, ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
+import { ageOn } from '../../dist/core/common/age.js';
+import { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
 import type { Interest, Profile, ProfileChanges } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 

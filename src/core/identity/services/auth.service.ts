@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
+import { ageOn } from '../../common/age.ts';
 import { DomainError } from '../../common/domain-error.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
@@ -77,7 +78,7 @@ export class AuthService implements OnModuleInit {
     if (account.status !== 'pending') {
       throw new DomainError('CONFLICT', 'Registration is already complete. Sign in instead');
     }
-    if (!isAtLeast(MINIMUM_AGE, dateOfBirth, new Date())) {
+    if (ageOn(kyivDate(), dateOfBirth) < MINIMUM_AGE) {
       await this.accountsRepository.delete(accountId);
       throw new DomainError('UNDERAGE', `You must be at least ${MINIMUM_AGE} to use Nearby`);
     }
@@ -276,10 +277,4 @@ function invalidCredentials(): DomainError {
 
 function invalidCode(): DomainError {
   return new DomainError('INVALID_CODE', 'The code is wrong, expired or already used. Check it or request a new one');
-}
-
-/** Compares Kyiv dates, so the age changes at midnight in Kyiv; a 29 February birthday counts from 1 March. */
-function isAtLeast(age: number, dateOfBirth: string, now: Date): boolean {
-  const birthday = `${Number(dateOfBirth.slice(0, 4)) + age}${dateOfBirth.slice(4)}`;
-  return kyivDate(now) >= birthday;
 }
