@@ -14,6 +14,7 @@ import type { AccountsRepository } from '../../dist/core/identity/repositories/a
 import type {
   Account,
   AccountRecord,
+  GoogleLinkResult,
   PasswordCredential,
   SignInLockout,
 } from '../../dist/core/identity/types/account.js';
@@ -114,7 +115,7 @@ function makeService({ lockout = NO_LOCKOUT }: { lockout?: SignInLockout } = {})
     }),
     findByGoogleSubject: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
     findGoogleSubject: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
-    linkGoogle: mock.fn(() => Promise.resolve()),
+    linkGoogle: mock.fn((): Promise<GoogleLinkResult> => Promise.resolve('linked')),
   };
   const verificationCodes = {
     findLatest: mock.fn((): Promise<VerificationCode | undefined> => Promise.resolve(undefined)),
@@ -872,6 +873,20 @@ describe('AuthService.linkGoogle', () => {
 
     await assert.rejects(service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ALREADY_LINKED'));
     assert.equal(accounts.linkGoogle.mock.callCount(), 0);
+  });
+
+  test('refuses a Google account another account linked at the same time', async () => {
+    const { service, accounts } = makeService();
+    accounts.linkGoogle.mock.mockImplementation(() => Promise.resolve('subject-taken'));
+
+    await assert.rejects(service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ACCOUNT_TAKEN'));
+  });
+
+  test('refuses a second Google account linked at the same time', async () => {
+    const { service, accounts } = makeService();
+    accounts.linkGoogle.mock.mockImplementation(() => Promise.resolve('account-has-google'));
+
+    await assert.rejects(service.linkGoogle(ACCOUNT_ID, GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ALREADY_LINKED'));
   });
 });
 

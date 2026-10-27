@@ -1,8 +1,13 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
-import { DomainError } from '../../core/common/domain-error.ts';
 import { AccountsRepository } from '../../core/identity/repositories/accounts.repository.ts';
-import type { Account, AccountRecord, PasswordCredential, SignInLockout } from '../../core/identity/types/account.ts';
+import type {
+  Account,
+  AccountRecord,
+  GoogleLinkResult,
+  PasswordCredential,
+  SignInLockout,
+} from '../../core/identity/types/account.ts';
 import type { Account as AccountRow } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
@@ -84,16 +89,17 @@ export class PrismaAccountsRepository implements AccountsRepository {
   }
 
   // AuthService checks both rules first; the unique indexes stop two requests that pass the checks together.
-  async linkGoogle(accountId: string, subject: string): Promise<void> {
+  async linkGoogle(accountId: string, subject: string): Promise<GoogleLinkResult> {
     try {
       await this.prisma.authMethod.create({ data: { accountId, type: 'google', secret: subject } });
+      return 'linked';
     } catch (error) {
       const index = violatedIndex(error);
       if (index === 'auth_methods_type_secret_key') {
-        throw new DomainError('GOOGLE_ACCOUNT_TAKEN', 'This Google account is linked to another Nearby account');
+        return 'subject-taken';
       }
       if (index === 'auth_methods_account_id_type_key') {
-        throw new DomainError('GOOGLE_ALREADY_LINKED', 'Your account already has a Google account linked');
+        return 'account-has-google';
       }
       throw error;
     }

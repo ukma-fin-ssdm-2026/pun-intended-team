@@ -24,6 +24,9 @@ export interface SignInLockout {
   lockedUntil: Date | null;
 }
 
+/** Whether the Google sign-in method was added, or which unique rule refused it. */
+export type GoogleLinkResult = 'linked' | 'subject-taken' | 'account-has-google';
+
 /** What password sign-in needs; the hash never leaves the identity module. */
 export interface PasswordCredential {
   accountId: string;
