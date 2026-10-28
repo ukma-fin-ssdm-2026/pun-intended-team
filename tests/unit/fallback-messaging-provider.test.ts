@@ -41,6 +41,21 @@ describe('FallbackMessagingProvider', () => {
     warn.mock.restore();
   });
 
+  test('falls back when a channel fails with something that is not an Error, logging what it threw', async () => {
+    const reason = 'connection closed';
+    const telegram = aSender('telegram', () => Promise.reject(reason));
+    const sms = aSender('sms', () => Promise.resolve('message-1'));
+    const provider = new FallbackMessagingProvider([telegram, sms]);
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const delivery = await provider.sendCode(PHONE, CODE);
+
+    assert.deepEqual(delivery, { channel: 'sms', providerRequestId: 'message-1' });
+    const [message] = warn.mock.calls[0]?.arguments as [string];
+    assert.ok(message.includes(reason), message);
+    warn.mock.restore();
+  });
+
   test('throws when no channel takes the code', async () => {
     const telegram = aSender('telegram', () => Promise.reject(new Error('timeout')));
     const sms = aSender('sms', () => Promise.reject(new Error('REQUIRED_BALANCE')));

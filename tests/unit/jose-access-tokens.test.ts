@@ -123,6 +123,13 @@ describe('JoseAccessTokens', () => {
     });
   }
 
+  test('lets an error that is not about the token through, so a broken key is not taken for a forged token', async () => {
+    const token = await new JoseAccessTokens([KEY]).issue(anAccountCaller(), LIFETIME_SECONDS);
+    const brokenKey = new JoseAccessTokens([{ kid: KEY.kid, secret: new Uint8Array(0) }]);
+
+    await assert.rejects(brokenKey.verify(token), (error: unknown) => error instanceof DOMException);
+  });
+
   test('needs at least one key', () => {
     assert.throws(() => new JoseAccessTokens([]), /At least one signing key is required/);
   });
