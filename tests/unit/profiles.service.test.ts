@@ -15,6 +15,7 @@ import type {
   ProfileSummary,
 } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
+import { TODAY, useFixedClock } from './fixtures/clock.ts';
 
 describe('ageOn', () => {
   const cases = [
@@ -36,6 +37,7 @@ describe('ageOn', () => {
   }
 });
 
+const DATE_OF_BIRTH = '2000-05-17';
 const HIKING: Interest = { id: 'f0000000-0000-4000-8000-000000000001', name: 'Hiking' };
 const JAZZ: Interest = { id: 'f0000000-0000-4000-8000-000000000002', name: 'Jazz' };
 
@@ -74,7 +76,7 @@ function makeService() {
   };
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
   const accountsService = {
-    getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve('2000-05-17')),
+    getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve(DATE_OF_BIRTH)),
   };
   const service = new ProfilesService(
     profilesRepository as unknown as ProfilesRepository,
@@ -125,6 +127,23 @@ describe('ProfilesService.getOwn', () => {
 
 // FR-002
 describe('ProfilesService.create', () => {
+  useFixedClock();
+
+  test('checks the username, saves the first step and returns the profile as not yet complete', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+    const input: NewProfile = { username: 'Natalka.Park', displayName: 'Natalka' };
+
+    const profile = await service.create(ACCOUNT_ID, input);
+
+    assert.deepEqual(profilesRepository.isUsernameTaken.mock.calls[0]?.arguments, [input.username, undefined]);
+    assert.deepEqual(profilesRepository.create.mock.calls[0]?.arguments, [ACCOUNT_ID, input]);
+    assert.equal(profile.username, input.username);
+    assert.equal(profile.displayName, input.displayName);
+    assert.equal(profile.age, ageOn(TODAY, DATE_OF_BIRTH));
+    assert.equal(profile.isComplete, false);
+  });
+
   test('refuses an account that already has a profile and saves nothing', async () => {
     const { service, profilesRepository } = makeService();
     const input: NewProfile = { username: 'Natalka.Park', displayName: 'Natalka' };

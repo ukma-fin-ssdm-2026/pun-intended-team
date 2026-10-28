@@ -68,6 +68,15 @@ describe('CategoriesService.listActive', () => {
 });
 
 describe('CategoriesService.getById', () => {
+  test('returns the category with that id', async () => {
+    const { service, categoriesRepository } = makeService();
+
+    const category = await service.getById(CATEGORY_ID);
+
+    assert.deepEqual(categoriesRepository.findById.mock.calls[0]?.arguments, [CATEGORY_ID]);
+    assert.deepEqual(category, aCategory());
+  });
+
   test('rejects an unknown id with NOT_FOUND', async () => {
     const { service, categoriesRepository } = makeService();
     categoriesRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
@@ -78,6 +87,18 @@ describe('CategoriesService.getById', () => {
 
 // FR-029
 describe('CategoriesService.update', () => {
+  test('saves the changes under the id and returns the saved category', async () => {
+    const { service, categoriesRepository } = makeService();
+    const changes: CategoryChanges = { name: 'Lectures' };
+    const saved = aCategory({ name: 'Lectures' });
+    categoriesRepository.update.mock.mockImplementation(() => Promise.resolve(saved));
+
+    const category = await service.update(CATEGORY_ID, changes);
+
+    assert.deepEqual(categoriesRepository.update.mock.calls[0]?.arguments, [CATEGORY_ID, changes]);
+    assert.equal(category, saved);
+  });
+
   test('rejects an unknown id with NOT_FOUND and saves nothing', async () => {
     const { service, categoriesRepository } = makeService();
     categoriesRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
@@ -89,6 +110,14 @@ describe('CategoriesService.update', () => {
 
 // FR-029
 describe('CategoriesService.delete', () => {
+  test('deletes the category with that id', async () => {
+    const { service, categoriesRepository } = makeService();
+
+    await service.delete(CATEGORY_ID);
+
+    assert.deepEqual(categoriesRepository.delete.mock.calls[0]?.arguments, [CATEGORY_ID]);
+  });
+
   test('rejects an unknown id with NOT_FOUND and deletes nothing', async () => {
     const { service, categoriesRepository } = makeService();
     categoriesRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
