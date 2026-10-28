@@ -6,7 +6,7 @@ import type { Page, PageRequest } from '../../common/page.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
 import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
 import { VenuesRepository } from '../repositories/venues.repository.ts';
-import type { Event, EventChanges, EventQuery, NewEvent } from '../types/event.ts';
+import type { Event, EventQuery, NewEvent } from '../types/event.ts';
 import { CategoriesService } from './categories.service.ts';
 
 const CATALOG_WINDOW_DAYS = 28;
@@ -87,15 +87,13 @@ export class EventsService {
     }
   }
 
-  private async checkReferences(accountId: string, { categoryId, venueId }: EventChanges): Promise<void> {
-    if (categoryId && !(await this.categoriesService.findActive(categoryId))) {
+  private async checkReferences(accountId: string, { categoryId, venueId }: NewEvent): Promise<void> {
+    if (!(await this.categoriesService.findActive(categoryId))) {
       throw new DomainError('REFERENCE_NOT_FOUND', 'Category not found');
     }
-    if (venueId) {
-      const venue = await this.venuesRepository.findById(venueId);
-      if (!venue || venue.organizationId !== accountId) {
-        throw new DomainError('REFERENCE_NOT_FOUND', 'Venue not found');
-      }
+    const venue = await this.venuesRepository.findById(venueId);
+    if (!venue || venue.organizationId !== accountId) {
+      throw new DomainError('REFERENCE_NOT_FOUND', 'Venue not found');
     }
   }
 }
