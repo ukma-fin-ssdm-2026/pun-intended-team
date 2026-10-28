@@ -19,6 +19,7 @@
   - Documentation Lead (Lab 5) — updates the charter and the summary reports.
   - Testing Lead (Lab 6) — coordinates unit testing and coverage measurement; owns the shared fixtures, mocks, and edge cases in the test suite.
   - Quality Analyst (Lab 7) — summarizes the results of the other team's review.
+  - Release Manager (Lab 8) — updates the changelog, the version and the tag.
 
 - **Daryna Halytska**
   - Documentation Lead — keeps the README, charter, and other documentation clear and up to date; organizes Markdown files and handles related commits.
@@ -28,6 +29,7 @@
   - Security Analyst — checks how data is handled, runs the security analyzer, documents vulnerabilities, and owns the dependency audit (Dependabot, `npm audit` in CI).
   - Testing Strategist (Lab 6) — writes the testing strategy (`docs/testing/testing-strategy.md`) and plans how tests are integrated into CI.
   - Test Planner (Lab 7) — coordinates writing the test plan (`docs/validation/test-plan.md`) and the structure of its table.
+  - Test Engineer (Lab 8) — runs the regression tests and records the results.
 
 - **Oleh Moshenskyi**
   - Issue Tracker Lead — manages GitHub issues, labels, and task assignments.
@@ -39,6 +41,7 @@
   - Prototype Lead — owns the base code structure, the first working component, and `progress.md`.
   - Debugging Lead (Lab 6) — leads the "break, then debug" challenge and documents the findings in `docs/testing/debugging-log.md`.
   - Documentation Owner (Lab 7) — maintains `docs/validation/test-plan.md` and creates `docs/validation/review-log.md`.
+  - Refactoring Lead (Lab 8) — coordinates the changes, checks code quality and keeps the AI Usage Note.
 
 - **Vladyslav Redchuk**
   - CI Maintainer — sets up and maintains GitHub Actions workflows.
@@ -48,6 +51,7 @@
   - Quality Lead (code) — coordinates the code review and sets up static analysis.
   - Review Manager (Lab 7) — passes the test plans between teams and records the feedback.
   - AI Code Reviewer (Lab 7) — leads the review of an AI-generated pull request with the course checklist and records it in `docs/validation/review-log.md`.
+  - Code Analyst and Security (Lab 8) — runs the analysis in SonarQube Cloud and records the metrics before and after; tracks the Security Rating before and after, explains why it has that value and links the findings to `docs/code-quality/static-analysis.md` (Lab 5) and `docs/architecture/threat-model.md` (Lab 3).
 
 Each requirements artifact (user stories, NFRs, RTM) has one person responsible for writing it (the Lead of the corresponding role) and at least one reviewer from among the other members, per the Requirements Review rules below.
 
