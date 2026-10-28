@@ -508,6 +508,20 @@ describe('AuthService.requestPasswordReset', () => {
     logError.mock.restore();
   });
 
+  test('logs the thrown value itself when sending fails with something that is not an Error', async () => {
+    const { service, accounts, notifications } = makeService();
+    const reason = 'provider is down';
+    accounts.findByPhone.mock.mockImplementation(() => Promise.resolve(anAccount()));
+    notifications.sendCode.mock.mockImplementation(() => Promise.reject(reason));
+    const logError = mock.method(Logger.prototype, 'error', () => {});
+
+    await service.requestPasswordReset(PHONE);
+    await setImmediate();
+
+    assert.equal(logError.mock.calls[0]?.arguments[1], reason);
+    logError.mock.restore();
+  });
+
   const noCodeCases = [
     { title: 'sends nothing to a phone without an account', account: undefined },
     { title: 'sends nothing to a banned account', account: anAccount({ status: 'banned' }) },
