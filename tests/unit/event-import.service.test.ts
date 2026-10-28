@@ -62,7 +62,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     createEvent: mock.fn((row: Omit<ImportedEventRow, 'id'>): Promise<ImportedEventRow> =>
       Promise.resolve(theSavedEvent(row)),
     ),
-    updateEvent: mock.fn((): Promise<void> => Promise.resolve()),
+    updateEvent: mock.fn<ImportedEventsRepository['updateEvent']>(() => Promise.resolve()),
   };
   const categoriesService = {
     listActive: mock.fn((): Promise<Category[]> => Promise.resolve([aCategory()])),
