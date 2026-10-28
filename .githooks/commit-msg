@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Validates commit message subjects against the team convention:
+#
+#     (#<issue>) <Imperative subject>
+#     e.g. (#19) Add user stories
+#
+# Enable it once per clone (every teammate has to run this):
+#
+#     git config core.hooksPath .githooks
+#
+# To bypass it for a single commit: git commit --no-verify
+
+msg_file="$1"
+
+# First non-empty, non-comment line = the subject.
+subject=$(grep -v '^#' "$msg_file" | grep -v '^[[:space:]]*$' | head -1)
+
+# Messages git generates itself, or that are meant to be rewritten later.
+case "$subject" in
+	Merge\ *|Revert\ *|fixup!\ *|squash!\ *|amend!\ *) exit 0 ;;
+esac
+
+fail() {
+	echo "commit-msg: $1" >&2
+	echo >&2
+	echo "  your subject: $subject" >&2
+	echo "  expected:     (#<issue>) <Imperative subject>" >&2
+	echo "  example:      (#19) Add user stories" >&2
+	echo >&2
+	echo "  Fix it with: git commit --amend" >&2
+	echo "  Bypass with: git commit --no-verify" >&2
+	exit 1
+}
+
+if [ -z "$subject" ]; then
+	fail "the commit message is empty."
+fi
+
+if ! echo "$subject" | grep -Eq '^\(#[0-9]+\) '; then
+	fail "the subject must start with the issue number, as '(#19) ' — note the space after ')'."
+fi
+
+if ! echo "$subject" | grep -Eq '^\(#[0-9]+\) [A-Z]'; then
+	fail "the word after the issue number must be capitalised."
+fi
+
+if echo "$subject" | grep -Eq '\.$'; then
+	fail "the subject must not end with a period."
+fi
+
+if [ "$(printf '%s' "$subject" | wc -c)" -gt 72 ]; then
+	fail "the subject is longer than 72 characters — move the details to the commit body."
+fi
+
+exit 0
