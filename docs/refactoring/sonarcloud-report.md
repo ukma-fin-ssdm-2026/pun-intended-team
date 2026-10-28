@@ -79,6 +79,24 @@ There are **16 open issues**, all with severity **MAJOR** (impact MEDIUM). None 
 - Most code smells (6 of 9) and all duplicated lines are in generated code (`src/mcp/`, `docs/testing/coverage/`). Excluding it from analysis gives a more accurate picture of the hand-written code.
 - Coverage is not sent to SonarCloud. Importing the `lcov` report in the analysis step would show coverage on new code.
 
+## Regression Testing
+
+The unit and e2e tests were run before and after the refactorings: on `feature/293-pre-refactor` (commit `eaaba80`) and on `main` after PRs #295, #296 and #297 (commit `bf84a4a`).
+
+| Suite | Before (`feature/293-pre-refactor`) | After (`main`) |
+|---|---|---|
+| Unit (`npm run test:unit`) | 343 run, 343 passed, 0 failed | 345 run, 345 passed, 0 failed |
+| E2E (`npm run test:e2e`) | 173 run, 173 passed, 0 failed | 173 run, 173 passed, 0 failed |
+| CI | [run 40282299762](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40282299762) ✅ | [run 40667353219](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40667353219) ✅ |
+
+**Result.** No regressions: every test that passed before passes after. The two extra unit tests were added in #297 together with the change to Google linking, in [tests/unit/auth.service.test.ts](../../tests/unit/auth.service.test.ts): *refuses a Google account another account linked at the same time* and *refuses a second Google account linked at the same time*. The only other test change is an import of `ageOn` from its new module in `profiles.service.test.ts`.
+
+### "rejects a second open case about the same account"
+
+This test ([tests/e2e/database-invariants.e2e.test.ts:287](../../tests/e2e/database-invariants.e2e.test.ts#L287)) was reported as failing locally on a clean `main`, but it passes in CI on `main` and in both local runs above. It checks the partial unique index `report_cases_open_target_account_key`, which exists only in the migration [20261017101928_database_invariants](../../prisma/migrations/20261017101928_database_invariants/migration.sql), not in `schema.prisma`.
+
+The cause was an incomplete local environment: the database was not running, and `.env` lacked `MAIN_DATABASE_URL`, which was added with the database roles. Once the database was started, migrated and `.env` updated from `.env.example`, all e2e tests passed. There is no bug, so no issue was opened.
+
 ## AI Usage Note
 
-The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code.
+The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code. The Regression Testing section was drafted with Claude Code from test runs that were performed and checked by hand (Daryna Halytska).
