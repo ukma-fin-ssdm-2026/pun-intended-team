@@ -7,8 +7,14 @@ import type { InterestsRepository } from '../../dist/core/profiles/repositories/
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
 import { ageOn } from '../../dist/core/common/age.js';
 import { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
-import type { Interest, Profile, ProfileChanges } from '../../dist/core/profiles/types/profile.js';
-import { ACCOUNT_ID } from './fixtures/accounts.ts';
+import type {
+  Interest,
+  NewProfile,
+  Profile,
+  ProfileChanges,
+  ProfileSummary,
+} from '../../dist/core/profiles/types/profile.js';
+import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 
 describe('ageOn', () => {
   const cases = [
@@ -46,6 +52,10 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
   };
 }
 
+function aProfileSummary(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
+  return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', ...overrides };
+}
+
 function isDomainError(code: string) {
   return (error: unknown) => error instanceof DomainError && error.code === code;
 }
@@ -53,22 +63,76 @@ function isDomainError(code: string) {
 /** ProfilesService with mocked storage; the saved profile is what the repository returns. */
 function makeService() {
   const profilesRepository = {
+    findSummaries: mock.fn((): Promise<ProfileSummary[]> => Promise.resolve([aProfileSummary()])),
     findByAccountId: mock.fn((): Promise<Profile | undefined> => Promise.resolve(aProfile())),
     isUsernameTaken: mock.fn((): Promise<boolean> => Promise.resolve(false)),
+    create: mock.fn((_accountId: string, profile: NewProfile) => Promise.resolve(aProfile(profile))),
     update: mock.fn((_accountId: string, changes: ProfileChanges) => Promise.resolve(aProfile(changes))),
     replaceInterests: mock.fn((_accountId: string, interestIds: string[]) =>
       Promise.resolve(aProfile({ interestIds })),
     ),
   };
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
-  const accountsService = { getDateOfBirth: mock.fn(() => Promise.resolve('2000-05-17')) };
+  const accountsService = {
+    getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve('2000-05-17')),
+  };
   const service = new ProfilesService(
     profilesRepository as unknown as ProfilesRepository,
     interestsRepository as unknown as InterestsRepository,
     accountsService as unknown as AccountsService,
   );
-  return { service, profilesRepository };
+  return { service, profilesRepository, accountsService };
 }
+
+describe('ProfilesService.getSummaries', () => {
+  test('asks for each account once', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await service.getSummaries([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID]);
+
+    assert.deepEqual(profilesRepository.findSummaries.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID]]);
+  });
+
+  test('keys summaries by account id and leaves out accounts without a profile', async () => {
+    const { service, profilesRepository } = makeService();
+    const summary = aProfileSummary();
+    profilesRepository.findSummaries.mock.mockImplementation(() => Promise.resolve([summary]));
+
+    const summaries = await service.getSummaries([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+
+    assert.deepEqual([...summaries], [[summary.accountId, summary]]);
+  });
+});
+
+describe('ProfilesService.getOwn', () => {
+  test('answers NOT_FOUND before the profile is created', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.getOwn(ACCOUNT_ID), isDomainError('NOT_FOUND'));
+  });
+
+  test('fails as a data error, not a DomainError, when the account has no date of birth', async () => {
+    const { service, accountsService } = makeService();
+    accountsService.getDateOfBirth.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(
+      service.getOwn(ACCOUNT_ID),
+      (error: unknown) => error instanceof Error && !(error instanceof DomainError),
+    );
+  });
+});
+
+// FR-002
+describe('ProfilesService.create', () => {
+  test('refuses an account that already has a profile and saves nothing', async () => {
+    const { service, profilesRepository } = makeService();
+    const input: NewProfile = { username: 'Natalka.Park', displayName: 'Natalka' };
+
+    await assert.rejects(service.create(ACCOUNT_ID, input), isDomainError('PROFILE_EXISTS'));
+    assert.equal(profilesRepository.create.mock.callCount(), 0);
+  });
+});
 
 // FR-002
 describe('ProfilesService.update', () => {
