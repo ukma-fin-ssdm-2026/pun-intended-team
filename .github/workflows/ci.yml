@@ -6,6 +6,8 @@
 # Changed by Claude (Claude Code): merged the API tests, API docs, dependency audit, code quality, client
 # checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
 # Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
+# Changed by Claude (Claude Code): install scripts run only for the packages that need them, and npx runs only
+# locally installed packages; checked with a clean install and the API and client checks.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
@@ -61,9 +63,14 @@ jobs:
             package-lock.json
             app/package-lock.json
 
+      # No dependency runs its own install scripts on the runner. The only one needed is @prisma/engines,
+      # which downloads the schema engine for migrations; prisma generate replaces the root postinstall.
       - name: Install dependencies
         id: install
-        run: npm ci
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild @prisma/engines
+          npx --no-install prisma generate
 
       # --- Code quality (was code-quality.yml) ---
       - name: Lint
@@ -82,7 +89,7 @@ jobs:
       - name: Install client dependencies
         id: client-install
         working-directory: app
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint client
         if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
@@ -97,7 +104,7 @@ jobs:
       - name: Check client formatting
         if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
         working-directory: app
-        run: npx prettier --check .
+        run: npx --no-install prettier --check .
 
       # The client's API types are generated from the spec; a spec change without them breaks this step.
       - name: Check API types match the spec
@@ -177,7 +184,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
-        run: npx prisma migrate deploy
+        run: npx --no-install prisma migrate deploy
 
       # The API connects as nearby_main, which the migration creates; the script gives it a password.
       - name: Set database role passwords
