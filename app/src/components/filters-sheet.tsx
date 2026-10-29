@@ -5,6 +5,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { components } from '@/api/schema';
 import { DatesSheet } from '@/components/dates-sheet';
 import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
@@ -49,12 +50,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  // The catalog passes its live events and categories, so the sheet counts what it will show; the map, still on mock
+  // data, passes none.
+  events?: components['schemas']['Event'][];
+  categories?: components['schemas']['Category'][];
 };
 
-export function FiltersSheet({ visible, onClose }: Props) {
+export function FiltersSheet({ visible, onClose, events = mockEvents, categories = mockCategories }: Props) {
   const insets = useSafeAreaInsets();
   const filters = useCatalogFilters();
-  const count = filterEvents(mockEvents, filters).length;
+  const count = filterEvents(events, filters).length;
   // "Обрати дати" opens Д1.1 and "Поруч зі мною" Д1.2 in place of the sheet; both return to it.
   const [view, setView] = useState<'filters' | 'dates' | 'location'>('filters');
   const back = () => setView('filters');
@@ -82,7 +87,7 @@ export function FiltersSheet({ visible, onClose }: Props) {
 
             <ScrollView className="shrink" contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
               <Section title="Категорія">
-                {mockCategories.map((category) => (
+                {categories.map((category) => (
                   <FilterChip
                     key={category.id}
                     label={category.name}
@@ -114,6 +119,7 @@ export function FiltersSheet({ visible, onClose }: Props) {
                   selected={filters.nearMe}
                   onPress={() => (filters.nearMe ? setNearMe(false) : setView('location'))}
                 />
+                {/* The API has no districts yet, so with live events a district shows nothing. */}
                 {mockDistricts.map((district) => (
                   <FilterChip
                     key={district}

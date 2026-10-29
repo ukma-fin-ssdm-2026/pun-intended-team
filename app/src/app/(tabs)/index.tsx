@@ -14,13 +14,14 @@ import { Chip } from '@/components/ui/chip';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
-import { Icon } from '@/components/ui/icon';
+import { Icon, type IconName } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
+import { useCategories } from '@/hooks/use-categories';
+import { useEvents } from '@/hooks/use-events';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
 import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
@@ -37,6 +38,33 @@ const LOADING_MS = 1500;
 const DISSOLVE_MS = 250;
 const SKELETON_COUNT = 2;
 
+// The 01.3 card, also used when the catalog is empty or cannot be loaded.
+function CatalogNotice({
+  icon,
+  title,
+  text,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  text: string;
+  action?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View className="items-center gap-3 overflow-hidden rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
+      <View
+        className="size-[76px] items-center justify-center rounded-[38px] bg-brand-coral"
+        style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
+      >
+        <Icon name={icon} size={34} color={colors.text['on-dark']} />
+      </View>
+      <Text className="text-center font-inter-semibold text-h2 text-text-primary">{title}</Text>
+      <Text className="text-center font-inter text-body text-text-secondary">{text}</Text>
+      {action && <Button label={action.label} size="sm" onPress={action.onPress} />}
+    </View>
+  );
+}
+
 export default function CatalogScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -45,6 +73,8 @@ export default function CatalogScreen() {
   const filters = useCatalogFilters();
   const favoriteIds = useFavoriteIds();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const allEvents = useEvents();
+  const categories = useCategories();
   useStatusBarStyle('light');
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.
@@ -56,10 +86,19 @@ export default function CatalogScreen() {
     }, [catalogLoading]),
   );
 
-  const chips = [{ id: undefined, name: 'Усі' }, ...mockCategories.slice(0, visibleCategories(width))];
+  // The development switch can hold the skeleton longer than the request takes.
+  const loading = catalogLoading || allEvents.loading;
+  const categoryList = categories.data ?? [];
+  const chips = [{ id: undefined, name: 'Усі' }, ...categoryList.slice(0, visibleCategories(width))];
   const isChipSelected = (id: string | undefined) =>
     id ? filters.categoryIds.includes(id) : filters.categoryIds.length === 0;
-  const events = filterEvents(mockEvents, filters);
+  const loadedEvents = allEvents.data ?? [];
+  const events = filterEvents(loadedEvents, filters);
+
+  const retry = () => {
+    allEvents.reload();
+    if (categories.error) categories.reload();
+  };
 
   // A guest also opens the event page; it shows the sign-in dialog over it (02.2).
   const openEvent = (id: string) => router.push({ pathname: '/events/[id]', params: { id } });
@@ -82,7 +121,7 @@ export default function CatalogScreen() {
           <CatalogHeader
             name={mockUser.firstNameVocative}
             // Figma hides the unread dot while the catalog loads.
-            hasUnread={mockUser.hasUnreadNotifications && !catalogLoading}
+            hasUnread={mockUser.hasUnreadNotifications && !loading}
             onNotificationsPress={() => router.push('/notifications')}
             onAvatarPress={() => router.navigate('/profile')}
           />
@@ -105,7 +144,7 @@ export default function CatalogScreen() {
           </View>
         </View>
 
-        {catalogLoading ? (
+        {loading ? (
           <View className="gap-4 px-5 pt-7">
             {Array.from({ length: SKELETON_COUNT }, (_, index) => (
               <EventCardSkeleton key={index} />
@@ -122,42 +161,53 @@ export default function CatalogScreen() {
                   category={event.category.name}
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
-                  cover={event.cover}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.
                   onPress={() => openEvent(event.id)}
                 />
               ))}
-              {events.length === 0 && (
-                // 01.3: nothing matches the search or the filters.
-                <View className="items-center gap-3 overflow-hidden rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
-                  <View
-                    className="size-[76px] items-center justify-center rounded-[38px] bg-brand-coral"
-                    style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
-                  >
-                    <Icon name="empty-search" size={34} color={colors.text['on-dark']} />
-                  </View>
-                  <Text className="text-center font-inter-semibold text-h2 text-text-primary">Нічого не знайшли</Text>
-                  <Text className="text-center font-inter text-body text-text-secondary">
-                    Спробуй змінити фільтри або дати. Нові події зʼявляються щодня.
-                  </Text>
-                  <Button
-                    label="Скинути фільтри"
-                    size="sm"
-                    onPress={() => {
-                      setQuery('');
-                      resetFilters();
+              {allEvents.error ? (
+                <CatalogNotice
+                  icon="state-danger"
+                  title="Не вдалося завантажити події"
+                  text="Перевір зʼєднання з інтернетом і спробуй ще раз."
+                  action={{ label: 'Спробувати ще раз', onPress: retry }}
+                />
+              ) : loadedEvents.length === 0 ? (
+                <CatalogNotice
+                  icon="empty-search"
+                  title="Поки немає подій"
+                  text="Нові події зʼявляються щодня. Зазирни трохи пізніше."
+                />
+              ) : (
+                events.length === 0 && (
+                  // 01.3: nothing matches the search or the filters.
+                  <CatalogNotice
+                    icon="empty-search"
+                    title="Нічого не знайшли"
+                    text="Спробуй змінити фільтри або дати. Нові події зʼявляються щодня."
+                    action={{
+                      label: 'Скинути фільтри',
+                      onPress: () => {
+                        setQuery('');
+                        resetFilters();
+                      },
                     }}
                   />
-                </View>
+                )
               )}
             </View>
           </Animated.View>
         )}
       </ScrollView>
 
-      <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersSheet
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        events={loadedEvents}
+        categories={categoryList}
+      />
     </>
   );
 }
