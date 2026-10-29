@@ -1,8 +1,11 @@
 // Written with the help of Claude
 // AI Usage: catalog filters shared by the search, the category row and the filters sheet; reviewed by Daryna Halytska.
+import type { components } from '@/api/schema';
 import { kyivDay, tomorrow, weekendDays, type KyivDay } from '@/dates';
-import type { MockEvent } from '@/mocks/events';
 import { createStore } from '@/state/store';
+
+// The API has no districts yet; only mock events have one.
+type FilterableEvent = components['schemas']['Event'] & { district?: string };
 
 export type When = 'today' | 'tomorrow' | 'weekend';
 
@@ -84,7 +87,8 @@ export function whenOf(range: DateRange, now = new Date()): When | null {
   );
 }
 
-export function filterEvents(events: MockEvent[], filters: CatalogFilters, now = new Date()): MockEvent[] {
+// An event without a district matches no district, so picking one in "Де" hides it.
+export function filterEvents<T extends FilterableEvent>(events: T[], filters: CatalogFilters, now = new Date()): T[] {
   const search = filters.query.trim().toLocaleLowerCase('uk');
   const days = filters.when ? daysOf(filters.when, now) : undefined;
   return events.filter(
@@ -93,7 +97,7 @@ export function filterEvents(events: MockEvent[], filters: CatalogFilters, now =
       (filters.categoryIds.length === 0 || filters.categoryIds.includes(event.category.id)) &&
       (!days || days.includes(kyivDay(new Date(event.startsAt)))) &&
       (!filters.dates || inRange(kyivDay(new Date(event.startsAt)), filters.dates)) &&
-      (filters.districts.length === 0 || filters.districts.includes(event.district)),
+      (filters.districts.length === 0 || (!!event.district && filters.districts.includes(event.district))),
   );
 }
 
