@@ -5,6 +5,6 @@
   "description": "Pins openapi-mcp-generator, which generates the MCP server in src/mcp/ from the OpenAPI spec.",
   "type": "module",
   "devDependencies": {
-    "openapi-mcp-generator": "5.0.0"
+    "openapi-mcp-generator": "5.0.1"
   }
 }
