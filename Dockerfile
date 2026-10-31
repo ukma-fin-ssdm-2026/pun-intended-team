@@ -5,10 +5,10 @@
 
 FROM node:26-slim AS build
 WORKDIR /app
-# npm ci runs `prisma generate` (postinstall), which needs the schema and its config.
 COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
-RUN npm ci
+# No install scripts, except the one that downloads the engine `prisma migrate deploy` runs.
+RUN npm ci --ignore-scripts && npm rebuild @prisma/engines && npx prisma generate
 COPY tsconfig.json nest-cli.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
