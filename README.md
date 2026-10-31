@@ -115,6 +115,10 @@ npm run import:events   # one run: fetch, normalize, save, print a report; needs
 
 Events are still kept in memory, so the API does not see what a run imported until events are in the database. Until then, the unit tests check that the catalog serves imported events (`tests/unit/event-import.catalog.test.ts`).
 
+### Staging
+
+Staging runs `main` at `https://api.nearbystaging.app`, in Docker Compose on one server ([ADR-005](docs/architecture/decisions/ADR-005.md)). Every green merge to `main` publishes the API image to GHCR and deploys it over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
+
 <a id="tests"></a>
 
 ## ꕤ Tests
