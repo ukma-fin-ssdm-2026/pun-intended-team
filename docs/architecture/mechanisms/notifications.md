@@ -25,7 +25,7 @@
 | Event reminder | 3 h before the event (FR-024) — after the last round (T-6h), before the cutoff (T-1h) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
 | Report received | Report filed (SAFE-003) | Inbox |
-| Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback; not an inbox row (stored as VerificationCode) |
+| Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback, paused for now ([authentication](authentication.md), rule 6); not an inbox row (stored as VerificationCode) |
 
 ## AI Usage Note
 

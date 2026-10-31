@@ -23,6 +23,7 @@ import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadContactHmacKey, loadDataEncryptionKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { DisabledMessagingProvider } from './messaging/disabled-messaging-provider.ts';
 import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
 import { loadMessagingSettings } from './messaging/messaging-settings.ts';
 import { TelegramGatewaySender } from './messaging/telegram-gateway-sender.ts';
@@ -71,6 +72,9 @@ const providers = [...repositories, ...adapters];
 
 function messagingProvider(): MessagingProvider {
   const settings = loadMessagingSettings();
+  if (settings.provider === 'disabled') {
+    return new DisabledMessagingProvider();
+  }
   if (settings.provider === 'console') {
     return new ConsoleMessagingProvider();
   }
