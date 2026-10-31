@@ -442,6 +442,19 @@ components:
       example:
         phone: '+380501119999'
         code: '123456'
+    GoogleIdTokenBody:
+      type: object
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The ID token Google Sign-In returned on the device
+      required:
+        - idToken
+      additionalProperties: false
+      example:
+        idToken: eyJhbGciOiJSUzI1NiIs…
     SessionTokensResponse:
       type: object
       properties:
@@ -498,19 +511,6 @@ components:
       example:
         phone: '+380501110001'
         password: nearby-dev-password
-    GoogleIdTokenBody:
-      type: object
-      properties:
-        idToken:
-          type: string
-          minLength: 1
-          maxLength: 4096
-          description: The ID token Google Sign-In returned on the device
-      required:
-        - idToken
-      additionalProperties: false
-      example:
-        idToken: eyJhbGciOiJSUzI1NiIs…
     PasswordResetBody:
       type: object
       properties:
@@ -1478,6 +1478,51 @@ paths:
           description: >-
             `INVALID_CODE`: the code is wrong, expired, already used or failed 3
             times
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/google/register:
+    post:
+      operationId: registerWithGoogle
+      summary: Register with Google
+      description: >-
+        First registration step: check the Google ID token. Returns a
+        registration token, valid for 15 minutes, that only
+        `completeRegistration` accepts. No access token needed.
+      tags:
+        - Auth
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleIdTokenBody'
+      responses:
+        '200':
+          description: A registration token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `GOOGLE_ACCOUNT_TAKEN`: the Google account is already registered;
+            sign in instead
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_GOOGLE_TOKEN`: the ID token is invalid, expired or issued
+            to another app
           content:
             application/json:
               schema:

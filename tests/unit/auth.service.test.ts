@@ -58,6 +58,11 @@ function aPendingAccount(overrides: Partial<Account> = {}): Account {
   return anAccount({ status: 'pending', dateOfBirth: null, ...overrides });
 }
 
+/** An account registered with Google that has not passed the age check yet. */
+function aGoogleRegistrant(overrides: Partial<Account> = {}): Account {
+  return aPendingAccount({ phone: null, ...overrides });
+}
+
 function aCredential(overrides: Partial<PasswordCredential> = {}): PasswordCredential {
   return {
     accountId: ACCOUNT_ID,
@@ -106,6 +111,7 @@ function makeService({ lockout = NO_LOCKOUT }: { lockout?: SignInLockout } = {})
     findByPhone: mock.fn((): Promise<Account | undefined> => Promise.resolve(undefined)),
     findPasswordCredential: mock.fn((): Promise<PasswordCredential | undefined> => Promise.resolve(undefined)),
     create: mock.fn((record: AccountRecord): Promise<Account> => Promise.resolve({ id: ACCOUNT_ID, ...record })),
+    createWithGoogle: mock.fn((): Promise<Account> => Promise.resolve(aGoogleRegistrant())),
     findDateOfBirth: mock.fn(),
     findPasswordHash: mock.fn((): Promise<string | undefined> => Promise.resolve(undefined)),
     setPasswordHash: mock.fn(() => Promise.resolve()),
@@ -356,6 +362,59 @@ describe('AuthService.verify', () => {
     assert.equal(accounts.create.mock.callCount(), 0);
     const [caller] = accessTokens.issue.mock.calls[0]?.arguments as unknown as [Record<string, unknown>];
     assert.deepEqual(caller, { kind: 'registrant', accountId: pending.id });
+  });
+});
+
+describe('AuthService.registerWithGoogle', () => {
+  test('creates a pending account for a new Google account and returns a 15-minute registration token', async () => {
+    const { service, accounts, accessTokens } = makeService();
+
+    const token = await service.registerWithGoogle(GOOGLE_ID_TOKEN);
+
+    assert.deepEqual(accounts.createWithGoogle.mock.calls[0]?.arguments, [GOOGLE_SUBJECT]);
+    assert.deepEqual(accessTokens.issue.mock.calls[0]?.arguments, [
+      { kind: 'registrant', accountId: ACCOUNT_ID },
+      REGISTRATION_TOKEN_SECONDS,
+    ]);
+    assert.deepEqual(token, { accessToken: SIGNED_TOKEN, expiresIn: REGISTRATION_TOKEN_SECONDS });
+  });
+
+  test('continues with the pending account of a Google account that registered before', async () => {
+    const { service, accounts, accessTokens } = makeService();
+    accounts.findByGoogleSubject.mock.mockImplementation(() =>
+      Promise.resolve(aGoogleRegistrant({ id: OTHER_ACCOUNT_ID })),
+    );
+
+    await service.registerWithGoogle(GOOGLE_ID_TOKEN);
+
+    assert.equal(accounts.createWithGoogle.mock.callCount(), 0);
+    assert.deepEqual(accessTokens.issue.mock.calls[0]?.arguments[0], {
+      kind: 'registrant',
+      accountId: OTHER_ACCOUNT_ID,
+    });
+  });
+
+  const takenCases = [
+    { title: 'refuses a Google account that is already registered', account: anAccount({ phone: null }) },
+    { title: 'refuses a Google account of a banned account', account: anAccount({ phone: null, status: 'banned' }) },
+  ];
+
+  for (const { title, account } of takenCases) {
+    test(title, async () => {
+      const { service, accounts, accessTokens } = makeService();
+      accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(account));
+
+      await assert.rejects(service.registerWithGoogle(GOOGLE_ID_TOKEN), isDomainError('GOOGLE_ACCOUNT_TAKEN'));
+      assert.equal(accessTokens.issue.mock.callCount(), 0);
+    });
+  }
+
+  test('rejects an invalid ID token without looking up an account', async () => {
+    const { service, accounts } = makeService();
+
+    await assert.rejects(service.registerWithGoogle('forged'), isDomainError('INVALID_GOOGLE_TOKEN'));
+    assert.equal(accounts.findByGoogleSubject.mock.callCount(), 0);
+    assert.equal(accounts.createWithGoogle.mock.callCount(), 0);
   });
 });
 
@@ -834,6 +893,14 @@ describe('AuthService.signInWithGoogle', () => {
 
   test('rejects a Google account no account linked', async () => {
     const { service, sessions } = makeService();
+
+    await assert.rejects(service.signInWithGoogle(GOOGLE_ID_TOKEN), isDomainError('INVALID_CREDENTIALS'));
+    assert.equal(sessions.start.mock.callCount(), 0);
+  });
+
+  test('rejects a Google account whose registration is not complete', async () => {
+    const { service, accounts, sessions } = makeService();
+    accounts.findByGoogleSubject.mock.mockImplementation(() => Promise.resolve(aGoogleRegistrant()));
 
     await assert.rejects(service.signInWithGoogle(GOOGLE_ID_TOKEN), isDomainError('INVALID_CREDENTIALS'));
     assert.equal(sessions.start.mock.callCount(), 0);

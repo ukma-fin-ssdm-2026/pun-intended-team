@@ -649,6 +649,86 @@ describe('POST /api/v1/auth/google', () => {
   });
 });
 
+describe('POST /api/v1/auth/google/register', () => {
+  async function register(subject: string) {
+    return call('POST', '/api/v1/auth/google/register', { body: { idToken: await googleIdToken(subject) } });
+  }
+
+  test('registers a new Google account, which signs in with Google once registration is complete', async () => {
+    const subject = newGoogleSubject();
+    const registered = await register(subject);
+    assert.equal(registered.status, 200, JSON.stringify(registered.body));
+
+    const completed = await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+    assert.equal(completed.status, 200, JSON.stringify(completed.body));
+
+    const signedIn = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+    assert.equal(signedIn.status, 200, JSON.stringify(signedIn.body));
+  });
+
+  test('continues a registration that was not completed', async () => {
+    const subject = newGoogleSubject();
+    await register(subject);
+
+    const again = await register(subject);
+
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    const completed = await call('POST', '/api/v1/auth/complete-registration', {
+      token: again.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+    assert.equal(completed.status, 200, JSON.stringify(completed.body));
+  });
+
+  test('does not sign in before registration is complete', async () => {
+    const subject = newGoogleSubject();
+    await register(subject);
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('refuses a Google account that is already registered with 409', async () => {
+    const subject = newGoogleSubject();
+    const registered = await register(subject);
+    await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+
+    assertRejected(await register(subject), 409, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  // SAFE-001: the pending account is removed, so the Google account can register again.
+  test('lets an underage Google account start again after it is refused', async () => {
+    const subject = newGoogleSubject();
+    const registered = await register(subject);
+    const underage = await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2015-01-01' },
+    });
+    assertRejected(underage, 422, 'UNDERAGE');
+
+    assert.equal((await register(subject)).status, 200);
+  });
+
+  test('refuses an ID token issued to another app with 422', async () => {
+    const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
+
+    const res = await call('POST', '/api/v1/auth/google/register', { body: { idToken } });
+
+    assertRejected(res, 422, 'INVALID_GOOGLE_TOKEN');
+  });
+
+  test('rejects a body without an ID token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/google/register', { body: {} }), 'body', 'idToken');
+  });
+});
+
 describe('PUT /api/v1/me/google', () => {
   test('links a Google account, and linking it again changes nothing', async () => {
     const { token } = await newAccount();
@@ -739,6 +819,7 @@ describe('Per-IP limit on the auth endpoints', () => {
     ['POST', '/api/v1/auth/register'],
     ['POST', '/api/v1/auth/verify'],
     ['POST', '/api/v1/auth/google'],
+    ['POST', '/api/v1/auth/google/register'],
     ['POST', '/api/v1/auth/password-reset'],
     ['POST', '/api/v1/auth/password-reset/confirm'],
     ['PUT', '/api/v1/me/password'],
@@ -1714,6 +1795,26 @@ describe('Parallel requests', () => {
     const statuses = responses.map((res) => res.status).sort();
     assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
     assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ACCOUNT_TAKEN');
+  });
+
+  // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.
+  test('create one account when one Google account registers 5 times at once', async () => {
+    const idToken = await googleIdToken(newGoogleSubject());
+    await openConnections();
+
+    const responses = await parallel(5, () => call('POST', '/api/v1/auth/google/register', { body: { idToken } }));
+
+    assert.ok(
+      responses.every((res) => res.status === 200),
+      JSON.stringify(responses.map((res) => res.body)),
+    );
+    const [first, ...others] = responses;
+    const complete = (token: string) =>
+      call('POST', '/api/v1/auth/complete-registration', { token, body: { dateOfBirth: '2000-05-17' } });
+    assert.equal((await complete(first?.body.accessToken)).status, 200);
+    for (const res of others) {
+      assertRejected(await complete(res.body.accessToken), 409, 'CONFLICT');
+    }
   });
 
   test('link only one of two Google accounts one account sends at once', async () => {

@@ -69,6 +69,20 @@ export class AuthService implements OnModuleInit {
     return this.issue({ kind: 'registrant', accountId: account.id }, REGISTRATION_TOKEN_SECONDS);
   }
 
+  /** A Google account that registered before but never finished registration continues with its pending account. */
+  async registerWithGoogle(idToken: string): Promise<AccessToken> {
+    const subject = await this.googleIdTokens.verify(idToken);
+    if (subject === undefined) {
+      throw new DomainError('INVALID_GOOGLE_TOKEN', 'Google sign-in did not go through. Try again');
+    }
+    const existing = await this.accountsRepository.findByGoogleSubject(subject);
+    if (existing && existing.status !== 'pending') {
+      throw new DomainError('GOOGLE_ACCOUNT_TAKEN', 'This Google account is already registered. Sign in instead');
+    }
+    const account = existing ?? (await this.accountsRepository.createWithGoogle(subject));
+    return this.issue({ kind: 'registrant', accountId: account.id }, REGISTRATION_TOKEN_SECONDS);
+  }
+
   /** An applicant under 18 is refused and the pending account removed, so the number can register again (SAFE-001). */
   async completeRegistration(accountId: string, dateOfBirth: string): Promise<SessionTokens> {
     const account = await this.accountsRepository.findById(accountId);

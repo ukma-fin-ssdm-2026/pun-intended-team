@@ -89,6 +89,35 @@ export class AuthController {
     return withType(await this.authService.verify(body));
   }
 
+  @UseGuards(ThrottlerGuard)
+  @Endpoint({
+    method: 'post',
+    path: Routes.auth.googleRegister,
+    operationId: 'registerWithGoogle',
+    summary: 'Register with Google',
+    description:
+      'First registration step: check the Google ID token. Returns a registration token, valid for 15 minutes, ' +
+      'that only `completeRegistration` accepts.',
+    tags: ['Auth'],
+    access: 'public',
+    mcp: false,
+    request: GoogleIdTokenRequest,
+    responses: {
+      200: { description: 'A registration token', schema: AccessTokenResponse },
+      409: {
+        description: '`GOOGLE_ACCOUNT_TAKEN`: the Google account is already registered; sign in instead',
+        schema: ErrorResponse,
+      },
+      422: {
+        description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid, expired or issued to another app',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async registerWithGoogle(@Input() { body }: RouteInput<typeof GoogleIdTokenRequest>): Promise<AccessTokenResponse> {
+    return withType(await this.authService.registerWithGoogle(body.idToken));
+  }
+
   @Endpoint({
     method: 'post',
     path: Routes.auth.completeRegistration,

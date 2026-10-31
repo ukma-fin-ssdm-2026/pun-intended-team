@@ -11,6 +11,7 @@ export const Routes = {
     completeRegistration: '/api/v1/auth/complete-registration',
     signIn: '/api/v1/auth/sign-in',
     google: '/api/v1/auth/google',
+    googleRegister: '/api/v1/auth/google/register',
     guest: '/api/v1/auth/guest',
     refresh: '/api/v1/auth/refresh',
     signOut: '/api/v1/auth/sign-out',
