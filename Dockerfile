@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json prisma.config.ts ./
 COPY prisma ./prisma
 # No install scripts, except the one that downloads the engine `prisma migrate deploy` runs.
-RUN npm ci --ignore-scripts && npm rebuild @prisma/engines && npx prisma generate
+RUN npm ci --ignore-scripts && npm rebuild @prisma/engines && node_modules/.bin/prisma generate
 COPY tsconfig.json nest-cli.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
