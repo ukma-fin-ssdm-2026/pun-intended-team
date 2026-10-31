@@ -110,14 +110,18 @@ Rebuild after adding a native package or changing `app.json`, `app.config.ts` or
 
 ## Scripts
 
-| Command             | What it does                                       |
-| ------------------- | -------------------------------------------------- |
-| `npm start`         | Start the Expo dev server                          |
-| `npm run web`       | Start the dev server and open the web build        |
-| `npm run lint`      | Lint with `expo lint` (eslint-config-expo)         |
-| `npm run typecheck` | Type-check with `tsc --noEmit`                     |
-| `npm run format`    | Format with Prettier (uses the root `.prettierrc`) |
-| `npm run api:types` | Regenerate `src/api/schema.d.ts` from the API spec |
+| Command                 | What it does                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm start`             | Start the Expo dev server                                                                                                                  |
+| `npm run web`           | Start the dev server and open the web build                                                                                                |
+| `npm run android`       | Start the dev server and open the app on a connected Android phone or emulator: the installed development build, or Expo Go with `-- --go` |
+| `npm run android:build` | Build the development build locally and install it on a connected Android phone or emulator (needs Android Studio)                         |
+| `npm run ios`           | Start the dev server and open the app in the iOS simulator: the installed development build, or Expo Go with `-- --go`                     |
+| `npm run ios:build`     | Build the development build locally and install it in the iOS simulator (needs Xcode and CocoaPods; `-- --device` for a connected iPhone)  |
+| `npm run lint`          | Lint with `expo lint` (eslint-config-expo)                                                                                                 |
+| `npm run typecheck`     | Type-check with `tsc --noEmit`                                                                                                             |
+| `npm run format`        | Format with Prettier (uses the root `.prettierrc`)                                                                                         |
+| `npm run api:types`     | Regenerate `src/api/schema.d.ts` from the API spec                                                                                         |
 
 Run `npm run api:types` after the API spec (`docs/api/openapi-generated.yaml`) changes, and commit the regenerated `src/api/schema.d.ts` as is: it is generated, so do not edit or format it by hand.
 
