@@ -8,7 +8,7 @@ import type { Venue } from '../../core/catalog/types/venue.ts';
 import type { Listing } from '../../core/listings/types/listing.ts';
 import type { Interest, Profile } from '../../core/profiles/types/profile.ts';
 
-// Accounts are in the database (npm run db:seed); the stubs refer to them by these ids.
+// Accounts are in the database; the stubs refer to them by these ids, and the e2e tests create accounts with them.
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
   taras: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18',

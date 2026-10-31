@@ -92,6 +92,11 @@ For a production build: `npm run build`, then `npm start`.
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
 | `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
 | `DATA_ENCRYPTION_KEY_FILE` | — | Key that encrypts phone numbers and dates of birth in the database (SEC-003), created by `npm run keys:generate`; the server does not start without it. Losing or changing it makes the stored values unreadable |
+| `AUTH_RATE_LIMIT_PER_MINUTE` | `20` | Requests a minute per IP to each Google sign-in and registration endpoint and to `refresh` (SEC-007) |
+| `GOOGLE_CLIENT_IDS` | — | Comma-separated client ids of every Google OAuth client the app signs in with (web, iOS, Android); unset turns Google sign-in off, which production refuses |
+| `MESSAGING_PROVIDER` | `disabled` in production, `console` otherwise | How verification codes go out: `disabled`, `console` (logged, refused in production) or `telegram`. No route sends codes while sign-in is Google-only ([ADR-004](docs/architecture/decisions/ADR-004.md)) |
+| `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN`, `TURBOSMS_SENDER` | — | Telegram Gateway and its SMS fallback, read only with `MESSAGING_PROVIDER=telegram` ([external services](docs/operations/external-services.md)) |
+| `ALLOW_TEST_ADAPTERS` | `false` | `true` lets production use test stand-ins; only the e2e tests set it |
 
 The two database keys, `CONTACT_HMAC_KEY_FILE` and `DATA_ENCRYPTION_KEY_FILE`, cannot be created again: every database needs its own pair, backed up outside the repository and the server, for example in the team vault. Locally, new keys mean a new database: `docker compose down -v`, then the [Local database](#local-database) commands.
 
@@ -131,7 +136,7 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
-The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, with the access token of a Google sign-in in `PERF_TOKEN`.
 
 ### Test documentation
 
@@ -168,14 +173,20 @@ Categories, accounts, verification codes and sessions are stored in PostgreSQL (
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
 npx prisma migrate deploy   # creates the tables and the starting categories
-npm run db:seed             # the development accounts, encrypted with your keys; run again after new keys
 ```
 
 Each process connects with its own database role ([database access](docs/architecture/mechanisms/database-access.md)): migrations run as the owner in `DATABASE_URL`, the API as `nearby_main` and the import service as `nearby_import`. The migration creates the two roles without a password; after `prisma migrate deploy`, run `npm run db:set-passwords` once to set the passwords from `MAIN_DATABASE_URL` and `IMPORT_DATABASE_URL` (repeating it is safe, and it prints no passwords). The owner needs the `CREATEROLE` privilege, which the Docker user already has.
 
 `npm run test:e2e` never touches this database: it creates `<POSTGRES_DB>_e2e` next to it on every run, with keys of its own.
 
-To reset the database, delete its data and migrate again: `docker compose down -v`, then the three commands above. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
+To reset the database, delete its data and migrate again: `docker compose down -v`, then the commands above and `npm run db:set-passwords`. After a change in [`prisma/schema.prisma`](prisma/schema.prisma), `npx prisma migrate dev --name <what-changed>` creates the migration; the client in `src/infra/prisma/generated/` is not committed and is rebuilt by `npm install` or `npx prisma generate`.
+
+There are no development accounts: sign up with your own Google account in the app ([Google-only for now](docs/architecture/decisions/ADR-004.md)). To make an account an administrator, find it and set its role, then sign in again, since the role is part of the access token:
+
+```sql
+SELECT id, created_at FROM accounts ORDER BY created_at DESC LIMIT 5;
+UPDATE accounts SET role = 'admin' WHERE id = '<id>';
+```
 
 ## ൬ Running the client
 

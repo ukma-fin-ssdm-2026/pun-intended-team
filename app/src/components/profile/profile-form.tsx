@@ -234,18 +234,13 @@ type ContactVisibilityProps = {
   telegram: string;
   showTelegram: boolean;
   onShowTelegramChange: (value: boolean) => void;
-  showPhone: boolean;
-  onShowPhoneChange: (value: boolean) => void;
+  // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
+  // showPhone: boolean;
+  // onShowPhoneChange: (value: boolean) => void;
 };
 
 // "Що побачить взаємний метч": which contacts a mutual match gets.
-export function ContactVisibility({
-  telegram,
-  showTelegram,
-  onShowTelegramChange,
-  showPhone,
-  onShowPhoneChange,
-}: ContactVisibilityProps) {
+export function ContactVisibility({ telegram, showTelegram, onShowTelegramChange }: ContactVisibilityProps) {
   return (
     <View className="overflow-hidden rounded-[20px] bg-surface-card px-4 py-1">
       <View className="pb-1 pt-3">
@@ -258,6 +253,7 @@ export function ContactVisibility({
         value={showTelegram}
         onValueChange={onShowTelegramChange}
       />
+      {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
       <View className="h-px bg-border-default" />
       <VisibilityRow
         icon="contact-phone"
@@ -265,7 +261,7 @@ export function ContactVisibility({
         note="Можна ввімкнути пізніше в профілі"
         value={showPhone}
         onValueChange={onShowPhoneChange}
-      />
+      /> */}
     </View>
   );
 }

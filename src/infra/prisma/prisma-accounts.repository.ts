@@ -43,14 +43,30 @@ export class PrismaAccountsRepository implements AccountsRepository {
   async create({ phone, role, status, dateOfBirth }: AccountRecord): Promise<Account> {
     const account = await this.prisma.account.create({
       data: {
-        contactIdentifier: this.cipher.encrypt(phone),
-        contactHash: this.cipher.hash(phone),
+        contactIdentifier: phone === null ? null : this.cipher.encrypt(phone),
+        contactHash: phone === null ? null : this.cipher.hash(phone),
         dateOfBirth: dateOfBirth === null ? null : this.cipher.encrypt(dateOfBirth),
         role,
         status,
       },
     });
     return { id: account.id, phone, role, status, dateOfBirth };
+  }
+
+  async createWithGoogle(subject: string): Promise<Account> {
+    try {
+      const account = await this.prisma.account.create({
+        data: { role: 'user', status: 'pending', authMethods: { create: { type: 'google', secret: subject } } },
+      });
+      return { id: account.id, phone: null, role: account.role, status: account.status, dateOfBirth: null };
+    } catch (error) {
+      const existing =
+        violatedIndex(error) === 'auth_methods_type_secret_key' ? await this.findByGoogleSubject(subject) : undefined;
+      if (!existing) {
+        throw error;
+      }
+      return existing;
+    }
   }
 
   async activate(accountId: string, dateOfBirth: string): Promise<void> {
@@ -133,7 +149,7 @@ export class PrismaAccountsRepository implements AccountsRepository {
     }
     return {
       id: row.id,
-      phone: this.cipher.decrypt(row.contactIdentifier),
+      phone: row.contactIdentifier === null ? null : this.cipher.decrypt(row.contactIdentifier),
       role: row.role,
       status: row.status,
       dateOfBirth: row.dateOfBirth === null ? null : this.cipher.decrypt(row.dateOfBirth),

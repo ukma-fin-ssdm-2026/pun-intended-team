@@ -13,10 +13,11 @@ import { mockProfile } from '@/mocks/profile';
 export default function ProfileContactsScreen() {
   const signIn = useSignIn();
   const [telegram, setTelegram] = useState(mockProfile.telegram);
-  const [phone, setPhone] = useState(mockProfile.phone);
+  // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
+  // const [phone, setPhone] = useState(mockProfile.phone);
   // Figma: Telegram is shared with a mutual match, the phone number is not.
   const [showTelegram, setShowTelegram] = useState(true);
-  const [showPhone, setShowPhone] = useState(false);
+  // const [showPhone, setShowPhone] = useState(false);
 
   return (
     <>
@@ -33,16 +34,11 @@ export default function ProfileContactsScreen() {
             </Text>
           </View>
           <TextField label="Нікнейм у Telegram" value={telegram} onChangeText={setTelegram} />
-          <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
+          <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /> */}
           {/* "+ Додати соцмережу" has no prototype link; shown as in Figma. */}
           <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
-          <ContactVisibility
-            telegram={telegram}
-            showTelegram={showTelegram}
-            onShowTelegramChange={setShowTelegram}
-            showPhone={showPhone}
-            onShowPhoneChange={setShowPhone}
-          />
+          <ContactVisibility telegram={telegram} showTelegram={showTelegram} onShowTelegramChange={setShowTelegram} />
         </View>
       </FormScreen>
     </>

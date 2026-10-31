@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-24T10:23:16.126Z
+ * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.1
+ * Generated on: 2026-10-31T13:41:54.145Z
  */
 
 import { existsSync } from 'node:fs';
@@ -46,7 +46,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = "nearby-api-mcp";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "0.1.1";
 // Instructions sent to clients, from the OpenAPI info.description.
 export const SERVER_INSTRUCTIONS = "REST API of Nearby, an app for going to events and meeting people along the way.";
 // Base URL for the API, can be set via environment variable or determined from OpenAPI spec
