@@ -14,7 +14,7 @@ start() {
   local api
   api=$("${compose[@]}" ps -q api)
   for _ in $(seq 60); do
-    if [ "$(docker inspect -f '{{.State.Health.Status}}' "$api")" = healthy ]; then
+    if [[ "$(docker inspect -f '{{.State.Health.Status}}' "$api")" = healthy ]]; then
       return 0
     fi
     sleep 2
@@ -27,10 +27,10 @@ start() {
 restore=''
 # shellcheck disable=SC2317 # runs from the EXIT trap
 cleanup() {
-  if [ -n "$restore" ]; then
+  if [[ -n "$restore" ]]; then
     git checkout --quiet --detach "$restore"
   fi
-  if [ -n "${GHCR_USER:-}" ]; then
+  if [[ -n "${GHCR_USER:-}" ]]; then
     docker logout ghcr.io >/dev/null
   fi
   rmdir /tmp/nearby-staging-deploy.lock
@@ -48,14 +48,14 @@ main() {
   trap cleanup EXIT
 
   # The image is private: CI passes its user in GHCR_USER and a token valid for the job on stdin.
-  if [ -n "${GHCR_USER:-}" ]; then
+  if [[ -n "${GHCR_USER:-}" ]]; then
     docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
   fi
 
   # CI builds the image for linux/amd64 only.
   local arch
   arch=$(docker info --format '{{.Architecture}}')
-  if [ "$arch" != x86_64 ]; then
+  if [[ "$arch" != x86_64 ]]; then
     echo "The server is $arch, but the image is built for x86_64: use an x86 server" >&2
     exit 1
   fi
@@ -63,7 +63,7 @@ main() {
   git fetch --quiet origin main
   local input=${1:-origin/main} version
   version=$(git rev-parse --verify --quiet --end-of-options "$input^{commit}") || true
-  if [ -z "$version" ] || ! git merge-base --is-ancestor "$version" origin/main ||
+  if [[ -z "$version" ]] || ! git merge-base --is-ancestor "$version" origin/main ||
     ! git cat-file -e "$version:docker-compose.staging.yml" 2>/dev/null; then
     echo "$input is not a commit on main with the staging setup" >&2
     exit 1
@@ -72,7 +72,7 @@ main() {
   # The version running now, to roll back to: its image tag is its commit.
   local running previous=''
   running=$("${compose[@]}" ps -q api)
-  if [ -n "$running" ]; then
+  if [[ -n "$running" ]]; then
     previous=$(docker inspect -f '{{.Config.Image}}' "$running" | sed 's/.*://')
   fi
 
@@ -91,7 +91,7 @@ main() {
   "${compose[@]}" run --rm --no-deps --user root -v "$PWD/keys:/app/keys" migrate \
     sh -c 'node dist/scripts/generate-keys.js && chown -R node:node keys'
 
-  if [ -n "$("${compose[@]}" ps -q backup)" ]; then
+  if [[ -n "$("${compose[@]}" ps -q backup)" ]]; then
     "${compose[@]}" exec -T backup sh /backup-db.sh now
   fi
 
@@ -112,7 +112,7 @@ main() {
   fi
 
   echo "$version is not healthy: ${compose[*]} logs api migrate" >&2
-  if [ -n "$previous" ] && [ "$previous" != "$version" ]; then
+  if [[ -n "$previous" && "$previous" != "$version" ]]; then
     git checkout --quiet --detach "$previous"
     restore=''
     export API_VERSION=$previous
