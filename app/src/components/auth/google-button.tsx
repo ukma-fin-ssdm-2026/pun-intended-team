@@ -5,8 +5,8 @@ import { Platform, View } from 'react-native';
 import { config } from '@/config';
 
 type Props = {
-  // Google's own button texts: "Увійти через Google" or "Продовжити з Google".
-  text: 'signin_with' | 'continue_with';
+  // Google's own button texts: "Увійти через Google", "Зареєструватися через Google" or "Продовжити з Google".
+  text: 'signin_with' | 'signup_with' | 'continue_with';
   onIdToken: (idToken: string) => void;
 };
 

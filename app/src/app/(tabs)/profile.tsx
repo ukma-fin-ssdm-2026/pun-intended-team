@@ -3,16 +3,17 @@
 // by Daryna Halytska.
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { apiClient } from '@/api/client';
-import { call } from '@/api/public-client';
+// Used by LinkGoogle below, hidden while sign-in is Google-only (ADR-004); it also needs useCallback from react.
+// import { apiClient } from '@/api/client';
+// import { call } from '@/api/public-client';
+// import { failureMessage } from '@/auth/messages';
+// import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
-import { failureMessage } from '@/auth/messages';
-import { GoogleButton } from '@/components/auth/google-button';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
@@ -112,30 +113,31 @@ function SavedEvents({ events, onOpen }: { events: MockEvent[]; onOpen: (id: str
   );
 }
 
-const linkGoogleMessages: Record<string, string> = {
-  GOOGLE_ACCOUNT_TAKEN: 'Цей Google-акаунт уже прив’язаний до іншого профілю',
-  GOOGLE_ALREADY_LINKED: 'До профілю вже прив’язаний інший Google-акаунт',
-};
-
-// Not in Figma: links a Google account, which "Увійти через Google" on В4 then signs in with. Web build only.
-function LinkGoogle() {
-  const [message, setMessage] = useState<string>();
-  const link = useCallback(async (idToken: string) => {
-    const result = await call(() => apiClient.PUT('/api/v1/me/google', { body: { idToken } }));
-    setMessage(
-      result.ok
-        ? 'Google прив’язано: тепер можна входити через нього'
-        : ((result.code && linkGoogleMessages[result.code]) ?? failureMessage(result)),
-    );
-  }, []);
-
-  return (
-    <View className="items-center gap-2">
-      <GoogleButton text="continue_with" onIdToken={link} />
-      {message && <Text className="text-center font-inter text-caption text-text-secondary">{message}</Text>}
-    </View>
-  );
-}
+// Hidden while sign-in is Google-only (ADR-004): every account signs up with Google, so there is nothing to link.
+// const linkGoogleMessages: Record<string, string> = {
+//   GOOGLE_ACCOUNT_TAKEN: 'Цей Google-акаунт уже прив’язаний до іншого профілю',
+//   GOOGLE_ALREADY_LINKED: 'До профілю вже прив’язаний інший Google-акаунт',
+// };
+//
+// // Not in Figma: links a Google account, which "Увійти через Google" on В4 then signs in with. Web build only.
+// function LinkGoogle() {
+//   const [message, setMessage] = useState<string>();
+//   const link = useCallback(async (idToken: string) => {
+//     const result = await call(() => apiClient.PUT('/api/v1/me/google', { body: { idToken } }));
+//     setMessage(
+//       result.ok
+//         ? 'Google прив’язано: тепер можна входити через нього'
+//         : ((result.code && linkGoogleMessages[result.code]) ?? failureMessage(result)),
+//     );
+//   }, []);
+//
+//   return (
+//     <View className="items-center gap-2">
+//       <GoogleButton text="continue_with" onIdToken={link} />
+//       {message && <Text className="text-center font-inter text-caption text-text-secondary">{message}</Text>}
+//     </View>
+//   );
+// }
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -221,10 +223,11 @@ export default function ProfileScreen() {
                     <Icon name="contact-send" size={18} />
                     <Text className="font-inter-medium text-body text-text-primary">{mockProfile.telegram}</Text>
                   </View>
+                  {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
                   <View className="flex-row items-center gap-2.5">
                     <Icon name="contact-phone" size={18} />
                     <Text className="font-inter-medium text-body text-text-primary">{mockProfile.phoneMasked}</Text>
-                  </View>
+                  </View> */}
                 </View>
               </View>
             </View>
@@ -233,7 +236,6 @@ export default function ProfileScreen() {
 
         {tab === 'about' ? (
           <View className="items-center gap-4 px-5 pt-2.5">
-            <LinkGoogle />
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
