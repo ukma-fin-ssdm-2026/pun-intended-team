@@ -350,7 +350,7 @@ before(async () => {
     CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
     DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
     JWT_KEYS_FILE: jwtKeysFile,
-    // The codes are read from the log, so they must not go to Telegram, the production default.
+    // The codes are read from the log; production switches phone codes off by default.
     MESSAGING_PROVIDER: 'console',
     GOOGLE_CLIENT_IDS: googleClientId,
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
@@ -700,6 +700,37 @@ describe('PUT /api/v1/me/google', () => {
       'UNAUTHENTICATED',
     );
   });
+});
+
+// An API of its own with the production default, where phone codes are switched off.
+describe('Phone codes switched off', () => {
+  let noCodes: { child: ChildProcess; url: string };
+
+  before(async () => {
+    noCodes = await startApi({ MESSAGING_PROVIDER: '' });
+  });
+
+  after(() => {
+    noCodes?.child.kill();
+  });
+
+  const codeEndpoints = [
+    ['/api/v1/auth/register', 'registration'],
+    ['/api/v1/auth/password-reset', 'a password reset'],
+  ];
+
+  for (const [path, flow] of codeEndpoints) {
+    test(`refuses ${flow} with 503 PHONE_CODES_UNAVAILABLE`, async () => {
+      const res = await fetch(noCodes.url + path, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phone: phones.user }),
+      });
+
+      assert.equal(res.status, 503);
+      assert.equal((await res.json()).error.code, 'PHONE_CODES_UNAVAILABLE');
+    });
+  }
 });
 
 // SEC-007, TM-08: an API of its own with a limit of 2, so the rest of the suite keeps its budget.

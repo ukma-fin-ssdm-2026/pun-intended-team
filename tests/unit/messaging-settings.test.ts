@@ -8,10 +8,16 @@ describe('loadMessagingSettings', () => {
     assert.deepEqual(loadMessagingSettings({ NODE_ENV: 'development' }), { provider: 'console' });
   });
 
-  test('sends through Telegram by default in production', () => {
+  test('switches phone codes off by default in production, even with a Telegram token', () => {
     const settings = loadMessagingSettings({ NODE_ENV: 'production', TELEGRAM_GATEWAY_TOKEN: 'telegram-token' });
 
-    assert.deepEqual(settings, { provider: 'telegram', telegramToken: 'telegram-token' });
+    assert.deepEqual(settings, { provider: 'disabled' });
+  });
+
+  test('sends through Telegram in production when asked to', () => {
+    const env = { NODE_ENV: 'production', MESSAGING_PROVIDER: 'telegram', TELEGRAM_GATEWAY_TOKEN: 'telegram-token' };
+
+    assert.deepEqual(loadMessagingSettings(env), { provider: 'telegram', telegramToken: 'telegram-token' });
   });
 
   test('adds TurboSMS as the fallback when its token and sender are set', () => {
