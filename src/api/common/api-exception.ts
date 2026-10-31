@@ -24,6 +24,7 @@ const errorStatus: Record<ErrorCode, number> = {
   UNDERAGE: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
+  PHONE_CODES_UNAVAILABLE: 503,
 };
 
 /** Thrown anywhere in the API; ApiExceptionFilter turns it into an ErrorResponse. */

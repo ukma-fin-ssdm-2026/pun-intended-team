@@ -7,6 +7,7 @@ import { maskPhone } from './mask-phone.ts';
 /** Development stand-in for the Telegram Gateway: logs the code instead of sending it. */
 @Injectable()
 export class ConsoleMessagingProvider implements MessagingProvider {
+  readonly sendsCodes = true;
   private readonly logger = new Logger('Messaging');
 
   sendCode(phone: string, code: string): Promise<CodeDelivery> {

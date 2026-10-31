@@ -18,6 +18,7 @@ export const domainErrorCodes = [
   'GOOGLE_ACCOUNT_TAKEN',
   'GOOGLE_ALREADY_LINKED',
   'INVALID_CODE',
+  'PHONE_CODES_UNAVAILABLE',
   'INVALID_REFRESH_TOKEN',
   'UNDERAGE',
 ] as const;

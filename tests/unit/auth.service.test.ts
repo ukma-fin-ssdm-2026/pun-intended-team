@@ -150,7 +150,7 @@ function makeService({ lockout = NO_LOCKOUT }: { lockout?: SignInLockout } = {})
       Promise.resolve(idToken === GOOGLE_ID_TOKEN ? GOOGLE_SUBJECT : undefined),
     ),
   };
-  const notifications = { sendCode: mock.fn(() => Promise.resolve(DELIVERY)) };
+  const notifications = { sendsCodes: true, sendCode: mock.fn(() => Promise.resolve(DELIVERY)) };
   const sessions = {
     start: mock.fn((): Promise<SessionTokens> => Promise.resolve(SESSION_TOKENS)),
     endAll: mock.fn(() => Promise.resolve()),
@@ -232,6 +232,15 @@ describe('AuthService.register', () => {
 
     assert.deepEqual(verificationCodes.delete.mock.calls[0]?.arguments, ['code-1']);
     assert.equal(verificationCodes.saveDelivery.mock.callCount(), 0);
+  });
+
+  test('refuses with PHONE_CODES_UNAVAILABLE and stores nothing while phone codes are off', async () => {
+    const { service, verificationCodes, notifications } = makeService();
+    notifications.sendsCodes = false;
+
+    await assert.rejects(service.register(PHONE), isDomainError('PHONE_CODES_UNAVAILABLE'));
+
+    assert.equal(verificationCodes.createWithinLimit.mock.callCount(), 0);
   });
 });
 
@@ -608,6 +617,16 @@ describe('AuthService.requestPasswordReset', () => {
     await setImmediate();
 
     assert.equal(notifications.sendCode.mock.callCount(), 0);
+  });
+
+  // SEC-007: refused before the account lookup, so the answer is the same for every number.
+  test('refuses with PHONE_CODES_UNAVAILABLE before looking up the account while phone codes are off', async () => {
+    const { service, accounts, notifications } = makeService();
+    notifications.sendsCodes = false;
+
+    await assert.rejects(service.requestPasswordReset(PHONE), isDomainError('PHONE_CODES_UNAVAILABLE'));
+
+    assert.equal(accounts.findByPhone.mock.callCount(), 0);
   });
 });
 

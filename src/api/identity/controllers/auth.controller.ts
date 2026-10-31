@@ -57,6 +57,7 @@ export class AuthController {
     request: RegisterRequest,
     responses: {
       202: { description: 'The code is on its way; it is valid for 10 minutes' },
+      503: { description: '`PHONE_CODES_UNAVAILABLE`: codes to phone numbers are switched off', schema: ErrorResponse },
     },
   })
   async register(@Input() { body }: RouteInput<typeof RegisterRequest>): Promise<void> {
@@ -204,6 +205,7 @@ export class AuthController {
     request: PasswordResetRequest,
     responses: {
       202: { description: 'If the number has an account, a code is on its way; it is valid for 10 minutes' },
+      503: { description: '`PHONE_CODES_UNAVAILABLE`: codes to phone numbers are switched off', schema: ErrorResponse },
     },
   })
   async requestPasswordReset(@Input() { body }: RouteInput<typeof PasswordResetRequest>): Promise<void> {

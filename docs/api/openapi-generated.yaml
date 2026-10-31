@@ -119,6 +119,7 @@ components:
         - GOOGLE_ACCOUNT_TAKEN
         - GOOGLE_ALREADY_LINKED
         - INVALID_CODE
+        - PHONE_CODES_UNAVAILABLE
         - INVALID_REFRESH_TOKEN
         - UNDERAGE
       description: Machine-readable code; clients branch on it, not on the message
@@ -1439,6 +1440,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: '`PHONE_CODES_UNAVAILABLE`: codes to phone numbers are switched off'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/verify:
     post:
       operationId: verify
@@ -1677,6 +1684,12 @@ paths:
             10 minutes
         '400':
           description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: '`PHONE_CODES_UNAVAILABLE`: codes to phone numbers are switched off'
           content:
             application/json:
               schema:

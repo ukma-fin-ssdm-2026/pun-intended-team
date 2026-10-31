@@ -23,7 +23,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | CMP-04 | PostgreSQL | Single source of truth, including the job queue (ADR-002). |
 | EXT-01 | External event providers | Concert.ua, ArtWizard — source for CMP-03. |
 | EXT-02 | Expo Push | Push delivery for the notifications module. |
-| EXT-03 | Telegram Gateway API / SMS provider | Verification codes (FR-005, SEC-008). Telegram Gateway first, SMS as fallback. |
+| EXT-03 | Telegram Gateway API / SMS provider | Verification codes (FR-005, SEC-008). Telegram Gateway first, SMS as fallback. Paused for now: see [authentication](mechanisms/authentication.md), rule 6. |
 | EXT-04 | Google | Sign-in with Google — ID token verification only (FR-001). |
 
 ### 2.1 Main Server Modules

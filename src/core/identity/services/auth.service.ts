@@ -53,6 +53,7 @@ export class AuthService implements OnModuleInit {
    * since reset codes to an account count towards them (SEC-007).
    */
   async register(phone: string): Promise<void> {
+    this.requirePhoneCodes();
     await this.sendCode(phone, 'registration', new Date());
   }
 
@@ -127,6 +128,7 @@ export class AuthService implements OnModuleInit {
    * for the provider, so neither the answer nor its timing reveals an account (SEC-007).
    */
   async requestPasswordReset(phone: string): Promise<void> {
+    this.requirePhoneCodes();
     const account = await this.accountsRepository.findByPhone(phone);
     if (account?.status !== 'active') {
       return;
@@ -268,6 +270,13 @@ export class AuthService implements OnModuleInit {
       throw error;
     }
     await this.verificationCodesRepository.saveDelivery(stored.id, delivery);
+  }
+
+  /** Checked before any account lookup, so the answer is the same for every number. */
+  private requirePhoneCodes(): void {
+    if (!this.notificationsService.sendsCodes) {
+      throw new DomainError('PHONE_CODES_UNAVAILABLE', 'Codes to phone numbers are paused for now. Try again later');
+    }
   }
 
   /** Throws INVALID_CODE unless the code is the latest for this purpose and still usable (SEC-008). */
