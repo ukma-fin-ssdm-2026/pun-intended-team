@@ -12,7 +12,7 @@ Services the API depends on outside the repository. Amounts paid and team contri
 
 ## Phone codes while paused
 
-With `MESSAGING_PROVIDER=disabled`, the production default, no code is sent and registration and password reset answer `503 PHONE_CODES_UNAVAILABLE` ([authentication](../architecture/mechanisms/authentication.md), rule 6). To turn them back on, set `MESSAGING_PROVIDER=telegram` with a funded `TELEGRAM_GATEWAY_TOKEN`, and the TurboSMS variables for the SMS fallback.
+Sign-up and sign-in are Google-only while codes are paused ([ADR-004](../architecture/decisions/ADR-004.md)): the routes that send codes are removed, and `MESSAGING_PROVIDER=disabled`, the production default, lets the API start without a Telegram token. To bring codes back, restore the routes, set `MESSAGING_PROVIDER=telegram` with a funded `TELEGRAM_GATEWAY_TOKEN`, and the TurboSMS variables for the SMS fallback.
 
 ## AI Usage Note
 

@@ -275,15 +275,7 @@ curl -i -X POST http://localhost:4100/api/v1/admin/categories \
 
 **Dates.** The stub dates count from the day the server starts: events in 13, 16 and 20 days (the last one cancelled), listings in 7 and 16 days. The item counts in the *Actual* column therefore stay the same whenever the log is run.
 
-Tokens come from `POST /api/v1/auth/guest`, or from `POST /api/v1/auth/sign-in` with the phone below and the password `nearby-dev-password` ([Trying It Out](api-design.md#trying-it-out)); `$ADMIN_TOKEN` above is the administrator's. They last 60 minutes.
-
-| Caller | Phone | Use it for |
-|---|---|---|
-| a guest | — (`/auth/guest`) | catalog reads (`/events`, `/categories`); must get `401` on signed-in endpoints |
-| Olena, Taras: two regular users | `+380501110001`, `+380501110002` | listings; "not the owner" cases (Taras deleting Olena's listing) |
-| Podil Film Club: a verified organization with its own venue | `+380501110003` | publish, edit and cancel events |
-| New Gallery: an organization awaiting verification | `+380501110004` | `ORGANIZATION_NOT_VERIFIED` |
-| an administrator | `+380501110005` | `/api/v1/admin/categories`; any other caller gets `404` there |
+Tokens come from `POST /api/v1/auth/guest`, or from a Google sign-in for every other caller ([Trying It Out](api-design.md#trying-it-out)); `$ADMIN_TOKEN` above is an account whose `role` is set to `admin`. They last 60 minutes. Since sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)) there are no seeded accounts: the stub listings, organizations and venues belong to accounts that only the e2e tests create, so the rows for their owners and for organizations are checked by `npm run test:e2e`, not by hand.
 
 **Input classes:**
 

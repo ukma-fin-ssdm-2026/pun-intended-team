@@ -24,8 +24,8 @@ package "identity" {
     * id : uuid <<PK>>
     --
     * role : user | admin
-    * <color:#B71C1C>contact_identifier : bytea (S) phone</color>
-    * contact_hash : bytea <<UK>>
+    <color:#B71C1C>contact_identifier : bytea (S) phone</color>
+    contact_hash : bytea <<UK>>
     <color:#B71C1C>date_of_birth : bytea (S)</color>
     * status : pending | active | banned
     * failed_signins : int

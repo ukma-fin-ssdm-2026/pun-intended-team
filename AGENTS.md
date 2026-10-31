@@ -93,7 +93,7 @@ Start it with `node`, not `npm start`: npm prints its own lines to stdout, which
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BEARER_TOKEN_BEARERAUTH` | a guest token | Sent as `Authorization: Bearer …` on every call. Unset, the launcher uses a guest token, enough for catalog reads. For other tools, pass a token from `/api/v1/auth/sign-in` with the right role ([Trying It Out](docs/api/api-design.md#trying-it-out)); it expires after 60 minutes and is not renewed |
+| `BEARER_TOKEN_BEARERAUTH` | a guest token | Sent as `Authorization: Bearer …` on every call. Unset, the launcher uses a guest token, enough for catalog reads. For other tools, pass the access token of a Google sign-in with the right role ([Trying It Out](docs/api/api-design.md#trying-it-out)); it expires after 60 minutes and is not renewed |
 | `API_BASE_URL` | `http://localhost:4100` | API the tools call; the default comes from `servers` in the spec |
 
 Pass tokens as environment variables, never in a committed file.
