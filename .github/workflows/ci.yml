@@ -6,12 +6,15 @@
 # Changed by Claude (Claude Code): merged the API tests, API docs, dependency audit, code quality, client
 # checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
 # Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
+# Changed by Claude (Claude Code): added the jobs that publish the API image and deploy it to staging.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
 # job, because every job is billed separately, rounded up to a full minute, and pays for its own checkout
 # and `npm ci`. Every check step runs even if an earlier one failed, so one run reports all problems;
-# the job still fails if any step failed. After a green push to main, the deploy job publishes the API docs.
+# the job still fails if any step failed. After a green push to main, the deploy job publishes the API docs
+# and the publish job pushes the API image to GHCR, which deploy-staging then runs on staging
+# (docs/operations/staging.md).
 name: CI
 
 on:
@@ -222,3 +225,44 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  publish:
+    name: Publish API image
+    needs: ci-passed
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: [self-hosted, linux]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Build and push to GHCR
+        env:
+          IMAGE: ghcr.io/ukma-fin-ssdm-2026/nearby-api
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DOCKER_CONFIG=$(mktemp -d)
+          export DOCKER_CONFIG
+          # The runner is shared: the images go once they are pushed, like the login.
+          trap 'docker image rm --force "$IMAGE:$GITHUB_SHA" "$IMAGE:main" >/dev/null; rm -rf "$DOCKER_CONFIG"' EXIT
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker build --platform linux/amd64 -t "$IMAGE:$GITHUB_SHA" -t "$IMAGE:main" .
+          docker push "$IMAGE:$GITHUB_SHA"
+          docker push "$IMAGE:main"
+
+  # Runs only while the repository variable STAGING_DEPLOY is `true` (docs/operations/staging.md).
+  deploy-staging:
+    name: Deploy staging
+    needs: publish
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.STAGING_DEPLOY == 'true'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy-staging.yml
+    with:
+      version: ${{ github.sha }}
+    secrets: inherit

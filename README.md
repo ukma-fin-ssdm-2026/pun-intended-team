@@ -93,6 +93,7 @@ For a production build: `npm run build`, then `npm start`.
 | `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
 | `DATA_ENCRYPTION_KEY_FILE` | — | Key that encrypts phone numbers and dates of birth in the database (SEC-003), created by `npm run keys:generate`; the server does not start without it. Losing or changing it makes the stored values unreadable |
 | `AUTH_RATE_LIMIT_PER_MINUTE` | `20` | Requests a minute per IP to each Google sign-in and registration endpoint and to `refresh` (SEC-007) |
+| `TRUST_PROXY` | — | The reverse proxy whose `X-Forwarded-For` the per-IP limits trust: a hop count, `loopback`, `uniquelocal` or CIDRs; `true` is refused. Unset without a proxy; staging sets `uniquelocal` |
 | `GOOGLE_CLIENT_IDS` | — | Comma-separated client ids of every Google OAuth client the app signs in with (web, iOS, Android); unset turns Google sign-in off, which production refuses |
 | `MESSAGING_PROVIDER` | `disabled` in production, `console` otherwise | How verification codes go out: `disabled`, `console` (logged, refused in production) or `telegram`. No route sends codes while sign-in is Google-only ([ADR-004](docs/architecture/decisions/ADR-004.md)) |
 | `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN`, `TURBOSMS_SENDER` | — | Telegram Gateway and its SMS fallback, read only with `MESSAGING_PROVIDER=telegram` ([external services](docs/operations/external-services.md)) |
@@ -113,6 +114,10 @@ npm run import:events   # one run: fetch, normalize, save, print a report; needs
 ```
 
 Events are still kept in memory, so the API does not see what a run imported until events are in the database. Until then, the unit tests check that the catalog serves imported events (`tests/unit/event-import.catalog.test.ts`).
+
+### Staging
+
+Staging runs `main` at `https://api.nearbystaging.app`, in Docker Compose on one server ([ADR-005](docs/architecture/decisions/ADR-005.md)). Every green merge to `main` publishes the API image to GHCR and deploys it over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
 
 <a id="tests"></a>
 

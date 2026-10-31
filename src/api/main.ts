@@ -5,7 +5,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.ts';
 import { ApiExpressAdapter } from './common/api-express-adapter.ts';
-import { corsOrigins, isProduction, port, serveSwaggerUi } from './common/config.ts';
+import { corsOrigins, isProduction, port, serveSwaggerUi, trustProxy } from './common/config.ts';
 import { generateOpenApiSpec, writeOpenApiSpec } from './common/openapi.ts';
 import { securityHeaders } from './common/security-headers.ts';
 
@@ -17,6 +17,9 @@ if (!isProduction) {
 
 const app = await NestFactory.create<NestExpressApplication>(AppModule, new ApiExpressAdapter(), { bodyParser: false });
 app.disable('x-powered-by');
+if (trustProxy !== undefined) {
+  app.set('trust proxy', trustProxy);
+}
 // First, so responses the body parser rejects get the headers too.
 app.use(securityHeaders(isProduction));
 app.useBodyParser('json', { limit: '100kb' });

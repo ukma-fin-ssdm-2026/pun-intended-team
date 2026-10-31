@@ -677,6 +677,58 @@ describe('Per-IP limit on the auth endpoints', () => {
   });
 });
 
+// SEC-007 behind Caddy on staging: the per-IP limit counts the client from X-Forwarded-For only
+// when TRUST_PROXY names the proxy. Here the test itself plays the proxy on loopback.
+describe('Per-IP limit behind a reverse proxy', () => {
+  let trusting: { child: ChildProcess; url: string };
+  let untrusting: { child: ChildProcess; url: string };
+
+  before(async () => {
+    trusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2', TRUST_PROXY: 'loopback' });
+    untrusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
+  });
+
+  after(() => {
+    trusting?.child.kill();
+    untrusting?.child.kill();
+  });
+
+  function signInFrom(api: { url: string }, clientIp: string): Promise<number> {
+    return fetch(api.url + '/api/v1/auth/google', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': clientIp },
+      body: JSON.stringify({ idToken: 'not-a-google-id-token' }),
+    }).then((res) => res.status);
+  }
+
+  test('gives each client behind a trusted proxy a limit of its own', async () => {
+    const statuses = [];
+    for (const clientIp of ['203.0.113.1', '203.0.113.2', '203.0.113.3']) {
+      statuses.push(await signInFrom(trusting, clientIp));
+    }
+
+    assert.ok(!statuses.includes(429), String(statuses));
+  });
+
+  test('still limits one client behind a trusted proxy', async () => {
+    await signInFrom(trusting, '203.0.113.9');
+    await signInFrom(trusting, '203.0.113.9');
+
+    assert.equal(await signInFrom(trusting, '203.0.113.9'), 429);
+  });
+
+  test('ignores X-Forwarded-For when TRUST_PROXY is not set', async () => {
+    await signInFrom(untrusting, '198.51.100.1');
+    await signInFrom(untrusting, '198.51.100.2');
+
+    assert.equal(await signInFrom(untrusting, '198.51.100.3'), 429);
+  });
+
+  test('refuses to start with TRUST_PROXY=true', async () => {
+    await assert.rejects(startApi({ TRUST_PROXY: 'true' }), /exited with code/);
+  });
+});
+
 // SEC-005: sessions renew without signing in again, and end at once on sign-out.
 describe('POST /api/v1/auth/refresh', () => {
   test('returns new tokens, and the old refresh token stops working', async () => {
