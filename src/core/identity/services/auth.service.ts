@@ -48,6 +48,7 @@ export class AuthService implements OnModuleInit {
     this.dummyPasswordHash = await this.passwordHasher.hash(randomUUID());
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /**
    * Answers the same whether or not the phone has an account and whether or not it reached a code limit,
    * since reset codes to an account count towards them (SEC-007).
@@ -57,6 +58,7 @@ export class AuthService implements OnModuleInit {
     await this.sendCode(phone, 'registration', new Date());
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /** A phone that verified before but never finished registration continues with its pending account. */
   async verify({ phone, code }: Registration): Promise<AccessToken> {
     const now = new Date();
@@ -84,11 +86,11 @@ export class AuthService implements OnModuleInit {
     return this.issue({ kind: 'registrant', accountId: account.id }, REGISTRATION_TOKEN_SECONDS);
   }
 
-  /** An applicant under 18 is refused and the pending account removed, so the number can register again (SAFE-001). */
+  /** An applicant under 18 is refused and the pending account removed, so they can register again (SAFE-001). */
   async completeRegistration(accountId: string, dateOfBirth: string): Promise<SessionTokens> {
     const account = await this.accountsRepository.findById(accountId);
     if (!account) {
-      throw new DomainError('NOT_FOUND', 'No registration in progress. Start again with your phone number');
+      throw new DomainError('NOT_FOUND', 'No registration in progress. Start again');
     }
     if (account.status !== 'pending') {
       throw new DomainError('CONFLICT', 'Registration is already complete. Sign in instead');
@@ -101,6 +103,7 @@ export class AuthService implements OnModuleInit {
     return this.sessionsService.start(accountId, account.role);
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /**
    * The current password is required only once the account has one. A wrong one counts like a failed sign-in,
    * so a stolen session cannot be used to guess it (SEC-007). A new password ends every other session.
@@ -123,6 +126,7 @@ export class AuthService implements OnModuleInit {
     await this.sessionsService.endAll(accountId, sessionId);
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /**
    * Sends a reset code only to an active account, but returns the same way for any phone and without waiting
    * for the provider, so neither the answer nor its timing reveals an account (SEC-007).
@@ -138,6 +142,7 @@ export class AuthService implements OnModuleInit {
     });
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /** Ends every session, so whoever knew the old password is signed out (TM-01). */
   async resetPassword({ phone, code, password }: PasswordReset): Promise<SessionTokens> {
     const now = new Date();
@@ -152,6 +157,7 @@ export class AuthService implements OnModuleInit {
     return this.sessionsService.start(account.id, account.role);
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   async signIn(phone: string, password: string): Promise<SessionTokens> {
     const credential = await this.accountsRepository.findPasswordCredential(phone);
     // An unknown phone still costs one hash, so the response time does not reveal it (SEC-007).
@@ -178,14 +184,12 @@ export class AuthService implements OnModuleInit {
     }
     const account = await this.accountsRepository.findByGoogleSubject(subject);
     if (account?.status !== 'active') {
-      throw new DomainError(
-        'INVALID_CREDENTIALS',
-        'This Google account is not linked to Nearby. Sign in with your phone number, then link it',
-      );
+      throw new DomainError('INVALID_CREDENTIALS', 'This Google account has no Nearby account. Sign up first');
     }
     return this.sessionsService.start(account.id, account.role);
   }
 
+  // Not reachable while sign-in is Google-only (ADR-004).
   /** Only from a signed-in session, never by matching email (TM-12). Linking the same Google account again is a no-op. */
   async linkGoogle(accountId: string, idToken: string): Promise<void> {
     const subject = await this.googleIdTokens.verify(idToken);

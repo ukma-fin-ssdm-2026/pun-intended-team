@@ -131,7 +131,7 @@ The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
-The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, signed in as a seeded development account (`npm run db:seed`).
+The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, with the access token of a Google sign-in in `PERF_TOKEN`.
 
 ### Test documentation
 
@@ -168,7 +168,6 @@ Categories, accounts, verification codes and sessions are stored in PostgreSQL (
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
 npx prisma migrate deploy   # creates the tables and the starting categories
-npm run db:seed             # the development accounts, encrypted with your keys; run again after new keys
 ```
 
 Each process connects with its own database role ([database access](docs/architecture/mechanisms/database-access.md)): migrations run as the owner in `DATABASE_URL`, the API as `nearby_main` and the import service as `nearby_import`. The migration creates the two roles without a password; after `prisma migrate deploy`, run `npm run db:set-passwords` once to set the passwords from `MAIN_DATABASE_URL` and `IMPORT_DATABASE_URL` (repeating it is safe, and it prints no passwords). The owner needs the `CREATEROLE` privilege, which the Docker user already has.
