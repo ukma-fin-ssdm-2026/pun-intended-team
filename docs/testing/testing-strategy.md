@@ -6,30 +6,31 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 278 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 150 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 442 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 145 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
 
-Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008), listings (FR-021), Kyiv dates and ages, the match score, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet, and most new unit tests will come with it.
+Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration with Google and with a phone code, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008; the phone routes are paused by [ADR-004](../architecture/decisions/ADR-004.md)), listings (FR-021), Kyiv dates and ages, the match score, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet, and most new unit tests will come with it.
 
 Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreSQL. Planned: k6, Stryker, Maestro or Detox for the Expo client.
 
 ## Coverage
 
-MCR, 23 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
+MCR, 31 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 96.83% | 90.85% | 97.56% | 96.54% |
-| Unit tests only | 53.22% | 60.09% | 41.06% | 38.53% |
+| All tests | 93.62% | 88.47% | 90.15% | 91.98% |
+| Unit tests only | 64.62% | 69.38% | 56.93% | 52.23% |
 
-Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 93%; matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
-- **`auth.ts` (93%)**: no test calls an admin endpoint with a signed-in user who is not an admin, so the check that answers `404` (lines 44–46) never runs. Next integration test to add, since the guards are a critical module.
+- **`auth.ts` (89%)**: the errors `@CurrentAccount()` and `@CurrentRegistrant()` throw when an endpoint declares the wrong access, a programming error no request can cause.
+- **Routes paused by [ADR-004](../architecture/decisions/ADR-004.md)**: the database code for phone numbers, passwords, the lockout and verification codes (`prisma-accounts.repository.ts` 48%, `prisma-verification-codes.repository.ts` 30%) runs only through the removed routes; the `AuthService` logic behind them keeps its unit tests.
 - **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
 - **`api-exception.filter.ts` (branches 57%)**: the `500` for an unexpected error and the mapping of Nest's own `403`.
 - **Production and start-up only**: HSTS in production, a missing `DATABASE_URL`, a malformed stored password hash; these need another environment or a broken dependency.

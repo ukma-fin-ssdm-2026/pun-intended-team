@@ -6,8 +6,8 @@ export type AccountStatus = 'pending' | 'active' | 'banned';
 
 export interface Account {
   id: string;
-  /** E.164, e.g. +380501234567. */
-  phone: string;
+  /** E.164, e.g. +380501234567; null for an account registered with Google. */
+  phone: string | null;
   role: AccountRole;
   status: AccountStatus;
   /** YYYY-MM-DD; null while the account is pending. */

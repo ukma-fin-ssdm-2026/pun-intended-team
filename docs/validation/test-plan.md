@@ -51,6 +51,8 @@
 
 ## Test Cases
 
+*Paused:* the endpoint has no route while sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)); its test returns with the route.
+
 | № | Component/function | Level | Type | Expected result / acceptance criterion | Owner | Requirement | Status |
 |---|---|---|---|---|---|---|---|
 | TC-01 | `ListingsService.create` | Unit | Negative | A listing dated yesterday is rejected and nothing is stored | Viktoriia Baran | FR-021 | done |
@@ -69,10 +71,10 @@
 | TC-14 | `match(pool, exclusions, seed)` | Unit | Negative | Property test over generated pools: zero pairings where A → B without B → A, and zero users in two pairings of one round | TBD | FR-017, FUNC-002 | done |
 | TC-15 | Contact reveal | Integration | Negative | A contact request for a match with only one acceptance is answered with `404`, as if the match did not exist | TBD | FR-019, SEC-001 | planned |
 | TC-16 | `AuthService.verify` | Unit | Negative | After 3 failed attempts even the right code is refused with `INVALID_CODE` and is not marked used | Viktoriia Baran | FR-005, SEC-008 | done |
-| TC-17 | `POST /auth/verify` | Integration | Negative | After 3 wrong codes the right code is refused with `422 INVALID_CODE` | Viktoriia Baran | FR-005, SEC-008 | done |
-| TC-18 | `POST /auth/register` | Integration | Negative | A second request for the same number within a minute is answered with `202` like the first, and no second code is sent | Viktoriia Baran | FR-005, SEC-008 | done |
+| TC-17 | `POST /auth/verify` | Integration | Negative | After 3 wrong codes the right code is refused with `422 INVALID_CODE` | Viktoriia Baran | FR-005, SEC-008 | paused |
+| TC-18 | `POST /auth/register` | Integration | Negative | A second request for the same number within a minute is answered with `202` like the first, and no second code is sent | Viktoriia Baran | FR-005, SEC-008 | paused |
 | TC-19 | `afterSignIn` | Unit | Negative | The 5th failed sign-in within 15 minutes locks the account for 15 minutes and clears the count | Viktoriia Baran | FR-001, SEC-007 | done |
-| TC-20 | `POST /auth/sign-in` | Integration | Negative | After 5 wrong passwords the right password is refused with `401` and the same body as a wrong password | Viktoriia Baran | FR-001, SEC-007 | done |
+| TC-20 | `POST /auth/sign-in` | Integration | Negative | After 5 wrong passwords the right password is refused with `401` and the same body as a wrong password | Viktoriia Baran | FR-001, SEC-007 | paused |
 | TC-21 | `SessionsService.end` | Unit | Positive | Sign-out revokes the session with the current time as its revocation time | Viktoriia Baran | FR-001, SEC-005 | done |
 | TC-22 | `POST /auth/sign-out` | Integration | Negative | Sign-out answers `204`; then its access token gets `401` and its refresh token `401 INVALID_REFRESH_TOKEN`, while another session of the account still gets `200` | Viktoriia Baran | FR-001, SEC-005 | done |
 | TC-23 | `POST /auth/complete-registration` | Integration | Positive | Someone who turns 18 today is activated with `200`, and the returned access token reads listings with `200` | Viktoriia Baran | FR-001, FR-005, SAFE-001 | done |
@@ -109,12 +111,12 @@ Testing under this plan is complete when all of the following hold:
 
 ### Executable non-functional test: TC-10, local run
 
-TC-10 is an executable k6 script, [`tests/perf/listings.k6.js`](../../tests/perf/listings.k6.js). 500 virtual users (`constant-vus`) run for 10 minutes; each iteration calls `GET /api/v1/listings`, checks for `200` and waits 1 s. `setup()` signs in once with a seeded account and shares the access token, since sign-in is rate-limited. The PERF-001 thresholds apply to the listings requests only, and k6 exits non-zero when one fails. It is not part of CI.
+TC-10 is an executable k6 script, [`tests/perf/listings.k6.js`](../../tests/perf/listings.k6.js). 500 virtual users (`constant-vus`) run for 10 minutes; each iteration calls `GET /api/v1/listings`, checks for `200` and waits 1 s. `setup()` checks the access token from `PERF_TOKEN`, the token of a Google sign-in, and shares it, since k6 cannot sign in with Google. The PERF-001 thresholds apply to the listings requests only, and k6 exits non-zero when one fails. It is not part of CI.
 
 ```bash
-npx prisma migrate deploy && npm run db:seed   # local database with the development accounts
-npm run build && npm start                     # production build of the API on port 4100
-npm run test:perf                              # k6 2.3.0 in Docker (grafana/k6) against http://host.docker.internal:4100
+npx prisma migrate deploy                 # local database
+npm run build && npm start                # production build of the API on port 4100
+PERF_TOKEN=<access token> npm run test:perf   # k6 2.3.0 in Docker (grafana/k6) against http://host.docker.internal:4100
 ```
 
 Result of the run on 2026-10-24: **failed**, k6 exited with code 99.

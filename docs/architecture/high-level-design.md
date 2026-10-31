@@ -30,7 +30,7 @@ Both server processes are built from **one codebase and one image**, started in 
 
 | Module | Responsibility | Requirements |
 |---|---|---|
-| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
+| identity | Registration by code, password and Google sign-in (Google-only for now, [ADR-004](decisions/ADR-004.md)), tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
 | profiles | Profiles, interests, safety notice acknowledgment | FR-002, FR-004, FR-032, SAFE-002 |
 | catalog | Events, sessions, venues, categories, organization verification and publishing | FR-003, FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
@@ -64,7 +64,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 
 | Resource group | Access | Covers |
 |---|---|---|
-| `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token |
+| `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token; Google registration and sign-in only for now ([ADR-004](decisions/ADR-004.md)) |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
 | `/events`, `/venues`, `/categories` | guest or user read; verified organization write (events, venues) | FR-006–FR-013 |
 | `/sessions/{id}/applications` | user | FR-016, FR-031 |

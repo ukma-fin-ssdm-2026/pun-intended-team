@@ -26,10 +26,11 @@ export default function ProfileEditScreen() {
   // "+ ще" opens П1.2 Інтереси, "+ Додати соцмережу" П1.1.
   const [sheet, setSheet] = useState<'interests' | 'social' | null>(null);
   const [telegram, setTelegram] = useState(mockProfile.telegram);
-  const [phone, setPhone] = useState(mockProfile.phone);
+  // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
+  // const [phone, setPhone] = useState(mockProfile.phone);
   // Figma: Telegram is shared with a mutual match, the phone number is not.
   const [showTelegram, setShowTelegram] = useState(true);
-  const [showPhone, setShowPhone] = useState(false);
+  // const [showPhone, setShowPhone] = useState(false);
 
   return (
     <>
@@ -63,17 +64,12 @@ export default function ProfileEditScreen() {
           <View className="gap-3 pt-3">
             <Text className="font-inter-semibold text-title text-text-primary">Контакти для метчів</Text>
             <TextField label="Нікнейм у Telegram" value={telegram} onChangeText={setTelegram} />
-            <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+            {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
+            <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /> */}
             <Pressable accessibilityRole="button" onPress={() => setSheet('social')} className="self-start">
               <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
             </Pressable>
-            <ContactVisibility
-              telegram={telegram}
-              showTelegram={showTelegram}
-              onShowTelegramChange={setShowTelegram}
-              showPhone={showPhone}
-              onShowPhoneChange={setShowPhone}
-            />
+            <ContactVisibility telegram={telegram} showTelegram={showTelegram} onShowTelegramChange={setShowTelegram} />
           </View>
         </View>
       </FormScreen>
