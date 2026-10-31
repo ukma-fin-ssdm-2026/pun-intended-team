@@ -1,17 +1,19 @@
 // Written with the help of Claude
 // AI Usage: sign-up screen based on the Figma "В5 Реєстрація" frame, with Google instead of the phone number.
-import { Stack, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { Redirect, Stack, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { call, publicClient } from '@/api/public-client';
 import { startSession } from '@/api/session';
-import { failureMessage, messages } from '@/auth/messages';
-import { AuthFooter, AuthLayout } from '@/components/auth/auth-layout';
-import { GoogleButton } from '@/components/auth/google-button';
+import { failureSnackbar, googleSnackbars, messages } from '@/auth/messages';
+import { AuthLayout } from '@/components/auth/auth-layout';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
+import { useSignIn } from '@/hooks/use-sign-in';
+import { finishGoogleRegistration, googleProfile, googleRegistrationToken } from '@/state/google-registration';
 import { colors } from '@/styles/tokens';
 
 const MIN_AGE = 18;
@@ -36,63 +38,107 @@ function toIsoDate(value: string): string | undefined {
     : undefined;
 }
 
+// Shown only to a Google account that has no Nearby account yet; the Google button sends it here with the ID token.
 export default function SignUpScreen() {
   const router = useRouter();
+  const openCatalog = useSignIn();
+  const [idToken] = useState(googleRegistrationToken);
   const [birthDate, setBirthDate] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  const underAge = isUnderAge(birthDate);
+  const [serverUnderAge, setServerUnderAge] = useState(false);
+  const { snackbar, show, hide } = useSnackbar();
+
+  // E.g. the web page was reloaded: the token lived in memory only.
+  if (!idToken) return <Redirect href="/onboarding" />;
+
+  const { name, email } = googleProfile(idToken);
+  const underAge = isUnderAge(birthDate) || serverUnderAge;
   const dateOfBirth = toIsoDate(birthDate);
   const ready = !!dateOfBirth && !underAge && agreed;
 
-  const register = useCallback(
-    async (idToken: string) => {
-      if (!dateOfBirth) return;
-      setError(undefined);
-      setLoading(true);
-      const registered = await call(() => publicClient.POST('/api/v1/auth/google/register', { body: { idToken } }));
-      if (!registered.ok) {
+  const createAccount = async () => {
+    if (!dateOfBirth) return;
+    hide();
+    setLoading(true);
+    const registered = await call(() => publicClient.POST('/api/v1/auth/google/register', { body: { idToken } }));
+    if (!registered.ok) {
+      if (registered.status === 409) {
+        // The account was finished meanwhile, e.g. on another device: sign in with the same token.
+        const signedIn = await call(() => publicClient.POST('/api/v1/auth/google', { body: { idToken } }));
         setLoading(false);
-        if (registered.status === 429) {
-          router.push('/too-many-attempts');
-        } else if (registered.status === 409) {
-          setError('Цей Google-акаунт уже зареєстрований. Увійди.');
+        if (signedIn.ok) {
+          finishGoogleRegistration();
+          await startSession(signedIn.data);
+          openCatalog();
         } else {
-          setError(failureMessage(registered));
+          show(failureSnackbar(signedIn));
         }
         return;
       }
-      const completed = await call(() =>
-        publicClient.POST('/api/v1/auth/complete-registration', {
-          body: { dateOfBirth },
-          headers: { Authorization: `Bearer ${registered.data.accessToken}` },
-        }),
-      );
       setLoading(false);
-      if (!completed.ok) {
-        setError(completed.status === 422 ? messages.underage : failureMessage(completed));
-        return;
-      }
-      await startSession(completed.data);
-      router.replace('/profile-setup');
-    },
-    [dateOfBirth, router],
-  );
+      if (registered.status === 429) router.push('/too-many-attempts');
+      else if (registered.status === 422) show(googleSnackbars.expired);
+      else show(failureSnackbar(registered));
+      return;
+    }
+    const completed = await call(() =>
+      publicClient.POST('/api/v1/auth/complete-registration', {
+        body: { dateOfBirth },
+        headers: { Authorization: `Bearer ${registered.data.accessToken}` },
+      }),
+    );
+    setLoading(false);
+    if (!completed.ok) {
+      if (completed.status === 422) setServerUnderAge(true);
+      else show(failureSnackbar(completed));
+      return;
+    }
+    finishGoogleRegistration();
+    await startSession(completed.data);
+    router.replace('/profile-setup');
+  };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <AuthLayout
-        title="Створімо акаунт"
-        subtitle="Вкажи дату народження і продовж з Google."
-        footer={<AuthFooter question="Вже є акаунт?" link="Увійти" onPress={() => router.replace('/sign-in')} />}
+        title="Ще один крок"
+        subtitle="Nearby лише для людей від 18 років, тож нам потрібна дата народження."
+        footer={
+          <Button
+            label="Створити акаунт"
+            variant="dark"
+            disabled={!ready}
+            loading={loading}
+            onPress={() => void createAccount()}
+          />
+        }
       >
+        {/* The Google account that is registering, so someone with two accounts sees which one it is. */}
+        <View className="flex-row items-center gap-3 rounded-2xl border border-border-default px-3.5 py-3">
+          <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
+            <Text className="font-inter-semibold text-body text-text-on-dark">
+              {(name ?? email ?? '?').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View className="flex-1">
+            {name && <Text className="font-inter-semibold text-body text-text-primary">{name}</Text>}
+            {email && (
+              <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
+                {email}
+              </Text>
+            )}
+          </View>
+        </View>
         <TextField
           label="Дата народження"
           placeholder="ДД.ММ.РРРР"
           value={birthDate}
-          onChangeText={setBirthDate}
+          onChangeText={(value) => {
+            setBirthDate(value);
+            setServerUnderAge(false);
+          }}
           keyboardType="number-pad"
           error={
             underAge
@@ -121,14 +167,8 @@ export default function SignUpScreen() {
             <Text className="font-inter-semibold text-text-primary underline">політикою конфіденційності</Text>
           </Text>
         </View>
-        {/* Google draws its own button, which cannot be disabled, so it appears once the form is filled in. */}
-        {ready && !loading ? (
-          <GoogleButton text="signup_with" onIdToken={register} />
-        ) : (
-          <Button label="Зареєструватися через Google" variant="dark" loading={loading} disabled />
-        )}
-        {error && <Text className="text-center font-inter text-caption text-brand-coral">{error}</Text>}
       </AuthLayout>
+      {snackbar && <Snackbar {...snackbar} />}
     </>
   );
 }

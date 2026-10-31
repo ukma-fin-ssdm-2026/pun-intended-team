@@ -8,9 +8,11 @@
     "scheme": "nearby",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "ua.nearby.app",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "ua.nearby.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,6 +41,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d984b937-4b38-409b-9d01-f6a4bb7ac171"
+      }
     }
   }
 }

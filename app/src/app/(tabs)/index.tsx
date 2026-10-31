@@ -24,7 +24,7 @@ import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
 import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { finishCatalogLoading, useSession } from '@/state/session';
+import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
@@ -77,7 +77,7 @@ export default function CatalogScreen() {
         </View>
 
         {isGuest ? (
-          <CatalogHeader onAvatarPress={() => router.push('/sign-in')} />
+          <CatalogHeader onAvatarPress={openGuestDialog} />
         ) : (
           <CatalogHeader
             name={mockUser.firstNameVocative}

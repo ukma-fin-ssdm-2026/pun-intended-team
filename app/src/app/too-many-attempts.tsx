@@ -15,8 +15,11 @@ export default function TooManyAttemptsScreen() {
       title="Забагато спроб"
       description="Ми тимчасово обмежили вхід, щоб захистити твій акаунт."
       note="Спробуй ще раз через 14:52"
-      // The prototype opens В4 Вхід; support has no screen yet, so the link does nothing.
-      action={{ label: 'Зрозуміло', onPress: () => router.replace('/sign-in') }}
+      // Back to the screen with the Google button; support has no screen yet, so the link does nothing.
+      action={{
+        label: 'Зрозуміло',
+        onPress: () => (router.canGoBack() ? router.back() : router.replace('/onboarding')),
+      }}
       link={{ label: 'Написати в підтримку' }}
     />
   );
