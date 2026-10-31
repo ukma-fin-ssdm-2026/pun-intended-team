@@ -11,7 +11,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -21,7 +21,6 @@ import { useBlurOnNavigate } from '@/hooks/use-blur-on-navigate';
 import { closeGuestDialog, useSession } from '@/state/session';
 
 export default function RootLayout() {
-  const router = useRouter();
   const { guestDialogOpen, restored } = useSession();
   useBlurOnNavigate();
   useEffect(() => {
@@ -60,14 +59,7 @@ export default function RootLayout() {
         <Stack.Screen name="post-place" options={dissolve} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
-      <GuestDialog
-        visible={guestDialogOpen}
-        onClose={closeGuestDialog}
-        onAuth={(route) => {
-          closeGuestDialog();
-          router.push(route);
-        }}
-      />
+      <GuestDialog visible={guestDialogOpen} onClose={closeGuestDialog} onLeave={closeGuestDialog} />
     </GestureHandlerRootView>
   );
 }
