@@ -549,6 +549,12 @@ describe('POST /api/v1/auth/google/register', () => {
     assert.equal(signedIn.status, 200, JSON.stringify(signedIn.body));
   });
 
+  test('returns a registration token that only finishing registration accepts', async () => {
+    const { token } = await newRegistrant();
+
+    assertRejected(await call('GET', '/api/v1/listings', { token }), 401, 'UNAUTHENTICATED');
+  });
+
   test('continues a registration that was not completed', async () => {
     const subject = newGoogleSubject();
     await register(subject);
@@ -1072,6 +1078,11 @@ describe('GET /api/v1/admin/categories', () => {
 
   test('rejects a request without a token with 401', async () => {
     assertRejected(await call('GET', '/api/v1/admin/categories'), 401, 'UNAUTHENTICATED');
+  });
+
+  // SEC-001: an endpoint the caller may not use answers as if it did not exist.
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/categories', { token: tokens.user }), 404, 'NOT_FOUND');
   });
 });
 
