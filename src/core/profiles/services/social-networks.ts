@@ -48,7 +48,7 @@ const rules: Record<SocialNetwork, Rules> = {
   // A username has a letter in it; an account without one is known by the numeric id of profile.php?id=….
   facebook: {
     hosts: ['facebook.com', 'fb.com'],
-    reserved: ['people', 'groups', 'pages', 'events', 'watch', 'marketplace', 'photo', 'share', 'story.php'],
+    reserved: ['people', 'groups', 'pages', 'events', 'watch', 'marketplace', 'photo', 'share'],
     handle: /^(?:\d{5,20}|(?=.*[A-Za-z])[A-Za-z0-9.]{5,50})$/,
     hint: 'a username of 5 to 50 letters, digits or dots, or a profile.php?id= link',
     url: (handle) =>
@@ -62,16 +62,18 @@ const LINK = /^(?:https?:\/\/)?(?:www\.|m\.)?([^/\s?#]+)(\/[^?#]*)?(\?[^#]*)?/i;
 function handleInLink(network: SocialNetwork, input: string): string | null | undefined {
   const [, host = '', path = '', query = ''] = LINK.exec(input) ?? [];
   const { hosts, reserved } = rules[network];
-  if (!hosts.includes(host.toLowerCase()) || !path) {
+  if (!hosts.includes(host.toLowerCase())) {
     return null;
   }
+  // The site itself, or a page deeper than a profile.
   const segments = path.split('/').filter(Boolean);
   if (segments.length !== 1) {
     return undefined;
   }
   const [segment = ''] = segments;
-  if (network === 'facebook' && segment === 'profile.php') {
-    return new URLSearchParams(query).get('id') ?? undefined;
+  if (network === 'facebook' && segment.toLowerCase().endsWith('.php')) {
+    const id = segment.toLowerCase() === 'profile.php' ? new URLSearchParams(query).get('id') : null;
+    return id && /^\d+$/.test(id) ? id : undefined;
   }
   if (network === 'tiktok') {
     return segment.startsWith('@') ? segment.slice(1) : undefined;

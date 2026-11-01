@@ -34,6 +34,16 @@ const handles: { network: SocialNetwork; input: string; handle: string | undefin
   // Facebook accounts without a username are known by id.
   { network: 'facebook', input: 'https://www.facebook.com/profile.php?id=100012345678', handle: '100012345678' },
   { network: 'facebook', input: 'facebook.com/profile.php', handle: undefined },
+  { network: 'facebook', input: 'facebook.com/profile.php?id=olena.k', handle: undefined },
+  { network: 'facebook', input: 'facebook.com/photo.php?fbid=123', handle: undefined },
+  { network: 'facebook', input: 'facebook.com/permalink.php?story_fbid=1&id=2', handle: undefined },
+  { network: 'facebook', input: 'facebook.com/home.php', handle: undefined },
+  // The site itself, with or without a slash.
+  { network: 'instagram', input: 'instagram.com', handle: undefined },
+  { network: 'instagram', input: 'https://www.instagram.com/', handle: undefined },
+  { network: 'facebook', input: 'facebook.com', handle: undefined },
+  { network: 'tiktok', input: 'www.tiktok.com', handle: undefined },
+  { network: 'telegram', input: 't.me', handle: undefined },
   // Pages of the site that are not profiles.
   { network: 'facebook', input: 'facebook.com/people/Olena-K/100012345678', handle: undefined },
   { network: 'facebook', input: 'facebook.com/groups/kyivcinema', handle: undefined },
