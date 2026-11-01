@@ -7,14 +7,15 @@
 # checks and Pages deploy workflows into this file to save billed Actions minutes; the checks are unchanged.
 # Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
 # Changed by Claude (Claude Code): added the jobs that publish the API image and deploy it to staging.
+# Changed by Claude (Claude Code): the publish job also builds the web app image.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
 # job, because every job is billed separately, rounded up to a full minute, and pays for its own checkout
 # and `npm ci`. Every check step runs even if an earlier one failed, so one run reports all problems;
-# the job still fails if any step failed. After a green push to main, the deploy job publishes the API docs
-# and the publish job pushes the API image to GHCR, which deploy-staging then runs on staging
-# (docs/operations/staging.md).
+# the job still fails if any step failed. After a green push to main, the deploy job publishes the API docs.
+# After a green push to staging, the publish job pushes the API and web images to GHCR, which deploy-staging
+# then runs on staging (docs/operations/staging.md).
 name: CI
 
 on:
@@ -27,7 +28,8 @@ permissions: {}
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  # A cancelled run on staging could stop a deploy halfway.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/staging' }}
 
 jobs:
   ci-passed:
@@ -64,9 +66,14 @@ jobs:
             package-lock.json
             app/package-lock.json
 
+      # No dependency runs its own install scripts on the runner. The only one needed is @prisma/engines,
+      # which downloads the schema engine for migrations; prisma generate replaces the root postinstall.
       - name: Install dependencies
         id: install
-        run: npm ci
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild @prisma/engines
+          npx --no-install prisma generate
 
       # --- Code quality (was code-quality.yml) ---
       - name: Lint
@@ -85,7 +92,7 @@ jobs:
       - name: Install client dependencies
         id: client-install
         working-directory: app
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint client
         if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
@@ -100,7 +107,7 @@ jobs:
       - name: Check client formatting
         if: ${{ !cancelled() && steps.client-install.outcome == 'success' }}
         working-directory: app
-        run: npx prettier --check .
+        run: npx --no-install prettier --check .
 
       # The client's API types are generated from the spec; a spec change without them breaks this step.
       - name: Check API types match the spec
@@ -180,7 +187,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
-        run: npx prisma migrate deploy
+        run: npx --no-install prisma migrate deploy
 
       # The API connects as nearby_main, which the migration creates; the script gives it a password.
       - name: Set database role passwords
@@ -227,9 +234,9 @@ jobs:
         uses: actions/deploy-pages@v5
 
   publish:
-    name: Publish API image
+    name: Publish images
     needs: ci-passed
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
     runs-on: [self-hosted, linux]
     timeout-minutes: 15
     permissions:
@@ -241,24 +248,30 @@ jobs:
 
       - name: Build and push to GHCR
         env:
-          IMAGE: ghcr.io/ukma-fin-ssdm-2026/nearby-api
+          API_IMAGE: ghcr.io/ukma-fin-ssdm-2026/nearby-api
+          WEB_IMAGE: ghcr.io/ukma-fin-ssdm-2026/nearby-web
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPO_PUBLIC_API_URL: https://api.nearbystaging.app
+          EXPO_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.EXPO_PUBLIC_GOOGLE_CLIENT_ID }}
         run: |
           DOCKER_CONFIG=$(mktemp -d)
           export DOCKER_CONFIG
           # The runner is shared: the images go once they are pushed, like the login.
-          trap 'docker image rm --force "$IMAGE:$GITHUB_SHA" "$IMAGE:main" >/dev/null; rm -rf "$DOCKER_CONFIG"' EXIT
+          trap 'docker image rm --force "$API_IMAGE:$GITHUB_SHA" "$API_IMAGE:staging" "$WEB_IMAGE:$GITHUB_SHA" "$WEB_IMAGE:staging" >/dev/null; rm -rf "$DOCKER_CONFIG"' EXIT
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-          docker build --platform linux/amd64 -t "$IMAGE:$GITHUB_SHA" -t "$IMAGE:main" .
-          docker push "$IMAGE:$GITHUB_SHA"
-          docker push "$IMAGE:main"
+          docker build --platform linux/amd64 -t "$API_IMAGE:$GITHUB_SHA" -t "$API_IMAGE:staging" .
+          docker build --platform linux/amd64 -t "$WEB_IMAGE:$GITHUB_SHA" -t "$WEB_IMAGE:staging" \
+            --build-arg EXPO_PUBLIC_API_URL --build-arg EXPO_PUBLIC_GOOGLE_CLIENT_ID app
+          for image in "$API_IMAGE" "$WEB_IMAGE"; do
+            docker push "$image:$GITHUB_SHA"
+            docker push "$image:staging"
+          done
 
-  # Runs only while the repository variable STAGING_DEPLOY is `true` (docs/operations/staging.md).
   deploy-staging:
     name: Deploy staging
     needs: publish
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.STAGING_DEPLOY == 'true'
+    if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: read

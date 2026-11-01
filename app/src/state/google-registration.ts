@@ -11,18 +11,36 @@ export function googleRegistrationToken(): string | undefined {
   return pendingIdToken;
 }
 
+// What В7 starts from after registering: the first name and a username from the email.
+let profileSuggestion: { displayName: string; username: string } | undefined;
+
 export function finishGoogleRegistration() {
+  if (pendingIdToken) {
+    const { name, email } = googleProfile(pendingIdToken);
+    const username = (email?.split('@')[0] ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9._]/g, '')
+      .replace(/^[._]+/, '')
+      .slice(0, 30);
+    profileSuggestion = { displayName: name?.split(' ')[0] ?? '', username: username.length >= 3 ? username : '' };
+  }
   pendingIdToken = undefined;
+}
+
+export function takeProfileSuggestion() {
+  const suggestion = profileSuggestion;
+  profileSuggestion = undefined;
+  return suggestion ?? { displayName: '', username: '' };
 }
 
 // Name and email from the token, only to show which Google account is registering; the API checks the token itself.
 export function googleProfile(idToken: string): { name?: string; email?: string } {
   try {
-    const payload = idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = idToken.split('.')[1].replaceAll('-', '+').replaceAll('_', '/');
     const bytes = atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '='));
     // atob gives one character per byte; names are UTF-8.
     const json = decodeURIComponent(
-      Array.from(bytes, (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`).join(''),
+      Array.from(bytes, (char) => `%${(char.codePointAt(0) ?? 0).toString(16).padStart(2, '0')}`).join(''),
     );
     const { name, email } = JSON.parse(json) as { name?: string; email?: string };
     return { name, email };

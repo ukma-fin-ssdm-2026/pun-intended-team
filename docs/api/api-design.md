@@ -49,7 +49,7 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `author` | `{ username, displayName }` | Never the author's contacts |
+| `author` | `{ username, displayName }` | Never the author's contacts. A listing whose author has no profile is left out of the list and is a `404` by id |
 | `category` | `{ id, name }` | |
 | `eventId` | UUID or `null` | Set when the listing is about a catalog event |
 | `title` | string | |
@@ -61,7 +61,7 @@ Related to: Account (author), Category, Event.
 
 ### Profile
 
-**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`
+**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
 
 The signed-in user's own profile, built step by step during onboarding (FR-002, US-003) and edited afterwards. The resource is singular and lives under `/me`: a user only ever sees their own profile here, so there is no id to guess. Other users' profiles are shown only through listings (`author`).
 
@@ -70,26 +70,29 @@ The signed-in user's own profile, built step by step during onboarding (FR-002, 
 | `username` | string | Required at creation. Unique regardless of case, 3 to 30 letters, digits, dots or underscores, starting with a letter or a digit |
 | `displayName` | string | Required at creation, 1 to 50 characters |
 | `description` | string | Free text up to 500 characters; empty until set |
+| `occupation` | string | Studies or work, free text up to 100 characters; empty until set |
 | `communicationFormat` | `friends` \| `dating` \| `company` \| `null` | `null` until the user picks one |
 | `sharePhone` | boolean | Default `true`: whether the phone number is revealed on a mutual match; no account has one while sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)) |
 | `age` | integer | Whole years, computed on the server from the account's date of birth. The date itself is never returned (data model §4) |
 | `interests` | `[{ id, name }]` | Empty until the user picks some |
-| `isComplete` | boolean | `true` once `communicationFormat` is set **and** at least one interest is picked; matching needs both (use case E1) |
+| `linkedAccounts` | `[{ network, username, url }]` | Social networks a mutual match sees: `network` is `telegram`, `instagram`, `whatsapp`, `tiktok` or `facebook`, at most one each; `username` is the bare handle (for WhatsApp, the phone number digits), stored encrypted; `url` is the profile link. Empty until set during onboarding |
+| `isComplete` | boolean | `true` once `communicationFormat` is set, at least one interest is picked **and** at least one network is linked; matching needs all three (use case E1) |
 
 Related to: Account (`age` comes from its date of birth), Interest.
 
-Not in this version: photo upload and linked accounts. Until linked accounts exist, `sharePhone: false` is accepted although the data model requires at least one shared contact; the check moves into the profiles service together with linked accounts.
+Not in this version: photo upload. A mutual match needs a contact to reveal, and while sign-in is Google-only there is no phone number, so the contact is a linked network: `PUT /me/profile/linked-accounts` refuses an empty list, and `sharePhone` plays no part in the check.
 
 ### Interest
 
 **Base path:** `/api/v1/interests`
 
-A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints.
+A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints. `GET /interests` lists them group by group, in the order the seed sets for the groups, and within a group by name in Ukrainian alphabetical order; a profile's `interests` come in the same order.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `name` | string | Unique |
+| `name` | string | Unique, in Ukrainian |
+| `group` | string | The heading it is shown under, e.g. `Музика` |
 
 Related to: Profile (many to many).
 
@@ -170,10 +173,11 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `POST` | `/api/v1/me/profile` | Signed-in user | `201` the profile + `Location: /api/v1/me/profile` | `400`, `401`, `409` |
 | `PATCH` | `/api/v1/me/profile` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `409` |
 | `PUT` | `/api/v1/me/profile/interests` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
+| `PUT` | `/api/v1/me/profile/linked-accounts` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
 
-Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes.
+Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
 
-A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
+A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests and linked-accounts `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
 
 ### Categories
 
@@ -206,7 +210,7 @@ The endpoints are written in NestJS, and each one is declared with `@Endpoint`, 
 
 ### Pagination
 
-The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
+The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2). A page may hold fewer than `limit` items, or none, while `hasMore` is still `true` (the listing feed leaves out listings whose author has no profile), so a client keeps loading while `hasMore` is `true` and moves `offset` by `limit`, not by the number of items it got.
 
 ```json
 {
@@ -280,6 +284,8 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
+| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.

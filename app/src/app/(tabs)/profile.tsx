@@ -4,7 +4,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -14,11 +14,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
+import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
+import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { mockProfile } from '@/mocks/profile';
@@ -139,6 +142,64 @@ function SavedEvents({ events, onOpen }: { events: MockEvent[]; onOpen: (id: str
 //   );
 // }
 
+function AboutCard({ profile }: Readonly<{ profile: ReturnType<typeof useProfile> }>) {
+  if (profile.loading) {
+    return (
+      <View className="items-center py-6">
+        <Spinner size="lg" color={colors.brand.coral} />
+      </View>
+    );
+  }
+  if (!profile.data) {
+    return (
+      <View className="items-center gap-2 py-6">
+        <Text className="text-center font-inter text-body text-text-secondary">Не вдалося завантажити профіль</Text>
+        <Pressable accessibilityRole="button" onPress={profile.reload} hitSlop={8}>
+          <Text className="font-inter-semibold text-label text-brand-coral">Ще раз</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  const { description, interests, linkedAccounts } = profile.data;
+
+  return (
+    <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
+      {description ? (
+        <>
+          <View className="gap-2">
+            <Text className="font-inter-medium text-label text-text-secondary">Про себе</Text>
+            <Text className="font-inter text-body text-text-primary">{description}</Text>
+          </View>
+          <View className="h-px bg-border-default" />
+        </>
+      ) : null}
+      <View className="gap-2">
+        <Text className="font-inter-medium text-label text-text-secondary">Інтереси</Text>
+        <View className="flex-row flex-wrap gap-1.5">
+          {interests.map((interest) => (
+            <View key={interest.id} className="rounded-[14px] bg-brand-ink px-3 py-1.5">
+              <Text className="font-inter-semibold text-tag text-text-on-dark">{interest.name}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      {linkedAccounts.length > 0 && (
+        <>
+          <View className="h-px bg-border-default" />
+          <View className="gap-2">
+            <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
+            <View className="gap-1.5">
+              {linkedAccounts.map((linked) => (
+                <NetworkLink key={linked.network} {...linked} onOpen={(url) => void Linking.openURL(url)} />
+              ))}
+            </View>
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -155,6 +216,7 @@ export default function ProfileScreen() {
     .map(findMockEvent)
     .filter((event): event is MockEvent => !!event);
   useStatusBarStyle('light');
+  const profile = useProfile();
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -188,50 +250,26 @@ export default function ProfileScreen() {
 
         <View className="pl-5">
           <View className="size-[92px] items-center justify-center rounded-full border-4 border-surface-background bg-surface-card">
-            <Text className="font-inter-semibold text-title text-text-secondary">{mockProfile.initial}</Text>
+            <Text className="font-inter-semibold text-title text-text-secondary">
+              {profile.data?.displayName.charAt(0).toUpperCase()}
+            </Text>
           </View>
         </View>
 
         <View className="gap-3 px-5 pt-3.5">
-          <View className="gap-0.5">
-            <Text className="font-inter-bold text-h1 text-text-primary">{mockProfile.nameAge}</Text>
-            <Text className="font-inter text-caption text-text-secondary">{mockProfile.occupation}</Text>
-          </View>
-          <ProfileTabs active={tab} onSelect={selectTab} />
-          {tab === 'about' && (
-            <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
-              <View className="gap-2">
-                <Text className="font-inter-medium text-label text-text-secondary">Про себе</Text>
-                <Text className="font-inter text-body text-text-primary">{mockProfile.about}</Text>
-              </View>
-              <View className="h-px bg-border-default" />
-              <View className="gap-2">
-                <Text className="font-inter-medium text-label text-text-secondary">Інтереси</Text>
-                <View className="flex-row flex-wrap gap-1.5">
-                  {mockProfile.interests.map((interest) => (
-                    <View key={interest} className="rounded-[14px] bg-brand-ink px-3 py-1.5">
-                      <Text className="font-inter-semibold text-tag text-text-on-dark">{interest}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-              <View className="h-px bg-border-default" />
-              <View className="gap-2">
-                <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
-                <View className="gap-1.5">
-                  <View className="flex-row items-center gap-2.5">
-                    <Icon name="contact-send" size={18} />
-                    <Text className="font-inter-medium text-body text-text-primary">{mockProfile.telegram}</Text>
-                  </View>
-                  {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-                  <View className="flex-row items-center gap-2.5">
-                    <Icon name="contact-phone" size={18} />
-                    <Text className="font-inter-medium text-body text-text-primary">{mockProfile.phoneMasked}</Text>
-                  </View> */}
-                </View>
-              </View>
+          {profile.data && (
+            <View className="gap-0.5">
+              <Text className="font-inter-bold text-h1 text-text-primary">
+                {profile.data.displayName}, {profile.data.age}
+              </Text>
+              {/* Figma shows the occupation here; without one, the username. */}
+              <Text className="font-inter text-caption text-text-secondary">
+                {profile.data.occupation || `@${profile.data.username}`}
+              </Text>
             </View>
           )}
+          <ProfileTabs active={tab} onSelect={selectTab} />
+          {tab === 'about' && <AboutCard profile={profile} />}
         </View>
 
         {tab === 'about' ? (

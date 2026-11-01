@@ -81,7 +81,9 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ValidationIssue'
-              description: Every invalid field, for validation errors that can name them
+              description: >-
+                Every invalid field, for validation errors and business rules
+                that can name them
           required:
             - code
             - message
@@ -113,6 +115,8 @@ components:
         - LISTING_DATE_IN_PAST
         - USERNAME_TAKEN
         - PROFILE_EXISTS
+        - CONTACT_REQUIRED
+        - INVALID_SOCIAL_HANDLE
         - INVALID_CREDENTIALS
         - WRONG_PASSWORD
         - INVALID_GOOGLE_TOKEN
@@ -619,7 +623,8 @@ components:
       example:
         items:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
     Interest:
       type: object
       properties:
@@ -628,13 +633,18 @@ components:
           format: uuid
         name:
           type: string
+        group:
+          type: string
+          description: The heading the interest is shown under
       required:
         - id
         - name
+        - group
       description: An interest from the fixed list users pick from
       example:
         id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Books
+        name: Книги
+        group: Книги й комікси
     Profile:
       type: object
       properties:
@@ -644,6 +654,9 @@ components:
           type: string
         description:
           type: string
+        occupation:
+          type: string
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           type: string
           nullable: true
@@ -665,32 +678,74 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Interest'
+        linkedAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedAccount'
+          description: Revealed to a mutual match, in the order of SocialNetwork
         isComplete:
           type: boolean
           description: >-
-            True once communicationFormat and at least one interest are set;
-            matching needs both
+            True once communicationFormat, at least one interest and at least
+            one linked account are set; matching needs all three
       required:
         - username
         - displayName
         - description
+        - occupation
         - communicationFormat
         - sharePhone
         - age
         - interests
+        - linkedAccounts
         - isComplete
       description: The signed-in user’s own profile
       example:
         username: olena_k
         displayName: Olena
         description: Cinema, galleries and long walks.
+        occupation: Student at Kyiv-Mohyla Academy
         communicationFormat: friends
         sharePhone: true
         age: 28
         interests:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
+        linkedAccounts:
+          - network: telegram
+            username: olena_k
+            url: https://t.me/olena_k
         isComplete: true
+    LinkedAccount:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/SocialNetwork'
+        username:
+          type: string
+          description: The handle, without "@"; for WhatsApp, the phone number digits
+        url:
+          type: string
+          description: The profile link a mutual match opens
+      required:
+        - network
+        - username
+        - url
+      description: A social network the user shares with a mutual match
+      example:
+        network: telegram
+        username: olena_k
+        url: https://t.me/olena_k
+    SocialNetwork:
+      type: string
+      enum:
+        - telegram
+        - instagram
+        - whatsapp
+        - tiktok
+        - facebook
+      description: A social network whose handle a mutual match sees
     CreateProfileBody:
       type: object
       properties:
@@ -731,6 +786,10 @@ components:
           type: string
           maxLength: 500
           description: Free text about the user; can be empty
+        occupation:
+          type: string
+          maxLength: 100
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           $ref: '#/components/schemas/CommunicationFormat'
         sharePhone:
@@ -765,6 +824,38 @@ components:
       example:
         interestIds:
           - b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+    ReplaceLinkedAccountsBody:
+      type: object
+      properties:
+        linkedAccounts:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                $ref: '#/components/schemas/SocialNetwork'
+              username:
+                type: string
+                maxLength: 200
+                description: >-
+                  A nickname with or without "@", or a profile link; for
+                  WhatsApp, a phone number. Kept as the bare handle; one that
+                  does not fit is INVALID_SOCIAL_HANDLE
+            required:
+              - network
+              - username
+            additionalProperties: false
+          maxItems: 5
+          description: >-
+            The whole set, at most one per social network; an empty list is
+            CONTACT_REQUIRED, since a mutual match needs a contact
+      required:
+        - linkedAccounts
+      additionalProperties: false
+      example:
+        linkedAccounts:
+          - network: telegram
+            username: '@olena_k'
     HealthResponse:
       type: object
       properties:
@@ -1713,9 +1804,9 @@ paths:
       operationId: listInterests
       summary: List the interests users can pick
       description: >-
-        List the fixed set of interests users can pick for their profile; their
-        ids go in interestIds. Needs a signed-in account; a guest token gets
-        401.
+        List the fixed set of interests users can pick for their profile, group
+        by group and then by name; their ids go in interestIds. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Interests
       security:
@@ -1739,9 +1830,9 @@ paths:
       summary: Get your profile
       description: >-
         Get the caller’s own profile with the age computed from the account’s
-        date of birth. `isComplete` is true once a communication format and at
-        least one interest are set. Needs a signed-in account; a guest token
-        gets 401.
+        date of birth. `isComplete` is true once a communication format, at
+        least one interest and at least one linked account are set. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Profiles
       security:
@@ -1818,9 +1909,9 @@ paths:
       summary: Edit your profile
       description: >-
         Change the caller’s profile: any of displayName, username, description,
-        communicationFormat and sharePhone; only the fields sent change. Used
-        for every later onboarding step and for the edit screen. Needs a
-        signed-in account; a guest token gets 401.
+        occupation, communicationFormat and sharePhone; only the fields sent
+        change. Used for every later onboarding step and for the edit screen.
+        Needs a signed-in account; a guest token gets 401.
       tags:
         - Profiles
       security:
@@ -1904,6 +1995,57 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: '`REFERENCE_NOT_FOUND`: one of the interest ids does not exist.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/linked-accounts:
+    put:
+      operationId: replaceMyLinkedAccounts
+      summary: Set your networks
+      description: >-
+        Replace the whole set of networks (Telegram, Instagram, …) a mutual
+        match sees, at most one per app. At least one is required, since sign-in
+        is Google-only and there is no phone number to share. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceLinkedAccountsBody'
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a
+            username does not fit its social network; `details` names it.
           content:
             application/json:
               schema:

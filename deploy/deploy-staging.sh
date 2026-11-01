@@ -60,12 +60,12 @@ main() {
     exit 1
   fi
 
-  git fetch --quiet origin main
-  local input=${1:-origin/main} version
+  git fetch --quiet origin staging
+  local input=${1:-origin/staging} version
   version=$(git rev-parse --verify --quiet --end-of-options "$input^{commit}") || true
-  if [[ -z "$version" ]] || ! git merge-base --is-ancestor "$version" origin/main ||
+  if [[ -z "$version" ]] || ! git merge-base --is-ancestor "$version" origin/staging ||
     ! git cat-file -e "$version:docker-compose.staging.yml" 2>/dev/null; then
-    echo "$input is not a commit on main with the staging setup" >&2
+    echo "$input is not a commit on staging with the staging setup" >&2
     exit 1
   fi
 

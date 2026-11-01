@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Full SHA of the commit whose image to deploy; empty for the latest main
+        description: Full SHA of the commit whose image to deploy; empty for the latest staging
         required: false
         type: string
 
@@ -35,21 +35,21 @@ jobs:
       name: staging
       url: https://api.nearbystaging.app/health
     steps:
-      - name: Check out main
+      - name: Check out staging
         uses: actions/checkout@v7
         with:
-          ref: main
+          ref: staging
           fetch-depth: 0
 
-      # Only a commit on main may run here with the secrets of the staging environment, and everything below comes from it:
-      # the .env template here, the compose file and scripts on the server.
+      # Only a commit on staging may run here with the secrets of the staging environment, and everything below comes
+      # from it: the .env template here, the compose file and scripts on the server.
       - name: Check out the commit to deploy
         env:
           VERSION: ${{ inputs.version }}
         run: |
           version=${VERSION:-$(git rev-parse HEAD)}
           if ! [[ $version =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$version" HEAD; then
-            echo "::error::The version must be the full SHA of a commit on main"
+            echo "::error::The version must be the full SHA of a commit on staging"
             exit 1
           fi
           git checkout --quiet --detach "$version"
@@ -75,7 +75,6 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS }}
-          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
           TURBOSMS_SENDER: ${{ vars.TURBOSMS_SENDER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           NEARBY_MAIN_PASSWORD: ${{ secrets.NEARBY_MAIN_PASSWORD }}

@@ -2,32 +2,29 @@
 // AI Usage: "Додати соцмережу" and "Інтереси" sheets from the Figma "П1.1" and "П1.2" frames, on mock data; reviewed
 // by Daryna Halytska.
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text, useWindowDimensions, View, type KeyboardTypeOptions } from 'react-native';
 
+import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
-import { type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
 import { SelectChip } from '@/components/ui/select-chip';
 import { Sheet } from '@/components/ui/sheet';
+import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
 import { TextField } from '@/components/ui/text-field';
-import { mockProfile } from '@/mocks/profile';
 
-const networks: { name: string; icon: IconName }[] = [
-  { name: 'Instagram', icon: 'camera' },
-  { name: 'WhatsApp', icon: 'send' },
-  { name: 'TikTok', icon: 'share' },
-  { name: 'Facebook', icon: 'user' },
-];
+type SocialNetwork = components['schemas']['SocialNetwork'];
 
 type SocialProps = {
   visible: boolean;
-  // "Додати" and the backdrop return to П1; nothing is saved yet.
+  options: { network: SocialNetwork; name: string; placeholder: string; keyboardType?: KeyboardTypeOptions }[];
   onClose: () => void;
+  onAdd: (network: SocialNetwork, username: string) => void;
 };
 
-export function AddSocialSheet({ visible, onClose }: SocialProps) {
-  const [network, setNetwork] = useState(networks[0].name);
-  const [nickname, setNickname] = useState(mockProfile.socialNickname);
+export function AddSocialSheet({ visible, options, onClose, onAdd }: Readonly<SocialProps>) {
+  const [network, setNetwork] = useState(options[0].network);
+  const [nickname, setNickname] = useState('');
+  const chosen = options.find((option) => option.network === network) ?? options[0];
 
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -35,39 +32,61 @@ export function AddSocialSheet({ visible, onClose }: SocialProps) {
         Додати соцмережу
       </Text>
       <View accessibilityRole="radiogroup" className="gap-2.5">
-        {networks.map((item) => (
+        {options.map((item) => (
           <RadioOption
-            key={item.name}
-            icon={item.icon}
+            key={item.network}
+            icon={(color) => <SocialNetworkIcon network={item.network} size={20} color={color} />}
             title={item.name}
-            selected={network === item.name}
-            onPress={() => setNetwork(item.name)}
+            selected={network === item.network}
+            onPress={() => setNetwork(item.network)}
           />
         ))}
       </View>
-      <TextField label="Нікнейм або посилання" value={nickname} onChangeText={setNickname} autoCapitalize="none" />
-      <Button label="Додати" onPress={onClose} />
+      <TextField
+        label="Нікнейм або посилання"
+        placeholder={chosen.placeholder}
+        value={nickname}
+        onChangeText={setNickname}
+        keyboardType={chosen.keyboardType}
+        autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={200}
+      />
+      <Button label="Додати" disabled={!nickname.trim()} onPress={() => onAdd(network, nickname)} />
     </Sheet>
   );
 }
 
 type InterestsProps = {
   visible: boolean;
-  // П1's choice when the sheet opens.
+  options: Interest[];
+  // The form's choice of interest ids when the sheet opens.
   selected: string[];
   onClose: () => void;
-  // "Зберегти" returns to П1 with the new choice.
+  // "Зберегти" returns to the form with the new choice.
   onSave: (interests: string[]) => void;
 };
 
-export function InterestsSheet({ visible, selected, onClose, onSave }: InterestsProps) {
-  // The parent mounts the sheet on open, so the draft starts from П1's current choice.
+// The share of the screen the list may take.
+const LIST_HEIGHT = 0.6;
+
+type Interest = components['schemas']['Interest'];
+
+// The API lists interests by group, so each group is one run of the list.
+function groupsOf(interests: Interest[]): { group: string; interests: Interest[] }[] {
+  const groups: { group: string; interests: Interest[] }[] = [];
+  for (const interest of interests) {
+    const last = groups.at(-1);
+    if (last?.group === interest.group) last.interests.push(interest);
+    else groups.push({ group: interest.group, interests: [interest] });
+  }
+  return groups;
+}
+
+export function InterestsSheet({ visible, options, selected, onClose, onSave }: Readonly<InterestsProps>) {
+  const { height } = useWindowDimensions();
+  // The parent mounts the sheet on open, so the draft starts from the form's current choice.
   const [draft, setDraft] = useState(selected);
-  // An interest chosen on П1 that the full list lacks stays first, so it can still be cleared here.
-  const options = [
-    ...selected.filter((interest) => !mockProfile.allInterests.includes(interest)),
-    ...mockProfile.allInterests,
-  ];
   const toggle = (interest: string) =>
     setDraft((current) =>
       current.includes(interest) ? current.filter((item) => item !== interest) : [...current, interest],
@@ -81,16 +100,26 @@ export function InterestsSheet({ visible, selected, onClose, onSave }: Interests
         </Text>
         <Text className="font-inter-medium text-label text-text-secondary">обрано {draft.length}</Text>
       </View>
-      <View className="flex-row flex-wrap gap-2">
-        {options.map((interest) => (
-          <SelectChip
-            key={interest}
-            label={interest}
-            selected={draft.includes(interest)}
-            onPress={() => toggle(interest)}
-          />
+      {/* The list scrolls; the title and "Зберегти" stay in place. */}
+      <ScrollView style={{ maxHeight: height * LIST_HEIGHT }} contentContainerClassName="gap-4">
+        {groupsOf(options).map(({ group, interests }) => (
+          <View key={group} className="gap-2.5">
+            <Text accessibilityRole="header" className="font-inter-semibold text-label text-text-secondary">
+              {group}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {interests.map((interest) => (
+                <SelectChip
+                  key={interest.id}
+                  label={interest.name}
+                  selected={draft.includes(interest.id)}
+                  onPress={() => toggle(interest.id)}
+                />
+              ))}
+            </View>
+          </View>
         ))}
-      </View>
+      </ScrollView>
       <Button label="Зберегти" onPress={() => onSave(draft)} />
     </Sheet>
   );
