@@ -1219,7 +1219,8 @@ describe('PUT /api/v1/events/{id}', () => {
     assert.equal(res.body.id, filmNight);
     assert.equal(res.body.title, replacement.title);
     assert.equal(res.body.description, replacement.description);
-    assert.equal(res.body.startsAt, replacement.startsAt);
+    // The database keeps the instant, not the offset it was sent with.
+    assert.equal(Date.parse(res.body.startsAt), Date.parse(replacement.startsAt));
     assert.equal(res.body.status, 'published');
   });
 
