@@ -8,6 +8,7 @@
 # Changed by Claude (Claude Code): noted that the coverage step fails below the coverage thresholds.
 # Changed by Claude (Claude Code): added the jobs that publish the API image and deploy it to staging.
 # Changed by Claude (Claude Code): the publish job also builds the web app image.
+# Changed by Claude (Claude Code): the test step passes the import service's database URL to the e2e tests.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is the single required check in the rulesets. It runs all checks as steps of one
@@ -211,6 +212,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
           MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
+          IMPORT_DATABASE_URL: postgresql://nearby_import:nearby_import_dev_password@localhost:5432/nearby
         run: npm run test:coverage
 
   deploy:

@@ -2,17 +2,20 @@
 import { Global, Module } from '@nestjs/common';
 import { EventProvider } from '../core/import/adapters/event-provider.ts';
 import { ImportedEventsRepository } from '../core/import/repositories/imported-events.repository.ts';
+import { ImportPrismaService } from './prisma/import-prisma.service.ts';
+import { PrismaImportedEventsRepository } from './prisma/prisma-imported-events.repository.ts';
 import { ConcertUaEventProvider } from './providers/concert-ua-event-provider.ts';
-import { StubImportedEventsRepository } from './stubs/imported-events.repository.ts';
 
 /**
- * The import's bindings, kept out of InfraModule so the API never builds a provider adapter. Only the import's
- * start command (`src/import/`) loads this module.
+ * Everything the import needs from `infra`, and nothing of the API's: its own database connection as
+ * `nearby_import` and the provider adapter, with no key files and no `MAIN_DATABASE_URL`. Only the import's start
+ * command (`src/import/`) loads this module.
  */
 @Global()
 @Module({
   providers: [
-    { provide: ImportedEventsRepository, useClass: StubImportedEventsRepository },
+    ImportPrismaService,
+    { provide: ImportedEventsRepository, useClass: PrismaImportedEventsRepository },
     { provide: EventProvider, useFactory: () => new ConcertUaEventProvider() },
   ],
   exports: [ImportedEventsRepository, EventProvider],
