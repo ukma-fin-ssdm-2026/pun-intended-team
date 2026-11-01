@@ -23,6 +23,7 @@ import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
 import { useInterests } from '@/hooks/use-interests';
 import { takeProfileSuggestion } from '@/state/google-registration';
+import { useRandomText } from '@/random-texts';
 
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
 
@@ -35,6 +36,7 @@ export default function ProfileSetupScreen() {
   const [username, setUsername] = useState(suggestion.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
   const [occupation, setOccupation] = useState('');
+  const occupationPlaceholder = useRandomText('occupation');
   const [about, setAbout] = useState('');
   const [format, setFormat] = useState<CommunicationFormat | null>(null);
   const [interestIds, setInterestIds] = useState<string[]>([]);
@@ -102,7 +104,7 @@ export default function ProfileSetupScreen() {
           />
           <TextField
             label="Чим займаєшся?"
-            placeholder="Наприклад, студентка КМА"
+            placeholder={occupationPlaceholder}
             value={occupation}
             onChangeText={setOccupation}
             maxLength={100}

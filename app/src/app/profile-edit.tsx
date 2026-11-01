@@ -31,6 +31,7 @@ import { TextField } from '@/components/ui/text-field';
 import { useInterests } from '@/hooks/use-interests';
 import { useProfile } from '@/hooks/use-profile';
 import { colors } from '@/styles/tokens';
+import { useRandomText } from '@/random-texts';
 
 type Profile = components['schemas']['Profile'];
 type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
@@ -67,6 +68,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const [username, setUsername] = useState(profile.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
   const [occupation, setOccupation] = useState(profile.occupation);
+  const occupationPlaceholder = useRandomText('occupation');
   const [about, setAbout] = useState(profile.description);
   const [format, setFormat] = useState(profile.communicationFormat);
   const savedInterestIds = profile.interests.map((interest) => interest.id);
@@ -141,7 +143,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
           />
           <TextField
             label="Чим займаєшся?"
-            placeholder="Наприклад, студентка КМА"
+            placeholder={occupationPlaceholder}
             value={occupation}
             onChangeText={setOccupation}
             maxLength={100}
