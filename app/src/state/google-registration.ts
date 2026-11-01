@@ -11,8 +11,26 @@ export function googleRegistrationToken(): string | undefined {
   return pendingIdToken;
 }
 
+// What В7 starts from after registering: the first name and a username from the email.
+let profileSuggestion: { displayName: string; username: string } | undefined;
+
 export function finishGoogleRegistration() {
+  if (pendingIdToken) {
+    const { name, email } = googleProfile(pendingIdToken);
+    const username = (email?.split('@')[0] ?? '')
+      .toLowerCase()
+      .replace(/[^a-z0-9._]/g, '')
+      .replace(/^[._]+/, '')
+      .slice(0, 30);
+    profileSuggestion = { displayName: name?.split(' ')[0] ?? '', username: username.length >= 3 ? username : '' };
+  }
   pendingIdToken = undefined;
+}
+
+export function takeProfileSuggestion() {
+  const suggestion = profileSuggestion;
+  profileSuggestion = undefined;
+  return suggestion ?? { displayName: '', username: '' };
 }
 
 // Name and email from the token, only to show which Google account is registering; the API checks the token itself.

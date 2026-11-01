@@ -15,6 +15,8 @@ import { AddSocialSheet, InterestsSheet } from '@/components/profile/profile-she
 import { TextField } from '@/components/ui/text-field';
 import { mockProfile } from '@/mocks/profile';
 
+const asInterests = (names: string[]) => names.map((name) => ({ id: name, name }));
+
 export default function ProfileEditScreen() {
   const router = useRouter();
   const [name, setName] = useState(mockProfile.firstName);
@@ -54,7 +56,7 @@ export default function ProfileEditScreen() {
             onChangeText={setAbout}
           />
           <InterestPicker
-            options={interestOptions}
+            options={asInterests(interestOptions)}
             selected={interests}
             onToggle={(interest) => setInterests((current) => toggleInList(current, interest))}
             note={`обрано ${interests.length}`}
@@ -77,6 +79,7 @@ export default function ProfileEditScreen() {
       {sheet === 'interests' && (
         <InterestsSheet
           visible
+          options={asInterests(mockProfile.allInterests)}
           selected={interests}
           onClose={() => setSheet(null)}
           onSave={(saved) => {

@@ -6,10 +6,12 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { RadioOption } from '@/components/ui/radio-option';
 import { Toggle } from '@/components/ui/toggle';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { colors } from '@/styles/tokens';
@@ -23,13 +25,21 @@ const ACTION_BOTTOM = 34;
 const BUTTON_HEIGHT = 52;
 const FORM_BOTTOM_GAP = 110 - (ACTION_TOP + BUTTON_HEIGHT + ACTION_BOTTOM) + 34;
 
+type Interest = components['schemas']['Interest'];
+type CommunicationFormat = components['schemas']['CommunicationFormat'];
+
+// As the API checks it.
+export function isValidUsername(username: string) {
+  return /^[A-Za-z0-9][A-Za-z0-9._]{2,29}$/.test(username.trim());
+}
+
 type NavProps =
   // П1: a title between the back button and the spacer.
   | { title: string; step?: never }
   // В7, В8: "Крок 1 з 2", the progress bar and "Чернетку збережено".
   | { step: { current: number; total: number }; title?: never };
 
-function FormNav({ title, step }: NavProps) {
+function FormNav({ title, step }: Readonly<NavProps>) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -76,11 +86,11 @@ function FormNav({ title, step }: NavProps) {
 
 type FormScreenProps = NavProps & {
   children: ReactNode;
-  action: { label: string; onPress: () => void; disabled?: boolean };
+  action: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean };
 };
 
 // A white form under the navigation, with the screen's main button pinned to the bottom.
-export function FormScreen({ action, children, ...nav }: FormScreenProps) {
+export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProps>) {
   const insets = useSafeAreaInsets();
   useStatusBarStyle('dark');
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
@@ -101,7 +111,13 @@ export function FormScreen({ action, children, ...nav }: FormScreenProps) {
         className="absolute bottom-0 left-0 right-0 bg-surface-card px-5"
         style={{ paddingTop: ACTION_TOP, paddingBottom: actionBottom }}
       >
-        <Button label={action.label} variant="dark" onPress={action.onPress} disabled={action.disabled} />
+        <Button
+          label={action.label}
+          variant="dark"
+          onPress={action.onPress}
+          disabled={action.disabled}
+          loading={action.loading}
+        />
       </View>
     </View>
   );
@@ -142,9 +158,10 @@ export function ProfilePhoto() {
 }
 
 type InterestPickerProps = {
-  options: string[];
+  options: Interest[];
+  // Interest ids.
   selected: string[];
-  onToggle: (interest: string) => void;
+  onToggle: (id: string) => void;
   // The note on the right of "Інтереси *", e.g. "обрано 3".
   note: string;
   // "+ ще" opens П1.2 on П1; without a handler it does nothing, as on В7.
@@ -152,7 +169,7 @@ type InterestPickerProps = {
 };
 
 // "Інтереси": selected chips are dark with a check; "+ ще" ends the list.
-export function InterestPicker({ options, selected, onToggle, note, onMore }: InterestPickerProps) {
+export function InterestPicker({ options, selected, onToggle, note, onMore }: Readonly<InterestPickerProps>) {
   return (
     <View className="gap-2.5">
       <View className="flex-row items-start justify-between">
@@ -166,13 +183,13 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: In
       </View>
       <View className="flex-row flex-wrap gap-2">
         {options.map((interest) => {
-          const isSelected = selected.includes(interest);
+          const isSelected = selected.includes(interest.id);
           return (
             <Pressable
-              key={interest}
+              key={interest.id}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: isSelected }}
-              onPress={() => onToggle(interest)}
+              onPress={() => onToggle(interest.id)}
               className={`flex-row items-center gap-1.5 rounded-[18px] py-2 pr-3.5 ${
                 isSelected ? 'bg-brand-ink pl-2.5' : 'bg-surface-background pl-3.5'
               }`}
@@ -181,7 +198,7 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: In
               <Text
                 className={`font-inter-medium text-label ${isSelected ? 'text-text-on-dark' : 'text-text-primary'}`}
               >
-                {interest}
+                {interest.name}
               </Text>
             </Pressable>
           );
@@ -199,6 +216,45 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: In
   );
 }
 
+// The first `count` interests, then any chosen from the full list on "+ ще".
+export function interestChips(all: Interest[], selected: string[], count: number): Interest[] {
+  const first = all.slice(0, count);
+  return [...first, ...all.slice(count).filter((interest) => selected.includes(interest.id))];
+}
+
+const formats: { value: CommunicationFormat; title: string; icon: IconName }[] = [
+  { value: 'friends', title: 'Нові друзі', icon: 'user' },
+  { value: 'dating', title: 'Побачення', icon: 'heart' },
+  { value: 'company', title: 'Компанія на подію', icon: 'ticket' },
+];
+
+export function FormatPicker({
+  value,
+  onChange,
+}: Readonly<{
+  value: CommunicationFormat | null;
+  onChange: (value: CommunicationFormat) => void;
+}>) {
+  return (
+    <View className="gap-2.5">
+      <Text className="font-inter-semibold text-title text-text-primary">
+        Кого шукаєш? <Text className="text-brand-coral">*</Text>
+      </Text>
+      <View accessibilityRole="radiogroup" className="gap-2.5">
+        {formats.map((format) => (
+          <RadioOption
+            key={format.value}
+            icon={format.icon}
+            title={format.title}
+            selected={value === format.value}
+            onPress={() => onChange(format.value)}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export function toggleInList(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
 }
@@ -209,13 +265,13 @@ function VisibilityRow({
   note,
   value,
   onValueChange,
-}: {
+}: Readonly<{
   icon: IconName;
   title: string;
   note: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
-}) {
+}>) {
   return (
     <View className="flex-row items-center gap-3 overflow-hidden py-3">
       <View className="size-9 items-center justify-center overflow-hidden rounded-[11px] bg-surface-background">
@@ -240,7 +296,7 @@ type ContactVisibilityProps = {
 };
 
 // "Що побачить взаємний метч": which contacts a mutual match gets.
-export function ContactVisibility({ telegram, showTelegram, onShowTelegramChange }: ContactVisibilityProps) {
+export function ContactVisibility({ telegram, showTelegram, onShowTelegramChange }: Readonly<ContactVisibilityProps>) {
   return (
     <View className="overflow-hidden rounded-[20px] bg-surface-card px-4 py-1">
       <View className="pb-1 pt-3">

@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
+import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
 import { type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
@@ -25,7 +26,7 @@ type SocialProps = {
   onClose: () => void;
 };
 
-export function AddSocialSheet({ visible, onClose }: SocialProps) {
+export function AddSocialSheet({ visible, onClose }: Readonly<SocialProps>) {
   const [network, setNetwork] = useState(networks[0].name);
   const [nickname, setNickname] = useState(mockProfile.socialNickname);
 
@@ -53,21 +54,17 @@ export function AddSocialSheet({ visible, onClose }: SocialProps) {
 
 type InterestsProps = {
   visible: boolean;
-  // П1's choice when the sheet opens.
+  options: components['schemas']['Interest'][];
+  // The form's choice of interest ids when the sheet opens.
   selected: string[];
   onClose: () => void;
-  // "Зберегти" returns to П1 with the new choice.
+  // "Зберегти" returns to the form with the new choice.
   onSave: (interests: string[]) => void;
 };
 
-export function InterestsSheet({ visible, selected, onClose, onSave }: InterestsProps) {
-  // The parent mounts the sheet on open, so the draft starts from П1's current choice.
+export function InterestsSheet({ visible, options, selected, onClose, onSave }: Readonly<InterestsProps>) {
+  // The parent mounts the sheet on open, so the draft starts from the form's current choice.
   const [draft, setDraft] = useState(selected);
-  // An interest chosen on П1 that the full list lacks stays first, so it can still be cleared here.
-  const options = [
-    ...selected.filter((interest) => !mockProfile.allInterests.includes(interest)),
-    ...mockProfile.allInterests,
-  ];
   const toggle = (interest: string) =>
     setDraft((current) =>
       current.includes(interest) ? current.filter((item) => item !== interest) : [...current, interest],
@@ -84,10 +81,10 @@ export function InterestsSheet({ visible, selected, onClose, onSave }: Interests
       <View className="flex-row flex-wrap gap-2">
         {options.map((interest) => (
           <SelectChip
-            key={interest}
-            label={interest}
-            selected={draft.includes(interest)}
-            onPress={() => toggle(interest)}
+            key={interest.id}
+            label={interest.name}
+            selected={draft.includes(interest.id)}
+            onPress={() => toggle(interest.id)}
           />
         ))}
       </View>
