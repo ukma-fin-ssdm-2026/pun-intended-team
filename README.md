@@ -117,7 +117,7 @@ Events are still kept in memory, so the API does not see what a run imported unt
 
 ### Staging
 
-Staging runs `main` at `https://api.nearbystaging.app`, in Docker Compose on one server ([ADR-005](docs/architecture/decisions/ADR-005.md)). Every green merge to `main` publishes the API image to GHCR and deploys it over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
+Staging runs `main` in Docker Compose on one server: the API at `https://api.nearbystaging.app`, the web app at `https://nearbystaging.app` ([ADR-005](docs/architecture/decisions/ADR-005.md)). Every green merge to `main` publishes the API and web images to GHCR and deploys them over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
 
 <a id="tests"></a>
 
