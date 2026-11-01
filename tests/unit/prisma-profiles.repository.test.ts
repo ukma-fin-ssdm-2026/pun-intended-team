@@ -152,6 +152,15 @@ describe('PrismaProfilesRepository.update', () => {
     assert.deepEqual(data, { description: 'Hi', communicationFormat: 'casual' });
   });
 
+  test('stores an emptied description and occupation as null, as a new profile has them', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.update(ACCOUNT_ID, { description: '', occupation: '' });
+
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
+    assert.deepEqual(data, { description: null, occupation: null });
+  });
+
   test('leaves the format out when it is not changed', async () => {
     const { repository, prisma } = makeRepository();
 

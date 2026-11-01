@@ -73,12 +73,18 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
-  async update(accountId: string, { communicationFormat, ...changes }: ProfileChanges): Promise<Profile> {
+  // An empty description or occupation is stored as null, as a new profile has it.
+  async update(
+    accountId: string,
+    { communicationFormat, description, occupation, ...changes }: ProfileChanges,
+  ): Promise<Profile> {
     const row = await this.prisma.profile
       .update({
         where: { accountId },
         data: {
           ...changes,
+          ...(description !== undefined && { description: description || null }),
+          ...(occupation !== undefined && { occupation: occupation || null }),
           ...(communicationFormat && { communicationFormat: toDesiredCompany[communicationFormat] }),
         },
         include: withRelations,
