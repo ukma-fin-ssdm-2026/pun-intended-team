@@ -16,7 +16,7 @@ import pg from 'pg';
 import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 
-// Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+// Categories seeded by the seed_categories migration; the rest of the ids are those the in-memory stubs had before #310.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
@@ -31,7 +31,7 @@ const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
-// The accounts the stubs in src/infra/stubs/data.ts belong to; the test creates them and signs their Google ID tokens.
+// The accounts the former in-memory stubs belonged to; the test creates them and signs their Google ID tokens.
 const stubAccounts = {
   user: {
     id: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
