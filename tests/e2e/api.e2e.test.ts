@@ -223,6 +223,23 @@ async function newAccount(): Promise<{ subject: string; token: string }> {
   return { subject, token: res.body.accessToken };
 }
 
+/** Registers a new account with a profile and returns its token, account id and username. */
+async function newProfile(): Promise<{ token: string; accountId: string; username: string }> {
+  const { token } = await newAccount();
+  const username = `u_${randomUUID().slice(0, 8)}`;
+  const res = await call('POST', '/api/v1/me/profile', { token, body: { username, displayName: 'Reported' } });
+  assert.equal(res.status, 201, JSON.stringify(res.body));
+  return { token, accountId: accountIdOf(token), username };
+}
+
+/** The id of the account's open report case; undefined when it has none. */
+async function openCaseOf(accountId: string): Promise<string | undefined> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`SELECT id FROM report_cases WHERE target_account_id = $1 AND status = 'open'`, [accountId]),
+  );
+  return rows[0]?.id;
+}
+
 /** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
  * profiles of the stub listings' authors. */
 async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
@@ -1261,6 +1278,142 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
 
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('DELETE', '/api/v1/admin/categories/not-a-uuid', { token: tokens.admin }), 'params', 'id');
+  });
+});
+
+// FR-025
+describe('POST /api/v1/reports', () => {
+  test('reports a user by username with 204, in any case of the letters', async () => {
+    const target = await newProfile();
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: target.username.toUpperCase(), reason: 'no_show', comment: 'Did not come.' },
+    });
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.ok(await openCaseOf(target.accountId));
+  });
+
+  test('rejects an unknown username with 422 REFERENCE_NOT_FOUND', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: `nobody_${randomUUID().slice(0, 8)}`, reason: 'fake_profile' },
+    });
+    assertRejected(res, 422, 'REFERENCE_NOT_FOUND');
+  });
+
+  test('rejects your own username with 422 CANNOT_REPORT_SELF', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: 'olena_k', reason: 'other' },
+    });
+    assertRejected(res, 422, 'CANNOT_REPORT_SELF');
+  });
+
+  test('rejects a reason outside the list with 400', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: 'taras.m', reason: 'boring' },
+    });
+    assertInvalid(res, 'body', 'reason');
+  });
+
+  test('rejects a guest token with 401', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.guest,
+      body: { username: 'taras.m', reason: 'other' },
+    });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
+// FR-026, FR-027
+describe('Report cases', () => {
+  test('groups repeated reports on one user into one open case with every report', async () => {
+    const target = await newProfile();
+    const other = await newAccount();
+    for (const [token, comment] of [
+      [tokens.user, undefined],
+      [tokens.user, 'Second time: rude messages after the event.'],
+      [other.token, undefined],
+    ] as const) {
+      const res = await call('POST', '/api/v1/reports', {
+        token,
+        body: { username: target.username, reason: 'offensive_messages', comment },
+      });
+      assert.equal(res.status, 204, JSON.stringify(res.body));
+    }
+    const caseId = await openCaseOf(target.accountId);
+
+    const list = await call('GET', '/api/v1/admin/report-cases', { token: tokens.admin });
+    assert.equal(list.status, 200, JSON.stringify(list.body));
+    const listed = list.body.items.find((item: { id: string }) => item.id === caseId);
+    assert.equal(listed?.reportCount, 3, JSON.stringify(list.body.items));
+    assert.deepEqual(listed.account, { id: target.accountId, username: target.username, displayName: 'Reported' });
+
+    const details = await call('GET', `/api/v1/admin/report-cases/${caseId}`, { token: tokens.admin });
+    assert.equal(details.status, 200, JSON.stringify(details.body));
+    assert.equal(details.body.status, 'open');
+    assert.deepEqual(
+      details.body.reports.map((report: { reporter: { username: string | null }; comment: string | null }) => [
+        report.reporter.username,
+        report.comment,
+      ]),
+      [
+        ['olena_k', null],
+        ['olena_k', 'Second time: rude messages after the event.'],
+        [null, null],
+      ],
+    );
+  });
+
+  test('bans the reported user: their session gets 401 and the case is resolved and audited', async () => {
+    const target = await newProfile();
+    assert.equal((await call('GET', '/api/v1/me/profile', { token: target.token })).status, 200);
+    await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: target.username, reason: 'unsafe_behaviour' },
+    });
+    const caseId = await openCaseOf(target.accountId);
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/ban`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'resolved');
+    assert.equal(res.body.resolution, 'banned');
+    assertRejected(await call('GET', '/api/v1/me/profile', { token: target.token }), 401, 'UNAUTHENTICATED');
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT actor_id, result FROM audit_logs WHERE action = 'account.ban' AND target_id = $1`, [
+        target.accountId,
+      ]),
+    );
+    assert.deepEqual(rows, [{ actor_id: stubAccounts.admin.id, result: 'banned' }]);
+  });
+
+  test('rejects resolving a resolved case with 409, and a later report opens a new case', async () => {
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+    const caseId = await openCaseOf(target.accountId);
+
+    const dismissed = await call('POST', `/api/v1/admin/report-cases/${caseId}/dismiss`, { token: tokens.admin });
+    assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+    assert.equal(dismissed.body.resolution, 'dismissed');
+    const again = await call('POST', `/api/v1/admin/report-cases/${caseId}/ban`, { token: tokens.admin });
+    assertRejected(again, 409, 'CONFLICT');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token: target.token })).status, 200);
+
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+    const newCaseId = await openCaseOf(target.accountId);
+    assert.ok(newCaseId && newCaseId !== caseId);
+  });
+
+  test('answers 404 to an unknown case', async () => {
+    const res = await call('POST', `/api/v1/admin/report-cases/${randomUUID()}/ban`, { token: tokens.admin });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  // SEC-001: an endpoint the caller may not use answers as if it did not exist.
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/report-cases', { token: tokens.user }), 404, 'NOT_FOUND');
   });
 });
 

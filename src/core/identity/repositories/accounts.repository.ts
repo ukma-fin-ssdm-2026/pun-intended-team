@@ -1,5 +1,12 @@
 // Written with the help of Claude
-import type { Account, AccountRecord, GoogleLinkResult, PasswordCredential, SignInLockout } from '../types/account.ts';
+import type {
+  Account,
+  AccountRecord,
+  AccountStatus,
+  GoogleLinkResult,
+  PasswordCredential,
+  SignInLockout,
+} from '../types/account.ts';
 
 export abstract class AccountsRepository {
   abstract findById(accountId: string): Promise<Account | undefined>;
@@ -42,4 +49,6 @@ export abstract class AccountsRepository {
 
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
+
+  abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
 }

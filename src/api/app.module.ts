@@ -10,6 +10,7 @@ import { AuthGuard } from './common/auth.ts';
 import { authRateLimitPerMinute } from './common/config.ts';
 import { IdentityApiModule } from './identity/identity-api.module.ts';
 import { ListingsApiModule } from './listings/listings-api.module.ts';
+import { ModerationApiModule } from './moderation/moderation-api.module.ts';
 import { ProfilesApiModule } from './profiles/profiles-api.module.ts';
 import { SystemApiModule } from './system/system-api.module.ts';
 
@@ -24,6 +25,7 @@ import { SystemApiModule } from './system/system-api.module.ts';
     CatalogApiModule,
     ListingsApiModule,
     ProfilesApiModule,
+    ModerationApiModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },

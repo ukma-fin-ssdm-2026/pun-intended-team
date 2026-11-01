@@ -23,6 +23,7 @@ export const domainErrorCodes = [
   'PHONE_CODES_UNAVAILABLE',
   'INVALID_REFRESH_TOKEN',
   'UNDERAGE',
+  'CANNOT_REPORT_SELF',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];

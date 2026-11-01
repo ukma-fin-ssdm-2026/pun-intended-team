@@ -7,6 +7,7 @@ export const tags = [
   { name: 'Profiles', description: 'The signed-in user’s profile, filled in step by step during onboarding' },
   { name: 'Interests', description: 'The fixed list of interests users pick from' },
   { name: 'Categories', description: 'The event category directory' },
+  { name: 'Moderation', description: 'Reports on users and how administrators resolve them' },
   { name: 'System', description: 'Service endpoints' },
 ] as const;
 
