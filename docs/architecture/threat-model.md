@@ -33,7 +33,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | Load balancer (Z1) | — | — | — | — | per-IP backstop limit | — |
 | TB2 LB ↔ main server | — | — | — | TM-13 | — | — |
 | Main server (Z2) | TM-01, TM-02, TM-12 | input validation | TM-05 | TM-06, TM-14 | TM-09; rounds run in a worker thread (ADR-001) | TM-11 |
-| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (`nearby_owner` only in migrations) |
+| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (the owner `nearby` only in migrations) |
 | PostgreSQL (Z4) | — | TM-03 | TM-05 | TM-07 | managed host, daily backups (REL-004) | — |
 | Import service (Z3), TB4 | — | TM-03, TM-04 | — | role cannot read personal tables | — | role limited to imported events, venues, import runs and skipped records |
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |

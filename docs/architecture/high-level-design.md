@@ -121,7 +121,7 @@ Each process connects with its own database role; the import role can write only
 | `EventProvider.fetch(since)` → raw records; `normalize(raw)` → event or skip | CMP-03 | one per provider |
 | `PushProvider.send(batch)` — up to 100 messages | notifications | Expo Push |
 | `MessagingProvider.sendCode(contact, code)` | notifications | Telegram Gateway API → SMS fallback chain |
-| `GoogleIdentity.verify(idToken)` → `{ sub, email }` | identity | Google |
+| `GoogleIdTokens.verify(idToken)` → the Google subject id, or none for an invalid token | identity | Google |
 
 ## 4. How Components Communicate
 
