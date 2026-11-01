@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { MINUTE_MS } from '../core/common/durations.ts';
 import { IdentityModule } from '../core/identity/identity.module.ts';
 import { InfraModule } from '../infra/infra.module.ts';
 import { AdminApiModule } from './admin/admin-api.module.ts';
@@ -18,7 +19,7 @@ import { SystemApiModule } from './system/system-api.module.ts';
 @Module({
   imports: [
     // Counted in this process's memory: a stand-in until the load balancer limits per IP (ADR-002).
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: authRateLimitPerMinute }]),
+    ThrottlerModule.forRoot([{ ttl: MINUTE_MS, limit: authRateLimitPerMinute }]),
     InfraModule,
     IdentityModule,
     SystemApiModule,
