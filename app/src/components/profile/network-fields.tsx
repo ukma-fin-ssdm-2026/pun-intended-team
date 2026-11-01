@@ -88,6 +88,8 @@ export function NetworkFields({ value, onChange, errors = {} }: Readonly<Props>)
     'telegram',
     ...value.map((entry) => entry.network).filter((network) => network !== 'telegram'),
   ];
+  // A social network that already has a field is edited there, so П1.1 offers only the others.
+  const addable = order.filter((network) => !shownNetworks.includes(network));
 
   return (
     <View className="gap-3">
@@ -105,17 +107,16 @@ export function NetworkFields({ value, onChange, errors = {} }: Readonly<Props>)
           error={errors[network]}
         />
       ))}
-      <Pressable accessibilityRole="button" onPress={() => setSheetOpen(true)} className="self-start">
-        <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
-      </Pressable>
+      {addable.length > 0 && (
+        <Pressable accessibilityRole="button" onPress={() => setSheetOpen(true)} className="self-start">
+          <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
+        </Pressable>
+      )}
 
       {sheetOpen && (
         <AddSocialSheet
           visible
-          options={order
-            .filter((network) => network !== 'telegram')
-            .map((network) => ({ network, ...socialNetworks[network] }))}
-          usernameOf={usernameOf}
+          options={addable.map((network) => ({ network, ...socialNetworks[network] }))}
           onClose={() => setSheetOpen(false)}
           onAdd={(network, username) => {
             onChange(withNetwork(value, network, username));

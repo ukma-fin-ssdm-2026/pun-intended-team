@@ -17,20 +17,14 @@ type SocialNetwork = components['schemas']['SocialNetwork'];
 type SocialProps = {
   visible: boolean;
   options: { network: SocialNetwork; name: string; placeholder: string; keyboardType?: KeyboardTypeOptions }[];
-  // The nickname already in the form for a social network, so picking it shows what will be replaced.
-  usernameOf: (network: SocialNetwork) => string;
   onClose: () => void;
   onAdd: (network: SocialNetwork, username: string) => void;
 };
 
-export function AddSocialSheet({ visible, options, usernameOf, onClose, onAdd }: Readonly<SocialProps>) {
+export function AddSocialSheet({ visible, options, onClose, onAdd }: Readonly<SocialProps>) {
   const [network, setNetwork] = useState(options[0].network);
-  const [nickname, setNickname] = useState(usernameOf(options[0].network));
+  const [nickname, setNickname] = useState('');
   const chosen = options.find((option) => option.network === network) ?? options[0];
-  const choose = (next: SocialNetwork) => {
-    setNetwork(next);
-    setNickname(usernameOf(next));
-  };
 
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -44,7 +38,7 @@ export function AddSocialSheet({ visible, options, usernameOf, onClose, onAdd }:
             icon={(color) => <SocialNetworkIcon network={item.network} size={20} color={color} />}
             title={item.name}
             selected={network === item.network}
-            onPress={() => choose(item.network)}
+            onPress={() => setNetwork(item.network)}
           />
         ))}
       </View>
