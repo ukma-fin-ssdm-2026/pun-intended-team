@@ -95,6 +95,88 @@ Expected values, calculated from the analysis of 2026-11-01 (commit `91fdcb0`, `
 - **Duplicated lines.** The 124 that remain are in `app/src/app/profile-edit.tsx` and `app/src/app/profile-setup.tsx` (34 each), and `app/src/hooks/use-categories.ts` and `app/src/hooks/use-interests.ts` (28 each).
 - **Lines of code.** The 3,127 lines removed are 2,066 from `docs/api/openapi-generated.yaml`, 965 from `src/mcp/` and 96 from `docs/testing/coverage/`. The spec has no issues or duplicated lines, so it changes only this metric.
 
+## Chosen Metrics
+
+The Overall Metrics and Issues by Rule tables above are a snapshot of 2026-10-26. The tables below compare two analyses of `main` from 2026-11-01 and use the dashboard's names: SonarCloud has moved from rule types (Bug, Vulnerability, Code Smell) to software qualities (Security, Reliability, Maintainability), so the 9 `S8786` findings, typed Code Smell above, appear on the dashboard as Reliability issues.
+
+- **Before:** commit `91fdcb0`, the last analysis before #301 and #300.
+- **After:** commit `7886fde`, the merge of #300. Only #301 and #300 were merged between the two commits, and later merges (#334, #342, #343, #345, #346) are not included.
+- **Not yet included:** #306 (PR #320) is not merged yet, and its effect on these metrics is expected to be negligible: it replaces time arithmetic with shared constants, and the analysis of the pull request reports 28 new lines, no new duplicated lines and no new issues.
+
+| Metric | Before | After | Changed by |
+|---|---|---|---|
+| Reliability issues | 9 | 3 | #301 (measurement) |
+| Duplicated lines | 396 (1.3 %) | 124 (0.5 %) | #301 (measurement) |
+| Coverage | not imported | not imported | nothing yet |
+| Lines of code, for context | 24,174 | 21,050 | #301 (−3,127), #300 (+3) |
+
+**Why these three.** They come from the plan and conclusions above, which were written before the changes:
+
+- **Reliability issues:** `S8786` is the rule with the most findings, and its Plan names a step for each of the 9: exclude 6, trim the regex in 2 files, mark 1 as a false positive.
+- **Duplications:** the conclusions place most duplicated lines in generated code, so the number said little about the code the team writes.
+- **Coverage:** the conclusions note that it is not sent to SonarCloud, so the dashboard cannot show coverage on new code.
+
+**What changed the numbers.** The analysis of `67cd776`, the merge of #301 alone, separates the two pull requests. It already shows 3 Reliability issues, 124 duplicated lines and 21,047 lines of code, with Security issues still at 6. The analysis of `7886fde` adds the code fix from #300: Security issues drop to 0, and the new install steps in `ci.yml` add 3 lines of code.
+
+The improvement in Reliability issues and Duplications is therefore a change in measurement, not in code. The 6 `S8786` findings are still in `src/mcp/src/index.ts`, although SonarCloud lists them as Fixed because the file is no longer analyzed. Coverage has not changed at all.
+
+The 124 duplicated lines in `app/` were not in the 2026-10-26 analysis: duplicated lines rose from 272 to 396 with the merge of PR #339 (`91fdcb0`).
+
+**What is left to improve.**
+
+- **Reliability issues:** 3 `S8786` findings, in [src/infra/auth/argon2-password-hasher.ts](../../src/infra/auth/argon2-password-hasher.ts), [app/src/app/events/[id]/index.tsx](../../app/src/app/events/[id]/index.tsx) and [app/src/components/ui/tab-bar-shape.ts](../../app/src/components/ui/tab-bar-shape.ts).
+- **Duplications:** 124 lines, in [app/src/app/profile-edit.tsx](../../app/src/app/profile-edit.tsx) and [app/src/app/profile-setup.tsx](../../app/src/app/profile-setup.tsx) (34 each), and [app/src/hooks/use-categories.ts](../../app/src/hooks/use-categories.ts) and [app/src/hooks/use-interests.ts](../../app/src/hooks/use-interests.ts) (28 each).
+- **Coverage:** not imported into SonarCloud.
+
+## Security Rating
+
+| Metric | Before (`91fdcb0`) | After (`7886fde`) |
+|---|---|---|
+| Security issues | 6 | 0 |
+| Security rating | C | A |
+
+**Why it was C.** The [SonarQube Cloud rating grid](https://docs.sonarsource.com/sonarqube-cloud/managing-your-projects/metric-definitions) gives A for 0 vulnerabilities and C for at least one major vulnerability. All 6 issues were major vulnerabilities in `ci.yml`, shown on the dashboard with Medium impact.
+
+The count fell from 7 to 6 on 2026-10-31, without changing the rating. `S2068` was not marked Accepted or Safe as planned above: SonarCloud closed it as Fixed because #325 deleted `src/scripts/seed-dev-accounts.ts`.
+
+**Why it is A now.** #300 closed all 6 by changing `ci.yml`: `npm ci --ignore-scripts`, and `npx --no-install` instead of `npx`. With 0 vulnerabilities the grid gives A. Unlike the exclusion in #301, this is a change in the code.
+
+The Reliability rating stayed A with 9 Reliability issues because its grid counts only bugs, and there are none.
+
+**Link to the [static analysis](../code-quality/static-analysis.md) (Lab 5).** The manual review covered hand-written server code, and its scope left out infrastructure, so it never looked at the CI configuration. The dependency audit does not cover this risk either. `npm audit` finds known vulnerable versions, while `--ignore-scripts` limits what a compromised package can do during install, even one with no advisory yet. The two complement each other.
+
+**Link to the [threat model](../architecture/threat-model.md) (Lab 3).** It had no threat for the CI pipeline, because it analyzes the deployment. These findings add one: TM-16, a compromised package that runs install scripts on the self-hosted runner, with its remaining risk.
+
+## Screenshots
+
+**Before** (`91fdcb0`):
+
+![Security snapshot: rating C, 6 Security issues](images/before-overview-security.png)
+
+![Reliability and Maintainability snapshots: 9 Reliability issues](images/before-overview-reliability-maintainability.png)
+
+![Open issues, part 1](images/before-issues-1.png)
+
+![Open issues, part 2](images/before-issues-2.png)
+
+![Lines of code and duplications by folder](images/before-code-root.png)
+
+![src folder: src/mcp holds 965 lines of code and 6 Reliability issues](images/before-code-src.png)
+
+![docs/testing/coverage: 84.9 % duplications](images/before-code-docs-testing.png)
+
+**After** (the analysis of `7886fde`, 2026-11-01, 5:01 PM):
+
+![Activity: 0 Security issues](images/after-activity-security.png)
+
+![Activity: 124 duplicated lines, 21,050 lines of code, 3 Reliability issues](images/after-activity-loc-duplication-reliability.png)
+
+**Later analysis** (`26f0127`, 23,157 lines of code). These two include the later merges, so their numbers are not the "after" values; they show that `src/mcp/` and `docs/testing/coverage/` are gone from the analysis:
+
+![Lines of code and duplications by folder, later analysis](images/after-code-root.png)
+
+![src folder without src/mcp, later analysis](images/after-code-src.png)
+
 ## Regression Testing
 
 The unit and e2e tests were run before and after the refactorings: on `feature/293-pre-refactor` (commit `eaaba80`) and on `main` after PRs #295, #296 and #297 (commit `bf84a4a`).
@@ -110,3 +192,5 @@ The unit and e2e tests were run before and after the refactorings: on `feature/2
 ## AI Usage Note
 
 The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code. The Regression Testing section was drafted with Claude Code from test runs that were performed and checked by hand (Daryna Halytska).
+
+The Chosen Metrics and Security Rating sections were drafted with Claude Code from the SonarCloud Web API and the team's dashboard screenshots. Reviewed by Vlad-Re
