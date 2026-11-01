@@ -7,7 +7,7 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 | Layer | Where | Tests |
 |---|---|---|
 | Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 556 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 174 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 175 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
@@ -22,7 +22,7 @@ MCR, 1 November 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 94.72% | 89.33% | 92.86% | 93.56% |
+| All tests | 94.72% | 89.49% | 92.86% | 93.59% |
 | Unit tests only | 63.13% | 70.38% | 56.59% | 51.88% |
 
 Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; the `match` algorithm is covered by its unit tests, and the report and ban flow (FR-025 to FR-027) is at 97% of lines in `moderation.service.ts` and 93% in `prisma-report-cases.repository.ts`; the rest of matching is measured once it is built.
@@ -67,7 +67,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 
 **Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` on every pull request and fails the build when either value is below the threshold.
 
-**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.56% and 89.33% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
+**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.59% and 89.49% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
 
 **Evidence.** The step passes on `main` after the gate was added: [run 39924791190](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190), commit `63319ab`. When a threshold is raised above the current coverage, the run fails with `Coverage of "All tests" is too low` and exit code 1.
 
