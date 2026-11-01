@@ -1483,6 +1483,12 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
 
   // SEC-003: the nickname is personal data.
   test('stores the nickname encrypted', async () => {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
     const stored = await withDatabase((client) =>
       client.query('SELECT username FROM linked_accounts WHERE profile_id = $1', [accountIdOf(tokens.orgPending)]),
     );
@@ -1492,6 +1498,10 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
   });
 
   test('rejects an empty list with 422 CONTACT_REQUIRED and changes nothing', async () => {
+    await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
     const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       token: tokens.orgPending,
       body: { linkedAccounts: [] },

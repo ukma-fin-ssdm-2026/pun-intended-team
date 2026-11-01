@@ -5,7 +5,7 @@ import { DomainError } from '../../dist/core/common/domain-error.js';
 import { PrismaProfilesRepository } from '../../dist/infra/prisma/prisma-profiles.repository.js';
 import type { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
-import { ACCOUNT_ID } from './fixtures/accounts.ts';
+import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aUniqueViolation } from './fixtures/prisma-errors.ts';
 
 const INTEREST_ID = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
@@ -32,17 +32,24 @@ function aRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** `write` answers create and update; `row` is what findUnique reads. */
+/** `write` answers create and update; `row` is what findUnique reads, `found` what findFirst and findMany read. */
 function makeRepository({
   write = () => Promise.resolve(aRow()),
   row = aRow(),
-}: { write?: () => Promise<unknown>; row?: unknown } = {}) {
+  found = null,
+}: { write?: () => Promise<unknown>; row?: unknown; found?: unknown } = {}) {
   const prisma = {
     profile: {
       findUnique: mock.fn(() => Promise.resolve(row)),
+      findFirst: mock.fn<(args: { where: unknown }) => Promise<unknown>>(() => Promise.resolve(found)),
+      findMany: mock.fn<(args: { where: unknown }) => Promise<unknown>>(() => Promise.resolve(found ?? [])),
       findUniqueOrThrow: mock.fn(() => row),
       create: mock.fn<(args: { data: unknown }) => Promise<unknown>>(write),
       update: mock.fn<(args: { data: unknown }) => Promise<unknown>>(write),
+    },
+    profileInterest: {
+      deleteMany: mock.fn<(args: unknown) => string>(() => 'delete'),
+      createMany: mock.fn<(args: { data: { profileId: string; interestId: string }[] }) => string>(() => 'create'),
     },
     linkedAccount: {
       deleteMany: mock.fn<(args: unknown) => string>(() => 'delete'),
@@ -100,6 +107,7 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
 
     assert.equal(await repository.findByAccountId(ACCOUNT_ID), undefined);
   });
+
   test('lists the networks in the order of socialNetworks and skips one the code no longer knows', async () => {
     const { repository } = makeRepository({
       row: aRow({
@@ -120,6 +128,34 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
   });
 });
 
+describe('PrismaProfilesRepository.findSummaries', () => {
+  test('asks only for the given accounts and their public names', async () => {
+    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena' };
+    const { repository, prisma } = makeRepository({ found: [summary] });
+
+    assert.deepEqual(await repository.findSummaries([ACCOUNT_ID]), [summary]);
+    assert.deepEqual(prisma.profile.findMany.mock.calls[0]?.arguments[0].where, { accountId: { in: [ACCOUNT_ID] } });
+  });
+});
+
+describe('PrismaProfilesRepository.isUsernameTaken', () => {
+  test('compares the username in any letter case and leaves out the given account', async () => {
+    const { repository, prisma } = makeRepository({ found: { accountId: OTHER_ACCOUNT_ID } });
+
+    assert.equal(await repository.isUsernameTaken('Olena_K', ACCOUNT_ID), true);
+    assert.deepEqual(prisma.profile.findFirst.mock.calls[0]?.arguments[0].where, {
+      username: { equals: 'Olena_K', mode: 'insensitive' },
+      NOT: { accountId: ACCOUNT_ID },
+    });
+  });
+
+  test('is false when no other profile has it', async () => {
+    const { repository } = makeRepository({ found: null });
+
+    assert.equal(await repository.isUsernameTaken('olena_k'), false);
+  });
+});
+
 describe('PrismaProfilesRepository.create', () => {
   test('leaves the format null until it is picked', async () => {
     const { repository } = makeRepository({ write: () => Promise.resolve(aRow({ communicationFormat: null })) });
@@ -127,6 +163,18 @@ describe('PrismaProfilesRepository.create', () => {
     const profile = await repository.create(ACCOUNT_ID, { username: 'olena_k', displayName: 'Olena' });
 
     assert.equal(profile.communicationFormat, null);
+  });
+
+  // The service checks the username first; a request at the same time can still reach the unique index.
+  test('reports a username taken meanwhile as USERNAME_TAKEN', async () => {
+    const { repository } = makeRepository({
+      write: () => Promise.reject(aUniqueViolation({ index: 'profiles_username_lower_key' })),
+    });
+
+    await assert.rejects(
+      repository.create(ACCOUNT_ID, { username: 'olena_k', displayName: 'Olena' }),
+      isDomainError('USERNAME_TAKEN'),
+    );
   });
 
   // The service checks first; a second request at the same time can still reach the primary key.
@@ -184,6 +232,23 @@ describe('PrismaProfilesRepository.update', () => {
     const { repository } = makeRepository({ write: () => Promise.reject(failure) });
 
     await assert.rejects(repository.update(ACCOUNT_ID, { displayName: 'Olia' }), failure);
+  });
+});
+
+describe('PrismaProfilesRepository.replaceInterests', () => {
+  test('replaces the set in one transaction and returns the profile read after it', async () => {
+    const { repository, prisma } = makeRepository();
+
+    const profile = await repository.replaceInterests(ACCOUNT_ID, [INTEREST_ID]);
+
+    assert.deepEqual(prisma.$transaction.mock.calls[0]?.arguments[0]?.slice(0, 2), ['delete', 'create']);
+    assert.deepEqual(prisma.profileInterest.deleteMany.mock.calls[0]?.arguments, [
+      { where: { profileId: ACCOUNT_ID } },
+    ]);
+    assert.deepEqual(prisma.profileInterest.createMany.mock.calls[0]?.arguments[0].data, [
+      { profileId: ACCOUNT_ID, interestId: INTEREST_ID },
+    ]);
+    assert.deepEqual(profile.interestIds, [INTEREST_ID]);
   });
 });
 
