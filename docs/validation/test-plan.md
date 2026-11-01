@@ -4,6 +4,7 @@
 
 - **Event catalog:** browsing and filtering events, and posting, validating, editing and cancelling them (FR-006, FR-007, FR-009 to FR-011).
 - **Listings:** creating and browsing listings (FR-021, FR-022).
+- **Moderation and statistics:** reporting a user, grouping the reports into cases, banning or dismissing, and the administrator's statistics (FR-025 to FR-027, FR-030).
 - **Categories:** the public list and the admin endpoints (FR-029).
 - **Profile:** creating and editing the user's own profile (FR-002).
 - **Interest overlap:** the score of shared interests between two users (FR-017).
@@ -49,6 +50,8 @@
 | A failed import run empties the catalog | Users see no events while the provider is down | TC-28 |
 | Someone under 18 completes registration | A minor gets an active account and can be matched with adults (SAFE-001) | TC-08, TC-30, TC-31 |
 | An incomplete event is published, or an organization changes another's event | The catalog shows events with missing details, or an organization's event is rewritten by someone else | TC-43, TC-44, TC-45, TC-46, TC-47, TC-48 |
+| A banned user keeps using the app, or a report case is resolved twice | Someone reported for dangerous behaviour can still meet people; or a dismissed case bans the user after all | TC-53, TC-54, TC-55 |
+| Repeated reports on one user scatter into several cases | The administrator does not see how often a user was reported (FR-026) | TC-52 |
 | A profile change is lost, or a username is taken twice | The user sees old data after saving, or two people share one name | TC-32, TC-33, TC-34, TC-35 |
 
 ## Test Cases
@@ -105,6 +108,14 @@
 | TC-46 | `POST /events` | Integration | Negative | A body without a title and a venue and with an invalid start gets `400` with one details entry per field; an event that ends before it starts gets `422 EVENT_ENDS_BEFORE_START` | Oleh Moshenskyi | FR-010 | done |
 | TC-47 | `EventsService.update`, `EventsService.cancel` | Unit | Negative | Another organization is told the event does not exist; a cancelled event cannot be edited; cancelling a cancelled event returns it unchanged without saving | Viktoriia Baran | FR-011 | done |
 | TC-48 | `PUT /events/{id}`, `POST /events/{id}/cancel` | Integration | Positive | The organization's own event is replaced with `200` and cancelled with status `cancelled`; another organization and a regular user get `404`; editing a cancelled event gets `422 EVENT_CANCELLED` | Oleh Moshenskyi | FR-011 | done |
+| TC-49 | `ModerationService.report` | Unit | Negative | A username no profile has is refused with `REFERENCE_NOT_FOUND` and the caller's own with `CANNOT_REPORT_SELF`; nothing is stored | Viktoriia Baran | FR-025 | done |
+| TC-50 | `POST /reports` | Integration | Positive | A report on another user's username, in other letter case, answers `204` and opens a case on that user | Viktoriia Baran | FR-025 | done |
+| TC-51 | `POST /reports` | Integration | Negative | An unknown username gets `422 REFERENCE_NOT_FOUND`, the caller's own `422 CANNOT_REPORT_SELF`, a reason outside the list `400`, a guest token `401` | Viktoriia Baran | FR-025 | done |
+| TC-52 | `GET /admin/report-cases`, `GET /admin/report-cases/{id}` | Integration | Positive | US-008 AC2: three reports on one user, two of them by one reporter, the second with a comment, make one open case with `reportCount: 3`, and the case lists all three with their reporters, oldest first | Viktoriia Baran | FR-026 | done |
+| TC-53 | `POST /admin/report-cases/{id}/ban` | Integration | Positive | US-005 AC1: the case is resolved as `banned`, the reported user's next request with a token issued before gets `401`, and the audit log has the ban with the administrator as actor | Viktoriia Baran | FR-027, SEC-004, SEC-005 | done |
+| TC-54 | `ModerationService.ban` | Unit | Negative | A case resolved in the meantime is refused with `CONFLICT`; no one is banned and nothing is logged | Viktoriia Baran | FR-027 | done |
+| TC-55 | `POST /admin/report-cases/{id}/dismiss`, then `…/ban` | Integration | Negative | A dismissed case cannot be banned (`409`), the user stays signed in, and the next report on them opens a new case | Viktoriia Baran | FR-026, FR-027 | done |
+| TC-56 | `GET /admin/stats` | Integration | Positive | Active users, matches and open report cases equal the counts in the database, and upcoming events are counted; a user who is not an administrator gets `404` | Viktoriia Baran | FR-030, SEC-001 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 
