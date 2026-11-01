@@ -93,14 +93,18 @@ package "core (business logic)" as CORE {
   }
 }
 
-package "infra (stubs, bound in InfraModule)" as INFRA {
-  class StubSessionsRepository
-  class StubListingsRepository
-  class StubEventsRepository
-  class StubCategoriesRepository
-  class StubVenuesRepository
-  class StubOrganizationsRepository
-  class StubProfilesRepository
+package "infra (bound in InfraModule)" as INFRA {
+  package "prisma" {
+    class PrismaSessionsRepository
+    class PrismaCategoriesRepository
+    class PrismaProfilesRepository
+  }
+  package "stubs" {
+    class StubListingsRepository
+    class StubEventsRepository
+    class StubVenuesRepository
+    class StubOrganizationsRepository
+  }
 }
 
 ' api calls core services
@@ -126,13 +130,13 @@ CategoriesService --> CategoriesRepository
 ProfilesService --> ProfilesRepository
 
 ' infra implements core repositories
-SessionsRepository <|.. StubSessionsRepository
+SessionsRepository <|.. PrismaSessionsRepository
 ListingsRepository <|.. StubListingsRepository
 EventsRepository <|.. StubEventsRepository
-CategoriesRepository <|.. StubCategoriesRepository
+CategoriesRepository <|.. PrismaCategoriesRepository
 VenuesRepository <|.. StubVenuesRepository
 OrganizationsRepository <|.. StubOrganizationsRepository
-ProfilesRepository <|.. StubProfilesRepository
+ProfilesRepository <|.. PrismaProfilesRepository
 
 legend right
   Solid arrow: calls (constructor injection)

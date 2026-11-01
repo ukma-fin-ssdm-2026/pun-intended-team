@@ -15,7 +15,7 @@ Security analysis of the Nearby REST API for Lab 5: manual review, security anal
 | SA-01 | `src/infra/stubs/sessions.repository.ts`, `src/api/common/auth.ts` | Tokens such as `constructor` or `toString` are accepted as guest tokens. | Medium | TM-11, SEC-005 | Fixed in #140 |
 | SA-02 | `src/api/common/config.ts` | Swagger UI and the spec rewrite are on unless `NODE_ENV` is exactly `production` (fail-open). | Medium | TM-11, SEC-006 | Accepted |
 | SA-03 | `src/infra/stubs/data.ts`, `.mcp.json` | Fixed demo tokens, including `stub-admin`, are committed and published in the docs. | High if deployed | TM-11, SEC-005 | Fixed in #140: stub tokens removed, real sign-in and guest tokens |
-| SA-04 | `src/api/main.ts` | No rate limiting: 150 requests in a row all returned `200`. | Medium | TM-10, SEC-007 | Open, planned before deployment |
+| SA-04 | `src/api/main.ts` | No rate limiting: 150 requests in a row all returned `200`. | Medium | TM-10, SEC-007 | Partly fixed: a per-IP limit on the auth endpoints (#212), behind the staging proxy since #313; the per-token limits on the catalog are open |
 | SA-05 | `src/api/main.ts` | No security response headers (`nosniff`, `Cache-Control`, CSP, HSTS). | Low | SEC-001, SEC-006 | Fixed in [#175](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/175) |
 
 ### SA-01: inherited object properties accepted as access tokens

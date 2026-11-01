@@ -157,7 +157,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Push token | DeviceToken.push_token | P | never returned by the API |
 | IP address | AuditLog.ip_address | P | audit log retention (SEC-004, OQ-002) |
 
-**Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept at the load balancer, keyed on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002); account lockout is the only limit stored here.
+**Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept in the memory of the API process (`@nestjs/throttler`, per IP on the auth endpoints); the planned catalog limits key them on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002). Account lockout is the only limit stored here.
 
 ## AI Usage Note
 

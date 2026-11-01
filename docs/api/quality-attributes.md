@@ -4,7 +4,7 @@
 
 Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: a **number**, a **failure condition** (the observation that proves the goal is not met), the **implementation** that is supposed to achieve it, and the **measurement** that produces the number. A goal that cannot fail measures nothing.
 
-- **Scope:** every endpoint of the API in [`/src/api`](../../src/api) — 16 operations, 15 of them under `/api/v1` plus `/health` — and the OpenAPI specification generated from it ([`openapi-generated.yaml`](openapi-generated.yaml)). The endpoint list lives in [`api-design.md`](api-design.md); when it changes, this document changes with it.
+- **Scope:** every endpoint of the API in [`/src/api`](../../src/api) and the OpenAPI specification generated from it ([`openapi-generated.yaml`](openapi-generated.yaml)). The endpoint list lives in [`api-design.md`](api-design.md). The latest results were measured in Lab 4, when the API had 16 operations, 15 of them under `/api/v1` plus `/health`; it has 28 now, and the counts below are those of Lab 4 until the goals are measured again.
 - **Quality model:** ISO/IEC 25010:2023, the same as [`requirements.md` §4](../requirements/requirements.md).
 - **Related documents:** [`requirements.md`](../requirements/requirements.md) · [`high-level-design.md`](../architecture/high-level-design.md) · [`catalog-access.md`](../architecture/mechanisms/catalog-access.md) · [`data-model.md`](../architecture/data-model.md) · [`threat-model.md`](../architecture/threat-model.md)
 - **Status tags:**
@@ -20,10 +20,10 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | QA-SEC-02 | Bulk access | now · met | `limit=21` is rejected on both list endpoints; no page above 20 items |
 | QA-SEC-03 | Data exposure | now · met | 0 sensitive names among 34 schema properties and parameters; no `X-Powered-By` header |
 | QA-SEC-04 | Access control | now · met; revocation and the contact rule are contract | all 19 rows that expect `401` pass; non-admin and not-the-owner callers get `404`; expired and tampered tokens get `401` |
-| QA-SEC-05 | Rate limiting | contract | Not implemented: 127,796 smoke requests on one token got no `429` |
+| QA-SEC-05 | Rate limiting | contract | Partly built: a per-IP limit on the auth endpoints; the per-token limit is not built, and 127,796 smoke requests on one token got no `429` |
 | QA-SEC-06 | Dependency advisories | now · met | `npm audit` (3 October): 0 advisories of any severity (198 packages) |
 | QA-REL-01 | Failure handling | now · met | 0 of 170 responses were `5xx`; the `500` path itself is not exercised (see goal) |
-| QA-REL-02 | Availability | contract | No deployed backend yet |
+| QA-REL-02 | Availability | contract | Staging deployed on 1 November; no uptime monitor yet |
 | QA-FUNC-01 | Status codes | now · met | 16 of 16 documented operations match the spec; every success code in the log is the documented one |
 | QA-INTC-01 | Error format | now · met (scope: the API's own code) | 0 non-2xx responses in the spec without `ErrorResponse`; 135 error responses in the log, none leaks internals |
 | QA-MAIN-01 | Annotation completeness | now · met | 16 of 16 operations pass; the four list responses now have an example |
@@ -41,7 +41,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Failure condition:** any of the three thresholds is exceeded in a 10-minute run
 - **Implementation:**
   - paginated list responses (at most 20 items, see QA-SEC-02)
-  - stateless API apart from the in-memory stub data in `src/infra/stubs/data.ts`, which the database replaces (FLEX-002)
+  - stateless API apart from events and listings, still kept in memory in `src/infra/stubs/data.ts` until they move to the database (FLEX-002); accounts, sessions, categories and profiles are in PostgreSQL
   - indexed queries for the catalog filters (planned)
 - **Measurement:** k6 against staging, 500 sessions, 10 minutes. Stub-phase smoke run: 50 connections, 60 s, local server, `GET /api/v1/events`, thresholds p95 ≤ 1000 ms and no non-`2xx` answers:
   `TOKEN=$(curl -s -X POST http://localhost:4100/api/v1/auth/guest | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken')`
@@ -105,10 +105,11 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Goal:** the 101st request within one minute on one token gets `429` with a `Retry-After` header; per-IP backstop at 1000 requests/min
 - **Failure condition:** the 101st request is served with `2xx`, or the `429` has no `Retry-After`
 - **Implementation:**
-  - per-token limiter in the API (planned); `RATE_LIMITED` is already in `ErrorCode` and `429` is documented in `api-design.md`
+  - per-IP limit in the API on the Google sign-in, Google registration and `refresh` endpoints: `AUTH_RATE_LIMIT_PER_MINUTE` requests a minute, 20 by default (`@nestjs/throttler`, behind the staging proxy with `TRUST_PROXY`); over it, `429 RATE_LIMITED` with `Retry-After`
+  - per-token limiter on the catalog (planned)
   - per-IP backstop at the load balancer (planned)
 - **Measurement:** test that sends 101 requests within one minute
-- **Latest result:** not implemented. The smoke run sent 127,796 requests on one token in 60 s and never got a `429`, so this goal would fail if it were claimed now
+- **Latest result:** the per-token limit is not built. The smoke run (3 October) sent 127,796 requests on one token in 60 s and never got a `429`, so this goal would fail if it were claimed now. The per-IP limit on the auth endpoints is covered by the e2e tests
 - **Source:** SEC-007; catalog-access.md, rule 4; threat model TM-10
 
 **QA-SEC-06 · Dependency advisories** — *now · met*
@@ -118,7 +119,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Implementation:**
   - dependencies are installed from `package-lock.json` (`npm ci`), so the audit sees the versions that run
   - `src/mcp/` is a separate generated project with its own lock file and is outside this goal
-- **Measurement:** `npm audit --audit-level=high` on the repository root. The CI gate that SEC-006 asks for is not set up yet, so this is a manual run
+- **Measurement:** `npm audit --audit-level=high` on the repository root, run by the `CI` workflow on every pull request and push to `main` (TC-11)
 - **Latest result:** 3 October 2026: 0 advisories of any severity (info, low, moderate, high, critical) in the 198 packages installed from the lock file. Repeat it if a fix changed `package-lock.json`
 - **Source:** SEC-006
 
@@ -230,7 +231,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 | Security (`404` instead of `403`) | A caller who may not access a resource gets the same `404` as for a missing one; non-admins get `404` on `/admin/*` | A client cannot tell "not yours" from "does not exist", which makes debugging harder | The `404` description in the spec says "or the caller may not access it"; the cause is in the server log |
 | Safety (contacts after mutual accept) | Contacts appear only after both accept and the safety notice is acknowledged (SEC-001, SAFE-002) | Extra steps before two people can talk | The confirmation screen explains the steps in advance (UC-001) |
 | Reliability (serve last import) | The catalog keeps serving the last import while the provider is down (REL-003) | Users may see stale events | Catalog shows a "last updated …" notice (FR-014) |
-| Flexibility (stateless API) | No in-process cache, so every read goes to the database (FLEX-002) | Performance headroom is lower | PERF-001 test shows when it matters; adding Redis is the recorded next step (ADR-002). Until the database is connected the stubs keep state in memory, so two instances would show different data |
+| Flexibility (stateless API) | No in-process cache, so every read goes to the database (FLEX-002) | Performance headroom is lower | PERF-001 test shows when it matters; adding Redis is the recorded next step (ADR-002). Until events and listings move to the database, the stubs keep them in memory, so two instances would show different events and listings |
 | Security (page size ≤ 20) | Browsing needs several requests; no "list all" endpoint | Less convenient for legitimate clients | Client loads the next page on scroll; the cap is reviewed against measured usage |
 | Maintainability (code-first spec) | Every endpoint carries its summary, tags, schemas and response list, so each `@Endpoint` block is longer; generation is a CI step | Controllers are harder to read | `@Endpoint` keeps one endpoint in one block, and shared schemas (`Id`, `ErrorResponse`, `PageInfo`) are reused |
 | Interaction capability (one `ErrorResponse`) | Detailed internal error text is not returned (INTC-004) | Less detail for the client; this is also what prevents information leaks | `details` names every invalid field; full detail goes to the log (SEC-004) |

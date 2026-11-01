@@ -45,7 +45,7 @@ I3 -down- CMP04
 
 CMP02 -down-> EXT02 : «PushProvider»
 CMP02 -down-> EXT03 : «MessagingProvider»
-CMP02 -down-> EXT04 : «GoogleIdentity»
+CMP02 -down-> EXT04 : «GoogleIdTokens»
 CMP03 -down-> EXT01 : «EventProvider»
 
 note right of CMP04

@@ -141,7 +141,7 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 | `POST` | `/api/v1/auth/google/register` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
 | `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` the tokens of the new account's first session | `400`, `401`, `404`, `409`, `422` |
 | `POST` | `/api/v1/auth/google` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
-| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401`, `429` |
+| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401` |
 | `POST` | `/api/v1/auth/sign-out` | Signed-in user | `204` | `401` |
 | `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
 
