@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get platform statistics
+         * @description Count active users, upcoming events, matches and open report cases. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/categories": {
         parameters: {
             query?: never;
@@ -312,6 +332,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/report-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List report cases
+         * @description List report cases, oldest first: one case per reported user, with the number of reports. Open cases by default; `status=resolved` lists the resolved ones. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListReportCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/report-cases/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a report case
+         * @description Get a report case with every report in it: who reported, the reason and the comment. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetReportCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/report-cases/{id}/ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ban the reported user
+         * @description Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban is applied again, so a ban that failed halfway can be retried. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminBanReportedUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/report-cases/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a report case
+         * @description Resolve the case without action, when the reports turn out to be unfounded. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminDismissReportCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report a user
+         * @description Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["reportUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interests": {
         parameters: {
             query?: never;
@@ -426,32 +546,21 @@ export interface components {
     schemas: {
         /**
          * @example {
-         *       "items": [
-         *         {
-         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Concerts",
-         *           "isActive": true
-         *         }
-         *       ]
+         *       "users": 128,
+         *       "events": 42,
+         *       "matches": 0,
+         *       "openReports": 3
          *     }
          */
-        AdminCategoryList: {
-            items: components["schemas"]["AdminCategory"][];
-        };
-        /**
-         * @description A category as administrators see it
-         * @example {
-         *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *       "name": "Concerts",
-         *       "isActive": true
-         *     }
-         */
-        AdminCategory: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @description Inactive categories are hidden from filters and cannot be picked */
-            isActive: boolean;
+        PlatformStats: {
+            /** @description Active accounts: registered and not banned */
+            users: number;
+            /** @description Published events that have not ended yet */
+            events: number;
+            /** @description Matches proposed so far */
+            matches: number;
+            /** @description Open report cases */
+            openReports: number;
         };
         /**
          * @description The body of every error response
@@ -481,7 +590,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -493,6 +602,35 @@ export interface components {
          * @enum {string}
          */
         ValidationLocation: "params" | "query" | "body";
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *           "name": "Concerts",
+         *           "isActive": true
+         *         }
+         *       ]
+         *     }
+         */
+        AdminCategoryList: {
+            items: components["schemas"]["AdminCategory"][];
+        };
+        /**
+         * @description A category as administrators see it
+         * @example {
+         *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *       "name": "Concerts",
+         *       "isActive": true
+         *     }
+         */
+        AdminCategory: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description Inactive categories are hidden from filters and cannot be picked */
+            isActive: boolean;
+        };
         /**
          * @example {
          *       "name": "Workshops"
@@ -858,6 +996,174 @@ export interface components {
          * @example {
          *       "items": [
          *         {
+         *           "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *           "account": {
+         *             "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *             "username": "olena_k",
+         *             "displayName": "Olena"
+         *           },
+         *           "status": "open",
+         *           "resolution": null,
+         *           "reportCount": 2,
+         *           "firstReportedAt": "2026-10-30T19:12:00.000Z",
+         *           "lastReportedAt": "2026-10-31T08:40:00.000Z",
+         *           "resolvedAt": null
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        ReportCasesPage: {
+            items: components["schemas"]["ReportCase"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @example {
+         *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "account": {
+         *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *         "username": "olena_k",
+         *         "displayName": "Olena"
+         *       },
+         *       "status": "open",
+         *       "resolution": null,
+         *       "reportCount": 2,
+         *       "firstReportedAt": "2026-10-30T19:12:00.000Z",
+         *       "lastReportedAt": "2026-10-31T08:40:00.000Z",
+         *       "resolvedAt": null
+         *     }
+         */
+        ReportCase: {
+            /** Format: uuid */
+            id: string;
+            /** @description The reported user */
+            account: {
+                /** Format: uuid */
+                id: string;
+                /** @description Null when the account has no profile */
+                username: string | null;
+                displayName: string | null;
+            };
+            /** @enum {string} */
+            status: "open" | "resolved";
+            /**
+             * @description Null while the case is open
+             * @enum {string|null}
+             */
+            resolution: "banned" | "removed" | "dismissed" | null;
+            /** @description Reports in the case, repeated reports by one user included */
+            reportCount: number;
+            /** Format: date-time */
+            firstReportedAt: string;
+            /** Format: date-time */
+            lastReportedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+        };
+        /**
+         * @example {
+         *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "account": {
+         *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *         "username": "olena_k",
+         *         "displayName": "Olena"
+         *       },
+         *       "status": "open",
+         *       "resolution": null,
+         *       "reportCount": 2,
+         *       "firstReportedAt": "2026-10-30T19:12:00.000Z",
+         *       "lastReportedAt": "2026-10-31T08:40:00.000Z",
+         *       "resolvedAt": null,
+         *       "reports": [
+         *         {
+         *           "id": "7f9b1d3e-5a7c-4e9a-8b1d-5f7a9c1e3b52",
+         *           "reporter": {
+         *             "id": "d8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18",
+         *             "username": "taras",
+         *             "displayName": "Taras"
+         *           },
+         *           "reason": "no_show",
+         *           "comment": "We agreed to meet at the entrance; she did not come and did not answer.",
+         *           "reportedAt": "2026-10-30T19:12:00.000Z"
+         *         }
+         *       ]
+         *     }
+         */
+        ReportCaseDetails: {
+            /** Format: uuid */
+            id: string;
+            /** @description The reported user */
+            account: {
+                /** Format: uuid */
+                id: string;
+                /** @description Null when the account has no profile */
+                username: string | null;
+                displayName: string | null;
+            };
+            /** @enum {string} */
+            status: "open" | "resolved";
+            /**
+             * @description Null while the case is open
+             * @enum {string|null}
+             */
+            resolution: "banned" | "removed" | "dismissed" | null;
+            /** @description Reports in the case, repeated reports by one user included */
+            reportCount: number;
+            /** Format: date-time */
+            firstReportedAt: string;
+            /** Format: date-time */
+            lastReportedAt: string;
+            /** Format: date-time */
+            resolvedAt: string | null;
+            /** @description Every report in the case, oldest first */
+            reports: {
+                /** Format: uuid */
+                id: string;
+                reporter: components["schemas"]["CaseAccount"];
+                /**
+                 * @description offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other
+                 * @enum {string}
+                 */
+                reason: "offensive_messages" | "no_show" | "fake_profile" | "unsafe_behaviour" | "other";
+                comment: string | null;
+                /** Format: date-time */
+                reportedAt: string;
+            }[];
+        };
+        /** @description A reported user or a reporter, as an administrator sees them */
+        CaseAccount: {
+            /** Format: uuid */
+            id: string;
+            /** @description Null when the account has no profile */
+            username: string | null;
+            displayName: string | null;
+        };
+        /**
+         * @example {
+         *       "username": "olena_k",
+         *       "reason": "no_show",
+         *       "comment": "We agreed to meet at the entrance; she did not come and did not answer."
+         *     }
+         */
+        CreateReportBody: {
+            /** @description Username of the user being reported, as their profile shows it */
+            username: string;
+            /**
+             * @description offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other
+             * @enum {string}
+             */
+            reason: "offensive_messages" | "no_show" | "fake_profile" | "unsafe_behaviour" | "other";
+            /** @description What happened, in the reporter’s words */
+            comment?: string;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
          *           "name": "Книги",
          *           "group": "Книги й комікси"
@@ -1036,6 +1342,44 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    adminGetStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformStats"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     adminListCategories: {
         parameters: {
             query?: never;
@@ -2038,6 +2382,277 @@ export interface operations {
             };
             /** @description No active listing with this id, or it is not the caller’s own */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminListReportCases: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+                /** @description open (the default) or resolved */
+                status?: "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of report cases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCasesPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminGetReportCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report case id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The case and its reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCaseDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No report case with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminBanReportedUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report case id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCaseDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No report case with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminDismissReportCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report case id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCaseDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No report case with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reportUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateReportBody"];
+            };
+        };
+        responses: {
+            /** @description The report was received */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `REFERENCE_NOT_FOUND`: no user has this username. `CANNOT_REPORT_SELF`: it is your own username. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
