@@ -194,7 +194,7 @@ describe('ModerationService.ban', () => {
     const { service, accountsService, reportCasesRepository } = makeService();
     accountsService.findStanding.mock.mockImplementation(() => Promise.resolve({ role: 'admin', status: 'active' }));
 
-    await assert.rejects(service.ban(CASE_ID, ADMIN_ID), isDomainError('CONFLICT'));
+    await assert.rejects(service.ban(CASE_ID, ADMIN_ID), isDomainError('CANNOT_BAN_ADMIN'));
     assert.equal(reportCasesRepository.resolve.mock.callCount(), 0);
     assert.equal(accountsService.ban.mock.callCount(), 0);
   });
@@ -202,8 +202,8 @@ describe('ModerationService.ban', () => {
   test('refuses a case about the administrator themselves', async () => {
     const { service, reportCasesRepository } = makeService();
 
-    await assert.rejects(service.ban(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CONFLICT'));
-    await assert.rejects(service.dismiss(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CONFLICT'));
+    await assert.rejects(service.ban(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CANNOT_RESOLVE_OWN_CASE'));
+    await assert.rejects(service.dismiss(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CANNOT_RESOLVE_OWN_CASE'));
     assert.equal(reportCasesRepository.resolve.mock.callCount(), 0);
   });
 });

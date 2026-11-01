@@ -1492,6 +1492,43 @@ describe('Report cases', () => {
     assert.equal(res.body.page.hasMore, true);
   });
 
+  test('puts a report that arrives while its case is being resolved into a new case', async () => {
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+    const caseId = await openCaseOf(target.accountId);
+    const admin = new pg.Client({ connectionString: databaseUrl });
+    await admin.connect();
+    try {
+      await admin.query('BEGIN');
+      await admin.query(
+        `UPDATE report_cases SET status = 'resolved', resolution = 'dismissed', resolved_at = now() WHERE id = $1`,
+        [caseId],
+      );
+      // The report still sees the case open and waits on its row lock until the resolution commits.
+      const report = call('POST', '/api/v1/reports', {
+        token: tokens.user,
+        body: { username: target.username, reason: 'no_show' },
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await admin.query('COMMIT');
+      assert.equal((await report).status, 204);
+    } finally {
+      await admin.end();
+    }
+
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT c.status, count(r.id)::int AS reports FROM report_cases c JOIN reports r ON r.case_id = c.id
+         WHERE c.target_account_id = $1 GROUP BY c.id, c.status ORDER BY c.status`,
+        [target.accountId],
+      ),
+    );
+    assert.deepEqual(rows, [
+      { status: 'open', reports: 1 },
+      { status: 'resolved', reports: 1 },
+    ]);
+  });
+
   test('answers 404 to an unknown case', async () => {
     const res = await call('POST', `/api/v1/admin/report-cases/${randomUUID()}/ban`, { token: tokens.admin });
     assertRejected(res, 404, 'NOT_FOUND');

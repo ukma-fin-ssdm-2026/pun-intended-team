@@ -68,7 +68,7 @@ export class ModerationService {
     const found = await this.requireOthersCase(caseId, adminId, 'account.ban');
     if ((await this.accountsService.findStanding(found.accountId))?.role === 'admin') {
       await this.audit(adminId, 'account.ban', 'account', found.accountId, 'refused: administrator');
-      throw new DomainError('CONFLICT', 'An administrator cannot be banned; remove the role first');
+      throw new DomainError('CANNOT_BAN_ADMIN', 'An administrator cannot be banned; remove the role first');
     }
     const resolved = await this.reportCasesRepository.resolve(caseId, 'banned', adminId, new Date());
     if (!resolved && (await this.requireCase(caseId)).resolution !== 'banned') {
@@ -106,7 +106,7 @@ export class ModerationService {
     const found = await this.requireCase(caseId);
     if (found.accountId === adminId) {
       await this.audit(adminId, action, 'report_case', caseId, 'refused: own case');
-      throw new DomainError('CONFLICT', 'A case about yourself is resolved by another administrator');
+      throw new DomainError('CANNOT_RESOLVE_OWN_CASE', 'A case about yourself is resolved by another administrator');
     }
     return found;
   }

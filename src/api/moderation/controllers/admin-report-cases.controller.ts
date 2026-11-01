@@ -16,7 +16,7 @@ const CASE_NOT_FOUND = {
   schema: ErrorResponse,
 };
 
-const OWN_CASE = 'the case is about the caller, whom another administrator must judge';
+const OWN_CASE = '`CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge';
 
 @Controller()
 export class AdminReportCasesController {
@@ -77,7 +77,7 @@ export class AdminReportCasesController {
       200: { description: 'The resolved case', schema: ReportCaseDetails },
       404: CASE_NOT_FOUND,
       409: {
-        description: `The case was dismissed, the reported user is an administrator, or ${OWN_CASE}`,
+        description: `\`CONFLICT\`: the case was dismissed. \`CANNOT_BAN_ADMIN\`: the reported user is an administrator. ${OWN_CASE}`,
         schema: ErrorResponse,
       },
     },
@@ -101,7 +101,7 @@ export class AdminReportCasesController {
     responses: {
       200: { description: 'The resolved case', schema: ReportCaseDetails },
       404: CASE_NOT_FOUND,
-      409: { description: `The case is already resolved, or ${OWN_CASE}`, schema: ErrorResponse },
+      409: { description: `\`CONFLICT\`: the case is already resolved. ${OWN_CASE}`, schema: ErrorResponse },
     },
   })
   async dismissReportCase(
