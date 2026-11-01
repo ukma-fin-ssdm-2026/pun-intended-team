@@ -1447,6 +1447,12 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
     assert.equal(res.status, 204);
   });
 
+  test('rejects a category that events and listings use with 409', async () => {
+    const res = await call('DELETE', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
+    assertRejected(res, 409, 'CONFLICT');
+    assert.equal(res.body.error.message, 'The category is in use; deactivate it instead');
+  });
+
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('DELETE', '/api/v1/admin/categories/not-a-uuid', { token: tokens.admin }), 'params', 'id');
   });
