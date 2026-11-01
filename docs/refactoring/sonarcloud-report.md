@@ -64,18 +64,22 @@ There are **16 open issues**, all with severity **MAJOR** (impact MEDIUM). None 
 - `npx …` → `npx --no-install …` (or `npm exec --no -- …`), so only the locally installed package with the version from `package-lock.json` is used. This closes S8543 and the `npx` part of S6505.
 - `npm ci` → `npm ci --ignore-scripts`, then run the required steps explicitly (`npx --no-install prisma generate`, native module builds if any). Check first that CI does not break if a dependency needs its install scripts.
 
+**Fixed in #300.** Both installs run `npm ci --ignore-scripts`; the root one then rebuilds only `@prisma/engines` and runs `npx --no-install prisma generate`. Every `npx` in `ci.yml` uses `--no-install`.
+
 ### 3. `S2068` — Hard-Coded Password (1)
 
-[src/scripts/seed-dev-accounts.ts:29](../../src/scripts/seed-dev-accounts.ts#L29): the `passwordHash` field with an argon2id hash.
+`src/scripts/seed-dev-accounts.ts:29`: the `passwordHash` field with an argon2id hash.
 
 **Assessment.** This is not a plain-text password but a hash for dev accounts in a seed script. Sonar reacts to the field name. It becomes a risk only if the seed is run against production.
 
 **Plan.** Mark it in SonarCloud as *Safe* with an explanation, or, to remove the hash from the repository, generate it during seeding from `process.env.DEV_SEED_PASSWORD`. Optionally, make the script refuse to run when `NODE_ENV=production`.
 
+**Resolved in #325.** Sign-in became Google-only ([ADR-004](../architecture/decisions/ADR-004.md)), and the seed script and its development accounts were removed.
+
 ## Conclusions
 
 - The code base is in good shape: Quality Gate passed, 0 bugs, Maintainability A, 1 % duplication.
-- Security rating **C** comes mostly from the CI configuration (6 of 7 vulnerabilities), not from application code. Fixing `ci.yml` should raise it to A or B.
+- Security rating **C** came mostly from the CI configuration (6 of 7 vulnerabilities), not from application code. #300 fixed `ci.yml` and #325 removed the seed script, so none of the 7 is left in the code; the next analysis of `main` should confirm it.
 - Most Reliability issues (6 of 9) and most duplicated lines (272 of 396 in the analysis of 2026-11-01) are in generated code (`src/mcp/`, `docs/testing/coverage/`). The other 124 duplicated lines are in `app/`.
 - Coverage is not sent to SonarCloud. Importing the `lcov` report in the analysis step would show coverage on new code.
 
