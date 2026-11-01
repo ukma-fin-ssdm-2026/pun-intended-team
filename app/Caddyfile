@@ -18,6 +18,8 @@
 	rewrite @event /events/[id].html
 	@eventSearch path_regexp ^/events/[^/]+/search/?$
 	rewrite @eventSearch /events/[id]/search.html
+	@reportCase path_regexp ^/admin/reports/[^/]+/?$
+	rewrite @reportCase /admin/reports/[id].html
 
 	header {
 		X-Content-Type-Options nosniff

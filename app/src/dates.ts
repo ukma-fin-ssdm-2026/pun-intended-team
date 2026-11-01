@@ -54,6 +54,12 @@ export function formatShortDay(iso: string): string {
   return `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]}`;
 }
 
+// "31 жовт 2026, 08:40", as in the admin tables.
+export function formatDateTime(iso: string): string {
+  const { year, month, day, time } = kyivTime(new Date(iso));
+  return `${day} ${monthsShort[month - 1]} ${year}, ${time}`;
+}
+
 // "Субота, 24 жовтня", as on the event page.
 export function formatEventDay(iso: string): string {
   const { month, day, weekday } = kyivTime(new Date(iso));

@@ -7,7 +7,7 @@ Notes for AI agents working in this repository. Team rules are in [`TeamCharter.
 Nearby is a NestJS REST API (Node.js 26, see [`.nvmrc`](.nvmrc)) for a mobile app about going to events with new people. The product is described in [`Project-Description.md`](Project-Description.md), the API in [`docs/api/api-design.md`](docs/api/api-design.md).
 
 - `src/api/` — HTTP layer; `src/core/` — business logic, one folder per module; `src/infra/` — database and external services. See [Code Structure](docs/architecture/mechanisms/code-structure.md).
-- Accounts, sessions, categories, profiles and interests are stored in PostgreSQL through Prisma (`src/infra/prisma/`); events and listings still come from stubs in `src/infra/stubs/`. Of matching, only the `match` algorithm is built; notifications are designed but not implemented.
+- Accounts, sessions, categories, profiles, interests and report cases are stored in PostgreSQL through Prisma (`src/infra/prisma/`); events and listings still come from stubs in `src/infra/stubs/`. Of matching, only the `match` algorithm is built; notifications are designed but not implemented.
 - `tests/e2e/` — end-to-end tests.
 - `src/mcp/` and `docs/api/openapi-generated.yaml` are generated; never edit them by hand.
 

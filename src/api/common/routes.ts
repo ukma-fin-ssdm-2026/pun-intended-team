@@ -33,8 +33,16 @@ export const Routes = {
   categories: {
     list: '/api/v1/categories',
   },
+  reports: {
+    create: '/api/v1/reports',
+  },
   admin: {
     categories: '/api/v1/admin/categories',
     categoryById: '/api/v1/admin/categories/{id}',
+    reportCases: '/api/v1/admin/report-cases',
+    reportCaseById: '/api/v1/admin/report-cases/{id}',
+    banReportCase: '/api/v1/admin/report-cases/{id}/ban',
+    dismissReportCase: '/api/v1/admin/report-cases/{id}/dismiss',
+    stats: '/api/v1/admin/stats',
   },
 } as const;

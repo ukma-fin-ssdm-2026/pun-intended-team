@@ -181,7 +181,7 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories, accounts, verification codes, sessions, profiles and interests are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes, sessions, profiles, interests, report cases and the audit log are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
@@ -203,7 +203,7 @@ UPDATE accounts SET role = 'admin' WHERE id = '<id>';
 
 ## ൬ Running the client
 
-The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone. To run it next to the API, see [`app/README.md`](app/README.md).
+The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone, and has admin pages for reports and categories at `/admin`. To run it next to the API, see [`app/README.md`](app/README.md).
 
 ## ൠ MCP Server
 

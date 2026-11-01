@@ -6,22 +6,24 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { reportUser, type ReportReason } from '@/api/reports';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
 import { mockPerson } from '@/mocks/matching';
 import { colors, shadows } from '@/styles/tokens';
 
-const reasons = [
-  'Образливі повідомлення',
-  'Не прийшли на зустріч і не попередили',
-  'Фейковий профіль',
-  'Небезпечна поведінка',
-  'Інше',
+export const reportReasons: { value: ReportReason; label: string }[] = [
+  { value: 'offensive_messages', label: 'Образливі повідомлення' },
+  { value: 'no_show', label: 'Не прийшли на зустріч і не попередили' },
+  { value: 'fake_profile', label: 'Фейковий профіль' },
+  { value: 'unsafe_behaviour', label: 'Небезпечна поведінка' },
+  { value: 'other', label: 'Інше' },
 ];
 
-// Who is reported, in the forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою".
-export type ReportedPerson = { name: string; accusative: string; instrumental: string };
+// Who is reported, in the forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою". Without a username, as for the
+// mock matches, the sheet is not sent to the API.
+export type ReportedPerson = { name: string; accusative: string; instrumental: string; username?: string };
 
 const nextSteps = (person: ReportedPerson): { icon: IconName; text: string }[] => [
   { icon: 'report-shield', text: 'Модератор розгляне скаргу протягом доби' },
@@ -38,7 +40,7 @@ const SHEET_TOP_MARGIN = 40;
 function ReasonRow({ label, checked, onPress }: { label: string; checked: boolean; onPress: () => void }) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
+      accessibilityRole="radio"
       accessibilityState={{ checked }}
       onPress={onPress}
       className="flex-row items-center gap-3 py-[13px]"
@@ -57,18 +59,35 @@ function ReasonRow({ label, checked, onPress }: { label: string; checked: boolea
   );
 }
 
-function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: () => void }) {
+function ReportSheet({ person, onSent }: { person: ReportedPerson; onSent: () => void }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  // Figma's filled-in example: two reasons and a comment.
-  const [checked, setChecked] = useState([reasons[0], reasons[1]]);
-  const [comment, setComment] = useState(
-    'Домовилися зустрітися біля входу, але ніхто не прийшов і не відповідав на повідомлення.',
-  );
-  const toggle = (reason: string) =>
-    setChecked((current) =>
-      current.includes(reason) ? current.filter((value) => value !== reason) : [...current, reason],
-    );
+  // The API takes one reason per report.
+  const [reason, setReason] = useState<ReportReason>();
+  const [comment, setComment] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  const submit = async () => {
+    if (!reason) return;
+    if (!person.username) {
+      onSent();
+      return;
+    }
+    setSending(true);
+    setError(undefined);
+    const result = await reportUser({
+      username: person.username,
+      reason,
+      ...(comment.trim() ? { comment: comment.trim() } : {}),
+    });
+    setSending(false);
+    if (result.ok) onSent();
+    else if (result.status === 0) setError('Немає зʼєднання. Спробуй ще раз.');
+    else if (result.code === 'REFERENCE_NOT_FOUND') setError(`${person.name} більше немає в Nearby.`);
+    else if (result.code === 'CANNOT_REPORT_SELF') setError('Не можна поскаржитися на себе.');
+    else setError('Не вдалося надіслати скаргу. Спробуй ще раз.');
+  };
 
   return (
     // NativeWind maps className only on React Native's own components, so the layout sits on a View inside.
@@ -98,10 +117,14 @@ function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: (
           </View>
 
           <View className="rounded-[20px] bg-surface-background px-4 py-1">
-            {reasons.map((reason, index) => (
-              <View key={reason}>
+            {reportReasons.map((option, index) => (
+              <View key={option.value}>
                 {index > 0 && <View className="h-px bg-border-default" />}
-                <ReasonRow label={reason} checked={checked.includes(reason)} onPress={() => toggle(reason)} />
+                <ReasonRow
+                  label={option.label}
+                  checked={reason === option.value}
+                  onPress={() => setReason(option.value)}
+                />
               </View>
             ))}
           </View>
@@ -111,6 +134,7 @@ function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: (
             <TextInput
               accessibilityLabel="Коментар"
               multiline
+              maxLength={1000}
               value={comment}
               onChangeText={setComment}
               textAlignVertical="top"
@@ -120,7 +144,14 @@ function ReportSheet({ person, onSubmit }: { person: ReportedPerson; onSubmit: (
             />
           </View>
 
-          <Button label="Надіслати скаргу" variant="dark" onPress={onSubmit} />
+          {error && <Text className="text-center font-inter text-caption text-brand-coral">{error}</Text>}
+          <Button
+            label="Надіслати скаргу"
+            variant="dark"
+            disabled={!reason}
+            loading={sending}
+            onPress={() => void submit()}
+          />
         </ScrollView>
       </View>
     </Animated.View>
@@ -192,7 +223,7 @@ export function ReportFlow({ person = mockPerson, step, onStepChange, onDone }: 
           }}
         />
       ) : (
-        <ReportSheet person={person} onSubmit={() => onStepChange('sent')} />
+        <ReportSheet person={person} onSent={() => onStepChange('sent')} />
       )}
     </Overlay>
   );

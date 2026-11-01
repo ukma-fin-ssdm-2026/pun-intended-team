@@ -58,6 +58,14 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return row ? this.toProfile(row) : undefined;
   }
 
+  async findAccountIdByUsername(username: string): Promise<string | undefined> {
+    const profile = await this.prisma.profile.findFirst({
+      where: { username: { equals: username, mode: 'insensitive' } },
+      select: { accountId: true },
+    });
+    return profile?.accountId;
+  }
+
   async isUsernameTaken(username: string, exceptAccountId?: string): Promise<boolean> {
     const taken = await this.prisma.profile.findFirst({
       where: { username: { equals: username, mode: 'insensitive' }, NOT: { accountId: exceptAccountId } },
