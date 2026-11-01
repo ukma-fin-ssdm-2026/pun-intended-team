@@ -28,6 +28,8 @@ const FORM_BOTTOM_GAP = 110 - (ACTION_TOP + BUTTON_HEIGHT + ACTION_BOTTOM) + 34;
 type Interest = components['schemas']['Interest'];
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
 
+export const MIN_INTERESTS = 3;
+
 // As the API checks it.
 export function isValidUsername(username: string) {
   return /^[A-Za-z0-9][A-Za-z0-9._]{2,29}$/.test(username.trim());

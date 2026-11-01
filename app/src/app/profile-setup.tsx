@@ -14,6 +14,7 @@ import {
   InterestPicker,
   interestChips,
   isValidUsername,
+  MIN_INTERESTS,
   ProfilePhoto,
   toggleInList,
 } from '@/components/profile/profile-form';
@@ -25,7 +26,6 @@ import { takeProfileSuggestion } from '@/state/google-registration';
 
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
 
-const MIN_INTERESTS = 3;
 const INTEREST_CHIPS = 7;
 
 export default function ProfileSetupScreen() {
