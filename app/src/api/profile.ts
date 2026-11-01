@@ -8,6 +8,7 @@ import type { components } from './schema';
 type Profile = components['schemas']['Profile'];
 type CreateProfileBody = components['schemas']['CreateProfileBody'];
 type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
+type NewLinkedAccount = components['schemas']['ReplaceLinkedAccountsBody']['linkedAccounts'][number];
 
 async function saved(result: Promise<ApiResult<Profile>>) {
   const outcome = await result;
@@ -25,4 +26,8 @@ export function updateProfile(body: UpdateProfileBody) {
 
 export function replaceInterests(interestIds: string[]) {
   return saved(call(() => apiClient.PUT('/api/v1/me/profile/interests', { body: { interestIds } })));
+}
+
+export function replaceLinkedAccounts(linkedAccounts: NewLinkedAccount[]) {
+  return saved(call(() => apiClient.PUT('/api/v1/me/profile/linked-accounts', { body: { linkedAccounts } })));
 }

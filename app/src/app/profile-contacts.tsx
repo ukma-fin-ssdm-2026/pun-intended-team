@@ -5,24 +5,42 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { ContactVisibility, FormScreen } from '@/components/profile/profile-form';
-import { TextField } from '@/components/ui/text-field';
+import { replaceLinkedAccounts } from '@/api/profile';
+import { failureSnackbar } from '@/auth/messages';
+import { filledNetworks, networkErrors, NetworkFields, toEntries } from '@/components/profile/network-fields';
+import { FormScreen } from '@/components/profile/profile-form';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
+import { useProfile } from '@/hooks/use-profile';
 import { useSignIn } from '@/hooks/use-sign-in';
 
 export default function ProfileContactsScreen() {
   const signIn = useSignIn();
-  const [telegram, setTelegram] = useState('');
-  // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-  // const [phone, setPhone] = useState('');
-  // Figma: Telegram is shared with a mutual match, the phone number is not.
-  const [showTelegram, setShowTelegram] = useState(true);
-  // const [showPhone, setShowPhone] = useState(false);
+  const profile = useProfile();
+  // Back from the catalog or a second visit starts from what is saved.
+  const [networks, setNetworks] = useState(toEntries(profile.data?.linkedAccounts ?? []));
+  const [errors, setErrors] = useState<ReturnType<typeof networkErrors>>({});
+  const [saving, setSaving] = useState(false);
+  const { snackbar, show, hide } = useSnackbar();
+  const shared = filledNetworks(networks);
+
+  const finish = async () => {
+    hide();
+    setSaving(true);
+    const result = await replaceLinkedAccounts(shared);
+    setSaving(false);
+    if (result.ok) signIn();
+    else if (result.status === 400) setErrors(networkErrors(shared, result.fields ?? []));
+    else show(failureSnackbar(result));
+  };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       {/* "Готово" opens the catalog with a new history, as signing in does. */}
-      <FormScreen step={{ current: 2, total: 2 }} action={{ label: 'Готово', onPress: signIn }}>
+      <FormScreen
+        step={{ current: 2, total: 2 }}
+        action={{ label: 'Готово', onPress: () => void finish(), disabled: shared.length === 0, loading: saving }}
+      >
         <View className="gap-3 px-5 pt-2">
           <View className="gap-1.5 overflow-hidden pb-2">
             <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
@@ -32,14 +50,17 @@ export default function ProfileContactsScreen() {
               Ці контакти побачить лише взаємний метч. До взаємної згоди вони приховані.
             </Text>
           </View>
-          <TextField label="Нікнейм у Telegram" value={telegram} onChangeText={setTelegram} />
-          {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-          <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /> */}
-          {/* "+ Додати соцмережу" has no prototype link; shown as in Figma. */}
-          <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
-          <ContactVisibility telegram={telegram} showTelegram={showTelegram} onShowTelegramChange={setShowTelegram} />
+          <NetworkFields
+            value={networks}
+            onChange={(value) => {
+              setNetworks(value);
+              setErrors({});
+            }}
+            errors={errors}
+          />
         </View>
       </FormScreen>
+      {snackbar && <Snackbar {...snackbar} />}
     </>
   );
 }

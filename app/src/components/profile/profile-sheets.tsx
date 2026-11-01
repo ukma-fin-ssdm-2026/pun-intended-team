@@ -2,33 +2,35 @@
 // AI Usage: "Додати соцмережу" and "Інтереси" sheets from the Figma "П1.1" and "П1.2" frames, on mock data; reviewed
 // by Daryna Halytska.
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Text, View, type KeyboardTypeOptions } from 'react-native';
 
 import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
-import { type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
 import { SelectChip } from '@/components/ui/select-chip';
 import { Sheet } from '@/components/ui/sheet';
+import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
 import { TextField } from '@/components/ui/text-field';
-import { mockProfile } from '@/mocks/profile';
 
-const networks: { name: string; icon: IconName }[] = [
-  { name: 'Instagram', icon: 'camera' },
-  { name: 'WhatsApp', icon: 'send' },
-  { name: 'TikTok', icon: 'share' },
-  { name: 'Facebook', icon: 'user' },
-];
+type SocialNetwork = components['schemas']['SocialNetwork'];
 
 type SocialProps = {
   visible: boolean;
-  // "Додати" and the backdrop return to П1; nothing is saved yet.
+  options: { network: SocialNetwork; name: string; placeholder: string; keyboardType?: KeyboardTypeOptions }[];
+  // The nickname already in the form for a social network, so picking it shows what will be replaced.
+  usernameOf: (network: SocialNetwork) => string;
   onClose: () => void;
+  onAdd: (network: SocialNetwork, username: string) => void;
 };
 
-export function AddSocialSheet({ visible, onClose }: Readonly<SocialProps>) {
-  const [network, setNetwork] = useState(networks[0].name);
-  const [nickname, setNickname] = useState(mockProfile.socialNickname);
+export function AddSocialSheet({ visible, options, usernameOf, onClose, onAdd }: Readonly<SocialProps>) {
+  const [network, setNetwork] = useState(options[0].network);
+  const [nickname, setNickname] = useState(usernameOf(options[0].network));
+  const chosen = options.find((option) => option.network === network) ?? options[0];
+  const choose = (next: SocialNetwork) => {
+    setNetwork(next);
+    setNickname(usernameOf(next));
+  };
 
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -36,18 +38,27 @@ export function AddSocialSheet({ visible, onClose }: Readonly<SocialProps>) {
         Додати соцмережу
       </Text>
       <View accessibilityRole="radiogroup" className="gap-2.5">
-        {networks.map((item) => (
+        {options.map((item) => (
           <RadioOption
-            key={item.name}
-            icon={item.icon}
+            key={item.network}
+            icon={(color) => <SocialNetworkIcon network={item.network} size={20} color={color} />}
             title={item.name}
-            selected={network === item.name}
-            onPress={() => setNetwork(item.name)}
+            selected={network === item.network}
+            onPress={() => choose(item.network)}
           />
         ))}
       </View>
-      <TextField label="Нікнейм або посилання" value={nickname} onChangeText={setNickname} autoCapitalize="none" />
-      <Button label="Додати" onPress={onClose} />
+      <TextField
+        label="Нікнейм або посилання"
+        placeholder={chosen.placeholder}
+        value={nickname}
+        onChangeText={setNickname}
+        keyboardType={chosen.keyboardType}
+        autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={200}
+      />
+      <Button label="Додати" disabled={!nickname.trim()} onPress={() => onAdd(network, nickname)} />
     </Sheet>
   );
 }

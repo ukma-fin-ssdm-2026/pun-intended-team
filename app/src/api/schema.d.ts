@@ -380,6 +380,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/linked-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your networks
+         * @description Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. At least one is required, since sign-in is Google-only and there is no phone number to share. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["replaceMyLinkedAccounts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -461,7 +481,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "CONTACT_REQUIRED" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -875,6 +895,13 @@ export interface components {
          *           "name": "Books"
          *         }
          *       ],
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "olena_k",
+         *           "url": "https://t.me/olena_k"
+         *         }
+         *       ],
          *       "isComplete": true
          *     }
          */
@@ -894,9 +921,31 @@ export interface components {
             /** @description Whole years, computed from the account’s date of birth; the date itself is never returned */
             age: number;
             interests: components["schemas"]["Interest"][];
-            /** @description True once communicationFormat and at least one interest are set; matching needs both */
+            /** @description Revealed to a mutual match, in the order of SocialNetwork */
+            linkedAccounts: components["schemas"]["LinkedAccount"][];
+            /** @description True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three */
             isComplete: boolean;
         };
+        /**
+         * @description A social network the user shares with a mutual match
+         * @example {
+         *       "network": "telegram",
+         *       "username": "olena_k",
+         *       "url": "https://t.me/olena_k"
+         *     }
+         */
+        LinkedAccount: {
+            network: components["schemas"]["SocialNetwork"];
+            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
+            username: string;
+            /** @description The profile link a mutual match opens */
+            url: string;
+        };
+        /**
+         * @description A social network whose handle a mutual match sees
+         * @enum {string}
+         */
+        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -944,6 +993,24 @@ export interface components {
         ReplaceInterestsBody: {
             /** @description Ids from listInterests; the whole set is replaced, so an empty list clears it */
             interestIds: string[];
+        };
+        /**
+         * @example {
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "@olena_k"
+         *         }
+         *       ]
+         *     }
+         */
+        ReplaceLinkedAccountsBody: {
+            /** @description The whole set, at most one per social network; an empty list is CONTACT_REQUIRED, since a mutual match needs a contact */
+            linkedAccounts: {
+                network: components["schemas"]["SocialNetwork"];
+                /** @description A nickname with or without "@", or a profile link; for WhatsApp, a phone number */
+                username: string;
+            }[];
         };
         /**
          * @description Returned while the API is up
@@ -2205,6 +2272,66 @@ export interface operations {
                 };
             };
             /** @description `REFERENCE_NOT_FOUND`: one of the interest ids does not exist. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMyLinkedAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReplaceLinkedAccountsBody"];
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONTACT_REQUIRED`: the list is empty. */
             422: {
                 headers: {
                     [name: string]: unknown;

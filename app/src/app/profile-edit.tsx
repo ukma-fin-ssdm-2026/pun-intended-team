@@ -4,7 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { replaceInterests, updateProfile } from '@/api/profile';
+import { replaceInterests, replaceLinkedAccounts, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
 import { failureSnackbar } from '@/auth/messages';
 import {
@@ -17,6 +17,13 @@ import {
   ProfilePhoto,
   toggleInList,
 } from '@/components/profile/profile-form';
+import {
+  filledNetworks,
+  networkErrors,
+  NetworkFields,
+  sameNetworks,
+  toEntries,
+} from '@/components/profile/network-fields';
 import { InterestsSheet } from '@/components/profile/profile-sheets';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { Spinner } from '@/components/ui/spinner';
@@ -64,6 +71,10 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const [format, setFormat] = useState(profile.communicationFormat);
   const savedInterestIds = profile.interests.map((interest) => interest.id);
   const [interestIds, setInterestIds] = useState(savedInterestIds);
+  const savedNetworks = toEntries(profile.linkedAccounts);
+  const [networks, setNetworks] = useState(savedNetworks);
+  const [networkErrorsShown, setNetworkErrorsShown] = useState<ReturnType<typeof networkErrors>>({});
+  const shared = filledNetworks(networks);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const interests = useInterests();
@@ -73,7 +84,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   let usernameError: string | undefined;
   if (usernameTaken) usernameError = 'Цей нікнейм уже зайнятий';
   else if (username && !usernameValid) usernameError = 'Від 3 до 30 латинських літер, цифр, крапок або _';
-  const ready = !!name.trim() && usernameValid && !!format && interestIds.length >= MIN_INTERESTS;
+  const ready = !!name.trim() && usernameValid && !!format && interestIds.length >= MIN_INTERESTS && shared.length > 0;
 
   // Only what changed is sent; "Зберегти" with no changes just returns to Т4.
   const save = async () => {
@@ -90,10 +101,15 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
     setSaving(true);
     let result = Object.keys(changes).length > 0 ? await updateProfile(changes) : undefined;
     if (interestsChanged && result?.ok !== false) result = await replaceInterests(interestIds);
+    if (!sameNetworks(shared, savedNetworks) && result?.ok !== false) {
+      result = await replaceLinkedAccounts(shared);
+    }
     setSaving(false);
     if (result && !result.ok) {
       if (result.code === 'USERNAME_TAKEN') setUsernameTaken(true);
-      else show(failureSnackbar(result));
+      else if (result.fields?.some((field) => field.startsWith('linkedAccounts.'))) {
+        setNetworkErrorsShown(networkErrors(shared, result.fields));
+      } else show(failureSnackbar(result));
       return;
     }
     router.back();
@@ -145,8 +161,18 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
             note={`обрано ${interestIds.length}`}
             onMore={interests.data ? () => setSheetOpen(true) : undefined}
           />
-          {/* Hidden: the API has no fields for Telegram, other networks or what a mutual match sees yet. Figma's
-          "Контакти для метчів" with "+ Додати соцмережу" (П1.1) and "Що побачить взаємний метч" goes here. */}
+
+          <View className="gap-3 pt-3">
+            <Text className="font-inter-semibold text-title text-text-primary">Контакти для метчів</Text>
+            <NetworkFields
+              value={networks}
+              onChange={(value) => {
+                setNetworks(value);
+                setNetworkErrorsShown({});
+              }}
+              errors={networkErrorsShown}
+            />
+          </View>
         </View>
       </FormScreen>
 

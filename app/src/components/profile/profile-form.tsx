@@ -12,7 +12,6 @@ import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
-import { Toggle } from '@/components/ui/toggle';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { colors } from '@/styles/tokens';
 
@@ -259,67 +258,4 @@ export function FormatPicker({
 
 export function toggleInList(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
-}
-
-function VisibilityRow({
-  icon,
-  title,
-  note,
-  value,
-  onValueChange,
-}: Readonly<{
-  icon: IconName;
-  title: string;
-  note: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}>) {
-  return (
-    <View className="flex-row items-center gap-3 overflow-hidden py-3">
-      <View className="size-9 items-center justify-center overflow-hidden rounded-[11px] bg-surface-background">
-        <Icon name={icon} size={18} />
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className="font-inter-medium text-body text-text-primary">{title}</Text>
-        <Text className="font-inter text-caption text-text-secondary">{note}</Text>
-      </View>
-      <Toggle value={value} onValueChange={onValueChange} accessibilityLabel={title} />
-    </View>
-  );
-}
-
-type ContactVisibilityProps = {
-  telegram: string;
-  showTelegram: boolean;
-  onShowTelegramChange: (value: boolean) => void;
-  // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-  // showPhone: boolean;
-  // onShowPhoneChange: (value: boolean) => void;
-};
-
-// "Що побачить взаємний метч": which contacts a mutual match gets.
-export function ContactVisibility({ telegram, showTelegram, onShowTelegramChange }: Readonly<ContactVisibilityProps>) {
-  return (
-    <View className="overflow-hidden rounded-[20px] bg-surface-card px-4 py-1">
-      <View className="pb-1 pt-3">
-        <Text className="font-inter-medium text-label text-text-secondary">Що побачить взаємний метч</Text>
-      </View>
-      <VisibilityRow
-        icon="contact-send"
-        title="Telegram"
-        note={telegram}
-        value={showTelegram}
-        onValueChange={onShowTelegramChange}
-      />
-      {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-      <View className="h-px bg-border-default" />
-      <VisibilityRow
-        icon="contact-phone"
-        title="Номер телефону"
-        note="Можна ввімкнути пізніше в профілі"
-        value={showPhone}
-        onValueChange={onShowPhoneChange}
-      /> */}
-    </View>
-  );
 }

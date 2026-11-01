@@ -4,7 +4,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -14,6 +14,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
 import { Icon } from '@/components/ui/icon';
@@ -159,7 +160,7 @@ function AboutCard({ profile }: Readonly<{ profile: ReturnType<typeof useProfile
       </View>
     );
   }
-  const { description, interests } = profile.data;
+  const { description, interests, linkedAccounts } = profile.data;
 
   return (
     <View className="gap-2.5 overflow-hidden rounded-[20px] bg-surface-card px-4 py-3.5">
@@ -182,15 +183,19 @@ function AboutCard({ profile }: Readonly<{ profile: ReturnType<typeof useProfile
           ))}
         </View>
       </View>
-      {/* Hidden: the API has no field for Telegram yet.
-      <View className="h-px bg-border-default" />
-      <View className="gap-2">
-        <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
-        <View className="flex-row items-center gap-2.5">
-          <Icon name="contact-send" size={18} />
-          <Text className="font-inter-medium text-body text-text-primary">{mockProfile.telegram}</Text>
-        </View>
-      </View> */}
+      {linkedAccounts.length > 0 && (
+        <>
+          <View className="h-px bg-border-default" />
+          <View className="gap-2">
+            <Text className="font-inter-medium text-label text-text-secondary">Контакти для метчів</Text>
+            <View className="gap-1.5">
+              {linkedAccounts.map((linked) => (
+                <NetworkLink key={linked.network} {...linked} onOpen={(url) => void Linking.openURL(url)} />
+              ))}
+            </View>
+          </View>
+        </>
+      )}
     </View>
   );
 }
