@@ -4,17 +4,17 @@ import { useSyncExternalStore } from 'react';
 // Fun texts, one list per place in the app; a screen shows one of its place's list at random. Keep them
 // gender-neutral: first-person verbs in the present tense ("доглядаю") have no gender in Ukrainian.
 const texts = {
-  // "Чим займаєшся?" on В7 and П1.
+  // "Чим займаєшся?" on В7 and П1. Up to 37 characters, so the placeholder fits a 360 pt wide phone.
   occupation: [
     'Наприклад, доглядаю маяк на Місяці',
     'Наприклад, вчу котів квантової фізики',
     'Наприклад, складаю розклад для хмар',
     'Наприклад, навчаю равликів поспішати',
-    'Наприклад, вигулюю динозаврів по неділях',
-    'Наприклад, шукаю золото на кінці веселки',
-    'Наприклад, рахую овець за всіх, хто не може заснути',
+    'Наприклад, вигулюю динозаврів',
+    'Наприклад, шукаю золото під веселкою',
+    'Наприклад, рахую овець за безсонних',
     'Наприклад, ремонтую машину часу',
-    'Наприклад, шукаю загублені шкарпетки на вимогу',
+    'Наприклад, шукаю шкарпетки на вимогу',
     'Наприклад, перевіряю дощ на вологість',
   ],
 } satisfies Record<string, readonly [string, ...string[]]>;
