@@ -4,7 +4,7 @@
 
 Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: a **number**, a **failure condition** (the observation that proves the goal is not met), the **implementation** that is supposed to achieve it, and the **measurement** that produces the number. A goal that cannot fail measures nothing.
 
-- **Scope:** every endpoint of the API in [`/src/api`](../../src/api) and the OpenAPI specification generated from it ([`openapi-generated.yaml`](openapi-generated.yaml)). The endpoint list lives in [`api-design.md`](api-design.md). The latest results were measured in Lab 4, when the API had 16 operations, 15 of them under `/api/v1` plus `/health`; it has 28 now, and the counts below are those of Lab 4 until the goals are measured again.
+- **Scope:** every endpoint of the API in [`/src/api`](../../src/api) and the OpenAPI specification generated from it ([`openapi-generated.yaml`](openapi-generated.yaml)). The endpoint list lives in [`api-design.md`](api-design.md). The latest results were measured in Lab 4, when the API had 16 operations, 15 of them under `/api/v1` plus `/health`; it has 34 now, and the counts below are those of Lab 4 until the goals are measured again.
 - **Quality model:** ISO/IEC 25010:2023, the same as [`requirements.md` §4](../requirements/requirements.md).
 - **Related documents:** [`requirements.md`](../requirements/requirements.md) · [`high-level-design.md`](../architecture/high-level-design.md) · [`catalog-access.md`](../architecture/mechanisms/catalog-access.md) · [`data-model.md`](../architecture/data-model.md) · [`threat-model.md`](../architecture/threat-model.md)
 - **Status tags:**
