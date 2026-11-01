@@ -1,6 +1,6 @@
 {
   "name": "nearby-api",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Nearby REST API (Code-First: the OpenAPI spec is generated from zod schemas)",
   "type": "module",
