@@ -15,7 +15,7 @@ State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, cat
 | Categories and administration of categories | Working, PostgreSQL | #144 |
 | Profiles: onboarding, edit, interests, linked accounts | Working, PostgreSQL | #141, #337 |
 | Sign-in with Google, JWT access tokens, refresh sessions | Working, PostgreSQL; phone and password routes paused by [ADR-004](../architecture/decisions/ADR-004.md) | #140, #212, #325 |
-| Events and listings in PostgreSQL | In progress | #310 |
+| Events and listings in PostgreSQL | Planned | #310 |
 | Matching | The `match` algorithm and the interest score; no endpoints yet | #285 |
 | Reports, report cases and bans; platform statistics for administrators | Working, PostgreSQL | #323 |
 | Expo client | Google sign-in, the profile screens and sending a report use the API; administrators review reports, ban users and manage categories at `/admin` on the web; the catalog, map, matches and listings show test data | #143, #337, #323 |
