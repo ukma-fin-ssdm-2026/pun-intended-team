@@ -18,7 +18,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | ID | Component | Responsibility |
 |---|---|---|
 | CMP-01 | Client (Expo — iOS / Android / web) | UI, local draft state (FR-004), map (FR-012), inbox polling, unsupported-version notice (FR-033). Holds no business rules. |
-| CMP-02 | Main server (NestJS) | All user requests and all core background work: auth, profiles, catalog, matching, notifications, moderation, admin. Stateless: 1 instance at launch, scales horizontally (FLEX-002, verified with 2 in CI). |
+| CMP-02 | Main server (NestJS) | All user requests and all core background work: auth, profiles, catalog, matching, notifications, moderation, admin. Stateless: 1 instance at launch, scales horizontally (FLEX-002, to be verified with 2 instances behind a proxy). |
 | CMP-03 | Event import service (NestJS) | Periodic import from external providers (FR-008), normalization, skip-and-log (FR-015), staleness marking (FR-014, REL-003). One adapter per provider (FLEX-003). |
 | CMP-04 | PostgreSQL | Single source of truth, including the job queue (ADR-002). |
 | EXT-01 | External event providers | Concert.ua, ArtWizard — source for CMP-03. |
@@ -150,6 +150,8 @@ Each process connects with its own database role; the import role can write only
 | App host | Event import service (CMP-03) | 1 |
 | Managed PostgreSQL | CMP-04 — encrypted volume, daily backups (REL-004) | 1 |
 | External | EXT-01 – EXT-04 | — |
+
+**Staging** runs a smaller version of this on one Hetzner Cloud server with Docker Compose ([ADR-005](decisions/ADR-005.md)): Caddy as the reverse proxy with TLS, the main server, the web build of the app, the event import and PostgreSQL in a container, with `pg_dump` backups on the same server. The API is at `https://api.nearbystaging.app`, the web app at [nearbystaging.app](https://nearbystaging.app). ADR-005 lists what staging leaves out of the table above; setup and operations are in [staging](../operations/staging.md).
 
 Trust boundaries sit between the internet and the load balancer, and between our network and every external system. Diagram: [deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)).
 
