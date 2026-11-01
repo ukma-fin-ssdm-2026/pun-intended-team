@@ -109,6 +109,17 @@ The unit and e2e tests were run before and after the refactorings: on `feature/2
 
 ## Bonuses
 
+### Quality Gate as a Required Check
+
+`SonarCloud Code Analysis` is a required status check in the `main` ruleset, next to `CI passed`, so a pull request whose Quality Gate fails cannot be merged (#347). Before, only `CI passed` was required: a red Quality Gate showed in the pull request but did not block the merge.
+
+Demo in [#349](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/349):
+
+| Commit | Change | Quality Gate |
+|---|---|---|
+| `1d35705` | Compares a date with itself (`typescript:S1764`, a bug) | ❌ [Failed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124932158826): Reliability C and Maintainability B on new code; merging blocked |
+| `6d2b541` | Removes the bug | ✅ [Passed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124934031520) |
+
 ### Characterize the API exception filter before refactoring it (#348)
 
 [`ApiExceptionFilter`](../../src/api/common/api-exception.filter.ts) had no tests of its own: its branches were covered at 63 % and the mapping of Nest's `403` was not covered at all ([testing strategy](../testing/testing-strategy.md)). The change was made in two commits, and the tests do not change between them:

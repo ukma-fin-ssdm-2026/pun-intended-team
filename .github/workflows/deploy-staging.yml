@@ -23,7 +23,7 @@ permissions: {}
 jobs:
   deploy:
     name: Deploy staging
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
     permissions:
       contents: read

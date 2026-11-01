@@ -34,7 +34,7 @@ concurrency:
 jobs:
   ci-passed:
     name: CI passed
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -217,7 +217,7 @@ jobs:
     name: Deploy API docs
     needs: ci-passed
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 5
     permissions:
       pages: write
@@ -237,7 +237,7 @@ jobs:
     name: Publish images
     needs: ci-passed
     if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
-    runs-on: [self-hosted, linux]
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
     permissions:
       contents: read
