@@ -7,27 +7,27 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 ## Rules
 
 1. **Unit tests** (`tests/unit/`) check business rules in `src/core/` and adapters with logic, with mocked ports. They take what an HTTP request cannot set up reliably: time limits, races, data errors and pure functions.
-2. **Integration tests** (`tests/e2e/`, despite the name) start the API and call it over HTTP, through every layer and the real database. Each run drops and creates a database of its own, `<database>_e2e`, migrates it and adds the accounts the stubs belong to, so no run sees rows of another. They check the HTTP contract: status codes, validation, access and response bodies.
+2. **Integration tests** (`tests/e2e/`, despite the name) start the API and call it over HTTP, through every layer and the real database. Each run drops and creates a database of its own, `<database>_e2e`, migrates it and adds the accounts the stubs belong to and the profiles of the listings' authors, so no run sees rows of another. They check the HTTP contract: status codes, validation, access and response bodies.
 3. **Coverage scope** — measured:
 
-   | Category | Files |
-   |---|---|
-   | Business rules | `core/*/services/`, `core/common/kyiv-time.ts` |
+   | Category       | Files                                                                                                               |
+   | -------------- | ------------------------------------------------------------------------------------------------------------------- |
+   | Business rules | `core/*/services/`, `core/common/kyiv-time.ts`                                                                      |
    | HTTP behaviour | `api/common/`: `endpoint.ts`, `auth.ts`, `api-exception.filter.ts`, `api-express-adapter.ts`, `security-headers.ts` |
-   | Controllers | `api/*/controllers/` |
-   | Adapters | `infra/auth/`, `infra/prisma/` |
+   | Controllers    | `api/*/controllers/`                                                                                                |
+   | Adapters       | `infra/auth/`, `infra/prisma/`                                                                                      |
 
    Left out:
 
-   | Category | Files | Why |
-   |---|---|---|
-   | Generated code | `infra/prisma/generated/` | Not ours |
-   | Types | `**/types/`, `core/common/page.ts` | Erased when compiled |
-   | Ports | `core/*/repositories/`, `core/*/adapters/` | Empty abstract classes |
-   | Temporary stand-ins | `infra/stubs/`, `infra/messaging/console-messaging-provider.ts` | Replaced by the database and the Telegram gateway |
-   | Wiring and start-up | `*.module.ts`, `api/main.ts`, `import/main.ts`, `api/common/config.ts` | Dependency injection and environment; run whenever the app starts |
-   | Declarations | `api/*/schemas/`, `api/common/schemas/`, `routes.ts`, `tags.ts`, `registry.ts`, `domain-error.ts`, `api-exception.ts` | Run on import |
-   | Tooling | `api/common/openapi.ts`, `scripts/` | Generates the spec; CI checks it is up to date |
+   | Category            | Files                                                                                                                 | Why                                                               |
+   | ------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+   | Generated code      | `infra/prisma/generated/`                                                                                             | Not ours                                                          |
+   | Types               | `**/types/`, `core/common/page.ts`                                                                                    | Erased when compiled                                              |
+   | Ports               | `core/*/repositories/`, `core/*/adapters/`                                                                            | Empty abstract classes                                            |
+   | Temporary stand-ins | `infra/stubs/`, `infra/messaging/console-messaging-provider.ts`                                                       | Replaced by the database and the Telegram gateway                 |
+   | Wiring and start-up | `*.module.ts`, `api/main.ts`, `import/main.ts`, `api/common/config.ts`                                                | Dependency injection and environment; run whenever the app starts |
+   | Declarations        | `api/*/schemas/`, `api/common/schemas/`, `routes.ts`, `tags.ts`, `registry.ts`, `domain-error.ts`, `api-exception.ts` | Run on import                                                     |
+   | Tooling             | `api/common/openapi.ts`, `scripts/`                                                                                   | Generates the spec; CI checks it is up to date                    |
 
 4. **Left out is not untested.** Validation rules in schemas still get tests; coverage cannot show whether they have them.
 5. **Categories, not file names.** A new file falls under its category; a file that fits none is measured. The patterns are in [`mcr.config.mjs`](../../../mcr.config.mjs).
@@ -40,11 +40,11 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 9. **Inside a test file**, in this order: imports (`node:` modules, code from `dist/`, types from `src/`, fixtures), constants, builders, the mock factory `makeService()`, then one `describe` per method. Builders are named `aX()` or `anX()`, return the ordinary case and take overrides; a test overrides only what it is about, so the case it checks is visible in the test.
 10. **Test data by layer:**
 
-   | Code | Test data |
-   |---|---|
-   | Services | Every port mocked with `mock.fn` from `node:test`, built by one factory per service; a test changes only the mocks it needs |
-   | Pure functions | A table of inputs and expected results, one test per row |
-   | Adapters | The real implementation with test inputs, such as keys in a temporary folder; the library it wraps is not mocked |
+| Code           | Test data                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Services       | Every port mocked with `mock.fn` from `node:test`, built by one factory per service; a test changes only the mocks it needs |
+| Pure functions | A table of inputs and expected results, one test per row                                                                    |
+| Adapters       | The real implementation with test inputs, such as keys in a temporary folder; the library it wraps is not mocked            |
 
 11. **Deterministic** — fixed ids and dates from the fixtures, never `Date.now()` or random values in test data. Code that reads the clock runs under `mock.timers` with a fixed `now`, reset after each test. The exception is a property-based test (fast-check), which makes up its inputs on purpose; a failing run prints its seed, which replays it.
 12. **One behaviour per test** — `describe` names the unit or method (`AuthService.verify`), `test` names the behaviour in lower case: `'rejects a code issued more than 10 minutes ago'`. Arrange, act and assert are separated by blank lines. A table of cases covers one path with different inputs, not unrelated behaviours. A test for a requirement names its id in a comment, e.g. `// SAFE-001`.

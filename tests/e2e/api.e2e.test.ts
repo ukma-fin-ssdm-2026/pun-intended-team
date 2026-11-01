@@ -53,6 +53,29 @@ const stubAccounts = {
     dateOfBirth: '1988-09-15',
   },
 };
+// Taras has a profile and a listing in the stubs but never signs in, so he has no sign-in method.
+const tarasAccount = { id: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18', dateOfBirth: '1997-11-03' };
+
+// The profiles of the stub listings' authors; the accounts are stubAccounts.user and tarasAccount.
+const stubProfiles = [
+  {
+    accountId: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
+    username: 'olena_k',
+    displayName: 'Olena',
+    description: 'Cinema, galleries and long walks.',
+    communicationFormat: 'friends',
+    interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
+  },
+  {
+    accountId: tarasAccount.id,
+    username: 'taras.m',
+    displayName: 'Taras',
+    description: null,
+    communicationFormat: 'casual',
+    interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
+  },
+];
+
 const subjects = Object.fromEntries(Object.entries(stubAccounts).map(([name, { subject }]) => [name, subject])) as {
   [name in keyof typeof stubAccounts]: string;
 };
@@ -198,7 +221,8 @@ async function newAccount(): Promise<{ subject: string; token: string }> {
   return { subject, token: res.body.accessToken };
 }
 
-/** Active accounts with the stubs' ids and a Google sign-in, and the date of birth encrypted with the run's key. */
+/** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
+ * profiles of the stub listings' authors. */
 async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
   await withDatabase(async (client) => {
     for (const { id, role, subject, dateOfBirth } of Object.values(stubAccounts)) {
@@ -211,6 +235,23 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
         id,
         subject,
       ]);
+    }
+    await client.query(`INSERT INTO accounts (id, role, status, date_of_birth) VALUES ($1, 'user', 'active', $2)`, [
+      tarasAccount.id,
+      cipher.encrypt(tarasAccount.dateOfBirth),
+    ]);
+    for (const { accountId, username, displayName, description, communicationFormat, interestIds } of stubProfiles) {
+      await client.query(
+        `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [accountId, username, displayName, description, communicationFormat],
+      );
+      for (const interestId of interestIds) {
+        await client.query(`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`, [
+          accountId,
+          interestId,
+        ]);
+      }
     }
   });
 }
@@ -1231,7 +1272,7 @@ describe('GET /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, true);
     assert.deepEqual(
       res.body.interests.map((interest: { name: string }) => interest.name),
-      ['Films', 'Drawing'],
+      ['Drawing', 'Films'],
     );
   });
 
@@ -1329,6 +1370,24 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(res.body.description, 'Concerts on weekdays.');
     assert.equal(res.body.sharePhone, true);
     assert.equal(res.body.communicationFormat, 'dating', 'a field not sent keeps its value');
+  });
+
+  // The database names this value `casual`; the repository translates it both ways.
+  test('stores company and returns it as company', async () => {
+    const patched = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { communicationFormat: 'company' },
+    });
+    assert.equal(patched.status, 200, JSON.stringify(patched.body));
+    assert.equal(patched.body.communicationFormat, 'company');
+
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    const stored = await withDatabase((client) =>
+      client.query('SELECT communication_format FROM profiles WHERE account_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(res.body.communicationFormat, 'company');
+    assert.equal(stored.rows[0]?.communication_format, 'casual');
   });
 
   test('lets a user change the case of their own username', async () => {
