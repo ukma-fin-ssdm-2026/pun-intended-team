@@ -21,7 +21,8 @@ export class ReportsController {
     summary: 'Report a user',
     description:
       'Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports ' +
-      'on one user are grouped into one case. The reporter gets no details about the case.',
+      'on one user are grouped into one case. The reporter gets no details about the case, and a report on a ' +
+      'banned user is accepted the same way but not stored.',
     tags: ['Moderation'],
     access: 'user',
     request: CreateReportRequest,

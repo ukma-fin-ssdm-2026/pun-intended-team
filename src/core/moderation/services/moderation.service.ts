@@ -13,7 +13,6 @@ import type {
   ReportCaseDetails,
   ReportCaseRecord,
   ReportCaseStatus,
-  ReportResolution,
 } from '../types/report.ts';
 
 @Injectable()
@@ -34,7 +33,13 @@ export class ModerationService {
     if (accountId === reporterId) {
       throw new DomainError('CANNOT_REPORT_SELF', 'You cannot report yourself', 'username');
     }
+    // A banned user has nothing left to review; the reporter is not told, so a ban stays private.
+    if ((await this.accountsService.findStanding(accountId))?.status !== 'active') {
+      await this.audit(reporterId, 'report.create', 'account', accountId, 'ignored: account not active');
+      return;
+    }
     await this.reportCasesRepository.addAccountReport(accountId, { reporterId, reason, comment: comment || null });
+    await this.audit(reporterId, 'report.create', 'account', accountId, 'created');
   }
 
   async listCases(status: ReportCaseStatus, page: PageRequest): Promise<Page<ReportCase>> {
@@ -55,30 +60,32 @@ export class ModerationService {
     };
   }
 
-  /** Bans the reported user and resolves the case (FR-027). */
+  /**
+   * Bans the reported user and resolves the case (FR-027). A case already resolved as banned bans again, so a ban that
+   * failed halfway can be retried.
+   */
   async ban(caseId: string, adminId: string): Promise<ReportCaseDetails> {
-    const found = await this.resolve(caseId, 'banned', adminId);
+    const found = await this.requireOthersCase(caseId, adminId, 'account.ban');
+    if ((await this.accountsService.findStanding(found.accountId))?.role === 'admin') {
+      await this.audit(adminId, 'account.ban', 'account', found.accountId, 'refused: administrator');
+      throw new DomainError('CONFLICT', 'An administrator cannot be banned; remove the role first');
+    }
+    const resolved = await this.reportCasesRepository.resolve(caseId, 'banned', adminId, new Date());
+    if (!resolved && (await this.requireCase(caseId)).resolution !== 'banned') {
+      await this.refuseResolved(adminId, 'account.ban', caseId);
+    }
     await this.accountsService.ban(found.accountId);
-    await this.auditLogRepository.record({
-      actorId: adminId,
-      action: 'account.ban',
-      targetType: 'account',
-      targetId: found.accountId,
-      result: 'banned',
-    });
+    await this.audit(adminId, 'account.ban', 'account', found.accountId, 'banned');
     return this.getCase(caseId);
   }
 
   /** Closes the case without action, for reports that turn out unfounded. */
   async dismiss(caseId: string, adminId: string): Promise<ReportCaseDetails> {
-    await this.resolve(caseId, 'dismissed', adminId);
-    await this.auditLogRepository.record({
-      actorId: adminId,
-      action: 'report_case.dismiss',
-      targetType: 'report_case',
-      targetId: caseId,
-      result: 'dismissed',
-    });
+    await this.requireOthersCase(caseId, adminId, 'report_case.dismiss');
+    if (!(await this.reportCasesRepository.resolve(caseId, 'dismissed', adminId, new Date()))) {
+      await this.refuseResolved(adminId, 'report_case.dismiss', caseId);
+    }
+    await this.audit(adminId, 'report_case.dismiss', 'report_case', caseId, 'dismissed');
     return this.getCase(caseId);
   }
 
@@ -86,15 +93,31 @@ export class ModerationService {
     return { openReports: await this.reportCasesRepository.countOpen() };
   }
 
-  private async resolve(caseId: string, resolution: ReportResolution, adminId: string): Promise<ReportCaseRecord> {
-    const found = await this.reportCasesRepository.findById(caseId);
+  private async requireCase(id: string): Promise<ReportCaseRecord> {
+    const found = await this.reportCasesRepository.findById(id);
     if (!found) {
       throw new DomainError('NOT_FOUND', 'Report case not found');
     }
-    if (!(await this.reportCasesRepository.resolve(caseId, resolution, adminId, new Date()))) {
-      throw new DomainError('CONFLICT', 'The case is already resolved');
+    return found;
+  }
+
+  /** An administrator who was reported cannot resolve their own case. */
+  private async requireOthersCase(caseId: string, adminId: string, action: string): Promise<ReportCaseRecord> {
+    const found = await this.requireCase(caseId);
+    if (found.accountId === adminId) {
+      await this.audit(adminId, action, 'report_case', caseId, 'refused: own case');
+      throw new DomainError('CONFLICT', 'A case about yourself is resolved by another administrator');
     }
     return found;
+  }
+
+  private async refuseResolved(adminId: string, action: string, caseId: string): Promise<never> {
+    await this.audit(adminId, action, 'report_case', caseId, 'refused: already resolved');
+    throw new DomainError('CONFLICT', 'The case is already resolved');
+  }
+
+  private async audit(actorId: string, action: string, targetType: string, targetId: string, result: string) {
+    await this.auditLogRepository.record({ actorId, action, targetType, targetId, result });
   }
 
   private async caseAccounts(accountIds: string[]): Promise<(accountId: string) => CaseAccount> {

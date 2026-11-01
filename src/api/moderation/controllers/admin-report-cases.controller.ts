@@ -16,7 +16,7 @@ const CASE_NOT_FOUND = {
   schema: ErrorResponse,
 };
 
-const ALREADY_RESOLVED = { description: 'The case is already resolved', schema: ErrorResponse };
+const OWN_CASE = 'the case is about the caller, whom another administrator must judge';
 
 @Controller()
 export class AdminReportCasesController {
@@ -68,14 +68,18 @@ export class AdminReportCasesController {
     summary: 'Ban the reported user',
     description:
       'Ban the user the case is about and resolve the case. Every session of the user ends at once: ' +
-      'their next request gets 401, and they cannot sign in again.',
+      'their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban ' +
+      'is applied again, so a ban that failed halfway can be retried.',
     tags: ['Moderation'],
     access: 'admin',
     request: ReportCaseRequest,
     responses: {
       200: { description: 'The resolved case', schema: ReportCaseDetails },
       404: CASE_NOT_FOUND,
-      409: ALREADY_RESOLVED,
+      409: {
+        description: `The case was dismissed, the reported user is an administrator, or ${OWN_CASE}`,
+        schema: ErrorResponse,
+      },
     },
   })
   async banReportedUser(
@@ -97,7 +101,7 @@ export class AdminReportCasesController {
     responses: {
       200: { description: 'The resolved case', schema: ReportCaseDetails },
       404: CASE_NOT_FOUND,
-      409: ALREADY_RESOLVED,
+      409: { description: `The case is already resolved, or ${OWN_CASE}`, schema: ErrorResponse },
     },
   })
   async dismissReportCase(

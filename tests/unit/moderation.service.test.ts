@@ -56,7 +56,10 @@ function makeService() {
       ),
     ),
   };
-  const accountsService = { ban: mock.fn(() => Promise.resolve()) };
+  const accountsService = {
+    ban: mock.fn(() => Promise.resolve()),
+    findStanding: mock.fn(() => Promise.resolve({ role: 'user', status: 'active' })),
+  };
 
   const service = new ModerationService(
     reportCasesRepository as unknown as ReportCasesRepository,
@@ -81,6 +84,32 @@ describe('ModerationService.report', () => {
       OTHER_ACCOUNT_ID,
       { reporterId: ACCOUNT_ID, reason: 'fake_profile', comment: null },
     ]);
+  });
+
+  test('records who reported whom, without the comment', async () => {
+    const { service, auditLogRepository } = makeService();
+
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'no_show', comment: 'Private details' });
+
+    assert.deepEqual(auditLogRepository.record.mock.calls[0]?.arguments, [
+      {
+        actorId: ACCOUNT_ID,
+        action: 'report.create',
+        targetType: 'account',
+        targetId: OTHER_ACCOUNT_ID,
+        result: 'created',
+      },
+    ]);
+  });
+
+  test('stores no report on a banned user and does not tell the reporter', async () => {
+    const { service, accountsService, reportCasesRepository, auditLogRepository } = makeService();
+    accountsService.findStanding.mock.mockImplementation(() => Promise.resolve({ role: 'user', status: 'banned' }));
+
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'other' });
+
+    assert.equal(reportCasesRepository.addAccountReport.mock.callCount(), 0);
+    assert.equal(auditLogRepository.record.mock.calls[0]?.arguments[0].result, 'ignored: account not active');
   });
 
   test('rejects a username no profile has and stores nothing', async () => {
@@ -137,23 +166,64 @@ describe('ModerationService.ban', () => {
     ]);
   });
 
-  test('bans no one when the case was resolved in the meantime', async () => {
+  test('bans no one when the case was dismissed in the meantime, and records the refusal', async () => {
     const { service, reportCasesRepository, accountsService, auditLogRepository } = makeService();
     reportCasesRepository.resolve.mock.mockImplementation(() => Promise.resolve(false));
+    reportCasesRepository.findById.mock.mockImplementation(() =>
+      Promise.resolve(aCase({ status: 'resolved', resolution: 'dismissed' })),
+    );
 
     await assert.rejects(service.ban(CASE_ID, ADMIN_ID), isDomainError('CONFLICT'));
     assert.equal(accountsService.ban.mock.callCount(), 0);
-    assert.equal(auditLogRepository.record.mock.callCount(), 0);
+    assert.equal(auditLogRepository.record.mock.calls[0]?.arguments[0].result, 'refused: already resolved');
+  });
+
+  test('bans again on a case already resolved as banned, so a ban that failed halfway can be retried', async () => {
+    const { service, reportCasesRepository, accountsService } = makeService();
+    reportCasesRepository.resolve.mock.mockImplementation(() => Promise.resolve(false));
+    reportCasesRepository.findById.mock.mockImplementation(() =>
+      Promise.resolve(aCase({ status: 'resolved', resolution: 'banned' })),
+    );
+
+    await service.ban(CASE_ID, ADMIN_ID);
+
+    assert.deepEqual(accountsService.ban.mock.calls[0]?.arguments, [OTHER_ACCOUNT_ID]);
+  });
+
+  test('refuses to ban an administrator and leaves the case open', async () => {
+    const { service, accountsService, reportCasesRepository } = makeService();
+    accountsService.findStanding.mock.mockImplementation(() => Promise.resolve({ role: 'admin', status: 'active' }));
+
+    await assert.rejects(service.ban(CASE_ID, ADMIN_ID), isDomainError('CONFLICT'));
+    assert.equal(reportCasesRepository.resolve.mock.callCount(), 0);
+    assert.equal(accountsService.ban.mock.callCount(), 0);
+  });
+
+  test('refuses a case about the administrator themselves', async () => {
+    const { service, reportCasesRepository } = makeService();
+
+    await assert.rejects(service.ban(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CONFLICT'));
+    await assert.rejects(service.dismiss(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CONFLICT'));
+    assert.equal(reportCasesRepository.resolve.mock.callCount(), 0);
   });
 });
 
 describe('ModerationService.dismiss', () => {
-  test('resolves the case without banning anyone', async () => {
-    const { service, reportCasesRepository, accountsService } = makeService();
+  test('resolves the case without banning anyone and records who dismissed it', async () => {
+    const { service, reportCasesRepository, accountsService, auditLogRepository } = makeService();
 
     await service.dismiss(CASE_ID, ADMIN_ID);
 
     assert.equal(reportCasesRepository.resolve.mock.calls[0]?.arguments[1], 'dismissed');
     assert.equal(accountsService.ban.mock.callCount(), 0);
+    assert.deepEqual(auditLogRepository.record.mock.calls[0]?.arguments, [
+      {
+        actorId: ADMIN_ID,
+        action: 'report_case.dismiss',
+        targetType: 'report_case',
+        targetId: CASE_ID,
+        result: 'dismissed',
+      },
+    ]);
   });
 });

@@ -223,13 +223,34 @@ async function newAccount(): Promise<{ subject: string; token: string }> {
   return { subject, token: res.body.accessToken };
 }
 
-/** Registers a new account with a profile and returns its token, account id and username. */
-async function newProfile(): Promise<{ token: string; accountId: string; username: string }> {
-  const { token } = await newAccount();
+/** Registers a new account with a profile and returns its Google subject, tokens, account id and username. */
+async function newProfile(): Promise<{
+  subject: string;
+  token: string;
+  refreshToken: string;
+  accountId: string;
+  username: string;
+}> {
+  const registrant = await newRegistrant();
+  const session = await call('POST', '/api/v1/auth/complete-registration', {
+    token: registrant.token,
+    body: { dateOfBirth: '2000-05-17' },
+  });
+  assert.equal(session.status, 200, JSON.stringify(session.body));
+  const { accessToken: token, refreshToken } = session.body;
   const username = `u_${randomUUID().slice(0, 8)}`;
   const res = await call('POST', '/api/v1/me/profile', { token, body: { username, displayName: 'Reported' } });
   assert.equal(res.status, 201, JSON.stringify(res.body));
-  return { token, accountId: accountIdOf(token), username };
+  return { subject: registrant.subject, token, refreshToken, accountId: accountIdOf(token), username };
+}
+
+/** Reports the user and resolves the case with `action`; returns the case id. */
+async function reportAndResolve(username: string, accountId: string, action: 'ban' | 'dismiss'): Promise<string> {
+  await call('POST', '/api/v1/reports', { token: tokens.user, body: { username, reason: 'other' } });
+  const caseId = await openCaseOf(accountId);
+  const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/${action}`, { token: tokens.admin });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return caseId ?? '';
 }
 
 /** The id of the account's open report case; undefined when it has none. */
@@ -1381,6 +1402,16 @@ describe('Report cases', () => {
     assert.equal(res.body.status, 'resolved');
     assert.equal(res.body.resolution, 'banned');
     assertRejected(await call('GET', '/api/v1/me/profile', { token: target.token }), 401, 'UNAUTHENTICATED');
+    assertRejected(
+      await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: target.refreshToken } }),
+      401,
+      'INVALID_REFRESH_TOKEN',
+    );
+    assertRejected(
+      await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(target.subject) } }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
     const { rows } = await withDatabase((client) =>
       client.query(`SELECT actor_id, result FROM audit_logs WHERE action = 'account.ban' AND target_id = $1`, [
         target.accountId,
@@ -1404,6 +1435,61 @@ describe('Report cases', () => {
     await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
     const newCaseId = await openCaseOf(target.accountId);
     assert.ok(newCaseId && newCaseId !== caseId);
+  });
+
+  test('bans again on a case already banned, so a ban that failed halfway can be retried', async () => {
+    const target = await newProfile();
+    const caseId = await reportAndResolve(target.username, target.accountId, 'ban');
+
+    const again = await call('POST', `/api/v1/admin/report-cases/${caseId}/ban`, { token: tokens.admin });
+
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.resolution, 'banned');
+  });
+
+  test('stores no report on a banned user, and still answers 204', async () => {
+    const target = await newProfile();
+    await reportAndResolve(target.username, target.accountId, 'ban');
+
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { username: target.username, reason: 'other' },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.equal(await openCaseOf(target.accountId), undefined);
+  });
+
+  test('puts two first reports sent at once into one case', async () => {
+    const target = await newProfile();
+    const other = await newAccount();
+
+    const results = await Promise.all(
+      [tokens.user, other.token].map((token) =>
+        call('POST', '/api/v1/reports', { token, body: { username: target.username, reason: 'fake_profile' } }),
+      ),
+    );
+
+    assert.deepEqual(
+      results.map((res) => res.status),
+      [204, 204],
+    );
+    const caseId = await openCaseOf(target.accountId);
+    const details = await call('GET', `/api/v1/admin/report-cases/${caseId}`, { token: tokens.admin });
+    assert.equal(details.body.reportCount, 2, JSON.stringify(details.body));
+  });
+
+  test('lists resolved cases on request, a page at a time', async () => {
+    for (const target of [await newProfile(), await newProfile()]) {
+      await reportAndResolve(target.username, target.accountId, 'dismiss');
+    }
+
+    const res = await call('GET', '/api/v1/admin/report-cases?status=resolved&limit=1', { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.items.length, 1);
+    assert.equal(res.body.items[0].status, 'resolved');
+    assert.equal(res.body.page.hasMore, true);
   });
 
   test('answers 404 to an unknown case', async () => {
