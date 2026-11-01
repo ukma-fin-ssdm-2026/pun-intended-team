@@ -23,6 +23,8 @@ tags:
     description: The event category directory
   - name: Moderation
     description: Reports on users and how administrators resolve them
+  - name: Admin
+    description: Platform statistics for administrators
   - name: System
     description: Service endpoints
 components:
@@ -35,40 +37,31 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
-    AdminCategoryList:
+    PlatformStats:
       type: object
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdminCategory'
+        users:
+          type: integer
+          description: 'Active accounts: registered and not banned'
+        events:
+          type: integer
+          description: Published events that have not ended yet
+        matches:
+          type: integer
+          description: Matches proposed so far
+        openReports:
+          type: integer
+          description: Open report cases
       required:
-        - items
+        - users
+        - events
+        - matches
+        - openReports
       example:
-        items:
-          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
-            isActive: true
-    AdminCategory:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        isActive:
-          type: boolean
-          description: Inactive categories are hidden from filters and cannot be picked
-      required:
-        - id
-        - name
-        - isActive
-      description: A category as administrators see it
-      example:
-        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
-        isActive: true
+        users: 128
+        events: 42
+        matches: 0
+        openReports: 3
     ErrorResponse:
       type: object
       properties:
@@ -151,6 +144,40 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    AdminCategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategory'
+      required:
+        - items
+      example:
+        items:
+          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+            name: Concerts
+            isActive: true
+    AdminCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+          description: Inactive categories are hidden from filters and cannot be picked
+      required:
+        - id
+        - name
+        - isActive
+      description: A category as administrators see it
+      example:
+        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+        name: Concerts
+        isActive: true
     CreateCategoryBody:
       type: object
       properties:
@@ -1143,6 +1170,36 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/admin/stats:
+    get:
+      operationId: adminGetStats
+      summary: Get platform statistics
+      description: >-
+        Count active users, upcoming events, matches and open report cases.
+        Needs an administrator account; other accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformStats'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/categories:
     get:
       operationId: adminListCategories
