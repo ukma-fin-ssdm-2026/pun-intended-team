@@ -27,6 +27,8 @@ The working staging version is at [nearbystaging.app](https://nearbystaging.app)
 
 More on the team and our principles can be found [here](TeamCharter.md).
 
+The links to each member's lab videos are in [`labs/`](labs/), one folder per lab.
+
 ## ୭ Requirements Artifacts
 
 Documentation related to requirements engineering for this project is located [here](docs/requirements/):
@@ -67,16 +69,20 @@ Documentation related to code quality for this project is located [here](docs/co
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`review-response.md`](docs/code-quality/review-response.md) — how we handled the review of our code
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
+- [`sonarcloud-report.md`](docs/refactoring/sonarcloud-report.md) — SonarCloud analysis of the code and how its findings are handled
 
 ## ര Running the API
 
-Requires Node.js 26 or later.
+Requires Node.js 26 or later and [Docker](https://docs.docker.com/get-docker/) for the database. Accounts, sessions, categories and profiles are stored in PostgreSQL, so start the database before the API; the [Local database](#local-database) section explains these steps.
 
 ```bash
 npm install
-cp .env.example .env    # first time only: it overwrites an existing .env
-npm run keys:generate   # key files for tokens, verification codes and contact encryption in keys/, never committed; keeps existing ones
-npm run dev             # http://localhost:4100, Swagger UI at /api-docs; restarts on changes
+cp .env.example .env          # first time only: it overwrites an existing .env
+npm run keys:generate         # key files for tokens, verification codes and contact encryption in keys/, never committed; keeps existing ones
+docker compose up -d --wait   # PostgreSQL 18 on 127.0.0.1:5432
+npx prisma migrate deploy     # creates the tables and the starting data
+npm run db:set-passwords      # passwords of the database roles from .env; safe to repeat
+npm run dev                   # http://localhost:4100, Swagger UI at /api-docs; restarts on changes
 ```
 
 For a production build: `npm run build`, then `npm start`.
@@ -175,7 +181,7 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories, accounts, verification codes and sessions are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes, sessions, profiles and interests are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
