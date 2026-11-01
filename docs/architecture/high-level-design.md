@@ -18,19 +18,19 @@ Both server processes are built from **one codebase and one image**, started in 
 | ID | Component | Responsibility |
 |---|---|---|
 | CMP-01 | Client (Expo — iOS / Android / web) | UI, local draft state (FR-004), map (FR-012), inbox polling, unsupported-version notice (FR-033). Holds no business rules. |
-| CMP-02 | Main server (NestJS) | All user requests and all core background work: auth, profiles, catalog, matching, notifications, moderation, admin. Stateless: 1 instance at launch, scales horizontally (FLEX-002, verified with 2 in CI). |
+| CMP-02 | Main server (NestJS) | All user requests and all core background work: auth, profiles, catalog, matching, notifications, moderation, admin. Stateless: 1 instance at launch, scales horizontally (FLEX-002, to be verified with 2 instances behind a proxy). |
 | CMP-03 | Event import service (NestJS) | Periodic import from external providers (FR-008), normalization, skip-and-log (FR-015), staleness marking (FR-014, REL-003). One adapter per provider (FLEX-003). |
 | CMP-04 | PostgreSQL | Single source of truth, including the job queue (ADR-002). |
 | EXT-01 | External event providers | Concert.ua, ArtWizard — source for CMP-03. |
 | EXT-02 | Expo Push | Push delivery for the notifications module. |
-| EXT-03 | Telegram Gateway API / SMS provider | Verification codes (FR-005, SEC-008). Telegram Gateway first, SMS as fallback. |
+| EXT-03 | Telegram Gateway API / SMS provider | Verification codes (FR-005, SEC-008). Telegram Gateway first, SMS as fallback. Paused for now: see [authentication](mechanisms/authentication.md), rule 6. |
 | EXT-04 | Google | Sign-in with Google — ID token verification only (FR-001). |
 
 ### 2.1 Main Server Modules
 
 | Module | Responsibility | Requirements |
 |---|---|---|
-| identity | Registration by code, password and Google sign-in, tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
+| identity | Registration by code, password and Google sign-in (Google-only for now, [ADR-004](decisions/ADR-004.md)), tokens, age check | FR-001, FR-005, SEC-002, SEC-005, SEC-007, SEC-008, SAFE-001 |
 | profiles | Profiles, interests, safety notice acknowledgment | FR-002, FR-004, FR-032, SAFE-002 |
 | catalog | Events, sessions, venues, categories, organization verification and publishing | FR-003, FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
@@ -64,7 +64,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 
 | Resource group | Access | Covers |
 |---|---|---|
-| `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token |
+| `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token; Google registration and sign-in only for now ([ADR-004](decisions/ADR-004.md)) |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
 | `/events`, `/venues`, `/categories` | guest or user read; verified organization write (events, venues) | FR-006–FR-013 |
 | `/sessions/{id}/applications` | user | FR-016, FR-031 |
@@ -121,7 +121,7 @@ Each process connects with its own database role; the import role can write only
 | `EventProvider.fetch(since)` → raw records; `normalize(raw)` → event or skip | CMP-03 | one per provider |
 | `PushProvider.send(batch)` — up to 100 messages | notifications | Expo Push |
 | `MessagingProvider.sendCode(contact, code)` | notifications | Telegram Gateway API → SMS fallback chain |
-| `GoogleIdentity.verify(idToken)` → `{ sub, email }` | identity | Google |
+| `GoogleIdTokens.verify(idToken)` → the Google subject id, or none for an invalid token | identity | Google |
 
 ## 4. How Components Communicate
 
@@ -151,6 +151,8 @@ Each process connects with its own database role; the import role can write only
 | Managed PostgreSQL | CMP-04 — encrypted volume, daily backups (REL-004) | 1 |
 | External | EXT-01 – EXT-04 | — |
 
+**Staging** runs a smaller version of this on one Hetzner Cloud server with Docker Compose ([ADR-005](decisions/ADR-005.md)): Caddy as the reverse proxy with TLS, the main server, the web build of the app, the event import and PostgreSQL in a container, with `pg_dump` backups on the same server. The API is at `https://api.nearbystaging.app`, the web app at [nearbystaging.app](https://nearbystaging.app). ADR-005 lists what staging leaves out of the table above; setup and operations are in [staging](../operations/staging.md).
+
 Trust boundaries sit between the internet and the load balancer, and between our network and every external system. Diagram: [deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)).
 
 ## 7. Diagrams
@@ -158,7 +160,7 @@ Trust boundaries sit between the internet and the load balancer, and between our
 - [Component diagram](uml/rendered/component-diagram.svg) (source: [`uml/component-diagram.puml`](uml/component-diagram.puml)) — system-level components and their interfaces
 - [Main server components](uml/rendered/main-server-components.svg) (source: [`uml/main-server-components.puml`](uml/main-server-components.puml)) — internal structure of CMP-02: layers and module tiers
 - [Deployment diagram](uml/rendered/deployment-diagram.svg) (source: [`uml/deployment-diagram.puml`](uml/deployment-diagram.puml)) — nodes, trust boundaries
-- [Sequence diagram](uml/rendered/sequence-diagram.svg) (source: [`uml/sequence-diagram.puml`](uml/sequence-diagram.puml)) — key interaction flow
+- [Matching sequence diagram](uml/rendered/sequence-diagram-matching.svg) (source: [`uml/sequence-diagram-matching.puml`](uml/sequence-diagram-matching.puml)) — key interaction flow
 - [Auth sequence diagram](uml/rendered/sequence-diagram-auth.svg) (source: [`uml/sequence-diagram-auth.puml`](uml/sequence-diagram-auth.puml)) — registration, sign-in, guest tokens and the token check
 - [Data model (ER)](uml/rendered/data-model.svg) (source: [`uml/data-model.puml`](uml/data-model.puml)) — entities, keys, relationships
 

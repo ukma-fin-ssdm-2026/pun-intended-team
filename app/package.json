@@ -5,9 +5,11 @@
   "dependencies": {
     "@expo-google-fonts/alice": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native-google-signin/google-signin": "16.1.5",
     "expo": "~57.0.27",
     "expo-blur": "~57.0.3",
     "expo-constants": "~57.0.21",
+    "expo-dev-client": "~57.0.20",
     "expo-font": "~57.0.4",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.12",
@@ -42,7 +44,9 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
+    "android:build": "expo run:android",
     "ios": "expo start --ios",
+    "ios:build": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",

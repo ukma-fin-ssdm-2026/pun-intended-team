@@ -26,8 +26,6 @@ const HEADER_TOP = 64;
 const GAP_BELOW_STATUS_BAR = 17;
 const LIST_OVERLAP = 28;
 const LIST_BOTTOM_GAP = 26;
-// The Т2.2 snackbar ends 30 px above the tab bar (Figma: y=650, 70 px high, bar at y=750).
-const TOAST_GAP = 30;
 
 function MatchCard({
   event,
@@ -229,13 +227,7 @@ export default function MatchesScreen() {
         </View>
       </ScrollView>
 
-      {answer && (
-        <Snackbar
-          title={mockMatchesTab.toast[answer].title}
-          note={mockMatchesTab.toast[answer].note}
-          bottom={tabBarSpace + TOAST_GAP}
-        />
-      )}
+      {answer && <Snackbar title={mockMatchesTab.toast[answer].title} note={mockMatchesTab.toast[answer].note} />}
     </View>
   );
 }

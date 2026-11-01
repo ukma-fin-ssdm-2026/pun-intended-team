@@ -33,7 +33,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | Load balancer (Z1) | — | — | — | — | per-IP backstop limit | — |
 | TB2 LB ↔ main server | — | — | — | TM-13 | — | — |
 | Main server (Z2) | TM-01, TM-02, TM-12 | input validation | TM-05 | TM-06, TM-14 | TM-09; rounds run in a worker thread (ADR-001) | TM-11 |
-| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (`nearby_owner` only in migrations) |
+| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (the owner `nearby` only in migrations) |
 | PostgreSQL (Z4) | — | TM-03 | TM-05 | TM-07 | managed host, daily backups (REL-004) | — |
 | Import service (Z3), TB4 | — | TM-03, TM-04 | — | role cannot read personal tables | — | role limited to imported events, venues, import runs and skipped records |
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |
@@ -55,11 +55,12 @@ Each component and boundary was checked against the six questions. A cell names 
 | TM-07 | PostgreSQL, backups | Information disclosure | A database dump or backup leaks. | Medium | **Mitigated** for the most sensitive data: phone numbers, dates of birth and linked-account usernames are column-encrypted with keys outside the database, lookups use an HMAC, passwords, codes and tokens are hashed (SEC-002, SEC-003). **Accepted:** photos, descriptions and per-event answers are protected only by volume and backup encryption. |
 | TM-08 | identity, TB6 | Denial of service | Automated sign-ups request thousands of codes to numbers the attacker profits from (SMS pumping), running up the Telegram Gateway and SMS bill. | High | **Mitigated.** Codes only to Ukrainian numbers (+380, matching the Kyiv scope, C-002); per-number limits of one code a minute and five a day (SEC-008); per-IP limits on the sign-up endpoint; a daily spend cap and alert at the providers; Telegram Gateway refunds codes not delivered within their time-to-live. |
 | TM-09 | identity | Denial of service | An attacker who knows a victim's phone number fires wrong passwords to keep the account locked (SEC-007). | Medium | **Accepted.** A lockout lasts 15 minutes; Google sign-in still works; per-IP limits make keeping many accounts locked costly. |
-| TM-10 | TB1, catalog | Information disclosure | A scraper copies the whole catalog or floods the public endpoints. | Low | **Mitigated, residual accepted** ([catalog access](mechanisms/catalog-access.md)): guest token, pages of 20, no bulk endpoint, per-token limits with a per-IP backstop; app attestation is planned if scraping is observed. |
+| TM-10 | TB1, catalog | Information disclosure | A scraper copies the whole catalog or floods the public endpoints. | Low | **Partly mitigated, residual accepted** ([catalog access](mechanisms/catalog-access.md)): guest token, pages of 20, no bulk endpoint. Planned: per-token limits with a per-IP backstop on the catalog (only the auth endpoints are limited so far, per IP), and app attestation if scraping is observed. |
 | TM-11 | main server | Elevation of privilege | A user calls `/admin/*`, publishes an event without a verified organization, edits another organization's event, or a pending or under-18 account uses the API before activation. | High | **Mitigated.** Deny-by-default guards check role, organization verification, ownership and `Account.status = active` on every endpoint (SAFE-001, SEC-005); tests cover the guards at ≥ 85% (MAIN-001). |
-| TM-12 | identity, TB6 | Spoofing | An attacker creates a Google account with the victim's email and gets it linked to the victim's Nearby account. | Low | **Mitigated** ([authentication](mechanisms/authentication.md)): Google is linked only from a signed-in session, never by matching email; ID tokens are verified server-side. |
+| TM-12 | identity, TB6 | Spoofing | An attacker creates a Google account with the victim's email and gets it linked to the victim's Nearby account. | Low | **Mitigated** ([authentication](mechanisms/authentication.md)): Google is linked only from a signed-in session, never by matching email; ID tokens are verified server-side. While sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), an account is created with its Google account and nothing is linked later. |
 | TM-13 | TB2 | Information disclosure | Traffic between the load balancer and the main server, after TLS termination, is read by someone inside the hosting network. | Low | **Accepted.** Both sit in one private network of the managed host; re-encrypting internal traffic is not worth the operational cost at this scale. Revisit if the load balancer and the app host move to different providers. |
 | TM-14 | main server, photo endpoint | Information disclosure | A registered account downloads other users' photos in bulk to build a scraped dataset. | Medium | **Mitigated, residual accepted.** Photos are served only through an authenticated endpoint, never as public links; per-token rate limits apply; mass access shows up in logs and the account can be banned. A signed-in user can still save the photos they are shown. |
+| TM-15 | identity | Spoofing | While sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), one person registers several accounts with throwaway Google accounts: fake profiles, or a new account after a ban. | Medium | **Accepted** until the phone flow returns. Google's own sign-up checks make many accounts costly; per-IP limits on registration; a banned account's sessions end at once (SEC-005). |
 
 ## 4. Accepted Risks
 
@@ -70,8 +71,9 @@ Each component and boundary was checked against the six questions. A cell names 
 | TM-07 photos and descriptions in a leaked backup | column encryption of these fields adds cost for little extra benefit | photos move to an object store |
 | TM-09 lockout abuse | short lockout, other sign-in paths remain | abuse shows up in the audit log |
 | TM-13 unencrypted internal hop | single private network of one provider | the edge and the app host are split across providers |
+| TM-15 several accounts per person | Google's sign-up checks, per-IP limits, bans | paid phone codes are funded ([ADR-004](decisions/ADR-004.md)) |
 
-TM-10 and TM-14 are mitigated, but their residual part — copying what a legitimate user can already see — is accepted as well.
+TM-10 is partly mitigated and TM-14 mitigated, but their residual part — copying what a legitimate user can already see — is accepted as well.
 
 ## AI Usage Note
 

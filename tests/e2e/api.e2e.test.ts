@@ -13,6 +13,7 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
@@ -25,15 +26,60 @@ const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
-// Accounts from src/scripts/seed-dev-accounts.ts.
-const seededPassword = 'nearby-dev-password';
-const phones = {
-  user: '+380501110001',
-  // No other test signs in as Taras, so the password reset test can change his password.
-  taras: '+380501110002',
-  org: '+380501110003',
-  orgPending: '+380501110004',
-  admin: '+380501110005',
+// The accounts the stubs in src/infra/stubs/data.ts belong to; the test creates them and signs their Google ID tokens.
+const stubAccounts = {
+  user: {
+    id: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
+    role: 'user',
+    subject: '100000000000000000001',
+    dateOfBirth: '2001-04-12',
+  },
+  org: {
+    id: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c',
+    role: 'user',
+    subject: '100000000000000000003',
+    dateOfBirth: '1990-06-21',
+  },
+  orgPending: {
+    id: 'f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d',
+    role: 'user',
+    subject: '100000000000000000004',
+    dateOfBirth: '1995-02-08',
+  },
+  admin: {
+    id: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
+    role: 'admin',
+    subject: '100000000000000000005',
+    dateOfBirth: '1988-09-15',
+  },
+};
+// Taras has a profile and a listing in the stubs but never signs in, so he has no sign-in method.
+const tarasAccount = { id: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18', dateOfBirth: '1997-11-03' };
+
+// The profiles of the stub listings' authors; the accounts are stubAccounts.user and tarasAccount.
+const stubProfiles = [
+  {
+    accountId: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
+    username: 'olena_k',
+    displayName: 'Olena',
+    description: 'Cinema, galleries and long walks.',
+    communicationFormat: 'friends',
+    interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
+    telegram: 'olena_k',
+  },
+  {
+    accountId: tarasAccount.id,
+    username: 'taras.m',
+    displayName: 'Taras',
+    description: null,
+    communicationFormat: 'casual',
+    interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
+    telegram: 'taras_m',
+  },
+];
+
+const subjects = Object.fromEntries(Object.entries(stubAccounts).map(([name, { subject }]) => [name, subject])) as {
+  [name in keyof typeof stubAccounts]: string;
 };
 
 const newEvent = {
@@ -118,10 +164,15 @@ function assertInvalid(res: Response, location: string, field: string): void {
   );
 }
 
-async function signIn(phone: string): Promise<string> {
-  const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
+/** Signs in with Google and returns the new session's tokens. */
+async function newSession(subject: string): Promise<{ accessToken: string; refreshToken: string }> {
+  const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
-  return res.body.accessToken;
+  return res.body;
+}
+
+async function signIn(subject: string): Promise<string> {
+  return (await newSession(subject)).accessToken;
 }
 
 /** A category of the test's own, so no test depends on another one's categories. */
@@ -137,44 +188,6 @@ async function newCategory({ isActive = true } = {}): Promise<{ id: string; name
     assert.equal(res.status, 200, JSON.stringify(res.body));
   }
   return { id: created.body.id, name };
-}
-
-/** A random Ukrainian number, so every registration test starts fresh. */
-function newPhone(): string {
-  return `+38050${String(Math.floor(Math.random() * 1e7)).padStart(7, '0')}`;
-}
-
-/** Requests a code and reads it from the server's log, which shows only the last 4 digits of the phone. */
-async function requestCode(phone: string, path = '/api/v1/auth/register'): Promise<string> {
-  const logged = serverOutput.length;
-  const res = await call('POST', path, { body: { phone } });
-  assert.equal(res.status, 202, JSON.stringify(res.body));
-  const code = await loggedCode(phone, logged);
-  if (!code) {
-    throw new Error(`No code logged for ${phone}`);
-  }
-  return code;
-}
-
-/** The code logged for `phone` after `logged` characters of server output, or undefined if none came within 2 s. */
-async function loggedCode(phone: string, logged: number): Promise<string | undefined> {
-  const pattern = new RegExp(`for \\+380\\S*${phone.slice(-4)}: (\\d{6})`);
-  const deadline = Date.now() + 2000;
-  while (Date.now() < deadline) {
-    const code = pattern.exec(serverOutput.slice(logged))?.[1];
-    if (code) {
-      return code;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-  return undefined;
-}
-
-/** Five wrong passwords lock `phone` for 15 minutes (SEC-007). */
-async function lock(phone: string): Promise<void> {
-  for (let attempt = 1; attempt <= 5; attempt++) {
-    await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } });
-  }
 }
 
 /** An ID token for `subject` as Google Sign-In returns it on the device. */
@@ -194,20 +207,67 @@ function newGoogleSubject(): string {
   return String(Math.floor(Math.random() * 1e15)).padStart(21, '1');
 }
 
-/** Verifies a new number and returns its phone and registration token. */
-async function newRegistrant(): Promise<{ phone: string; token: string }> {
-  const phone = newPhone();
-  const res = await call('POST', '/api/v1/auth/verify', { body: { phone, code: await requestCode(phone) } });
+/** Starts registration with a new Google account and returns its subject and registration token. */
+async function newRegistrant(): Promise<{ subject: string; token: string }> {
+  const subject = newGoogleSubject();
+  const res = await call('POST', '/api/v1/auth/google/register', { body: { idToken: await googleIdToken(subject) } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
-  return { phone, token: res.body.accessToken };
+  return { subject, token: res.body.accessToken };
 }
 
-/** Registers a new number and returns its phone and access token; the account has no password yet. */
-async function newAccount(): Promise<{ phone: string; token: string }> {
-  const { phone, token } = await newRegistrant();
+/** Registers a new Google account and returns its subject and access token. */
+async function newAccount(): Promise<{ subject: string; token: string }> {
+  const { subject, token } = await newRegistrant();
   const res = await call('POST', '/api/v1/auth/complete-registration', { token, body: { dateOfBirth: '2000-05-17' } });
   assert.equal(res.status, 200, JSON.stringify(res.body));
-  return { phone, token: res.body.accessToken };
+  return { subject, token: res.body.accessToken };
+}
+
+/** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
+ * profiles of the stub listings' authors. */
+async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
+  await withDatabase(async (client) => {
+    for (const { id, role, subject, dateOfBirth } of Object.values(stubAccounts)) {
+      await client.query(`INSERT INTO accounts (id, role, status, date_of_birth) VALUES ($1, $2, 'active', $3)`, [
+        id,
+        role,
+        cipher.encrypt(dateOfBirth),
+      ]);
+      await client.query(`INSERT INTO auth_methods (account_id, type, secret) VALUES ($1, 'google', $2)`, [
+        id,
+        subject,
+      ]);
+    }
+    await client.query(`INSERT INTO accounts (id, role, status, date_of_birth) VALUES ($1, 'user', 'active', $2)`, [
+      tarasAccount.id,
+      cipher.encrypt(tarasAccount.dateOfBirth),
+    ]);
+    for (const {
+      accountId,
+      username,
+      displayName,
+      description,
+      communicationFormat,
+      interestIds,
+      telegram,
+    } of stubProfiles) {
+      await client.query(
+        `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [accountId, username, displayName, description, communicationFormat],
+      );
+      await client.query(`INSERT INTO linked_accounts (profile_id, app, username) VALUES ($1, 'telegram', $2)`, [
+        accountId,
+        cipher.encrypt(telegram),
+      ]);
+      for (const interestId of interestIds) {
+        await client.query(`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`, [
+          accountId,
+          interestId,
+        ]);
+      }
+    }
+  });
 }
 
 /** Kyiv date `years` years before today. */
@@ -326,11 +386,13 @@ before(async () => {
   databaseUrl = await freshDatabase();
   // Test keys of its own, so the run never depends on a developer's keys/.
   keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-e2e-'));
-  const keyFile = (name: string) => {
+  const keyFile = (name: string, key = randomBytes(32)) => {
     const file = path.join(keysDir, name);
-    writeFileSync(file, randomBytes(32).toString('base64url'));
+    writeFileSync(file, key.toString('base64url'));
     return file;
   };
+  const dataEncryptionKey = randomBytes(32);
+  const contactHmacKey = randomBytes(32);
   const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
   const jwk = { kty: 'oct', alg: 'HS256', kid: jwtKey.kid, k: jwtKey.secret.toString('base64url') };
   writeFileSync(jwtKeysFile, JSON.stringify({ keys: [jwk] }));
@@ -347,28 +409,25 @@ before(async () => {
     DATABASE_URL: databaseUrl,
     MAIN_DATABASE_URL: mainDatabaseUrl(),
     CODE_HMAC_KEY_FILE: keyFile('code-hmac.key'),
-    CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
-    DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
+    CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key', contactHmacKey),
+    DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key', dataEncryptionKey),
     JWT_KEYS_FILE: jwtKeysFile,
-    // The codes are read from the log, so they must not go to Telegram, the production default.
-    MESSAGING_PROVIDER: 'console',
     GOOGLE_CLIENT_IDS: googleClientId,
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     ALLOW_TEST_ADAPTERS: 'true',
   };
   runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
-  // The seed refuses production mode; the accounts are encrypted with the run's keys.
-  runOrThrow(process.execPath, ['dist/scripts/seed-dev-accounts.js'], { ...apiEnv, NODE_ENV: 'test' });
+  await addStubAccounts(new PersonalDataCipher(dataEncryptionKey, contactHmacKey));
   // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
-  // stdout carries the verification codes the console messaging provider logs.
+  // stdout is kept for the test that checks what the log contains.
   ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
     serverOutput += chunk;
   }));
   tokens.guest = (await call('POST', '/api/v1/auth/guest')).body.accessToken;
-  tokens.user = await signIn(phones.user);
-  tokens.org = await signIn(phones.org);
-  tokens.orgPending = await signIn(phones.orgPending);
-  tokens.admin = await signIn(phones.admin);
+  tokens.user = await signIn(subjects.user);
+  tokens.org = await signIn(subjects.org);
+  tokens.orgPending = await signIn(subjects.orgPending);
+  tokens.admin = await signIn(subjects.admin);
 });
 
 // The database stays until the next run, to look into after a failure.
@@ -427,129 +486,6 @@ describe('POST /api/v1/auth/guest', () => {
     assert.equal(res.body.expiresIn, 3600);
     assert.equal((await call('GET', '/api/v1/categories', { token: res.body.accessToken })).status, 200);
     assertRejected(await call('GET', '/api/v1/listings', { token: res.body.accessToken }), 401, 'UNAUTHENTICATED');
-  });
-});
-
-describe('POST /api/v1/auth/sign-in', () => {
-  test('returns an access token for the account', async () => {
-    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } });
-    assert.equal(res.status, 200);
-    assert.equal(res.body.tokenType, 'Bearer');
-    assert.equal(res.body.expiresIn, 3600);
-    assert.match(res.body.refreshToken, /^[0-9a-f-]{36}\.[\w-]{43}$/);
-    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
-  });
-
-  test('answers a wrong password and an unknown phone alike with 401', async () => {
-    const wrongPassword = await call('POST', '/api/v1/auth/sign-in', {
-      body: { phone: phones.user, password: 'not-the-password' },
-    });
-    const unknownPhone = await call('POST', '/api/v1/auth/sign-in', {
-      body: { phone: newPhone(), password: 'not-the-password' },
-    });
-    assertRejected(wrongPassword, 401, 'INVALID_CREDENTIALS');
-    assert.deepEqual(unknownPhone.body, wrongPassword.body);
-    assert.equal(unknownPhone.status, wrongPassword.status);
-  });
-
-  // SEC-007: six bad sign-ins; the sixth, with the right password, is refused like a wrong one.
-  test('locks an account after 5 wrong passwords, answering like a wrong password', async () => {
-    const { phone, token } = await newAccount();
-    const password = 'a long passphrase';
-    await call('PUT', '/api/v1/me/password', { token, body: { password } });
-    const wrong = { phone, password: 'not-the-password' };
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      assertRejected(await call('POST', '/api/v1/auth/sign-in', { body: wrong }), 401, 'INVALID_CREDENTIALS');
-    }
-
-    const locked = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
-
-    const wrongPassword = await call('POST', '/api/v1/auth/sign-in', { body: wrong });
-    assert.equal(locked.status, wrongPassword.status);
-    assert.deepEqual(locked.body, wrongPassword.body);
-  });
-
-  // TM-09: a lock stops only password sign-in.
-  test('still signs a locked account in with Google', async () => {
-    const { phone, token } = await newAccount();
-    await call('PUT', '/api/v1/me/password', { token, body: { password: 'a long passphrase' } });
-    const subject = newGoogleSubject();
-    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
-    await lock(phone);
-
-    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
-
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-  });
-
-  test('rejects a body without a password with 400', async () => {
-    assertInvalid(await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user } }), 'body', 'password');
-  });
-
-  test('rejects a number that is not Ukrainian with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: '+15551234567', password: 'x' } });
-    assertInvalid(res, 'body', 'phone');
-  });
-});
-
-describe('POST /api/v1/auth/register', () => {
-  // SEC-007: a 429 would show that a reset code went to the number, so that it has an account.
-  test('sends a code, and within a minute answers the same but sends no other', async () => {
-    const phone = newPhone();
-    assert.match(await requestCode(phone), /^\d{6}$/);
-    const logged = serverOutput.length;
-
-    const res = await call('POST', '/api/v1/auth/register', { body: { phone } });
-
-    assert.equal(res.status, 202);
-    assert.equal(await loggedCode(phone, logged), undefined);
-  });
-
-  test('answers a registered number the same as a new one', async () => {
-    const res = await call('POST', '/api/v1/auth/register', { body: { phone: phones.org } });
-    assert.equal(res.status, 202);
-    assert.equal(res.body, undefined);
-  });
-
-  test('rejects a number that is not Ukrainian with 400', async () => {
-    assertInvalid(await call('POST', '/api/v1/auth/register', { body: { phone: '0501234567' } }), 'body', 'phone');
-  });
-});
-
-describe('POST /api/v1/auth/verify', () => {
-  test('returns a registration token that only finishing registration accepts; the code works only once', async () => {
-    const phone = newPhone();
-    const body = { phone, code: await requestCode(phone) };
-
-    const res = await call('POST', '/api/v1/auth/verify', { body });
-
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.equal(res.body.expiresIn, 15 * 60);
-    assertRejected(await call('GET', '/api/v1/listings', { token: res.body.accessToken }), 401, 'UNAUTHENTICATED');
-    assertRejected(await call('POST', '/api/v1/auth/verify', { body }), 422, 'INVALID_CODE');
-  });
-
-  test('refuses even the right code after 3 wrong ones', async () => {
-    const phone = newPhone();
-    const code = await requestCode(phone);
-    const wrong = String((Number(code) + 1) % 1e6).padStart(6, '0');
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code: wrong } }), 422, 'INVALID_CODE');
-    }
-    assertRejected(await call('POST', '/api/v1/auth/verify', { body: { phone, code } }), 422, 'INVALID_CODE');
-  });
-
-  test('refuses a registered number with 409 once the code is right', async () => {
-    const res = await call('POST', '/api/v1/auth/verify', {
-      body: { phone: phones.admin, code: await requestCode(phones.admin) },
-    });
-    assertRejected(res, 409, 'CONFLICT');
-  });
-
-  test('rejects a code that is not 6 digits with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/verify', { body: { phone: newPhone(), code: '12345' } });
-
-    assertInvalid(res, 'body', 'code');
   });
 });
 
@@ -619,18 +555,17 @@ describe('POST /api/v1/auth/complete-registration', () => {
 });
 
 describe('POST /api/v1/auth/google', () => {
-  test('signs in an account that linked the Google account', async () => {
-    const { token } = await newAccount();
-    const subject = newGoogleSubject();
-    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
-
-    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+  test('returns the tokens of a new session for a registered Google account', async () => {
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subjects.user) } });
 
     assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.tokenType, 'Bearer');
+    assert.equal(res.body.expiresIn, 3600);
+    assert.match(res.body.refreshToken, /^[0-9a-f-]{36}\.[\w-]{43}$/);
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
-  test('refuses a Google account no account linked with 401', async () => {
+  test('refuses a Google account that is not registered with 401', async () => {
     const res = await call('POST', '/api/v1/auth/google', {
       body: { idToken: await googleIdToken(newGoogleSubject()) },
     });
@@ -649,56 +584,89 @@ describe('POST /api/v1/auth/google', () => {
   });
 });
 
-describe('PUT /api/v1/me/google', () => {
-  test('links a Google account, and linking it again changes nothing', async () => {
-    const { token } = await newAccount();
-    const body = { idToken: await googleIdToken(newGoogleSubject()) };
+describe('POST /api/v1/auth/google/register', () => {
+  async function register(subject: string) {
+    return call('POST', '/api/v1/auth/google/register', { body: { idToken: await googleIdToken(subject) } });
+  }
 
-    const first = await call('PUT', '/api/v1/me/google', { token, body });
-    const again = await call('PUT', '/api/v1/me/google', { token, body });
-
-    assert.equal(first.status, 204, JSON.stringify(first.body));
-    assert.equal(again.status, 204, JSON.stringify(again.body));
-  });
-
-  test('refuses a Google account another account linked with 409', async () => {
+  test('registers a new Google account, which signs in with Google once registration is complete', async () => {
     const subject = newGoogleSubject();
-    const owner = await newAccount();
-    await call('PUT', '/api/v1/me/google', { token: owner.token, body: { idToken: await googleIdToken(subject) } });
-    const { token } = await newAccount();
+    const registered = await register(subject);
+    assert.equal(registered.status, 200, JSON.stringify(registered.body));
 
-    const res = await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } });
+    const completed = await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+    assert.equal(completed.status, 200, JSON.stringify(completed.body));
 
-    assertRejected(res, 409, 'GOOGLE_ACCOUNT_TAKEN');
+    const signedIn = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+    assert.equal(signedIn.status, 200, JSON.stringify(signedIn.body));
   });
 
-  test('refuses a second Google account with 409', async () => {
-    const { token } = await newAccount();
-    await call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } });
+  test('returns a registration token that only finishing registration accepts', async () => {
+    const { token } = await newRegistrant();
 
-    const res = await call('PUT', '/api/v1/me/google', {
-      token,
-      body: { idToken: await googleIdToken(newGoogleSubject()) },
+    assertRejected(await call('GET', '/api/v1/listings', { token }), 401, 'UNAUTHENTICATED');
+  });
+
+  test('continues a registration that was not completed', async () => {
+    const subject = newGoogleSubject();
+    await register(subject);
+
+    const again = await register(subject);
+
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    const completed = await call('POST', '/api/v1/auth/complete-registration', {
+      token: again.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
+    });
+    assert.equal(completed.status, 200, JSON.stringify(completed.body));
+  });
+
+  test('does not sign in before registration is complete', async () => {
+    const subject = newGoogleSubject();
+    await register(subject);
+
+    const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
+
+    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+  });
+
+  test('refuses a Google account that is already registered with 409', async () => {
+    const subject = newGoogleSubject();
+    const registered = await register(subject);
+    await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2000-05-17' },
     });
 
-    assertRejected(res, 409, 'GOOGLE_ALREADY_LINKED');
+    assertRejected(await register(subject), 409, 'GOOGLE_ACCOUNT_TAKEN');
   });
 
-  test('rejects an ID token issued to another app with 422', async () => {
-    const { token } = await newAccount();
+  // SAFE-001: the pending account is removed, so the Google account can register again.
+  test('lets an underage Google account start again after it is refused', async () => {
+    const subject = newGoogleSubject();
+    const registered = await register(subject);
+    const underage = await call('POST', '/api/v1/auth/complete-registration', {
+      token: registered.body.accessToken,
+      body: { dateOfBirth: '2015-01-01' },
+    });
+    assertRejected(underage, 422, 'UNDERAGE');
+
+    assert.equal((await register(subject)).status, 200);
+  });
+
+  test('refuses an ID token issued to another app with 422', async () => {
     const idToken = await googleIdToken(newGoogleSubject(), { audience: 'another-app' });
 
-    assertRejected(await call('PUT', '/api/v1/me/google', { token, body: { idToken } }), 422, 'INVALID_GOOGLE_TOKEN');
+    const res = await call('POST', '/api/v1/auth/google/register', { body: { idToken } });
+
+    assertRejected(res, 422, 'INVALID_GOOGLE_TOKEN');
   });
 
-  test('rejects a guest with 401', async () => {
-    const idToken = await googleIdToken(newGoogleSubject());
-
-    assertRejected(
-      await call('PUT', '/api/v1/me/google', { token: tokens.guest, body: { idToken } }),
-      401,
-      'UNAUTHENTICATED',
-    );
+  test('rejects a body without an ID token with 400', async () => {
+    assertInvalid(await call('POST', '/api/v1/auth/google/register', { body: {} }), 'body', 'idToken');
   });
 });
 
@@ -723,11 +691,11 @@ describe('Per-IP limit on the auth endpoints', () => {
   }
 
   test('refuses a third sign-in from one IP within a minute with 429 and Retry-After', async () => {
-    const attempt = { phone: phones.user, password: 'not-the-password' };
-    await post('/api/v1/auth/sign-in', attempt);
-    await post('/api/v1/auth/sign-in', attempt);
+    const attempt = { idToken: 'not-a-google-id-token' };
+    await post('/api/v1/auth/google', attempt);
+    await post('/api/v1/auth/google', attempt);
 
-    const res = await post('/api/v1/auth/sign-in', attempt);
+    const res = await post('/api/v1/auth/google', attempt);
 
     assert.equal(res.status, 429);
     assert.equal((await res.json()).error.code, 'RATE_LIMITED');
@@ -735,14 +703,7 @@ describe('Per-IP limit on the auth endpoints', () => {
   });
 
   // The limit counts a request before its body is checked, so an empty body is enough.
-  const limitedEndpoints = [
-    ['POST', '/api/v1/auth/register'],
-    ['POST', '/api/v1/auth/verify'],
-    ['POST', '/api/v1/auth/google'],
-    ['POST', '/api/v1/auth/password-reset'],
-    ['POST', '/api/v1/auth/password-reset/confirm'],
-    ['PUT', '/api/v1/me/password'],
-  ];
+  const limitedEndpoints = [['POST', '/api/v1/auth/google/register']];
 
   for (const [method, path] of limitedEndpoints) {
     test(`refuses a third ${method} ${path} from one IP within a minute with 429`, async () => {
@@ -771,156 +732,62 @@ describe('Per-IP limit on the auth endpoints', () => {
   });
 });
 
-describe('POST /api/v1/auth/password-reset', () => {
-  test('sends no code to a number without an account, and answers it like one with an account', async () => {
-    const phone = newPhone();
-    const logged = serverOutput.length;
+// SEC-007 behind Caddy on staging: the per-IP limit counts the client from X-Forwarded-For only
+// when TRUST_PROXY names the proxy. Here the test itself plays the proxy on loopback.
+describe('Per-IP limit behind a reverse proxy', () => {
+  let trusting: { child: ChildProcess; url: string };
+  let untrusting: { child: ChildProcess; url: string };
 
-    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone } });
-
-    assert.equal(res.status, 202, JSON.stringify(res.body));
-    assert.equal(res.body, undefined);
-    assert.equal(await loggedCode(phone, logged), undefined);
+  before(async () => {
+    trusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2', TRUST_PROXY: 'loopback' });
+    untrusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
   });
 
-  test('rejects a number that is not Ukrainian with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/password-reset', { body: { phone: '0501234567' } });
-
-    assertInvalid(res, 'body', 'phone');
-  });
-});
-
-describe('POST /api/v1/auth/password-reset/confirm', () => {
-  // SEC-007: a reset lifts the lock, so a user locked out by someone else can get back in.
-  // TM-01: it also signs out whoever signed in with the old password.
-  test('replaces the password, lifts a lock, ends the other sessions and signs in; the code works only once', async () => {
-    const phone = phones.taras;
-    const password = 'a new long passphrase';
-    const earlierSession = await signIn(phone);
-    await lock(phone);
-    const body = { phone, code: await requestCode(phone, '/api/v1/auth/password-reset'), password };
-
-    const res = await call('POST', '/api/v1/auth/password-reset/confirm', { body });
-
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-    assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
-    assertRejected(await call('GET', '/api/v1/listings', { token: earlierSession }), 401, 'UNAUTHENTICATED');
-    assertRejected(await call('POST', '/api/v1/auth/password-reset/confirm', { body }), 422, 'INVALID_CODE');
-    const oldPassword = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: seededPassword } });
-    assertRejected(oldPassword, 401, 'INVALID_CREDENTIALS');
-    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
+  after(() => {
+    trusting?.child.kill();
+    untrusting?.child.kill();
   });
 
-  test('rejects a new password shorter than 8 characters with 400', async () => {
-    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
-      body: { phone: newPhone(), code: '123456', password: 'short' },
-    });
+  function signInFrom(api: { url: string }, clientIp: string): Promise<number> {
+    return fetch(api.url + '/api/v1/auth/google', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': clientIp },
+      body: JSON.stringify({ idToken: 'not-a-google-id-token' }),
+    }).then((res) => res.status);
+  }
 
-    assertInvalid(res, 'body', 'password');
-  });
-
-  test('does not accept a registration code', async () => {
-    const phone = newPhone();
-    const code = await requestCode(phone);
-
-    const res = await call('POST', '/api/v1/auth/password-reset/confirm', {
-      body: { phone, code, password: 'a new long passphrase' },
-    });
-
-    assertRejected(res, 422, 'INVALID_CODE');
-  });
-});
-
-describe('PUT /api/v1/me/password', () => {
-  const password = 'a long passphrase';
-
-  test('sets the first password of a new account, which then signs in with it', async () => {
-    const { phone, token } = await newAccount();
-
-    const res = await call('PUT', '/api/v1/me/password', { token, body: { password } });
-
-    assert.equal(res.status, 204, JSON.stringify(res.body));
-    assert.equal((await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } })).status, 200);
-  });
-
-  test('changes a password only with the right current one', async () => {
-    const { phone, token } = await newAccount();
-    await call('PUT', '/api/v1/me/password', { token, body: { password } });
-    const newPassword = 'another long passphrase';
-
-    const withoutCurrent = await call('PUT', '/api/v1/me/password', { token, body: { password: newPassword } });
-    const withWrongCurrent = await call('PUT', '/api/v1/me/password', {
-      token,
-      body: { password: newPassword, currentPassword: 'not-the-password' },
-    });
-    const withCurrent = await call('PUT', '/api/v1/me/password', {
-      token,
-      body: { password: newPassword, currentPassword: password },
-    });
-
-    assertRejected(withoutCurrent, 422, 'WRONG_PASSWORD');
-    assertRejected(withWrongCurrent, 422, 'WRONG_PASSWORD');
-    assert.equal(withCurrent.status, 204, JSON.stringify(withCurrent.body));
-    const signIn = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password: newPassword } });
-    assert.equal(signIn.status, 200);
-  });
-
-  test('ends the other sessions of the account, but not this one', async () => {
-    const { phone, token } = await newAccount();
-    await call('PUT', '/api/v1/me/password', { token, body: { password } });
-    const other = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
-
-    const res = await call('PUT', '/api/v1/me/password', {
-      token,
-      body: { password: 'another long passphrase', currentPassword: password },
-    });
-
-    assert.equal(res.status, 204, JSON.stringify(res.body));
-    assert.equal((await call('GET', '/api/v1/listings', { token })).status, 200);
-    assertRejected(await call('GET', '/api/v1/listings', { token: other.body.accessToken }), 401, 'UNAUTHENTICATED');
-    const refresh = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: other.body.refreshToken } });
-    assertRejected(refresh, 401, 'INVALID_REFRESH_TOKEN');
-  });
-
-  // SEC-007: a stolen session must not give unlimited guesses at the password.
-  test('counts wrong current passwords towards the sign-in lockout', async () => {
-    const { phone, token } = await newAccount();
-    await call('PUT', '/api/v1/me/password', { token, body: { password } });
-    for (let attempt = 1; attempt <= 5; attempt++) {
-      await call('PUT', '/api/v1/me/password', {
-        token,
-        body: { password: 'another long passphrase', currentPassword: 'not-the-password' },
-      });
+  test('gives each client behind a trusted proxy a limit of its own', async () => {
+    const statuses = [];
+    for (const clientIp of ['203.0.113.1', '203.0.113.2', '203.0.113.3']) {
+      statuses.push(await signInFrom(trusting, clientIp));
     }
 
-    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } });
-
-    assertRejected(res, 401, 'INVALID_CREDENTIALS');
+    assert.ok(!statuses.includes(429), String(statuses));
   });
 
-  test('rejects a password shorter than 8 characters with 400', async () => {
-    const { token } = await newAccount();
+  test('still limits one client behind a trusted proxy', async () => {
+    await signInFrom(trusting, '203.0.113.9');
+    await signInFrom(trusting, '203.0.113.9');
 
-    assertInvalid(await call('PUT', '/api/v1/me/password', { token, body: { password: 'short' } }), 'body', 'password');
+    assert.equal(await signInFrom(trusting, '203.0.113.9'), 429);
   });
 
-  test('rejects a guest with 401', async () => {
-    const res = await call('PUT', '/api/v1/me/password', { token: tokens.guest, body: { password } });
+  test('ignores X-Forwarded-For when TRUST_PROXY is not set', async () => {
+    await signInFrom(untrusting, '198.51.100.1');
+    await signInFrom(untrusting, '198.51.100.2');
 
-    assertRejected(res, 401, 'UNAUTHENTICATED');
+    assert.equal(await signInFrom(untrusting, '198.51.100.3'), 429);
+  });
+
+  test('refuses to start with TRUST_PROXY=true', async () => {
+    await assert.rejects(startApi({ TRUST_PROXY: 'true' }), /exited with code/);
   });
 });
 
 // SEC-005: sessions renew without signing in again, and end at once on sign-out.
 describe('POST /api/v1/auth/refresh', () => {
-  async function newSession(): Promise<{ accessToken: string; refreshToken: string }> {
-    const res = await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } });
-    assert.equal(res.status, 200, JSON.stringify(res.body));
-    return res.body;
-  }
-
   test('returns new tokens, and the old refresh token stops working', async () => {
-    const session = await newSession();
+    const session = await newSession(subjects.user);
 
     const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
 
@@ -931,7 +798,7 @@ describe('POST /api/v1/auth/refresh', () => {
   });
 
   test('ends the session when a refresh token is used a second time', async () => {
-    const session = await newSession();
+    const session = await newSession(subjects.user);
     const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
 
     const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
@@ -946,7 +813,7 @@ describe('POST /api/v1/auth/refresh', () => {
 
   // A token rotated more than once cannot be told from a guess, so any wrong secret ends the session.
   test('ends the session on a wrong secret', async () => {
-    const session = await newSession();
+    const session = await newSession(subjects.user);
     const [sessionId] = session.refreshToken.split('.');
 
     const res = await call('POST', '/api/v1/auth/refresh', {
@@ -973,9 +840,7 @@ describe('POST /api/v1/auth/refresh', () => {
 
 describe('POST /api/v1/auth/sign-out', () => {
   test('ends this session at once and leaves the others signed in', async () => {
-    const session = (
-      await call('POST', '/api/v1/auth/sign-in', { body: { phone: phones.user, password: seededPassword } })
-    ).body;
+    const session = await newSession(subjects.user);
 
     const res = await call('POST', '/api/v1/auth/sign-out', { token: session.accessToken });
 
@@ -1321,6 +1186,11 @@ describe('GET /api/v1/admin/categories', () => {
   test('rejects a request without a token with 401', async () => {
     assertRejected(await call('GET', '/api/v1/admin/categories'), 401, 'UNAUTHENTICATED');
   });
+
+  // SEC-001: an endpoint the caller may not use answers as if it did not exist.
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/categories', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
 });
 
 describe('GET /api/v1/admin/categories/{id}', () => {
@@ -1402,6 +1272,23 @@ describe('GET /api/v1/interests', () => {
     assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestFilms));
   });
 
+  test('gives each interest a group and lists them group by group, each group by name in Ukrainian order', async () => {
+    const res = await call('GET', '/api/v1/interests', { token: tokens.user });
+    const items: { name: string; group: string }[] = res.body.items;
+    const ukrainian = new Intl.Collator('uk');
+    const groups = items.map((interest) => interest.group).filter((group, i, all) => group !== all[i - 1]);
+
+    assert.ok(items.every((interest) => interest.group.length > 0));
+    assert.equal(new Set(groups).size, groups.length, 'each group is one run of the list');
+    assert.equal(groups[0], 'Музика');
+    assert.equal(groups.at(-1), 'Езотерика');
+    for (const group of groups) {
+      const names = items.filter((interest) => interest.group === group).map((interest) => interest.name);
+      assert.deepEqual(names, [...names].sort(ukrainian.compare), group);
+    }
+    assert.ok(items.some((interest) => interest.name === 'Манґа/Манхва' && interest.group === 'Книги й комікси'));
+  });
+
   test('rejects a guest token with 401', async () => {
     assertRejected(await call('GET', '/api/v1/interests', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
   });
@@ -1416,7 +1303,7 @@ describe('GET /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, true);
     assert.deepEqual(
       res.body.interests.map((interest: { name: string }) => interest.name),
-      ['Films', 'Drawing'],
+      ['Кіно', 'Малювання'],
     );
   });
 
@@ -1444,6 +1331,7 @@ describe('POST /api/v1/me/profile', () => {
     assert.equal(res.headers.get('location'), '/api/v1/me/profile');
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.communicationFormat, null);
+    assert.equal(res.body.occupation, '');
     assert.deepEqual(res.body.interests, []);
     assert.equal(res.body.isComplete, false);
   });
@@ -1491,11 +1379,17 @@ describe('PATCH /api/v1/me/profile', () => {
   test('changes only the fields sent', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
-      body: { description: 'Walks and films.', communicationFormat: 'dating', sharePhone: false },
+      body: {
+        description: 'Walks and films.',
+        occupation: 'Student',
+        communicationFormat: 'dating',
+        sharePhone: false,
+      },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.description, 'Walks and films.');
+    assert.equal(res.body.occupation, 'Student');
     assert.equal(res.body.communicationFormat, 'dating');
     assert.equal(res.body.sharePhone, false);
     assert.equal(res.body.isComplete, false, 'still no interests');
@@ -1514,6 +1408,24 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(res.body.description, 'Concerts on weekdays.');
     assert.equal(res.body.sharePhone, true);
     assert.equal(res.body.communicationFormat, 'dating', 'a field not sent keeps its value');
+  });
+
+  // The database names this value `casual`; the repository translates it both ways.
+  test('stores company and returns it as company', async () => {
+    const patched = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { communicationFormat: 'company' },
+    });
+    assert.equal(patched.status, 200, JSON.stringify(patched.body));
+    assert.equal(patched.body.communicationFormat, 'company');
+
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    const stored = await withDatabase((client) =>
+      client.query('SELECT communication_format FROM profiles WHERE account_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(res.body.communicationFormat, 'company');
+    assert.equal(stored.rows[0]?.communication_format, 'casual');
   });
 
   test('lets a user change the case of their own username', async () => {
@@ -1556,6 +1468,111 @@ describe('PATCH /api/v1/me/profile', () => {
   });
 });
 
+// Before the interests tests, which expect the profile to have a network.
+describe('PUT /api/v1/me/profile/linked-accounts', () => {
+  test('replaces the whole set, keeps the bare handles and returns them in order with their links', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'instagram', username: 'https://instagram.com/newcomer.one' },
+          { network: 'telegram', username: '@newcomer' },
+        ],
+      },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+      { network: 'instagram', username: 'newcomer.one', url: 'https://instagram.com/newcomer.one' },
+    ]);
+
+    const second = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.deepEqual(profile.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+    ]);
+  });
+
+  // SEC-003: the nickname is personal data.
+  test('stores the nickname encrypted', async () => {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+    const stored = await withDatabase((client) =>
+      client.query('SELECT username FROM linked_accounts WHERE profile_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(stored.rows.length, 1);
+    assert.ok(!Buffer.from(stored.rows[0].username).toString('latin1').includes('newcomer'));
+  });
+
+  test('rejects an empty list with 422 CONTACT_REQUIRED and changes nothing', async () => {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [] },
+    });
+    assertRejected(res, 422, 'CONTACT_REQUIRED');
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    assert.deepEqual(
+      profile.body.linkedAccounts.map((item: { username: string }) => item.username),
+      ['newcomer'],
+    );
+  });
+
+  test('rejects a handle that does not fit the network with 422 INVALID_SOCIAL_HANDLE naming it', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'whatsapp', username: 'not a phone' }] },
+    });
+    assertRejected(res, 422, 'INVALID_SOCIAL_HANDLE');
+    assert.deepEqual(
+      res.body.error.details.map((issue: { field: string }) => issue.field),
+      ['linkedAccounts.0.username'],
+    );
+  });
+
+  test('rejects the same social network twice with 400', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'telegram', username: 'newcomer' },
+          { network: 'telegram', username: 'newcomer2' },
+        ],
+      },
+    });
+    assertRejected(res, 400, 'VALIDATION_ERROR');
+  });
+
+  test('answers 404 when the profile is not created yet', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.admin,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'admin_k' }] },
+    });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      body: { linkedAccounts: [{ network: 'telegram', username: 'guest_k' }] },
+    });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
@@ -1564,7 +1581,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
-    assert.equal(first.body.isComplete, true, 'format and interests are both set');
+    assert.equal(first.body.isComplete, true, 'format, interests and a network are all set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,
@@ -1619,35 +1636,23 @@ describe('PUT /api/v1/me/profile/interests', () => {
 
 // SEC-003: the columns hold ciphertext; the API never shows them, so the test reads them directly.
 describe('Personal data at rest', () => {
-  test('stores the phone number and the date of birth only encrypted', async () => {
-    const { phone, token } = await newAccount();
+  test('stores the date of birth only encrypted, and no phone number for a Google account', async () => {
+    const { token } = await newAccount();
 
-    const { account, codes } = await withDatabase(async (client) => {
-      const accounts = await client.query(
-        'SELECT contact_identifier, contact_hash, date_of_birth FROM accounts WHERE id = $1',
-        [accountIdOf(token)],
-      );
-      const sent = await client.query('SELECT contact FROM verification_codes WHERE contact_hash = $1', [
-        accounts.rows[0]?.contact_hash,
-      ]);
-      return { account: accounts.rows[0], codes: sent.rows };
-    });
+    const account = await withDatabase(
+      async (client) =>
+        (
+          await client.query('SELECT contact_identifier, contact_hash, date_of_birth FROM accounts WHERE id = $1', [
+            accountIdOf(token),
+          ])
+        ).rows[0],
+    );
 
+    assert.equal(account.contact_identifier, null);
+    assert.equal(account.contact_hash, null);
+    assert.ok(Buffer.isBuffer(account.date_of_birth));
     // newAccount registers with this date of birth.
-    const secrets = [phone, phone.slice(1), '2000-05-17'];
-    const stored = [
-      account.contact_identifier,
-      account.contact_hash,
-      account.date_of_birth,
-      ...codes.map((c) => c.contact),
-    ];
-    assert.equal(codes.length, 1);
-    for (const value of stored) {
-      assert.ok(Buffer.isBuffer(value));
-      for (const secret of secrets) {
-        assert.equal(value.includes(secret), false, `a stored value contains ${secret}`);
-      }
-    }
+    assert.equal(account.date_of_birth.includes('2000-05-17'), false);
   });
 });
 
@@ -1658,24 +1663,9 @@ describe('Parallel requests', () => {
   // On one database connection the requests would run one after another and never race.
   const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
 
-  // SEC-008
-  test('send one code when one number registers 10 times at once', async () => {
-    const phone = newPhone();
-    await openConnections();
-    const logged = serverOutput.length;
-
-    const responses = await parallel(10, () => call('POST', '/api/v1/auth/register', { body: { phone } }));
-
-    assert.ok(responses.every((res) => res.status === 202));
-    const codes = serverOutput.slice(logged).match(new RegExp(`for \\+380\\S*${phone.slice(-4)}: \\d{6}`, 'g'));
-    assert.equal(codes?.length, 1);
-  });
-
   // SEC-005
   test('renew a session once when one refresh token is sent 5 times at once', async () => {
-    const { body: session } = await call('POST', '/api/v1/auth/sign-in', {
-      body: { phone: phones.user, password: seededPassword },
-    });
+    const session = await newSession(subjects.user);
     await openConnections();
 
     const responses = await parallel(5, () =>
@@ -1685,55 +1675,31 @@ describe('Parallel requests', () => {
     assert.equal(responses.filter((res) => res.status === 200).length, 1);
   });
 
-  // SEC-007: five failures lock the account only if no one overwrites another.
-  test('lock an account after 5 wrong passwords sent at once', async () => {
-    const { phone, token } = await newAccount();
-    const password = 'a long passphrase';
-    await call('PUT', '/api/v1/me/password', { token, body: { password } });
+  // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.
+  test('create one account when one Google account registers 5 times at once', async () => {
+    const idToken = await googleIdToken(newGoogleSubject());
+    await openConnections();
 
-    await parallel(5, () => call('POST', '/api/v1/auth/sign-in', { body: { phone, password: 'not-the-password' } }));
+    const responses = await parallel(5, () => call('POST', '/api/v1/auth/google/register', { body: { idToken } }));
 
-    assertRejected(
-      await call('POST', '/api/v1/auth/sign-in', { body: { phone, password } }),
-      401,
-      'INVALID_CREDENTIALS',
+    assert.ok(
+      responses.every((res) => res.status === 200),
+      JSON.stringify(responses.map((res) => res.body)),
     );
-  });
-
-  // Both requests can pass the service's checks; then the unique index stops one, with the same answer.
-  test('link one Google account to only one of two accounts asking at once', async () => {
-    const subject = newGoogleSubject();
-    const [first, second] = [await newAccount(), await newAccount()];
-
-    const responses = await Promise.all(
-      [first, second].map(async ({ token }) =>
-        call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(subject) } }),
-      ),
-    );
-
-    const statuses = responses.map((res) => res.status).sort();
-    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
-    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ACCOUNT_TAKEN');
-  });
-
-  test('link only one of two Google accounts one account sends at once', async () => {
-    const { token } = await newAccount();
-
-    const responses = await parallel(2, async () =>
-      call('PUT', '/api/v1/me/google', { token, body: { idToken: await googleIdToken(newGoogleSubject()) } }),
-    );
-
-    const statuses = responses.map((res) => res.status).sort();
-    assert.deepEqual(statuses, [204, 409], JSON.stringify(responses.map((res) => res.body)));
-    assert.equal(responses.find((res) => res.status === 409)?.body.error.code, 'GOOGLE_ALREADY_LINKED');
+    const [first, ...others] = responses;
+    const complete = (token: string) =>
+      call('POST', '/api/v1/auth/complete-registration', { token, body: { dateOfBirth: '2000-05-17' } });
+    assert.equal((await complete(first?.body.accessToken)).status, 200);
+    for (const res of others) {
+      assertRejected(await complete(res.body.accessToken), 409, 'CONFLICT');
+    }
   });
 });
 
 // SEC-002, SEC-004: last, so the log holds what every test above did.
 describe('Server log', () => {
-  test('contains no password or access token', () => {
-    const passwords = [seededPassword, 'a long passphrase', 'a new long passphrase', 'another long passphrase'];
-    const secrets = [...passwords, 'not-the-password', ...Object.values(tokens)];
+  test('contains no access token', () => {
+    const secrets = Object.values(tokens);
 
     for (const secret of secrets) {
       assert.equal(serverOutput.includes(secret), false, `the log contains ${secret.slice(0, 12)}…`);

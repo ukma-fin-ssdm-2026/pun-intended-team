@@ -25,7 +25,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Account** | PK `id` | `role` (user / admin), `contact_identifier` (S, encrypted) — the verified phone number (E.164), revealed on a mutual match unless `Profile.share_phone` is off, `contact_hash` (UK) — HMAC of the number with a key from the main server's env file; the encrypted value cannot be indexed, so uniqueness and every lookup go through the hash, `date_of_birth` (S, SAFE-001), `status` (pending / active / banned) — `pending` until the date of birth passes the age check; a pending account can only finish registration, `failed_signins`, `failed_signins_since` — the first failure counted in the current 15-minute window, `locked_until` (SEC-007). Administrator accounts are created by the team. |
+| **Account** | PK `id` | `role` (user / admin), `contact_identifier` (S, encrypted) — the verified phone number (E.164), revealed on a mutual match unless `Profile.share_phone` is off; null while sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), `contact_hash` (UK, nullable) — HMAC of the number with a key from the main server's env file; the encrypted value cannot be indexed, so uniqueness and every lookup go through the hash, `date_of_birth` (S, SAFE-001), `status` (pending / active / banned) — `pending` until the date of birth passes the age check; a pending account can only finish registration, `failed_signins`, `failed_signins_since` — the first failure counted in the current 15-minute window, `locked_until` (SEC-007). Administrator accounts are created by the team. |
 | **AuthMethod** | PK `id` | `account_id` FK, `type` (password / google), `secret` — argon2id hash (C) for a password, Google `sub` (P) for Google; UK (`account_id`, `type`), UK (`type`, `secret`) |
 | **VerificationCode** | PK `id` | `contact` (S, encrypted) — phone number, `contact_hash` — for the resend throttle, `channel` (telegram / sms) — Telegram Gateway API first, SMS as fallback; null until a provider takes the code, `provider_request_id` — for delivery checks and cost tracking, `code_hash` (C), `purpose` (registration / reset), `sent_at`, `expires_at`, `attempts`, `used_at` (SEC-008). No FK: the code is sent before the account exists. |
 | **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
@@ -34,10 +34,10 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `communication_format` (S) — the default that pre-fills `Application.desired_company`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
+| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `occupation` (P) — studies or work, free text, `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
 | **ProfilePhoto** | PK = FK `profile_id` | `content` (S, bytea), `content_type` — resized on upload; kept apart from Profile so that profile reads do not load the image |
-| **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — optional contacts revealed on a mutual match; UK (`profile_id`, `app`) |
-| **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it |
+| **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — the bare handle in a social network, revealed on a mutual match; a profile keeps at least one while sign-in is Google-only; UK (`profile_id`, `app`) |
+| **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it, `group_name` — the heading it is shown under, `group_position` — the order of its group; columns rather than a table, since groups have no data of their own |
 | **ProfileInterest** | PK (`profile_id`, `interest_id`) | junction table |
 
 ### catalog
@@ -133,7 +133,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | An active account has a date of birth (SAFE-001) | CHECK (`status <> 'active' OR date_of_birth IS NOT NULL`) — the database checks only that the date exists; the date is encrypted, so the age of at least 18 is checked by the service (identity) before the status becomes `active` |
 | A failure count has the start of its window (SEC-007) | CHECK (`(failed_signins = 0) = (failed_signins_since IS NULL)`) and CHECK (`failed_signins >= 0`); the threshold of 5 is checked by the service (identity) |
 | Both applications of a Match belong to the same session | service (matching), under the per-session lock |
-| At least one shared contact (`share_phone` or a linked account) | service (profiles) — spans two tables |
+| At least one shared contact (`share_phone` or a linked account) | service (profiles): a linked account, while sign-in is Google-only and there is no phone — spans two tables |
 | Only verified organizations publish events; organization accounts do not apply for matching | service — the data lives in other modules |
 
 ## 4. Personal and Sensitive Data
@@ -157,7 +157,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Push token | DeviceToken.push_token | P | never returned by the API |
 | IP address | AuditLog.ip_address | P | audit log retention (SEC-004, OQ-002) |
 
-**Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept at the load balancer, keyed on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002); account lockout is the only limit stored here.
+**Not stored:** the user's location (the map centres on the device, FR-012), profile drafts (kept on the client, FR-004) and guest tokens (signed, verified without a lookup). Rate-limit counters are short-lived and kept in the memory of the API process (`@nestjs/throttler`, per IP on the auth endpoints); the planned catalog limits key them on the token as well as the IP ([catalog access](mechanisms/catalog-access.md), ADR-002). Account lockout is the only limit stored here.
 
 ## AI Usage Note
 

@@ -7,7 +7,7 @@ Notes for AI agents working in this repository. Team rules are in [`TeamCharter.
 Nearby is a NestJS REST API (Node.js 26, see [`.nvmrc`](.nvmrc)) for a mobile app about going to events with new people. The product is described in [`Project-Description.md`](Project-Description.md), the API in [`docs/api/api-design.md`](docs/api/api-design.md).
 
 - `src/api/` — HTTP layer; `src/core/` — business logic, one folder per module; `src/infra/` — database and external services. See [Code Structure](docs/architecture/mechanisms/code-structure.md).
-- Data comes from stubs in `src/infra/stubs/`; there is no database yet. Matching and notifications are designed but not implemented.
+- Accounts, sessions, categories, profiles and interests are stored in PostgreSQL through Prisma (`src/infra/prisma/`); events and listings still come from stubs in `src/infra/stubs/`. Of matching, only the `match` algorithm is built; notifications are designed but not implemented.
 - `tests/e2e/` — end-to-end tests.
 - `src/mcp/` and `docs/api/openapi-generated.yaml` are generated; never edit them by hand.
 
@@ -93,7 +93,7 @@ Start it with `node`, not `npm start`: npm prints its own lines to stdout, which
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BEARER_TOKEN_BEARERAUTH` | a guest token | Sent as `Authorization: Bearer …` on every call. Unset, the launcher uses a guest token, enough for catalog reads. For other tools, pass a token from `/api/v1/auth/sign-in` with the right role ([Trying It Out](docs/api/api-design.md#trying-it-out)); it expires after 60 minutes and is not renewed |
+| `BEARER_TOKEN_BEARERAUTH` | a guest token | Sent as `Authorization: Bearer …` on every call. Unset, the launcher uses a guest token, enough for catalog reads. For other tools, pass the access token of a Google sign-in with the right role ([Trying It Out](docs/api/api-design.md#trying-it-out)); it expires after 60 minutes and is not renewed |
 | `API_BASE_URL` | `http://localhost:4100` | API the tools call; the default comes from `servers` in the spec |
 
 Pass tokens as environment variables, never in a committed file.

@@ -6,9 +6,8 @@ import type { Event } from '../../core/catalog/types/event.ts';
 import type { Organization } from '../../core/catalog/types/organization.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';
 import type { Listing } from '../../core/listings/types/listing.ts';
-import type { Interest, Profile } from '../../core/profiles/types/profile.ts';
 
-// Accounts are in the database (npm run db:seed); the stubs refer to them by these ids.
+// Accounts are in the database; the stubs refer to them by these ids, and the e2e tests create accounts with them.
 export const accounts = {
   olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
   taras: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18',
@@ -17,62 +16,6 @@ export const accounts = {
   admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
 } as const;
 
-export const interestIds = {
-  films: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02',
-  music: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04',
-  drawing: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12',
-} as const;
-
-export const interests: Interest[] = [
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01', name: 'Books' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02', name: 'Films' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e03', name: 'Sport' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04', name: 'Music' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e05', name: 'Handmade' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e06', name: 'Coffee' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e07', name: 'IT' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e08', name: 'Design' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e09', name: 'Fashion' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e10', name: 'Video games' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e11', name: 'Baking' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12', name: 'Drawing' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e13', name: 'Knitting' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e14', name: 'Houseplants' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15', name: 'Mountain hiking' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e16', name: 'Theatre' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e17', name: 'Acting' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e18', name: 'Photography' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e19', name: 'Board games' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e20', name: 'Comics' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e21', name: 'Manga and manhwa' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e22', name: 'Fantasy' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e23', name: 'Non-fiction' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e24', name: 'Detective fiction' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e25', name: 'Cacti' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e26', name: 'Gardening' },
-  { id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e27', name: 'Vegetable gardening' },
-];
-
-export const profiles: Profile[] = [
-  {
-    accountId: accounts.olena,
-    username: 'olena_k',
-    displayName: 'Olena',
-    description: 'Cinema, galleries and long walks.',
-    communicationFormat: 'friends',
-    sharePhone: true,
-    interestIds: [interestIds.films, interestIds.drawing],
-  },
-  {
-    accountId: accounts.taras,
-    username: 'taras.m',
-    displayName: 'Taras',
-    description: '',
-    communicationFormat: 'company',
-    sharePhone: true,
-    interestIds: [interestIds.music],
-  },
-];
 export const organizations: Organization[] = [
   { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
   { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },

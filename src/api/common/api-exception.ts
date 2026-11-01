@@ -16,6 +16,8 @@ const errorStatus: Record<ErrorCode, number> = {
   LISTING_DATE_IN_PAST: 422,
   USERNAME_TAKEN: 409,
   PROFILE_EXISTS: 409,
+  CONTACT_REQUIRED: 422,
+  INVALID_SOCIAL_HANDLE: 422,
   INVALID_CODE: 422,
   WRONG_PASSWORD: 422,
   INVALID_GOOGLE_TOKEN: 422,
@@ -24,6 +26,7 @@ const errorStatus: Record<ErrorCode, number> = {
   UNDERAGE: 422,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
+  PHONE_CODES_UNAVAILABLE: 503,
 };
 
 /** Thrown anywhere in the API; ApiExceptionFilter turns it into an ErrorResponse. */

@@ -49,7 +49,7 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `author` | `{ username, displayName }` | Never the author's contacts |
+| `author` | `{ username, displayName }` | Never the author's contacts. A listing whose author has no profile is left out of the list and is a `404` by id |
 | `category` | `{ id, name }` | |
 | `eventId` | UUID or `null` | Set when the listing is about a catalog event |
 | `title` | string | |
@@ -61,7 +61,7 @@ Related to: Account (author), Category, Event.
 
 ### Profile
 
-**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`
+**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
 
 The signed-in user's own profile, built step by step during onboarding (FR-002, US-003) and edited afterwards. The resource is singular and lives under `/me`: a user only ever sees their own profile here, so there is no id to guess. Other users' profiles are shown only through listings (`author`).
 
@@ -70,26 +70,29 @@ The signed-in user's own profile, built step by step during onboarding (FR-002, 
 | `username` | string | Required at creation. Unique regardless of case, 3 to 30 letters, digits, dots or underscores, starting with a letter or a digit |
 | `displayName` | string | Required at creation, 1 to 50 characters |
 | `description` | string | Free text up to 500 characters; empty until set |
+| `occupation` | string | Studies or work, free text up to 100 characters; empty until set |
 | `communicationFormat` | `friends` \| `dating` \| `company` \| `null` | `null` until the user picks one |
-| `sharePhone` | boolean | Default `true`: whether the phone number is revealed on a mutual match |
+| `sharePhone` | boolean | Default `true`: whether the phone number is revealed on a mutual match; no account has one while sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)) |
 | `age` | integer | Whole years, computed on the server from the account's date of birth. The date itself is never returned (data model §4) |
 | `interests` | `[{ id, name }]` | Empty until the user picks some |
-| `isComplete` | boolean | `true` once `communicationFormat` is set **and** at least one interest is picked; matching needs both (use case E1) |
+| `linkedAccounts` | `[{ network, username, url }]` | Social networks a mutual match sees: `network` is `telegram`, `instagram`, `whatsapp`, `tiktok` or `facebook`, at most one each; `username` is the bare handle (for WhatsApp, the phone number digits), stored encrypted; `url` is the profile link. Empty until set during onboarding |
+| `isComplete` | boolean | `true` once `communicationFormat` is set, at least one interest is picked **and** at least one network is linked; matching needs all three (use case E1) |
 
 Related to: Account (`age` comes from its date of birth), Interest.
 
-Not in this version: photo upload and linked accounts. Until linked accounts exist, `sharePhone: false` is accepted although the data model requires at least one shared contact; the check moves into the profiles service together with linked accounts.
+Not in this version: photo upload. A mutual match needs a contact to reveal, and while sign-in is Google-only there is no phone number, so the contact is a linked network: `PUT /me/profile/linked-accounts` refuses an empty list, and `sharePhone` plays no part in the check.
 
 ### Interest
 
 **Base path:** `/api/v1/interests`
 
-A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints.
+A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints. `GET /interests` lists them group by group, in the order the seed sets for the groups, and within a group by name in Ukrainian alphabetical order; a profile's `interests` come in the same order.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `name` | string | Unique |
+| `name` | string | Unique, in Ukrainian |
+| `group` | string | The heading it is shown under, e.g. `Музика` |
 
 Related to: Profile (many to many).
 
@@ -115,26 +118,18 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | Anyone, no token | `202`, a code is sent to the phone | `400`, `429` |
-| `POST` | `/api/v1/auth/verify` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
+| `POST` | `/api/v1/auth/google/register` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
 | `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` the tokens of the new account's first session | `400`, `401`, `404`, `409`, `422` |
-| `POST` | `/api/v1/auth/sign-in` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
 | `POST` | `/api/v1/auth/google` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
-| `POST` | `/api/v1/auth/password-reset` | Anyone, no token | `202`, a code is sent if the number has an account | `400` |
-| `POST` | `/api/v1/auth/password-reset/confirm` | Anyone, no token | `200` the tokens of a new session | `400`, `422` |
-| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401`, `429` |
+| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401` |
 | `POST` | `/api/v1/auth/sign-out` | Signed-in user | `204` | `401` |
 | `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
-| `PUT` | `/api/v1/me/password` | Signed-in user | `204` | `400`, `401`, `422` |
-| `PUT` | `/api/v1/me/google` | Signed-in user | `204` | `400`, `401`, `409`, `422` |
 
-Registration takes three calls: `register` sends a one-time code to a `+380` number; `verify` checks the code and returns a registration token, valid for 15 minutes, that only `complete-registration` accepts; `complete-registration` takes the date of birth and activates the account. Under 18, the registration is removed and the number can start again. A code has 6 digits, is valid for 10 minutes, works once and dies after 3 wrong attempts; a number gets one code a minute and at most five in 24 hours, for registration and reset together, and a request over either limit is answered the same but sends nothing (SEC-008).
+Sign-up and sign-in are Google-only for now ([ADR-004](../architecture/decisions/ADR-004.md)); the phone and password endpoints are removed until codes can be paid for. Registration takes two calls: `google/register` checks the ID token from Google Sign-In and returns a registration token, valid for 15 minutes, that only `complete-registration` accepts; `complete-registration` takes the date of birth and activates the account. Under 18, the registration is removed and the Google account can start again. A Google account that is already registered gets `409 GOOGLE_ACCOUNT_TAKEN`; `POST /auth/google` signs it in. Accounts are never matched by email.
 
-A new account has no sign-in method yet: the app sets a password with `PUT /me/password` (8 to 128 characters; changing it needs `currentPassword`) and / or links Google with `PUT /me/google`, which takes the ID token from Google Sign-In. `POST /auth/google` signs in only a Google account linked this way. A forgotten password is replaced with a code: `password-reset` sends one, `password-reset/confirm` takes it with the new password.
+`google/register`, `google` and `refresh` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`; the ones that sign in add `refreshToken`.
 
-`register` and `password-reset` answer the same whether or not the number has an account or reached a code limit, and `sign-in` answers a wrong password, an unknown number and a locked account alike (SEC-007). Five wrong passwords in 15 minutes lock password sign-in and password changes for 15 minutes; a wrong `currentPassword` in `PUT /me/password` counts too. Google sign-in and password reset still work. `register`, `verify`, `sign-in`, `google`, both reset calls and `PUT /me/password` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`; the ones that sign in add `refreshToken`.
-
-A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one; a wrong refresh token for the session, such as a replaced one used again, ends the session. `sign-out` ends the current session, a new password ends every other session, and a password reset ends them all. An ended session's access token gets `401` on the next request, before it expires.
+A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one; a wrong refresh token for the session, such as a replaced one used again, ends the session. `sign-out` ends the current session. An ended session's access token gets `401` on the next request, before it expires.
 
 ### Events
 
@@ -178,10 +173,11 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `POST` | `/api/v1/me/profile` | Signed-in user | `201` the profile + `Location: /api/v1/me/profile` | `400`, `401`, `409` |
 | `PATCH` | `/api/v1/me/profile` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `409` |
 | `PUT` | `/api/v1/me/profile/interests` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
+| `PUT` | `/api/v1/me/profile/linked-accounts` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
 
-Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes.
+Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
 
-A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
+A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests and linked-accounts `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
 
 ### Categories
 
@@ -214,7 +210,7 @@ The endpoints are written in NestJS, and each one is declared with `@Endpoint`, 
 
 ### Pagination
 
-The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
+The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2). A page may hold fewer than `limit` items, or none, while `hasMore` is still `true` (the listing feed leaves out listings whose author has no profile), so a client keeps loading while `hasMore` is `true` and moves `offset` by `limit`, not by the number of items it got.
 
 ```json
 {
@@ -268,7 +264,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | Status | `code` | When |
 |---|---|---|
 | `400 Bad Request` | `VALIDATION_ERROR` | Params, query or body do not match the schema, and `details` lists every invalid field. Also a body that is not valid JSON or a URL with broken encoding; those have no `details`, since no single field is at fault. A body with fields the endpoint does not accept gets one `details` entry with an empty `field`; the unknown names are not echoed back |
-| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN` | `UNAUTHENTICATED`: no access token, an invalid or expired one, one of an ended session, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with a wrong phone number or password, or a Google account no account linked; it does not say which. `INVALID_REFRESH_TOKEN`: the session expired or was ended, or the refresh token was already replaced; the app signs in again |
+| `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN` | `UNAUTHENTICATED`: no access token, an invalid or expired one, one of an ended session, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with an invalid Google ID token or a Google account that is not registered. `INVALID_REFRESH_TOKEN`: the session expired or was ended, or the refresh token was already replaced; the app signs in again |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
 | `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
@@ -285,11 +281,11 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, or an interest id is not in the list. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
-| `INVALID_CODE` | `POST /auth/verify`, `POST /auth/password-reset/confirm` | The code is wrong, expired, already used, or has failed 3 times |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
-| `WRONG_PASSWORD` | `PUT /me/password` | The account has a password and `currentPassword` is missing or wrong, or the account is locked after five wrong passwords |
-| `INVALID_GOOGLE_TOKEN` | `PUT /me/google` | The Google ID token is invalid, expired or issued to another app |
+| `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
+| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
@@ -300,29 +296,19 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 |---|---|---|
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
-| `GOOGLE_ACCOUNT_TAKEN` | `PUT /me/google` | Another account linked this Google account |
-| `GOOGLE_ALREADY_LINKED` | `PUT /me/google` | The account has another Google account linked; linking the same one again changes nothing |
+| `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 
 ### Trying It Out
 
-The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`. The seeded accounts are created by `npm run db:seed` ([local database](../../README.md#local-database)).
+The server needs its key files: run `npm run keys:generate` and copy the key lines from `.env.example` into `.env`. Set `GOOGLE_CLIENT_IDS` to the client id of the Google OAuth web client the app uses; until then Google sign-in refuses every token.
 
 Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Authorize** and paste the `accessToken`; with curl, send `Authorization: Bearer <token>`. Access tokens last 60 minutes; `POST /api/v1/auth/refresh` with the `refreshToken` gets a new one.
 
 - **Guest** (catalog reads only): `POST /api/v1/auth/guest`.
-- **Seeded account:** `POST /api/v1/auth/sign-in` with one of the numbers below and the password `nearby-dev-password`.
-- **New account:** `POST /api/v1/auth/register`, read the code in the server's console, `POST /api/v1/auth/verify`, then `POST /api/v1/auth/complete-registration` with the registration token and `PUT /api/v1/me/password` with the access token. With `MESSAGING_PROVIDER=telegram` and a `TELEGRAM_GATEWAY_TOKEN` in `.env`, the code arrives in Telegram instead.
-- **Google:** set `GOOGLE_CLIENT_IDS` to the client id of a Google OAuth web client; until then Google sign-in refuses every token.
+- **Your account:** sign up or sign in with Google in the app's web build, then copy the `accessToken` from the response of `/auth/google` or `/auth/complete-registration` in the browser's network tab. There are no shared development accounts.
+- **Administrator:** set your account's `role` to `admin` in the database ([local database](../../README.md#local-database)), then sign in again: the role is part of the access token.
 
-| Phone | Account |
-|---|---|
-| `+380501110001` | Olena, a regular user with a complete profile |
-| `+380501110002` | Taras, a second user with a profile, for trying who may delete which listing |
-| `+380501110003` | Podil Film Club, a verified organization with its own venue; no profile |
-| `+380501110004` | New Gallery, an organization still awaiting verification; no profile, so `POST /me/profile` creates one |
-| `+380501110005` | An administrator; no profile, so it shows the `404` of the profile endpoints |
-
-Accounts, verification codes and sessions are in the database; `npm run db:seed` resets the seeded accounts. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts.
+Accounts and sessions are in the database. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts; they belong to account ids that only the e2e tests create.
 
 ## AI Usage Note
 
