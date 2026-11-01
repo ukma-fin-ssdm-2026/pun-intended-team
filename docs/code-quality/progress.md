@@ -18,7 +18,7 @@ State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, cat
 | Events and listings in PostgreSQL | In progress | #310 |
 | Matching | The `match` algorithm and the interest score; no endpoints yet | #285 |
 | Reports, report cases and bans; platform statistics for administrators | Working, PostgreSQL | #323 |
-| Expo client | Google sign-in and the profile screens use the API; the catalog, map, matches and listings show test data | #143, #337 |
+| Expo client | Google sign-in, the profile screens and sending a report use the API; administrators review reports, ban users and manage categories at `/admin` on the web; the catalog, map, matches and listings show test data | #143, #337, #323 |
 | Staging | API and web app on one server | #313, #332 |
 | Notifications | Not started | — |
 

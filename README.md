@@ -203,7 +203,7 @@ UPDATE accounts SET role = 'admin' WHERE id = '<id>';
 
 ## ൬ Running the client
 
-The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone. To run it next to the API, see [`app/README.md`](app/README.md).
+The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone, and has admin pages for reports and categories at `/admin`. To run it next to the API, see [`app/README.md`](app/README.md).
 
 ## ൠ MCP Server
 
