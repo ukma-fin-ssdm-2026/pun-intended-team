@@ -22,7 +22,8 @@ export class ListingsService {
   async list(page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
     const withDetails = await this.detailsFor(result.items);
-    // `total` still counts a listing whose author has no profile; such listings are only left out of the items.
+    // A listing whose author has no profile is left out after paging, so a page can hold fewer than `limit` items, or
+    // none, while `hasMore` is still true.
     return { ...result, items: result.items.flatMap((listing) => withDetails(listing) ?? []) };
   }
 

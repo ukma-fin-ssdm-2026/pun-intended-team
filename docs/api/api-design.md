@@ -209,7 +209,7 @@ The endpoints are written in NestJS, and each one is declared with `@Endpoint`, 
 
 ### Pagination
 
-The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2).
+The event and listing feeds use offset pagination: `limit` (default 20, maximum 20; a larger value is a `400` error) and `offset` (default 0). The maximum is low on purpose, so the catalog cannot be copied in a few requests ([catalog access](../architecture/mechanisms/catalog-access.md), rule 2). A page may hold fewer than `limit` items, or none, while `hasMore` is still `true` (the listing feed leaves out listings whose author has no profile), so a client keeps loading while `hasMore` is `true` and moves `offset` by `limit`, not by the number of items it got.
 
 ```json
 {
