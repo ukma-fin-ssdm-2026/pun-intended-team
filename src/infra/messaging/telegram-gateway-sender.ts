@@ -1,12 +1,13 @@
 // Written with the help of Claude
 import { z } from 'zod';
+import { MINUTE_SECONDS } from '../../core/common/durations.ts';
 import type { CodeSender } from './code-sender.ts';
 
 const BASE_URL = 'https://gatewayapi.telegram.org';
 // Short, so SMS still goes out soon when Telegram does not answer.
 const TIMEOUT_MS = 3000;
 // The code lifetime (SEC-008); Telegram refunds a code it could not deliver within it.
-const TTL_SECONDS = 10 * 60;
+const TTL_SECONDS = 10 * MINUTE_SECONDS;
 
 const GatewayResponse = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), result: z.object({ request_id: z.string() }) }),

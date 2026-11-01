@@ -1,5 +1,7 @@
 // Written with the help of Claude
 // The service covers Kyiv only, so calendar dates ("today", date filters) are Kyiv dates.
+import { MINUTE_MS } from './durations.ts';
+
 const kyivDateFormat = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' });
 
 /** The Kyiv calendar date of an instant, as YYYY-MM-DD. */
@@ -20,7 +22,7 @@ const offsetFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Kyiv',
 function kyivOffsetMs(instant: number): number {
   const name = offsetFormat.formatToParts(instant).find((part) => part.type === 'timeZoneName')?.value ?? '';
   const [, sign, hours, minutes] = /^GMT([+-])(\d{2}):(\d{2})$/.exec(name) ?? [];
-  return sign ? (sign === '-' ? -1 : 1) * (Number(hours) * 60 + Number(minutes)) * 60_000 : 0;
+  return sign ? (sign === '-' ? -1 : 1) * (Number(hours) * 60 + Number(minutes)) * MINUTE_MS : 0;
 }
 
 /** The last millisecond of the Kyiv day an instant falls on, so `kyivDate` of it is still that day. */

@@ -4,8 +4,11 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-01
+
 ### Refactoring
 
+- Durations use shared time constants instead of hand-written arithmetic ([#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306)). Technique: Replace Magic Number with Symbolic Constant.
 - The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
 
 ## [1.1.0] - 2026-11-01
@@ -42,7 +45,8 @@ The first release, deployed to staging: the API at <https://api.nearbystaging.ap
 - Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Move Statements to Callers.
 - Registration and profiles share one age calculation ([#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304)). Technique: Move Function.
 
-[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/releases/tag/v1.0.0
 
