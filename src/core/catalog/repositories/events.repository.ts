@@ -12,6 +12,9 @@ export abstract class EventsRepository {
   /** Published events that overlap the filter's dates, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
 
+  /** Published events that end on `from` or later. */
+  abstract countPublishedFrom(from: string): Promise<number>;
+
   abstract create(event: EventRecord): Promise<Event>;
 
   abstract update(id: string, changes: EventChanges & { status?: EventStatus }): Promise<Event>;

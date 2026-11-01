@@ -15,6 +15,7 @@ import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
+import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
 import { AuditLogRepository } from '../core/moderation/repositories/audit-log.repository.ts';
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
@@ -35,6 +36,7 @@ import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts
 import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
+import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
 import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
 import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
 import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
@@ -56,6 +58,7 @@ const repositories = [
   { provide: ProfilesRepository, useClass: PrismaProfilesRepository },
   { provide: ListingsRepository, useClass: StubListingsRepository },
   { provide: InterestsRepository, useClass: PrismaInterestsRepository },
+  { provide: MatchesRepository, useClass: PrismaMatchesRepository },
   { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
 ];

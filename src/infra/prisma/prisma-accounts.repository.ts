@@ -144,6 +144,10 @@ export class PrismaAccountsRepository implements AccountsRepository {
     await this.prisma.account.update({ where: { id: accountId }, data: { status } });
   }
 
+  async countByStatus(status: AccountStatus): Promise<number> {
+    return this.prisma.account.count({ where: { status } });
+  }
+
   private findAuthMethod(accountId: string, type: 'password' | 'google') {
     return this.prisma.authMethod.findUnique({ where: { accountId_type: { accountId, type } } });
   }

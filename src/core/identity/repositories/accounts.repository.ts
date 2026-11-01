@@ -51,4 +51,6 @@ export abstract class AccountsRepository {
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
 
   abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
+
+  abstract countByStatus(status: AccountStatus): Promise<number>;
 }

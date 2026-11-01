@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { IdentityModule } from '../core/identity/identity.module.ts';
 import { InfraModule } from '../infra/infra.module.ts';
+import { AdminApiModule } from './admin/admin-api.module.ts';
 import { CatalogApiModule } from './catalog/catalog-api.module.ts';
 import { ApiExceptionFilter } from './common/api-exception.filter.ts';
 import { AuthGuard } from './common/auth.ts';
@@ -26,6 +27,7 @@ import { SystemApiModule } from './system/system-api.module.ts';
     ListingsApiModule,
     ProfilesApiModule,
     ModerationApiModule,
+    AdminApiModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: ApiExceptionFilter },

@@ -8,6 +8,7 @@ export const tags = [
   { name: 'Interests', description: 'The fixed list of interests users pick from' },
   { name: 'Categories', description: 'The event category directory' },
   { name: 'Moderation', description: 'Reports on users and how administrators resolve them' },
+  { name: 'Admin', description: 'Platform statistics for administrators' },
   { name: 'System', description: 'Service endpoints' },
 ] as const;
 

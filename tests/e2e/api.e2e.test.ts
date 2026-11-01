@@ -1417,6 +1417,26 @@ describe('Report cases', () => {
   });
 });
 
+// FR-030
+describe('GET /api/v1/admin/stats', () => {
+  test('counts active users, upcoming events, matches and open report cases', async () => {
+    const res = await call('GET', '/api/v1/admin/stats', { token: tokens.admin });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT
+        (SELECT count(*)::int FROM accounts WHERE status = 'active') AS users,
+        (SELECT count(*)::int FROM matches) AS matches,
+        (SELECT count(*)::int FROM report_cases WHERE status = 'open') AS "openReports"`),
+    );
+    assert.deepEqual({ users: res.body.users, matches: res.body.matches, openReports: res.body.openReports }, rows[0]);
+    assert.ok(res.body.events > 0, JSON.stringify(res.body));
+  });
+
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/stats', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
+});
+
 describe('GET /api/v1/interests', () => {
   test('lists the interests users can pick', async () => {
     const res = await call('GET', '/api/v1/interests', { token: tokens.user });

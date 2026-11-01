@@ -20,4 +20,8 @@ export class AccountsService {
     await this.accountsRepository.setStatus(accountId, 'banned');
     await this.sessionsService.endAll(accountId);
   }
+
+  async stats(): Promise<{ users: number }> {
+    return { users: await this.accountsRepository.countByStatus('active') };
+  }
 }

@@ -19,6 +19,10 @@ export class StubEventsRepository implements EventsRepository {
     return event && toEvent(event, await this.categoriesById());
   }
 
+  async countPublishedFrom(from: string): Promise<number> {
+    return events.filter((event) => event.status === 'published' && kyivDate(event.endsAt) >= from).length;
+  }
+
   async findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>> {
     const matching = events
       .filter(
