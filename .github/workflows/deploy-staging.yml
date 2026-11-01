@@ -75,7 +75,6 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS }}
-          CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
           TURBOSMS_SENDER: ${{ vars.TURBOSMS_SENDER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           NEARBY_MAIN_PASSWORD: ${{ secrets.NEARBY_MAIN_PASSWORD }}

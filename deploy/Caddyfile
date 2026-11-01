@@ -7,3 +7,7 @@
 	encode zstd gzip
 	reverse_proxy api:4100
 }
+
+{$WEB_DOMAIN} {
+	reverse_proxy web:8080
+}
