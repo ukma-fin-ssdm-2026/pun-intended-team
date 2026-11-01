@@ -66,7 +66,7 @@ There are **16 open issues**, all with severity **MAJOR** (impact MEDIUM). None 
 
 ### 3. `S2068` — Hard-Coded Password (1)
 
-[src/scripts/seed-dev-accounts.ts:29](../../src/scripts/seed-dev-accounts.ts#L29): the `passwordHash` field with an argon2id hash.
+`src/scripts/seed-dev-accounts.ts:29` (deleted in #325): the `passwordHash` field with an argon2id hash.
 
 **Assessment.** This is not a plain-text password but a hash for dev accounts in a seed script. Sonar reacts to the field name. It becomes a risk only if the seed is run against production.
 
