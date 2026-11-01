@@ -122,6 +122,8 @@ components:
         - INVALID_REFRESH_TOKEN
         - UNDERAGE
         - CANNOT_REPORT_SELF
+        - CANNOT_RESOLVE_OWN_CASE
+        - CANNOT_BAN_ADMIN
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -2293,8 +2295,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: >-
-            The case was dismissed, the reported user is an administrator, or
-            the case is about the caller, whom another administrator must judge
+            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
+            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
+            about the caller, whom another administrator must judge
           content:
             application/json:
               schema:
@@ -2346,8 +2349,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: >-
-            The case is already resolved, or the case is about the caller, whom
-            another administrator must judge
+            `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
+            the case is about the caller, whom another administrator must judge
           content:
             application/json:
               schema:
