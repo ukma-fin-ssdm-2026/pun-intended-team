@@ -5,7 +5,7 @@ Owner: Oleh Moshenskyi (Prototype Lead).
 
 ## 1. Where the prototype stands
 
-State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, categories, profiles and interests; events and listings are still served from in-memory stubs, so changes to them last until the server restarts. The API and the web app run on [staging](https://nearbystaging.app).
+State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, categories, profiles, interests and report cases; events and listings are still served from in-memory stubs, so changes to them last until the server restarts. The API and the web app run on [staging](https://nearbystaging.app).
 
 | Part | State | Issue |
 |---|---|---|
@@ -17,11 +17,12 @@ State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, cat
 | Sign-in with Google, JWT access tokens, refresh sessions | Working, PostgreSQL; phone and password routes paused by [ADR-004](../architecture/decisions/ADR-004.md) | #140, #212, #325 |
 | Events and listings in PostgreSQL | Planned | #310 |
 | Matching | The `match` algorithm and the interest score; no endpoints yet | #285 |
-| Expo client | Google sign-in and the profile screens use the API; the catalog, map, matches and listings show test data | #143, #337 |
+| Reports, report cases and bans; platform statistics for administrators | Working, PostgreSQL | #323 |
+| Expo client | Google sign-in, the profile screens and sending a report use the API; administrators review reports, ban users and manage categories at `/admin` on the web; the catalog, map, matches and listings show test data | #143, #337, #323 |
 | Staging | API and web app on one server | #313, #332 |
-| Notifications, reports and bans, statistics | Not started | — |
+| Notifications | Not started | — |
 
-28 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (auth 6, events 5, listings 4, categories 1, admin categories 5, profiles 5, interests 1, health 1). The `src/mcp/` server exposes all of them as tools except the auth operations.
+34 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (auth 6, events 5, listings 4, categories 1, admin categories 5, profiles 5, interests 1, moderation 5, admin statistics 1, health 1). The `src/mcp/` server exposes all of them as tools except the auth operations.
 
 Sections 2 to 5 describe the first working component, the profile, as it was delivered in Lab 5.
 
@@ -99,7 +100,7 @@ The SA-01 finding (#129) concerned the stub `sessions[accessToken]` lookup, whic
 - **Events and listings in PostgreSQL (#310):** they are the last parts on stubs; the Prisma models are already in the schema.
 - **Matching:** the `match` algorithm needs its endpoints, the matching rounds and the contact reveal.
 - **Expo client:** the catalog, map, matches and listings screens move from test data to the API.
-- **Not started:** notifications, reports and bans, and platform statistics.
+- **Not started:** notifications, and reports on listings (FR-028), which need listings in PostgreSQL.
 - [`quality-attributes.md`](../api/quality-attributes.md) still records the Lab 4 Swagger UI checks of `PATCH /events/{id}`; they are history of that lab and were left unchanged.
 
 ## AI Usage Note

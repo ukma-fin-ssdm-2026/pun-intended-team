@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Nearby API
-  version: 1.0.0
+  version: 1.1.0
   description: >-
     REST API of Nearby, an app for going to events and meeting people along the
     way.
@@ -21,6 +21,10 @@ tags:
     description: The fixed list of interests users pick from
   - name: Categories
     description: The event category directory
+  - name: Moderation
+    description: Reports on users and how administrators resolve them
+  - name: Admin
+    description: Platform statistics for administrators
   - name: System
     description: Service endpoints
 components:
@@ -33,40 +37,31 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
-    AdminCategoryList:
+    PlatformStats:
       type: object
       properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/AdminCategory'
+        users:
+          type: integer
+          description: 'Active accounts: registered and not banned'
+        events:
+          type: integer
+          description: Published events that have not ended yet
+        matches:
+          type: integer
+          description: Matches proposed so far
+        openReports:
+          type: integer
+          description: Open report cases
       required:
-        - items
+        - users
+        - events
+        - matches
+        - openReports
       example:
-        items:
-          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
-            isActive: true
-    AdminCategory:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        isActive:
-          type: boolean
-          description: Inactive categories are hidden from filters and cannot be picked
-      required:
-        - id
-        - name
-        - isActive
-      description: A category as administrators see it
-      example:
-        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
-        isActive: true
+        users: 128
+        events: 42
+        matches: 0
+        openReports: 3
     ErrorResponse:
       type: object
       properties:
@@ -126,6 +121,9 @@ components:
         - PHONE_CODES_UNAVAILABLE
         - INVALID_REFRESH_TOKEN
         - UNDERAGE
+        - CANNOT_REPORT_SELF
+        - CANNOT_RESOLVE_OWN_CASE
+        - CANNOT_BAN_ADMIN
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -148,6 +146,40 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    AdminCategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategory'
+      required:
+        - items
+      example:
+        items:
+          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+            name: Concerts
+            isActive: true
+    AdminCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+          description: Inactive categories are hidden from filters and cannot be picked
+      required:
+        - id
+        - name
+        - isActive
+      description: A category as administrators see it
+      example:
+        id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+        name: Concerts
+        isActive: true
     CreateCategoryBody:
       type: object
       properties:
@@ -611,6 +643,276 @@ components:
         title: Looking for company for the Arsenal exhibition
         description: Planning to go in the evening, happy to grab a coffee after.
         date: '2026-10-20'
+    ReportCasesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportCase'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+            account:
+              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+              username: olena_k
+              displayName: Olena
+            status: open
+            resolution: null
+            reportCount: 2
+            firstReportedAt: '2026-10-30T19:12:00.000Z'
+            lastReportedAt: '2026-10-31T08:40:00.000Z'
+            resolvedAt: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    ReportCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+        resolution:
+          type: string
+          nullable: true
+          enum:
+            - banned
+            - removed
+            - dismissed
+            - null
+          description: Null while the case is open
+        reportCount:
+          type: integer
+          description: Reports in the case, repeated reports by one user included
+        firstReportedAt:
+          type: string
+          format: date-time
+        lastReportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          nullable: true
+          format: date-time
+      required:
+        - id
+        - account
+        - status
+        - resolution
+        - reportCount
+        - firstReportedAt
+        - lastReportedAt
+        - resolvedAt
+      example:
+        id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        account:
+          id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+          username: olena_k
+          displayName: Olena
+        status: open
+        resolution: null
+        reportCount: 2
+        firstReportedAt: '2026-10-30T19:12:00.000Z'
+        lastReportedAt: '2026-10-31T08:40:00.000Z'
+        resolvedAt: null
+    ReportCaseDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+        resolution:
+          type: string
+          nullable: true
+          enum:
+            - banned
+            - removed
+            - dismissed
+            - null
+          description: Null while the case is open
+        reportCount:
+          type: integer
+          description: Reports in the case, repeated reports by one user included
+        firstReportedAt:
+          type: string
+          format: date-time
+        lastReportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          nullable: true
+          format: date-time
+        reports:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              reporter:
+                $ref: '#/components/schemas/CaseAccount'
+              reason:
+                type: string
+                enum:
+                  - offensive_messages
+                  - no_show
+                  - fake_profile
+                  - unsafe_behaviour
+                  - other
+                description: >-
+                  offensive_messages, no_show (did not come and did not warn),
+                  fake_profile, unsafe_behaviour (dangerous behaviour) or other
+              comment:
+                type: string
+                nullable: true
+              reportedAt:
+                type: string
+                format: date-time
+            required:
+              - id
+              - reporter
+              - reason
+              - comment
+              - reportedAt
+          description: Every report in the case, oldest first
+      required:
+        - id
+        - account
+        - status
+        - resolution
+        - reportCount
+        - firstReportedAt
+        - lastReportedAt
+        - resolvedAt
+        - reports
+      example:
+        id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        account:
+          id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+          username: olena_k
+          displayName: Olena
+        status: open
+        resolution: null
+        reportCount: 2
+        firstReportedAt: '2026-10-30T19:12:00.000Z'
+        lastReportedAt: '2026-10-31T08:40:00.000Z'
+        resolvedAt: null
+        reports:
+          - id: 7f9b1d3e-5a7c-4e9a-8b1d-5f7a9c1e3b52
+            reporter:
+              id: d8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18
+              username: taras
+              displayName: Taras
+            reason: no_show
+            comment: >-
+              We agreed to meet at the entrance; she did not come and did not
+              answer.
+            reportedAt: '2026-10-30T19:12:00.000Z'
+    CaseAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+          description: Null when the account has no profile
+        displayName:
+          type: string
+          nullable: true
+      required:
+        - id
+        - username
+        - displayName
+      description: A reported user or a reporter, as an administrator sees them
+    CreateReportBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Username of the user being reported, as their profile shows it
+        reason:
+          type: string
+          enum:
+            - offensive_messages
+            - no_show
+            - fake_profile
+            - unsafe_behaviour
+            - other
+          description: >-
+            offensive_messages, no_show (did not come and did not warn),
+            fake_profile, unsafe_behaviour (dangerous behaviour) or other
+        comment:
+          type: string
+          maxLength: 1000
+          description: What happened, in the reporter’s words
+      required:
+        - username
+        - reason
+      additionalProperties: false
+      example:
+        username: olena_k
+        reason: no_show
+        comment: >-
+          We agreed to meet at the entrance; she did not come and did not
+          answer.
     InterestList:
       type: object
       properties:
@@ -870,6 +1172,36 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/admin/stats:
+    get:
+      operationId: adminGetStats
+      summary: Get platform statistics
+      description: >-
+        Count active users, upcoming events, matches and open report cases.
+        Needs an administrator account; other accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformStats'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/categories:
     get:
       operationId: adminListCategories
@@ -1795,6 +2127,272 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No active listing with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases:
+    get:
+      operationId: adminListReportCases
+      summary: List report cases
+      description: >-
+        List report cases, oldest first: one case per reported user, with the
+        number of reports. Open cases by default; `status=resolved` lists the
+        resolved ones. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            enum:
+              - open
+              - resolved
+            default: open
+            description: open (the default) or resolved
+          required: false
+          description: open (the default) or resolved
+          name: status
+          in: query
+      responses:
+        '200':
+          description: A page of report cases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCasesPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}:
+    get:
+      operationId: adminGetReportCase
+      summary: Get a report case
+      description: >-
+        Get a report case with every report in it: who reported, the reason and
+        the comment. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The case and its reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/ban:
+    post:
+      operationId: adminBanReportedUser
+      summary: Ban the reported user
+      description: >-
+        Ban the user the case is about and resolve the case. Every session of
+        the user ends at once: their next request gets 401, and they cannot sign
+        in again. On a case already resolved as banned, the ban is applied
+        again, so a ban that failed halfway can be retried. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
+            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
+            about the caller, whom another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/dismiss:
+    post:
+      operationId: adminDismissReportCase
+      summary: Dismiss a report case
+      description: >-
+        Resolve the case without action, when the reports turn out to be
+        unfounded. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
+            the case is about the caller, whom another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reports:
+    post:
+      operationId: reportUser
+      summary: Report a user
+      description: >-
+        Report a user by username, with a reason and an optional comment.
+        Administrators review it; repeated reports on one user are grouped into
+        one case. The reporter gets no details about the case, and a report on a
+        banned user is accepted the same way but not stored. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportBody'
+      responses:
+        '204':
+          description: The report was received
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `REFERENCE_NOT_FOUND`: no user has this username.
+            `CANNOT_REPORT_SELF`: it is your own username.
           content:
             application/json:
               schema:

@@ -6,6 +6,9 @@ export abstract class ProfilesRepository {
 
   abstract findByAccountId(accountId: string): Promise<Profile | undefined>;
 
+  /** Case-insensitive, like the unique index. */
+  abstract findAccountIdByUsername(username: string): Promise<string | undefined>;
+
   /** Usernames are unique regardless of case; `exceptAccountId` lets a user keep their own. */
   abstract isUsernameTaken(username: string, exceptAccountId?: string): Promise<boolean>;
 

@@ -48,7 +48,7 @@ Modules sit in three tiers, defined by dependency direction rather than importan
 | Module | Depends on | Reacts to (job) |
 |---|---|---|
 | matching | profiles (interests, contacts, safety acknowledgment), catalog (sessions), identity (phone number for the contact reveal), moderation (exclusions), notifications | `event.changed`, `user.banned` |
-| moderation | listings (remove), identity (revoke on ban), notifications | `audit.record` |
+| moderation | listings (remove), identity (revoke on ban), profiles (find the reported user by username, names in cases), notifications | `audit.record` |
 | admin | `stats()` of every other module | — |
 | listings | catalog (event and category references), profiles (author's name) | — |
 | profiles | — | — |
@@ -97,7 +97,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | `notifications.deliver` | notifications | notifications | `notificationId` | immediate or delayed (reminders, "respond soon") |
 | `event.changed` | CMP-03, catalog | matching | `eventId`, `change` | immediate — closes pools, voids pending matches, notifies applicants |
 | `user.banned` | moderation | matching | `userId` | immediate — withdraws applications, voids pending matches |
-| `audit.record` | identity and the other modules below moderation | moderation | actor, action, target, result, IP address | immediate — moderation writes the AuditLog row (SEC-004) |
+| `audit.record` | identity and the other modules below moderation | moderation | actor, action, target, result, IP address (not recorded yet) | immediate — moderation writes the AuditLog row (SEC-004) |
 | `import.run` | schedule | CMP-03 | `providerId` | cron |
 | `moderation.retention` | schedule | moderation | — | daily — audit log past retention (SEC-004) |
 | `identity.retention` | schedule | identity | — | daily — expired or revoked tokens, used or expired codes (SEC-005, SEC-008) |

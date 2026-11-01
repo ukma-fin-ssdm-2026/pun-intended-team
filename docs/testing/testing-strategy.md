@@ -6,13 +6,13 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 | Layer | Where | Tests |
 |---|---|---|
-| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 542 |
-| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 158 |
+| Unit | [`tests/unit/`](../../tests/unit/): services, schemas, date functions and auth adapters; repositories mocked | 556 |
+| Integration | [`tests/e2e/`](../../tests/e2e/): the API over HTTP with PostgreSQL and the stubs | 175 |
 | End-to-end | through the Expo client | planned |
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
 
-Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration with Google and with a phone code, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008; the phone routes are paused by [ADR-004](../architecture/decisions/ADR-004.md)), listings (FR-021), profiles (FR-002), Kyiv dates and ages, the match score, the pairing of a matching round, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. The `match` algorithm, which pairs one round of matching (FR-017, FR-020, FUNC-001, FUNC-002), is built and was written test-first ([test plan](../validation/test-plan.md#tests-as-a-specification-for-an-agent-match)); the matching rounds, proposals and the contact reveal around it are not built yet, and their tests come with them.
+Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration with Google and with a phone code, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008; the phone routes are paused by [ADR-004](../architecture/decisions/ADR-004.md)), listings (FR-021), profiles (FR-002), reports and bans (FR-025, FR-027), Kyiv dates and ages, the match score, the pairing of a matching round, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. The `match` algorithm, which pairs one round of matching (FR-017, FR-020, FUNC-001, FUNC-002), is built and was written test-first ([test plan](../validation/test-plan.md#tests-as-a-specification-for-an-agent-match)); the matching rounds, proposals and the contact reveal around it are not built yet, and their tests come with them.
 
 Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreSQL, k6 (TC-10, run locally so far, see the [test plan](../validation/test-plan.md#executable-non-functional-test-tc-10-local-run)). Planned: Stryker, Maestro or Detox for the Expo client.
 
@@ -22,10 +22,10 @@ MCR, 1 November 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 94.09% | 89.76% | 91.26% | 92.74% |
-| Unit tests only | 66.84% | 72.57% | 61.49% | 55.87% |
+| All tests | 94.72% | 89.49% | 92.86% | 93.59% |
+| Unit tests only | 63.13% | 70.38% | 56.59% | 51.88% |
 
-Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; the `match` algorithm is covered by its unit tests; the rest of matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; the `match` algorithm is covered by its unit tests, and the report and ban flow (FR-025 to FR-027) is at 97% of lines in `moderation.service.ts` and 93% in `prisma-report-cases.repository.ts`; the rest of matching is measured once it is built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
@@ -67,7 +67,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 
 **Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` on every pull request and fails the build when either value is below the threshold.
 
-**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 92.74% and 89.76% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 56% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
+**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.59% and 89.49% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
 
 **Evidence.** The step passes on `main` after the gate was added: [run 39924791190](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190), commit `63319ab`. When a threshold is raised above the current coverage, the run fails with `Coverage of "All tests" is too low` and exit code 1.
 

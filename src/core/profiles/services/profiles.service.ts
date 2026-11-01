@@ -31,6 +31,11 @@ export class ProfilesService {
     return new Map(summaries.map((summary) => [summary.accountId, summary]));
   }
 
+  /** The account with this username, in any case; undefined when no profile has it. */
+  async findAccountId(username: string): Promise<string | undefined> {
+    return this.profilesRepository.findAccountIdByUsername(username);
+  }
+
   async listInterests(): Promise<Interest[]> {
     return this.interestsRepository.findAll();
   }

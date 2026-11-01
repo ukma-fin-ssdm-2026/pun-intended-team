@@ -4,6 +4,7 @@ import { AccountsRepository } from '../../core/identity/repositories/accounts.re
 import type {
   Account,
   AccountRecord,
+  AccountStatus,
   GoogleLinkResult,
   PasswordCredential,
   SignInLockout,
@@ -137,6 +138,14 @@ export class PrismaAccountsRepository implements AccountsRepository {
 
   async findDateOfBirth(accountId: string): Promise<string | undefined> {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
+  }
+
+  async setStatus(accountId: string, status: AccountStatus): Promise<void> {
+    await this.prisma.account.update({ where: { id: accountId }, data: { status } });
+  }
+
+  async countByStatus(status: AccountStatus): Promise<number> {
+    return this.prisma.account.count({ where: { status } });
   }
 
   private findAuthMethod(accountId: string, type: 'password' | 'google') {

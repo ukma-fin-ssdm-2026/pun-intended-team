@@ -4,7 +4,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -26,6 +26,7 @@ import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { mockProfile } from '@/mocks/profile';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
+import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
@@ -217,6 +218,7 @@ export default function ProfileScreen() {
     .filter((event): event is MockEvent => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
+  const { role } = useSession();
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -274,6 +276,11 @@ export default function ProfileScreen() {
 
         {tab === 'about' ? (
           <View className="items-center gap-4 px-5 pt-2.5">
+            {Platform.OS === 'web' && role === 'admin' && (
+              <Pressable accessibilityRole="link" onPress={() => router.push('/admin')} hitSlop={8}>
+                <Text className="font-inter-medium text-label text-text-primary">Адмін-панель</Text>
+              </Pressable>
+            )}
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>

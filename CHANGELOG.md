@@ -4,6 +4,17 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-01
+
+### Added
+
+- Reporting a user by username, with a reason and an optional comment; repeated reports on one user are grouped into one case ([#323](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/323)).
+- Admin endpoints to review report cases and ban the reported user, which ends all their sessions, or dismiss the case; each action is recorded in the audit log.
+- Platform statistics for administrators: active users, upcoming events, matches and open report cases.
+- Admin pages in the web app at `/admin`: statistics, report cases with Ban and Dismiss, and category management. They open on a computer; administrators find a link on the profile tab.
+- The report sheet in the app sends reports to the API.
+- The app's own Two Tickets icon replaces the default Expo icon, on phones, on the splash screen and as the favicon of the web app ([#338](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/338)).
+
 ## [1.0.0] - 2026-11-01
 
 The first release, deployed to staging: the API at <https://api.nearbystaging.app> and the web app at <https://nearbystaging.app>.
@@ -27,7 +38,8 @@ The first release, deployed to staging: the API at <https://api.nearbystaging.ap
 - Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Move Statements to Callers.
 - Registration and profiles share one age calculation ([#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304)). Technique: Move Function.
 
-[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/releases/tag/v1.0.0
 
 ## AI Usage Note
