@@ -57,6 +57,7 @@ export default function RootLayout() {
         <Stack.Screen name="too-many-attempts" options={dissolve} />
         <Stack.Screen name="organizer" options={dissolve} />
         <Stack.Screen name="post-place" options={dissolve} />
+        <Stack.Screen name="admin" options={{ headerShown: false, title: 'Nearby · Адмін-панель' }} />
       </Stack>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog visible={guestDialogOpen} onClose={closeGuestDialog} onLeave={closeGuestDialog} />
