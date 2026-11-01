@@ -8,6 +8,8 @@ type Session = {
   // False until the stored session is read on launch.
   restored: boolean;
   signedIn: boolean;
+  // `role` of the account's access token; known once a token is issued or renewed.
+  role?: string;
   isGuest: boolean;
   // The catalog shows its skeleton (01.1) before the events, as the prototype does with mock data.
   simulateLoading: boolean;
@@ -50,7 +52,11 @@ export function setGuest(isGuest: boolean) {
 
 // Signing in or out ends guest mode.
 export function setSignedIn(signedIn: boolean) {
-  store.set({ restored: true, signedIn, isGuest: false });
+  store.set(({ role }) => ({ restored: true, signedIn, isGuest: false, role: signedIn ? role : undefined }));
+}
+
+export function setRole(role: string | undefined) {
+  store.set({ role });
 }
 
 // Opening the catalog after signing in (В4, В4.2, В8) replays its loading.
