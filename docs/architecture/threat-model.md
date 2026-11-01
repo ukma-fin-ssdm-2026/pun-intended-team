@@ -39,6 +39,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |
 | TB6 main server → external | Google tokens verified server-side | TLS | provider request IDs stored | codes and push text carry no contacts | TM-08 | — |
 | Expo Push → user device | push is only a hint; the app reads the inbox through the API | TLS (Expo, APNs / FCM) | — | push text carries no contacts | missed push: the inbox still has the row (notifications.md) | — |
+| CI runner (self-hosted) | — | TM-16 | — | — | — | TM-16 |
 
 ## 3. Risks
 
@@ -61,6 +62,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TM-13 | TB2 | Information disclosure | Traffic between the load balancer and the main server, after TLS termination, is read by someone inside the hosting network. | Low | **Accepted.** Both sit in one private network of the managed host; re-encrypting internal traffic is not worth the operational cost at this scale. Revisit if the load balancer and the app host move to different providers. |
 | TM-14 | main server, photo endpoint | Information disclosure | A registered account downloads other users' photos in bulk to build a scraped dataset. | Medium | **Mitigated, residual accepted.** Photos are served only through an authenticated endpoint, never as public links; per-token rate limits apply; mass access shows up in logs and the account can be banned. A signed-in user can still save the photos they are shown. |
 | TM-15 | identity | Spoofing | While sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), one person registers several accounts with throwaway Google accounts: fake profiles, or a new account after a ban. | Medium | **Accepted** until the phone flow returns. Google's own sign-up checks make many accounts costly; per-IP limits on registration; a banned account's sessions end at once (SEC-005). |
+| TM-16 | CI, self-hosted runner | Elevation of privilege, Tampering | A compromised npm package runs its install script during `npm ci` and executes code on the self-hosted runner. The same runner builds and pushes the staging images and runs the staging deployment, so the code could also alter an image before it is pushed. | Medium | **Mitigated** in #300: CI installs with `npm ci --ignore-scripts` and runs `npx --no-install`, so only locked versions run and no install scripts by default. `npm audit` separately reports known vulnerable versions. Residual risk: `npm rebuild @prisma/engines` still runs that package's install script, and a compromised package's code still runs when the build or the tests load it. |
 
 ## 4. Accepted Risks
 
@@ -80,3 +82,5 @@ TM-10 is partly mitigated and TM-14 mitigated, but their residual part — copyi
 Drafted with Claude from the project's requirements and architecture documents and the team's review notes. Reviewed and edited by Daryna Halytska.
 
 Boundary TB7 was later updated with Claude to match the revised deployment diagram. Reviewed by Vlad-Re
+
+TM-16 was drafted with Claude from the CI workflow and the SonarCloud findings. Reviewed by Vlad-Re
