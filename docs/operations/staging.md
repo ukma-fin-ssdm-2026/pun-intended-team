@@ -1,6 +1,6 @@
 # Staging
 
-Staging runs `main` on one Linux server: the API at `https://api.nearbystaging.app` and the web app at `https://nearbystaging.app` ([ADR-005](../architecture/decisions/ADR-005.md)). After every green build of `main`, CI publishes two images to GHCR, `ghcr.io/ukma-fin-ssdm-2026/nearby-api` and `ghcr.io/ukma-fin-ssdm-2026/nearby-web`, each tagged with the commit and with `main`, and the **Deploy staging** job deploys them over SSH. The server builds nothing: it pulls the image and runs everything in Docker Compose ([`docker-compose.staging.yml`](../../docker-compose.staging.yml)). Besides Docker it only has the checkout, its `.env`, the keys and the backups.
+Staging runs the `staging` branch on one Linux server: the API at `https://api.nearbystaging.app` and the web app at `https://nearbystaging.app` ([ADR-005](../architecture/decisions/ADR-005.md)). After every green push to `staging`, CI publishes two images to GHCR, `ghcr.io/ukma-fin-ssdm-2026/nearby-api` and `ghcr.io/ukma-fin-ssdm-2026/nearby-web`, each tagged with the commit and with `staging`, and the **Deploy staging** job deploys them over SSH. The server builds nothing: it pulls the image and runs everything in Docker Compose ([`docker-compose.staging.yml`](../../docker-compose.staging.yml)). Besides Docker it only has the checkout, its `.env`, the keys and the backups.
 
 | Service | Runs | Reachable from |
 |---|---|---|
@@ -26,9 +26,9 @@ The server's `.env` is rendered on every deploy from [`deploy/staging.env`](../.
 | `TURBOSMS_SENDER` | variable | Optional |
 | `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN` | secret | Optional; codes are switched off ([ADR-004](../architecture/decisions/ADR-004.md)) |
 
-The `staging` environment only releases its secrets to jobs running from `main`: under Deployment branches and tags it allows the branch `main` alone, and administrators cannot bypass that. Create it this way before the first deploy; a job that names a missing environment creates it without any rules.
+The `staging` environment only releases its secrets to jobs running from the `staging` branch: under Deployment branches and tags it allows the branch `staging` alone, and administrators cannot bypass that. Create it this way before the first deploy; a job that names a missing environment creates it without any rules.
 
-The repository variable `STAGING_DEPLOY` (Settings → Variables) switches the deploys on with `true`. The repository variable `EXPO_PUBLIC_GOOGLE_CLIENT_ID` holds the id of the Google web client, which the publish job builds into the web app; without it the job fails. The key files are not in GitHub: they are created on the server.
+The repository variable `EXPO_PUBLIC_GOOGLE_CLIENT_ID` holds the id of the Google web client, which the publish job builds into the web app; without it the job fails. The key files are not in GitHub: they are created on the server.
 
 The jobs run on the course's self-hosted runners, like the rest of CI: their administrators can see the secrets of the jobs, and the deploy needs outbound SSH (port 22) from them. The publish job removes its images from the runner after pushing them.
 
@@ -49,7 +49,7 @@ The image is private. The server keeps no registry credentials: every deploy job
    Membership of the `docker` group is as good as root, so the deploy key below is as powerful as the root password.
 4. A deploy key on your machine: `ssh-keygen -t ed25519 -N '' -C nearby-staging-deploy -f deploy-key`. Append `deploy-key.pub` to `/home/deploy/.ssh/authorized_keys` on the server; put `deploy-key` in the `SSH_KEY` secret and in the team vault, then delete the local copy.
 5. In the Google Cloud console, add `https://nearbystaging.app` to the authorized JavaScript origins of the web client.
-6. Fill in the `staging` environment (table above) and the repository variable `EXPO_PUBLIC_GOOGLE_CLIENT_ID`, and set `STAGING_DEPLOY` to `true`. Re-run the latest CI run on `main`, or merge anything: the Deploy staging job deploys it.
+6. Fill in the `staging` environment (table above) and the repository variable `EXPO_PUBLIC_GOOGLE_CLIENT_ID`, then deploy `main` as below.
 7. Save `keys/contact-hmac.key` and `keys/data-encryption.key` from `/opt/nearby/keys/` (readable with `sudo`) in the team vault. The database backups cannot be read without them, and they cannot be created again.
 
 ### Making an account admin
@@ -67,9 +67,14 @@ UPDATE accounts SET role = 'admin' WHERE id = '<account id>';
 
 ## Deploying and rolling back
 
-Every green merge to `main` deploys itself: **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `main` are accepted. If the API is not healthy within 2 minutes, or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
+A merge to `main` does not deploy. To deploy, move `staging` to the latest `main`:
 
-To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `main` with its full SHA; leave it empty for the latest `main`. The run shows who deployed what.
+```bash
+git fetch origin && git push origin origin/main:staging
+```
+The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes, or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
+
+To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `staging` with its full SHA; leave it empty for the latest `staging`. The run shows who deployed what.
 
 If GitHub Actions is down, deploy on the server as `deploy`, logged in with your own token (`read:packages`):
 
@@ -91,7 +96,7 @@ Migrations run before anything is replaced, so the version that was running keep
    API_VERSION=$(git rev-parse HEAD) docker compose -f docker-compose.staging.yml run --rm migrate \
      node_modules/.bin/prisma migrate resolve --rolled-back <migration name>
    ```
-3. Fix the migration in a new commit on `main`; its deploy applies it again.
+3. Fix the migration in a new commit on `main` and push it to `staging`; its deploy applies it again.
 
 ## Logs
 
