@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.0.0
- * Generated on: 2026-11-01T16:00:09.040Z
+ * Generated on: 2026-11-01T16:29:05.629Z
  */
 
 import { existsSync } from 'node:fs';
@@ -331,7 +331,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminBanReportedUser", {
     name: "adminBanReportedUser",
     title: "Ban the reported user",
-    description: `Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. Needs an administrator account; other accounts get 404.
+    description: `Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban is applied again, so a ban that failed halfway can be retried. Needs an administrator account; other accounts get 404.
 (Tags: Moderation)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
     method: "post",
@@ -361,7 +361,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["reportUser", {
     name: "reportUser",
     title: "Report a user",
-    description: `Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case. Needs a signed-in account; a guest token gets 401.
+    description: `Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
 (Tags: Moderation)`,
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"username":{"type":"string","minLength":1,"maxLength":50,"description":"Username of the user being reported, as their profile shows it"},"reason":{"type":"string","enum":["offensive_messages","no_show","fake_profile","unsafe_behaviour","other"],"description":"offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other"},"comment":{"type":"string","maxLength":1000,"description":"What happened, in the reporter’s words"}},"required":["username","reason"],"additionalProperties":false,"examples":[{"username":"olena_k","reason":"no_show","comment":"We agreed to meet at the entrance; she did not come and did not answer."}],"description":"The JSON request body."}}},
     method: "post",

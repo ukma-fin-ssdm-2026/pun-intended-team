@@ -2250,7 +2250,9 @@ paths:
       description: >-
         Ban the user the case is about and resolve the case. Every session of
         the user ends at once: their next request gets 401, and they cannot sign
-        in again. Needs an administrator account; other accounts get 404.
+        in again. On a case already resolved as banned, the ban is applied
+        again, so a ban that failed halfway can be retried. Needs an
+        administrator account; other accounts get 404.
       tags:
         - Moderation
       security:
@@ -2290,7 +2292,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The case is already resolved
+          description: >-
+            The case was dismissed, the reported user is an administrator, or
+            the case is about the caller, whom another administrator must judge
           content:
             application/json:
               schema:
@@ -2341,7 +2345,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The case is already resolved
+          description: >-
+            The case is already resolved, or the case is about the caller, whom
+            another administrator must judge
           content:
             application/json:
               schema:
@@ -2353,7 +2359,8 @@ paths:
       description: >-
         Report a user by username, with a reason and an optional comment.
         Administrators review it; repeated reports on one user are grouped into
-        one case. The reporter gets no details about the case. Needs a signed-in
+        one case. The reporter gets no details about the case, and a report on a
+        banned user is accepted the same way but not stored. Needs a signed-in
         account; a guest token gets 401.
       tags:
         - Moderation
