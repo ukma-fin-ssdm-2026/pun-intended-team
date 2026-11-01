@@ -2,7 +2,7 @@
 // AI Usage: shared parts of the Figma profile forms ("П1 Редагувати профіль", "В7" and "В8 Заповнення профілю");
 // reviewed by Daryna Halytska.
 import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -217,10 +217,28 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: Re
   );
 }
 
-// The first `count` interests, then any chosen from the full list on "+ ще".
-export function interestChips(all: Interest[], selected: string[], count: number): Interest[] {
-  const first = all.slice(0, count);
-  return [...first, ...all.slice(count).filter((interest) => selected.includes(interest.id))];
+// As many chips as Figma shows before "+ ще".
+const INTEREST_CHIPS = 7;
+
+// A number in [0, 1) for an id, fixed for a seed, so a shuffle stays the same across renders.
+function rank(id: string, seed: number): number {
+  let hash = Math.floor(seed * 2 ** 31);
+  for (const char of id) hash = Math.imul(hash ^ (char.codePointAt(0) ?? 0), 2654435761);
+  return (hash >>> 0) / 2 ** 32;
+}
+
+// The chips before "+ ще": what was chosen when the screen opened, then random others up to INTEREST_CHIPS. The set is
+// fixed for the visit, so a chip does not move or vanish when tapped; one chosen later on П1.2 is added at the end.
+export function useInterestChips(all: Interest[], selected: string[]): Interest[] {
+  const [seed] = useState(Math.random);
+  const [chosenAtStart] = useState(selected);
+  const chosen = all.filter((interest) => chosenAtStart.includes(interest.id));
+  const others = all
+    .filter((interest) => !chosenAtStart.includes(interest.id))
+    .sort((a, b) => rank(a.id, seed) - rank(b.id, seed));
+  const shown = [...chosen, ...others.slice(0, Math.max(0, INTEREST_CHIPS - chosen.length))];
+  const shownIds = new Set(shown.map((interest) => interest.id));
+  return [...shown, ...all.filter((interest) => selected.includes(interest.id) && !shownIds.has(interest.id))];
 }
 
 const formats: { value: CommunicationFormat; title: string; icon: IconName }[] = [

@@ -12,7 +12,7 @@ import {
   FormatPicker,
   FormScreen,
   InterestPicker,
-  interestChips,
+  useInterestChips,
   isValidUsername,
   MIN_INTERESTS,
   ProfilePhoto,
@@ -26,8 +26,6 @@ import { takeProfileSuggestion } from '@/state/google-registration';
 import { useRandomText } from '@/random-texts';
 
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
-
-const INTEREST_CHIPS = 7;
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -43,6 +41,7 @@ export default function ProfileSetupScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const interests = useInterests();
+  const interestChipOptions = useInterestChips(interests.data ?? [], interestIds);
   const { snackbar, show, hide } = useSnackbar();
 
   const usernameValid = isValidUsername(username);
@@ -118,7 +117,7 @@ export default function ProfileSetupScreen() {
           />
           <FormatPicker value={format} onChange={setFormat} />
           <InterestPicker
-            options={interestChips(interests.data ?? [], interestIds, INTEREST_CHIPS)}
+            options={interestChipOptions}
             selected={interestIds}
             onToggle={(id) => setInterestIds((current) => toggleInList(current, id))}
             note={`обрано ${interestIds.length} · мін. ${MIN_INTERESTS}`}

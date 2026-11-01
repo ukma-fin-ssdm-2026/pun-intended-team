@@ -11,7 +11,7 @@ import {
   FormatPicker,
   FormScreen,
   InterestPicker,
-  interestChips,
+  useInterestChips,
   isValidUsername,
   MIN_INTERESTS,
   ProfilePhoto,
@@ -35,8 +35,6 @@ import { useRandomText } from '@/random-texts';
 
 type Profile = components['schemas']['Profile'];
 type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
-
-const INTEREST_CHIPS = 7;
 
 export default function ProfileEditScreen() {
   const profile = useProfile();
@@ -80,6 +78,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const interests = useInterests();
+  const interestChipOptions = useInterestChips(interests.data ?? profile.interests, interestIds);
   const { snackbar, show, hide } = useSnackbar();
 
   const usernameValid = isValidUsername(username);
@@ -157,7 +156,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
           />
           <FormatPicker value={format} onChange={setFormat} />
           <InterestPicker
-            options={interestChips(interests.data ?? profile.interests, interestIds, INTEREST_CHIPS)}
+            options={interestChipOptions}
             selected={interestIds}
             onToggle={(id) => setInterestIds((current) => toggleInList(current, id))}
             note={`обрано ${interestIds.length} · мін. ${MIN_INTERESTS}`}

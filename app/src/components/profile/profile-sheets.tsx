@@ -2,7 +2,7 @@
 // AI Usage: "Додати соцмережу" and "Інтереси" sheets from the Figma "П1.1" and "П1.2" frames, on mock data; reviewed
 // by Daryna Halytska.
 import { useState } from 'react';
-import { Text, View, type KeyboardTypeOptions } from 'react-native';
+import { ScrollView, Text, useWindowDimensions, View, type KeyboardTypeOptions } from 'react-native';
 
 import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
@@ -59,7 +59,7 @@ export function AddSocialSheet({ visible, options, onClose, onAdd }: Readonly<So
 
 type InterestsProps = {
   visible: boolean;
-  options: components['schemas']['Interest'][];
+  options: Interest[];
   // The form's choice of interest ids when the sheet opens.
   selected: string[];
   onClose: () => void;
@@ -67,7 +67,24 @@ type InterestsProps = {
   onSave: (interests: string[]) => void;
 };
 
+// The share of the screen the list may take.
+const LIST_HEIGHT = 0.6;
+
+type Interest = components['schemas']['Interest'];
+
+// The API lists interests by group, so each group is one run of the list.
+function groupsOf(interests: Interest[]): { group: string; interests: Interest[] }[] {
+  const groups: { group: string; interests: Interest[] }[] = [];
+  for (const interest of interests) {
+    const last = groups.at(-1);
+    if (last?.group === interest.group) last.interests.push(interest);
+    else groups.push({ group: interest.group, interests: [interest] });
+  }
+  return groups;
+}
+
 export function InterestsSheet({ visible, options, selected, onClose, onSave }: Readonly<InterestsProps>) {
+  const { height } = useWindowDimensions();
   // The parent mounts the sheet on open, so the draft starts from the form's current choice.
   const [draft, setDraft] = useState(selected);
   const toggle = (interest: string) =>
@@ -83,16 +100,26 @@ export function InterestsSheet({ visible, options, selected, onClose, onSave }: 
         </Text>
         <Text className="font-inter-medium text-label text-text-secondary">обрано {draft.length}</Text>
       </View>
-      <View className="flex-row flex-wrap gap-2">
-        {options.map((interest) => (
-          <SelectChip
-            key={interest.id}
-            label={interest.name}
-            selected={draft.includes(interest.id)}
-            onPress={() => toggle(interest.id)}
-          />
+      {/* The list scrolls; the title and "Зберегти" stay in place. */}
+      <ScrollView style={{ maxHeight: height * LIST_HEIGHT }} contentContainerClassName="gap-4">
+        {groupsOf(options).map(({ group, interests }) => (
+          <View key={group} className="gap-2.5">
+            <Text accessibilityRole="header" className="font-inter-semibold text-label text-text-secondary">
+              {group}
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {interests.map((interest) => (
+                <SelectChip
+                  key={interest.id}
+                  label={interest.name}
+                  selected={draft.includes(interest.id)}
+                  onPress={() => toggle(interest.id)}
+                />
+              ))}
+            </View>
+          </View>
         ))}
-      </View>
+      </ScrollView>
       <Button label="Зберегти" onPress={() => onSave(draft)} />
     </Sheet>
   );
