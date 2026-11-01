@@ -87,7 +87,7 @@ export default function ProfileSetupScreen() {
       >
         <ProfilePhoto />
         <View className="gap-3 px-5 pt-4">
-          <TextField label="Ім'я" required value={name} onChangeText={setName} />
+          <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
           <TextField
             label="Нікнейм"
             required

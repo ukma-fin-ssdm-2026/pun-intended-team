@@ -13,7 +13,7 @@ const TOP_PADDING = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 
 type Props = {
-  // Signed-in user's display name; a guest has none and sees no greeting or notifications.
+  // Signed-in user's display name, once the profile has loaded; a guest has none.
   name?: string;
   hasUnread?: boolean;
   onNotificationsPress?: () => void;
@@ -42,7 +42,8 @@ export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, o
           {/* No photo yet: Figma shows an empty surface/background circle. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={name ? 'Профіль' : 'Увійти'}
+            // A guest has no notifications; a signed-in user's name may still be loading.
+            accessibilityLabel={onNotificationsPress ? 'Профіль' : 'Увійти'}
             onPress={onAvatarPress}
             className="size-12 rounded-full bg-surface-background active:opacity-80"
           />

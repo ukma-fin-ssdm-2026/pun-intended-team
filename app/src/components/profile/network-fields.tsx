@@ -105,8 +105,6 @@ export function NetworkFields({ value, onChange, errors = {} }: Readonly<Props>)
           error={errors[network]}
         />
       ))}
-      {/* Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-      <TextField label="Номер телефону" value={phone} onChangeText={setPhone} keyboardType="phone-pad" /> */}
       <Pressable accessibilityRole="button" onPress={() => setSheetOpen(true)} className="self-start">
         <Text className="font-inter-medium text-label text-brand-coral">+ Додати соцмережу</Text>
       </Pressable>
