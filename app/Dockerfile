@@ -18,4 +18,6 @@ FROM caddy:2
 LABEL org.opencontainers.image.source=https://github.com/ukma-fin-ssdm-2026/pun-intended-team
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /app/dist /srv
-HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD ["wget", "-q", "--spider", "http://localhost/"]
+USER nobody
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=3s --retries=3 CMD ["wget", "-q", "--spider", "http://localhost:8080/"]

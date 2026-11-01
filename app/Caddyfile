@@ -3,7 +3,13 @@
 # How it was verified: built the web image and requested the pages, an event page by id and the hidden routes.
 # Reviewed by: Viktoriia Baran
 
-:80 {
+{
+	admin off
+	persist_config off
+	auto_https off
+}
+
+:8080 {
 	root * /srv
 	encode zstd gzip
 
