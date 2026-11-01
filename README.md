@@ -14,6 +14,8 @@ Instead of matching first and looking for something to do second, the event is w
 
 Look [here](Project-Description.md) for a more detailed project description
 
+The working staging version is at [nearbystaging.app](https://nearbystaging.app), built from `main` ([Staging](#staging)).
+
 ## ໑ Team
 
 | Member | Role | GitHub |
