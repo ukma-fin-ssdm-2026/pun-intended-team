@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes three main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts) and the signed-in user's own **Profile**, plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes four main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile** and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -110,6 +110,26 @@ A lookup, not a resource users work with: it exists to filter the catalog and to
 
 Related to: Event, Listing.
 
+### Report Case
+
+**Base paths:** `/api/v1/reports` (a user reports), `/api/v1/admin/report-cases` (administrators resolve)
+
+Every report on one user, grouped until an administrator resolves it (FR-025–FR-027). A user reports by username and learns nothing about the case; only administrators see cases.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `account` | `{ id, username, displayName }` | The reported user; `username` and `displayName` are `null` without a profile |
+| `status` | `open` \| `resolved` | |
+| `resolution` | `banned` \| `removed` \| `dismissed` or `null` | `null` while open; `removed` is for listing cases, which come with listings in the database |
+| `reportCount` | integer | Repeated reports by one user count each time (FR-026) |
+| `firstReportedAt`, `lastReportedAt`, `resolvedAt` | date-time | `resolvedAt` is `null` while open |
+| `reports` | `{ id, reporter, reason, comment, reportedAt }[]` | Only by id, oldest first; `reporter` has the same shape as `account` |
+
+`reason` is one of `offensive_messages`, `no_show`, `fake_profile`, `unsafe_behaviour` and `other`, the options of the report sheet in the app; `comment` is optional, up to 1000 characters.
+
+Related to: Account (reported user, reporters, the administrator who resolved it).
+
 ## 3. Endpoints
 
 Each endpoint lists every status it can return. `429` (rate limit) and `500` can come from any endpoint, so they are left out of the tables.
@@ -191,6 +211,26 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 | `DELETE` | `/api/v1/admin/categories/{id}` | Administrator | `204` | `400`, `401`, `404`, `409` |
 
 `POST` takes `{ name, isActive? }` (active by default); `PATCH` takes either field, so the same call renames, deactivates or reactivates. A duplicate name is a `409`. The category lists are not paginated.
+
+### Moderation
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `POST` | `/api/v1/reports` | Signed-in user | `204` | `400`, `401`, `422` |
+| `GET` | `/api/v1/admin/report-cases` | Administrator | `200` a page of cases | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/report-cases/{id}` | Administrator | `200` the case with its reports | `400`, `401`, `404` |
+| `POST` | `/api/v1/admin/report-cases/{id}/ban` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/admin/report-cases/{id}/dismiss` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
+
+`POST /reports` takes `{ username, reason, comment? }`; the username is matched in any letter case. A report joins the reported user's open case, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; dismiss closes the case without action. Both answer `409 CONFLICT` for a case that is already resolved, and both write a row to the audit log (SEC-004).
+
+### Admin
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/admin/stats` | Administrator | `200` `{ users, events, matches, openReports }` | `401`, `404` |
+
+`users` counts active accounts; `events` counts published events that have not ended; `matches` counts every match proposed; `openReports` counts open report cases (FR-030).
 
 ### System
 
@@ -279,7 +319,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `code` | Endpoint | When |
 |---|---|---|
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
-| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, or an interest id is not in the list. The message names which |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, or no user has the reported username. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
@@ -287,6 +327,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
+| `CANNOT_REPORT_SELF` | `POST /reports` | The username is the caller's own |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 
