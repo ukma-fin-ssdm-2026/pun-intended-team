@@ -2,6 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+import { clearProfile } from '@/state/profile';
 import { setSignedIn } from '@/state/session';
 
 import { publicClient } from './public-client';
@@ -33,6 +34,7 @@ function toToken(accessToken: string, expiresIn: number): Token {
 }
 
 export async function startSession(tokens: SessionTokens) {
+  if (!account) clearProfile();
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
   setSignedIn(true);
@@ -40,6 +42,7 @@ export async function startSession(tokens: SessionTokens) {
 
 async function endSession() {
   account = undefined;
+  clearProfile();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }

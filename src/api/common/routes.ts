@@ -6,20 +6,12 @@ export const Routes = {
     health: '/health',
   },
   auth: {
-    register: '/api/v1/auth/register',
-    verify: '/api/v1/auth/verify',
     completeRegistration: '/api/v1/auth/complete-registration',
-    signIn: '/api/v1/auth/sign-in',
     google: '/api/v1/auth/google',
+    googleRegister: '/api/v1/auth/google/register',
     guest: '/api/v1/auth/guest',
     refresh: '/api/v1/auth/refresh',
     signOut: '/api/v1/auth/sign-out',
-    passwordReset: '/api/v1/auth/password-reset',
-    passwordResetConfirm: '/api/v1/auth/password-reset/confirm',
-  },
-  account: {
-    password: '/api/v1/me/password',
-    google: '/api/v1/me/google',
   },
   events: {
     list: '/api/v1/events',
@@ -33,6 +25,7 @@ export const Routes = {
   profiles: {
     me: '/api/v1/me/profile',
     interests: '/api/v1/me/profile/interests',
+    linkedAccounts: '/api/v1/me/profile/linked-accounts',
   },
   interests: {
     list: '/api/v1/interests',
