@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.1
- * Generated on: 2026-11-01T11:18:18.954Z
+ * Generated on: 2026-11-01T11:20:27.958Z
  */
 
 import { existsSync } from 'node:fs';
@@ -286,7 +286,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listInterests", {
     name: "listInterests",
     title: "List the interests users can pick",
-    description: `List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+    description: `List the fixed set of interests users can pick for their profile, by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
 (Tags: Interests)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -301,7 +301,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["getMyProfile", {
     name: "getMyProfile",
     title: "Get your profile",
-    description: `Get the caller’s own profile with the age computed from the account’s date of birth. \`isComplete\` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+    description: `Get the caller’s own profile with the age computed from the account’s date of birth. \`isComplete\` is true once a communication format, at least one interest and at least one linked account are set. Needs a signed-in account; a guest token gets 401.
 (Tags: Profiles)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

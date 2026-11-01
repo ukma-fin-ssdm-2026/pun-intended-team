@@ -321,7 +321,7 @@ export interface paths {
         };
         /**
          * List the interests users can pick
-         * @description List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+         * @description List the fixed set of interests users can pick for their profile, by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listInterests"];
         put?: never;
@@ -341,7 +341,7 @@ export interface paths {
         };
         /**
          * Get your profile
-         * @description Get the caller’s own profile with the age computed from the account’s date of birth. `isComplete` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+         * @description Get the caller’s own profile with the age computed from the account’s date of birth. `isComplete` is true once a communication format, at least one interest and at least one linked account are set. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["getMyProfile"];
         put?: never;

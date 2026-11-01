@@ -86,7 +86,7 @@ Not in this version: photo upload. A mutual match needs a contact to reveal, and
 
 **Base path:** `/api/v1/interests`
 
-A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints.
+A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints. `GET /interests` lists them by name, and a profile's `interests` come in the same order.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -176,7 +176,7 @@ Dates are clamped because a user scrolling the date picker too far should just s
 
 Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
 
-A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
+A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests and linked-accounts `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
 
 ### Categories
 
