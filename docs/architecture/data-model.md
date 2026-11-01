@@ -34,7 +34,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `communication_format` (S) — the default that pre-fills `Application.desired_company`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
+| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
 | **ProfilePhoto** | PK = FK `profile_id` | `content` (S, bytea), `content_type` — resized on upload; kept apart from Profile so that profile reads do not load the image |
 | **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — optional contacts revealed on a mutual match; UK (`profile_id`, `app`) |
 | **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it |

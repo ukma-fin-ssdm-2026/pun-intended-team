@@ -2,11 +2,13 @@
 import { Injectable } from '@nestjs/common';
 import { InterestsRepository } from '../../core/profiles/repositories/interests.repository.ts';
 import type { Interest } from '../../core/profiles/types/profile.ts';
-import { interests } from './data.ts';
+import { PrismaService } from './prisma.service.ts';
 
 @Injectable()
-export class StubInterestsRepository implements InterestsRepository {
+export class PrismaInterestsRepository implements InterestsRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
   async findAll(): Promise<Interest[]> {
-    return interests.map((interest) => ({ ...interest }));
+    return this.prisma.interest.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
   }
 }
