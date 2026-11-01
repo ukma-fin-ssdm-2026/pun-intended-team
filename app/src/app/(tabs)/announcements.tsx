@@ -16,9 +16,9 @@ import { Icon } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useProfileInitial } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockPosts, type Author } from '@/mocks/announcements';
-import { mockProfile } from '@/mocks/profile';
 import { usePostRequests } from '@/state/post-requests';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -71,6 +71,7 @@ function HeaderTabs({
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
+  const initial = useProfileInitial();
   const insets = useSafeAreaInsets();
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
@@ -166,7 +167,7 @@ export default function AnnouncementsScreen() {
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
             <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-              <Text className="font-inter-semibold text-title text-text-on-dark">{mockProfile.initial}</Text>
+              <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
             </View>
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">

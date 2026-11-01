@@ -13,7 +13,7 @@ const TOP_PADDING = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 
 type Props = {
-  // Signed-in user's name in the vocative case; a guest has none and sees no greeting or notifications.
+  // Signed-in user's display name; a guest has none and sees no greeting or notifications.
   name?: string;
   hasUnread?: boolean;
   onNotificationsPress?: () => void;
