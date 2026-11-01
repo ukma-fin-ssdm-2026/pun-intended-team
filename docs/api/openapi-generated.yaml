@@ -81,7 +81,9 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/ValidationIssue'
-              description: Every invalid field, for validation errors that can name them
+              description: >-
+                Every invalid field, for validation errors and business rules
+                that can name them
           required:
             - code
             - message
@@ -114,6 +116,7 @@ components:
         - USERNAME_TAKEN
         - PROFILE_EXISTS
         - CONTACT_REQUIRED
+        - INVALID_SOCIAL_HANDLE
         - INVALID_CREDENTIALS
         - WRONG_PASSWORD
         - INVALID_GOOGLE_TOKEN
@@ -829,7 +832,8 @@ components:
                 maxLength: 200
                 description: >-
                   A nickname with or without "@", or a profile link; for
-                  WhatsApp, a phone number
+                  WhatsApp, a phone number. Kept as the bare handle; one that
+                  does not fit is INVALID_SOCIAL_HANDLE
             required:
               - network
               - username
@@ -2032,7 +2036,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: '`CONTACT_REQUIRED`: the list is empty.'
+          description: >-
+            `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a
+            username does not fit its social network; `details` names it.
           content:
             application/json:
               schema:

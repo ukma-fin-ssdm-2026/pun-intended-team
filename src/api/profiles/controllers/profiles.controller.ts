@@ -152,7 +152,11 @@ export class ProfilesController {
     responses: {
       200: { description: 'The updated profile', schema: Profile },
       404: NO_PROFILE,
-      422: { description: '`CONTACT_REQUIRED`: the list is empty.', schema: ErrorResponse },
+      422: {
+        description:
+          '`CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it.',
+        schema: ErrorResponse,
+      },
     },
   })
   async replaceMyLinkedAccounts(

@@ -1504,12 +1504,16 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
     );
   });
 
-  test('rejects a handle that does not fit the network with 400 on its username', async () => {
+  test('rejects a handle that does not fit the network with 422 INVALID_SOCIAL_HANDLE naming it', async () => {
     const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       token: tokens.orgPending,
       body: { linkedAccounts: [{ network: 'whatsapp', username: 'not a phone' }] },
     });
-    assertInvalid(res, 'body', 'linkedAccounts.0.username');
+    assertRejected(res, 422, 'INVALID_SOCIAL_HANDLE');
+    assert.deepEqual(
+      res.body.error.details.map((issue: { field: string }) => issue.field),
+      ['linkedAccounts.0.username'],
+    );
   });
 
   test('rejects the same social network twice with 400', async () => {

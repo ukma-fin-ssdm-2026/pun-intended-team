@@ -258,6 +258,36 @@ describe('ProfilesService.replaceLinkedAccounts', () => {
     assert.deepEqual(profile.linkedAccounts, [{ ...TELEGRAM, url: 'https://t.me/natalka' }]);
   });
 
+  test('keeps the bare handle of a nickname or a pasted link', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await service.replaceLinkedAccounts(ACCOUNT_ID, [
+      { network: 'telegram', username: ' @natalka ' },
+      { network: 'instagram', username: 'https://www.instagram.com/natalka.park/' },
+    ]);
+
+    assert.deepEqual(profilesRepository.replaceLinkedAccounts.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      [
+        { network: 'telegram', username: 'natalka' },
+        { network: 'instagram', username: 'natalka.park' },
+      ],
+    ]);
+  });
+
+  test('refuses a username that does not fit its social network, names it and changes nothing', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await assert.rejects(
+      service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM, { network: 'instagram', username: 'instagram.com/p/xyz' }]),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'INVALID_SOCIAL_HANDLE' &&
+        error.field === 'linkedAccounts.1.username',
+    );
+    assert.equal(profilesRepository.replaceLinkedAccounts.mock.callCount(), 0);
+  });
+
   test('refuses an empty list and changes nothing', async () => {
     const { service, profilesRepository } = makeService();
 

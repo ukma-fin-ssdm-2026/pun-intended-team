@@ -1,6 +1,5 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { socialNetworkHandle, socialNetworkHint } from '../../../core/profiles/services/social-networks.ts';
 import { socialNetworks } from '../../../core/profiles/types/profile.ts';
 import { Id } from '../../common/schemas/common.ts';
 
@@ -149,23 +148,15 @@ export const ReplaceInterestsBody = ReplaceInterestsFields.meta({
   example: { interestIds: [interestExample.id] } satisfies ReplaceInterestsBody,
 });
 
-// A nickname with or without "@", or a pasted profile link; stored as the bare handle.
-const NewLinkedAccount = z
-  .strictObject({
-    network: SocialNetwork,
-    username: z
-      .string()
-      .max(200)
-      .describe('A nickname with or without "@", or a profile link; for WhatsApp, a phone number'),
-  })
-  .transform(({ network, username }, ctx) => {
-    const handle = socialNetworkHandle(network, username);
-    if (handle === undefined) {
-      ctx.addIssue({ code: 'custom', path: ['username'], message: `Expected ${socialNetworkHint(network)}` });
-      return z.NEVER;
-    }
-    return { network, username: handle };
-  });
+const NewLinkedAccount = z.strictObject({
+  network: SocialNetwork,
+  username: z
+    .string()
+    .max(200)
+    .describe(
+      'A nickname with or without "@", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE',
+    ),
+});
 
 const ReplaceLinkedAccountsFields = z.strictObject({
   linkedAccounts: z

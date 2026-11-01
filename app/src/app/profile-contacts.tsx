@@ -29,7 +29,7 @@ export default function ProfileContactsScreen() {
     const result = await replaceLinkedAccounts(shared);
     setSaving(false);
     if (result.ok) signIn();
-    else if (result.status === 400) setErrors(networkErrors(shared, result.fields ?? []));
+    else if (result.fields?.length) setErrors(networkErrors(shared, result.fields));
     else show(failureSnackbar(result));
   };
 

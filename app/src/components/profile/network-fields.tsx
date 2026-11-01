@@ -51,7 +51,7 @@ export function sameNetworks(a: NetworkEntry[], b: NetworkEntry[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-// A 400 names the field as `linkedAccounts.<index>.username`, the index into what was sent.
+// INVALID_SOCIAL_HANDLE names the field as `linkedAccounts.<index>.username`, the index into what was sent.
 export function networkErrors(sent: NetworkEntry[], fields: string[]): Partial<Record<SocialNetwork, string>> {
   const errors: Partial<Record<SocialNetwork, string>> = {};
   for (const field of fields) {
