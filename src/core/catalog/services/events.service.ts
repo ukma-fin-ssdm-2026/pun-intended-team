@@ -21,7 +21,7 @@ export class EventsService {
   ) {}
 
   async stats(): Promise<{ events: number }> {
-    return { events: await this.eventsRepository.countPublishedFrom(kyivDate()) };
+    return { events: await this.eventsRepository.countPublishedEndingAfter(new Date()) };
   }
 
   async list(query: EventQuery, page: PageRequest): Promise<Page<Event>> {
