@@ -2,7 +2,7 @@
 // Stand-in for Concert.ua's listing: it is not known yet whether the service gives us an API (R-001), so this is
 // the shape the adapter expects, with one record of each kind the adapter must handle. Dates count from `now`
 // so the records stay inside the 28-day catalog window.
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from '../../core/common/durations.ts';
 
 export function concertUaSampleFeed(now: Date = new Date()): unknown[] {
   const at = (days: number, hour: number) => {

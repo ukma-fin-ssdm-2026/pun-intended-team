@@ -3,6 +3,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { ageOn } from '../../common/age.ts';
 import { DomainError } from '../../common/domain-error.ts';
+import { DAY_MS, MINUTE_MS, MINUTE_SECONDS } from '../../common/durations.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { AccessTokens } from '../adapters/access-tokens.ts';
@@ -18,13 +19,12 @@ import type { AccessToken, PasswordReset, Registration, SessionTokens } from '..
 import type { Caller } from '../types/caller.ts';
 import type { CodePurpose } from '../types/verification-code.ts';
 
-const REGISTRATION_TOKEN_SECONDS = 15 * 60;
+const REGISTRATION_TOKEN_SECONDS = 15 * MINUTE_SECONDS;
 // SEC-008
 const CODE_DIGITS = 6;
-const CODE_LIFETIME_MS = 10 * 60 * 1000;
-const CODE_RESEND_INTERVAL_MS = 60 * 1000;
+const CODE_LIFETIME_MS = 10 * MINUTE_MS;
+const CODE_RESEND_INTERVAL_MS = MINUTE_MS;
 const CODES_PER_DAY = 5;
-const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_CODE_ATTEMPTS = 3;
 const MINIMUM_AGE = 18; // SAFE-001
 

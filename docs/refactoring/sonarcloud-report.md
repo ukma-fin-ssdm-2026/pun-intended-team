@@ -189,6 +189,19 @@ The unit and e2e tests were run before and after the refactorings: on `feature/2
 
 **Result.** No regressions: every test that passed before passes after. The two extra unit tests were added in #297 together with the change to Google linking, in [tests/unit/auth.service.test.ts](../../tests/unit/auth.service.test.ts): *refuses a Google account another account linked at the same time* and *refuses a second Google account linked at the same time*. The only other test change is an import of `ageOn` from its new module in `profiles.service.test.ts`.
 
+## Bonuses
+
+### Quality Gate as a Required Check
+
+`SonarCloud Code Analysis` is a required status check in the `main` ruleset, next to `CI passed`, so a pull request whose Quality Gate fails cannot be merged (#347). Before, only `CI passed` was required: a red Quality Gate showed in the pull request but did not block the merge.
+
+Demo in [#349](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/349):
+
+| Commit | Change | Quality Gate |
+|---|---|---|
+| `1d35705` | Compares a date with itself (`typescript:S1764`, a bug) | ❌ [Failed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124932158826): Reliability C and Maintainability B on new code; merging blocked |
+| `6d2b541` | Removes the bug | ✅ [Passed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124934031520) |
+
 ## AI Usage Note
 
 The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code. The Regression Testing section was drafted with Claude Code from test runs that were performed and checked by hand (Daryna Halytska).
