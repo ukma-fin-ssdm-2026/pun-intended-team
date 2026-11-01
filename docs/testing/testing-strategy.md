@@ -12,7 +12,7 @@ How Nearby is tested today and how testing will grow. Requirement IDs refer to [
 
 `tests/e2e/` holds what are really integration tests; we keep the folder name.
 
-Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration with Google and with a phone code, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008; the phone routes are paused by [ADR-004](../architecture/decisions/ADR-004.md)), listings (FR-021), Kyiv dates and ages, the match score, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. Matching, the core business logic, is not built yet, and most new unit tests will come with it.
+Unit tests cover the event catalog and its window (FR-006, FR-007, FR-009 to FR-011), registration with Google and with a phone code, sign-in and its lockout (FR-001, FR-005, SAFE-001, SEC-007, SEC-008; the phone routes are paused by [ADR-004](../architecture/decisions/ADR-004.md)), listings (FR-021), profiles (FR-002), Kyiv dates and ages, the match score, the pairing of a matching round, and the auth adapters: key files, code hashes and access tokens (SEC-005). They take what HTTP cannot set up reliably: time limits, races and data errors. Integration tests send valid and invalid requests to the endpoints, including the token cases of SEC-005; most of the API is validation and permissions, visible only over HTTP. The `match` algorithm, which pairs one round of matching (FR-017, FR-020, FUNC-001, FUNC-002), is built and was written test-first ([test plan](../validation/test-plan.md#tests-as-a-specification-for-an-agent-match)); the matching rounds, proposals and the contact reveal around it are not built yet, and their tests come with them.
 
 Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreSQL. Planned: k6, Stryker, Maestro or Detox for the Expo client.
 
@@ -25,7 +25,7 @@ MCR, 31 October 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 | All tests | 93.62% | 88.47% | 90.15% | 91.98% |
 | Unit tests only | 64.62% | 69.38% | 56.93% | 52.23% |
 
-Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; matching and the report/ban flow are measured once they are built.
+Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; the `match` algorithm is covered by its unit tests; the rest of matching and the report/ban flow are measured once they are built.
 
 Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
@@ -45,7 +45,7 @@ Not covered, and why:
 
 - **Performance:** k6 for PERF-001 (500 sessions, p95 ≤ 1 s) and, with matching, PERF-003.
 - **Security:** `npm audit` already runs in CI (SEC-006); authorization tests for every match state (SEC-001).
-- **Property-based:** fast-check already checks the sign-in lockout (see Bonuses); next, `match(pool, exclusions, seed)`: every pairing is mutual and no user is paired twice in a round (FUNC-002).
+- **Property-based:** fast-check checks the sign-in lockout (see Bonuses) and `match(pool, exclusions, seed)`: no user is paired twice in a round, with themselves or with an excluded user (FUNC-002).
 
 ## CI/CD
 
