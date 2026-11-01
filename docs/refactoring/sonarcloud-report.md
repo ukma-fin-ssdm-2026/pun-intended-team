@@ -177,6 +177,53 @@ The Reliability rating stayed A with 9 Reliability issues because its grid count
 
 ![src folder without src/mcp, later analysis](images/after-code-src.png)
 
+## Refactorings
+
+Four refactorings, one per team member. Line numbers refer to the state before them, branch `feature/293-pre-refactor` (commit `eaaba80`).
+
+### 1. Remove the duplicated event lookup in `EventsService`
+
+[#294](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/294), Vladyslav Redchuk, pull request [#296](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/296).
+
+- **Smell:** Duplicated Code. `getOwned` in `src/core/catalog/services/events.service.ts` (lines 75–81) repeated the lookup of `getById` (lines 35–41) and its `NOT_FOUND` error, word for word.
+- **Technique:** Replace Inline Code with Function Call: `getOwned` calls `getById` and adds only the owner check.
+- **What stayed the same:** a missing event and another organization's event both answer `NOT_FOUND` with "Event not found" (`404` on `PUT /events/{id}` and `POST /events/{id}/cancel`).
+- **What changed in the structure:** the lookup and the missing-event error exist once; `getOwned` holds only the rule that is its own.
+- **Tests:** `tests/unit/events.service.test.ts`: "answers NOT_FOUND to an unknown event" (`EventsService.getById`), "tells another organization the event does not exist, before checking anything else" (`EventsService.update`), "tells another organization the event does not exist" (`EventsService.cancel`); `tests/e2e/api.e2e.test.ts`, `PUT /api/v1/events/{id}`: "answers 404 to an organization that did not post the event", "answers 404 to a regular user, like for a missing event".
+- **Review:** behaviour unchanged, named tests pass. No test edits or cancels an event id that does not exist; since the change that path goes through `getById`, so its `getById` test covers it.
+
+### 2. Share one age helper for the under-18 check
+
+[#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304), Daryna Halytska, pull request [#295](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/295).
+
+- **Smell:** Duplicated Code with two different algorithms for one rule (SAFE-001): `isAtLeast` in `src/core/identity/services/auth.service.ts` (lines 281–285) compared the 18th-birthday string with today's Kyiv date, and `ageOn` in `src/core/profiles/services/profiles.service.ts` (lines 106–112) counted whole years. A change to the age rule had to be made in both, and the two could drift apart.
+- **Technique:** Move Function (`ageOn` to `src/core/common/age.ts`) and Substitute Algorithm (`completeRegistration` checks `ageOn(kyivDate(), dateOfBirth) < MINIMUM_AGE`; `isAtLeast` is removed).
+- **What stayed the same:** the age changes at midnight in Kyiv, a 29 February birthday counts from 1 March, `UNDERAGE` keeps its code and message, and the profile shows the same age.
+- **What changed in the structure:** one age function in `core/common`, used by the identity and profiles modules.
+- **Tests:** `tests/unit/auth.service.test.ts`, `AuthService.completeRegistration`: the six SAFE-001 cases, among them "accepts an 18th birthday that has begun in Kyiv but not yet in UTC", "refuses an 18th birthday an hour before Kyiv midnight" and "refuses a 29 February birthday on 28 February"; `tests/unit/profiles.service.test.ts`, `ageOn` (only its import path changed); `tests/e2e/api.e2e.test.ts`, `POST /api/v1/auth/complete-registration`: "activates someone who turns 18 today and signs them in", "refuses someone who turns 18 tomorrow with 422 and removes the registration".
+- **Review:** behaviour unchanged, named tests pass. We also compared the old and the new check for every birth date from 2004 to 2011 against every day from 2024 to 2028, 29 February included: they agree on all 5.3 million pairs.
+
+### 3. Raise Google linking errors only in `AuthService`
+
+[#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302), Viktoriia Baran, pull request [#297](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/297).
+
+- **Smell:** Duplicated Code across layers. `GOOGLE_ACCOUNT_TAKEN` and `GOOGLE_ALREADY_LINKED`, with their messages, were built in `AuthService.linkGoogle` (`auth.service.ts`, lines 183 and 186) and again in `PrismaAccountsRepository.linkGoogle` (`src/infra/prisma/prisma-accounts.repository.ts`, lines 93 and 96), so `infra` imported `DomainError` and decided business errors.
+- **Technique:** Extract Function (`googleAccountTaken()` and `googleAlreadyLinked()` in `auth.service.ts`) and Change Function Declaration: the repository's `linkGoogle` no longer throws but returns a `GoogleLinkResult` (`linked`, `subject-taken` or `account-has-google`) saying which unique index refused the row, and `AuthService` turns it into the error.
+- **What stayed the same:** both error codes, their messages and the `409`, also when two requests pass the checks at the same time and the unique index stops the second.
+- **What changed in the structure:** each error is built once, in `core`; `infra` reports what the database did and no longer imports `DomainError`.
+- **Tests:** `tests/unit/auth.service.test.ts`, `AuthService.linkGoogle`: "refuses a Google account another account linked", "refuses a second Google account", and two added with the change for the path the repository used to handle, "refuses a Google account another account linked at the same time" and "refuses a second Google account linked at the same time"; `tests/e2e/api.e2e.test.ts`, `PUT /api/v1/me/google`: "refuses a Google account another account linked with 409", "refuses a second Google account with 409".
+- **Review:** behaviour unchanged, named tests passed on the pull request. `PUT /me/google` and its e2e tests were removed later, when Google sign-up replaced linking a Google account; the unit tests above still pass.
+
+### 4. Replace hand-written time arithmetic with shared constants
+
+[#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306), Oleh Moshenskyi, pull request [#320](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/320).
+
+- **Smell:** Magic Numbers and duplicated constants. `DAY_MS` was defined twice (`auth.service.ts` line 26, `src/infra/providers/concert-ua-sample-feed.ts` line 5), and minutes, hours and days were multiplied out by hand: `auth.service.ts` lines 20, 23 and 24, `sessions.service.ts` lines 12–13, `sign-in-lockout.ts` lines 5–6, `src/infra/messaging/telegram-gateway-sender.ts` line 9, `src/api/app.module.ts` line 19 and `src/core/common/kyiv-time.ts` line 23 (`60_000`).
+- **Technique:** Replace Magic Number with Symbolic Constant: `src/core/common/durations.ts` (`SECOND_MS`, `MINUTE_MS`, `HOUR_MS`, `DAY_MS`, `MINUTE_SECONDS`, `HOUR_SECONDS`).
+- **What stayed the same:** every duration: the 15-minute lockout window and lock, the 10-minute code lifetime, one code a minute and five a day, the 15-minute registration token, the 60-minute access token, the 30-day refresh token, the 10-minute Telegram TTL and the one-minute rate limit window.
+- **What changed in the structure:** the local constants keep their names and are written in terms of the shared ones, e.g. `LOCK_MS = 15 * MINUTE_MS`; `DAY_MS` exists once. The network timeouts (`3000` and `10_000` ms) stay as they are: they are single values, not arithmetic.
+- **Tests:** the tests were not changed, and they write their expected durations by hand, so they check the values independently of the new constants: `tests/unit/sign-in-lockout.test.ts`, "afterSignIn, state transitions" (T4, T5 and T7–T10 at the 15-minute edges); `tests/unit/sessions.service.test.ts`, "stores the hash of a new secret for 30 days and returns it with an access token of the session"; `tests/unit/auth.service.test.ts`, "stores the code hashed with a 10-minute lifetime before sending it, then saves the channel" (also checks the one-minute and 24-hour limits), "rejects a code at the very moment it expires", "creates a pending account and returns a 15-minute registration token"; `tests/unit/telegram-gateway-sender.test.ts`, "sends our code with the code lifetime as TTL and returns the request id". All 448 unit and 173 e2e tests passed on the branch.
+
 ## Regression Testing
 
 The unit and e2e tests were run before and after the refactorings: on `feature/293-pre-refactor` (commit `eaaba80`) and on `main` after PRs #295, #296 and #297 (commit `bf84a4a`).
@@ -188,6 +235,38 @@ The unit and e2e tests were run before and after the refactorings: on `feature/2
 | CI | [run 40282299762](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40282299762) ✅ | [run 40667353219](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40667353219) ✅ |
 
 **Result.** No regressions: every test that passed before passes after. The two extra unit tests were added in #297 together with the change to Google linking, in [tests/unit/auth.service.test.ts](../../tests/unit/auth.service.test.ts): *refuses a Google account another account linked at the same time* and *refuses a second Google account linked at the same time*. The only other test change is an import of `ageOn` from its new module in `profiles.service.test.ts`.
+
+## AI Use
+
+All four refactorings were done with Claude Code, and each author reviewed the result before the pull request. The details below come from the authors.
+
+### Remove the duplicated event lookup in `EventsService` ([#294](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/294), Vladyslav Redchuk)
+
+- **What the agent was given:** the smell (`getOwned` repeats the lookup and the `NOT_FOUND` error of `getById`), the technique (Replace Inline Code with Function Call), and what must not change: a missing event and another organization's event both answer `NOT_FOUND` with "Event not found"; another organization is refused before anything else is checked (verification, references); the repository is queried once, as before; test assertions do not change.
+- **What it proposed:** in `getOwned`, a call to `getById` in place of `eventsRepository.findById(id)` and the `!event ||` check, keeping only the owner check. One file, two lines, no test changes.
+- **What was rejected or changed:** nothing. `getById` throws the same `DomainError('NOT_FOUND', 'Event not found')` that `getOwned` threw, so a missing event gets the same answer as before.
+- **How it was checked:** review of the diff; the three unit tests and the e2e test named in the Refactorings section, locally and in CI on PR #296; SonarCloud on PR #296: Quality Gate passed, 0 new issues, 0 Security Hotspots, 0.0 % duplication on new code.
+
+### Raise Google linking errors only in `AuthService` ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302), Viktoriia Baran)
+
+- **What the agent was given:** SonarCloud showed no maintainability issues, so the agent was first asked to find maintainability problems in the code itself. It listed 12 candidates, and the duplicated Google linking errors were chosen. It was then asked to explain where the duplication was and why it happened, find a clean solution, check which tests would show that nothing broke, and fix it. The invariants were set by the agent, not given to it: error codes, HTTP statuses and messages stay the same.
+- **What it proposed:** first, Extract Function: `googleAccountTaken()` and `googleAlreadyLinked()`, shared by the service and the repository. Its first version put them in `core/identity/services/`, which ESLint refused, because `infra` may not import `core` services; it then moved them into the `accounts.repository.ts` port.
+- **What was rejected or changed:** that version, because the repository, the data layer, still decided which business error to raise; the factories removed only the copied text. The agent then offered two options: the repository returns a result (`linked`, `subject-taken` or `account-has-google`) and only `AuthService` builds the errors, or the repository throws a message-free error class defined in `core`. The first was chosen: the repository now reports only a storage fact, which unique index was hit, and the decision and the message live only in the service.
+- **How it was checked:** the agent showed the full diff before the commit; `typecheck`, `lint` (0 errors) and `format:check` pass; unit tests 345/345, including the two new tests for two linking requests at the same time; e2e 172/173 locally, with all Google tests passing, including the two concurrent ones that go through the changed repository code ("link one Google account to only one of two accounts asking at once", "link only one of two Google accounts one account sends at once"). SonarCloud did not flag this smell, so its metrics do not change from this refactoring.
+
+### Share one age helper for the under-18 check ([#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304), Daryna Halytska)
+
+- **What the agent was given:** the smell (the SAFE-001 age computed twice, by two different algorithms, `isAtLeast` in `auth.service.ts` and `ageOn` in `profiles.service.ts`), the techniques (Move Function into `src/core/common/age.ts`, Substitute Algorithm for `isAtLeast`), and what must not change: who is refused with `UNDERAGE`, its code and message; the age in the profile; the age changing at midnight in Kyiv; a 29 February birthday counting from 1 March; test assertions (only the import path may change).
+- **What it proposed:** `src/core/common/age.ts` with `ageOn` moved unchanged; in `auth.service.ts`, `ageOn(kyivDate(), dateOfBirth) < MINIMUM_AGE` in place of `!isAtLeast(MINIMUM_AGE, dateOfBirth, new Date())`, and `isAtLeast` removed; in `profiles.service.ts` and the test file, an import in place of the local copy. Four files.
+- **What was rejected or changed:** nothing. The author checked that the two implementations could differ only for a date not in `YYYY-MM-DD` form, and the API accepts a date of birth only through the `CalendarDate` schema, so such a date never reaches the function.
+- **How it was checked:** review of the diff (four files, only the import changed in the tests, `MINIMUM_AGE` kept); unit tests 343/343 before and after, among them the SAFE-001 boundary tests (18 today, tomorrow, the Kyiv midnight) and the `ageOn` tests including 29 February; `typecheck` and `format:check` pass, `lint` shows 0 errors and no warnings in the changed files; e2e tests passed in CI on PR #295; SonarCloud on PR #295: Quality Gate passed, 0 new issues, 0 Security Hotspots, 0.0 % duplication on new code.
+
+### Replace hand-written time arithmetic with shared constants ([#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306), Oleh Moshenskyi)
+
+- **What the agent was given:** the issue: the smell (`DAY_MS` defined twice, `* 60 * 1000` repeated in `auth.service.ts`, `sessions.service.ts` and `sign-in-lockout.ts`), the technique (Replace Magic Number with Constant), and what must not change (every duration; the `sign-in-lockout`, `sessions.service` and `auth.service` unit tests pass).
+- **What it proposed:** `src/core/common/durations.ts`, used in the three named files and in the four other places with the same arithmetic (`concert-ua-sample-feed.ts`, `telegram-gateway-sender.ts`, `app.module.ts`, `kyiv-time.ts`). It left the tests unchanged on purpose, so that they keep checking the values on their own, and left the single-value network timeouts as they are.
+- **What was rejected or changed:** nothing; the merged diff of PR #320 is the agent's proposal.
+- **How it was checked:** review of the diff line by line; `typecheck` and `lint` (0 errors); all unit tests (448) and e2e tests (173) pass; SonarCloud on PR #320: 28 new lines, no new duplicated lines and no new issues.
 
 ## Bonuses
 
@@ -207,3 +286,5 @@ Demo in [#349](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/349)
 The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code. The Regression Testing section was drafted with Claude Code from test runs that were performed and checked by hand (Daryna Halytska).
 
 The Chosen Metrics and Security Rating sections were drafted with Claude Code from the SonarCloud Web API and the team's dashboard screenshots. Reviewed by Vlad-Re
+
+The Refactorings and AI Use sections were drafted with Claude Code from the pull requests, their diffs and the authors' answers.
