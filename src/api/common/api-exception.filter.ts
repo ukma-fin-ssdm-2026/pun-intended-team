@@ -46,7 +46,8 @@ function toApiException(exception: unknown): ApiException | undefined {
     return exception;
   }
   if (exception instanceof DomainError) {
-    return new ApiException(exception.code, exception.message);
+    const { code, message, field } = exception;
+    return new ApiException(code, message, field ? [{ location: 'body', field, message }] : undefined);
   }
   if (exception instanceof HttpException) {
     const status: HttpStatus = exception.getStatus();

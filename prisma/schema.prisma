@@ -290,15 +290,16 @@ model RefreshToken {
 }
 
 model Profile {
-  accountId           String         @id @map("account_id") @db.Uuid
+  accountId           String          @id @map("account_id") @db.Uuid
   username            String
-  displayName         String         @map("display_name")
+  displayName         String          @map("display_name")
   description         String?
-  communicationFormat DesiredCompany @map("communication_format")
-  sharePhone          Boolean        @default(true) @map("share_phone")
-  safetyNoticeAckAt   DateTime?      @map("safety_notice_ack_at") @db.Timestamptz(3)
-  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  occupation          String?
+  communicationFormat DesiredCompany? @map("communication_format")
+  sharePhone          Boolean         @default(true) @map("share_phone")
+  safetyNoticeAckAt   DateTime?       @map("safety_notice_ack_at") @db.Timestamptz(3)
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   photo            ProfilePhoto?
@@ -335,9 +336,11 @@ model LinkedAccount {
 }
 
 model Interest {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String   @unique
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String   @unique
+  groupName     String   @map("group_name")
+  groupPosition Int      @map("group_position")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   profileInterests ProfileInterest[]
 

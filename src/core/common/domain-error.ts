@@ -12,6 +12,8 @@ export const domainErrorCodes = [
   'LISTING_DATE_IN_PAST',
   'USERNAME_TAKEN',
   'PROFILE_EXISTS',
+  'CONTACT_REQUIRED',
+  'INVALID_SOCIAL_HANDLE',
   'INVALID_CREDENTIALS',
   'WRONG_PASSWORD',
   'INVALID_GOOGLE_TOKEN',
@@ -26,9 +28,11 @@ export const domainErrorCodes = [
 export type DomainErrorCode = (typeof domainErrorCodes)[number];
 
 export class DomainError extends Error {
+  /** `field`: the input the rule is about, as a path such as `linkedAccounts.1.username`. */
   constructor(
     readonly code: DomainErrorCode,
     message: string,
+    readonly field?: string,
   ) {
     super(message);
   }

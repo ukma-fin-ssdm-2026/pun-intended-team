@@ -53,6 +53,31 @@ const stubAccounts = {
     dateOfBirth: '1988-09-15',
   },
 };
+// Taras has a profile and a listing in the stubs but never signs in, so he has no sign-in method.
+const tarasAccount = { id: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18', dateOfBirth: '1997-11-03' };
+
+// The profiles of the stub listings' authors; the accounts are stubAccounts.user and tarasAccount.
+const stubProfiles = [
+  {
+    accountId: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
+    username: 'olena_k',
+    displayName: 'Olena',
+    description: 'Cinema, galleries and long walks.',
+    communicationFormat: 'friends',
+    interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
+    telegram: 'olena_k',
+  },
+  {
+    accountId: tarasAccount.id,
+    username: 'taras.m',
+    displayName: 'Taras',
+    description: null,
+    communicationFormat: 'casual',
+    interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
+    telegram: 'taras_m',
+  },
+];
+
 const subjects = Object.fromEntries(Object.entries(stubAccounts).map(([name, { subject }]) => [name, subject])) as {
   [name in keyof typeof stubAccounts]: string;
 };
@@ -198,7 +223,8 @@ async function newAccount(): Promise<{ subject: string; token: string }> {
   return { subject, token: res.body.accessToken };
 }
 
-/** Active accounts with the stubs' ids and a Google sign-in, and the date of birth encrypted with the run's key. */
+/** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
+ * profiles of the stub listings' authors. */
 async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
   await withDatabase(async (client) => {
     for (const { id, role, subject, dateOfBirth } of Object.values(stubAccounts)) {
@@ -211,6 +237,35 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
         id,
         subject,
       ]);
+    }
+    await client.query(`INSERT INTO accounts (id, role, status, date_of_birth) VALUES ($1, 'user', 'active', $2)`, [
+      tarasAccount.id,
+      cipher.encrypt(tarasAccount.dateOfBirth),
+    ]);
+    for (const {
+      accountId,
+      username,
+      displayName,
+      description,
+      communicationFormat,
+      interestIds,
+      telegram,
+    } of stubProfiles) {
+      await client.query(
+        `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [accountId, username, displayName, description, communicationFormat],
+      );
+      await client.query(`INSERT INTO linked_accounts (profile_id, app, username) VALUES ($1, 'telegram', $2)`, [
+        accountId,
+        cipher.encrypt(telegram),
+      ]);
+      for (const interestId of interestIds) {
+        await client.query(`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`, [
+          accountId,
+          interestId,
+        ]);
+      }
     }
   });
 }
@@ -1217,6 +1272,23 @@ describe('GET /api/v1/interests', () => {
     assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestFilms));
   });
 
+  test('gives each interest a group and lists them group by group, each group by name in Ukrainian order', async () => {
+    const res = await call('GET', '/api/v1/interests', { token: tokens.user });
+    const items: { name: string; group: string }[] = res.body.items;
+    const ukrainian = new Intl.Collator('uk');
+    const groups = items.map((interest) => interest.group).filter((group, i, all) => group !== all[i - 1]);
+
+    assert.ok(items.every((interest) => interest.group.length > 0));
+    assert.equal(new Set(groups).size, groups.length, 'each group is one run of the list');
+    assert.equal(groups[0], 'Музика');
+    assert.equal(groups.at(-1), 'Езотерика');
+    for (const group of groups) {
+      const names = items.filter((interest) => interest.group === group).map((interest) => interest.name);
+      assert.deepEqual(names, [...names].sort(ukrainian.compare), group);
+    }
+    assert.ok(items.some((interest) => interest.name === 'Манґа/Манхва' && interest.group === 'Книги й комікси'));
+  });
+
   test('rejects a guest token with 401', async () => {
     assertRejected(await call('GET', '/api/v1/interests', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
   });
@@ -1231,7 +1303,7 @@ describe('GET /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, true);
     assert.deepEqual(
       res.body.interests.map((interest: { name: string }) => interest.name),
-      ['Films', 'Drawing'],
+      ['Кіно', 'Малювання'],
     );
   });
 
@@ -1259,6 +1331,7 @@ describe('POST /api/v1/me/profile', () => {
     assert.equal(res.headers.get('location'), '/api/v1/me/profile');
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.communicationFormat, null);
+    assert.equal(res.body.occupation, '');
     assert.deepEqual(res.body.interests, []);
     assert.equal(res.body.isComplete, false);
   });
@@ -1306,11 +1379,17 @@ describe('PATCH /api/v1/me/profile', () => {
   test('changes only the fields sent', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
-      body: { description: 'Walks and films.', communicationFormat: 'dating', sharePhone: false },
+      body: {
+        description: 'Walks and films.',
+        occupation: 'Student',
+        communicationFormat: 'dating',
+        sharePhone: false,
+      },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.description, 'Walks and films.');
+    assert.equal(res.body.occupation, 'Student');
     assert.equal(res.body.communicationFormat, 'dating');
     assert.equal(res.body.sharePhone, false);
     assert.equal(res.body.isComplete, false, 'still no interests');
@@ -1329,6 +1408,24 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(res.body.description, 'Concerts on weekdays.');
     assert.equal(res.body.sharePhone, true);
     assert.equal(res.body.communicationFormat, 'dating', 'a field not sent keeps its value');
+  });
+
+  // The database names this value `casual`; the repository translates it both ways.
+  test('stores company and returns it as company', async () => {
+    const patched = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { communicationFormat: 'company' },
+    });
+    assert.equal(patched.status, 200, JSON.stringify(patched.body));
+    assert.equal(patched.body.communicationFormat, 'company');
+
+    const res = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    const stored = await withDatabase((client) =>
+      client.query('SELECT communication_format FROM profiles WHERE account_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(res.body.communicationFormat, 'company');
+    assert.equal(stored.rows[0]?.communication_format, 'casual');
   });
 
   test('lets a user change the case of their own username', async () => {
@@ -1371,6 +1468,111 @@ describe('PATCH /api/v1/me/profile', () => {
   });
 });
 
+// Before the interests tests, which expect the profile to have a network.
+describe('PUT /api/v1/me/profile/linked-accounts', () => {
+  test('replaces the whole set, keeps the bare handles and returns them in order with their links', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'instagram', username: 'https://instagram.com/newcomer.one' },
+          { network: 'telegram', username: '@newcomer' },
+        ],
+      },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+      { network: 'instagram', username: 'newcomer.one', url: 'https://instagram.com/newcomer.one' },
+    ]);
+
+    const second = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.deepEqual(profile.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+    ]);
+  });
+
+  // SEC-003: the nickname is personal data.
+  test('stores the nickname encrypted', async () => {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+
+    const stored = await withDatabase((client) =>
+      client.query('SELECT username FROM linked_accounts WHERE profile_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(stored.rows.length, 1);
+    assert.ok(!Buffer.from(stored.rows[0].username).toString('latin1').includes('newcomer'));
+  });
+
+  test('rejects an empty list with 422 CONTACT_REQUIRED and changes nothing', async () => {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [] },
+    });
+    assertRejected(res, 422, 'CONTACT_REQUIRED');
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    assert.deepEqual(
+      profile.body.linkedAccounts.map((item: { username: string }) => item.username),
+      ['newcomer'],
+    );
+  });
+
+  test('rejects a handle that does not fit the network with 422 INVALID_SOCIAL_HANDLE naming it', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'whatsapp', username: 'not a phone' }] },
+    });
+    assertRejected(res, 422, 'INVALID_SOCIAL_HANDLE');
+    assert.deepEqual(
+      res.body.error.details.map((issue: { field: string }) => issue.field),
+      ['linkedAccounts.0.username'],
+    );
+  });
+
+  test('rejects the same social network twice with 400', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'telegram', username: 'newcomer' },
+          { network: 'telegram', username: 'newcomer2' },
+        ],
+      },
+    });
+    assertRejected(res, 400, 'VALIDATION_ERROR');
+  });
+
+  test('answers 404 when the profile is not created yet', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.admin,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'admin_k' }] },
+    });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      body: { linkedAccounts: [{ network: 'telegram', username: 'guest_k' }] },
+    });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
@@ -1379,7 +1581,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
-    assert.equal(first.body.isComplete, true, 'format and interests are both set');
+    assert.equal(first.body.isComplete, true, 'format, interests and a network are all set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,

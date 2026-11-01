@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import {
   CreateProfileBody,
   ReplaceInterestsBody,
+  ReplaceLinkedAccountsBody,
   UpdateProfileBody,
 } from '../../dist/api/profiles/schemas/profiles.js';
 import { rejectedIssues, rejectedPaths } from './fixtures/schemas.ts';
@@ -12,6 +13,7 @@ const USERNAME_MIN = 3;
 const USERNAME_MAX = 30;
 const DISPLAY_NAME_MAX = 50;
 const DESCRIPTION_MAX = 500;
+const OCCUPATION_MAX = 100;
 const INTERESTS_MAX = 30;
 // FR-002: friends / dating / company for an event.
 const COMMUNICATION_FORMATS = ['friends', 'dating', 'company'] as const;
@@ -144,6 +146,21 @@ describe('UpdateProfileBody', () => {
     assert.deepEqual(rejectedPaths(result), [['description']]);
   });
 
+  test(`accepts an occupation of ${OCCUPATION_MAX} characters`, () => {
+    const body = { occupation: 'a'.repeat(OCCUPATION_MAX) };
+
+    const result = UpdateProfileBody.safeParse(body);
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, body);
+  });
+
+  test(`rejects an occupation of ${OCCUPATION_MAX + 1} characters and points at occupation`, () => {
+    const result = UpdateProfileBody.safeParse({ occupation: 'a'.repeat(OCCUPATION_MAX + 1) });
+
+    assert.deepEqual(rejectedPaths(result), [['occupation']]);
+  });
+
   for (const communicationFormat of COMMUNICATION_FORMATS) {
     test(`accepts the communication format ${communicationFormat}`, () => {
       const body = { communicationFormat };
@@ -200,4 +217,55 @@ describe('ReplaceInterestsBody', () => {
 
     assert.deepEqual(rejectedPaths(result), [['interestIds']]);
   });
+});
+
+describe('ReplaceLinkedAccountsBody', () => {
+  // INVALID_SOCIAL_HANDLE comes from the service, which cleans the usernames; the schema keeps them as sent.
+  test('accepts one of each social network as typed', () => {
+    const result = ReplaceLinkedAccountsBody.safeParse({
+      linkedAccounts: [
+        { network: 'telegram', username: ' @olena_k ' },
+        { network: 'instagram', username: 'https://instagram.com/olena.k' },
+        { network: 'whatsapp', username: '+380 50 123 45 67' },
+        { network: 'tiktok', username: '@olena.k' },
+        { network: 'facebook', username: 'facebook.com/olena.k' },
+      ],
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(result.data?.linkedAccounts[1]?.username, 'https://instagram.com/olena.k');
+  });
+
+  // CONTACT_REQUIRED comes from the service, so an empty list passes validation.
+  test('accepts an empty list', () => {
+    assert.equal(ReplaceLinkedAccountsBody.safeParse({ linkedAccounts: [] }).success, true);
+  });
+
+  test('rejects the same social network twice and points at linkedAccounts', () => {
+    const result = ReplaceLinkedAccountsBody.safeParse({
+      linkedAccounts: [
+        { network: 'telegram', username: 'olena_k' },
+        { network: 'telegram', username: 'olena_k2' },
+      ],
+    });
+
+    assert.deepEqual(rejectedPaths(result), [['linkedAccounts']]);
+  });
+
+  const rejectedItems = [
+    { label: 'an unknown social network', item: { network: 'myspace', username: 'olena' }, path: 'network' },
+    {
+      label: 'a username of 201 characters',
+      item: { network: 'instagram', username: 'a'.repeat(201) },
+      path: 'username',
+    },
+  ];
+
+  for (const { label, item, path } of rejectedItems) {
+    test(`rejects ${label} and points at ${path}`, () => {
+      const result = ReplaceLinkedAccountsBody.safeParse({ linkedAccounts: [item] });
+
+      assert.deepEqual(rejectedPaths(result), [['linkedAccounts', 0, path]]);
+    });
+  }
 });

@@ -7,7 +7,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 ## Rules
 
 1. **Unit tests** (`tests/unit/`) check business rules in `src/core/` and adapters with logic, with mocked ports. They take what an HTTP request cannot set up reliably: time limits, races, data errors and pure functions.
-2. **Integration tests** (`tests/e2e/`, despite the name) start the API and call it over HTTP, through every layer and the real database. Each run drops and creates a database of its own, `<database>_e2e`, migrates it and adds the accounts the stubs belong to, so no run sees rows of another. They check the HTTP contract: status codes, validation, access and response bodies.
+2. **Integration tests** (`tests/e2e/`, despite the name) start the API and call it over HTTP, through every layer and the real database. Each run drops and creates a database of its own, `<database>_e2e`, migrates it and adds the accounts the stubs belong to and the profiles of the listings' authors, so no run sees rows of another. They check the HTTP contract: status codes, validation, access and response bodies.
 3. **Coverage scope** — measured:
 
    | Category | Files |

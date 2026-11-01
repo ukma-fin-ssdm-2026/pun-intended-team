@@ -20,6 +20,7 @@ import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
+import { useProfile } from '@/hooks/use-profile';
 import { mockCategories, mockEvents } from '@/mocks/events';
 import { mockUser } from '@/mocks/user';
 import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
@@ -39,6 +40,7 @@ const SKELETON_COUNT = 2;
 
 export default function CatalogScreen() {
   const router = useRouter();
+  const profile = useProfile();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { isGuest, catalogLoading } = useSession();
@@ -80,7 +82,7 @@ export default function CatalogScreen() {
           <CatalogHeader onAvatarPress={openGuestDialog} />
         ) : (
           <CatalogHeader
-            name={mockUser.firstNameVocative}
+            name={profile.data?.displayName}
             // Figma hides the unread dot while the catalog loads.
             hasUnread={mockUser.hasUnreadNotifications && !catalogLoading}
             onNotificationsPress={() => router.push('/notifications')}
