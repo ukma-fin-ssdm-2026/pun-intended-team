@@ -6,6 +6,7 @@ import { View } from 'react-native';
 
 import { TabBar, type TabName } from '@/components/ui/tab-bar';
 import { tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useProfile } from '@/hooks/use-profile';
 import { openGuestDialog, useSession } from '@/state/session';
 
 // Route file of each tab; the catalog is the app's start screen, so it is `index`.
@@ -54,8 +55,11 @@ function NearbyTabBar({ state, navigation, insets }: BottomTabBarProps) {
 
 export default function TabsLayout() {
   const { signedIn, isGuest } = useSession();
+  const profile = useProfile();
   // Without an account or the guest choice, the app opens on the onboarding (В1).
   if (!signedIn && !isGuest) return <Redirect href="/onboarding" />;
+  // An account that left before finishing В7 and signed in again later.
+  if (profile.missing) return <Redirect href="/profile-setup" />;
 
   return (
     <Tabs tabBar={(props) => <NearbyTabBar {...props} />} screenOptions={{ headerShown: false }}>
