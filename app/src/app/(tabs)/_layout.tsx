@@ -60,6 +60,8 @@ export default function TabsLayout() {
   if (!signedIn && !isGuest) return <Redirect href="/onboarding" />;
   // An account that left before finishing В7 and signed in again later.
   if (profile.missing) return <Redirect href="/profile-setup" />;
+  // One that left on В8: a mutual match needs a social network to reveal.
+  if (profile.data?.linkedAccounts.length === 0) return <Redirect href="/profile-contacts" />;
 
   return (
     <Tabs tabBar={(props) => <NearbyTabBar {...props} />} screenOptions={{ headerShown: false }}>
