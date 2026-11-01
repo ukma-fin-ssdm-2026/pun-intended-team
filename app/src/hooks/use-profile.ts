@@ -2,28 +2,29 @@
 import { useEffect } from 'react';
 
 import { apiClient } from '@/api/client';
-import { profileState, setProfile, setProfileState, useProfileState } from '@/state/profile';
+import { profileSession, profileState, setProfile, setProfileState, useProfileState } from '@/state/profile';
 import { useSession } from '@/state/session';
 
-let request: Promise<void> | undefined;
+let request: { session: number; done: Promise<void> } | undefined;
 
-// One request at a time, however many screens ask.
+// One request at a time per session, however many screens ask; a request of an earlier session is not reused.
 function loadProfile() {
-  request ??= (async () => {
-    setProfileState({ status: 'loading' });
+  const from = profileSession();
+  if (request?.session === from) return request.done;
+  const done = (async () => {
+    setProfileState({ status: 'loading' }, from);
     try {
       const { data, response } = await apiClient.GET('/api/v1/me/profile');
-      // Signed out meanwhile.
-      if (profileState().status !== 'loading') return;
-      if (data) setProfile(data);
-      else setProfileState({ status: response.status === 404 ? 'missing' : 'error' });
+      if (data) setProfile(data, from);
+      else setProfileState({ status: response.status === 404 ? 'missing' : 'error' }, from);
     } catch {
-      setProfileState({ status: 'error' });
+      setProfileState({ status: 'error' }, from);
     }
   })().finally(() => {
-    request = undefined;
+    if (request?.done === done) request = undefined;
   });
-  return request;
+  request = { session: from, done };
+  return done;
 }
 
 // The first letter of the display name, for the avatars that have no photo.

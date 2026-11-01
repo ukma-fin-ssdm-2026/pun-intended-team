@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import { setProfile } from '@/state/profile';
+import { profileSession, setProfile } from '@/state/profile';
 
 import { apiClient } from './client';
 import { call, type ApiResult } from './public-client';
@@ -11,8 +11,9 @@ type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
 type NewLinkedAccount = components['schemas']['ReplaceLinkedAccountsBody']['linkedAccounts'][number];
 
 async function saved(result: Promise<ApiResult<Profile>>) {
+  const from = profileSession();
   const outcome = await result;
-  if (outcome.ok) setProfile(outcome.data);
+  if (outcome.ok) setProfile(outcome.data, from);
   return outcome;
 }
 
