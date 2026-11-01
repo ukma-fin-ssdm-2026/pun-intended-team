@@ -1,19 +1,28 @@
 // Written with the help of Claude
+import { setProfile } from '@/state/profile';
+
 import { apiClient } from './client';
-import { call } from './public-client';
+import { call, type ApiResult } from './public-client';
 import type { components } from './schema';
 
+type Profile = components['schemas']['Profile'];
 type CreateProfileBody = components['schemas']['CreateProfileBody'];
 type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
 
+async function saved(result: Promise<ApiResult<Profile>>) {
+  const outcome = await result;
+  if (outcome.ok) setProfile(outcome.data);
+  return outcome;
+}
+
 export function createProfile(body: CreateProfileBody) {
-  return call(() => apiClient.POST('/api/v1/me/profile', { body }));
+  return saved(call(() => apiClient.POST('/api/v1/me/profile', { body })));
 }
 
 export function updateProfile(body: UpdateProfileBody) {
-  return call(() => apiClient.PATCH('/api/v1/me/profile', { body }));
+  return saved(call(() => apiClient.PATCH('/api/v1/me/profile', { body })));
 }
 
 export function replaceInterests(interestIds: string[]) {
-  return call(() => apiClient.PUT('/api/v1/me/profile/interests', { body: { interestIds } }));
+  return saved(call(() => apiClient.PUT('/api/v1/me/profile/interests', { body: { interestIds } })));
 }

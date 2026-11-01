@@ -1,46 +1,53 @@
 // Written with the help of Claude
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { apiClient } from '@/api/client';
-import type { components } from '@/api/schema';
+import { profileState, setProfile, setProfileState, useProfileState } from '@/state/profile';
+import { useSession } from '@/state/session';
 
-type Profile = components['schemas']['Profile'];
+let request: Promise<void> | undefined;
 
-type Result = { data?: Profile; missing?: boolean; error?: string };
+// One request at a time, however many screens ask.
+function loadProfile() {
+  request ??= (async () => {
+    setProfileState({ status: 'loading' });
+    try {
+      const { data, response } = await apiClient.GET('/api/v1/me/profile');
+      // Signed out meanwhile.
+      if (profileState().status !== 'loading') return;
+      if (data) setProfile(data);
+      else setProfileState({ status: response.status === 404 ? 'missing' : 'error' });
+    } catch {
+      setProfileState({ status: 'error' });
+    }
+  })().finally(() => {
+    request = undefined;
+  });
+  return request;
+}
 
+// The first letter of the display name, for the avatars that have no photo.
+export function useProfileInitial() {
+  return useProfile().data?.displayName.charAt(0).toUpperCase() ?? '';
+}
+
+// The signed-in account's profile, shared by every screen; loaded on first use and kept up to date by the saves in
+// api/profile.ts.
 export function useProfile() {
-  const [result, setResult] = useState<Result>();
-  const [version, setVersion] = useState(0);
+  const state = useProfileState();
+  // A guest has no profile, and its token gets a 401 here.
+  const { signedIn, isGuest } = useSession();
+  const enabled = signedIn && !isGuest;
 
   useEffect(() => {
-    let cancelled = false;
-    apiClient
-      .GET('/api/v1/me/profile')
-      .then((response) => {
-        if (cancelled) return;
-        if (response.data) {
-          setResult({ data: response.data });
-        } else if (response.response.status === 404) {
-          setResult({ missing: true });
-        } else {
-          setResult({ error: 'Could not load the profile.' });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setResult({ error: 'Could not reach the server.' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [version]);
-
-  const reload = useCallback(() => setVersion((current) => current + 1), []);
+    if (enabled && profileState().status === 'idle') void loadProfile();
+  }, [enabled, state.status]);
 
   return {
-    data: result?.data,
-    missing: result?.missing ?? false,
-    loading: result === undefined,
-    error: result?.error,
-    reload,
+    data: state.profile,
+    missing: state.status === 'missing',
+    loading: state.status === 'idle' || state.status === 'loading',
+    error: state.status === 'error',
+    reload: () => void loadProfile(),
   };
 }
