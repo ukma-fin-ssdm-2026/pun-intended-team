@@ -8,13 +8,15 @@ import { PrismaService } from './prisma.service.ts';
 export class PrismaInterestsRepository implements InterestsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  // By group, then by name, in Ukrainian order. The database's order depends on how it was created: under the C
-  // collation "Є", "І" and "Ї" come before "А".
+  // Groups in their set order, and the interests of a group by name in Ukrainian order. Names are sorted here: the
+  // database's order depends on how it was created, and under the C collation "Є", "І" and "Ї" come before "А".
   async findAll(): Promise<Interest[]> {
-    const rows = await this.prisma.interest.findMany({ select: { id: true, name: true, groupName: true } });
+    const rows = await this.prisma.interest.findMany({
+      select: { id: true, name: true, groupName: true, groupPosition: true },
+    });
     return rows
-      .map(({ id, name, groupName }) => ({ id, name, group: groupName }))
-      .sort((a, b) => ukrainian.compare(a.group, b.group) || ukrainian.compare(a.name, b.name));
+      .sort((a, b) => a.groupPosition - b.groupPosition || ukrainian.compare(a.name, b.name))
+      .map(({ id, name, groupName }) => ({ id, name, group: groupName }));
   }
 }
 

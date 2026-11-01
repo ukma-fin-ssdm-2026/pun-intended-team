@@ -86,7 +86,7 @@ Not in this version: photo upload. A mutual match needs a contact to reveal, and
 
 **Base path:** `/api/v1/interests`
 
-A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints. `GET /interests` lists them by group, then by name, in Ukrainian alphabetical order, and a profile's `interests` come in the same order.
+A lookup, like Category: a fixed list seeded at launch that users pick from. It has no admin endpoints. `GET /interests` lists them group by group, in the order the seed sets for the groups, and within a group by name in Ukrainian alphabetical order; a profile's `interests` come in the same order.
 
 | Field | Type | Notes |
 |---|---|---|

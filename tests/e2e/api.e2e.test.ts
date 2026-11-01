@@ -1272,16 +1272,20 @@ describe('GET /api/v1/interests', () => {
     assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestFilms));
   });
 
-  test('gives each interest a group and lists them by group, then by name, in Ukrainian order', async () => {
+  test('gives each interest a group and lists them group by group, each group by name in Ukrainian order', async () => {
     const res = await call('GET', '/api/v1/interests', { token: tokens.user });
     const items: { name: string; group: string }[] = res.body.items;
     const ukrainian = new Intl.Collator('uk');
+    const groups = items.map((interest) => interest.group).filter((group, i, all) => group !== all[i - 1]);
 
     assert.ok(items.every((interest) => interest.group.length > 0));
-    assert.deepEqual(
-      items,
-      [...items].sort((a, b) => ukrainian.compare(a.group, b.group) || ukrainian.compare(a.name, b.name)),
-    );
+    assert.equal(new Set(groups).size, groups.length, 'each group is one run of the list');
+    assert.equal(groups[0], 'Музика');
+    assert.equal(groups.at(-1), 'Езотерика');
+    for (const group of groups) {
+      const names = items.filter((interest) => interest.group === group).map((interest) => interest.name);
+      assert.deepEqual(names, [...names].sort(ukrainian.compare), group);
+    }
     assert.ok(items.some((interest) => interest.name === 'Манґа/Манхва' && interest.group === 'Книги й комікси'));
   });
 

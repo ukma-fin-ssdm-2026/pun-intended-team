@@ -5,8 +5,8 @@ import { PrismaInterestsRepository } from '../../dist/infra/prisma/prisma-intere
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 
 /** An interest row as Prisma returns it. */
-function aRow(name: string, groupName: string) {
-  return { id: `id-${name}`, name, groupName };
+function aRow(name: string, groupName: string, groupPosition: number) {
+  return { id: `id-${name}`, name, groupName, groupPosition };
 }
 
 function makeRepository(rows: ReturnType<typeof aRow>[]) {
@@ -16,14 +16,14 @@ function makeRepository(rows: ReturnType<typeof aRow>[]) {
 
 describe('PrismaInterestsRepository.findAll', () => {
   // Under the C collation, "Є", "І" and "Ї" come before "А"; the list must not depend on it.
-  test('lists by group, then by name, in Ukrainian alphabetical order', async () => {
+  test('lists groups in their set order and the interests of a group in Ukrainian alphabetical order', async () => {
     const repository = makeRepository([
-      aRow('Шахи', 'Ігри'),
-      aRow('Біг', 'Спорт і природа'),
-      aRow('Есперанто', 'Мови й історія'),
-      aRow('Історія', 'Мови й історія'),
-      aRow('Аніме', 'Кіно і сцена'),
-      aRow('Відеоігри', 'Ігри'),
+      aRow('Таро', 'Езотерика', 3),
+      aRow('Шахи', 'Ігри', 2),
+      aRow('Есперанто', 'Мови й історія', 1),
+      aRow('Історія', 'Мови й історія', 1),
+      aRow('Відеоігри', 'Ігри', 2),
+      aRow('Астрологія', 'Езотерика', 3),
     ]);
 
     const interests = await repository.findAll();
@@ -31,14 +31,14 @@ describe('PrismaInterestsRepository.findAll', () => {
     assert.deepEqual(
       interests.map(({ group, name }) => `${group}: ${name}`),
       [
-        'Ігри: Відеоігри',
-        'Ігри: Шахи',
-        'Кіно і сцена: Аніме',
         'Мови й історія: Есперанто',
         'Мови й історія: Історія',
-        'Спорт і природа: Біг',
+        'Ігри: Відеоігри',
+        'Ігри: Шахи',
+        'Езотерика: Астрологія',
+        'Езотерика: Таро',
       ],
     );
-    assert.deepEqual(interests[0], { id: 'id-Відеоігри', name: 'Відеоігри', group: 'Ігри' });
+    assert.deepEqual(interests[0], { id: 'id-Есперанто', name: 'Есперанто', group: 'Мови й історія' });
   });
 });

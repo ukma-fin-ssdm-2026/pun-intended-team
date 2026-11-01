@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.1
- * Generated on: 2026-11-01T11:45:46.600Z
+ * Generated on: 2026-11-01T12:06:29.787Z
  */
 
 import { existsSync } from 'node:fs';
@@ -286,7 +286,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listInterests", {
     name: "listInterests",
     title: "List the interests users can pick",
-    description: `List the fixed set of interests users can pick for their profile, by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+    description: `List the fixed set of interests users can pick for their profile, group by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
 (Tags: Interests)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

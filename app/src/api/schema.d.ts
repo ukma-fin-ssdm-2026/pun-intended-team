@@ -321,7 +321,7 @@ export interface paths {
         };
         /**
          * List the interests users can pick
-         * @description List the fixed set of interests users can pick for their profile, by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+         * @description List the fixed set of interests users can pick for their profile, group by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listInterests"];
         put?: never;
