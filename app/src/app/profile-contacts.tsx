@@ -8,13 +8,12 @@ import { Text, View } from 'react-native';
 import { ContactVisibility, FormScreen } from '@/components/profile/profile-form';
 import { TextField } from '@/components/ui/text-field';
 import { useSignIn } from '@/hooks/use-sign-in';
-import { mockProfile } from '@/mocks/profile';
 
 export default function ProfileContactsScreen() {
   const signIn = useSignIn();
-  const [telegram, setTelegram] = useState(mockProfile.telegram);
+  const [telegram, setTelegram] = useState('');
   // Hidden while sign-in is Google-only (ADR-004): there is no verified phone number.
-  // const [phone, setPhone] = useState(mockProfile.phone);
+  // const [phone, setPhone] = useState('');
   // Figma: Telegram is shared with a mutual match, the phone number is not.
   const [showTelegram, setShowTelegram] = useState(true);
   // const [showPhone, setShowPhone] = useState(false);
