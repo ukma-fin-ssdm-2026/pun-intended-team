@@ -1,5 +1,4 @@
 // Written with the help of Claude
-export const demoAccount = {
-  email: 'demo@nearby.test',
-  password: 'qwerty123',
-};
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.toDateString() === a.toDateString() && b instanceof Date;
+}
