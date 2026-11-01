@@ -5,7 +5,7 @@
 # Reviewed by: Viktoriia Baran
 name: nearby-staging
 
-x-image: &image ghcr.io/ukma-fin-ssdm-2026/nearby-api:${API_VERSION:-main}
+x-image: &image ghcr.io/ukma-fin-ssdm-2026/nearby-api:${API_VERSION:-staging}
 
 x-logging: &logging
   driver: json-file
@@ -90,7 +90,7 @@ services:
   # The web app: the static export of app/, served by its own Caddy.
   web:
     logging: *logging
-    image: ghcr.io/ukma-fin-ssdm-2026/nearby-web:${API_VERSION:-main}
+    image: ghcr.io/ukma-fin-ssdm-2026/nearby-web:${API_VERSION:-staging}
     restart: unless-stopped
 
   caddy:
