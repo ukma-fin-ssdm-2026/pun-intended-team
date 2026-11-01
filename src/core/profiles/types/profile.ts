@@ -26,6 +26,8 @@ export interface LinkedAccountDetails extends LinkedAccount {
 export interface Interest {
   id: string;
   name: string;
+  /** The heading it is shown under, e.g. "Музика". */
+  group: string;
 }
 
 /** A profile as stored: interests by id, joined on read. */

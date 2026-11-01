@@ -321,7 +321,7 @@ export interface paths {
         };
         /**
          * List the interests users can pick
-         * @description List the fixed set of interests users can pick for their profile, by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+         * @description List the fixed set of interests users can pick for their profile, by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listInterests"];
         put?: never;
@@ -859,7 +859,8 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Books"
+         *           "name": "Книги",
+         *           "group": "Книги й комікси"
          *         }
          *       ]
          *     }
@@ -871,13 +872,16 @@ export interface components {
          * @description An interest from the fixed list users pick from
          * @example {
          *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Books"
+         *       "name": "Книги",
+         *       "group": "Книги й комікси"
          *     }
          */
         Interest: {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description The heading the interest is shown under */
+            group: string;
         };
         /**
          * @description The signed-in user’s own profile
@@ -892,7 +896,8 @@ export interface components {
          *       "interests": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Books"
+         *           "name": "Книги",
+         *           "group": "Книги й комікси"
          *         }
          *       ],
          *       "linkedAccounts": [

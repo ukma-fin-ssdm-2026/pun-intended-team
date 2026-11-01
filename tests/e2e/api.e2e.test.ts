@@ -1272,6 +1272,19 @@ describe('GET /api/v1/interests', () => {
     assert.ok(res.body.items.some((interest: { id: string }) => interest.id === interestFilms));
   });
 
+  test('gives each interest a group and lists them by group, then by name, in Ukrainian order', async () => {
+    const res = await call('GET', '/api/v1/interests', { token: tokens.user });
+    const items: { name: string; group: string }[] = res.body.items;
+    const ukrainian = new Intl.Collator('uk');
+
+    assert.ok(items.every((interest) => interest.group.length > 0));
+    assert.deepEqual(
+      items,
+      [...items].sort((a, b) => ukrainian.compare(a.group, b.group) || ukrainian.compare(a.name, b.name)),
+    );
+    assert.ok(items.some((interest) => interest.name === 'Манґа/Манхва' && interest.group === 'Книги й комікси'));
+  });
+
   test('rejects a guest token with 401', async () => {
     assertRejected(await call('GET', '/api/v1/interests', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
   });
@@ -1286,7 +1299,7 @@ describe('GET /api/v1/me/profile', () => {
     assert.equal(res.body.isComplete, true);
     assert.deepEqual(
       res.body.interests.map((interest: { name: string }) => interest.name),
-      ['Drawing', 'Films'],
+      ['Кіно', 'Малювання'],
     );
   });
 

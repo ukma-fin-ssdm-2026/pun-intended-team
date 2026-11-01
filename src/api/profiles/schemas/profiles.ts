@@ -32,11 +32,13 @@ export const LinkedAccount = LinkedAccountFields.meta({
 const InterestFields = z.object({
   id: Id,
   name: z.string(),
+  group: z.string().describe('The heading the interest is shown under'),
 });
 
 export const interestExample: Interest = {
   id: 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01',
-  name: 'Books',
+  name: 'Книги',
+  group: 'Книги й комікси',
 };
 
 export const Interest = InterestFields.meta({

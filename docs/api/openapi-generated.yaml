@@ -623,7 +623,8 @@ components:
       example:
         items:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
     Interest:
       type: object
       properties:
@@ -632,13 +633,18 @@ components:
           format: uuid
         name:
           type: string
+        group:
+          type: string
+          description: The heading the interest is shown under
       required:
         - id
         - name
+        - group
       description: An interest from the fixed list users pick from
       example:
         id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Books
+        name: Книги
+        group: Книги й комікси
     Profile:
       type: object
       properties:
@@ -704,7 +710,8 @@ components:
         age: 28
         interests:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
         linkedAccounts:
           - network: telegram
             username: olena_k
@@ -1798,8 +1805,8 @@ paths:
       summary: List the interests users can pick
       description: >-
         List the fixed set of interests users can pick for their profile, by
-        name; their ids go in interestIds. Needs a signed-in account; a guest
-        token gets 401.
+        group and then by name; their ids go in interestIds. Needs a signed-in
+        account; a guest token gets 401.
       tags:
         - Interests
       security:

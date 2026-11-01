@@ -338,6 +338,7 @@ model LinkedAccount {
 model Interest {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name      String   @unique
+  groupName String   @map("group_name")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   profileInterests ProfileInterest[]

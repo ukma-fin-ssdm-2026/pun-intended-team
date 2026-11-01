@@ -39,8 +39,12 @@ describe('ageOn', () => {
 });
 
 const DATE_OF_BIRTH = '2000-05-17';
-const HIKING: Interest = { id: 'f0000000-0000-4000-8000-000000000001', name: 'Hiking' };
-const JAZZ: Interest = { id: 'f0000000-0000-4000-8000-000000000002', name: 'Jazz' };
+const HIKING: Interest = {
+  id: 'f0000000-0000-4000-8000-000000000001',
+  name: 'Походи в гори',
+  group: 'Спорт і природа',
+};
+const JAZZ: Interest = { id: 'f0000000-0000-4000-8000-000000000002', name: 'Джаз', group: 'Музика' };
 const TELEGRAM: LinkedAccount = { network: 'telegram', username: 'natalka' };
 
 function aProfile(overrides: Partial<Profile> = {}): Profile {

@@ -35,7 +35,7 @@ export class ProfilesController {
     operationId: 'listInterests',
     summary: 'List the interests users can pick',
     description:
-      'List the fixed set of interests users can pick for their profile, by name; their ids go in interestIds.',
+      'List the fixed set of interests users can pick for their profile, by group and then by name; their ids go in interestIds.',
     tags: ['Interests'],
     access: 'user',
     responses: {
