@@ -13,6 +13,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - Platform statistics for administrators: active users, upcoming events, matches and open report cases.
 - Admin pages in the web app at `/admin`: statistics, report cases with Ban and Dismiss, and category management. They open on a computer; administrators find a link on the profile tab.
 - The report sheet in the app sends reports to the API.
+- The app's own Two Tickets icon replaces the default Expo icon, on phones, on the splash screen and as the favicon of the web app ([#338](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/338)).
 
 ## [1.0.0] - 2026-11-01
 
