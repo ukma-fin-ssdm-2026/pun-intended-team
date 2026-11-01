@@ -2,6 +2,7 @@
 
 ## Scope
 
+- **Event catalog:** browsing and filtering events, and posting, validating, editing and cancelling them (FR-006, FR-007, FR-009 to FR-011).
 - **Listings:** creating and browsing listings (FR-021, FR-022).
 - **Categories:** the public list and the admin endpoints (FR-029).
 - **Profile:** creating and editing the user's own profile (FR-002).
@@ -47,6 +48,7 @@
 | One bad provider record stops the import, or a second run duplicates events | The catalog loses every imported event, or shows the same concert twice | TC-24, TC-25, TC-26 |
 | A failed import run empties the catalog | Users see no events while the provider is down | TC-28 |
 | Someone under 18 completes registration | A minor gets an active account and can be matched with adults (SAFE-001) | TC-08, TC-30, TC-31 |
+| An incomplete event is published, or an organization changes another's event | The catalog shows events with missing details, or an organization's event is rewritten by someone else | TC-43, TC-44, TC-45, TC-46, TC-47, TC-48 |
 | A profile change is lost, or a username is taken twice | The user sees old data after saving, or two people share one name | TC-32, TC-33, TC-34, TC-35 |
 
 ## Test Cases
@@ -58,8 +60,8 @@
 | TC-01 | `ListingsService.create` | Unit | Negative | A listing dated yesterday is rejected and nothing is stored | Viktoriia Baran | FR-021 | done |
 | TC-02 | `POST /listings` | Integration | Negative | A listing with a past date is refused with `422` | Viktoriia Baran | FR-021 | done |
 | TC-03 | `GET /listings` | Integration | Positive | US-010 AC1: a listing posted by one user is visible to another | Vlad Redchuk | FR-021, FR-022 | planned |
-| TC-04 | `GET /listings` | Integration | Negative | A listing its author removed is no longer returned | TBD | FR-022 | planned |
-| TC-05 | `CategoriesService.listActive` | Unit | Negative | Inactive categories are left out of the list | Vlad Redchuk | FR-029 | planned |
+| TC-04 | `DELETE /listings/{id}`, then `GET /listings/{id}` | Integration | Negative | A listing its author removed is no longer returned: `GET /listings/{id}` answers `404` | Vlad Redchuk | FR-022 | done |
+| TC-05 | `CategoriesService.listActive` | Unit | Negative | Inactive categories are left out of the list | Daryna Halytska | FR-029 | done |
 | TC-06 | `GET /categories` | Integration | Negative | Inactive categories are left out of the public list | Viktoriia Baran | FR-029 | done |
 | TC-07 | `POST /admin/categories` | Integration | Positive | An admin adds a category; it is saved as active and answered with `201` | Viktoriia Baran | FR-029 | done |
 | TC-08 | `ageOn` | Unit | Positive | The birthday counts as a full year, and a 29 February birthday counts from 1 March | Viktoriia Baran | FR-002, SAFE-001 | done |
@@ -68,7 +70,7 @@
 | TC-11 | Dependency audit in CI | System | Negative | `npm audit --audit-level=high` finds zero High and zero Critical advisories | Daryna Halytska | SEC-006 | done |
 | TC-12 | `POST /me/profile` | Integration | Positive | A new profile is answered with `201` and `Location: /api/v1/me/profile`, with no interests and `isComplete: false` | Oleh Moshenskyi | FR-002 | done |
 | TC-13 | Matching round over one event session | Integration | Positive | US-009 AC1: of three applicants, A and B score 0.75 and A and C score 0.2; the round proposes A with B and leaves C in the pool | TBD | FR-017 | planned |
-| TC-14 | `match(pool, exclusions, seed)` | Unit | Negative | Property test over generated pools: zero pairings where A → B without B → A, and zero users in two pairings of one round | TBD | FR-017, FUNC-002 | done |
+| TC-14 | `match(pool, exclusions, seed)` | Unit | Negative | Property test over generated pools: zero pairings where A → B without B → A, and zero users in two pairings of one round | Vlad Redchuk | FR-017, FUNC-002 | done |
 | TC-15 | Contact reveal | Integration | Negative | A contact request for a match with only one acceptance is answered with `404`, as if the match did not exist | TBD | FR-019, SEC-001 | planned |
 | TC-16 | `AuthService.verify` | Unit | Negative | After 3 failed attempts even the right code is refused with `INVALID_CODE` and is not marked used | Viktoriia Baran | FR-005, SEC-008 | done |
 | TC-17 | `POST /auth/verify` | Integration | Negative | After 3 wrong codes the right code is refused with `422 INVALID_CODE` | Viktoriia Baran | FR-005, SEC-008 | paused |
@@ -90,11 +92,19 @@
 | TC-33 | `PATCH /me/profile` | Integration | Positive | Only the fields sent change, and a later `GET /me/profile` returns the new values while the fields not sent keep theirs | Oleh Moshenskyi | FR-002 | done |
 | TC-34 | `PATCH /me/profile` | Integration | Negative | No token gets `401`; an unknown `communicationFormat` or an empty body gets `400`; another user's username gets `409 USERNAME_TAKEN`; an account without a profile gets `404` | Oleh Moshenskyi | FR-002 | done |
 | TC-35 | `PUT /me/profile/interests` | Integration | Negative | A list with an unknown interest id is refused with `422 REFERENCE_NOT_FOUND`, and `GET /me/profile` still returns the interests from before | Oleh Moshenskyi | FR-002 | done |
-| TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | TBD | FR-017, FUNC-001 | done |
+| TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | Vlad Redchuk | FR-017, FUNC-001 | done |
 | TC-37 | `match(pool, exclusions, seed)` | Unit | Negative | The user themselves, banned accounts, users they reported, and candidates declined or expired for this event are never proposed; a user with no candidate left stays in the pool unmatched | TBD | FR-018, FR-020 | planned |
 | TC-38 | Contact reveal | Integration | Positive | After both users accept the match, each gets the other's contact details with `200` | TBD | FR-019 | planned |
 | TC-39 | Contact reveal | Integration | Negative | On a user's first match, a contact request before the safety notice is acknowledged returns no contact details, also when the API is called directly; after the acknowledgment the same request gets them | TBD | FR-032, SAFE-002 | planned |
 | TC-40 | Matching under concurrent requests | Integration | Negative | Overlapping match requests that all rank the same candidate first: exactly one of them gets that candidate | TBD | FR-017, FUNC-002 | planned |
+| TC-41 | `EventsService.list` | Unit | Positive | Without dates the catalog covers the Kyiv date of today to the end of the window; a start in the past and an end beyond the window are moved inside it; the category and venue filters are passed on unchanged | Viktoriia Baran | FR-006, FR-007 | done |
+| TC-42 | `GET /events` | Integration | Positive | A guest token, issued without signing in, gets `200` with a page of events | Vlad Redchuk | FR-006 | done |
+| TC-43 | `EventsService.create` | Unit | Negative | An organization that is not verified, an account that is not an organization, an inactive category, and an unknown venue or one of another organization are refused, and nothing is saved | Viktoriia Baran | FR-009 | done |
+| TC-44 | `POST /events` | Integration | Positive | A verified organization publishes an event with `201` and `Location: /api/v1/events/{id}`; an organization that is not verified and a regular user get `422 ORGANIZATION_NOT_VERIFIED`, a guest `401` | Oleh Moshenskyi | FR-009 | done |
+| TC-45 | `CreateEventBody` | Unit | Negative | A body without any one of title, description, category, venue, start or end is rejected with one issue pointing at that field | Viktoriia Baran | FR-010 | done |
+| TC-46 | `POST /events` | Integration | Negative | A body without a title and a venue and with an invalid start gets `400` with one details entry per field; an event that ends before it starts gets `422 EVENT_ENDS_BEFORE_START` | Oleh Moshenskyi | FR-010 | done |
+| TC-47 | `EventsService.update`, `EventsService.cancel` | Unit | Negative | Another organization is told the event does not exist; a cancelled event cannot be edited; cancelling a cancelled event returns it unchanged without saving | Viktoriia Baran | FR-011 | done |
+| TC-48 | `PUT /events/{id}`, `POST /events/{id}/cancel` | Integration | Positive | The organization's own event is replaced with `200` and cancelled with status `cancelled`; another organization and a regular user get `404`; editing a cancelled event gets `422 EVENT_CANCELLED` | Oleh Moshenskyi | FR-011 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 
@@ -103,7 +113,7 @@ Owners marked TBD are assigned when the team schedules the test.
 Testing under this plan is complete when all of the following hold:
 
 - Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
-- Rows for features not built yet become due once the feature is implemented: TC-13 to TC-15 and TC-36 to TC-40 with matching, TC-29 once events are stored in the database, and TC-10 once the staging environment exists.
+- Rows for features not built yet become due once the feature is implemented: TC-13, TC-15 and TC-37 to TC-40 with the matching rounds, and TC-29 once events are stored in the database. TC-10 is due now that staging exists; so far it has been run only locally.
 - The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
 - No critical defect is open.
 

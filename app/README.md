@@ -1,6 +1,6 @@
 # Nearby client (Expo)
 
-Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It shows the event catalog under a five-tab bar, filters it by search, category, day and district, and shows an event's page, for a signed-in user or a guest. Sign-up and sign-in with Google and sign-out use the API; the other screens run on mock data for now (`src/mocks/`), and the API hooks in `src/hooks/` are kept for connecting them.
+Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It shows the event catalog under a five-tab bar, filters it by search, category, day and district, and shows an event's page, for a signed-in user or a guest. Sign-up and sign-in with Google, sign-out and the profile screens (setup, edit, contacts) use the API; the other screens run on mock data for now (`src/mocks/`), and the API hooks in `src/hooks/` are kept for connecting them.
 
 ## Getting started
 
