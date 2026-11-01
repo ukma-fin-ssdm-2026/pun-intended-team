@@ -6,8 +6,10 @@ import { kyivDate } from '../../common/kyiv-time.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
+import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from './social-networks.ts';
 import type {
   Interest,
+  LinkedAccount,
   NewProfile,
   Profile,
   ProfileChanges,
@@ -66,6 +68,29 @@ export class ProfilesService {
     return this.withDetails(await this.profilesRepository.replaceInterests(profile.accountId, wanted));
   }
 
+  /**
+   * `linkedAccounts` holds what the user typed: a nickname or a profile link, kept as the bare handle. A mutual match
+   * needs a contact to reveal, and sign-in is Google-only, so there is no phone: one social network at least.
+   */
+  async replaceLinkedAccounts(accountId: string, linkedAccounts: LinkedAccount[]): Promise<ProfileDetails> {
+    const profile = await this.requireProfile(accountId);
+    if (linkedAccounts.length === 0) {
+      throw new DomainError('CONTACT_REQUIRED', 'Keep at least one social network to share with a match');
+    }
+    const handles = linkedAccounts.map(({ network, username }, index) => {
+      const handle = socialNetworkHandle(network, username);
+      if (handle === undefined) {
+        throw new DomainError(
+          'INVALID_SOCIAL_HANDLE',
+          `Expected ${socialNetworkHint(network)}`,
+          `linkedAccounts.${index}.username`,
+        );
+      }
+      return { network, username: handle };
+    });
+    return this.withDetails(await this.profilesRepository.replaceLinkedAccounts(profile.accountId, handles));
+  }
+
   private async requireProfile(accountId: string): Promise<Profile> {
     const profile = await this.profilesRepository.findByAccountId(accountId);
     if (!profile) {
@@ -95,11 +120,17 @@ export class ProfilesService {
       username: profile.username,
       displayName: profile.displayName,
       description: profile.description,
+      occupation: profile.occupation,
       communicationFormat: profile.communicationFormat,
       sharePhone: profile.sharePhone,
       age: ageOn(kyivDate(), dateOfBirth),
       interests,
-      isComplete: profile.communicationFormat !== null && interests.length > 0,
+      linkedAccounts: profile.linkedAccounts.map(({ network, username }) => ({
+        network,
+        username,
+        url: socialNetworkUrl(network, username),
+      })),
+      isComplete: profile.communicationFormat !== null && interests.length > 0 && profile.linkedAccounts.length > 0,
     };
   }
 }

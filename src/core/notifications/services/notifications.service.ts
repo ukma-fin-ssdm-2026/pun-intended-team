@@ -7,6 +7,10 @@ import type { CodeDelivery } from '../types/code-delivery.ts';
 export class NotificationsService {
   constructor(private readonly messagingProvider: MessagingProvider) {}
 
+  get sendsCodes(): boolean {
+    return this.messagingProvider.sendsCodes;
+  }
+
   /** Sends a verification code right away; the only direct send (HLD I2, SEC-008). */
   async sendCode(phone: string, code: string): Promise<CodeDelivery> {
     return this.messagingProvider.sendCode(phone, code);

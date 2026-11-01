@@ -12,6 +12,9 @@ export abstract class AccountsRepository {
   /** Creates the account without sign-in methods; the user adds them after registration. */
   abstract create(account: AccountRecord): Promise<Account>;
 
+  /** Creates a pending account with the Google sign-in method; a parallel request for the same subject gets its account. */
+  abstract createWithGoogle(subject: string): Promise<Account>;
+
   /** Saves the date of birth of a pending account and makes it active. */
   abstract activate(accountId: string, dateOfBirth: string): Promise<void>;
 

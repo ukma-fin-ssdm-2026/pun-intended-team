@@ -16,9 +16,9 @@ import { Icon } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useProfileInitial } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockPosts, type Author } from '@/mocks/announcements';
-import { mockProfile } from '@/mocks/profile';
 import { usePostRequests } from '@/state/post-requests';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -28,8 +28,6 @@ import { colors } from '@/styles/tokens';
 const HEADER_TOP = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 const LIST_BOTTOM_GAP = 26;
-// The Т3.2 snackbar ends 26 px above the tab bar (Figma: y=654, 70 px high, bar at y=750).
-const SNACKBAR_GAP = 26;
 
 const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
 // Т3.3 Пошук оголошень: the tabs switch only visually; every tab shows the matching posts.
@@ -73,6 +71,7 @@ function HeaderTabs({
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
+  const initial = useProfileInitial();
   const insets = useSafeAreaInsets();
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
@@ -168,7 +167,7 @@ export default function AnnouncementsScreen() {
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
             <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-              <Text className="font-inter-semibold text-title text-text-on-dark">{mockProfile.initial}</Text>
+              <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
             </View>
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
@@ -214,11 +213,7 @@ export default function AnnouncementsScreen() {
       </ScrollView>
 
       {requestedPost && (
-        <Snackbar
-          title="Запит надіслано"
-          note={`Дамо знати, щойно ${requestedPost.author.name} відповість.`}
-          bottom={tabBarSpace + SNACKBAR_GAP}
-        />
+        <Snackbar title="Запит надіслано" note={`Дамо знати, щойно ${requestedPost.author.name} відповість.`} />
       )}
 
       {/* The prototype ends the report on the Метчі tab from a match; from a post it stays on the feed. */}

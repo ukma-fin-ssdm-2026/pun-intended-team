@@ -98,6 +98,15 @@ describe('ListingsService.list', () => {
     assert.deepEqual(result.items[0]?.author, anAuthor());
     assert.equal(result.items[0]?.category.name, aCategory().name);
   });
+
+  test('leaves out a listing whose author has no profile', async () => {
+    const { service, profilesService } = makeService();
+    profilesService.getSummaries.mock.mockImplementation(() => Promise.resolve(new Map()));
+
+    const result = await service.list(PAGE);
+
+    assert.deepEqual(result.items, []);
+  });
 });
 
 describe('ListingsService.getById', () => {
@@ -107,15 +116,12 @@ describe('ListingsService.getById', () => {
     await assert.rejects(service.getById(LISTING_ID), isDomainError('NOT_FOUND'));
   });
 
-  test('fails with a plain error when the author has no profile, since that is a data bug', async () => {
+  test('answers NOT_FOUND when the author has no profile', async () => {
     const { service, listingsRepository, profilesService } = makeService();
     listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
     profilesService.getSummaries.mock.mockImplementation(() => Promise.resolve(new Map()));
 
-    await assert.rejects(
-      service.getById(LISTING_ID),
-      (error) => error instanceof Error && !(error instanceof DomainError) && /profile/.test(error.message),
-    );
+    await assert.rejects(service.getById(LISTING_ID), isDomainError('NOT_FOUND'));
   });
 });
 
@@ -194,6 +200,16 @@ describe('ListingsService.create', () => {
 
     await assert.rejects(creating, isDomainError('EVENT_CANCELLED'));
     assert.equal(listingsRepository.create.mock.callCount(), 0);
+  });
+
+  test('fails with a plain error when the author has no profile, since that is a data bug', async () => {
+    const { service, profilesService } = makeService();
+    profilesService.getSummaries.mock.mockImplementation(() => Promise.resolve(new Map()));
+
+    await assert.rejects(
+      service.create(ACCOUNT_ID, aNewListing()),
+      (error) => error instanceof Error && !(error instanceof DomainError) && /profile/.test(error.message),
+    );
   });
 });
 

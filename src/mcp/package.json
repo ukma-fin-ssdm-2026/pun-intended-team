@@ -1,6 +1,6 @@
 {
   "name": "nearby-api-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP Server generated from OpenAPI spec for nearby-api-mcp",
   "private": true,
   "type": "module",

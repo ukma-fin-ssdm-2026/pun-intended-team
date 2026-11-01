@@ -144,7 +144,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/register": {
+    "/api/v1/auth/google/register": {
         parameters: {
             query?: never;
             header?: never;
@@ -154,30 +154,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start registration
-         * @description Start registration: sends a one-time code to the phone number. The answer is the same whether or not the number already has an account, and a code requested within a minute of the last one is silently not sent. No access token needed.
+         * Register with Google
+         * @description First registration step: check the Google ID token. Returns a registration token, valid for 15 minutes, that only `completeRegistration` accepts. No access token needed.
          */
-        post: operations["register"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Verify the phone number
-         * @description Second registration step: check the code. Returns a registration token, valid for 15 minutes, that only `completeRegistration` accepts. No access token needed.
-         */
-        post: operations["verify"];
+        post: operations["registerWithGoogle"];
         delete?: never;
         options?: never;
         head?: never;
@@ -195,29 +175,9 @@ export interface paths {
         put?: never;
         /**
          * Finish registration
-         * @description Last registration step: the date of birth. Activates the account and signs in; add a sign-in method next with `setPassword`. Under 18, the registration is removed and the number can start again. Needs the registration token from `verify`; other tokens get 401.
+         * @description Last registration step: the date of birth. Activates the account and signs in. Under 18, the registration is removed and the Google account can start again. Needs the registration token from `verify`; other tokens get 401.
          */
         post: operations["completeRegistration"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/sign-in": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sign in with phone number and password
-         * @description Sign in with phone number and password. No access token needed.
-         */
-        post: operations["signIn"];
         delete?: never;
         options?: never;
         head?: never;
@@ -235,89 +195,9 @@ export interface paths {
         put?: never;
         /**
          * Sign in with Google
-         * @description Sign in with a Google account the user linked earlier with `linkGoogle`. No access token needed.
+         * @description Sign in with the Google account the user registered with `registerWithGoogle`. No access token needed.
          */
         post: operations["signInWithGoogle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/password-reset": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a password reset
-         * @description Start a password reset: sends a one-time code to the phone number if it has an account. The answer is the same for any number, and a code requested within a minute of the last one is silently not sent. No access token needed.
-         */
-        post: operations["requestPasswordReset"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/password-reset/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Finish a password reset
-         * @description Finish a password reset with the code and a new password, and sign in. Every other session of the account ends. No access token needed.
-         */
-        post: operations["resetPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set or change your password
-         * @description Set a password to sign in with, right after registration, or change it. Changing an existing password needs the current one; wrong ones count towards the sign-in lockout. Every other session of the account ends; this one stays signed in. Needs a signed-in account; a guest token gets 401.
-         */
-        put: operations["setPassword"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/me/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Link your Google account
-         * @description Link a Google account to sign in with from now on. Linking the same Google account again changes nothing. Needs a signed-in account; a guest token gets 401.
-         */
-        put: operations["linkGoogle"];
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -441,7 +321,7 @@ export interface paths {
         };
         /**
          * List the interests users can pick
-         * @description List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+         * @description List the fixed set of interests users can pick for their profile, group by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listInterests"];
         put?: never;
@@ -461,7 +341,7 @@ export interface paths {
         };
         /**
          * Get your profile
-         * @description Get the caller’s own profile with the age computed from the account’s date of birth. `isComplete` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+         * @description Get the caller’s own profile with the age computed from the account’s date of birth. `isComplete` is true once a communication format, at least one interest and at least one linked account are set. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["getMyProfile"];
         put?: never;
@@ -475,7 +355,7 @@ export interface paths {
         head?: never;
         /**
          * Edit your profile
-         * @description Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+         * @description Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
          */
         patch: operations["updateMyProfile"];
         trace?: never;
@@ -493,6 +373,26 @@ export interface paths {
          * @description Replace the whole set of the caller’s interests with the given ids; an empty list clears it. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["replaceMyInterests"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/linked-accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your networks
+         * @description Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. At least one is required, since sign-in is Google-only and there is no phone number to share. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["replaceMyLinkedAccounts"];
         post?: never;
         delete?: never;
         options?: never;
@@ -573,7 +473,7 @@ export interface components {
             error: {
                 code: components["schemas"]["ErrorCode"];
                 message: string;
-                /** @description Every invalid field, for validation errors that can name them */
+                /** @description Every invalid field, for validation errors and business rules that can name them */
                 details?: components["schemas"]["ValidationIssue"][];
             };
         };
@@ -581,7 +481,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -790,19 +690,6 @@ export interface components {
         };
         /**
          * @example {
-         *       "phone": "+380501119999"
-         *     }
-         */
-        RegisterBody: {
-            phone: components["schemas"]["PhoneNumber"];
-        };
-        /**
-         * @description Ukrainian number, E.164
-         * @example +380501110001
-         */
-        PhoneNumber: string;
-        /**
-         * @example {
          *       "accessToken": "eyJhbGciOiJIUzI1NiIs…",
          *       "tokenType": "Bearer",
          *       "expiresIn": 3600
@@ -818,14 +705,12 @@ export interface components {
         };
         /**
          * @example {
-         *       "phone": "+380501119999",
-         *       "code": "123456"
+         *       "idToken": "eyJhbGciOiJSUzI1NiIs…"
          *     }
          */
-        VerifyBody: {
-            phone: components["schemas"]["PhoneNumber"];
-            /** @description The code sent to the phone */
-            code: string;
+        GoogleIdTokenBody: {
+            /** @description The ID token Google Sign-In returned on the device */
+            idToken: string;
         };
         /**
          * @example {
@@ -856,59 +741,6 @@ export interface components {
              * @description Checked on the server: at least 18 years old
              */
             dateOfBirth: string;
-        };
-        /**
-         * @example {
-         *       "phone": "+380501110001",
-         *       "password": "nearby-dev-password"
-         *     }
-         */
-        SignInBody: {
-            phone: components["schemas"]["PhoneNumber"];
-            password: string;
-        };
-        /**
-         * @example {
-         *       "idToken": "eyJhbGciOiJSUzI1NiIs…"
-         *     }
-         */
-        GoogleIdTokenBody: {
-            /** @description The ID token Google Sign-In returned on the device */
-            idToken: string;
-        };
-        /**
-         * @example {
-         *       "phone": "+380501110001"
-         *     }
-         */
-        PasswordResetBody: {
-            phone: components["schemas"]["PhoneNumber"];
-        };
-        /**
-         * @example {
-         *       "phone": "+380501110001",
-         *       "code": "123456",
-         *       "password": "a new long passphrase"
-         *     }
-         */
-        ConfirmPasswordResetBody: {
-            phone: components["schemas"]["PhoneNumber"];
-            /** @description The code sent to the phone */
-            code: string;
-            /** @description 8 to 128 characters */
-            password: string;
-        };
-        /**
-         * @example {
-         *       "password": "a new long passphrase",
-         *       "currentPassword": "a long passphrase"
-         *     }
-         */
-        SetPasswordBody: {
-            /** @description 8 to 128 characters */
-            password: string;
-            /** @description Required once the account has a password */
-            currentPassword?: string;
         };
         /**
          * @example {
@@ -1027,7 +859,8 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Books"
+         *           "name": "Книги",
+         *           "group": "Книги й комікси"
          *         }
          *       ]
          *     }
@@ -1039,13 +872,16 @@ export interface components {
          * @description An interest from the fixed list users pick from
          * @example {
          *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Books"
+         *       "name": "Книги",
+         *       "group": "Книги й комікси"
          *     }
          */
         Interest: {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description The heading the interest is shown under */
+            group: string;
         };
         /**
          * @description The signed-in user’s own profile
@@ -1053,13 +889,22 @@ export interface components {
          *       "username": "olena_k",
          *       "displayName": "Olena",
          *       "description": "Cinema, galleries and long walks.",
+         *       "occupation": "Student at Kyiv-Mohyla Academy",
          *       "communicationFormat": "friends",
          *       "sharePhone": true,
          *       "age": 28,
          *       "interests": [
          *         {
          *           "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *           "name": "Books"
+         *           "name": "Книги",
+         *           "group": "Книги й комікси"
+         *         }
+         *       ],
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "olena_k",
+         *           "url": "https://t.me/olena_k"
          *         }
          *       ],
          *       "isComplete": true
@@ -1069,6 +914,8 @@ export interface components {
             username: string;
             displayName: string;
             description: string;
+            /** @description What the user does, e.g. their studies or work; can be empty */
+            occupation: string;
             /**
              * @description Null until the user picks one
              * @enum {string|null}
@@ -1079,9 +926,31 @@ export interface components {
             /** @description Whole years, computed from the account’s date of birth; the date itself is never returned */
             age: number;
             interests: components["schemas"]["Interest"][];
-            /** @description True once communicationFormat and at least one interest are set; matching needs both */
+            /** @description Revealed to a mutual match, in the order of SocialNetwork */
+            linkedAccounts: components["schemas"]["LinkedAccount"][];
+            /** @description True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three */
             isComplete: boolean;
         };
+        /**
+         * @description A social network the user shares with a mutual match
+         * @example {
+         *       "network": "telegram",
+         *       "username": "olena_k",
+         *       "url": "https://t.me/olena_k"
+         *     }
+         */
+        LinkedAccount: {
+            network: components["schemas"]["SocialNetwork"];
+            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
+            username: string;
+            /** @description The profile link a mutual match opens */
+            url: string;
+        };
+        /**
+         * @description A social network whose handle a mutual match sees
+         * @enum {string}
+         */
+        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -1108,6 +977,8 @@ export interface components {
             username?: string;
             /** @description Free text about the user; can be empty */
             description?: string;
+            /** @description What the user does, e.g. their studies or work; can be empty */
+            occupation?: string;
             communicationFormat?: components["schemas"]["CommunicationFormat"];
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone?: boolean;
@@ -1127,6 +998,24 @@ export interface components {
         ReplaceInterestsBody: {
             /** @description Ids from listInterests; the whole set is replaced, so an empty list clears it */
             interestIds: string[];
+        };
+        /**
+         * @example {
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "@olena_k"
+         *         }
+         *       ]
+         *     }
+         */
+        ReplaceLinkedAccountsBody: {
+            /** @description The whole set, at most one per social network; an empty list is CONTACT_REQUIRED, since a mutual match needs a contact */
+            linkedAccounts: {
+                network: components["schemas"]["SocialNetwork"];
+                /** @description A nickname with or without "@", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE */
+                username: string;
+            }[];
         };
         /**
          * @description Returned while the API is up
@@ -1713,7 +1602,7 @@ export interface operations {
             };
         };
     };
-    register: {
+    registerWithGoogle: {
         parameters: {
             query?: never;
             header?: never;
@@ -1722,38 +1611,7 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": components["schemas"]["RegisterBody"];
-            };
-        };
-        responses: {
-            /** @description The code is on its way; it is valid for 10 minutes */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    verify: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["VerifyBody"];
+                "application/json": components["schemas"]["GoogleIdTokenBody"];
             };
         };
         responses: {
@@ -1775,7 +1633,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The phone number is already registered */
+            /** @description `GOOGLE_ACCOUNT_TAKEN`: the Google account is already registered; sign in instead */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1784,7 +1642,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times */
+            /** @description `INVALID_GOOGLE_TOKEN`: the ID token is invalid, expired or issued to another app */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -1864,48 +1722,6 @@ export interface operations {
             };
         };
     };
-    signIn: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["SignInBody"];
-            };
-        };
-        responses: {
-            /** @description The tokens of a new session */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionTokensResponse"];
-                };
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `INVALID_CREDENTIALS`: wrong phone number or password; it does not say which */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
     signInWithGoogle: {
         parameters: {
             query?: never;
@@ -1937,188 +1753,8 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked this Google account */
+            /** @description `INVALID_CREDENTIALS`: the ID token is invalid, or the Google account is not registered */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    requestPasswordReset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["PasswordResetBody"];
-            };
-        };
-        responses: {
-            /** @description If the number has an account, a code is on its way; it is valid for 10 minutes */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    resetPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ConfirmPasswordResetBody"];
-            };
-        };
-        responses: {
-            /** @description The password is replaced; the tokens of a new session */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionTokensResponse"];
-                };
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `INVALID_CODE`: the code is wrong, expired, already used or failed 3 times */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    setPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["SetPasswordBody"];
-            };
-        };
-        responses: {
-            /** @description The password is set */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description No access token, or an invalid or expired one */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `WRONG_PASSWORD`: the account has a password and `currentPassword` is missing or wrong, or the account is locked after too many wrong passwords */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    linkGoogle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["GoogleIdTokenBody"];
-            };
-        };
-        responses: {
-            /** @description The Google account is linked */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The request is invalid */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description No access token, or an invalid or expired one */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account. `GOOGLE_ALREADY_LINKED`: this account has another Google account linked. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-            /** @description `INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2641,6 +2277,66 @@ export interface operations {
                 };
             };
             /** @description `REFERENCE_NOT_FOUND`: one of the interest ids does not exist. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    replaceMyLinkedAccounts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReplaceLinkedAccountsBody"];
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it. */
             422: {
                 headers: {
                     [name: string]: unknown;
