@@ -1,10 +1,34 @@
 // Written with the help of Claude
 import { z } from 'zod';
+import { socialNetworkHandle, socialNetworkHint } from '../../../core/profiles/services/social-networks.ts';
+import { socialNetworks } from '../../../core/profiles/types/profile.ts';
 import { Id } from '../../common/schemas/common.ts';
 
 export const CommunicationFormat = z
   .enum(['friends', 'dating', 'company'])
   .meta({ id: 'CommunicationFormat', description: 'What the user is looking for when they go to an event' });
+
+export const SocialNetwork = z
+  .enum(socialNetworks)
+  .meta({ id: 'SocialNetwork', description: 'A social network whose handle a mutual match sees' });
+
+const LinkedAccountFields = z.object({
+  network: SocialNetwork,
+  username: z.string().describe('The handle, without "@"; for WhatsApp, the phone number digits'),
+  url: z.string().describe('The profile link a mutual match opens'),
+});
+
+export const linkedAccountExample: LinkedAccount = {
+  network: 'telegram',
+  username: 'olena_k',
+  url: 'https://t.me/olena_k',
+};
+
+export const LinkedAccount = LinkedAccountFields.meta({
+  id: 'LinkedAccount',
+  description: 'A social network the user shares with a mutual match',
+  example: linkedAccountExample,
+});
 
 const InterestFields = z.object({
   id: Id,
@@ -38,9 +62,12 @@ const ProfileFields = z.object({
     .int()
     .describe('Whole years, computed from the account’s date of birth; the date itself is never returned'),
   interests: z.array(Interest),
+  linkedAccounts: z.array(LinkedAccount).describe('Revealed to a mutual match, in the order of SocialNetwork'),
   isComplete: z
     .boolean()
-    .describe('True once communicationFormat and at least one interest are set; matching needs both'),
+    .describe(
+      'True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three',
+    ),
 });
 
 export const profileExample: Profile = {
@@ -52,6 +79,7 @@ export const profileExample: Profile = {
   sharePhone: true,
   age: 28,
   interests: [interestExample],
+  linkedAccounts: [linkedAccountExample],
   isComplete: true,
 };
 
@@ -121,9 +149,46 @@ export const ReplaceInterestsBody = ReplaceInterestsFields.meta({
   example: { interestIds: [interestExample.id] } satisfies ReplaceInterestsBody,
 });
 
+// A nickname with or without "@", or a pasted profile link; stored as the bare handle.
+const NewLinkedAccount = z
+  .strictObject({
+    network: SocialNetwork,
+    username: z
+      .string()
+      .max(200)
+      .describe('A nickname with or without "@", or a profile link; for WhatsApp, a phone number'),
+  })
+  .transform(({ network, username }, ctx) => {
+    const handle = socialNetworkHandle(network, username);
+    if (handle === undefined) {
+      ctx.addIssue({ code: 'custom', path: ['username'], message: `Expected ${socialNetworkHint(network)}` });
+      return z.NEVER;
+    }
+    return { network, username: handle };
+  });
+
+const ReplaceLinkedAccountsFields = z.strictObject({
+  linkedAccounts: z
+    .array(NewLinkedAccount)
+    .max(socialNetworks.length)
+    .refine((items) => new Set(items.map((item) => item.network)).size === items.length, {
+      message: 'Each social network may appear once',
+    })
+    .describe(
+      'The whole set, at most one per social network; an empty list is CONTACT_REQUIRED, since a mutual match needs a contact',
+    ),
+});
+
+export const ReplaceLinkedAccountsBody = ReplaceLinkedAccountsFields.meta({
+  id: 'ReplaceLinkedAccountsBody',
+  example: { linkedAccounts: [{ network: 'telegram', username: '@olena_k' }] } satisfies ReplaceLinkedAccountsBody,
+});
+
+export type LinkedAccount = z.infer<typeof LinkedAccountFields>;
 export type Interest = z.infer<typeof InterestFields>;
 export type InterestList = z.infer<typeof InterestList>;
 export type Profile = z.infer<typeof ProfileFields>;
 export type CreateProfileBody = z.input<typeof CreateProfileFields>;
 export type UpdateProfileBody = z.input<typeof UpdateProfileFields>;
 export type ReplaceInterestsBody = z.input<typeof ReplaceInterestsFields>;
+export type ReplaceLinkedAccountsBody = z.input<typeof ReplaceLinkedAccountsFields>;

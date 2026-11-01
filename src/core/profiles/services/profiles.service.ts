@@ -6,8 +6,10 @@ import { kyivDate } from '../../common/kyiv-time.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
+import { socialNetworkUrl } from './social-networks.ts';
 import type {
   Interest,
+  LinkedAccount,
   NewProfile,
   Profile,
   ProfileChanges,
@@ -66,6 +68,15 @@ export class ProfilesService {
     return this.withDetails(await this.profilesRepository.replaceInterests(profile.accountId, wanted));
   }
 
+  /** A mutual match needs a contact to reveal, and sign-in is Google-only, so there is no phone: one network at least. */
+  async replaceLinkedAccounts(accountId: string, linkedAccounts: LinkedAccount[]): Promise<ProfileDetails> {
+    const profile = await this.requireProfile(accountId);
+    if (linkedAccounts.length === 0) {
+      throw new DomainError('CONTACT_REQUIRED', 'Keep at least one network to share with a match');
+    }
+    return this.withDetails(await this.profilesRepository.replaceLinkedAccounts(profile.accountId, linkedAccounts));
+  }
+
   private async requireProfile(accountId: string): Promise<Profile> {
     const profile = await this.profilesRepository.findByAccountId(accountId);
     if (!profile) {
@@ -100,7 +111,12 @@ export class ProfilesService {
       sharePhone: profile.sharePhone,
       age: ageOn(kyivDate(), dateOfBirth),
       interests,
-      isComplete: profile.communicationFormat !== null && interests.length > 0,
+      linkedAccounts: profile.linkedAccounts.map(({ network, username }) => ({
+        network,
+        username,
+        url: socialNetworkUrl(network, username),
+      })),
+      isComplete: profile.communicationFormat !== null && interests.length > 0 && profile.linkedAccounts.length > 0,
     };
   }
 }

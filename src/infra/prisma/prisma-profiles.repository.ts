@@ -2,18 +2,30 @@
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../core/common/domain-error.ts';
 import { ProfilesRepository } from '../../core/profiles/repositories/profiles.repository.ts';
-import type {
-  CommunicationFormat,
-  NewProfile,
-  Profile,
-  ProfileChanges,
-  ProfileSummary,
+import {
+  socialNetworks,
+  type CommunicationFormat,
+  type LinkedAccount,
+  type SocialNetwork,
+  type NewProfile,
+  type Profile,
+  type ProfileChanges,
+  type ProfileSummary,
 } from '../../core/profiles/types/profile.ts';
 import type { DesiredCompany, Profile as ProfileRow } from './generated/client.ts';
+import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
 
-const withInterests = { profileInterests: { select: { interestId: true } } } as const;
+const withRelations = {
+  profileInterests: { select: { interestId: true } },
+  linkedAccounts: { select: { app: true, username: true } },
+} as const;
+
+type ProfileWithRelations = ProfileRow & {
+  profileInterests: { interestId: string }[];
+  linkedAccounts: { app: string; username: Uint8Array }[];
+};
 
 // The database calls the API's `company` `casual`; the type is shared with applications.desired_company.
 const toDesiredCompany: Record<CommunicationFormat, DesiredCompany> = {
@@ -29,7 +41,10 @@ const toCommunicationFormat: Record<DesiredCompany, CommunicationFormat> = {
 
 @Injectable()
 export class PrismaProfilesRepository implements ProfilesRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cipher: PersonalDataCipher,
+  ) {}
 
   async findSummaries(accountIds: string[]): Promise<ProfileSummary[]> {
     return this.prisma.profile.findMany({
@@ -39,8 +54,8 @@ export class PrismaProfilesRepository implements ProfilesRepository {
   }
 
   async findByAccountId(accountId: string): Promise<Profile | undefined> {
-    const row = await this.prisma.profile.findUnique({ where: { accountId }, include: withInterests });
-    return row ? toProfile(row) : undefined;
+    const row = await this.prisma.profile.findUnique({ where: { accountId }, include: withRelations });
+    return row ? this.toProfile(row) : undefined;
   }
 
   async isUsernameTaken(username: string, exceptAccountId?: string): Promise<boolean> {
@@ -53,9 +68,9 @@ export class PrismaProfilesRepository implements ProfilesRepository {
 
   async create(accountId: string, { username, displayName }: NewProfile): Promise<Profile> {
     const row = await this.prisma.profile
-      .create({ data: { accountId, username, displayName }, include: withInterests })
+      .create({ data: { accountId, username, displayName }, include: withRelations })
       .catch(rethrowConflict);
-    return toProfile(row);
+    return this.toProfile(row);
   }
 
   async update(accountId: string, { communicationFormat, ...changes }: ProfileChanges): Promise<Profile> {
@@ -66,10 +81,10 @@ export class PrismaProfilesRepository implements ProfilesRepository {
           ...changes,
           ...(communicationFormat && { communicationFormat: toDesiredCompany[communicationFormat] }),
         },
-        include: withInterests,
+        include: withRelations,
       })
       .catch(rethrowConflict);
-    return toProfile(row);
+    return this.toProfile(row);
   }
 
   async replaceInterests(accountId: string, interestIds: string[]): Promise<Profile> {
@@ -78,23 +93,47 @@ export class PrismaProfilesRepository implements ProfilesRepository {
       this.prisma.profileInterest.createMany({
         data: interestIds.map((interestId) => ({ profileId: accountId, interestId })),
       }),
-      this.prisma.profile.findUniqueOrThrow({ where: { accountId }, include: withInterests }),
+      this.prisma.profile.findUniqueOrThrow({ where: { accountId }, include: withRelations }),
     ]);
-    return toProfile(row);
+    return this.toProfile(row);
+  }
+
+  async replaceLinkedAccounts(accountId: string, linkedAccounts: LinkedAccount[]): Promise<Profile> {
+    const [, , row] = await this.prisma.$transaction([
+      this.prisma.linkedAccount.deleteMany({ where: { profileId: accountId } }),
+      this.prisma.linkedAccount.createMany({
+        data: linkedAccounts.map(({ network, username }) => ({
+          profileId: accountId,
+          app: network,
+          username: this.cipher.encrypt(username),
+        })),
+      }),
+      this.prisma.profile.findUniqueOrThrow({ where: { accountId }, include: withRelations }),
+    ]);
+    return this.toProfile(row);
+  }
+
+  private toProfile(row: ProfileWithRelations): Profile {
+    return {
+      accountId: row.accountId,
+      username: row.username,
+      displayName: row.displayName,
+      description: row.description ?? '',
+      occupation: row.occupation ?? '',
+      communicationFormat: row.communicationFormat && toCommunicationFormat[row.communicationFormat],
+      sharePhone: row.sharePhone,
+      interestIds: row.profileInterests.map(({ interestId }) => interestId),
+      linkedAccounts: row.linkedAccounts
+        .filter((linked): linked is { app: SocialNetwork; username: Uint8Array } => isSocialNetwork(linked.app))
+        .sort((a, b) => socialNetworks.indexOf(a.app) - socialNetworks.indexOf(b.app))
+        .map(({ app, username }) => ({ network: app, username: this.cipher.decrypt(username) })),
+    };
   }
 }
 
-function toProfile(row: ProfileRow & { profileInterests: { interestId: string }[] }): Profile {
-  return {
-    accountId: row.accountId,
-    username: row.username,
-    displayName: row.displayName,
-    description: row.description ?? '',
-    occupation: row.occupation ?? '',
-    communicationFormat: row.communicationFormat && toCommunicationFormat[row.communicationFormat],
-    sharePhone: row.sharePhone,
-    interestIds: row.profileInterests.map(({ interestId }) => interestId),
-  };
+// The column is plain text; the list of social networks lives in code.
+function isSocialNetwork(app: string): app is SocialNetwork {
+  return (socialNetworks as readonly string[]).includes(app);
 }
 
 // The service checks first; two requests at once can both pass, and the indexes stop the second.

@@ -3,13 +3,20 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { PrismaProfilesRepository } from '../../dist/infra/prisma/prisma-profiles.repository.js';
+import type { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aUniqueViolation } from './fixtures/prisma-errors.ts';
 
 const INTEREST_ID = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 
-/** A profile row as Prisma returns it with its interests. */
+// Stands in for AES-GCM: readable in assertions, and decrypt undoes encrypt.
+const cipher = {
+  encrypt: (text: string) => new TextEncoder().encode(`enc:${text}`),
+  decrypt: (stored: Uint8Array) => new TextDecoder().decode(stored).replace(/^enc:/, ''),
+};
+
+/** A profile row as Prisma returns it with its interests and networks. */
 function aRow(overrides: Record<string, unknown> = {}) {
   return {
     accountId: ACCOUNT_ID,
@@ -20,6 +27,7 @@ function aRow(overrides: Record<string, unknown> = {}) {
     communicationFormat: 'friends',
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
+    linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
     ...overrides,
   };
 }
@@ -30,9 +38,25 @@ function makeRepository({
   row = aRow(),
 }: { write?: () => Promise<unknown>; row?: unknown } = {}) {
   const prisma = {
-    profile: { findUnique: mock.fn(() => Promise.resolve(row)), create: mock.fn(write), update: mock.fn(write) },
+    profile: {
+      findUnique: mock.fn(() => Promise.resolve(row)),
+      findUniqueOrThrow: mock.fn(() => row),
+      create: mock.fn<(args: { data: unknown }) => Promise<unknown>>(write),
+      update: mock.fn<(args: { data: unknown }) => Promise<unknown>>(write),
+    },
+    linkedAccount: {
+      deleteMany: mock.fn<(args: unknown) => string>(() => 'delete'),
+      createMany: mock.fn<(args: { data: { profileId: string; app: string; username: Uint8Array }[] }) => string>(
+        () => 'create',
+      ),
+    },
+    $transaction: mock.fn((steps: unknown[]) => Promise.resolve(steps)),
   };
-  return { repository: new PrismaProfilesRepository(prisma as unknown as PrismaService), prisma };
+  const repository = new PrismaProfilesRepository(
+    prisma as unknown as PrismaService,
+    cipher as unknown as PersonalDataCipher,
+  );
+  return { repository, prisma };
 }
 
 function isDomainError(code: string) {
@@ -52,6 +76,7 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       communicationFormat: 'friends',
       sharePhone: true,
       interestIds: [INTEREST_ID],
+      linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
     });
   });
 
@@ -74,6 +99,24 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
     const { repository } = makeRepository({ row: null });
 
     assert.equal(await repository.findByAccountId(ACCOUNT_ID), undefined);
+  });
+  test('lists the networks in the order of socialNetworks and skips one the code no longer knows', async () => {
+    const { repository } = makeRepository({
+      row: aRow({
+        linkedAccounts: [
+          { app: 'facebook', username: cipher.encrypt('olena.k') },
+          { app: 'myspace', username: cipher.encrypt('olena') },
+          { app: 'telegram', username: cipher.encrypt('olena_k') },
+        ],
+      }),
+    });
+
+    const profile = await repository.findByAccountId(ACCOUNT_ID);
+
+    assert.deepEqual(profile?.linkedAccounts, [
+      { network: 'telegram', username: 'olena_k' },
+      { network: 'facebook', username: 'olena.k' },
+    ]);
   });
 });
 
@@ -105,7 +148,7 @@ describe('PrismaProfilesRepository.update', () => {
 
     await repository.update(ACCOUNT_ID, { communicationFormat: 'company', description: 'Hi' });
 
-    const [{ data }] = prisma.profile.update.mock.calls[0]?.arguments as [{ data: unknown }];
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
     assert.deepEqual(data, { description: 'Hi', communicationFormat: 'casual' });
   });
 
@@ -114,7 +157,7 @@ describe('PrismaProfilesRepository.update', () => {
 
     await repository.update(ACCOUNT_ID, { displayName: 'Olia' });
 
-    const [{ data }] = prisma.profile.update.mock.calls[0]?.arguments as [{ data: unknown }];
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
     assert.deepEqual(data, { displayName: 'Olia' });
   });
 
@@ -132,5 +175,21 @@ describe('PrismaProfilesRepository.update', () => {
     const { repository } = makeRepository({ write: () => Promise.reject(failure) });
 
     await assert.rejects(repository.update(ACCOUNT_ID, { displayName: 'Olia' }), failure);
+  });
+});
+
+describe('PrismaProfilesRepository.replaceLinkedAccounts', () => {
+  test('replaces the set in one transaction and stores the usernames encrypted', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.replaceLinkedAccounts(ACCOUNT_ID, [{ network: 'instagram', username: 'olena.k' }]);
+
+    assert.deepEqual(prisma.$transaction.mock.calls[0]?.arguments[0]?.slice(0, 2), ['delete', 'create']);
+    assert.deepEqual(prisma.linkedAccount.deleteMany.mock.calls[0]?.arguments, [{ where: { profileId: ACCOUNT_ID } }]);
+    const data = prisma.linkedAccount.createMany.mock.calls[0]?.arguments[0].data ?? [];
+    assert.deepEqual(
+      data.map((item) => ({ ...item, username: new TextDecoder().decode(item.username) })),
+      [{ profileId: ACCOUNT_ID, app: 'instagram', username: 'enc:olena.k' }],
+    );
   });
 });

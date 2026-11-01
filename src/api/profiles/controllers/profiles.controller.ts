@@ -11,12 +11,14 @@ import {
   InterestList,
   Profile,
   ReplaceInterestsBody,
+  ReplaceLinkedAccountsBody,
   UpdateProfileBody,
 } from '../schemas/profiles.ts';
 
 const CreateProfileRequest = { body: CreateProfileBody } satisfies RequestSchemas;
 const UpdateProfileRequest = { body: UpdateProfileBody } satisfies RequestSchemas;
 const ReplaceInterestsRequest = { body: ReplaceInterestsBody } satisfies RequestSchemas;
+const ReplaceLinkedAccountsRequest = { body: ReplaceLinkedAccountsBody } satisfies RequestSchemas;
 
 const NO_PROFILE = {
   description: 'The account has not created a profile yet',
@@ -134,5 +136,29 @@ export class ProfilesController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Profile> {
     return this.profilesService.replaceInterests(account.accountId, body.interestIds);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.profiles.linkedAccounts,
+    operationId: 'replaceMyLinkedAccounts',
+    summary: 'Set your networks',
+    description:
+      'Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. ' +
+      'At least one is required, since sign-in is Google-only and there is no phone number to share.',
+    tags: ['Profiles'],
+    access: 'user',
+    request: ReplaceLinkedAccountsRequest,
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+      422: { description: '`CONTACT_REQUIRED`: the list is empty.', schema: ErrorResponse },
+    },
+  })
+  async replaceMyLinkedAccounts(
+    @Input() { body }: RouteInput<typeof ReplaceLinkedAccountsRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Profile> {
+    return this.profilesService.replaceLinkedAccounts(account.accountId, body.linkedAccounts);
   }
 }

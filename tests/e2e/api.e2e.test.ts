@@ -65,6 +65,7 @@ const stubProfiles = [
     description: 'Cinema, galleries and long walks.',
     communicationFormat: 'friends',
     interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
+    telegram: 'olena_k',
   },
   {
     accountId: tarasAccount.id,
@@ -73,6 +74,7 @@ const stubProfiles = [
     description: null,
     communicationFormat: 'casual',
     interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
+    telegram: 'taras_m',
   },
 ];
 
@@ -240,12 +242,24 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
       tarasAccount.id,
       cipher.encrypt(tarasAccount.dateOfBirth),
     ]);
-    for (const { accountId, username, displayName, description, communicationFormat, interestIds } of stubProfiles) {
+    for (const {
+      accountId,
+      username,
+      displayName,
+      description,
+      communicationFormat,
+      interestIds,
+      telegram,
+    } of stubProfiles) {
       await client.query(
         `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
          VALUES ($1, $2, $3, $4, $5)`,
         [accountId, username, displayName, description, communicationFormat],
       );
+      await client.query(`INSERT INTO linked_accounts (profile_id, app, username) VALUES ($1, 'telegram', $2)`, [
+        accountId,
+        cipher.encrypt(telegram),
+      ]);
       for (const interestId of interestIds) {
         await client.query(`INSERT INTO profile_interests (profile_id, interest_id) VALUES ($1, $2)`, [
           accountId,
@@ -1437,6 +1451,96 @@ describe('PATCH /api/v1/me/profile', () => {
   });
 });
 
+// Before the interests tests, which expect the profile to have a network.
+describe('PUT /api/v1/me/profile/linked-accounts', () => {
+  test('replaces the whole set, keeps the bare handles and returns them in order with their links', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'instagram', username: 'https://instagram.com/newcomer.one' },
+          { network: 'telegram', username: '@newcomer' },
+        ],
+      },
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+      { network: 'instagram', username: 'newcomer.one', url: 'https://instagram.com/newcomer.one' },
+    ]);
+
+    const second = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
+    });
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.deepEqual(profile.body.linkedAccounts, [
+      { network: 'telegram', username: 'newcomer', url: 'https://t.me/newcomer' },
+    ]);
+  });
+
+  // SEC-003: the nickname is personal data.
+  test('stores the nickname encrypted', async () => {
+    const stored = await withDatabase((client) =>
+      client.query('SELECT username FROM linked_accounts WHERE profile_id = $1', [accountIdOf(tokens.orgPending)]),
+    );
+
+    assert.equal(stored.rows.length, 1);
+    assert.ok(!Buffer.from(stored.rows[0].username).toString('latin1').includes('newcomer'));
+  });
+
+  test('rejects an empty list with 422 CONTACT_REQUIRED and changes nothing', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [] },
+    });
+    assertRejected(res, 422, 'CONTACT_REQUIRED');
+    const profile = await call('GET', '/api/v1/me/profile', { token: tokens.orgPending });
+    assert.deepEqual(
+      profile.body.linkedAccounts.map((item: { username: string }) => item.username),
+      ['newcomer'],
+    );
+  });
+
+  test('rejects a handle that does not fit the network with 400 on its username', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: { linkedAccounts: [{ network: 'whatsapp', username: 'not a phone' }] },
+    });
+    assertInvalid(res, 'body', 'linkedAccounts.0.username');
+  });
+
+  test('rejects the same social network twice with 400', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.orgPending,
+      body: {
+        linkedAccounts: [
+          { network: 'telegram', username: 'newcomer' },
+          { network: 'telegram', username: 'newcomer2' },
+        ],
+      },
+    });
+    assertRejected(res, 400, 'VALIDATION_ERROR');
+  });
+
+  test('answers 404 when the profile is not created yet', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      token: tokens.admin,
+      body: { linkedAccounts: [{ network: 'telegram', username: 'admin_k' }] },
+    });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
+      body: { linkedAccounts: [{ network: 'telegram', username: 'guest_k' }] },
+    });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
@@ -1445,7 +1549,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
-    assert.equal(first.body.isComplete, true, 'format and interests are both set');
+    assert.equal(first.body.isComplete, true, 'format, interests and a network are all set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,

@@ -4,6 +4,7 @@ import { describe, test } from 'node:test';
 import {
   CreateProfileBody,
   ReplaceInterestsBody,
+  ReplaceLinkedAccountsBody,
   UpdateProfileBody,
 } from '../../dist/api/profiles/schemas/profiles.js';
 import { rejectedIssues, rejectedPaths } from './fixtures/schemas.ts';
@@ -216,4 +217,58 @@ describe('ReplaceInterestsBody', () => {
 
     assert.deepEqual(rejectedPaths(result), [['interestIds']]);
   });
+});
+
+describe('ReplaceLinkedAccountsBody', () => {
+  test('accepts one of each social network and keeps the bare handles', () => {
+    const result = ReplaceLinkedAccountsBody.safeParse({
+      linkedAccounts: [
+        { network: 'telegram', username: ' @olena_k ' },
+        { network: 'instagram', username: 'https://instagram.com/olena.k' },
+        { network: 'whatsapp', username: '+380 50 123 45 67' },
+        { network: 'tiktok', username: '@olena.k' },
+        { network: 'facebook', username: 'facebook.com/olena.k' },
+      ],
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      result.data?.linkedAccounts.map((item) => item.username),
+      ['olena_k', 'olena.k', '380501234567', 'olena.k', 'olena.k'],
+    );
+  });
+
+  // CONTACT_REQUIRED comes from the service, so an empty list passes validation.
+  test('accepts an empty list', () => {
+    assert.equal(ReplaceLinkedAccountsBody.safeParse({ linkedAccounts: [] }).success, true);
+  });
+
+  test('rejects the same social network twice and points at linkedAccounts', () => {
+    const result = ReplaceLinkedAccountsBody.safeParse({
+      linkedAccounts: [
+        { network: 'telegram', username: 'olena_k' },
+        { network: 'telegram', username: 'olena_k2' },
+      ],
+    });
+
+    assert.deepEqual(rejectedPaths(result), [['linkedAccounts']]);
+  });
+
+  const rejectedItems = [
+    { label: 'an unknown social network', item: { network: 'myspace', username: 'olena' }, path: 'network' },
+    {
+      label: 'a handle that does not fit the network',
+      item: { network: 'telegram', username: 'ol' },
+      path: 'username',
+    },
+    { label: 'an empty username', item: { network: 'instagram', username: '  ' }, path: 'username' },
+  ];
+
+  for (const { label, item, path } of rejectedItems) {
+    test(`rejects ${label} and points at ${path}`, () => {
+      const result = ReplaceLinkedAccountsBody.safeParse({ linkedAccounts: [item] });
+
+      assert.deepEqual(rejectedPaths(result), [['linkedAccounts', 0, path]]);
+    });
+  }
 });

@@ -7,6 +7,22 @@ export interface ProfileSummary {
   displayName: string;
 }
 
+/** Social networks a user can share with a mutual match, in the order they are shown. */
+export const socialNetworks = ['telegram', 'instagram', 'whatsapp', 'tiktok', 'facebook'] as const;
+
+export type SocialNetwork = (typeof socialNetworks)[number];
+
+/** A social network and the user's handle in it, cleaned by socialNetworkHandle; revealed on a mutual match. */
+export interface LinkedAccount {
+  network: SocialNetwork;
+  username: string;
+}
+
+/** What the owner sees: the handle and the profile link a mutual match opens. */
+export interface LinkedAccountDetails extends LinkedAccount {
+  url: string;
+}
+
 export interface Interest {
   id: string;
   name: string;
@@ -20,6 +36,7 @@ export interface Profile extends ProfileSummary {
   communicationFormat: CommunicationFormat | null;
   sharePhone: boolean;
   interestIds: string[];
+  linkedAccounts: LinkedAccount[];
 }
 
 /** What the owner sees of their profile. */
@@ -33,7 +50,8 @@ export interface ProfileDetails {
   /** Whole years, computed from the account's date of birth; the date itself is never returned. */
   age: number;
   interests: Interest[];
-  /** True once matching has what it needs: a communication format and at least one interest. */
+  linkedAccounts: LinkedAccountDetails[];
+  /** True once matching has what it needs: a communication format, an interest and a network to reveal. */
   isComplete: boolean;
 }
 

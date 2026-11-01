@@ -25,6 +25,7 @@ export const Routes = {
   profiles: {
     me: '/api/v1/me/profile',
     interests: '/api/v1/me/profile/interests',
+    linkedAccounts: '/api/v1/me/profile/linked-accounts',
   },
   interests: {
     list: '/api/v1/interests',

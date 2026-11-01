@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.1
- * Generated on: 2026-11-01T10:31:14.696Z
+ * Generated on: 2026-11-01T10:48:47.136Z
  */
 
 import { existsSync } from 'node:fs';
@@ -351,6 +351,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"interestIds":{"type":"array","items":{"type":"string","format":"uuid"},"maxItems":30,"description":"Ids from listInterests; the whole set is replaced, so an empty list clears it"}},"required":["interestIds"],"additionalProperties":false,"examples":[{"interestIds":["b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01"]}],"description":"The JSON request body."}}},
     method: "put",
     pathTemplate: "/api/v1/me/profile/interests",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["replaceMyLinkedAccounts", {
+    name: "replaceMyLinkedAccounts",
+    title: "Set your networks",
+    description: `Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. At least one is required, since sign-in is Google-only and there is no phone number to share. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"linkedAccounts":{"type":"array","items":{"type":"object","properties":{"network":{"type":"string","enum":["telegram","instagram","whatsapp","tiktok","facebook"],"description":"A social network whose handle a mutual match sees"},"username":{"type":"string","maxLength":200,"description":"A nickname with or without \"@\", or a profile link; for WhatsApp, a phone number"}},"required":["network","username"],"additionalProperties":false},"maxItems":5,"description":"The whole set, at most one per social network; an empty list is CONTACT_REQUIRED, since a mutual match needs a contact"}},"required":["linkedAccounts"],"additionalProperties":false,"examples":[{"linkedAccounts":[{"network":"telegram","username":"@olena_k"}]}],"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/profile/linked-accounts",
     executionParameters: [],
     requestBodyContentType: "application/json",
     securityRequirements: [{"bearerAuth":[]}],
