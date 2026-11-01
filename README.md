@@ -14,7 +14,7 @@ Instead of matching first and looking for something to do second, the event is w
 
 Look [here](Project-Description.md) for a more detailed project description
 
-The working staging version is at [nearbystaging.app](https://nearbystaging.app), built from `main` ([Staging](#staging)).
+The working staging version is at [nearbystaging.app](https://nearbystaging.app), built from the `staging` branch ([Staging](#staging)).
 
 ## ໑ Team
 
@@ -119,7 +119,7 @@ Events are still kept in memory, so the API does not see what a run imported unt
 
 ### Staging
 
-Staging runs `main` in Docker Compose on one server: the API at `https://api.nearbystaging.app`, the web app at `https://nearbystaging.app` ([ADR-005](docs/architecture/decisions/ADR-005.md)). Every green merge to `main` publishes the API and web images to GHCR and deploys them over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
+Staging runs the `staging` branch in Docker Compose on one server: the API at `https://api.nearbystaging.app`, the web app at `https://nearbystaging.app` ([ADR-005](docs/architecture/decisions/ADR-005.md)). Pushing `main` to `staging` (`git push origin origin/main:staging`) publishes the API and web images to GHCR and deploys them over SSH. Setup, secrets, rollback, logs, backups and restore: [docs/operations/staging.md](docs/operations/staging.md).
 
 <a id="tests"></a>
 
