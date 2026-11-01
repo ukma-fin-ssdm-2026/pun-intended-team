@@ -294,6 +294,7 @@ model Profile {
   username            String
   displayName         String          @map("display_name")
   description         String?
+  occupation          String?
   communicationFormat DesiredCompany? @map("communication_format")
   sharePhone          Boolean         @default(true) @map("share_phone")
   safetyNoticeAckAt   DateTime?       @map("safety_notice_ack_at") @db.Timestamptz(3)

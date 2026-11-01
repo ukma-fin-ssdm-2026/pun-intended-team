@@ -30,6 +30,7 @@ const ProfileFields = z.object({
   username: z.string(),
   displayName: z.string(),
   description: z.string(),
+  occupation: z.string().describe('What the user does, e.g. their studies or work; can be empty'),
   communicationFormat: CommunicationFormat.nullable().describe('Null until the user picks one'),
   sharePhone: z.boolean().describe('Whether the phone number is revealed on a mutual match'),
   age: z
@@ -46,6 +47,7 @@ export const profileExample: Profile = {
   username: 'olena_k',
   displayName: 'Olena',
   description: 'Cinema, galleries and long walks.',
+  occupation: 'Student at Kyiv-Mohyla Academy',
   communicationFormat: 'friends',
   sharePhone: true,
   age: 28,
@@ -73,6 +75,8 @@ const DisplayName = z.string().trim().min(1).max(50).describe('The name other us
 
 const Description = z.string().trim().max(500).describe('Free text about the user; can be empty');
 
+const Occupation = z.string().trim().max(100).describe('What the user does, e.g. their studies or work; can be empty');
+
 const CreateProfileFields = z.strictObject({
   username: Username,
   displayName: DisplayName,
@@ -91,6 +95,7 @@ const UpdateProfileFields = z
     displayName: DisplayName.optional(),
     username: Username.optional(),
     description: Description.optional(),
+    occupation: Occupation.optional(),
     communicationFormat: CommunicationFormat.optional(),
     sharePhone: z.boolean().optional().describe('Whether the phone number is revealed on a mutual match'),
   })

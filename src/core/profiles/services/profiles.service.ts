@@ -95,6 +95,7 @@ export class ProfilesService {
       username: profile.username,
       displayName: profile.displayName,
       description: profile.description,
+      occupation: profile.occupation,
       communicationFormat: profile.communicationFormat,
       sharePhone: profile.sharePhone,
       age: ageOn(kyivDate(), dateOfBirth),

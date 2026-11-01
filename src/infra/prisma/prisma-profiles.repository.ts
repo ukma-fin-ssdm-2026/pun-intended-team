@@ -90,6 +90,7 @@ function toProfile(row: ProfileRow & { profileInterests: { interestId: string }[
     username: row.username,
     displayName: row.displayName,
     description: row.description ?? '',
+    occupation: row.occupation ?? '',
     communicationFormat: row.communicationFormat && toCommunicationFormat[row.communicationFormat],
     sharePhone: row.sharePhone,
     interestIds: row.profileInterests.map(({ interestId }) => interestId),

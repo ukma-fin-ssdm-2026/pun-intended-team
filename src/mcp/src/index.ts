@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.1
- * Generated on: 2026-10-31T13:41:54.145Z
+ * Generated on: 2026-11-01T10:31:14.696Z
  */
 
 import { existsSync } from 'node:fs';
@@ -331,9 +331,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["updateMyProfile", {
     name: "updateMyProfile",
     title: "Edit your profile",
-    description: `Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+    description: `Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
 (Tags: Profiles)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"},"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"description":{"type":"string","maxLength":500,"description":"Free text about the user; can be empty"},"communicationFormat":{"type":"string","enum":["friends","dating","company"],"description":"What the user is looking for when they go to an event"},"sharePhone":{"type":"boolean","description":"Whether the phone number is revealed on a mutual match"}},"additionalProperties":false,"description":"Only the fields to change; at least one","examples":[{"communicationFormat":"friends"}]}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"},"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"description":{"type":"string","maxLength":500,"description":"Free text about the user; can be empty"},"occupation":{"type":"string","maxLength":100,"description":"What the user does, e.g. their studies or work; can be empty"},"communicationFormat":{"type":"string","enum":["friends","dating","company"],"description":"What the user is looking for when they go to an event"},"sharePhone":{"type":"boolean","description":"Whether the phone number is revealed on a mutual match"}},"additionalProperties":false,"description":"Only the fields to change; at least one","examples":[{"communicationFormat":"friends"}]}}},
     method: "patch",
     pathTemplate: "/api/v1/me/profile",
     executionParameters: [],

@@ -47,6 +47,7 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     username: 'Natalka.Park',
     displayName: 'Natalka',
     description: '',
+    occupation: '',
     communicationFormat: null,
     sharePhone: false,
     interestIds: [],

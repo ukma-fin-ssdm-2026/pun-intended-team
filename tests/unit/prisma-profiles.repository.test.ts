@@ -16,6 +16,7 @@ function aRow(overrides: Record<string, unknown> = {}) {
     username: 'olena_k',
     displayName: 'Olena',
     description: 'Cinema and walks.',
+    occupation: 'Student',
     communicationFormat: 'friends',
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
@@ -47,6 +48,7 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       username: 'olena_k',
       displayName: 'Olena',
       description: 'Cinema and walks.',
+      occupation: 'Student',
       communicationFormat: 'friends',
       sharePhone: true,
       interestIds: [INTEREST_ID],
@@ -59,10 +61,13 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
     assert.equal((await repository.findByAccountId(ACCOUNT_ID))?.communicationFormat, 'company');
   });
 
-  test('reads a missing description as empty', async () => {
-    const { repository } = makeRepository({ row: aRow({ description: null }) });
+  test('reads a missing description and occupation as empty', async () => {
+    const { repository } = makeRepository({ row: aRow({ description: null, occupation: null }) });
 
-    assert.equal((await repository.findByAccountId(ACCOUNT_ID))?.description, '');
+    const profile = await repository.findByAccountId(ACCOUNT_ID);
+
+    assert.equal(profile?.description, '');
+    assert.equal(profile?.occupation, '');
   });
 
   test('is undefined when the account has no profile', async () => {

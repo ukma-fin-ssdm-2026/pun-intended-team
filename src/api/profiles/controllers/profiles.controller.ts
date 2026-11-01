@@ -96,7 +96,7 @@ export class ProfilesController {
     operationId: 'updateMyProfile',
     summary: 'Edit your profile',
     description:
-      'Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; ' +
+      'Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; ' +
       'only the fields sent change. Used for every later onboarding step and for the edit screen.',
     tags: ['Profiles'],
     access: 'user',

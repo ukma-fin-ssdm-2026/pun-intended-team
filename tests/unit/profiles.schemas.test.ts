@@ -12,6 +12,7 @@ const USERNAME_MIN = 3;
 const USERNAME_MAX = 30;
 const DISPLAY_NAME_MAX = 50;
 const DESCRIPTION_MAX = 500;
+const OCCUPATION_MAX = 100;
 const INTERESTS_MAX = 30;
 // FR-002: friends / dating / company for an event.
 const COMMUNICATION_FORMATS = ['friends', 'dating', 'company'] as const;
@@ -142,6 +143,21 @@ describe('UpdateProfileBody', () => {
     const result = UpdateProfileBody.safeParse({ description: 'a'.repeat(DESCRIPTION_MAX + 1) });
 
     assert.deepEqual(rejectedPaths(result), [['description']]);
+  });
+
+  test(`accepts an occupation of ${OCCUPATION_MAX} characters`, () => {
+    const body = { occupation: 'a'.repeat(OCCUPATION_MAX) };
+
+    const result = UpdateProfileBody.safeParse(body);
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, body);
+  });
+
+  test(`rejects an occupation of ${OCCUPATION_MAX + 1} characters and points at occupation`, () => {
+    const result = UpdateProfileBody.safeParse({ occupation: 'a'.repeat(OCCUPATION_MAX + 1) });
+
+    assert.deepEqual(rejectedPaths(result), [['occupation']]);
   });
 
   for (const communicationFormat of COMMUNICATION_FORMATS) {

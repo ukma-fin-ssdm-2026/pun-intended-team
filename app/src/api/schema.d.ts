@@ -355,7 +355,7 @@ export interface paths {
         head?: never;
         /**
          * Edit your profile
-         * @description Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+         * @description Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
          */
         patch: operations["updateMyProfile"];
         trace?: never;
@@ -865,6 +865,7 @@ export interface components {
          *       "username": "olena_k",
          *       "displayName": "Olena",
          *       "description": "Cinema, galleries and long walks.",
+         *       "occupation": "Student at Kyiv-Mohyla Academy",
          *       "communicationFormat": "friends",
          *       "sharePhone": true,
          *       "age": 28,
@@ -881,6 +882,8 @@ export interface components {
             username: string;
             displayName: string;
             description: string;
+            /** @description What the user does, e.g. their studies or work; can be empty */
+            occupation: string;
             /**
              * @description Null until the user picks one
              * @enum {string|null}
@@ -920,6 +923,8 @@ export interface components {
             username?: string;
             /** @description Free text about the user; can be empty */
             description?: string;
+            /** @description What the user does, e.g. their studies or work; can be empty */
+            occupation?: string;
             communicationFormat?: components["schemas"]["CommunicationFormat"];
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone?: boolean;

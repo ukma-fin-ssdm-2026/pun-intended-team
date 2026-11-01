@@ -257,7 +257,10 @@ export default function ProfileScreen() {
               <Text className="font-inter-bold text-h1 text-text-primary">
                 {profile.data.displayName}, {profile.data.age}
               </Text>
-              <Text className="font-inter text-caption text-text-secondary">@{profile.data.username}</Text>
+              {/* Figma shows the occupation here; without one, the username. */}
+              <Text className="font-inter text-caption text-text-secondary">
+                {profile.data.occupation || `@${profile.data.username}`}
+              </Text>
             </View>
           )}
           <ProfileTabs active={tab} onSelect={selectTab} />

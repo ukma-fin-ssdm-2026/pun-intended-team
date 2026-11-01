@@ -15,6 +15,7 @@ export interface Interest {
 /** A profile as stored: interests by id, joined on read. */
 export interface Profile extends ProfileSummary {
   description: string;
+  occupation: string;
   /** Null until the user picks one during onboarding. */
   communicationFormat: CommunicationFormat | null;
   sharePhone: boolean;
@@ -26,6 +27,7 @@ export interface ProfileDetails {
   username: string;
   displayName: string;
   description: string;
+  occupation: string;
   communicationFormat: CommunicationFormat | null;
   sharePhone: boolean;
   /** Whole years, computed from the account's date of birth; the date itself is never returned. */
@@ -45,6 +47,7 @@ export interface ProfileChanges {
   username?: string;
   displayName?: string;
   description?: string;
+  occupation?: string;
   communicationFormat?: CommunicationFormat;
   sharePhone?: boolean;
 }

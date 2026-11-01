@@ -59,8 +59,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const [name, setName] = useState(profile.displayName);
   const [username, setUsername] = useState(profile.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
-  // Hidden: the API has no field for it yet.
-  // const [occupation, setOccupation] = useState('');
+  const [occupation, setOccupation] = useState(profile.occupation);
   const [about, setAbout] = useState(profile.description);
   const [format, setFormat] = useState(profile.communicationFormat);
   const savedInterestIds = profile.interests.map((interest) => interest.id);
@@ -82,6 +81,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
     if (name.trim() !== profile.displayName) changes.displayName = name.trim();
     if (username.trim() !== profile.username) changes.username = username.trim();
     if (about.trim() !== profile.description) changes.description = about.trim();
+    if (occupation.trim() !== profile.occupation) changes.occupation = occupation.trim();
     if (format && format !== profile.communicationFormat) changes.communicationFormat = format;
     const interestsChanged =
       interestIds.length !== savedInterestIds.length || interestIds.some((id) => !savedInterestIds.includes(id));
@@ -123,13 +123,13 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
             autoCorrect={false}
             error={usernameError}
           />
-          {/* Hidden: the API has no field for it yet.
           <TextField
             label="Чим займаєшся?"
             placeholder="Наприклад, студентка КМА"
             value={occupation}
             onChangeText={setOccupation}
-          /> */}
+            maxLength={100}
+          />
           <TextField
             label="Про себе"
             placeholder="Що любиш, куди ходиш, з ким цікаво"

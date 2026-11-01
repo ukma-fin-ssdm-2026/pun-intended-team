@@ -1300,6 +1300,7 @@ describe('POST /api/v1/me/profile', () => {
     assert.equal(res.headers.get('location'), '/api/v1/me/profile');
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.communicationFormat, null);
+    assert.equal(res.body.occupation, '');
     assert.deepEqual(res.body.interests, []);
     assert.equal(res.body.isComplete, false);
   });
@@ -1347,11 +1348,17 @@ describe('PATCH /api/v1/me/profile', () => {
   test('changes only the fields sent', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
-      body: { description: 'Walks and films.', communicationFormat: 'dating', sharePhone: false },
+      body: {
+        description: 'Walks and films.',
+        occupation: 'Student',
+        communicationFormat: 'dating',
+        sharePhone: false,
+      },
     });
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.username, 'Newcomer.One');
     assert.equal(res.body.description, 'Walks and films.');
+    assert.equal(res.body.occupation, 'Student');
     assert.equal(res.body.communicationFormat, 'dating');
     assert.equal(res.body.sharePhone, false);
     assert.equal(res.body.isComplete, false, 'still no interests');

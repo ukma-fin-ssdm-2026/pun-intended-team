@@ -644,6 +644,9 @@ components:
           type: string
         description:
           type: string
+        occupation:
+          type: string
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           type: string
           nullable: true
@@ -674,6 +677,7 @@ components:
         - username
         - displayName
         - description
+        - occupation
         - communicationFormat
         - sharePhone
         - age
@@ -684,6 +688,7 @@ components:
         username: olena_k
         displayName: Olena
         description: Cinema, galleries and long walks.
+        occupation: Student at Kyiv-Mohyla Academy
         communicationFormat: friends
         sharePhone: true
         age: 28
@@ -731,6 +736,10 @@ components:
           type: string
           maxLength: 500
           description: Free text about the user; can be empty
+        occupation:
+          type: string
+          maxLength: 100
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           $ref: '#/components/schemas/CommunicationFormat'
         sharePhone:
@@ -1818,9 +1827,9 @@ paths:
       summary: Edit your profile
       description: >-
         Change the caller’s profile: any of displayName, username, description,
-        communicationFormat and sharePhone; only the fields sent change. Used
-        for every later onboarding step and for the edit screen. Needs a
-        signed-in account; a guest token gets 401.
+        occupation, communicationFormat and sharePhone; only the fields sent
+        change. Used for every later onboarding step and for the edit screen.
+        Needs a signed-in account; a guest token gets 401.
       tags:
         - Profiles
       security:

@@ -34,8 +34,7 @@ export default function ProfileSetupScreen() {
   const [name, setName] = useState(suggestion.displayName);
   const [username, setUsername] = useState(suggestion.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
-  // Hidden: the API has no field for it yet.
-  // const [occupation, setOccupation] = useState('');
+  const [occupation, setOccupation] = useState('');
   const [about, setAbout] = useState('');
   const [format, setFormat] = useState<CommunicationFormat | null>(null);
   const [interestIds, setInterestIds] = useState<string[]>([]);
@@ -66,6 +65,7 @@ export default function ProfileSetupScreen() {
     const updated = await updateProfile({
       ...(exists ? identity : {}),
       description: about.trim(),
+      occupation: occupation.trim(),
       communicationFormat: format,
     });
     const saved = updated.ok ? await replaceInterests(interestIds) : updated;
@@ -100,13 +100,13 @@ export default function ProfileSetupScreen() {
             autoCorrect={false}
             error={usernameError}
           />
-          {/* Hidden: the API has no field for it yet.
           <TextField
             label="Чим займаєшся?"
             placeholder="Наприклад, студентка КМА"
             value={occupation}
             onChangeText={setOccupation}
-          /> */}
+            maxLength={100}
+          />
           <TextField
             label="Про себе"
             placeholder="Що любиш, куди ходиш, з ким цікаво"
