@@ -12,7 +12,7 @@ COPY . .
 ARG EXPO_PUBLIC_API_URL
 ARG EXPO_PUBLIC_GOOGLE_CLIENT_ID
 RUN test -n "$EXPO_PUBLIC_API_URL" && test -n "$EXPO_PUBLIC_GOOGLE_CLIENT_ID" && \
-  npx expo export -p web && rm -rf dist/dev
+  node_modules/.bin/expo export -p web && rm -rf dist/dev
 
 FROM caddy:2
 LABEL org.opencontainers.image.source=https://github.com/ukma-fin-ssdm-2026/pun-intended-team
