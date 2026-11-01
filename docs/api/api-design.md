@@ -49,7 +49,7 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `author` | `{ username, displayName }` | Never the author's contacts |
+| `author` | `{ username, displayName }` | Never the author's contacts. A listing whose author has no profile is left out of the list and is a `404` by id |
 | `category` | `{ id, name }` | |
 | `eventId` | UUID or `null` | Set when the listing is about a catalog event |
 | `title` | string | |

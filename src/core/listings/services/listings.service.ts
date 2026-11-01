@@ -22,7 +22,8 @@ export class ListingsService {
   async list(page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
     const withDetails = await this.detailsFor(result.items);
-    return { ...result, items: result.items.map(withDetails) };
+    // `total` still counts a listing whose author has no profile; such listings are only left out of the items.
+    return { ...result, items: result.items.flatMap((listing) => withDetails(listing) ?? []) };
   }
 
   async getById(id: string): Promise<ListingDetails> {
@@ -31,7 +32,11 @@ export class ListingsService {
       throw new DomainError('NOT_FOUND', 'Listing not found');
     }
     const withDetails = await this.detailsFor([listing]);
-    return withDetails(listing);
+    const details = withDetails(listing);
+    if (!details) {
+      throw new DomainError('NOT_FOUND', 'Listing not found');
+    }
+    return details;
   }
 
   async create(accountId: string, input: NewListing): Promise<ListingDetails> {
@@ -57,7 +62,7 @@ export class ListingsService {
       status: 'active',
     });
     const withDetails = await this.detailsFor([listing]);
-    return withDetails(listing);
+    return required(withDetails(listing), `profile of ${accountId}`);
   }
 
   /**
@@ -72,22 +77,30 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
-  /** Loads the authors and categories of these listings, then adds them to each listing. */
-  private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails> {
+  /**
+   * Loads the authors and categories of these listings, then adds them to each listing. A listing whose author has no
+   * profile gives undefined: the account may never have finished onboarding, or its profile is gone.
+   */
+  private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails | undefined> {
     const [authors, allCategories] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
     ]);
     const categories = new Map(allCategories.map((category) => [category.id, category]));
-    return (listing) => ({
-      ...listing,
-      author: required(authors.get(listing.authorId), `profile of ${listing.authorId}`),
-      category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
-    });
+    return (listing) => {
+      const author = authors.get(listing.authorId);
+      return (
+        author && {
+          ...listing,
+          author,
+          category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
+        }
+      );
+    };
   }
 }
 
-/** A listing always has an author profile and a category; a missing one is a data bug, so a 500. */
+/** A listing always has a category, and a new one an author profile; a missing one is a data bug, so a 500. */
 function required<T>(value: T | undefined, what: string): T {
   if (value === undefined) {
     throw new Error(`Listing refers to a missing ${what}`);
