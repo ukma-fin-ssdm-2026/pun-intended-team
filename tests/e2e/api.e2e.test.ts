@@ -1498,10 +1498,11 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
   });
 
   test('rejects an empty list with 422 CONTACT_REQUIRED and changes nothing', async () => {
-    await call('PUT', '/api/v1/me/profile/linked-accounts', {
+    const saved = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       token: tokens.orgPending,
       body: { linkedAccounts: [{ network: 'telegram', username: 'newcomer' }] },
     });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
     const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       token: tokens.orgPending,
       body: { linkedAccounts: [] },
