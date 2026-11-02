@@ -202,8 +202,32 @@ Demo in [#349](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/349)
 | `1d35705` | Compares a date with itself (`typescript:S1764`, a bug) | ❌ [Failed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124932158826): Reliability C and Maintainability B on new code; merging blocked |
 | `6d2b541` | Removes the bug | ✅ [Passed](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/runs/124934031520) |
 
+### Characterize the API exception filter before refactoring it (#348)
+
+[`ApiExceptionFilter`](../../src/api/common/api-exception.filter.ts) had no tests of its own: its branches were covered at 63 % and the mapping of Nest's `403` was not covered at all ([testing strategy](../testing/testing-strategy.md)). The change was made in two commits, and the tests do not change between them:
+
+1. [`c23e612`](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/commit/c23e612): 46 characterization tests in [tests/unit/api-exception.filter.test.ts](../../tests/unit/api-exception.filter.test.ts), written against the existing code. They fix the status, the full body and what is logged for an `ApiException`, a `DomainError` with and without a field, every status of the table, `403`, statuses outside the table, errors and values that are not errors.
+2. [`e1fc140`](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/commit/e1fc140) `[REFACTOR]`: the `403` → `404` mapping moves from a separate `if` into the `errorByStatus` table, with the reason for the rule (SEC-001, `api-design.md`, *No 403*) as a comment on the entry.
+
+| Suite | Before (`c23e612`) | After (`e1fc140`) |
+|---|---|---|
+| Unit (`npm run test:unit`) | 602 run, 602 passed, 0 failed | 602 run, 602 passed, 0 failed |
+| E2E (`npm run test:e2e`) | 175 run, 175 passed, 0 failed | 175 run, 175 passed, 0 failed |
+
+The 602 unit tests include the 46 new ones.
+
+**Technique.** Fowler's [catalog](https://refactoring.com/catalog/) has no entry for moving a special case into a lookup table. The nearest is *Substitute Algorithm*: the body of `toApiException` goes from a conditional chain to a single table lookup, with the same results. *Inline Variable* removes `status`, which only served the `if` and the lookup.
+
+**Behaviour fixed as it is, not corrected.** The tests record these as they are today:
+
+- an `HttpException` with a status outside the table (405, 418, 422, 500, 503) is answered as `500 INTERNAL_ERROR` and logged;
+- a `DomainError` with an empty field name has no `details`, because the empty string is falsy;
+- the body passed to the adapter has a `details` key with no value when there are no details; it is dropped only when the body becomes JSON;
+- an `ApiException` for `INTERNAL_ERROR` keeps its own message and is not logged;
+- an object that only looks like an `Error` is logged as a value, not with a message and a stack.
+
 ## AI Usage Note
 
 The metrics were retrieved and this report was drafted with Claude Code; the team reviewed the findings against the SonarCloud dashboard and the code. The Regression Testing section was drafted with Claude Code from test runs that were performed and checked by hand (Daryna Halytska).
 
-The Chosen Metrics and Security Rating sections were drafted with Claude Code from the SonarCloud Web API and the team's dashboard screenshots. Reviewed by Vlad-Re
+The Chosen Metrics, Security Rating and the Bonuses sections were drafted with Claude Code from the SonarCloud Web API and the team's dashboard screenshots. Reviewed by Vlad-Re
