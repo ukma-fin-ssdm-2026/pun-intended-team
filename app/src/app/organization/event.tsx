@@ -32,7 +32,8 @@ const GAP_BELOW_STATUS_BAR = 9;
 const ACTION_BOTTOM = 34;
 // "Список категорій" opens 6 px under the field (18 px label, 6 px gap, 52 px field) and shows four and a half rows.
 const LIST_TOP = 18 + 6 + 52 + 6;
-const LIST_HEIGHT = 232;
+// The list is as tall as its items, up to four and a half rows; longer lists scroll.
+const LIST_MAX_HEIGHT = 232;
 // The API's limits.
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 5000;
@@ -60,24 +61,24 @@ function ChoiceList({
   return (
     <View
       className="absolute left-0 right-0 overflow-hidden rounded-[18px] bg-surface-card"
-      style={{ top: LIST_TOP, height: LIST_HEIGHT, boxShadow: shadows.medium, elevation: 8 }}
+      style={{ top: LIST_TOP, maxHeight: LIST_MAX_HEIGHT, boxShadow: shadows.medium, elevation: 8 }}
     >
       {status === 'loading' ? (
-        <View className="flex-1 items-center justify-center">
+        <View className="min-h-24 items-center justify-center">
           <ActivityIndicator size="small" color={colors.brand.coral} />
         </View>
       ) : status === 'error' ? (
-        <Pressable accessibilityRole="button" onPress={onRetry} className="flex-1 items-center justify-center px-4">
+        <Pressable accessibilityRole="button" onPress={onRetry} className="min-h-24 items-center justify-center px-4">
           <Text className="text-center font-inter-medium text-label text-brand-coral">
             Не вдалося завантажити. Спробувати ще раз
           </Text>
         </Pressable>
       ) : items.length === 0 ? (
-        <View className="flex-1 items-center justify-center px-4">
+        <View className="min-h-24 items-center justify-center px-4 py-3">
           <Text className="text-center font-inter text-caption text-text-secondary">{emptyText}</Text>
         </View>
       ) : (
-        <ScrollView nestedScrollEnabled contentContainerClassName="py-1">
+        <ScrollView nestedScrollEnabled className="shrink" contentContainerClassName="py-1">
           {items.map((item) => {
             const isSelected = item.id === selected;
             return (
@@ -268,7 +269,8 @@ export default function OrganizationEventEditorScreen() {
         </View>
 
         <TextField label="Назва" required value={title} onChangeText={setTitle} error={shown('title')} />
-        <View className="z-10">
+        {/* Each list lies over the fields after it, so an earlier field has the higher z-index. */}
+        <View className="z-30">
           <TextField
             label="Категорія"
             required
@@ -326,7 +328,7 @@ export default function OrganizationEventEditorScreen() {
             />
           </View>
         </View>
-        <View className="z-10">
+        <View className="z-20">
           <TextField
             label="Місце"
             required
