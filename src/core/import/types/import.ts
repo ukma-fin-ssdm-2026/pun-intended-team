@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Category } from '../../catalog/types/category.ts';
 import type { Venue } from '../../catalog/types/venue.ts';
 
 /** An external event in our own shape: what an adapter's `normalize` returns. */
@@ -49,3 +50,9 @@ export interface ImportedEventRow extends ImportedEventFields {
   provider: string;
   externalId: string;
 }
+
+/** A category a provider's genre can map to. */
+export type ImportCategory = Pick<Category, 'id' | 'name'>;
+
+/** How an import run ended; the last `succeeded` run gives the "last updated" notice (FR-014). */
+export type ImportRunStatus = 'succeeded' | 'failed';

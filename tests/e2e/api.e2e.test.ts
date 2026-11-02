@@ -353,11 +353,16 @@ async function freshDatabase(): Promise<string> {
 
 /** MAIN_DATABASE_URL pointed at the run's database: the API and the seed connect as nearby_main. */
 function mainDatabaseUrl(): string {
-  const mainUrl = process.env.MAIN_DATABASE_URL;
-  if (!mainUrl) {
-    throw new Error('MAIN_DATABASE_URL is not set: see .env.example');
+  return runDatabaseUrl('MAIN_DATABASE_URL');
+}
+
+/** The role's connection string from `variable`, pointed at the run's database. */
+function runDatabaseUrl(variable: 'MAIN_DATABASE_URL' | 'IMPORT_DATABASE_URL'): string {
+  const roleUrl = process.env[variable];
+  if (!roleUrl) {
+    throw new Error(`${variable} is not set: see .env.example`);
   }
-  const url = new URL(mainUrl);
+  const url = new URL(roleUrl);
   url.pathname = new URL(databaseUrl).pathname;
   return url.toString();
 }
@@ -1988,6 +1993,78 @@ describe('Parallel requests', () => {
     assert.equal((await complete(first?.body.accessToken)).status, 200);
     for (const res of others) {
       assertRejected(await complete(res.body.accessToken), 409, 'CONFLICT');
+    }
+  });
+});
+
+// CMP-03, FR-008, FR-015: the import is a process of its own, connected as nearby_import (database-access.md).
+describe('Event import', () => {
+  /** One import run from a folder without .env, with IMPORT_DATABASE_URL as its only setting: no key file, no MAIN_DATABASE_URL. */
+  function runImport() {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
+    try {
+      const run = spawnSync(process.execPath, [path.resolve('dist/import/main.js')], {
+        cwd,
+        encoding: 'utf8',
+        env: { PATH: process.env.PATH, IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL') },
+      });
+      assert.equal(run.status, 0, `${run.stdout}${run.stderr}`);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  const importedEvents = () =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ organization_id: string | null; status: string; venue_source: string }>(
+        `SELECT e.organization_id, e.status, v.source AS venue_source
+           FROM events e JOIN venues v ON v.id = e.venue_id
+          WHERE e.source = 'import' AND e.provider = 'concert_ua'`,
+      );
+      return rows;
+    });
+
+  test('takes the usable records of the feed into events and venues, and keeps the run and the skipped ones', async () => {
+    const runsBefore = await withDatabase(async (client) =>
+      (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
+    );
+
+    runImport();
+
+    const events = await importedEvents();
+    assert.equal(events.length, 3);
+    for (const event of events) {
+      assert.deepEqual(event, { organization_id: null, status: 'published', venue_source: 'import' });
+    }
+    const { rows: runs } = await withDatabase((client) =>
+      client.query<{ status: string; finished: boolean; skipped: number }>(
+        `SELECT r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
+           FROM import_runs r LEFT JOIN skipped_records s ON s.import_run_id = r.id
+          WHERE r.provider = 'concert_ua' AND NOT (r.id = ANY($1::uuid[]))
+          GROUP BY r.id`,
+        [runsBefore],
+      ),
+    );
+    assert.deepEqual(runs, [{ status: 'succeeded', finished: true, skipped: 3 }]);
+  });
+
+  test('changes nothing when the feed has not changed', async () => {
+    runImport();
+    const first = await importedEvents();
+
+    runImport();
+
+    assert.equal((await importedEvents()).length, first.length);
+    assert.equal(first.length, 3);
+  });
+
+  test('connects as nearby_import, which may not read a table outside its grants', async () => {
+    const client = new pg.Client({ connectionString: runDatabaseUrl('IMPORT_DATABASE_URL') });
+    await client.connect();
+    try {
+      await assert.rejects(client.query('SELECT id FROM accounts LIMIT 1'), /permission denied for table accounts/);
+    } finally {
+      await client.end();
     }
   });
 });
