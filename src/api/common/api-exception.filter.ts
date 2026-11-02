@@ -11,6 +11,8 @@ import type { ErrorCode, ErrorResponse } from './schemas/errors.ts';
 const errorByStatus: Partial<Record<number, { code: ErrorCode; message: string }>> = {
   [HttpStatus.BAD_REQUEST]: { code: 'VALIDATION_ERROR', message: 'The request is invalid' },
   [HttpStatus.UNAUTHORIZED]: { code: 'UNAUTHENTICATED', message: 'A valid access token is required' },
+  // The API never answers 403: never reveal that the resource exists (api-design.md, No 403).
+  [HttpStatus.FORBIDDEN]: { code: 'NOT_FOUND', message: 'Not found' },
   [HttpStatus.NOT_FOUND]: { code: 'NOT_FOUND', message: 'Not found' },
   [HttpStatus.CONFLICT]: { code: 'CONFLICT', message: 'The request conflicts with the current state' },
   [HttpStatus.PAYLOAD_TOO_LARGE]: { code: 'PAYLOAD_TOO_LARGE', message: 'The request body is too large' },
@@ -50,11 +52,7 @@ function toApiException(exception: unknown): ApiException | undefined {
     return new ApiException(code, message, field ? [{ location: 'body', field, message }] : undefined);
   }
   if (exception instanceof HttpException) {
-    const status: HttpStatus = exception.getStatus();
-    if (status === HttpStatus.FORBIDDEN) {
-      return new ApiException('NOT_FOUND', 'Not found');
-    }
-    const error = errorByStatus[status];
+    const error = errorByStatus[exception.getStatus()];
     if (error) {
       return new ApiException(error.code, error.message);
     }
