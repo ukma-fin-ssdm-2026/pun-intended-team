@@ -2,6 +2,7 @@
 // AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
 // data; reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -17,6 +18,7 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDay, formatShortDay, formatTimeRange } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
+import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -140,7 +142,11 @@ export default function EventScreen() {
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 
-  const { data: event, loading, error, notFound, reload } = useEvent(id);
+  const { data: liveEvent, loading, error, notFound, reload } = useEvent(id);
+  // Temporary: the screens still on mocks (map, matches, saved events, notifications) open mock events, which the API
+  // does not know. Remove the fallback when those screens move to the API.
+  const mockEvent = liveEvent ? undefined : findMockEvent(id);
+  const event = liveEvent ?? mockEvent;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (loading) {
@@ -184,8 +190,12 @@ export default function EventScreen() {
         <View className="h-[340px] overflow-hidden">
           {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
           <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-            {/* The API has no cover images yet. */}
-            <CoralGradient preset="cover" />
+            {/* The API has no cover images yet; only mock events have one. */}
+            {mockEvent?.cover ? (
+              <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <CoralGradient preset="cover" />
+            )}
             <TopShade />
           </BlurTargetView>
           <View
@@ -238,7 +248,7 @@ export default function EventScreen() {
             <DetailRow
               icon="pin"
               value={event.venue.name}
-              note={event.venue.address}
+              note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
               // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
               onPress={() => router.navigate('/map')}
             />
@@ -248,6 +258,18 @@ export default function EventScreen() {
               value={formatEventDay(event.startsAt)}
               note={formatTimeRange(event.startsAt, event.endsAt)}
             />
+            {/* The API has no organizer name yet; only mock events have one. */}
+            {mockEvent && (
+              <>
+                <View className="h-px bg-border-default" />
+                <DetailRow
+                  icon="building"
+                  value={mockEvent.organizer}
+                  note="Організатор події"
+                  onPress={() => router.push('/organizer')}
+                />
+              </>
+            )}
           </View>
 
           <View className="gap-3">
