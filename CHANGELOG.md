@@ -9,6 +9,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 ### Refactoring
 
 - Durations use shared time constants instead of hand-written arithmetic ([#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306)). Technique: Replace Magic Number with Symbolic Constant.
+- The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
 
 ## [1.1.0] - 2026-11-01
 
