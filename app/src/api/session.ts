@@ -2,6 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
+import { clearOwnEvents } from '@/state/organization-events';
 import { clearProfile } from '@/state/profile';
 import { setRole, setSignedIn } from '@/state/session';
 
@@ -45,7 +46,10 @@ function roleOf(accessToken: string): string | undefined {
 }
 
 export async function startSession(tokens: SessionTokens) {
-  if (!account) clearProfile();
+  if (!account) {
+    clearProfile();
+    clearOwnEvents();
+  }
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
   setSignedIn(true);
@@ -55,6 +59,7 @@ export async function startSession(tokens: SessionTokens) {
 async function endSession() {
   account = undefined;
   clearProfile();
+  clearOwnEvents();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }
