@@ -36,9 +36,14 @@ export function useEvents(categoryId?: string) {
 
   useEffect(() => {
     let cancelled = false;
-    loadAll(categoryId).then((loaded) => {
-      if (!cancelled) setResult({ ...loaded, categoryId, attempt });
-    });
+    // `call` turns a failed request into an error result; the catch is for a body that is not a page of events.
+    loadAll(categoryId)
+      .then((loaded) => {
+        if (!cancelled) setResult({ ...loaded, categoryId, attempt });
+      })
+      .catch(() => {
+        if (!cancelled) setResult({ error: 'Could not load events.', categoryId, attempt });
+      });
     return () => {
       cancelled = true;
     };
