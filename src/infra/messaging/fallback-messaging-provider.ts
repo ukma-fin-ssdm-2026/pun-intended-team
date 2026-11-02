@@ -7,6 +7,7 @@ import { maskPhone } from './mask-phone.ts';
 
 /** Tries each channel in order, Telegram first, and uses the first that takes the code. */
 export class FallbackMessagingProvider implements MessagingProvider {
+  readonly sendsCodes = true;
   private readonly logger = new Logger('Messaging');
 
   constructor(private readonly senders: CodeSender[]) {}

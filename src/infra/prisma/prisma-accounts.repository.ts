@@ -4,6 +4,7 @@ import { AccountsRepository } from '../../core/identity/repositories/accounts.re
 import type {
   Account,
   AccountRecord,
+  AccountStatus,
   GoogleLinkResult,
   PasswordCredential,
   SignInLockout,
@@ -43,14 +44,30 @@ export class PrismaAccountsRepository implements AccountsRepository {
   async create({ phone, role, status, dateOfBirth }: AccountRecord): Promise<Account> {
     const account = await this.prisma.account.create({
       data: {
-        contactIdentifier: this.cipher.encrypt(phone),
-        contactHash: this.cipher.hash(phone),
+        contactIdentifier: phone === null ? null : this.cipher.encrypt(phone),
+        contactHash: phone === null ? null : this.cipher.hash(phone),
         dateOfBirth: dateOfBirth === null ? null : this.cipher.encrypt(dateOfBirth),
         role,
         status,
       },
     });
     return { id: account.id, phone, role, status, dateOfBirth };
+  }
+
+  async createWithGoogle(subject: string): Promise<Account> {
+    try {
+      const account = await this.prisma.account.create({
+        data: { role: 'user', status: 'pending', authMethods: { create: { type: 'google', secret: subject } } },
+      });
+      return { id: account.id, phone: null, role: account.role, status: account.status, dateOfBirth: null };
+    } catch (error) {
+      const existing =
+        violatedIndex(error) === 'auth_methods_type_secret_key' ? await this.findByGoogleSubject(subject) : undefined;
+      if (!existing) {
+        throw error;
+      }
+      return existing;
+    }
   }
 
   async activate(accountId: string, dateOfBirth: string): Promise<void> {
@@ -123,6 +140,14 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
   }
 
+  async setStatus(accountId: string, status: AccountStatus): Promise<void> {
+    await this.prisma.account.update({ where: { id: accountId }, data: { status } });
+  }
+
+  async countByStatus(status: AccountStatus): Promise<number> {
+    return this.prisma.account.count({ where: { status } });
+  }
+
   private findAuthMethod(accountId: string, type: 'password' | 'google') {
     return this.prisma.authMethod.findUnique({ where: { accountId_type: { accountId, type } } });
   }
@@ -133,7 +158,7 @@ export class PrismaAccountsRepository implements AccountsRepository {
     }
     return {
       id: row.id,
-      phone: this.cipher.decrypt(row.contactIdentifier),
+      phone: row.contactIdentifier === null ? null : this.cipher.decrypt(row.contactIdentifier),
       role: row.role,
       status: row.status,
       dateOfBirth: row.dateOfBirth === null ? null : this.cipher.decrypt(row.dateOfBirth),

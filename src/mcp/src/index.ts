@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * MCP Server generated from OpenAPI spec for nearby-api-mcp v0.1.0
- * Generated on: 2026-10-24T10:23:16.126Z
+ * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
+ * Generated on: 2026-11-01T19:11:48.147Z
  */
 
 import { existsSync } from 'node:fs';
@@ -46,7 +46,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = "nearby-api-mcp";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "1.1.1";
 // Instructions sent to clients, from the OpenAPI info.description.
 export const SERVER_INSTRUCTIONS = "REST API of Nearby, an app for going to events and meeting people along the way.";
 // Base URL for the API, can be set via environment variable or determined from OpenAPI spec
@@ -58,6 +58,21 @@ console.error("API_BASE_URL is set to:", API_BASE_URL);
  */
 const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
+  ["adminGetStats", {
+    name: "adminGetStats",
+    title: "Get platform statistics",
+    description: `Count active users, upcoming events, matches and open report cases. Needs an administrator account; other accounts get 404.
+(Tags: Admin)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/stats",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Admin"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
   ["adminListCategories", {
     name: "adminListCategories",
     title: "List all categories",
@@ -283,10 +298,85 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
   }],
+  ["adminListReportCases", {
+    name: "adminListReportCases",
+    title: "List report cases",
+    description: `List report cases, oldest first: one case per reported user, with the number of reports. Open cases by default; \`status=resolved\` lists the resolved ones. Needs an administrator account; other accounts get 404.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"status":{"type":"string","enum":["open","resolved"],"default":"open","description":"open (the default) or resolved"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/report-cases",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"},{"name":"status","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminGetReportCase", {
+    name: "adminGetReportCase",
+    title: "Get a report case",
+    description: `Get a report case with every report in it: who reported, the reason and the comment. Needs an administrator account; other accounts get 404.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/admin/report-cases/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminBanReportedUser", {
+    name: "adminBanReportedUser",
+    title: "Ban the reported user",
+    description: `Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban is applied again, so a ban that failed halfway can be retried. Needs an administrator account; other accounts get 404.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/report-cases/{id}/ban",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["adminDismissReportCase", {
+    name: "adminDismissReportCase",
+    title: "Dismiss a report case",
+    description: `Resolve the case without action, when the reports turn out to be unfounded. Needs an administrator account; other accounts get 404.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/report-cases/{id}/dismiss",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["reportUser", {
+    name: "reportUser",
+    title: "Report a user",
+    description: `Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"username":{"type":"string","minLength":1,"maxLength":50,"description":"Username of the user being reported, as their profile shows it"},"reason":{"type":"string","enum":["offensive_messages","no_show","fake_profile","unsafe_behaviour","other"],"description":"offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other"},"comment":{"type":"string","maxLength":1000,"description":"What happened, in the reporter’s words"}},"required":["username","reason"],"additionalProperties":false,"examples":[{"username":"olena_k","reason":"no_show","comment":"We agreed to meet at the entrance; she did not come and did not answer."}],"description":"The JSON request body."}}},
+    method: "post",
+    pathTemplate: "/api/v1/reports",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
   ["listInterests", {
     name: "listInterests",
     title: "List the interests users can pick",
-    description: `List the fixed set of interests users can pick for their profile; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
+    description: `List the fixed set of interests users can pick for their profile, group by group and then by name; their ids go in interestIds. Needs a signed-in account; a guest token gets 401.
 (Tags: Interests)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -301,7 +391,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["getMyProfile", {
     name: "getMyProfile",
     title: "Get your profile",
-    description: `Get the caller’s own profile with the age computed from the account’s date of birth. \`isComplete\` is true once a communication format and at least one interest are set. Needs a signed-in account; a guest token gets 401.
+    description: `Get the caller’s own profile with the age computed from the account’s date of birth. \`isComplete\` is true once a communication format, at least one interest and at least one linked account are set. Needs a signed-in account; a guest token gets 401.
 (Tags: Profiles)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -331,9 +421,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["updateMyProfile", {
     name: "updateMyProfile",
     title: "Edit your profile",
-    description: `Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
+    description: `Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; only the fields sent change. Used for every later onboarding step and for the edit screen. Needs a signed-in account; a guest token gets 401.
 (Tags: Profiles)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"},"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"description":{"type":"string","maxLength":500,"description":"Free text about the user; can be empty"},"communicationFormat":{"type":"string","enum":["friends","dating","company"],"description":"What the user is looking for when they go to an event"},"sharePhone":{"type":"boolean","description":"Whether the phone number is revealed on a mutual match"}},"additionalProperties":false,"description":"Only the fields to change; at least one","examples":[{"communicationFormat":"friends"}]}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"displayName":{"type":"string","minLength":1,"maxLength":50,"description":"The name other users see"},"username":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._]{2,29}$","description":"Unique, case-insensitive; 3 to 30 letters, digits, dots or underscores"},"description":{"type":"string","maxLength":500,"description":"Free text about the user; can be empty"},"occupation":{"type":"string","maxLength":100,"description":"What the user does, e.g. their studies or work; can be empty"},"communicationFormat":{"type":"string","enum":["friends","dating","company"],"description":"What the user is looking for when they go to an event"},"sharePhone":{"type":"boolean","description":"Whether the phone number is revealed on a mutual match"}},"additionalProperties":false,"description":"Only the fields to change; at least one","examples":[{"communicationFormat":"friends"}]}}},
     method: "patch",
     pathTemplate: "/api/v1/me/profile",
     executionParameters: [],
@@ -351,6 +441,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"interestIds":{"type":"array","items":{"type":"string","format":"uuid"},"maxItems":30,"description":"Ids from listInterests; the whole set is replaced, so an empty list clears it"}},"required":["interestIds"],"additionalProperties":false,"examples":[{"interestIds":["b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01"]}],"description":"The JSON request body."}}},
     method: "put",
     pathTemplate: "/api/v1/me/profile/interests",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["replaceMyLinkedAccounts", {
+    name: "replaceMyLinkedAccounts",
+    title: "Set your networks",
+    description: `Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. At least one is required, since sign-in is Google-only and there is no phone number to share. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"linkedAccounts":{"type":"array","items":{"type":"object","properties":{"network":{"type":"string","enum":["telegram","instagram","whatsapp","tiktok","facebook"],"description":"A social network whose handle a mutual match sees"},"username":{"type":"string","maxLength":200,"description":"A nickname with or without \"@\", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE"}},"required":["network","username"],"additionalProperties":false},"maxItems":5,"description":"The whole set, at most one per social network; an empty list is CONTACT_REQUIRED, since a mutual match needs a contact"}},"required":["linkedAccounts"],"additionalProperties":false,"examples":[{"linkedAccounts":[{"network":"telegram","username":"@olena_k"}]}],"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/profile/linked-accounts",
     executionParameters: [],
     requestBodyContentType: "application/json",
     securityRequirements: [{"bearerAuth":[]}],

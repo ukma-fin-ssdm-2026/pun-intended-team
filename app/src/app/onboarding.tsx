@@ -17,11 +17,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { GoogleButton } from '@/components/auth/google-button';
 import { EventsCollage } from '@/components/onboarding/events-collage';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { Snackbar, type SnackbarContent } from '@/components/ui/snackbar';
+import { useGoogleAuth } from '@/hooks/use-google-auth';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { setGuest } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -45,7 +48,7 @@ const steps: { icon: IconName; title: string; note: string; accent?: boolean }[]
 
 const rules: { icon: IconName; text: string }[] = [
   { icon: 'user', text: 'Лише для людей від 18 років' },
-  { icon: 'send', text: 'Твій номер і Telegram побачить лише взаємний метч' },
+  { icon: 'send', text: 'Твої контакти побачить лише взаємний метч' },
   { icon: 'danger', text: 'Модератори стежать за порядком і реагують на кожну скаргу' },
 ];
 
@@ -68,15 +71,17 @@ type ActionsProps = {
   page: number;
   onDot: (page: number) => void;
   onNext: () => void;
-  onSignUp: () => void;
-  onSignIn: () => void;
+  onIdToken: (idToken: string) => void;
+  onGoogleFailure: (snackbar: SnackbarContent) => void;
+  googleLoading: boolean;
   onGuest: () => void;
   onHeight: (height: number) => void;
 };
 
 // "02 Дії" stays in place while the slides move: the step indicator only moves its active dot, and the main button is
-// "Далі" until В3, where it becomes "Зареєструватися". Figma spaces it 18 px apart (В2, В3).
-function Actions({ page, onDot, onNext, onSignUp, onSignIn, onGuest, onHeight }: ActionsProps) {
+// "Далі" until В3, where it becomes Google's, for signing in and signing up alike. "Увійти" on В1 and В2 leads to В3.
+// Figma spaces it 18 px apart (В2, В3).
+function Actions({ page, onDot, onNext, onIdToken, onGoogleFailure, googleLoading, onGuest, onHeight }: ActionsProps) {
   const insets = useSafeAreaInsets();
   const last = page === PAGES - 1;
   return (
@@ -99,13 +104,21 @@ function Actions({ page, onDot, onNext, onSignUp, onSignIn, onGuest, onHeight }:
         ))}
       </View>
       <View className="w-full">
-        <Button label={last ? 'Зареєструватися' : 'Далі'} onPress={last ? onSignUp : onNext} />
+        {last ? (
+          <GoogleButton variant="light" loading={googleLoading} onIdToken={onIdToken} onFailure={onGoogleFailure} />
+        ) : (
+          <Button label="Далі" onPress={onNext} />
+        )}
       </View>
       <View className="flex-row items-center gap-3.5">
-        <Pressable accessibilityRole="link" onPress={onSignIn}>
-          <Text className="font-inter-medium text-label text-text-on-dark">Увійти</Text>
-        </Pressable>
-        <View className="size-1 rounded-full bg-white/[0.35]" />
+        {!last && (
+          <>
+            <Pressable accessibilityRole="link" onPress={() => onDot(PAGES - 1)}>
+              <Text className="font-inter-medium text-label text-text-on-dark">Увійти</Text>
+            </Pressable>
+            <View className="size-1 rounded-full bg-white/[0.35]" />
+          </>
+        )}
         <Pressable accessibilityRole="link" onPress={onGuest}>
           <Text className="font-inter-medium text-label text-text-on-dark-muted">Продовжити як гість</Text>
         </Pressable>
@@ -121,6 +134,7 @@ export default function OnboardingScreen() {
   const offset = useSharedValue(0);
   const [page, setPage] = useState(0);
   const [actionsHeight, setActionsHeight] = useState(0);
+  const google = useGoogleAuth();
   useStatusBarStyle('light');
 
   const onScroll = useAnimatedScrollHandler((event) => {
@@ -250,16 +264,18 @@ export default function OnboardingScreen() {
         page={page}
         onDot={goTo}
         onNext={() => goTo(page + 1)}
-        onSignUp={() => router.push('/sign-up')}
-        onSignIn={() => router.push('/sign-in')}
+        onIdToken={google.continueWithGoogle}
+        onGoogleFailure={google.showSnackbar}
+        googleLoading={google.loading}
         // A guest starts a new history on the catalog (01.2).
         onGuest={() => {
           setGuest(true);
-          router.dismissAll();
+          if (router.canDismiss()) router.dismissAll();
           router.replace('/');
         }}
         onHeight={setActionsHeight}
       />
+      {google.snackbar && <Snackbar {...google.snackbar} />}
     </View>
   );
 }

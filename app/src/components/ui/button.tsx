@@ -1,6 +1,6 @@
 // Written with the help of Claude
 // AI Usage: Button with the Figma variants, sizes and states; reviewed by Daryna Halytska.
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Spinner } from '@/components/ui/spinner';
@@ -18,6 +18,8 @@ type Props = {
   size?: ButtonSize;
   disabled?: boolean;
   loading?: boolean;
+  // Drawn before the label, 12 px apart, e.g. the Google mark.
+  leading?: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -76,7 +78,7 @@ const variantStyles: Record<ButtonVariant, VariantStyle> = {
   },
 };
 
-export function Button({ label, onPress, variant = 'primary', size = 'lg', disabled, loading, style }: Props) {
+export function Button({ label, onPress, variant = 'primary', size = 'lg', disabled, loading, leading, style }: Props) {
   const [hovered, setHovered] = useState(false);
   const sizes = sizeClasses[size];
   const look = variantStyles[variant];
@@ -105,6 +107,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', disab
               <View className="absolute inset-0" style={{ backgroundColor: look.hoverOverlay }} />
             )}
             {/* While loading, the label keeps the button's width and the spinner is drawn over it, as in Figma. */}
+            {leading && <View className={`mr-3 ${loading ? 'opacity-0' : ''}`}>{leading}</View>}
             <Text
               numberOfLines={1}
               className={`font-inter-semibold ${sizes.text} ${disabled ? look.disabledText : look.text} ${loading ? 'opacity-0' : ''}`}

@@ -19,7 +19,7 @@ Nearby helps people find company for attending cultural and entertainment events
 
 ### 2. System Boundaries
 **In scope for this semester:**
-- User registration with phone verification, authentication, profiles with interests.
+- User registration with phone verification, authentication, profiles with interests. Registration and sign-in are Google-only for now, until phone codes are funded ([ADR-004](docs/architecture/decisions/ADR-004.md)).
 - Event catalog populated through integration with external listing service(s) (Concert.ua, ArtWizard, etc.), as well as through direct posts from organizations/venues.
 - A basic matching algorithm based on shared interests and the chosen event.
 - Exchange of contact details between matched participants (no built-in messenger/chat inside the app).
@@ -48,7 +48,7 @@ Nearby helps people find company for attending cultural and entertainment events
 ### 5. Non-Functional Requirements
 1. **Performance**: the event catalog page must load in ≤ 1 second for 100 concurrent users.
 2. **Security/Privacy**: user passwords are never stored or transmitted in plain text — only in a securely hashed form.
-3. **Reliability**: the matching algorithm must complete processing a request within no more than 3 seconds and correctly handle the case where no suitable match is found.
+3. **Reliability**: a match request must get an answer within one minute — a proposed match, or the time of the next matching round when no suitable match is found (PERF-003).
 4. **Usability**: filling in a profile as a new user must take no more than 5 minutes (no more than 10 required fields).
 
 The measurable criteria are in [`requirements.md`](docs/requirements/requirements.md#4-non-functional-requirements-nfr).

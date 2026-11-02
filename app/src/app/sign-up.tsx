@@ -1,18 +1,19 @@
 // Written with the help of Claude
-// AI Usage: sign-up screen from the Figma "В5 Реєстрація" frame, connected to the auth API; reviewed by Daryna
-// Halytska.
-import { Stack, useRouter } from 'expo-router';
+// AI Usage: sign-up screen based on the Figma "В5 Реєстрація" frame, with Google instead of the phone number.
+import { Redirect, Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { call, publicClient } from '@/api/public-client';
-import { failureMessage, messages } from '@/auth/messages';
-import { toApiPhone } from '@/auth/phone';
-import { AuthFooter, AuthLayout } from '@/components/auth/auth-layout';
+import { startSession } from '@/api/session';
+import { failureSnackbar, googleSnackbars, messages } from '@/auth/messages';
+import { AuthLayout } from '@/components/auth/auth-layout';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
-import { startAuthFlow } from '@/state/auth-flow';
+import { useSignIn } from '@/hooks/use-sign-in';
+import { finishGoogleRegistration, googleProfile, googleRegistrationToken } from '@/state/google-registration';
 import { colors } from '@/styles/tokens';
 
 const MIN_AGE = 18;
@@ -37,59 +38,115 @@ function toIsoDate(value: string): string | undefined {
     : undefined;
 }
 
+// Shown only to a Google account that has no Nearby account yet; the Google button sends it here with the ID token.
 export default function SignUpScreen() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const openCatalog = useSignIn();
+  const [idToken] = useState(googleRegistrationToken);
   const [birthDate, setBirthDate] = useState('');
   const [agreed, setAgreed] = useState(false);
-  const [phoneError, setPhoneError] = useState<string>();
-  const [dateError, setDateError] = useState<string>();
   const [loading, setLoading] = useState(false);
-  const underAge = isUnderAge(birthDate);
+  const [serverUnderAge, setServerUnderAge] = useState(false);
+  const { snackbar, show, hide } = useSnackbar();
 
-  const submit = async () => {
-    const apiPhone = toApiPhone(phone);
-    const dateOfBirth = toIsoDate(birthDate);
-    setPhoneError(apiPhone ? undefined : messages.phone);
-    setDateError(dateOfBirth ? undefined : 'Введи дату як ДД.ММ.РРРР');
-    if (!apiPhone || !dateOfBirth || underAge) return;
+  // E.g. the web page was reloaded: the token lived in memory only.
+  if (!idToken) return <Redirect href="/onboarding" />;
+
+  const { name, email } = googleProfile(idToken);
+  const underAge = isUnderAge(birthDate) || serverUnderAge;
+  const dateOfBirth = toIsoDate(birthDate);
+  const ready = !!dateOfBirth && !underAge && agreed;
+
+  const createAccount = async () => {
+    if (!dateOfBirth) return;
+    hide();
     setLoading(true);
-    const result = await call(() => publicClient.POST('/api/v1/auth/register', { body: { phone: apiPhone } }));
-    setLoading(false);
-    if (result.ok) {
-      startAuthFlow({ purpose: 'register', phone: apiPhone, dateOfBirth });
-      router.push('/verify-code');
-    } else if (result.status === 429) {
-      router.push('/too-many-attempts');
-    } else {
-      setPhoneError(result.status === 400 ? messages.phone : failureMessage(result));
+    const registered = await call(() => publicClient.POST('/api/v1/auth/google/register', { body: { idToken } }));
+    if (!registered.ok) {
+      if (registered.status === 409) {
+        // The account was finished meanwhile, e.g. on another device: sign in with the same token.
+        const signedIn = await call(() => publicClient.POST('/api/v1/auth/google', { body: { idToken } }));
+        setLoading(false);
+        if (signedIn.ok) {
+          finishGoogleRegistration();
+          await startSession(signedIn.data);
+          openCatalog();
+        } else {
+          show(failureSnackbar(signedIn));
+        }
+        return;
+      }
+      setLoading(false);
+      if (registered.status === 429) router.push('/too-many-attempts');
+      else if (registered.status === 422) show(googleSnackbars.expired);
+      else show(failureSnackbar(registered));
+      return;
     }
+    const completed = await call(() =>
+      publicClient.POST('/api/v1/auth/complete-registration', {
+        body: { dateOfBirth },
+        headers: { Authorization: `Bearer ${registered.data.accessToken}` },
+      }),
+    );
+    setLoading(false);
+    if (!completed.ok) {
+      if (completed.status === 422) setServerUnderAge(true);
+      else show(failureSnackbar(completed));
+      return;
+    }
+    finishGoogleRegistration();
+    await startSession(completed.data);
+    router.replace('/profile-setup');
   };
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <AuthLayout
-        title="Створімо акаунт"
-        subtitle="Ми надішлемо тобі код, щоб переконатися, що що ти справді існуєш."
-        footer={<AuthFooter question="Вже є акаунт?" link="Увійти" onPress={() => router.replace('/sign-in')} />}
+        title="Ще один крок"
+        subtitle="Nearby лише для людей від 18 років, тож нам потрібна дата народження."
+        footer={
+          <Button
+            label="Створити акаунт"
+            variant="dark"
+            disabled={!ready}
+            loading={loading}
+            onPress={() => void createAccount()}
+          />
+        }
       >
-        <TextField
-          label="Номер телефону"
-          placeholder="+380 67 123 45 67"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-          autoComplete="tel"
-          error={phoneError}
-        />
+        {/* The Google account that is registering, so someone with two accounts sees which one it is. */}
+        <View className="flex-row items-center gap-3 rounded-2xl border border-border-default px-3.5 py-3">
+          <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
+            <Text className="font-inter-semibold text-body text-text-on-dark">
+              {(name ?? email ?? '?').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <View className="flex-1">
+            {name && <Text className="font-inter-semibold text-body text-text-primary">{name}</Text>}
+            {email && (
+              <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
+                {email}
+              </Text>
+            )}
+          </View>
+        </View>
         <TextField
           label="Дата народження"
           placeholder="ДД.ММ.РРРР"
           value={birthDate}
-          onChangeText={setBirthDate}
+          onChangeText={(value) => {
+            setBirthDate(value);
+            setServerUnderAge(false);
+          }}
           keyboardType="number-pad"
-          error={underAge ? messages.underage : dateError}
+          error={
+            underAge
+              ? messages.underage
+              : birthDate.length === 10 && !dateOfBirth
+                ? 'Введи дату як ДД.ММ.РРРР'
+                : undefined
+          }
         />
         <View className="flex-row items-center gap-2.5">
           <Pressable
@@ -110,14 +167,8 @@ export default function SignUpScreen() {
             <Text className="font-inter-semibold text-text-primary underline">політикою конфіденційності</Text>
           </Text>
         </View>
-        <Button
-          label="Надіслати код"
-          variant="dark"
-          onPress={submit}
-          loading={loading}
-          disabled={!phone || !birthDate || underAge || !agreed}
-        />
       </AuthLayout>
+      {snackbar && <Snackbar {...snackbar} />}
     </>
   );
 }

@@ -2,7 +2,8 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { setSignedIn } from '@/state/session';
+import { clearProfile } from '@/state/profile';
+import { setRole, setSignedIn } from '@/state/session';
 
 import { publicClient } from './public-client';
 import type { components } from './schema';
@@ -32,14 +33,28 @@ function toToken(accessToken: string, expiresIn: number): Token {
   return { value: accessToken, expiresAt: Date.now() + expiresIn * 1000 };
 }
 
+// The `role` claim of a JWT; read without checking the signature, only to decide what to show.
+function roleOf(accessToken: string): string | undefined {
+  try {
+    const payload = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
+    return (JSON.parse(atob(padded)) as { role?: string }).role;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function startSession(tokens: SessionTokens) {
+  if (!account) clearProfile();
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
   setSignedIn(true);
+  setRole(roleOf(tokens.accessToken));
 }
 
 async function endSession() {
   account = undefined;
+  clearProfile();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }

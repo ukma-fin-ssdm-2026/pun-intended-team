@@ -40,7 +40,7 @@ export class AuthGuard implements CanActivate {
       throw new ApiException('UNAUTHENTICATED', 'A valid access token is required');
     }
     if (access === 'registrant' && caller.kind !== 'registrant') {
-      throw new ApiException('UNAUTHENTICATED', 'Verify your phone number first');
+      throw new ApiException('UNAUTHENTICATED', 'Finish registration first');
     }
     if (access !== 'registrant' && caller.kind === 'registrant') {
       throw new ApiException('UNAUTHENTICATED', 'Finish registration first');

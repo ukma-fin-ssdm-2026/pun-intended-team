@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Nearby API
-  version: 0.1.1
+  version: 1.1.1
   description: >-
     REST API of Nearby, an app for going to events and meeting people along the
     way.
@@ -21,6 +21,10 @@ tags:
     description: The fixed list of interests users pick from
   - name: Categories
     description: The event category directory
+  - name: Moderation
+    description: Reports on users and how administrators resolve them
+  - name: Admin
+    description: Platform statistics for administrators
   - name: System
     description: Service endpoints
 components:
@@ -33,6 +37,115 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
+    PlatformStats:
+      type: object
+      properties:
+        users:
+          type: integer
+          description: 'Active accounts: registered and not banned'
+        events:
+          type: integer
+          description: Published events that have not ended yet
+        matches:
+          type: integer
+          description: Matches proposed so far
+        openReports:
+          type: integer
+          description: Open report cases
+      required:
+        - users
+        - events
+        - matches
+        - openReports
+      example:
+        users: 128
+        events: 42
+        matches: 0
+        openReports: 3
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+              description: >-
+                Every invalid field, for validation errors and business rules
+                that can name them
+          required:
+            - code
+            - message
+      required:
+        - error
+      description: The body of every error response
+      example:
+        error:
+          code: VALIDATION_ERROR
+          message: The request is invalid
+          details:
+            - location: params
+              field: id
+              message: Invalid UUID
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - PAYLOAD_TOO_LARGE
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+        - NOT_FOUND
+        - CONFLICT
+        - REFERENCE_NOT_FOUND
+        - ORGANIZATION_NOT_VERIFIED
+        - EVENT_CANCELLED
+        - EVENT_ENDS_BEFORE_START
+        - LISTING_DATE_IN_PAST
+        - USERNAME_TAKEN
+        - PROFILE_EXISTS
+        - CONTACT_REQUIRED
+        - INVALID_SOCIAL_HANDLE
+        - INVALID_CREDENTIALS
+        - WRONG_PASSWORD
+        - INVALID_GOOGLE_TOKEN
+        - GOOGLE_ACCOUNT_TAKEN
+        - GOOGLE_ALREADY_LINKED
+        - INVALID_CODE
+        - PHONE_CODES_UNAVAILABLE
+        - INVALID_REFRESH_TOKEN
+        - UNDERAGE
+        - CANNOT_REPORT_SELF
+        - CANNOT_RESOLVE_OWN_CASE
+        - CANNOT_BAN_ADMIN
+      description: Machine-readable code; clients branch on it, not on the message
+    ValidationIssue:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/ValidationLocation'
+        field:
+          type: string
+        message:
+          type: string
+      required:
+        - location
+        - field
+        - message
+      description: One invalid field of the request
+    ValidationLocation:
+      type: string
+      enum:
+        - params
+        - query
+        - body
+      description: Part of the request the invalid field is in
     AdminCategoryList:
       type: object
       properties:
@@ -67,82 +180,6 @@ components:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
         name: Concerts
         isActive: true
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: object
-          properties:
-            code:
-              $ref: '#/components/schemas/ErrorCode'
-            message:
-              type: string
-            details:
-              type: array
-              items:
-                $ref: '#/components/schemas/ValidationIssue'
-              description: Every invalid field, for validation errors that can name them
-          required:
-            - code
-            - message
-      required:
-        - error
-      description: The body of every error response
-      example:
-        error:
-          code: VALIDATION_ERROR
-          message: The request is invalid
-          details:
-            - location: params
-              field: id
-              message: Invalid UUID
-    ErrorCode:
-      type: string
-      enum:
-        - VALIDATION_ERROR
-        - UNAUTHENTICATED
-        - PAYLOAD_TOO_LARGE
-        - RATE_LIMITED
-        - INTERNAL_ERROR
-        - NOT_FOUND
-        - CONFLICT
-        - REFERENCE_NOT_FOUND
-        - ORGANIZATION_NOT_VERIFIED
-        - EVENT_CANCELLED
-        - EVENT_ENDS_BEFORE_START
-        - LISTING_DATE_IN_PAST
-        - USERNAME_TAKEN
-        - PROFILE_EXISTS
-        - INVALID_CREDENTIALS
-        - WRONG_PASSWORD
-        - INVALID_GOOGLE_TOKEN
-        - GOOGLE_ACCOUNT_TAKEN
-        - GOOGLE_ALREADY_LINKED
-        - INVALID_CODE
-        - INVALID_REFRESH_TOKEN
-        - UNDERAGE
-      description: Machine-readable code; clients branch on it, not on the message
-    ValidationIssue:
-      type: object
-      properties:
-        location:
-          $ref: '#/components/schemas/ValidationLocation'
-        field:
-          type: string
-        message:
-          type: string
-      required:
-        - location
-        - field
-        - message
-      description: One invalid field of the request
-    ValidationLocation:
-      type: string
-      enum:
-        - params
-        - query
-        - body
-      description: Part of the request the invalid field is in
     CreateCategoryBody:
       type: object
       properties:
@@ -390,21 +427,6 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
-    RegisterBody:
-      type: object
-      properties:
-        phone:
-          $ref: '#/components/schemas/PhoneNumber'
-      required:
-        - phone
-      additionalProperties: false
-      example:
-        phone: '+380501119999'
-    PhoneNumber:
-      type: string
-      pattern: ^\+380\d{9}$
-      description: Ukrainian number, E.164
-      example: '+380501110001'
     AccessTokenResponse:
       type: object
       properties:
@@ -426,22 +448,19 @@ components:
         accessToken: eyJhbGciOiJIUzI1NiIs…
         tokenType: Bearer
         expiresIn: 3600
-    VerifyBody:
+    GoogleIdTokenBody:
       type: object
       properties:
-        phone:
-          $ref: '#/components/schemas/PhoneNumber'
-        code:
+        idToken:
           type: string
-          pattern: ^\d{6}$
-          description: The code sent to the phone
+          minLength: 1
+          maxLength: 4096
+          description: The ID token Google Sign-In returned on the device
       required:
-        - phone
-        - code
+        - idToken
       additionalProperties: false
       example:
-        phone: '+380501119999'
-        code: '123456'
+        idToken: eyJhbGciOiJSUzI1NiIs…
     SessionTokensResponse:
       type: object
       properties:
@@ -482,87 +501,6 @@ components:
       additionalProperties: false
       example:
         dateOfBirth: '2000-05-17'
-    SignInBody:
-      type: object
-      properties:
-        phone:
-          $ref: '#/components/schemas/PhoneNumber'
-        password:
-          type: string
-          minLength: 1
-          maxLength: 128
-      required:
-        - phone
-        - password
-      additionalProperties: false
-      example:
-        phone: '+380501110001'
-        password: nearby-dev-password
-    GoogleIdTokenBody:
-      type: object
-      properties:
-        idToken:
-          type: string
-          minLength: 1
-          maxLength: 4096
-          description: The ID token Google Sign-In returned on the device
-      required:
-        - idToken
-      additionalProperties: false
-      example:
-        idToken: eyJhbGciOiJSUzI1NiIs…
-    PasswordResetBody:
-      type: object
-      properties:
-        phone:
-          $ref: '#/components/schemas/PhoneNumber'
-      required:
-        - phone
-      additionalProperties: false
-      example:
-        phone: '+380501110001'
-    ConfirmPasswordResetBody:
-      type: object
-      properties:
-        phone:
-          $ref: '#/components/schemas/PhoneNumber'
-        code:
-          type: string
-          pattern: ^\d{6}$
-          description: The code sent to the phone
-        password:
-          type: string
-          minLength: 8
-          maxLength: 128
-          description: 8 to 128 characters
-      required:
-        - phone
-        - code
-        - password
-      additionalProperties: false
-      example:
-        phone: '+380501110001'
-        code: '123456'
-        password: a new long passphrase
-    SetPasswordBody:
-      type: object
-      properties:
-        password:
-          type: string
-          minLength: 8
-          maxLength: 128
-          description: 8 to 128 characters
-        currentPassword:
-          type: string
-          minLength: 1
-          maxLength: 128
-          description: Required once the account has a password
-      required:
-        - password
-      additionalProperties: false
-      example:
-        password: a new long passphrase
-        currentPassword: a long passphrase
     RefreshSessionBody:
       type: object
       properties:
@@ -705,6 +643,276 @@ components:
         title: Looking for company for the Arsenal exhibition
         description: Planning to go in the evening, happy to grab a coffee after.
         date: '2026-10-20'
+    ReportCasesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportCase'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+            account:
+              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+              username: olena_k
+              displayName: Olena
+            status: open
+            resolution: null
+            reportCount: 2
+            firstReportedAt: '2026-10-30T19:12:00.000Z'
+            lastReportedAt: '2026-10-31T08:40:00.000Z'
+            resolvedAt: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    ReportCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+        resolution:
+          type: string
+          nullable: true
+          enum:
+            - banned
+            - removed
+            - dismissed
+            - null
+          description: Null while the case is open
+        reportCount:
+          type: integer
+          description: Reports in the case, repeated reports by one user included
+        firstReportedAt:
+          type: string
+          format: date-time
+        lastReportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          nullable: true
+          format: date-time
+      required:
+        - id
+        - account
+        - status
+        - resolution
+        - reportCount
+        - firstReportedAt
+        - lastReportedAt
+        - resolvedAt
+      example:
+        id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        account:
+          id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+          username: olena_k
+          displayName: Olena
+        status: open
+        resolution: null
+        reportCount: 2
+        firstReportedAt: '2026-10-30T19:12:00.000Z'
+        lastReportedAt: '2026-10-31T08:40:00.000Z'
+        resolvedAt: null
+    ReportCaseDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user
+        status:
+          type: string
+          enum:
+            - open
+            - resolved
+        resolution:
+          type: string
+          nullable: true
+          enum:
+            - banned
+            - removed
+            - dismissed
+            - null
+          description: Null while the case is open
+        reportCount:
+          type: integer
+          description: Reports in the case, repeated reports by one user included
+        firstReportedAt:
+          type: string
+          format: date-time
+        lastReportedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          nullable: true
+          format: date-time
+        reports:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              reporter:
+                $ref: '#/components/schemas/CaseAccount'
+              reason:
+                type: string
+                enum:
+                  - offensive_messages
+                  - no_show
+                  - fake_profile
+                  - unsafe_behaviour
+                  - other
+                description: >-
+                  offensive_messages, no_show (did not come and did not warn),
+                  fake_profile, unsafe_behaviour (dangerous behaviour) or other
+              comment:
+                type: string
+                nullable: true
+              reportedAt:
+                type: string
+                format: date-time
+            required:
+              - id
+              - reporter
+              - reason
+              - comment
+              - reportedAt
+          description: Every report in the case, oldest first
+      required:
+        - id
+        - account
+        - status
+        - resolution
+        - reportCount
+        - firstReportedAt
+        - lastReportedAt
+        - resolvedAt
+        - reports
+      example:
+        id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        account:
+          id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+          username: olena_k
+          displayName: Olena
+        status: open
+        resolution: null
+        reportCount: 2
+        firstReportedAt: '2026-10-30T19:12:00.000Z'
+        lastReportedAt: '2026-10-31T08:40:00.000Z'
+        resolvedAt: null
+        reports:
+          - id: 7f9b1d3e-5a7c-4e9a-8b1d-5f7a9c1e3b52
+            reporter:
+              id: d8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18
+              username: taras
+              displayName: Taras
+            reason: no_show
+            comment: >-
+              We agreed to meet at the entrance; she did not come and did not
+              answer.
+            reportedAt: '2026-10-30T19:12:00.000Z'
+    CaseAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+          description: Null when the account has no profile
+        displayName:
+          type: string
+          nullable: true
+      required:
+        - id
+        - username
+        - displayName
+      description: A reported user or a reporter, as an administrator sees them
+    CreateReportBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: Username of the user being reported, as their profile shows it
+        reason:
+          type: string
+          enum:
+            - offensive_messages
+            - no_show
+            - fake_profile
+            - unsafe_behaviour
+            - other
+          description: >-
+            offensive_messages, no_show (did not come and did not warn),
+            fake_profile, unsafe_behaviour (dangerous behaviour) or other
+        comment:
+          type: string
+          maxLength: 1000
+          description: What happened, in the reporter’s words
+      required:
+        - username
+        - reason
+      additionalProperties: false
+      example:
+        username: olena_k
+        reason: no_show
+        comment: >-
+          We agreed to meet at the entrance; she did not come and did not
+          answer.
     InterestList:
       type: object
       properties:
@@ -717,7 +925,8 @@ components:
       example:
         items:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
     Interest:
       type: object
       properties:
@@ -726,13 +935,18 @@ components:
           format: uuid
         name:
           type: string
+        group:
+          type: string
+          description: The heading the interest is shown under
       required:
         - id
         - name
+        - group
       description: An interest from the fixed list users pick from
       example:
         id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Books
+        name: Книги
+        group: Книги й комікси
     Profile:
       type: object
       properties:
@@ -742,6 +956,9 @@ components:
           type: string
         description:
           type: string
+        occupation:
+          type: string
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           type: string
           nullable: true
@@ -763,32 +980,74 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Interest'
+        linkedAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedAccount'
+          description: Revealed to a mutual match, in the order of SocialNetwork
         isComplete:
           type: boolean
           description: >-
-            True once communicationFormat and at least one interest are set;
-            matching needs both
+            True once communicationFormat, at least one interest and at least
+            one linked account are set; matching needs all three
       required:
         - username
         - displayName
         - description
+        - occupation
         - communicationFormat
         - sharePhone
         - age
         - interests
+        - linkedAccounts
         - isComplete
       description: The signed-in user’s own profile
       example:
         username: olena_k
         displayName: Olena
         description: Cinema, galleries and long walks.
+        occupation: Student at Kyiv-Mohyla Academy
         communicationFormat: friends
         sharePhone: true
         age: 28
         interests:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-            name: Books
+            name: Книги
+            group: Книги й комікси
+        linkedAccounts:
+          - network: telegram
+            username: olena_k
+            url: https://t.me/olena_k
         isComplete: true
+    LinkedAccount:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/SocialNetwork'
+        username:
+          type: string
+          description: The handle, without "@"; for WhatsApp, the phone number digits
+        url:
+          type: string
+          description: The profile link a mutual match opens
+      required:
+        - network
+        - username
+        - url
+      description: A social network the user shares with a mutual match
+      example:
+        network: telegram
+        username: olena_k
+        url: https://t.me/olena_k
+    SocialNetwork:
+      type: string
+      enum:
+        - telegram
+        - instagram
+        - whatsapp
+        - tiktok
+        - facebook
+      description: A social network whose handle a mutual match sees
     CreateProfileBody:
       type: object
       properties:
@@ -829,6 +1088,10 @@ components:
           type: string
           maxLength: 500
           description: Free text about the user; can be empty
+        occupation:
+          type: string
+          maxLength: 100
+          description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           $ref: '#/components/schemas/CommunicationFormat'
         sharePhone:
@@ -863,6 +1126,38 @@ components:
       example:
         interestIds:
           - b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+    ReplaceLinkedAccountsBody:
+      type: object
+      properties:
+        linkedAccounts:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                $ref: '#/components/schemas/SocialNetwork'
+              username:
+                type: string
+                maxLength: 200
+                description: >-
+                  A nickname with or without "@", or a profile link; for
+                  WhatsApp, a phone number. Kept as the bare handle; one that
+                  does not fit is INVALID_SOCIAL_HANDLE
+            required:
+              - network
+              - username
+            additionalProperties: false
+          maxItems: 5
+          description: >-
+            The whole set, at most one per social network; an empty list is
+            CONTACT_REQUIRED, since a mutual match needs a contact
+      required:
+        - linkedAccounts
+      additionalProperties: false
+      example:
+        linkedAccounts:
+          - network: telegram
+            username: '@olena_k'
     HealthResponse:
       type: object
       properties:
@@ -877,6 +1172,36 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/admin/stats:
+    get:
+      operationId: adminGetStats
+      summary: Get platform statistics
+      description: >-
+        Count active users, upcoming events, matches and open report cases.
+        Needs an administrator account; other accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformStats'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/categories:
     get:
       operationId: adminListCategories
@@ -1413,15 +1738,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/auth/register:
+  /api/v1/auth/google/register:
     post:
-      operationId: register
-      summary: Start registration
+      operationId: registerWithGoogle
+      summary: Register with Google
       description: >-
-        Start registration: sends a one-time code to the phone number. The
-        answer is the same whether or not the number already has an account, and
-        a code requested within a minute of the last one is silently not sent.
-        No access token needed.
+        First registration step: check the Google ID token. Returns a
+        registration token, valid for 15 minutes, that only
+        `completeRegistration` accepts. No access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1429,32 +1753,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterBody'
-      responses:
-        '202':
-          description: The code is on its way; it is valid for 10 minutes
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/auth/verify:
-    post:
-      operationId: verify
-      summary: Verify the phone number
-      description: >-
-        Second registration step: check the code. Returns a registration token,
-        valid for 15 minutes, that only `completeRegistration` accepts. No
-        access token needed.
-      tags:
-        - Auth
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VerifyBody'
+              $ref: '#/components/schemas/GoogleIdTokenBody'
       responses:
         '200':
           description: A registration token
@@ -1469,15 +1768,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: The phone number is already registered
+          description: >-
+            `GOOGLE_ACCOUNT_TAKEN`: the Google account is already registered;
+            sign in instead
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: >-
-            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
-            times
+            `INVALID_GOOGLE_TOKEN`: the ID token is invalid, expired or issued
+            to another app
           content:
             application/json:
               schema:
@@ -1488,9 +1789,9 @@ paths:
       summary: Finish registration
       description: >-
         Last registration step: the date of birth. Activates the account and
-        signs in; add a sign-in method next with `setPassword`. Under 18, the
-        registration is removed and the number can start again. Needs the
-        registration token from `verify`; other tokens get 401.
+        signs in. Under 18, the registration is removed and the Google account
+        can start again. Needs the registration token from `verify`; other
+        tokens get 401.
       tags:
         - Auth
       security:
@@ -1538,47 +1839,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/auth/sign-in:
-    post:
-      operationId: signIn
-      summary: Sign in with phone number and password
-      description: Sign in with phone number and password. No access token needed.
-      tags:
-        - Auth
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SignInBody'
-      responses:
-        '200':
-          description: The tokens of a new session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionTokensResponse'
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: >-
-            `INVALID_CREDENTIALS`: wrong phone number or password; it does not
-            say which
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/google:
     post:
       operationId: signInWithGoogle
       summary: Sign in with Google
       description: >-
-        Sign in with a Google account the user linked earlier with `linkGoogle`.
-        No access token needed.
+        Sign in with the Google account the user registered with
+        `registerWithGoogle`. No access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1602,164 +1869,8 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: >-
-            `INVALID_CREDENTIALS`: the ID token is invalid, or no account linked
-            this Google account
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/auth/password-reset:
-    post:
-      operationId: requestPasswordReset
-      summary: Start a password reset
-      description: >-
-        Start a password reset: sends a one-time code to the phone number if it
-        has an account. The answer is the same for any number, and a code
-        requested within a minute of the last one is silently not sent. No
-        access token needed.
-      tags:
-        - Auth
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PasswordResetBody'
-      responses:
-        '202':
-          description: >-
-            If the number has an account, a code is on its way; it is valid for
-            10 minutes
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/auth/password-reset/confirm:
-    post:
-      operationId: resetPassword
-      summary: Finish a password reset
-      description: >-
-        Finish a password reset with the code and a new password, and sign in.
-        Every other session of the account ends. No access token needed.
-      tags:
-        - Auth
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfirmPasswordResetBody'
-      responses:
-        '200':
-          description: The password is replaced; the tokens of a new session
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionTokensResponse'
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: >-
-            `INVALID_CODE`: the code is wrong, expired, already used or failed 3
-            times
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/me/password:
-    put:
-      operationId: setPassword
-      summary: Set or change your password
-      description: >-
-        Set a password to sign in with, right after registration, or change it.
-        Changing an existing password needs the current one; wrong ones count
-        towards the sign-in lockout. Every other session of the account ends;
-        this one stays signed in. Needs a signed-in account; a guest token gets
-        401.
-      tags:
-        - Auth
-      security:
-        - bearerAuth: []
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SetPasswordBody'
-      responses:
-        '204':
-          description: The password is set
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No access token, or an invalid or expired one
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: >-
-            `WRONG_PASSWORD`: the account has a password and `currentPassword`
-            is missing or wrong, or the account is locked after too many wrong
-            passwords
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/me/google:
-    put:
-      operationId: linkGoogle
-      summary: Link your Google account
-      description: >-
-        Link a Google account to sign in with from now on. Linking the same
-        Google account again changes nothing. Needs a signed-in account; a guest
-        token gets 401.
-      tags:
-        - Auth
-      security:
-        - bearerAuth: []
-      x-mcp: false
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GoogleIdTokenBody'
-      responses:
-        '204':
-          description: The Google account is linked
-        '400':
-          description: The request is invalid
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: No access token, or an invalid or expired one
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: >-
-            `GOOGLE_ACCOUNT_TAKEN`: another account linked this Google account.
-            `GOOGLE_ALREADY_LINKED`: this account has another Google account
-            linked.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: '`INVALID_GOOGLE_TOKEN`: the ID token is invalid or expired'
+            `INVALID_CREDENTIALS`: the ID token is invalid, or the Google
+            account is not registered
           content:
             application/json:
               schema:
@@ -2020,14 +2131,280 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases:
+    get:
+      operationId: adminListReportCases
+      summary: List report cases
+      description: >-
+        List report cases, oldest first: one case per reported user, with the
+        number of reports. Open cases by default; `status=resolved` lists the
+        resolved ones. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            enum:
+              - open
+              - resolved
+            default: open
+            description: open (the default) or resolved
+          required: false
+          description: open (the default) or resolved
+          name: status
+          in: query
+      responses:
+        '200':
+          description: A page of report cases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCasesPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}:
+    get:
+      operationId: adminGetReportCase
+      summary: Get a report case
+      description: >-
+        Get a report case with every report in it: who reported, the reason and
+        the comment. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The case and its reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/ban:
+    post:
+      operationId: adminBanReportedUser
+      summary: Ban the reported user
+      description: >-
+        Ban the user the case is about and resolve the case. Every session of
+        the user ends at once: their next request gets 401, and they cannot sign
+        in again. On a case already resolved as banned, the ban is applied
+        again, so a ban that failed halfway can be retried. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
+            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
+            about the caller, whom another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/dismiss:
+    post:
+      operationId: adminDismissReportCase
+      summary: Dismiss a report case
+      description: >-
+        Resolve the case without action, when the reports turn out to be
+        unfounded. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
+            the case is about the caller, whom another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reports:
+    post:
+      operationId: reportUser
+      summary: Report a user
+      description: >-
+        Report a user by username, with a reason and an optional comment.
+        Administrators review it; repeated reports on one user are grouped into
+        one case. The reporter gets no details about the case, and a report on a
+        banned user is accepted the same way but not stored. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportBody'
+      responses:
+        '204':
+          description: The report was received
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `REFERENCE_NOT_FOUND`: no user has this username.
+            `CANNOT_REPORT_SELF`: it is your own username.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/interests:
     get:
       operationId: listInterests
       summary: List the interests users can pick
       description: >-
-        List the fixed set of interests users can pick for their profile; their
-        ids go in interestIds. Needs a signed-in account; a guest token gets
-        401.
+        List the fixed set of interests users can pick for their profile, group
+        by group and then by name; their ids go in interestIds. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Interests
       security:
@@ -2051,9 +2428,9 @@ paths:
       summary: Get your profile
       description: >-
         Get the caller’s own profile with the age computed from the account’s
-        date of birth. `isComplete` is true once a communication format and at
-        least one interest are set. Needs a signed-in account; a guest token
-        gets 401.
+        date of birth. `isComplete` is true once a communication format, at
+        least one interest and at least one linked account are set. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Profiles
       security:
@@ -2130,9 +2507,9 @@ paths:
       summary: Edit your profile
       description: >-
         Change the caller’s profile: any of displayName, username, description,
-        communicationFormat and sharePhone; only the fields sent change. Used
-        for every later onboarding step and for the edit screen. Needs a
-        signed-in account; a guest token gets 401.
+        occupation, communicationFormat and sharePhone; only the fields sent
+        change. Used for every later onboarding step and for the edit screen.
+        Needs a signed-in account; a guest token gets 401.
       tags:
         - Profiles
       security:
@@ -2216,6 +2593,57 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: '`REFERENCE_NOT_FOUND`: one of the interest ids does not exist.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/linked-accounts:
+    put:
+      operationId: replaceMyLinkedAccounts
+      summary: Set your networks
+      description: >-
+        Replace the whole set of networks (Telegram, Instagram, …) a mutual
+        match sees, at most one per app. At least one is required, since sign-in
+        is Google-only and there is no phone number to share. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceLinkedAccountsBody'
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a
+            username does not fit its social network; `details` names it.
           content:
             application/json:
               schema:

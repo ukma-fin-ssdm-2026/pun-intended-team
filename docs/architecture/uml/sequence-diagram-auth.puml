@@ -27,7 +27,7 @@ box "infra (behind core interfaces)" #F3F8EE
   participant "MessagingProvider\n(via core notifications)" as MSG
 end box
 
-== Register: request a code ==
+== Register: request a code (no route while sign-in is Google-only, ADR-004) ==
 
 APP -> API : POST /auth/register {phone}
 API -> SVC : register(phone)
@@ -41,7 +41,7 @@ opt none in the last minute and fewer than 5 in 24 hours
 end
 API --> APP : 202 — same answer for a registered phone and within the minute
 
-== Verify the code ==
+== Verify the code (no route while sign-in is Google-only, ADR-004) ==
 
 APP -> API : POST /auth/verify {phone, code}
 API -> SVC : verify(…)
@@ -62,6 +62,22 @@ SVC -> ACC : create(pending account) — or reuse the pending one
 SVC -> TOK : issue(registrant caller, 900 s)
 API --> APP : 200 registration token {accessToken, expiresIn: 900}
 
+== Register with Google ==
+
+APP -> API : POST /auth/google/register {idToken}
+API -> SVC : registerWithGoogle(idToken)
+SVC -> TOK : verify Google ID token — Google's keys, our client ids
+alt invalid token
+  SVC --> APP : 422 INVALID_GOOGLE_TOKEN
+end
+SVC -> ACC : findByGoogleSubject(sub)
+alt an active or banned account
+  SVC --> APP : 409 GOOGLE_ACCOUNT_TAKEN
+end
+SVC -> ACC : createWithGoogle(sub) — or reuse the pending one;\nno phone number
+SVC -> TOK : issue(registrant caller, 900 s)
+API --> APP : 200 registration token {accessToken, expiresIn: 900}
+
 == Finish registration: the age check ==
 
 APP -> API : POST /auth/complete-registration {dateOfBirth}\n— registration token
@@ -72,7 +88,7 @@ alt removed
 else no longer pending
   SVC --> APP : 409 CONFLICT
 else under 18 by the Kyiv date
-  SVC -> ACC : delete — the number can start again
+  SVC -> ACC : delete — the person can start again
   SVC --> APP : 422 UNDERAGE
 end
 SVC -> ACC : activate(accountId, dateOfBirth)
@@ -80,9 +96,8 @@ SVC -> SES : start(accountId, role)
 SES -> SESS : create(accountId, SHA-256(random secret), expires in 30 days)
 SES -> TOK : issue(account caller with sid = session id, 3600 s)
 API --> APP : 200 {accessToken, expiresIn: 3600,\nrefreshToken: <session id>.<secret>}
-note right of APP : next: PUT /me/password\nand / or PUT /me/google
 
-== Sign in with a password ==
+== Sign in with a password (no route while sign-in is Google-only, ADR-004) ==
 
 APP -> API : POST /auth/sign-in {phone, password}
 API -> SVC : signIn(phone, password)
@@ -103,14 +118,14 @@ API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken}
 APP -> API : POST /auth/google {idToken}
 API -> SVC : signInWithGoogle(idToken)
 SVC -> TOK : verify Google ID token — Google's keys, our client ids
-SVC -> ACC : findByGoogleSubject(sub) — linked earlier with PUT /me/google
-alt invalid token, not linked or not active
+SVC -> ACC : findByGoogleSubject(sub)
+alt invalid token, not registered or not active
   SVC --> APP : 401 INVALID_CREDENTIALS
 end
 SVC -> SES : start(accountId, role)
 API --> APP : 200 {accessToken, expiresIn: 3600, refreshToken}
 
-== Forgot the password ==
+== Forgot the password (no route while sign-in is Google-only, ADR-004) ==
 
 APP -> API : POST /auth/password-reset {phone}
 API -> SVC : requestPasswordReset(phone)
@@ -174,8 +189,8 @@ API -> API : handler runs with the Caller
 note over APP, MSG
   Errors: AuthService throws a DomainError with a code; ApiExceptionFilter (api) turns it into the status shown.
   Token: header {alg HS256, kid, typ at+jwt}; claims sub, role (guest, registrant, user, admin), sid (accounts only), iss/aud nearby-api, iat, exp.
-  Limits: register, verify, sign-in, Google, both reset calls and PUT /me/password allow 20 requests a minute per IP each (429 RATE_LIMITED).
-  Sessions: PUT /me/password ends every other session of the account (endAll except sid).
+  Limits: Google register, Google sign-in and refresh allow 20 requests a minute per IP each (429 RATE_LIMITED).
+  Sessions: a password change or reset ends the other sessions (endAll), once the phone flow returns.
   Storage: phone numbers and dates of birth are encrypted (AES-256-GCM), phones looked up by HMAC (contact_hash) inside the repositories.
   Planned, not shown: audit records (SEC-004).
 end note

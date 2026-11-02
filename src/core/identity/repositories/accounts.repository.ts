@@ -1,5 +1,12 @@
 // Written with the help of Claude
-import type { Account, AccountRecord, GoogleLinkResult, PasswordCredential, SignInLockout } from '../types/account.ts';
+import type {
+  Account,
+  AccountRecord,
+  AccountStatus,
+  GoogleLinkResult,
+  PasswordCredential,
+  SignInLockout,
+} from '../types/account.ts';
 
 export abstract class AccountsRepository {
   abstract findById(accountId: string): Promise<Account | undefined>;
@@ -11,6 +18,9 @@ export abstract class AccountsRepository {
 
   /** Creates the account without sign-in methods; the user adds them after registration. */
   abstract create(account: AccountRecord): Promise<Account>;
+
+  /** Creates a pending account with the Google sign-in method; a parallel request for the same subject gets its account. */
+  abstract createWithGoogle(subject: string): Promise<Account>;
 
   /** Saves the date of birth of a pending account and makes it active. */
   abstract activate(accountId: string, dateOfBirth: string): Promise<void>;
@@ -39,4 +49,8 @@ export abstract class AccountsRepository {
 
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
+
+  abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
+
+  abstract countByStatus(status: AccountStatus): Promise<number>;
 }

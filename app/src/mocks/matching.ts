@@ -17,6 +17,8 @@ export const mockSearch = {
 export type MatchPerson = {
   id: 'olena' | 'maksym';
   name: string;
+  // Reports are sent for it, so they reach the API only when an account has this username.
+  username: string;
   // Ukrainian forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою", "Контакти Олени".
   accusative: string;
   instrumental: string;
@@ -34,6 +36,7 @@ export const mockPeople: Record<MatchPerson['id'], MatchPerson> = {
   olena: {
     id: 'olena',
     name: 'Олена',
+    username: 'olena',
     accusative: 'Олену',
     instrumental: 'Оленою',
     genitive: 'Олени',
@@ -47,6 +50,7 @@ export const mockPeople: Record<MatchPerson['id'], MatchPerson> = {
   maksym: {
     id: 'maksym',
     name: 'Максим',
+    username: 'maksym',
     accusative: 'Максима',
     instrumental: 'Максимом',
     genitive: 'Максима',

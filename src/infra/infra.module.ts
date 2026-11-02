@@ -15,6 +15,9 @@ import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
+import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
+import { AuditLogRepository } from '../core/moderation/repositories/audit-log.repository.ts';
+import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { loadGoogleSettings } from './auth/google-settings.ts';
@@ -23,21 +26,25 @@ import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadContactHmacKey, loadDataEncryptionKey, loadSigningKeys } from './auth/key-files.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { DisabledMessagingProvider } from './messaging/disabled-messaging-provider.ts';
 import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
 import { loadMessagingSettings } from './messaging/messaging-settings.ts';
 import { TelegramGatewaySender } from './messaging/telegram-gateway-sender.ts';
 import { TurboSmsSender } from './messaging/turbosms-sender.ts';
 import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
+import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
+import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
+import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
+import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
 import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
-import { StubInterestsRepository } from './stubs/interests.repository.ts';
 import { StubListingsRepository } from './stubs/listings.repository.ts';
 import { StubOrganizationsRepository } from './stubs/organizations.repository.ts';
-import { StubProfilesRepository } from './stubs/profiles.repository.ts';
 import { StubVenuesRepository } from './stubs/venues.repository.ts';
 
 const repositories = [
@@ -48,9 +55,12 @@ const repositories = [
   { provide: AccountsRepository, useClass: PrismaAccountsRepository },
   { provide: VerificationCodesRepository, useClass: PrismaVerificationCodesRepository },
   { provide: SessionsRepository, useClass: PrismaSessionsRepository },
-  { provide: ProfilesRepository, useClass: StubProfilesRepository },
+  { provide: ProfilesRepository, useClass: PrismaProfilesRepository },
   { provide: ListingsRepository, useClass: StubListingsRepository },
-  { provide: InterestsRepository, useClass: StubInterestsRepository },
+  { provide: InterestsRepository, useClass: PrismaInterestsRepository },
+  { provide: MatchesRepository, useClass: PrismaMatchesRepository },
+  { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },
+  { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
 ];
 
 const adapters = [
@@ -71,6 +81,9 @@ const providers = [...repositories, ...adapters];
 
 function messagingProvider(): MessagingProvider {
   const settings = loadMessagingSettings();
+  if (settings.provider === 'disabled') {
+    return new DisabledMessagingProvider();
+  }
   if (settings.provider === 'console') {
     return new ConsoleMessagingProvider();
   }

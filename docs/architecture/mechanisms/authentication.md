@@ -1,5 +1,9 @@
 # Account Creation and Sign-in
 
+## Current State
+
+**Sign-up and sign-in are Google-only for now** ([ADR-004](../decisions/ADR-004.md)): `POST /auth/google/register`, then `complete-registration` with the date of birth; `POST /auth/google` signs in. The phone flow below is the target; its routes are removed until codes can be paid for, and an account's phone number is null.
+
 ## Decision
 
 **The code verifies the identity; password and Google are ways to sign in to it.** A verified phone number is required for every account: it is the account's identity and, unless the user turns it off, what a mutual match reveals.
@@ -23,6 +27,7 @@ How registration, sign-in and the token check work in the code: [auth sequence d
 4. Tokens are the same whichever method was used (SEC-005). A sign-in starts a **session**, one `RefreshToken` row: the access token (60 minutes) carries its id as `sid`, and the refresh token `<session id>.<secret>` (30 days, only the secret's SHA-256 is stored) renews it. Every renewal replaces the secret and extends the session; a wrong secret, such as a replaced one used again, ends the session. Every request checks the session, so sign-out, a password change (every other session), a password reset (every session) and a ban take effect at once.
 5. Phone numbers and dates of birth are stored encrypted with AES-256-GCM (SEC-003); accounts and codes are found by `contact_hash`, an HMAC-SHA256 of the number. Both keys are files outside the repository, separate from the token and code keys.
 6. Codes go out through one messaging adapter (FLEX-003). They are sent through the **Telegram Gateway API** as an official Telegram message to the account registered with that number, so no bot or chat ID is needed. If Telegram refuses the code or does not answer, it goes by SMS through TurboSMS. We generate and check the code ourselves, so the SEC-008 limits stay in our hands.
+   **Paused for now:** paid delivery is not funded yet ([external services](../../operations/external-services.md)), so production switches codes off (`MESSAGING_PROVIDER=disabled`, the default there), and the routes that send codes are removed ([ADR-004](../decisions/ADR-004.md)). The Telegram and TurboSMS code stays and comes back by setting `MESSAGING_PROVIDER=telegram`.
 7. **Organizations** are regular user accounts: they register the same way, then request organization status, and publish events only after the team has verified them (FR-003). Administrator accounts are created by the team, not through registration.
 
 ## Consequences

@@ -11,12 +11,14 @@ import {
   InterestList,
   Profile,
   ReplaceInterestsBody,
+  ReplaceLinkedAccountsBody,
   UpdateProfileBody,
 } from '../schemas/profiles.ts';
 
 const CreateProfileRequest = { body: CreateProfileBody } satisfies RequestSchemas;
 const UpdateProfileRequest = { body: UpdateProfileBody } satisfies RequestSchemas;
 const ReplaceInterestsRequest = { body: ReplaceInterestsBody } satisfies RequestSchemas;
+const ReplaceLinkedAccountsRequest = { body: ReplaceLinkedAccountsBody } satisfies RequestSchemas;
 
 const NO_PROFILE = {
   description: 'The account has not created a profile yet',
@@ -32,7 +34,8 @@ export class ProfilesController {
     path: Routes.interests.list,
     operationId: 'listInterests',
     summary: 'List the interests users can pick',
-    description: 'List the fixed set of interests users can pick for their profile; their ids go in interestIds.',
+    description:
+      'List the fixed set of interests users can pick for their profile, group by group and then by name; their ids go in interestIds.',
     tags: ['Interests'],
     access: 'user',
     responses: {
@@ -50,7 +53,7 @@ export class ProfilesController {
     summary: 'Get your profile',
     description:
       'Get the caller’s own profile with the age computed from the account’s date of birth. ' +
-      '`isComplete` is true once a communication format and at least one interest are set.',
+      '`isComplete` is true once a communication format, at least one interest and at least one linked account are set.',
     tags: ['Profiles'],
     access: 'user',
     responses: {
@@ -96,7 +99,7 @@ export class ProfilesController {
     operationId: 'updateMyProfile',
     summary: 'Edit your profile',
     description:
-      'Change the caller’s profile: any of displayName, username, description, communicationFormat and sharePhone; ' +
+      'Change the caller’s profile: any of displayName, username, description, occupation, communicationFormat and sharePhone; ' +
       'only the fields sent change. Used for every later onboarding step and for the edit screen.',
     tags: ['Profiles'],
     access: 'user',
@@ -134,5 +137,33 @@ export class ProfilesController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Profile> {
     return this.profilesService.replaceInterests(account.accountId, body.interestIds);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.profiles.linkedAccounts,
+    operationId: 'replaceMyLinkedAccounts',
+    summary: 'Set your networks',
+    description:
+      'Replace the whole set of networks (Telegram, Instagram, …) a mutual match sees, at most one per app. ' +
+      'At least one is required, since sign-in is Google-only and there is no phone number to share.',
+    tags: ['Profiles'],
+    access: 'user',
+    request: ReplaceLinkedAccountsRequest,
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+      422: {
+        description:
+          '`CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it.',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async replaceMyLinkedAccounts(
+    @Input() { body }: RouteInput<typeof ReplaceLinkedAccountsRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Profile> {
+    return this.profilesService.replaceLinkedAccounts(account.accountId, body.linkedAccounts);
   }
 }

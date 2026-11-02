@@ -1,9 +1,10 @@
 // Written with the help of Claude
+import { MINUTE_MS } from '../../common/durations.ts';
 import type { SignInLockout } from '../types/account.ts';
 
 const MAX_FAILED_SIGN_INS = 5;
-const WINDOW_MS = 15 * 60 * 1000;
-const LOCK_MS = 15 * 60 * 1000;
+const WINDOW_MS = 15 * MINUTE_MS;
+const LOCK_MS = 15 * MINUTE_MS;
 
 const NO_FAILURES: Pick<SignInLockout, 'failedSignins' | 'failedSigninsSince'> = {
   failedSignins: 0,

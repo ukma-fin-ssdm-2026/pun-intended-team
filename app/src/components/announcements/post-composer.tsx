@@ -4,8 +4,8 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/ui/icon';
+import { useProfileInitial } from '@/hooks/use-profile';
 import { mockDraft } from '@/mocks/announcements';
-import { mockProfile } from '@/mocks/profile';
 import { colors } from '@/styles/tokens';
 
 // "Фото", "Дата", "Подія з каталогу", "Категорія": no prototype links, shown as in Figma.
@@ -19,6 +19,7 @@ type Props = {
 };
 
 export function PostComposer({ onPublish, onAddPlace }: Props) {
+  const initial = useProfileInitial();
   // Figma's draft, ready to edit.
   const [text, setText] = useState(mockDraft.text);
   const [dateShown, setDateShown] = useState(true);
@@ -26,7 +27,7 @@ export function PostComposer({ onPublish, onAddPlace }: Props) {
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
       <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-        <Text className="font-inter-semibold text-title text-text-on-dark">{mockProfile.initial}</Text>
+        <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
       </View>
       <View className="flex-1 gap-3">
         {/* Figma's 1 px stroke lies inside the chip: the padding is 1 px less than its 5 / 10 / 12. */}

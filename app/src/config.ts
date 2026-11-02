@@ -22,5 +22,7 @@ function detectApiUrl(): string {
 // Expo inlines EXPO_PUBLIC_* values only for direct `process.env.EXPO_PUBLIC_...` access, so keep the names literal.
 export const config = {
   apiUrl: process.env.EXPO_PUBLIC_API_URL || detectApiUrl(),
+  // The "Web application" client: Google's button on the web, and the audience of the ID tokens on iOS and Android.
   googleClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+  googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
 };

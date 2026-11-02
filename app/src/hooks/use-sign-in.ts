@@ -9,7 +9,8 @@ export function useSignIn() {
   const router = useRouter();
   return () => {
     signIn();
-    router.dismissAll();
+    // From В3 itself there is nothing to dismiss.
+    if (router.canDismiss()) router.dismissAll();
     router.replace('/');
   };
 }

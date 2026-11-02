@@ -20,6 +20,10 @@ export class EventsService {
     private readonly categoriesService: CategoriesService,
   ) {}
 
+  async stats(): Promise<{ events: number }> {
+    return { events: await this.eventsRepository.countPublishedEndingAfter(new Date()) };
+  }
+
   async list(query: EventQuery, page: PageRequest): Promise<Page<Event>> {
     const today = kyivDate();
     const windowEnd = addDays(today, CATALOG_WINDOW_DAYS);

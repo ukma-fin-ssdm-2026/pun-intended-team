@@ -1,6 +1,11 @@
 // Written with the help of Claude
-import 'dotenv/config';
+import { existsSync } from 'node:fs';
 import { defineConfig } from 'prisma/config';
+
+// Local settings; variables already set in the environment win.
+if (existsSync('.env')) {
+  process.loadEnvFile();
+}
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

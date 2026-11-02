@@ -131,7 +131,7 @@ The catalog shall keep serving previously imported events while the external eve
 **REL-004**
 The system shall be restorable from automated backups after loss of the database, with bounded data loss and bounded downtime.
 - *Fit criterion:* daily PostgreSQL backup with 7 daily and 4 weekly copies retained and older copies deleted automatically; a restore loses at most 24 hours of data and takes at most 4 hours to bring the service back.
-- *Verification:* confirm the retention setting on the managed Postgres host; one restore drill into a scratch database during the semester, with date and outcome recorded in the repo.
+- *Verification:* confirm the retention of the backup service on staging ([ADR-005](../architecture/decisions/ADR-005.md), [backups and restore](../operations/staging.md#backups-and-restore)); one restore drill into a scratch database during the semester, with date and outcome recorded in the repo.
 
 ### 4.3 Security
 
@@ -278,7 +278,7 @@ Reporting shall be reachable from every screen that shows another user, and a su
 - **R-003:** Hosting does not sustain the uptime target (REL-001).
 
 **Open questions** — all resolved during the architecture phase.
-- **OQ-001: How do people sign in?** Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008. *Resolved:* registration by phone number and a one-time code (Telegram, SMS as fallback); later sign-in by password or Google — see [authentication](../architecture/mechanisms/authentication.md).
+- **OQ-001: How do people sign in?** Affects FR-005, SEC-002, SEC-005, SEC-007, SEC-008. *Resolved:* registration by phone number and a one-time code (Telegram, SMS as fallback); later sign-in by password or Google — see [authentication](../architecture/mechanisms/authentication.md). Phone codes and passwords are paused by [ADR-004](../architecture/decisions/ADR-004.md): until codes are funded, registration and sign-in are Google-only.
 - **OQ-002: How long do we keep the audit log?** Affects SEC-004. *Resolved:* 90 days; older records are deleted by a daily job.
 - **OQ-003: How long does a declined candidate stay excluded?** Affects FR-020. *Resolved:* until the event ends; the exclusion does not carry over to other events, and an expired proposal excludes the pair the same way — see [matching](../architecture/mechanisms/matching.md).
 - **OQ-004: How long does a match proposal stay open before it expires?** Affects UC-001 (A4). *Resolved:* 24 hours or until the next round starts, whichever comes first; after the last round, until the matching cutoff — see [matching](../architecture/mechanisms/matching.md) rule 4.

@@ -9,7 +9,8 @@ import type { paths } from './schema';
 export const publicClient = createClient<paths>({ baseUrl: config.apiUrl });
 
 // status 0: the API could not be reached.
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; code?: string };
+// `fields`: what a 400 points at, e.g. `linkedAccounts.0.username`.
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; code?: string; fields?: string[] };
 
 export async function call<T>(
   request: () => Promise<{ data?: T; error?: unknown; response: Response }>,
@@ -19,8 +20,9 @@ export async function call<T>(
     if (response.ok) {
       return { ok: true, data: data as T };
     }
-    const code = (error as { error?: { code?: string } } | undefined)?.error?.code;
-    return { ok: false, status: response.status, code };
+    const body = (error as { error?: { code?: string; details?: { field?: string }[] } } | undefined)?.error;
+    const fields = body?.details?.flatMap(({ field }) => (field ? [field] : []));
+    return { ok: false, status: response.status, code: body?.code, fields };
   } catch {
     return { ok: false, status: 0 };
   }

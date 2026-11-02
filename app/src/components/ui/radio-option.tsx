@@ -1,13 +1,15 @@
 // Written with the help of Claude
 // AI Usage: selectable option row with an icon and a radio mark, as in the Figma 03 and П1.1 sheets; reviewed by
 // Daryna Halytska.
+import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/ui/icon';
 import { colors } from '@/styles/tokens';
 
 type Props = {
-  icon: IconName;
+  // A Solar icon, or one drawn by the caller in the given colour (e.g. a social network logo).
+  icon: IconName | ((color: string) => ReactNode);
   title: string;
   note?: string;
   selected: boolean;
@@ -29,7 +31,11 @@ export function RadioOption({ icon, title, note, selected, onPress }: Props) {
       <View
         className={`size-10 items-center justify-center rounded-xl ${selected ? 'bg-brand-coral' : 'bg-surface-card'}`}
       >
-        <Icon name={icon} size={20} color={selected ? colors.text['on-dark'] : colors.text.primary} />
+        {typeof icon === 'function' ? (
+          icon(selected ? colors.text['on-dark'] : colors.text.primary)
+        ) : (
+          <Icon name={icon} size={20} color={selected ? colors.text['on-dark'] : colors.text.primary} />
+        )}
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-medium text-body text-text-primary">{title}</Text>

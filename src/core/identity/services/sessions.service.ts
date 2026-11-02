@@ -2,6 +2,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
+import { DAY_MS, HOUR_SECONDS } from '../../common/durations.ts';
 import { AccessTokens } from '../adapters/access-tokens.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { SessionsRepository } from '../repositories/sessions.repository.ts';
@@ -9,8 +10,8 @@ import type { SessionTokens } from '../types/auth.ts';
 import type { AccountRole } from '../types/caller.ts';
 
 // SEC-005
-export const ACCESS_TOKEN_SECONDS = 60 * 60;
-const REFRESH_TOKEN_MS = 30 * 24 * 60 * 60 * 1000;
+export const ACCESS_TOKEN_SECONDS = HOUR_SECONDS;
+const REFRESH_TOKEN_MS = 30 * DAY_MS;
 const SECRET_BYTES = 32;
 
 /** `<session id>.<secret>`: the id finds the row, the secret proves the token. */

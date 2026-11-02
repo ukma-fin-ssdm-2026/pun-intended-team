@@ -9,6 +9,7 @@ import { ageOn } from '../../dist/core/common/age.js';
 import { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
 import type {
   Interest,
+  LinkedAccount,
   NewProfile,
   Profile,
   ProfileChanges,
@@ -38,8 +39,13 @@ describe('ageOn', () => {
 });
 
 const DATE_OF_BIRTH = '2000-05-17';
-const HIKING: Interest = { id: 'f0000000-0000-4000-8000-000000000001', name: 'Hiking' };
-const JAZZ: Interest = { id: 'f0000000-0000-4000-8000-000000000002', name: 'Jazz' };
+const HIKING: Interest = {
+  id: 'f0000000-0000-4000-8000-000000000001',
+  name: 'Походи в гори',
+  group: 'Спорт і природа',
+};
+const JAZZ: Interest = { id: 'f0000000-0000-4000-8000-000000000002', name: 'Джаз', group: 'Музика' };
+const TELEGRAM: LinkedAccount = { network: 'telegram', username: 'natalka' };
 
 function aProfile(overrides: Partial<Profile> = {}): Profile {
   return {
@@ -47,9 +53,11 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     username: 'Natalka.Park',
     displayName: 'Natalka',
     description: '',
+    occupation: '',
     communicationFormat: null,
     sharePhone: false,
     interestIds: [],
+    linkedAccounts: [],
     ...overrides,
   };
 }
@@ -72,6 +80,9 @@ function makeService() {
     update: mock.fn((_accountId: string, changes: ProfileChanges) => Promise.resolve(aProfile(changes))),
     replaceInterests: mock.fn((_accountId: string, interestIds: string[]) =>
       Promise.resolve(aProfile({ interestIds })),
+    ),
+    replaceLinkedAccounts: mock.fn((_accountId: string, linkedAccounts: LinkedAccount[]) =>
+      Promise.resolve(aProfile({ linkedAccounts })),
     ),
   };
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
@@ -122,6 +133,17 @@ describe('ProfilesService.getOwn', () => {
       service.getOwn(ACCOUNT_ID),
       (error: unknown) => error instanceof Error && !(error instanceof DomainError),
     );
+  });
+
+  test('leaves a profile without a network incomplete', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ communicationFormat: 'friends', interestIds: [HIKING.id] })),
+    );
+
+    const profile = await service.getOwn(ACCOUNT_ID);
+
+    assert.equal(profile.isComplete, false);
   });
 });
 
@@ -202,13 +224,13 @@ describe('ProfilesService.update', () => {
 });
 
 describe('ProfilesService.replaceInterests', () => {
-  test('saves each interest once and completes a profile with a communication format', async () => {
+  test('saves each interest once and completes a profile with a communication format and a network', async () => {
     const { service, profilesRepository } = makeService();
     profilesRepository.findByAccountId.mock.mockImplementation(() =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends' })),
+      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM] })),
     );
     profilesRepository.replaceInterests.mock.mockImplementation((_accountId: string, interestIds: string[]) =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends', interestIds })),
+      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM], interestIds })),
     );
 
     const profile = await service.replaceInterests(ACCOUNT_ID, [HIKING.id, JAZZ.id, HIKING.id]);
@@ -227,5 +249,60 @@ describe('ProfilesService.replaceInterests', () => {
       isDomainError('REFERENCE_NOT_FOUND'),
     );
     assert.equal(profilesRepository.replaceInterests.mock.callCount(), 0);
+  });
+});
+
+describe('ProfilesService.replaceLinkedAccounts', () => {
+  test('saves the networks and returns them with their profile links', async () => {
+    const { service, profilesRepository } = makeService();
+
+    const profile = await service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM]);
+
+    assert.deepEqual(profilesRepository.replaceLinkedAccounts.mock.calls[0]?.arguments, [ACCOUNT_ID, [TELEGRAM]]);
+    assert.deepEqual(profile.linkedAccounts, [{ ...TELEGRAM, url: 'https://t.me/natalka' }]);
+  });
+
+  test('keeps the bare handle of a nickname or a pasted link', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await service.replaceLinkedAccounts(ACCOUNT_ID, [
+      { network: 'telegram', username: ' @natalka ' },
+      { network: 'instagram', username: 'https://www.instagram.com/natalka.park/' },
+    ]);
+
+    assert.deepEqual(profilesRepository.replaceLinkedAccounts.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      [
+        { network: 'telegram', username: 'natalka' },
+        { network: 'instagram', username: 'natalka.park' },
+      ],
+    ]);
+  });
+
+  test('refuses a username that does not fit its social network, names it and changes nothing', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await assert.rejects(
+      service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM, { network: 'instagram', username: 'instagram.com/p/xyz' }]),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.code === 'INVALID_SOCIAL_HANDLE' &&
+        error.field === 'linkedAccounts.1.username',
+    );
+    assert.equal(profilesRepository.replaceLinkedAccounts.mock.callCount(), 0);
+  });
+
+  test('refuses an empty list and changes nothing', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await assert.rejects(service.replaceLinkedAccounts(ACCOUNT_ID, []), isDomainError('CONTACT_REQUIRED'));
+    assert.equal(profilesRepository.replaceLinkedAccounts.mock.callCount(), 0);
+  });
+
+  test('answers NOT_FOUND before the profile is created', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM]), isDomainError('NOT_FOUND'));
   });
 });

@@ -289,10 +289,7 @@ export default function EventScreen() {
           setDialogOpen(false);
           goBack();
         }}
-        onAuth={(route) => {
-          setDialogOpen(false);
-          router.push(route);
-        }}
+        onLeave={() => setDialogOpen(false)}
       />
     </View>
   );
