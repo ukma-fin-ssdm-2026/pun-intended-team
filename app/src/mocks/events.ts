@@ -12,15 +12,20 @@ type Event = components['schemas']['Event'];
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
 
-// Category ids are shared by the events below; the order is the order of the Figma chips.
+// Category ids are shared by the events below; the list is the catalog's categories, in the order of the chips.
 export const mockCategories: components['schemas']['Category'][] = [
   { id: '6f1c2a3e-0001-4a00-8000-000000000001', name: 'Концерти' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000002', name: 'Виставки' },
-  { id: '6f1c2a3e-0001-4a00-8000-000000000003', name: 'Лекції' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000003', name: 'Лекції та дискусії' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000007', name: 'Воркшопи' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000004', name: 'Кіно' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000005', name: 'Театр' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000006', name: 'Стендап' },
-  { id: '6f1c2a3e-0001-4a00-8000-000000000007', name: 'Воркшопи' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000008', name: 'Спорт' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000009', name: 'Фестивалі та ярмарки' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000010', name: 'Вечірки' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000011', name: 'Волонтерство' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000012', name: 'День відкритих дверей' },
 ];
 
 // "Де" in the filters.
