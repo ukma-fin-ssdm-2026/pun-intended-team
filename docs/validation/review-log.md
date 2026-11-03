@@ -70,6 +70,9 @@ The review also moved the import out of the catalog into its own module with its
 
 ## Review of AI-generated code (#285)
 
+- **Pull request:** [#288](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/pull/288), `match(pool, exclusions, seed)` for matching rounds (#285, FR-017, FR-020, FUNC-001, FUNC-002). The tests were committed failing first; the implementation was generated with Claude Code until they passed.
+- **Reviewer:** Viktoriia Baran, in the review comments on the pull request.
+
 | № | Criterion | Yes/No | Comment |
 |---|---|---|---|
 | 1 | All imported packages are real and used | Yes | Only local imports, no external packages. Unused imports are caught by ESLint (`no-unused-vars`); a missing module fails the build (TS2307). |
