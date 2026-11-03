@@ -1,12 +1,11 @@
 # Provider Fixtures
 
-Real responses saved on 2026-11-03 for the event import adapters. Unit tests read these files, so CI never calls the live sites. Keep the samples as saved; do not reformat them. Two public page values that gitleaks reads as API keys are replaced with `REDACTED`: the Cloudflare analytics beacon `token` on the ArtWizard pages and the `push-key` on the Karabas pages; the adapters read neither.
+Real responses saved on 2026-11-03 for the event import adapters. Unit tests read these files, so CI never calls the live sites or the ArtWizard API. Keep the samples as saved; do not reformat them. The public `push-key` on the Karabas pages, which gitleaks reads as an API key, is replaced with `REDACTED`; the adapter does not read it. The ArtWizard API key is never saved: it is sent in the request URL only, and the responses were checked not to contain it.
 
 | File | Source | Contents |
 |---|---|---|
-| `artwizard/event.html` | https://artwizard.io/kyiv/e/vaga-ne-problema--20261111 | Normal event page with an `Event` JSON-LD block |
-| `artwizard/event-error.html` | https://artwizard.io/kyiv/e/tom-liuis-u-kyievi-20261110 | Next.js error shell (`html id="__next_error__"`), no event data; the slug differs from the sitemap one (`kiyevi`), so this is what an unknown or broken page returns |
-| `artwizard/events-sitemap.xml` | https://artwizard.io/sitemaps/events.xml | 12 of 159 entries: 8 Kyiv, 4 other cities |
+| `artwizard/events-page-1.json` | `GET https://api.artwizard.io/events?apiKey=REDACTED&city=kyiv&filter[event_occurrences_data.date_from:lt]=date:2026-12-01&page_size=20&page=1` | Page 1 of 4: 20 of 74 Kyiv events, from exhibitions running since August to events on 5 November |
+| `artwizard/events-page-2.json` | The same request with `page=2` | Page 2 of 4: the next 20 events, 5–8 November |
 | `karabas/kyiv-concerts.html` | https://kyiv.karabas.com/concerts/ | 20 events (`MusicEvent`, `TheaterEvent`, `ScreeningEvent`) |
 | `karabas/kyiv-clubs.html` | https://kyiv.karabas.com/clubs/ | 20 events (`MusicEvent`, `Event`) |
 | `karabas/kyiv-sport.html` | https://kyiv.karabas.com/sport/ | 1 event (`SportsEvent`) |

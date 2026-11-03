@@ -24,15 +24,11 @@ import { KarabasEventProvider } from './providers/karabas-event-provider.ts';
     {
       provide: EVENT_PROVIDERS,
       useFactory: () => {
-        const { userAgent, intervalMs, artWizardBaseUrl, karabasBaseUrl, now } = importSettings();
+        const { userAgent, intervalMs, artWizardApiKey, artWizardApiUrl, karabasBaseUrl, now } = importSettings();
         // One client per site, each with that site's robots.txt rules.
         const client = (disallowedPaths: string[]) => new PoliteHttpClient({ userAgent, intervalMs, disallowedPaths });
         return [
-          new ArtWizardEventProvider({
-            http: client(['/api/', '/internal/', '/cdn-cgi/']),
-            baseUrl: artWizardBaseUrl,
-            now,
-          }),
+          new ArtWizardEventProvider({ http: client([]), apiKey: artWizardApiKey, apiUrl: artWizardApiUrl, now }),
           new KarabasEventProvider({ http: client(['/ajax.php']), baseUrl: karabasBaseUrl, now }),
         ];
       },

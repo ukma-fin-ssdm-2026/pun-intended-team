@@ -26,6 +26,11 @@ export interface PoliteHttpClientOptions {
   timeoutMs?: number;
 }
 
+/** The URL with the value of an `apiKey` query parameter replaced by `REDACTED`, for logs and errors. */
+export function redactedUrl(url: string): string {
+  return url.replace(/([?&]apiKey=)[^&#]*/gi, '$1REDACTED');
+}
+
 /** A client for crawling one site: one request at a time, at most one per interval, with a clear User-Agent. */
 export class PoliteHttpClient implements HttpClient {
   private readonly logger = new Logger(PoliteHttpClient.name);
@@ -65,7 +70,7 @@ export class PoliteHttpClient implements HttpClient {
         failure = error instanceof Error ? error.message : String(error);
       }
       const wait = backoffMs * 2 ** attempt;
-      this.logger.warn(`GET ${url} failed (${failure}); retrying in ${wait} ms`);
+      this.logger.warn(`GET ${redactedUrl(url)} failed (${failure}); retrying in ${wait} ms`);
       await sleep(wait);
     }
   }

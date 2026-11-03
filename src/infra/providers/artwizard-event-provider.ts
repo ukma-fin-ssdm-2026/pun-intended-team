@@ -1,17 +1,21 @@
 // Written with the help of Claude
 import { Logger } from '@nestjs/common';
-import { load } from 'cheerio';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
 import { fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { NormalizeResult } from '../../core/import/types/import.ts';
-import type { HttpClient } from './http-client.ts';
-import { errorMessage, fitDescription, fitTitle, jsonLdObjects, slugOf } from './provider-pages.ts';
+import { type HttpClient, redactedUrl } from './http-client.ts';
+import { errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
-export const ARTWIZARD_BASE_URL = 'https://artwizard.io';
+export const ARTWIZARD_API_URL = 'https://api.artwizard.io';
+/** Where the event pages are; `sourceUrl` points there, never to `details_url`, which is empty or another site. */
+const ARTWIZARD_SITE_URL = 'https://artwizard.io';
+const PAGE_SIZE = 20;
+/** A stop for a response whose `total_pages` is wrong: Kyiv had 4 pages of 20 on 2026-11-03. */
+const MAX_PAGES = 50;
 
-/** ArtWizard's event types (the page's `type` tags), and our category for each; the first known tag wins. */
+/** ArtWizard's event types (`type`), and our category for each; the first known type wins. */
 const CATEGORY_BY_TAG = new Map([
   ['Музика', 'Concerts'],
   ['Виставки', 'Exhibitions'],
@@ -25,175 +29,198 @@ const CATEGORY_BY_TAG = new Map([
   ['Вечірки', 'Parties'],
 ]);
 
-/** A Kyiv event page: `/kyiv/e/<slug>-YYYYMMDD`. */
-const KYIV_EVENT_PATH = /^\/kyiv\/e\/[^/]+-(\d{4})(\d{2})(\d{2})$/;
+const EventsPage = z.object({
+  total: z.number().int(),
+  total_pages: z.number().int().min(0),
+  data: z.array(z.unknown()),
+});
 
-/** What `fetch` returns for one event page: its Event JSON-LD and type tags, or why the page could not be read. */
-export type ArtWizardRecord =
-  { url: string; event: Record<string, unknown> | null; types: string[] } | { url: string; error: string };
+const Occurrence = z.object({
+  date_from: z.iso.datetime({ offset: true }),
+  date_to: z.iso.datetime({ offset: true }),
+});
+type Occurrence = z.infer<typeof Occurrence>;
 
 const RawEvent = z.object({
-  name: z.string().trim().min(1),
-  description: z.string().default(''),
-  url: z.string().optional(),
-  image: z.union([z.array(z.string()), z.string()]).optional(),
-  startDate: z.iso.datetime({ offset: true }),
-  endDate: z.iso.datetime({ offset: true }).optional(),
+  title: z.string().trim().min(1),
+  description: z.string().nullish(),
+  status: z.string(),
+  type: z.array(z.string()).default([]),
+  picture_url: z.string().nullish(),
   location: z.object({
-    name: z.string().trim().min(1),
-    address: z
-      .object({ streetAddress: z.string().trim().optional(), addressLocality: z.string().trim().optional() })
-      .optional(),
-    geo: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) }).optional(),
+    name_ua: z.string().trim().min(1),
+    address_ua: z.string().trim().nullish(),
+    latitude: z.number().min(-90).max(90).nullish(),
+    longitude: z.number().min(-180).max(180).nullish(),
+    city: z.object({ slug: z.string(), name: z.string().trim().nullish() }).nullish(),
   }),
+  event_occurrences_data: z.array(Occurrence).default([]),
 });
 
 export interface ArtWizardOptions {
   http: HttpClient;
-  baseUrl?: string;
+  /** Sent as the `apiKey` query parameter; never logged. */
+  apiKey: string;
+  apiUrl?: string;
   now?: () => Date;
 }
 
 /**
- * ArtWizard (artwizard.io) behind the EventProvider port. The sitemap lists the event pages; each page carries a
- * schema.org `Event` in JSON-LD. robots.txt disallows `/api/` and the image CDN, so neither is requested.
+ * ArtWizard (artwizard.io) behind the EventProvider port, through the events API ArtWizard gave us access to
+ * (ADR-006). One request per page of 20 Kyiv events whose occurrences touch the catalog window.
  */
 export class ArtWizardEventProvider extends EventProvider {
   readonly id = 'artwizard';
   private readonly logger = new Logger(ArtWizardEventProvider.name);
   private readonly http: HttpClient;
-  private readonly baseUrl: string;
+  private readonly apiKey: string;
+  private readonly apiUrl: string;
   private readonly now: () => Date;
 
-  constructor({ http, baseUrl = ARTWIZARD_BASE_URL, now = () => new Date() }: ArtWizardOptions) {
+  constructor({ http, apiKey, apiUrl = ARTWIZARD_API_URL, now = () => new Date() }: ArtWizardOptions) {
     super();
     this.http = http;
-    this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
+    this.apiUrl = apiUrl;
     this.now = now;
   }
 
-  async fetch(since?: Date): Promise<ArtWizardRecord[]> {
-    const sitemapUrl = new URL('/sitemaps/events.xml', this.baseUrl).href;
-    const sitemap = await this.http.get(sitemapUrl);
-    if (sitemap.status !== 200) {
-      throw new Error(`GET ${sitemapUrl} answered ${sitemap.status}`);
+  async fetch(): Promise<unknown[]> {
+    if (!this.apiKey) {
+      throw new Error('ARTWIZARD_API_KEY is not set: see .env.example');
     }
     const window = catalogWindow(this.now());
-    const pages = sitemapEntries(sitemap.text).filter(({ path }) => {
-      const [, year, month, day] = KYIV_EVENT_PATH.exec(path) ?? [];
-      const date = `${year}-${month}-${day}`;
-      return year !== undefined && date >= window.from && date <= window.to;
-    });
-    const changed = since ? pages.filter(({ lastmod }) => lastmod && lastmod >= since).length : pages.length;
-    this.logger.log(
-      `${pages.length} Kyiv event pages from ${window.from} to ${window.to}; ` +
-        `${changed} changed since ${since?.toISOString() ?? 'the first run'}`,
-    );
-
-    const records: ArtWizardRecord[] = [];
-    for (const { path } of pages) {
-      records.push(await this.fetchPage(new URL(path, this.baseUrl).href));
+    const events: unknown[] = [];
+    let total = 0;
+    let pages = 1;
+    for (let page = 1; page <= pages; page++) {
+      const body = await this.fetchPage(window, page);
+      events.push(...body.data);
+      total = body.total;
+      pages = Math.min(body.total_pages, MAX_PAGES);
     }
-    return records;
+    this.logger.log(`${events.length} of ${total} Kyiv events from ${window.from} to ${window.to}, ${pages} pages`);
+    return events;
   }
 
-  private async fetchPage(url: string): Promise<ArtWizardRecord> {
+  private async fetchPage(window: { from: string; to: string }, page: number): Promise<z.infer<typeof EventsPage>> {
+    const url = new URL('/events', this.apiUrl);
+    url.search = new URLSearchParams({
+      apiKey: this.apiKey,
+      city: 'kyiv',
+      'filter[event_occurrences_data.date_from:lte]': `date:${window.to}`,
+      'filter[event_occurrences_data.date_to:gte]': `date:${window.from}`,
+      page_size: String(PAGE_SIZE),
+      page: String(page),
+    }).toString();
+    const shown = redactedUrl(url.href);
+    let response;
     try {
-      const response = await this.http.get(url);
-      if (response.status !== 200) {
-        return { url, error: `The page answered ${response.status}` };
-      }
-      if (/<html[^>]*\bid="__next_error__"/.test(response.text)) {
-        return { url, error: 'The site could not render the page (Next.js error page)' };
-      }
-      const event = jsonLdObjects(response.text).find((object) => object['@type'] === 'Event') ?? null;
-      return { url, event, types: typeTags(response.text, slugOf(url)) };
+      response = await this.http.get(url.href, { accept: 'application/json' });
     } catch (error) {
-      this.logger.warn(`GET ${url} failed: ${errorMessage(error)}`);
-      return { url, error: `The page could not be fetched: ${errorMessage(error)}` };
+      // No `cause`: the original error may carry the URL with the key, and the import logs what it throws.
+      // eslint-disable-next-line preserve-caught-error
+      throw new Error(`GET ${shown} failed: ${errorMessage(error).replaceAll(this.apiKey, 'REDACTED')}`);
     }
+    if (response.status !== 200) {
+      throw new Error(`GET ${shown} answered ${response.status}`);
+    }
+    let json: unknown;
+    try {
+      json = JSON.parse(response.text);
+    } catch {
+      throw new Error(`GET ${shown} answered with something that is not JSON`);
+    }
+    const parsed = EventsPage.safeParse(json);
+    if (!parsed.success) {
+      throw new Error(`GET ${shown} answered without ${parsed.error.issues[0]?.path.join('.') || 'a page'}`);
+    }
+    return parsed.data;
   }
 
   normalize(raw: unknown): NormalizeResult {
-    const record = raw as ArtWizardRecord;
-    const externalId = typeof record?.url === 'string' ? slugOf(record.url) || null : null;
+    const slug = (raw as { slug?: unknown } | null)?.slug;
+    const externalId = typeof slug === 'string' && slug.trim() ? slug.trim() : null;
     if (!externalId) {
-      return { skip: { externalId: null, reason: 'Invalid record: url' } };
+      return { skip: { externalId: null, reason: 'Invalid record: slug' } };
     }
-    if ('error' in record) {
-      return { skip: { externalId, reason: record.error } };
-    }
-    if (!record.event) {
-      return { skip: { externalId, reason: 'The page has no Event JSON-LD' } };
-    }
-    const parsed = RawEvent.safeParse(record.event);
+    const parsed = RawEvent.safeParse(raw);
     if (!parsed.success) {
       return { skip: { externalId, reason: `Invalid record: ${parsed.error.issues[0]?.path.join('.') || 'event'}` } };
     }
-    const categoryName = record.types.map((type) => CATEGORY_BY_TAG.get(type)).find(Boolean);
+    const { title, description, status, type, picture_url, location, event_occurrences_data } = parsed.data;
+    if (status !== 'published') {
+      return { skip: { externalId, reason: `Not published (status ${JSON.stringify(status)})` } };
+    }
+    const city = location.city?.slug;
+    if (city !== 'kyiv') {
+      return { skip: { externalId, reason: `Not in Kyiv (city ${JSON.stringify(city ?? null)})` } };
+    }
+    const categoryName = type.map((tag) => CATEGORY_BY_TAG.get(tag)).find(Boolean);
     if (!categoryName) {
-      return { skip: { externalId, reason: `No category for the types ${JSON.stringify(record.types)}` } };
+      return { skip: { externalId, reason: `No category for the types ${JSON.stringify(type)}` } };
     }
-    const { name, description, url, image, startDate, endDate, location } = parsed.data;
-    // ArtWizard shows 00:00 when the organizer gave no time; a midnight start would also move the matching rounds.
-    if (startDate.slice(11, 19) === '00:00:00') {
-      return { skip: { externalId, reason: 'No start time (00:00 on ArtWizard)' } };
+
+    const window = catalogWindow(this.now());
+    const inWindow = event_occurrences_data
+      .filter((occurrence) => occurrenceInWindow(occurrence, window))
+      .sort((a, b) => a.date_from.localeCompare(b.date_from));
+    const first = inWindow.find((occurrence) => !untimed(occurrence));
+    if (inWindow.length > 1) {
+      this.logger.log(
+        `${externalId}: ${inWindow.length} occurrences from ${window.from} to ${window.to}; ` +
+          (first ? `importing the one of ${first.date_from.slice(0, 16)} only` : 'none has a start time'),
+      );
     }
-    // The JSON-LD writes Kyiv time with a `Z`: 19:00 on the page is `19:00:00.000Z`.
-    const start = fromKyivWallClock(startDate);
-    const end = endDate ? fromKyivWallClock(endDate) : undefined;
-    const address = [location.address?.streetAddress, location.address?.addressLocality].filter(Boolean).join(', ');
+    if (!first) {
+      // ArtWizard shows 00:00 when the organizer gave no time; a midnight start would also move the matching rounds.
+      return inWindow.length > 0
+        ? { skip: { externalId, reason: 'No start time (00:00 on ArtWizard)' } }
+        : { skip: { externalId, reason: `No occurrence from ${window.from} to ${window.to}` } };
+    }
+    // The API writes Kyiv time with a `Z`: 18:00 on the page is `18:00:00.000Z`.
+    const start = fromKyivWallClock(first.date_from);
+    const end = fromKyivWallClock(first.date_to);
+    // Our venues are matched by name and address, and the earlier import wrote the address with the city.
+    const address = [location.address_ua, location.city?.name].filter(Boolean).join(', ');
+    const coordinates =
+      location.latitude != null && location.longitude != null
+        ? { lat: location.latitude, lng: location.longitude }
+        : null;
     return {
       event: {
         externalId,
-        title: fitTitle(name),
-        description: fitDescription(quillText(description)),
+        title: fitTitle(title),
+        description: fitDescription(quillText(description ?? '')),
         categoryName,
-        venue: {
-          name: location.name,
-          address,
-          location: location.geo ? { lat: location.geo.latitude, lng: location.geo.longitude } : null,
-        },
+        venue: { name: location.name_ua, address, location: coordinates },
         startsAt: start.toISOString(),
-        // An end that is not after the start means the page gives none: the event lasts until the end of its day.
-        endsAt: (end && end > start ? end : kyivEndOfDay(start)).toISOString(),
-        imageUrl: (Array.isArray(image) ? image[0] : image) ?? null,
-        sourceUrl: url ?? record.url,
+        // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the
+        // end of its day.
+        endsAt: (end > start ? end : kyivEndOfDay(start)).toISOString(),
+        imageUrl: picture_url || null,
+        sourceUrl: `${ARTWIZARD_SITE_URL}/${city}/e/${encodeURIComponent(externalId)}`,
       },
     };
   }
 }
 
-function sitemapEntries(xml: string): { path: string; lastmod: Date | undefined }[] {
-  const $ = load(xml, { xml: true });
-  return $('url')
-    .toArray()
-    .flatMap((entry) => {
-      const loc = $(entry).find('loc').text().trim();
-      const lastmod = $(entry).find('lastmod').text().trim();
-      try {
-        return [{ path: new URL(loc).pathname, lastmod: lastmod ? new Date(lastmod) : undefined }];
-      } catch {
-        return [];
-      }
-    });
+/**
+ * An occurrence without opening hours: ArtWizard writes 00:00 as the start when the organizer gave no time, and
+ * an exhibition's run as 00:00 to 23:59:59 of its last day.
+ */
+function untimed({ date_from }: Occurrence): boolean {
+  return date_from.slice(11, 19) === '00:00:00';
 }
 
 /**
- * The event's type tags. They are not in the JSON-LD, only in the page's Next.js data, where the event object
- * reads `\"type\":[\"Театр\",...],\"tags\":[{...,\"slug\":\"16\"}],\"slug\":\"<slug>\"`: the list just before
- * the event's own slug. The tags can be objects, so the search goes back from the slug.
+ * Whether the catalog shows the occurrence: one with a time when it starts on a window date, one without when its
+ * run touches the window. The digits are Kyiv dates, so they are compared as written.
  */
-function typeTags(html: string, slug: string): string[] {
-  const marker = `\\"slug\\":\\"${slug}\\"`;
-  for (let at = html.indexOf(marker); at !== -1; at = html.indexOf(marker, at + marker.length)) {
-    const before = html.slice(Math.max(0, at - 4000), at);
-    const list = [...before.matchAll(/\\"type\\":\[([^\]]*)\],\\"tags\\":/g)].at(-1)?.[1];
-    if (list !== undefined) {
-      return [...list.matchAll(/\\"((?:[^"\\]|\\[^"])*)\\"/g)].map(([, tag]) => tag ?? '');
-    }
-  }
-  return [];
+function occurrenceInWindow(occurrence: Occurrence, window: { from: string; to: string }): boolean {
+  const from = occurrence.date_from.slice(0, 10);
+  const to = occurrence.date_to.slice(0, 10);
+  return untimed(occurrence) ? from <= window.to && to >= window.from : from >= window.from && from <= window.to;
 }
 
 /** The text of a Quill Delta (`[{"insert":"..."}]`), the format ArtWizard stores descriptions in; plain text as is. */

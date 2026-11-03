@@ -1998,25 +1998,40 @@ describe('Parallel requests', () => {
 });
 
 // CMP-03, FR-008, FR-015: the import is a process of its own, connected as nearby_import (database-access.md).
-// It reads ArtWizard, Karabas and Nominatim from a local server with the pages saved on 2026-11-03, never the sites.
+// It reads ArtWizard, Karabas and Nominatim from a local server with the responses saved on 2026-11-03, never the
+// sites.
 describe('Event import', () => {
+  const ARTWIZARD_TEST_KEY = 'e2e-artwizard-key';
   let providerSite: Server;
   let providerSiteUrl = '';
 
   before(async () => {
     const saved = (file: string) => readFileSync(path.resolve('tests/unit/fixtures/providers', file));
     const pages: Record<string, string> = {
-      '/sitemaps/events.xml': 'artwizard/events-sitemap.xml',
-      '/kyiv/e/vaga-ne-problema--20261111': 'artwizard/event.html',
       '/concerts/': 'karabas/kyiv-concerts.html',
       '/clubs/': 'karabas/kyiv-clubs.html',
       '/sport/': 'karabas/kyiv-sport.html',
       '/search': 'nominatim/search.json',
     };
+    // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
+    const artWizardPage = (page: string) => {
+      const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
+      return JSON.stringify({ ...body, total_pages: 2 });
+    };
     providerSite = createHttpServer((req, res) => {
-      const { pathname } = new URL(req.url ?? '/', 'http://localhost');
-      const file = pages[pathname] ?? (pathname.startsWith('/kyiv/e/') ? 'artwizard/event-error.html' : undefined);
-      // ArtWizard answers 200 with its error page for an event it cannot render; other paths are missing.
+      const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      if (pathname === '/events') {
+        const page = searchParams.get('page') ?? '';
+        if (searchParams.get('apiKey') !== ARTWIZARD_TEST_KEY) {
+          res.writeHead(401).end();
+        } else {
+          res
+            .writeHead(['1', '2'].includes(page) ? 200 : 404)
+            .end(['1', '2'].includes(page) ? artWizardPage(page) : '');
+        }
+        return;
+      }
+      const file = pages[pathname];
       res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
     });
     await new Promise<void>((resolve) => providerSite.listen(0, resolve));
@@ -2038,7 +2053,8 @@ describe('Event import', () => {
         env: {
           PATH: process.env.PATH,
           IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
-          ARTWIZARD_BASE_URL: providerSiteUrl,
+          ARTWIZARD_API_URL: providerSiteUrl,
+          ARTWIZARD_API_KEY: ARTWIZARD_TEST_KEY,
           KARABAS_BASE_URL: providerSiteUrl,
           NOMINATIM_BASE_URL: providerSiteUrl,
           IMPORT_REQUEST_INTERVAL_MS: '0',
@@ -2078,11 +2094,11 @@ describe('Event import', () => {
 
     await runImport();
 
-    // ArtWizard: one event page renders, the other seven Kyiv pages are its error page. Karabas: 20 concerts,
-    // 12 club events that are not concerts too, and 1 sport event.
+    // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
+    // has no occurrence in it. Karabas: 20 concerts, 12 club events that are not concerts too, and 1 sport event.
     const artWizard = await importedEvents('artwizard');
     const karabas = await importedEvents('karabas');
-    assert.equal(artWizard.length, 1);
+    assert.equal(artWizard.length, 30);
     assert.equal(karabas.length, 33);
     for (const event of [...artWizard, ...karabas]) {
       assert.equal(event.organization_id, null);
@@ -2101,7 +2117,7 @@ describe('Event import', () => {
       ),
     );
     assert.deepEqual(runs, [
-      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 7 },
+      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 10 },
       { provider: 'karabas', status: 'succeeded', finished: true, skipped: 0 },
     ]);
   });
@@ -2114,6 +2130,8 @@ describe('Event import', () => {
 
     assert.equal((await importedEvents('karabas')).length, first);
     assert.equal(first, 33);
+    // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
+    assert.equal((await importedEvents('artwizard')).length, 30);
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {

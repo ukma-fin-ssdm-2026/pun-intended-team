@@ -5,7 +5,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { after, before, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
-import { PoliteHttpClient } from '../../dist/infra/providers/http-client.js';
+import { PoliteHttpClient, redactedUrl } from '../../dist/infra/providers/http-client.js';
 
 // REL-003: a provider page that fails now and then is retried, not lost.
 describe('PoliteHttpClient', () => {
@@ -17,7 +17,7 @@ describe('PoliteHttpClient', () => {
   before(async () => {
     server = createServer((req, res) => {
       received.push({ path: req.url, userAgent: req.headers['user-agent'], at: Date.now() });
-      if (req.url === '/flaky' && failuresLeft > 0) {
+      if (req.url?.startsWith('/flaky') && failuresLeft > 0) {
         failuresLeft--;
         res.writeHead(503).end();
         return;
@@ -80,11 +80,7 @@ describe('PoliteHttpClient', () => {
     await assert.rejects(client({ retries: 1 }).get('http://localhost:1/unreachable'));
   });
 
-  const disallowed = [
-    { site: 'ArtWizard', paths: ['/api/', '/internal/', '/cdn-cgi/'], url: '/api/events' },
-    { site: 'ArtWizard', paths: ['/api/', '/internal/', '/cdn-cgi/'], url: '/cdn-cgi/imagedelivery/x/public' },
-    { site: 'Karabas', paths: ['/ajax.php'], url: '/ajax.php?action=events' },
-  ];
+  const disallowed = [{ site: 'Karabas', paths: ['/ajax.php'], url: '/ajax.php?action=events' }];
   for (const { site, paths, url } of disallowed) {
     test(`refuses ${url}, disallowed by the robots.txt of ${site}, without sending it`, async () => {
       received.length = 0;
@@ -92,6 +88,37 @@ describe('PoliteHttpClient', () => {
       await assert.rejects(client({ disallowedPaths: paths }).get(`${baseUrl}${url}`), /disallowed by robots\.txt/);
 
       assert.equal(received.length, 0);
+    });
+  }
+
+  test('logs a retried URL with its API key redacted', async () => {
+    failuresLeft = 1;
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    await client().get(`${baseUrl}/flaky?city=kyiv&apiKey=test-api-key&page=1`);
+
+    const logged = warn.mock.calls.map((call) => String(call.arguments[0]));
+    assert.equal(logged.length, 1);
+    assert.match(logged[0] ?? '', /\?city=kyiv&apiKey=REDACTED&page=1 failed/);
+    assert.ok(logged.every((line) => !line.includes('test-api-key')));
+  });
+});
+
+describe('redactedUrl', () => {
+  const urls = [
+    {
+      url: 'https://api.example/events?apiKey=abc&page=2',
+      result: 'https://api.example/events?apiKey=REDACTED&page=2',
+    },
+    {
+      url: 'https://api.example/events?page=2&apikey=abc',
+      result: 'https://api.example/events?page=2&apikey=REDACTED',
+    },
+    { url: 'https://api.example/events?page=2', result: 'https://api.example/events?page=2' },
+  ];
+  for (const { url, result } of urls) {
+    test(`writes ${url} as ${result}`, () => {
+      assert.equal(redactedUrl(url), result);
     });
   }
 });
