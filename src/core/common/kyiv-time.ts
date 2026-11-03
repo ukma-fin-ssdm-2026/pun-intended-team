@@ -32,3 +32,14 @@ export function kyivEndOfDay(instant: Date | string): Date {
   // the change) is the offset of the Kyiv midnight just before it.
   return new Date(utcMidnight - kyivOffsetMs(utcMidnight) - 1);
 }
+
+/**
+ * The instant whose Kyiv wall-clock time has the UTC digits of `utcDigits`: for a source that writes Kyiv time as
+ * if it were UTC, `2026-11-11T19:00:00Z` becomes 19:00 in Kyiv, i.e. 17:00Z in winter and 16:00Z in summer.
+ */
+export function fromKyivWallClock(utcDigits: Date | string): Date {
+  const digits = new Date(utcDigits).getTime();
+  // The offset at `digits` is right except within hours of a clock change; one more step settles it.
+  const guess = digits - kyivOffsetMs(digits);
+  return new Date(digits - kyivOffsetMs(guess));
+}
