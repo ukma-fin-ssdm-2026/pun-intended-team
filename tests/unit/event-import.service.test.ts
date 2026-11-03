@@ -244,9 +244,9 @@ describe('EventImportService.importFrom', () => {
 
   test('lets a failing fetch stop the run, so the catalog keeps the last imported events (FR-014)', async () => {
     const { run, provider, repository } = makeService();
-    provider.fetch.mock.mockImplementation(() => Promise.reject(new Error('Concert.ua is down')));
+    provider.fetch.mock.mockImplementation(() => Promise.reject(new Error('Karabas is down')));
 
-    await assert.rejects(run(), /Concert\.ua is down/);
+    await assert.rejects(run(), /Karabas is down/);
 
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'failed']);

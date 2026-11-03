@@ -18,7 +18,7 @@
 - **The live external services** (Telegram Gateway, TurboSMS, Google): tests replace them with stubs and local fake servers and never call the real services.
 - **The Expo client UI:** the project has no UI test tooling yet.
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
-- **The real Concert.ua feed:** the adapter reads a sample feed until the provider gives us access (R-001); the tests use the sample feed and fake providers.
+- **The live ArtWizard and Karabas sites:** CI never calls them. The adapter tests read real pages saved on 2026-11-03 in `tests/unit/fixtures/providers/`, and the e2e run of the import serves the same pages, and a saved Nominatim answer, from a local fixture server; a live run is done by hand (`npm run import:events`).
 - **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
 - **Editing another user's profile:** there is no such request. The profile endpoints are `/me/profile` only, and the account comes from the access token; TC-34 covers a request without one.
 - **Keeping unsaved form values on the device** (INTC-003): client behaviour, part of the Expo client UI above.

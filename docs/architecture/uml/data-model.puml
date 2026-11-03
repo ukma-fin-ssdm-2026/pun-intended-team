@@ -143,6 +143,8 @@ package "catalog" {
     provider / external_id : text
     * title : text
     * description : text
+    image_url : text
+    source_url : text
     * starts_at : timestamptz
     * ends_at : timestamptz
     * status : published | cancelled

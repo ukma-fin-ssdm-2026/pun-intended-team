@@ -4,6 +4,16 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ## [Unreleased]
 
+### Added
+
+- Event import from ArtWizard and Karabas: Kyiv events of the 28-day catalog window are read from the sites' schema.org data, within their robots.txt and at least 1 s apart, and venues without coordinates are found with Nominatim ([#364](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/364), [ADR-006](docs/architecture/decisions/ADR-006.md)).
+- Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
+- `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
+
+### Removed
+
+- The Concert.ua adapter and its sample feed: Concert.ua sells the same concerts as Karabas, so importing both would split applicants between copies of one event.
+
 ## [1.1.1] - 2026-11-01
 
 ### Refactoring
