@@ -55,6 +55,15 @@
 | Repeated reports on one user scatter into several cases | The administrator does not see how often a user was reported (FR-026) | TC-52, TC-57, TC-62 |
 | A profile change is lost, or a username is taken twice | The user sees old data after saving, or two people share one name | TC-32, TC-33, TC-34, TC-35 |
 
+## Exit Criteria
+
+Testing under this plan is complete when all of the following hold:
+
+- Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
+- Rows for features not built yet become due once the feature is implemented: TC-13, TC-15 and TC-37 to TC-40 with the matching rounds, and TC-29 once events are stored in the database. TC-10 is due now that staging exists; so far it has been run only locally.
+- The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
+- No critical defect is open.
+
 ## Test Cases
 
 *Paused:* the endpoint has no route while sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)); its test returns with the route.
@@ -125,15 +134,6 @@
 | TC-62 | `POST /reports` while its case is resolved | Integration | Negative | A report sent while another connection holds an uncommitted resolution of the case waits for it, then goes into a new open case, not the resolved one | Viktoriia Baran | FR-026 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
-
-## Exit Criteria
-
-Testing under this plan is complete when all of the following hold:
-
-- Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
-- Rows for features not built yet become due once the feature is implemented: TC-13, TC-15 and TC-37 to TC-40 with the matching rounds, and TC-29 once events are stored in the database. TC-10 is due now that staging exists; so far it has been run only locally.
-- The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
-- No critical defect is open.
 
 ## Bonuses
 
