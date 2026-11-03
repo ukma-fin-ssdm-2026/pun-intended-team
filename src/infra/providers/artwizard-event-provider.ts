@@ -135,6 +135,10 @@ export class ArtWizardEventProvider extends EventProvider {
       return { skip: { externalId, reason: `No category for the types ${JSON.stringify(record.types)}` } };
     }
     const { name, description, url, image, startDate, endDate, location } = parsed.data;
+    // ArtWizard shows 00:00 when the organizer gave no time; a midnight start would also move the matching rounds.
+    if (startDate.slice(11, 19) === '00:00:00') {
+      return { skip: { externalId, reason: 'No start time (00:00 on ArtWizard)' } };
+    }
     // The JSON-LD writes Kyiv time with a `Z`: 19:00 on the page is `19:00:00.000Z`.
     const start = fromKyivWallClock(startDate);
     const end = endDate ? fromKyivWallClock(endDate) : undefined;

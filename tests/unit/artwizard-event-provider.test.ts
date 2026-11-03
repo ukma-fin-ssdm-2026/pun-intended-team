@@ -147,6 +147,26 @@ describe('ArtWizardEventProvider.normalize', () => {
     });
   }
 
+  test('skips an event that starts at 00:00, which ArtWizard shows when the organizer gave no time', async () => {
+    const { provider } = makeProvider();
+
+    const result = provider.normalize(
+      await withEvent({ startDate: '2026-11-03T00:00:00.000Z', endDate: '2026-11-03T00:00:00.000Z' }),
+    );
+
+    assert.deepEqual(result, {
+      skip: { externalId: 'vaga-ne-problema--20261111', reason: 'No start time (00:00 on ArtWizard)' },
+    });
+  });
+
+  test('keeps an event that starts a minute after midnight', async () => {
+    const { provider } = makeProvider();
+
+    const event = normalized(provider, await withEvent({ startDate: '2026-11-11T00:01:00.000Z' }));
+
+    assert.equal(event.startsAt, '2026-11-10T22:01:00.000Z');
+  });
+
   test('keeps a real end, read as Kyiv time', async () => {
     const { provider } = makeProvider();
 

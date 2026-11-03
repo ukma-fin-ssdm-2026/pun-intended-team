@@ -30,7 +30,7 @@ Only one ticket operator is imported, because the same event from two providers 
 ### ArtWizard
 - Event URLs: `/<city>/e/<slug>-YYYYMMDD` — filter `/kyiv/` and the date before fetching; `<lastmod>` gives `since`.
 - `description` is a Quill Delta JSON string — join the `insert` values.
-- `startDate` is Kyiv wall-clock time wrongly marked `Z` (page shows 19:00, JSON `19:00:00.000Z`) — reinterpret in Europe/Kyiv. `endDate == startDate` means no end → end of day.
+- `startDate` is Kyiv wall-clock time wrongly marked `Z` (page shows 19:00, JSON `19:00:00.000Z`) — reinterpret in Europe/Kyiv. `endDate == startDate` means no end → end of day. A start of exactly 00:00 means the organizer gave no time (the page shows 00:00 too; Karabas sells "Я бачу, вас цікавить пітьма" at 18:00) → skip with a reason.
 - `location.geo` present. `image[0]` is under the disallowed `/cdn-cgi/imagedelivery/` — store the URL only.
 - Category from the page's `type` tags (not in JSON-LD).
 - An unknown or broken page returns a Next.js error shell (`html id="__next_error__"`) instead of 404 — skip and log.
