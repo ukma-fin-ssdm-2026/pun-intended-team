@@ -25,6 +25,7 @@ The server's `.env` is rendered on every deploy from [`deploy/staging.env`](../.
 | `GOOGLE_CLIENT_IDS` | variable | As in the local `.env` |
 | `TURBOSMS_SENDER` | variable | Optional |
 | `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN` | secret | Optional; codes are switched off ([ADR-004](../architecture/decisions/ADR-004.md)) |
+| `ARTWIZARD_API_KEY` | secret | The key for ArtWizard's events API, read by the import only ([ADR-006](../architecture/decisions/ADR-006.md)) |
 
 The `staging` environment only releases its secrets to jobs running from the `staging` branch: under Deployment branches and tags it allows the branch `staging` alone, and administrators cannot bypass that. Create it this way before the first deploy; a job that names a missing environment creates it without any rules.
 

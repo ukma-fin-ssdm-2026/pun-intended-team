@@ -80,7 +80,10 @@ services:
     image: *image
     command: ['node', 'dist/import/main.js']
     profiles: [manual]
-    environment: *api-environment
+    # The API's settings, plus the ArtWizard key, which only the import needs.
+    environment:
+      <<: *api-environment
+      ARTWIZARD_API_KEY: ${ARTWIZARD_API_KEY:-}
     volumes:
       - ./keys:/app/keys:ro
     depends_on:
