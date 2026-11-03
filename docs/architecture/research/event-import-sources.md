@@ -6,7 +6,7 @@ Research done on 2026-11-03 for issue #364 (import real events). Basis for [ADR-
 
 | Source | Decision | Access | Main reason |
 |---|---|---|---|
-| ArtWizard (artwizard.io) | In (course demo only, permission pending) | `sitemaps/events.xml` → event pages → JSON-LD `Event` | Has coordinates; lectures, exhibitions, workshops not sold by ticket operators |
+| ArtWizard (artwizard.io) | In, with ArtWizard's permission | Events API `api.artwizard.io/events` with a key, 20 events per page | Has coordinates; lectures, exhibitions, workshops not sold by ticket operators |
 | Karabas (kyiv.karabas.com) | In | Kyiv section pages (`/concerts/`, `/exhibitions/`, …) → JSON-LD of all events on the page | All fields for ~20 events in one request; has exhibitions and sport |
 | Concert.ua | Out | `/uk/catalog/kyiv/<section>` + one event page per event | Sells the same concerts as Karabas, so importing both would duplicate events and split applicants; needs 1 + N requests (address and description only on the event page); `@type` unusable for category |
 | Kontramarka | Out | — | No schema.org Event data; `Crawl-delay: 10`; `/api/`, `/storage/` disallowed |
@@ -15,25 +15,26 @@ Only one ticket operator is imported, because the same event from two providers 
 
 ## robots.txt
 
-- **ArtWizard:** disallows `/api/`, `/internal/`, `/cdn-cgi/imagedelivery/` (images), `/*/e/*/buy`. Event pages allowed.
+- **ArtWizard:** disallows `/api/`, `/internal/`, `/cdn-cgi/imagedelivery/` (images), `/*/e/*/buy`. Event pages allowed. No longer crawled: the import uses the API ArtWizard gave access to.
 - **Karabas:** `Allow: /`, `Crawl-delay: 1`, disallows `/ajax.php*`. Public offer is a ticket-sale contract with no clause on automated access.
 - **Concert.ua:** disallows only login, `/o/`, `?style=`. Closed the connection once (flaky).
 - **Kontramarka:** `Crawl-delay: 10`; disallows `/api/`, `/storage/`, search and genre filters.
 
 ## Terms of use
 
-- **ArtWizard:** the public offer ([offer.pdf](https://artwizard.io/files/offer.pdf)) says the platform's databases may not be used without its permission (§11.1); event materials come from the organizers (§11.2). Permission requested from support@artwizard.io on 2026-11-03; status: pending. Until it is granted, ArtWizard stays in for the course demo only, with these mitigations: Kyiv slice only, 1 s between requests, images as links, source link on every event.
+- **ArtWizard:** the public offer ([offer.pdf](https://artwizard.io/files/offer.pdf)) says the platform's databases may not be used without its permission (§11.1); event materials come from the organizers (§11.2). Permission requested on 2026-11-03 and granted the same day by Vlad Lisovyk, ArtWizard's founder, by email, with access to the API, within the scope of the request, on three conditions: Nearby stays a non-commercial study project (no ads, no paid features, no passing the data to third parties); the permission lasts for the study project, which ends by 2026-12-10, and the team asks again before then; ArtWizard is told in advance before the import changes how often it collects. Commercial use needs a separate agreement. See [ADR-006](../decisions/ADR-006.md), decision 9.
 - **Karabas:** the public offer has no such clause.
 
 ## Mapping notes
 
 ### ArtWizard
-- Event URLs: `/<city>/e/<slug>-YYYYMMDD` — filter `/kyiv/` and the date before fetching; `<lastmod>` gives `since`.
-- `description` is a Quill Delta JSON string — join the `insert` values.
-- `startDate` is Kyiv wall-clock time wrongly marked `Z` (page shows 19:00, JSON `19:00:00.000Z`) — reinterpret in Europe/Kyiv. `endDate == startDate` means no end → end of day. A start of exactly 00:00 means the organizer gave no time (the page shows 00:00 too; Karabas sells "Я бачу, вас цікавить пітьма" at 18:00) → skip with a reason.
-- `location.geo` present. `image[0]` is under the disallowed `/cdn-cgi/imagedelivery/` — store the URL only.
-- Category from the page's `type` tags (not in JSON-LD).
-- An unknown or broken page returns a Next.js error shell (`html id="__next_error__"`) instead of 404 — skip and log.
+First read from the sitemap and the event pages' JSON-LD; since the permission, from the events API. The API's documentation is outside the repository.
+- Request: `GET https://api.artwizard.io/events?apiKey=<key>&city=kyiv&filter[event_occurrences_data.date_from:lte]=date:<window end>&filter[event_occurrences_data.date_to:gte]=date:<today>&page_size=20&page=<n>`. Answer: `{ total, page, page_size, total_pages, data: [...] }`; 74 Kyiv events in 4 pages on 2026-11-03. A `date:` filter covers the whole day.
+- `slug` is the same as in the page URLs (`<slug>-YYYYMMDD`), so it stays the external id. `details_url` is empty or another site's ticket page — the source link is `https://artwizard.io/<city>/e/<slug>`.
+- `description` is a Quill Delta JSON string — join the `insert` values. `type` is the list of type tags; `status` is `published` for a public event.
+- `location` has `name_ua`, `address_ua`, `latitude`, `longitude` and `city.slug` — no geocoding needed.
+- `event_occurrences_data` lists the occurrences, unordered, in Kyiv wall-clock time wrongly marked `Z` (page shows 18:00, JSON `18:00:00.000Z`) — reinterpret in Europe/Kyiv. `date_from == date_to` → no end, end of day; a later `date_to` → real end; 00:00 to 23:59:59 → no time given (exhibition runs; "Я бачу, вас цікавить пітьма", which Karabas sells at 18:00) → not importable. An exhibition usually has an opening with a time plus such a run.
+- `picture_url` is under the disallowed `/cdn-cgi/imagedelivery/` — store the URL only.
 
 ### Karabas
 - Section page JSON-LD has name, full description, street address, image (`image.url`), dates (20 events on `/concerts/`).
@@ -49,12 +50,12 @@ Only one ticket operator is imported, because the same event from two providers 
 
 ## Decisions
 
-- Sources: ArtWizard (course demo only until it permits the import) and Karabas.
+- Sources: ArtWizard (through its API, with its permission) and Karabas.
 - Images: store the source URL only (`image_url`, nullable). Also store `source_url` for attribution and the ticket link.
 - Coordinates missing → `Geocoder` port, Nominatim implementation (1 req/s, ODbL attribution), reuse coordinates of an existing venue with the same name and address; not found → skip and log (FR-015).
 - Cross-provider merging of duplicate events is out of scope.
 - Sport from football sites: considered, deferred to a separate issue; Karabas `/sport/` covers matches for now.
-- Test fixtures: real pages saved in `tests/unit/fixtures/providers/{artwizard,karabas}/`.
+- Test fixtures: real responses saved in `tests/unit/fixtures/providers/{artwizard,karabas}/`; the ArtWizard key is never saved.
 
 ## Categories (agreed)
 
