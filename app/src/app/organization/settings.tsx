@@ -154,7 +154,7 @@ export default function OrganizationSettingsScreen() {
           setSignOutOpen(false);
           void signOut();
           // As on П5: signing out starts a new history on the onboarding (В1).
-          router.dismissAll();
+          if (router.canDismiss()) router.dismissAll();
           router.replace('/onboarding');
         }}
       />
