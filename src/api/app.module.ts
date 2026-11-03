@@ -1,10 +1,11 @@
 // Written with the help of Claude
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { MINUTE_MS } from '../core/common/durations.ts';
 import { IdentityModule } from '../core/identity/identity.module.ts';
 import { InfraModule } from '../infra/infra.module.ts';
+import { isDatabaseTimeout } from '../infra/prisma/database-timeouts.ts';
 import { AdminApiModule } from './admin/admin-api.module.ts';
 import { CatalogApiModule } from './catalog/catalog-api.module.ts';
 import { ApiExceptionFilter } from './common/api-exception.filter.ts';
@@ -31,7 +32,11 @@ import { SystemApiModule } from './system/system-api.module.ts';
     AdminApiModule,
   ],
   providers: [
-    { provide: APP_FILTER, useClass: ApiExceptionFilter },
+    {
+      provide: APP_FILTER,
+      useFactory: (adapterHost: HttpAdapterHost) => new ApiExceptionFilter(adapterHost, isDatabaseTimeout),
+      inject: [HttpAdapterHost],
+    },
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
 })

@@ -101,6 +101,7 @@ components:
         - PAYLOAD_TOO_LARGE
         - RATE_LIMITED
         - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
         - NOT_FOUND
         - CONFLICT
         - REFERENCE_NOT_FOUND
