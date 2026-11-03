@@ -5,6 +5,7 @@ import { describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
 import type { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
+import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import type { ImportedEventsRepository } from '../../dist/core/import/repositories/imported-events.repository.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
 import type {
@@ -28,6 +29,8 @@ function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent 
     venue: { name: 'Caribbean Club', address: 'Kyiv', location: { lat: 50.46, lng: 30.52 } },
     startsAt: '2026-10-22T16:00:00.000Z',
     endsAt: '2026-10-22T19:00:00.000Z',
+    imageUrl: 'https://images.example/jazz.jpg',
+    sourceUrl: 'https://tickets.example/jazz-evening/',
     ...overrides,
   };
 }
@@ -44,6 +47,8 @@ function theSavedEvent(overrides: Partial<ImportedEventRow> = {}): ImportedEvent
     venueId: VENUE_ID,
     startsAt: '2026-10-22T19:00:00+03:00',
     endsAt: '2026-10-22T22:00:00+03:00',
+    imageUrl: 'https://images.example/jazz.jpg',
+    sourceUrl: 'https://tickets.example/jazz-evening/',
     ...overrides,
   };
 }
@@ -60,6 +65,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     findActiveCategories: mock.fn((): Promise<ImportCategory[]> =>
       Promise.resolve([{ id: aCategory().id, name: aCategory().name }]),
     ),
+    lastSucceededRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
@@ -71,19 +77,24 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     ),
     updateEvent: mock.fn<ImportedEventsRepository['updateEvent']>(() => Promise.resolve()),
   };
+  const geocoder = {
+    locate: mock.fn((): Promise<Venue['location'] | undefined> => Promise.resolve({ lat: 50.45, lng: 30.52 })),
+  };
   const service = new EventImportService(
-    provider as unknown as EventProvider,
+    [provider as unknown as EventProvider],
     repository as unknown as ImportedEventsRepository,
+    geocoder as unknown as Geocoder,
   );
-  return { service, provider, repository };
+  const run = () => service.importFrom(provider as unknown as EventProvider);
+  return { service, run, provider, repository, geocoder };
 }
 
 // FR-008, FLEX-003
-describe('EventImportService.run', () => {
+describe('EventImportService.importFrom', () => {
   test('saves a new event with the provider and its id for the record', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
 
-    const report = await service.run();
+    const report = await run();
 
     assert.deepEqual(repository.createEvent.mock.calls[0]?.arguments[0], {
       title: 'Jazz evening',
@@ -92,6 +103,8 @@ describe('EventImportService.run', () => {
       venueId: VENUE_ID,
       startsAt: '2026-10-22T16:00:00.000Z',
       endsAt: '2026-10-22T19:00:00.000Z',
+      imageUrl: 'https://images.example/jazz.jpg',
+      sourceUrl: 'https://tickets.example/jazz-evening/',
       provider: PROVIDER_ID,
       externalId: 'ext-1',
     });
@@ -106,44 +119,44 @@ describe('EventImportService.run', () => {
   });
 
   test('creates the venue when it is not known yet', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
 
-    await service.run();
+    await run();
 
     assert.deepEqual(repository.createVenue.mock.calls[0]?.arguments, [anImportedEvent().venue]);
   });
 
   test('reuses a venue an earlier import created', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
     repository.findVenue.mock.mockImplementation(() => Promise.resolve(anImportedVenue({ id: 'known-venue' })));
 
-    await service.run();
+    await run();
 
     assert.equal(repository.createVenue.mock.callCount(), 0);
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
   });
 
   test('matches the category name without regard to case', async () => {
-    const { service, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'EXHIBITIONS' }) }]);
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'EXHIBITIONS' }) }]);
 
-    await service.run();
+    await run();
 
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].categoryId, CATEGORY_ID);
   });
 
   test('looks the event up by provider and external id, so an organization event is never touched', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
 
-    await service.run();
+    await run();
 
     assert.deepEqual(repository.findEvent.mock.calls[0]?.arguments, [PROVIDER_ID, 'ext-1']);
   });
 
   test('leaves an event the provider has not changed', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
     repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent()));
 
-    const report = await service.run();
+    const report = await run();
 
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.equal(repository.updateEvent.mock.callCount(), 0);
@@ -151,13 +164,10 @@ describe('EventImportService.run', () => {
   });
 
   test('updates an event whose title the provider changed', async () => {
-    const { service, repository } = makeService(
-      [{}],
-      [{ event: anImportedEvent({ title: 'Jazz evening, new date' }) }],
-    );
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ title: 'Jazz evening, new date' }) }]);
     repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent()));
 
-    const report = await service.run();
+    const report = await run();
 
     const [id, changes] = repository.updateEvent.mock.calls[0]?.arguments ?? [];
     assert.equal(id, theSavedEvent().id);
@@ -166,9 +176,9 @@ describe('EventImportService.run', () => {
   });
 
   test('skips a record with an unknown category and saves nothing for it', async () => {
-    const { service, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'Comedy' }) }]);
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'Comedy' }) }]);
 
-    const report = await service.run();
+    const report = await run();
 
     assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'Unknown category "Comedy"' }]);
     assert.equal(repository.createEvent.mock.callCount(), 0);
@@ -181,9 +191,9 @@ describe('EventImportService.run', () => {
   ];
   for (const { title, endsAt } of badTimes) {
     test(`skips ${title}`, async () => {
-      const { service, repository } = makeService([{}], [{ event: anImportedEvent({ endsAt }) }]);
+      const { run, repository } = makeService([{}], [{ event: anImportedEvent({ endsAt }) }]);
 
-      const report = await service.run();
+      const report = await run();
 
       assert.equal(report.skipped[0]?.reason, 'The event does not end after it starts');
       assert.equal(repository.createEvent.mock.callCount(), 0);
@@ -191,7 +201,7 @@ describe('EventImportService.run', () => {
   }
 
   test('reports a record the adapter skipped and still imports the others', async () => {
-    const { service, repository } = makeService(
+    const { run, repository } = makeService(
       [{}, {}],
       [
         { skip: { externalId: 'bad-1', reason: 'Invalid record: title' } },
@@ -199,7 +209,7 @@ describe('EventImportService.run', () => {
       ],
     );
 
-    const report = await service.run();
+    const report = await run();
 
     assert.deepEqual(report.skipped, [{ externalId: 'bad-1', reason: 'Invalid record: title' }]);
     assert.equal(report.created, 1);
@@ -208,10 +218,10 @@ describe('EventImportService.run', () => {
 
   test('reports a skipped record without an id and logs it as a record without id', async () => {
     const skip = { externalId: null, reason: 'Invalid record: id' };
-    const { service } = makeService([{}], [{ skip }]);
+    const { run } = makeService([{}], [{ skip }]);
     const warn = mock.method(Logger.prototype, 'warn', () => {});
 
-    const report = await service.run();
+    const report = await run();
 
     assert.deepEqual(report.skipped, [skip]);
     const [message] = warn.mock.calls[0]?.arguments as [string];
@@ -220,9 +230,9 @@ describe('EventImportService.run', () => {
   });
 
   test('imports nothing from an empty feed', async () => {
-    const { service } = makeService([], []);
+    const { run } = makeService([], []);
 
-    assert.deepEqual(await service.run(), {
+    assert.deepEqual(await run(), {
       provider: PROVIDER_ID,
       fetched: 0,
       created: 0,
@@ -233,19 +243,19 @@ describe('EventImportService.run', () => {
   });
 
   test('lets a failing fetch stop the run, so the catalog keeps the last imported events (FR-014)', async () => {
-    const { service, provider, repository } = makeService();
+    const { run, provider, repository } = makeService();
     provider.fetch.mock.mockImplementation(() => Promise.reject(new Error('Concert.ua is down')));
 
-    await assert.rejects(service.run(), /Concert\.ua is down/);
+    await assert.rejects(run(), /Concert\.ua is down/);
 
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'failed']);
   });
 
   test('records the run under the provider and finishes it as succeeded', async () => {
-    const { service, repository } = makeService();
+    const { run, repository } = makeService();
 
-    await service.run();
+    await run();
 
     assert.deepEqual(repository.startRun.mock.calls[0]?.arguments, [PROVIDER_ID]);
     assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'succeeded']);
@@ -255,7 +265,7 @@ describe('EventImportService.run', () => {
   test('keeps each skipped record as received, with its reason, under the run', async () => {
     const unusable = { id: 'bad-1', title: '' };
     const unknownCategory = { id: 'ext-1', genre: 'Comedy' };
-    const { service, repository } = makeService(
+    const { run, repository } = makeService(
       [unusable, unknownCategory],
       [
         { skip: { externalId: 'bad-1', reason: 'Invalid record: title' } },
@@ -263,7 +273,7 @@ describe('EventImportService.run', () => {
       ],
     );
 
-    await service.run();
+    await run();
 
     assert.deepEqual(
       repository.saveSkipped.mock.calls.map((call) => call.arguments),
@@ -272,5 +282,114 @@ describe('EventImportService.run', () => {
         [RUN_ID, unknownCategory, 'Unknown category "Comedy"'],
       ],
     );
+  });
+});
+
+describe('EventImportService.importFrom, with a venue without coordinates', () => {
+  const withoutCoordinates = anImportedEvent({
+    venue: { name: 'Docker-G pub', address: 'вул. Ігорівська, 13/5, Київ', location: null },
+  });
+
+  test('reuses the venue an earlier import saved with that name and address, without asking the geocoder', async () => {
+    const { run, repository, geocoder } = makeService([{}], [{ event: withoutCoordinates }]);
+    repository.findVenue.mock.mockImplementation(() => Promise.resolve(anImportedVenue({ id: 'known-venue' })));
+
+    await run();
+
+    assert.deepEqual(repository.findVenue.mock.calls[0]?.arguments, ['Docker-G pub', 'вул. Ігорівська, 13/5, Київ']);
+    assert.equal(geocoder.locate.mock.callCount(), 0);
+    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
+  });
+
+  test('saves a new venue with the coordinates the geocoder found', async () => {
+    const { run, repository, geocoder } = makeService([{}], [{ event: withoutCoordinates }]);
+
+    await run();
+
+    assert.deepEqual(geocoder.locate.mock.calls[0]?.arguments, [withoutCoordinates.venue]);
+    assert.deepEqual(repository.createVenue.mock.calls[0]?.arguments, [
+      { ...withoutCoordinates.venue, location: { lat: 50.45, lng: 30.52 } },
+    ]);
+  });
+
+  test('skips the event when the geocoder finds nothing, and asks about the venue once per run', async () => {
+    const { run, repository, geocoder } = makeService(
+      [{}, {}],
+      [{ event: withoutCoordinates }, { event: { ...withoutCoordinates, externalId: 'ext-2' } }],
+    );
+    geocoder.locate.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    const report = await run();
+
+    assert.deepEqual(report.skipped, [
+      { externalId: 'ext-1', reason: 'The geocoder found no coordinates for the venue' },
+      { externalId: 'ext-2', reason: 'The geocoder found no coordinates for the venue' },
+    ]);
+    assert.equal(geocoder.locate.mock.callCount(), 1);
+    assert.equal(repository.createVenue.mock.callCount(), 0);
+    assert.equal(repository.createEvent.mock.callCount(), 0);
+  });
+
+  test('skips the event when the geocoder fails, and imports the rest', async () => {
+    const { run, geocoder } = makeService(
+      [{}, {}],
+      [{ event: withoutCoordinates }, { event: anImportedEvent({ externalId: 'ext-2' }) }],
+    );
+    geocoder.locate.mock.mockImplementation(() => Promise.reject(new Error('Nominatim answered 503')));
+
+    const report = await run();
+
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder failed: Nominatim answered 503' }]);
+    assert.equal(report.created, 1);
+  });
+});
+
+describe('EventImportService.importFrom, other fields', () => {
+  test('updates an event whose image the provider changed', async () => {
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ imageUrl: null }) }]);
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent()));
+
+    const report = await run();
+
+    assert.equal(repository.updateEvent.mock.calls[0]?.arguments[1].imageUrl, null);
+    assert.equal(report.updated, 1);
+  });
+
+  test('passes the start of the last succeeded run to the provider', async () => {
+    const lastRun = new Date('2026-11-02T03:00:00Z');
+    const { run, provider, repository } = makeService();
+    repository.lastSucceededRunStart.mock.mockImplementation(() => Promise.resolve(lastRun));
+
+    await run();
+
+    assert.deepEqual(repository.lastSucceededRunStart.mock.calls[0]?.arguments, [PROVIDER_ID]);
+    assert.deepEqual(provider.fetch.mock.calls[0]?.arguments, [lastRun]);
+  });
+});
+
+describe('EventImportService.run', () => {
+  test('imports from every provider and reports a failed one without stopping the others', async () => {
+    const { repository, geocoder } = makeService();
+    const failing = { id: 'down', fetch: () => Promise.reject(new Error('Karabas is down')), normalize: () => null };
+    const working = { id: 'up', fetch: () => Promise.resolve([{}]), normalize: () => ({ event: anImportedEvent() }) };
+    const service = new EventImportService(
+      [failing, working] as unknown as EventProvider[],
+      repository as unknown as ImportedEventsRepository,
+      geocoder as unknown as Geocoder,
+    );
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
+    const summary = await service.run();
+
+    assert.deepEqual(summary.failed, [{ provider: 'down', error: 'Karabas is down' }]);
+    assert.deepEqual(
+      summary.reports.map((report) => [report.provider, report.created]),
+      [['up', 1]],
+    );
+    assert.deepEqual(
+      repository.finishRun.mock.calls.map((call) => call.arguments[1]),
+      ['failed', 'succeeded'],
+    );
+    error.mock.restore();
   });
 });

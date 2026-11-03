@@ -35,6 +35,8 @@ export function toImportedEventRow(row: EventRow): ImportedEventRow {
     description: row.description,
     categoryId: row.categoryId,
     venueId: row.venueId,
+    imageUrl: row.imageUrl,
+    sourceUrl: row.sourceUrl,
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
   };

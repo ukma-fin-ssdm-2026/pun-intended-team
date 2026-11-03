@@ -9,22 +9,30 @@ import type { OrganizationsRepository } from '../../dist/core/catalog/repositori
 import { CategoriesService } from '../../dist/core/catalog/services/categories.service.js';
 import { EventsService } from '../../dist/core/catalog/services/events.service.js';
 import { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
+import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
 import type { NormalizeResult } from '../../dist/core/import/types/import.js';
-import { ConcertUaEventProvider } from '../../dist/infra/providers/concert-ua-event-provider.js';
-import { concertUaSampleFeed } from '../../dist/infra/providers/concert-ua-sample-feed.js';
+import { KarabasEventProvider } from '../../dist/infra/providers/karabas-event-provider.js';
 import { StubEventsRepository } from '../../dist/infra/stubs/events.repository.js';
 import { StubImportedEventsRepository } from '../../dist/infra/stubs/imported-events.repository.js';
 import { StubVenuesRepository } from '../../dist/infra/stubs/venues.repository.js';
 import { aCategory } from './fixtures/catalog.ts';
-import { NOW, useFixedClock } from './fixtures/clock.ts';
+import { useFixedClock } from './fixtures/clock.ts';
+import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
 
-/** A provider that is not Concert.ua: another id, another raw shape, nothing shared with the first one. */
-class ArtWizardEventProvider extends EventProvider {
-  readonly id = 'art_wizard';
+/** Karabas on its saved concerts page. */
+const karabas = () =>
+  new KarabasEventProvider({
+    http: savedPagesClient({ '/concerts/': 'karabas/kyiv-concerts.html' }),
+    now: () => PAGES_SAVED_AT,
+  });
+
+/** A provider that is not Karabas: another id, another raw shape, nothing shared with the first one. */
+class GalleryEventProvider extends EventProvider {
+  readonly id = 'gallery';
 
   fetch(): Promise<unknown[]> {
-    return Promise.resolve([{ ref: 7, name: 'Gallery opening', place: 'Art Hall', when: '2026-10-18T18:00:00Z' }]);
+    return Promise.resolve([{ ref: 7, name: 'Gallery opening', place: 'Art Hall', when: '2026-11-08T16:00:00Z' }]);
   }
 
   normalize(raw: unknown): NormalizeResult {
@@ -37,11 +45,16 @@ class ArtWizardEventProvider extends EventProvider {
         categoryName: 'Exhibitions',
         venue: { name: place, address: 'Kyiv', location: { lat: 50.45, lng: 30.52 } },
         startsAt: when,
-        endsAt: '2026-10-18T20:00:00Z',
+        endsAt: '2026-11-08T18:00:00Z',
+        imageUrl: null,
+        sourceUrl: null,
       },
     };
   }
 }
+
+/** Every Karabas venue is found, at the same point. */
+const geocoder = { locate: () => Promise.resolve({ lat: 50.45, lng: 30.52 }) } as unknown as Geocoder;
 
 // The ids the stub events are seeded with.
 const CONCERTS_ID = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
@@ -66,11 +79,12 @@ function makeCatalog(provider: EventProvider) {
   const venuesRepository = new StubVenuesRepository();
   return {
     importService: new EventImportService(
-      provider,
+      [provider],
       new StubImportedEventsRepository([
         { id: CONCERTS_ID, name: 'Concerts' },
         { id: EXHIBITIONS_ID, name: 'Exhibitions' },
       ]),
+      geocoder,
     ),
     eventsService: new EventsService(
       eventsRepository,
@@ -85,44 +99,43 @@ const titlesIn = async (eventsService: EventsService) =>
   (await eventsService.list({}, { limit: 100, offset: 0 })).items.map((event) => event.title);
 
 describe('import into the catalog', () => {
-  // The catalog shows only the 28 days from today, so the whole test, the catalog read included, runs at NOW.
-  useFixedClock();
+  // The catalog shows only the 28 days from today, so the whole test, the catalog read included, runs on the day
+  // the Karabas page was saved.
+  useFixedClock(PAGES_SAVED_AT);
 
-  test('imported Concert.ua events are served by the catalog as imported events', async () => {
-    const { importService, eventsService } = makeCatalog(
-      new ConcertUaEventProvider(() => Promise.resolve(concertUaSampleFeed(NOW))),
-    );
+  test('imported Karabas events are served by the catalog as imported events', async () => {
+    const { importService, eventsService } = makeCatalog(karabas());
 
-    const report = await importService.run();
+    const [report] = (await importService.run()).reports;
 
-    assert.equal(report.created, 3);
-    const titles = await titlesIn(eventsService);
-    assert.ok(titles.includes('Jazz evening at Caribbean Club'), titles.join(', '));
+    assert.equal(report?.created, 20);
     const imported = (await eventsService.list({}, { limit: 100, offset: 0 })).items.filter(
-      (event) => event.source === 'import' && event.title === 'Open-air rock fest',
+      (event) => event.source === 'import' && event.title === 'LAMA',
     );
     assert.equal(imported.length, 1);
     assert.equal(imported[0]?.organizationId, null);
     assert.equal(imported[0]?.category.name, 'Concerts');
     assert.equal(imported[0]?.venue.source, 'import');
+    assert.equal(imported[0]?.sourceUrl, 'https://kyiv.karabas.com/lama-15/');
+    assert.match(imported[0]?.imageUrl ?? '', /^https:\/\/images\.karabas\.com\//);
   });
 
   test('a second run changes nothing', async () => {
-    const { importService } = makeCatalog(new ConcertUaEventProvider(() => Promise.resolve(concertUaSampleFeed(NOW))));
+    const { importService } = makeCatalog(karabas());
     // Runs once itself: the stub keeps events between tests, so it must not depend on the test before it.
     await importService.run();
 
-    const second = await importService.run();
+    const [second] = (await importService.run()).reports;
 
-    assert.deepEqual([second.created, second.updated, second.unchanged], [0, 0, 3]);
+    assert.deepEqual([second?.created, second?.updated, second?.unchanged], [0, 0, 20]);
   });
 
   test('a second provider is served with no change in the catalog code', async () => {
-    const { importService, eventsService } = makeCatalog(new ArtWizardEventProvider());
+    const { importService, eventsService } = makeCatalog(new GalleryEventProvider());
 
-    const report = await importService.run();
+    const [report] = (await importService.run()).reports;
 
-    assert.equal(report.provider, 'art_wizard');
+    assert.equal(report?.provider, 'gallery');
     const titles = await titlesIn(eventsService);
     assert.ok(titles.includes('Gallery opening'), titles.join(', '));
   });
