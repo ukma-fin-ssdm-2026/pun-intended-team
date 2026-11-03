@@ -2043,9 +2043,9 @@ describe('Event import', () => {
 
   /**
    * One import run from a folder without .env, with no key file and no MAIN_DATABASE_URL. Asynchronous, so the
-   * local provider site in this process can answer it.
+   * local provider site in this process can answer it. Returns what the process printed.
    */
-  async function runImport() {
+  async function runImport({ artWizardApiKey = ARTWIZARD_TEST_KEY, exitCode = 0 } = {}) {
     const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
     try {
       const child = spawn(process.execPath, [path.resolve('dist/import/main.js')], {
@@ -2054,7 +2054,7 @@ describe('Event import', () => {
           PATH: process.env.PATH,
           IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
           ARTWIZARD_API_URL: providerSiteUrl,
-          ARTWIZARD_API_KEY: ARTWIZARD_TEST_KEY,
+          ARTWIZARD_API_KEY: artWizardApiKey,
           KARABAS_BASE_URL: providerSiteUrl,
           NOMINATIM_BASE_URL: providerSiteUrl,
           IMPORT_REQUEST_INTERVAL_MS: '0',
@@ -2065,7 +2065,8 @@ describe('Event import', () => {
       child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
       child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
       const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
-      assert.equal(status, 0, output);
+      assert.equal(status, exitCode, output);
+      return output;
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -2132,6 +2133,28 @@ describe('Event import', () => {
     assert.equal(first, 33);
     // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
     assert.equal((await importedEvents('artwizard')).length, 30);
+  });
+
+  test('without ARTWIZARD_API_KEY fails the ArtWizard run only, and still imports Karabas', async () => {
+    const runsBefore = await withDatabase(async (client) =>
+      (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
+    );
+
+    // As on staging without the secret: the variable is set, but empty.
+    const output = await runImport({ artWizardApiKey: '', exitCode: 1 });
+
+    assert.match(output, /artwizard: the run failed: ARTWIZARD_API_KEY is not set/);
+    const { rows: runs } = await withDatabase((client) =>
+      client.query<{ provider: string; status: string }>(
+        'SELECT provider, status FROM import_runs WHERE NOT (id = ANY($1::uuid[])) ORDER BY provider',
+        [runsBefore],
+      ),
+    );
+    assert.deepEqual(runs, [
+      { provider: 'artwizard', status: 'failed' },
+      { provider: 'karabas', status: 'succeeded' },
+    ]);
+    assert.equal((await importedEvents('karabas')).length, 33);
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {
