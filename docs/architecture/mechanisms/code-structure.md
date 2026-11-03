@@ -24,7 +24,7 @@ src/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, page.ts
+    common/                     domain-error.ts, kyiv-time.ts, catalog-window.ts, page.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
@@ -32,19 +32,20 @@ src/
       types/                    event, category, venue, organization
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
-      adapters/                 event-provider.ts (abstract: one external listing service)
+      adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
       services/                 event-import.service.ts
       types/                    import
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
-    import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, EventProvider), loaded by src/import/ only, without InfraModule
+    import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, the EventProviders, Geocoder), loaded by src/import/ only, without InfraModule
     prisma/                     PrismaService (role nearby_main), ImportPrismaService (role nearby_import), one Prisma repository per core repository, catalog-rows.ts (venue and event rows to core types); generated/ is the Prisma client
     stubs/                      in-memory repositories for what is not in the database yet (events, listings, venues, organizations); data.ts, paginate.ts
     auth/                       adapters for the identity module: access tokens, Google ID tokens, password and code hashing, key files
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
-    providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
-  import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads only IMPORT_DATABASE_URL
+    providers/                  one adapter per external event provider (artwizard-, karabas-event-provider.ts), the polite HTTP client they share, import-settings.ts
+    geocoding/                  Geocoder implementation (nominatim-geocoder.ts)
+  import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads IMPORT_DATABASE_URL and the import settings of .env.example
   scripts/                      generate-spec.ts (npm run docs:generate), generate-keys.ts, set-role-passwords.ts
   mcp/                          MCP server generated from the spec; a separate Node project, not edited by hand
 ```
@@ -64,7 +65,7 @@ src/
 11. **ESLint enforces rules 1, 7 and 9** with `no-restricted-imports` in `eslint.config.mjs`.
 12. **Abstract classes only where `core` depends on something outside it.** Nest injects by class, since TypeScript interfaces do not exist at runtime: an abstract class is both the interface and the injection token. Repositories (rule 7) and the adapters of HLD I5 (rule 13) are abstract classes owned by `core`. Services are injected as concrete classes, by `api` and by other modules alike; a service gets an abstract class only when it needs a second implementation. An injected class is a value import, not `import type`, because the class is the token. In tests, a service is replaced with `{ provide: EventsService, useValue: fake }`, the fake typed as `Pick<EventsService, …>`.
 
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider` and `GoogleIdTokens` exist; `PushProvider` comes with notifications.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. `EventProvider`, `Geocoder`, `MessagingProvider` and `GoogleIdTokens` exist; `PushProvider` comes with notifications. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
 
 ## Planned
 

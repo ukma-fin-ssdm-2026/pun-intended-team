@@ -45,9 +45,9 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Entity | Key | Main attributes |
 |---|---|---|
 | **Organization** | PK = FK `account_id` | `name`, `description`, `official_link`, `verification_status` (pending / verified / rejected / revoked), `verified_by` FK → Account (admin), `verified_at`. An organization is a regular user account with this extra row; it publishes events only when `verified`, and verification is done by the team. |
-| **Category** | PK `id` | `name` (UK), `is_active` (FR-029) |
-| **Venue** | PK `id` | `name`, `address`, `latitude`, `longitude` (FR-012) — placed on the map by the organization or taken from the provider, `source` (organization / import), `organization_id` FK (organization venues only) |
-| **Event** | PK `id` | `category_id` FK, `venue_id` FK, `organization_id` FK (null for imported), `source` (organization / import), `provider` and `external_id` (imported only, UK together — re-import updates the same row), `title`, `description`, `starts_at`, `ends_at` (FR-007 date filter; when a provider gives no end, the end of the start day in Europe/Kyiv), `status` (published / cancelled) |
+| **Category** | PK `id` | `name` (UK), `is_active` (FR-029). Seeded with fixed ids: Concerts, Exhibitions, Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals, Parties, Volunteering and Open days; the import maps providers' genres to the first ten ([ADR-006](decisions/ADR-006.md)), Volunteering and Open days have listings only |
+| **Venue** | PK `id` | `name`, `address`, `latitude`, `longitude` (FR-012) — placed on the map by the organization, taken from the provider, or found by the geocoder for a provider that gives none, `source` (organization / import), `organization_id` FK (organization venues only) |
+| **Event** | PK `id` | `category_id` FK, `venue_id` FK, `organization_id` FK (null for imported), `source` (organization / import), `provider` and `external_id` (imported only, UK together — re-import updates the same row), `title`, `description`, `image_url` and `source_url` (imported only, nullable: the provider's image and event page, linked, never copied), `starts_at`, `ends_at` (FR-007 date filter; when a provider gives no end, the end of the start day in Europe/Kyiv), `status` (published / cancelled) |
 | **EventSession** | PK `id` | `event_id` FK, `starts_at`, `status` (scheduled / cancelled); UK (`event_id`, `starts_at`). Matching rounds are anchored here ([matching](mechanisms/matching.md)). Created when the first user applies: one session for a single-day event, one per day for a multi-day event, at the time of day of `Event.starts_at` in Europe/Kyiv. |
 
 ### import (CMP-03)
@@ -55,7 +55,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Entity | Key | Main attributes |
 |---|---|---|
 | **ImportRun** | PK `id` | `provider`, `started_at`, `finished_at`, `status` — the last successful run gives the "last updated" notice (FR-014) |
-| **SkippedRecord** | PK `id` | `import_run_id` FK, `raw` (jsonb), `reason` (FR-015) — e.g. a record without coordinates |
+| **SkippedRecord** | PK `id` | `import_run_id` FK, `raw` (jsonb), `reason` (FR-015) — e.g. a page the provider could not render, or a venue the geocoder cannot find |
 
 ### matching
 
