@@ -62,13 +62,27 @@ const ADDRESS_NOTE = /код|поверх|під['’]?їзд|вхід|ст\.\s*
  * "пр.Академіка Глушкова, 1 ВДНГ" → "проспект Академіка Глушкова, 1, Київ".
  */
 export function searchableAddress(address: string): string {
-  const parts = address
-    .replace(/\([^)]*\)/g, '')
+  const parts = withoutParentheses(address)
     .split(',')
     .map((part) => part.trim())
     .filter((part) => part && !ADDRESS_NOTE.test(part) && part.replace(/^м\.\s*/i, '').toLowerCase() !== 'київ')
     .map((part) => houseNumberOnly(part.replace(/^пр(-т|\.)\s*/i, 'проспект ')));
   return [...parts, 'Київ'].join(', ');
+}
+
+/** The text without each "(" up to the next ")"; an unclosed "(" and the text after it stay. */
+function withoutParentheses(text: string): string {
+  let result = '';
+  let from = 0;
+  for (let open = text.indexOf('('); open !== -1; open = text.indexOf('(', from)) {
+    const close = text.indexOf(')', open);
+    if (close === -1) {
+      break;
+    }
+    result += text.slice(from, open);
+    from = close + 1;
+  }
+  return result + text.slice(from);
 }
 
 /** "1 ВДНГ", a house number with a landmark after it, as "1"; any other part as it is. */
