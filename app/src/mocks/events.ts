@@ -7,8 +7,8 @@ import type { components } from '@/api/schema';
 type Event = components['schemas']['Event'];
 
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
-// The API has no cover images, districts or organizers yet; those fields are mock-only. An event without a cover
-// shows the coral gradient.
+// The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
+// the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
 
@@ -42,6 +42,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-24T16:00:00Z',
     endsAt: '2026-10-24T18:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     cover: require('@/assets/images/events/jazz-evening.png'),
@@ -63,6 +65,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T18:00:00Z',
     endsAt: '2026-10-25T20:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     cover: require('@/assets/images/events/kvartyrnyk.png'),
@@ -83,6 +87,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-27T14:00:00Z',
     endsAt: '2026-10-27T15:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     district: 'Печерськ',
@@ -102,6 +108,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T19:00:00Z',
     endsAt: '2026-10-30T21:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     // Figma uses the jazz evening cover for this card too.
@@ -128,6 +136,8 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T16:00:00Z',
     endsAt: '2026-10-25T18:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     // Figma uses this photo for the open mic on the map.
@@ -150,6 +160,8 @@ export const mockOtherEvents: MockEvent[] = [
     // Moved to 18:30, as the notification says.
     startsAt: '2026-10-29T16:30:00Z',
     endsAt: '2026-10-29T18:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     district: 'Поділ',
@@ -169,6 +181,8 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T10:00:00Z',
     endsAt: '2026-10-30T17:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     // Figma uses the jazz evening's photo on the organizer page.

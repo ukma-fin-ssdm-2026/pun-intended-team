@@ -64,7 +64,7 @@ export class StubEventsRepository implements EventsRepository {
 }
 
 function toEvent(
-  { categoryId, venueId, provider: _provider, externalId: _externalId, ...event }: StoredEvent,
+  { categoryId, venueId, provider: _provider, externalId: _externalId, imageUrl, sourceUrl, ...event }: StoredEvent,
   categories: Map<string, Category>,
 ): Event {
   const category = categories.get(categoryId);
@@ -72,5 +72,11 @@ function toEvent(
     throw new Error(`No category ${categoryId} for event ${event.id}`);
   }
   const venue = venues.find((venue) => venue.id === venueId)!;
-  return { ...event, category: { id: category.id, name: category.name }, venue };
+  return {
+    ...event,
+    imageUrl: imageUrl ?? null,
+    sourceUrl: sourceUrl ?? null,
+    category: { id: category.id, name: category.name },
+    venue,
+  };
 }
