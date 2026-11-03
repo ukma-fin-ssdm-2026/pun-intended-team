@@ -29,6 +29,7 @@ const errorStatus: Record<ErrorCode, number> = {
   CANNOT_BAN_ADMIN: 409,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
   PHONE_CODES_UNAVAILABLE: 503,
 };
 
