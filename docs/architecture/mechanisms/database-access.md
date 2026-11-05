@@ -14,6 +14,10 @@ Each process connects with its **own database role**, so a compromised import se
 
 Roles and grants are created in a migration; each process gets its own connection string from the env file on its host.
 
+## Time Limits
+
+Every database call of the main server has a time limit, so a locked table or a database that stops answering ends a request with `503 SERVICE_UNAVAILABLE` instead of holding it open (REL-01). [`database-timeouts.ts`](../../../src/infra/prisma/database-timeouts.ts) reads them from the `DATABASE_*_TIMEOUT_MS` variables ([README](../../../README.md)) and hands them to the pg pool of `PrismaPg`: the wait for a connection, `statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout`, and a client `query_timeout` 1 s after the statement timeout. The import service and migrations do not use them yet.
+
 ## Not Done
 
 **No row-level security** on `events.source` and `venues.source`. It would stop the import role from modifying organization-created events and venues, but it fails silently (0 rows affected instead of an error) and the risk is small — a compromised import service can already put bad content into the catalog through imported events. Accepted risk, recorded in the threat model.

@@ -1,6 +1,5 @@
 // Written with the help of Claude
-// In-memory data of the import's stub repository, until #289 moves the import to the database.
-// The catalog reads from the database; only the import's unit test still reads these arrays.
+// In-memory data of the import's stub repository, which only the unit test of the import catalog uses.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';

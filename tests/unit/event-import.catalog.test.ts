@@ -98,7 +98,13 @@ function makeCatalog(provider: EventProvider) {
   const categoriesService = new CategoriesService(categoriesRepository);
   const { eventsRepository, venuesRepository } = catalogReading(categories);
   return {
-    importService: new EventImportService(provider, new StubImportedEventsRepository(), categoriesService),
+    importService: new EventImportService(
+      provider,
+      new StubImportedEventsRepository([
+        { id: CONCERTS_ID, name: 'Concerts' },
+        { id: EXHIBITIONS_ID, name: 'Exhibitions' },
+      ]),
+    ),
     eventsService: new EventsService(
       eventsRepository,
       {} as OrganizationsRepository,

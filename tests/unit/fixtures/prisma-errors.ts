@@ -14,3 +14,18 @@ export function aUniqueViolation({ code = 'P2002', index = 'auth_methods_type_se
     },
   });
 }
+
+/** The error Prisma's pg adapter throws when Postgres refuses a statement with `originalCode`, as seen from Prisma 7.10. */
+export function aPostgresError(originalCode: string, code = 'P2039') {
+  return new Prisma.PrismaClientKnownRequestError(`Database error. Code: \`${originalCode}\``, {
+    code,
+    clientVersion: '7.10.0',
+    meta: {
+      modelName: 'Category',
+      driverAdapterError: {
+        name: 'DriverAdapterError',
+        cause: { originalCode, kind: 'postgres', code: originalCode, severity: 'ERROR' },
+      },
+    },
+  });
+}

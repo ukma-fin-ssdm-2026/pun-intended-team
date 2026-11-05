@@ -1,6 +1,5 @@
 // Written with the help of Claude
 import { Injectable, Logger } from '@nestjs/common';
-import { CategoriesService } from '../../catalog/services/categories.service.ts';
 import { EventProvider } from '../adapters/event-provider.ts';
 import { ImportedEventsRepository } from '../repositories/imported-events.repository.ts';
 import type {
@@ -19,17 +18,33 @@ export class EventImportService {
   constructor(
     private readonly provider: EventProvider,
     private readonly importedEventsRepository: ImportedEventsRepository,
-    private readonly categoriesService: CategoriesService,
   ) {}
 
   /**
-   * Fetches the provider's records and saves each usable one. A record that cannot be used is skipped and
-   * reported (FR-015), the rest are still imported. A second run changes only what the provider changed.
+   * Fetches the provider's records and saves each usable one. A record that cannot be used is skipped, kept with
+   * its reason and reported (FR-015); the rest are still imported. A second run changes only what the provider
+   * changed. Every run is recorded; one that fails, e.g. because the provider is down, is recorded as failed and
+   * leaves the events of earlier runs as they are (FR-014).
    */
   async run(): Promise<ImportReport> {
+    const runId = await this.importedEventsRepository.startRun(this.provider.id);
+    try {
+      const report = await this.importRecords(runId);
+      await this.importedEventsRepository.finishRun(runId, 'succeeded');
+      return report;
+    } catch (error) {
+      await this.importedEventsRepository.finishRun(runId, 'failed');
+      throw error;
+    }
+  }
+
+  private async importRecords(runId: string): Promise<ImportReport> {
     const raws = await this.provider.fetch();
     const categoryIdsByName = new Map(
-      (await this.categoriesService.listActive()).map((category) => [category.name.toLowerCase(), category.id]),
+      (await this.importedEventsRepository.findActiveCategories()).map((category) => [
+        category.name.toLowerCase(),
+        category.id,
+      ]),
     );
     const report: ImportReport = {
       provider: this.provider.id,
@@ -43,17 +58,23 @@ export class EventImportService {
     for (const raw of raws) {
       const result = this.provider.normalize(raw);
       if ('skip' in result) {
-        this.skip(report, result.skip);
+        await this.skip(report, runId, raw, result.skip);
         continue;
       }
       const imported = result.event;
       const categoryId = categoryIdsByName.get(imported.categoryName.toLowerCase());
       if (!categoryId) {
-        this.skip(report, { externalId: imported.externalId, reason: `Unknown category "${imported.categoryName}"` });
+        await this.skip(report, runId, raw, {
+          externalId: imported.externalId,
+          reason: `Unknown category "${imported.categoryName}"`,
+        });
         continue;
       }
       if (!(Date.parse(imported.endsAt) > Date.parse(imported.startsAt))) {
-        this.skip(report, { externalId: imported.externalId, reason: 'The event does not end after it starts' });
+        await this.skip(report, runId, raw, {
+          externalId: imported.externalId,
+          reason: 'The event does not end after it starts',
+        });
         continue;
       }
       report[await this.save(imported, categoryId)]++;
@@ -85,8 +106,9 @@ export class EventImportService {
     return 'updated';
   }
 
-  private skip(report: ImportReport, record: SkippedRecord): void {
+  private async skip(report: ImportReport, runId: string, raw: unknown, record: SkippedRecord): Promise<void> {
     report.skipped.push(record);
+    await this.importedEventsRepository.saveSkipped(runId, raw, record.reason);
     this.logger.warn(`${report.provider}: skipped ${record.externalId ?? 'a record without id'}: ${record.reason}`);
   }
 }

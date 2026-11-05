@@ -3,6 +3,7 @@ import createClient, { type Middleware } from 'openapi-fetch';
 
 import { config } from '@/config';
 
+import { fetchWithTimeout } from './fetch-with-timeout';
 import type { paths } from './schema';
 import { currentAccessToken, rejectAccessToken } from './session';
 
@@ -19,5 +20,5 @@ const auth: Middleware = {
 };
 
 // Sends the account's token when signed in and a guest token otherwise, and renews both.
-export const apiClient = createClient<paths>({ baseUrl: config.apiUrl });
+export const apiClient = createClient<paths>({ baseUrl: config.apiUrl, fetch: fetchWithTimeout });
 apiClient.use(auth);

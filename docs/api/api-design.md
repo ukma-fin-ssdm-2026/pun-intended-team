@@ -311,6 +311,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007), with `Retry-After` in seconds |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
+| `503 Service Unavailable` | `SERVICE_UNAVAILABLE`, `PHONE_CODES_UNAVAILABLE` | `SERVICE_UNAVAILABLE`: a database call ran out of time (no free connection, or a statement or lock wait over its limit); the cause is logged, never returned, and the client may retry later. `PHONE_CODES_UNAVAILABLE`: codes to phone numbers are paused |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
 

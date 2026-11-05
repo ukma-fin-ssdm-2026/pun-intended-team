@@ -24,12 +24,27 @@ const errorByStatus: Partial<Record<number, { code: ErrorCode; message: string }
 export class ApiExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(ApiExceptionFilter.name);
 
-  constructor(private readonly adapterHost: HttpAdapterHost) {}
+  /** `isUnavailable`: whether an error means a dependency ran out of time; app.module.ts passes infra's check. */
+  constructor(
+    private readonly adapterHost: HttpAdapterHost,
+    private readonly isUnavailable: (exception: unknown) => boolean = () => false,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const { status, code, message, details } = toApiException(exception) ?? this.unexpected(exception);
+    const { status, code, message, details } =
+      toApiException(exception) ?? this.unavailable(exception) ?? this.unexpected(exception);
     const body: ErrorResponse = { error: { code, message, details } };
     this.adapterHost.httpAdapter.reply(host.switchToHttp().getResponse(), body, status);
+  }
+
+  // Fail fast (REL-01): the client gets a 503 it can retry later instead of a request that never ends.
+  private unavailable(exception: unknown): ApiException | undefined {
+    if (!this.isUnavailable(exception)) {
+      return undefined;
+    }
+    const error = exception as Error;
+    this.logger.error(`A dependency timed out: ${error.message}`, error.stack);
+    return new ApiException('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable. Try again later');
   }
 
   private unexpected(exception: unknown): ApiException {

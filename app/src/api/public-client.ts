@@ -3,10 +3,11 @@ import createClient from 'openapi-fetch';
 
 import { config } from '@/config';
 
+import { fetchWithTimeout } from './fetch-with-timeout';
 import type { paths } from './schema';
 
 // Sends no token of its own: for the auth endpoints, which need none or get one passed explicitly.
-export const publicClient = createClient<paths>({ baseUrl: config.apiUrl });
+export const publicClient = createClient<paths>({ baseUrl: config.apiUrl, fetch: fetchWithTimeout });
 
 // status 0: the API could not be reached.
 // `fields`: what a 400 points at, e.g. `linkedAccounts.0.username`.

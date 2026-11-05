@@ -95,7 +95,11 @@ For a production build: `npm run build`, then `npm start`.
 | `CORS_ORIGINS` | — | Comma-separated origins allowed to call the API from a browser, e.g. `http://localhost:8081` for the Expo web client; unset keeps CORS off |
 | `DATABASE_URL` | — | PostgreSQL connection string of the schema owner, used by migrations and `npm run db:set-passwords`, set in `.env.example`, see [Local database](#local-database) |
 | `MAIN_DATABASE_URL` | — | Connection string of the `nearby_main` role the API runs with, set in `.env.example`; the server does not start without it |
-| `IMPORT_DATABASE_URL` | — | Connection string of the `nearby_import` role for the import service, set in `.env.example`; only `npm run db:set-passwords` reads it for now |
+| `DATABASE_CONNECT_TIMEOUT_MS` | `5000` | How long the API waits for a free pool connection or a new connection before it answers `503` (REL-01) |
+| `DATABASE_STATEMENT_TIMEOUT_MS` | `10000` | Postgres cancels an API statement that runs longer, and the API answers `503`; the client itself gives up 1 s later if the server does not answer at all |
+| `DATABASE_LOCK_TIMEOUT_MS` | `3000` | How long an API statement waits for a lock before Postgres gives up; must not exceed the statement timeout |
+| `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `15000` | Postgres ends an API session that stays idle inside an open transaction, so it cannot hold its locks |
+| `IMPORT_DATABASE_URL` | — | **Import service only.** Connection string of the `nearby_import` role, set in `.env.example`. `npm run import:events` reads this variable and no other: no key file and no `MAIN_DATABASE_URL`. `npm run db:set-passwords` reads it to set the role's password |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
 | `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
@@ -115,13 +119,15 @@ Before the first commit, enable the commit message hook: `git config core.hooksP
 
 ### Event import
 
-The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. It is a separate start command, not part of the API: [`src/import/`](src/import/) loads the import module [`src/core/import/`](src/core/import/) and its bindings in [`ImportInfraModule`](src/infra/import-infra.module.ts). The provider sits behind the `EventProvider` adapter, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. A record that cannot be mapped is skipped and logged (FR-015), and a second run changes only what the provider changed.
+The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. It runs on its own, apart from the API: [`src/import/`](src/import/) loads only the import module [`src/core/import/`](src/core/import/) and [`ImportInfraModule`](src/infra/import-infra.module.ts), which connects to the database as `nearby_import` ([database access](docs/architecture/mechanisms/database-access.md)) and binds the provider adapter. It needs only `IMPORT_DATABASE_URL`, no key file and none of the API's settings, and its role may read `categories` and write only `events`, `venues`, `import_runs` and `skipped_records`.
+
+The provider sits behind the `EventProvider` adapter, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. Each run is recorded in `import_runs` as succeeded or failed (FR-014). A record that cannot be mapped is kept in `skipped_records` with its reason and logged (FR-015), and a second run changes only what the provider changed.
 
 ```bash
-npm run import:events   # one run: fetch, normalize, save, print a report; needs .env, the keys and the local database
+npm run import:events   # one run: fetch, normalize, save, print a report; needs the local database and IMPORT_DATABASE_URL
 ```
 
-Events are still kept in memory, so the API does not see what a run imported until events are in the database. Until then, the unit tests check that the catalog serves imported events (`tests/unit/event-import.catalog.test.ts`).
+The API reads events from the same database, so it serves what a run imported. The e2e tests check the rows a run writes, and `tests/unit/event-import.catalog.test.ts` checks that the catalog serves imported events.
 
 ### Staging
 
@@ -138,6 +144,7 @@ Unit tests in [`tests/unit/`](tests/unit/) check the services in `src/core/` wit
 ```bash
 npm run test:unit            # unit tests
 npm run test:e2e             # integration tests
+npm run test:reliability     # fault injection against a fake database (REL-01); needs no database
 npm run test:coverage:unit   # unit tests with coverage
 npm run test:coverage        # all tests with coverage
 npm run docs:coverage        # regenerates the committed reports in docs/testing/coverage/
@@ -148,6 +155,8 @@ The coverage commands use [monocart-coverage-reports](https://github.com/cenfun/
 The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html), are a snapshot: after changing tests, run `npm run docs:coverage` and commit `docs/testing/coverage/` in the same pull request.
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
+
+The fault-injection tests in [`tests/reliability/`](tests/reliability/) start the API against a fake Postgres that accepts the connection and stops answering, and check that requests end with `503` within their time limit ([reliability report](docs/reliability/reliability-report.md)).
 
 The k6 load test [`tests/perf/listings.k6.js`](tests/perf/listings.k6.js) checks PERF-001 on `GET /api/v1/listings` at 500 concurrent sessions for 10 minutes: `npm run test:perf` runs it in Docker against the running API, with the access token of a Google sign-in in `PERF_TOKEN`.
 

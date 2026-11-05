@@ -22,6 +22,7 @@
     "mcp:build": "npm ci --prefix src/mcp && npm run build --prefix src/mcp",
     "test:e2e": "nest build && node --test \"tests/e2e/**/*.test.ts\"",
     "test:unit": "nest build && node --test \"tests/unit/**/*.test.ts\"",
+    "test:reliability": "nest build && node --test \"tests/reliability/**/*.test.ts\"",
     "test:coverage": "nest build && mcr -o coverage -n \"All tests\" node --test \"tests/**/*.test.ts\"",
     "test:coverage:unit": "nest build && mcr -o coverage -n \"Unit tests\" node --test \"tests/unit/**/*.test.ts\"",
     "test:perf": "docker run --rm -i --add-host=host.docker.internal:host-gateway -e BASE_URL=\"${BASE_URL:-http://host.docker.internal:4100}\" -e PERF_TOKEN -e PERF_VUS -e PERF_DURATION grafana/k6:2.3.0 run - < tests/perf/listings.k6.js",

@@ -3,13 +3,12 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
-import type { CategoriesService } from '../../dist/core/catalog/services/categories.service.js';
-import type { Category } from '../../dist/core/catalog/types/category.js';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
 import type { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
 import type { ImportedEventsRepository } from '../../dist/core/import/repositories/imported-events.repository.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
 import type {
+  ImportCategory,
   ImportedEvent,
   ImportedEventRow,
   NewImportedVenue,
@@ -18,6 +17,7 @@ import type {
 import { aCategory, aVenue, CATEGORY_ID, VENUE_ID } from './fixtures/catalog.ts';
 
 const PROVIDER_ID = 'test_provider';
+const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
 
 function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent {
   return {
@@ -57,6 +57,12 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
   normalized.forEach((result, call) => normalize.mock.mockImplementationOnce(() => result, call));
   const provider = { id: PROVIDER_ID, fetch: mock.fn(() => Promise.resolve(raws)), normalize };
   const repository = {
+    findActiveCategories: mock.fn((): Promise<ImportCategory[]> =>
+      Promise.resolve([{ id: aCategory().id, name: aCategory().name }]),
+    ),
+    startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
+    finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
+    saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
     findVenue: mock.fn((): Promise<Venue | undefined> => Promise.resolve(undefined)),
     createVenue: mock.fn((venue: NewImportedVenue): Promise<Venue> => Promise.resolve(anImportedVenue({ ...venue }))),
     findEvent: mock.fn((): Promise<ImportedEventRow | undefined> => Promise.resolve(undefined)),
@@ -65,16 +71,11 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     ),
     updateEvent: mock.fn<ImportedEventsRepository['updateEvent']>(() => Promise.resolve()),
   };
-  const categoriesService = {
-    listActive: mock.fn((): Promise<Category[]> => Promise.resolve([aCategory()])),
-  };
-
   const service = new EventImportService(
     provider as unknown as EventProvider,
     repository as unknown as ImportedEventsRepository,
-    categoriesService as unknown as CategoriesService,
   );
-  return { service, provider, repository, categoriesService };
+  return { service, provider, repository };
 }
 
 // FR-008, FLEX-003
@@ -238,5 +239,38 @@ describe('EventImportService.run', () => {
     await assert.rejects(service.run(), /Concert\.ua is down/);
 
     assert.equal(repository.createEvent.mock.callCount(), 0);
+    assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'failed']);
+  });
+
+  test('records the run under the provider and finishes it as succeeded', async () => {
+    const { service, repository } = makeService();
+
+    await service.run();
+
+    assert.deepEqual(repository.startRun.mock.calls[0]?.arguments, [PROVIDER_ID]);
+    assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'succeeded']);
+    assert.equal(repository.finishRun.mock.callCount(), 1);
+  });
+
+  test('keeps each skipped record as received, with its reason, under the run', async () => {
+    const unusable = { id: 'bad-1', title: '' };
+    const unknownCategory = { id: 'ext-1', genre: 'Comedy' };
+    const { service, repository } = makeService(
+      [unusable, unknownCategory],
+      [
+        { skip: { externalId: 'bad-1', reason: 'Invalid record: title' } },
+        { event: anImportedEvent({ categoryName: 'Comedy' }) },
+      ],
+    );
+
+    await service.run();
+
+    assert.deepEqual(
+      repository.saveSkipped.mock.calls.map((call) => call.arguments),
+      [
+        [RUN_ID, unusable, 'Invalid record: title'],
+        [RUN_ID, unknownCategory, 'Unknown category "Comedy"'],
+      ],
+    );
   });
 });

@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { toEvent, toVenue, toVenueData } from '../../dist/infra/prisma/catalog-rows.js';
+import { toEvent, toVenue } from '../../dist/infra/prisma/catalog-rows.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aVenue, CATEGORY_ID, EVENT_ID } from './fixtures/catalog.ts';
 import { anEventRow, aVenueRow } from './fixtures/catalog-rows.ts';
@@ -15,21 +15,6 @@ describe('toVenue', () => {
     const venue = toVenue(aVenueRow({ source: 'import', organizationId: null }));
 
     assert.deepEqual(venue, aVenue({ source: 'import', organizationId: null }));
-  });
-});
-
-describe('toVenueData', () => {
-  test('splits the location into the two columns', () => {
-    const { id: _id, ...venue } = aVenue();
-
-    assert.deepEqual(toVenueData(venue), {
-      name: venue.name,
-      address: venue.address,
-      latitude: venue.location.lat,
-      longitude: venue.location.lng,
-      source: venue.source,
-      organizationId: venue.organizationId,
-    });
   });
 });
 
