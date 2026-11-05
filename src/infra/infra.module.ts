@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Global, Module } from '@nestjs/common';
 import { createRemoteJWKSet } from 'jose';
+import { TransactionRunner } from '../core/common/transaction-runner.ts';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
@@ -42,6 +43,7 @@ import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.reposi
 import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
+import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
 import { StubEventsRepository } from './stubs/events.repository.ts';
 import { StubListingsRepository } from './stubs/listings.repository.ts';
 import { StubOrganizationsRepository } from './stubs/organizations.repository.ts';
@@ -64,6 +66,7 @@ const repositories = [
 ];
 
 const adapters = [
+  { provide: TransactionRunner, useClass: PrismaTransactionRunner },
   { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
