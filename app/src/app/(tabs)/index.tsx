@@ -3,7 +3,7 @@
 // data; reviewed by Daryna Halytska.
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,7 +24,14 @@ import { useEvents } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockUser } from '@/mocks/user';
-import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
+import {
+  eventQuery,
+  filterEvents,
+  resetFilters,
+  selectCategory,
+  setQuery,
+  useCatalogFilters,
+} from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -38,6 +45,8 @@ const LIST_BOTTOM_GAP = 26;
 const LOADING_MS = 1500;
 const DISSOLVE_MS = 250;
 const SKELETON_COUNT = 2;
+// The next page is requested this far (px) before the end of the list.
+const NEXT_PAGE_DISTANCE = 400;
 
 // The 01.3 card, also used when the catalog is empty or cannot be loaded.
 function CatalogNotice({
@@ -75,7 +84,8 @@ export default function CatalogScreen() {
   const filters = useCatalogFilters();
   const favoriteIds = useFavoriteIds();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const allEvents = useEvents();
+  // The API narrows by one category and by the days; the next page is loaded when the list is scrolled to its end.
+  const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
   useStatusBarStyle('light');
 
@@ -95,6 +105,8 @@ export default function CatalogScreen() {
   const isChipSelected = (id: string | undefined) =>
     id ? filters.categoryIds.includes(id) : filters.categoryIds.length === 0;
   const loadedEvents = allEvents.data ?? [];
+  // Gap: the search text, several categories and "Де" filter only the pages loaded so far (catalog-access.md: no bulk
+  // access, so the app does not load the whole catalog to search it).
   const events = filterEvents(loadedEvents, filters);
 
   const retry = () => {
@@ -111,6 +123,12 @@ export default function CatalogScreen() {
         className="flex-1 bg-surface-background"
         contentContainerStyle={{ paddingBottom: BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP }}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={200}
+        onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+          if (contentOffset.y + layoutMeasurement.height >= contentSize.height - NEXT_PAGE_DISTANCE) {
+            allEvents.loadMore();
+          }
+        }}
       >
         {/* Taller than the header, so the first card starts over the gradient, as in Figma. */}
         <View className="absolute left-0 right-0 top-0 h-[484px]">
@@ -198,6 +216,15 @@ export default function CatalogScreen() {
                     }}
                   />
                 )
+              )}
+              {allEvents.loadingMore && <ActivityIndicator color={colors.brand.coral} />}
+              {allEvents.hasMore && !allEvents.loadingMore && !allEvents.error && (
+                // Also for a list too short to scroll, e.g. when the search hides most of the loaded events.
+                <Button
+                  label={allEvents.loadMoreFailed ? 'Не вдалося завантажити. Спробувати ще раз' : 'Показати ще'}
+                  variant="light"
+                  onPress={allEvents.loadMore}
+                />
               )}
             </View>
           </Animated.View>
