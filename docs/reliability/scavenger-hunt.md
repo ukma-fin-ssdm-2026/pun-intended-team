@@ -11,16 +11,16 @@ A error handling, B external dependencies, C input validation, D silent failures
 | REL-01 | Database calls have no connection or statement timeout | B, E | `src/infra/prisma/prisma.service.ts` |
 | REL-02 | App requests have no timeout; on Android they can wait forever | E, D | `app/src/api/client.ts` |
 | REL-03 | Sign-out dispatches a navigation action no navigator handles | D | `app/src/app/(tabs)/profile.tsx`, `app/src/app/organization/settings.tsx` |
-| REL-04 | `/health` answers "ok" without checking the database, so a deploy that cannot reach it is not rolled back | D, B | `src/api/system/controllers/system.controller.ts:21`, `src/infra/prisma/prisma.service.ts:14-18` |
+| REL-04 | `/health` answers "ok" without checking the database, so a deploy that cannot reach it is not rolled back | D, B | `src/api/system/controllers/system.controller.ts`, `src/infra/prisma/prisma.service.ts` |
 | REL-05 | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are read with `Number()` and not checked: an empty value blocks every sign-in or picks a random port | C, B | `src/api/common/config.ts` |
-| REL-06 | A failed nightly backup skips the day without notice and leaves its `.partial` file on disk | D, B | `deploy/backup-db.sh:6`, `deploy/backup-db.sh:27-34` |
+| REL-06 | A failed nightly backup skips the day without notice and leaves its `.partial` file on disk | D, B | `deploy/backup-db.sh` |
 | REL-07 | When interests fail to load, profile edit hides the "more" button instead of showing an error | D | `app/src/app/profile-edit.tsx` |
-| REL-08 | A refresh response lost after the server rotated the token makes the app retry with the old one, and the server ends the session | B, D | `app/src/api/session.ts:87-103`, `src/core/identity/services/sessions.service.ts:42-65` |
-| REL-09 | A failure to fetch Google's keys (`ERR_JWKS_TIMEOUT`) reaches `unexpected()` of the exception filter and answers 500 instead of 503 | A, B | `src/infra/auth/jose-google-id-tokens.ts:9,31-34`, `src/api/app.module.ts:37` |
-| REL-10 | The automatic rollback starts the previous image on a database whose migrations are already applied | B | `deploy/deploy-staging.sh:100,114-121` |
-| REL-11 | If `finishRun` itself throws in `run()`, the original error is lost and the run stays `running` | A | `src/core/import/services/event-import.service.ts:29-39` |
-| REL-12 | Any refresh answer other than 401 (for example 503) reaches the screens as "Could not reach the server." | D | `app/src/api/session.ts:96` |
-| REL-13 | The genre `constructor` finds a property of `Object.prototype` in `CATEGORY_BY_GENRE`, and the resulting `TypeError` fails the whole import instead of skipping the record | A, C | `src/infra/providers/concert-ua-event-provider.ts:58`, `src/core/import/services/event-import.service.ts:65` |
+| REL-08 | A refresh response lost after the server rotated the token makes the app retry with the old one, and the server ends the session | B, D | `app/src/api/session.ts`, `src/core/identity/services/sessions.service.ts` |
+| REL-09 | A failure to fetch Google's keys (`ERR_JWKS_TIMEOUT`) reaches `unexpected()` of the exception filter and answers 500 instead of 503 | A, B | `src/infra/auth/jose-google-id-tokens.ts`, `src/api/app.module.ts` |
+| REL-10 | The automatic rollback starts the previous image on a database whose migrations are already applied | B | `deploy/deploy-staging.sh` |
+| REL-11 | If `finishRun` itself throws in `run()`, the original error is lost and the run stays `running` | A | `src/core/import/services/event-import.service.ts` |
+| REL-12 | Any refresh answer other than 401 (for example 503) reaches the screens as "Could not reach the server." | D | `app/src/api/session.ts` |
+| REL-13 | The genre `constructor` finds a property of `Object.prototype` in `CATEGORY_BY_GENRE`, and the resulting `TypeError` fails the whole import instead of skipping the record | A, C | `src/infra/providers/concert-ua-event-provider.ts`, `src/core/import/services/event-import.service.ts` |
 
 ## Details
 
@@ -44,9 +44,9 @@ A error handling, B external dependencies, C input validation, D silent failures
 
 ### REL-04: `/health` does not check the database
 
-**Fault:** `getHealth` returns `{ status: 'ok' }` without touching the database (`system.controller.ts:21`), and `PrismaService` connects lazily, on the first query (`prisma.service.ts:14-18`), so nothing fails at startup.
+**Fault:** `getHealth` returns `{ status: 'ok' }` without touching the database, and `PrismaService` connects lazily, on the first query, so nothing fails at startup.
 **Error:** an API with no working database connection, for example with a wrong `MAIN_DATABASE_URL`, starts and reports "ok".
-**Failure:** three consumers trust `/health`: the Docker `HEALTHCHECK` (`Dockerfile:28`), whose result decides the rollback in `deploy-staging.sh`, so a deploy that cannot reach the database is not rolled back; `service_healthy` on the API in `docker-compose.staging.yml:113`, which Caddy waits for; and the external uptime monitor of NFR REL-001 (`docs/requirements/requirements.md:118`), which counts 100% uptime while the database is dead. Users get errors on every request that needs the database.
+**Failure:** three consumers trust `/health`: the `HEALTHCHECK` in the `Dockerfile`, whose result decides the rollback in `deploy-staging.sh`, so a deploy that cannot reach the database is not rolled back; the `service_healthy` condition on the API in `docker-compose.staging.yml`, which Caddy waits for; and the external uptime monitor of NFR REL-001, which counts 100% uptime while the database is dead. Users get errors on every request that needs the database.
 
 ### REL-05: `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked
 
@@ -56,8 +56,8 @@ A error handling, B external dependencies, C input validation, D silent failures
 
 ### REL-06: A failed nightly backup skips the day
 
-**Fault:** `backup-db.sh` runs under `set -e` (line 6), so a failed `pg_dump` ends the script, and nothing checks that a dump can be restored.
-**Error:** the container restarts (`restart: unless-stopped`, `docker-compose.staging.yml:120`), the script takes the next 01:00 as tomorrow's (lines 27-34), and the `.partial` file stays on disk.
+**Fault:** the script runs under `set -e`, so a failed `pg_dump` ends the script, and nothing checks that a dump can be restored.
+**Error:** the container restarts (`restart: unless-stopped` in `docker-compose.staging.yml`), the script takes the next 01:00 as tomorrow's in its `while true` loop, and the `.partial` file stays on disk.
 **Failure:** no backup exists for that day and nobody is told; a copy that cannot be restored is discovered only when it is needed.
 
 ### REL-07: Profile edit hides the "more" button when interests fail to load
@@ -68,7 +68,7 @@ A error handling, B external dependencies, C input validation, D silent failures
 
 ### REL-08: A lost refresh response ends the session
 
-**Fault:** the app saves the rotated refresh token only when the response arrives (`session.ts:87-103`), while the server rotates it before replying and revokes the session on any reuse of the old one (`sessions.service.ts:53-56`).
+**Fault:** the app saves the rotated refresh token only when the response arrives (in `renew`), while the server rotates it before replying and revokes the session on any reuse of the old one (in `SessionsService.refresh`).
 **Error:** the server holds the new token and the app still holds the old one after a response lost to a timeout or a dropped connection.
 **Failure:** the next refresh sends the old token, the server treats it as stolen and ends the session, and the user is signed out of the account.
 
@@ -92,7 +92,7 @@ A error handling, B external dependencies, C input validation, D silent failures
 
 ### REL-12: Any refresh error other than 401 reads as "no connection"
 
-**Fault:** `renew` throws a plain `Error` for every answer except 200 and 401 (`session.ts:96`).
+**Fault:** `renew` throws a plain `Error` for every answer except 200 and 401.
 **Error:** `currentAccessToken` rejects inside the request middleware, so the request is never sent.
 **Failure:** the screens show "Could not reach the server." although the API answered, for example with 503.
 
