@@ -16,6 +16,7 @@ import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockOrganization, type OrganizationEventStatus } from '@/mocks/organization';
+import { plural } from '@/plural';
 import { rememberOwnEvent, useOwnEvents } from '@/state/organization-events';
 import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
@@ -136,7 +137,7 @@ export default function OrganizationEventsScreen() {
   const summary =
     rows.length === 0
       ? mockOrganization.emptySummary
-      : `${published} опубліковано${drafts ? ` · ${drafts} чернетка` : ''}`;
+      : `${published} опубліковано${drafts ? ` · ${drafts} ${plural(drafts, ['чернетка', 'чернетки', 'чернеток'])}` : ''}`;
 
   const openEditor = () => router.push('/organization/event');
   const editRow = (row: Row) =>
