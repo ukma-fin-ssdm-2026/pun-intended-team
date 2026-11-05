@@ -4,23 +4,25 @@ Reliability risks found in the Nearby API (`src/`) and mobile app (`app/`) for L
 
 ## Findings
 
-| ID | Code | Category | Location | Finding |
-|---|---|---|---|---|
-| REL-01 | B, E | External dependencies; performance and blocking | `src/infra/prisma/prisma.service.ts` | Database calls have no connection or statement timeout |
-| REL-02 | E, D | Performance and blocking; silent failures | `app/src/api/client.ts` | App requests have no timeout; on Android they can wait forever |
-| REL-03 | D | Silent failures | `app/src/app/(tabs)/profile.tsx`, `app/src/app/organization/settings.tsx` | Sign-out dispatches a navigation action no navigator handles |
-| REL-04 | D, B | Silent failures; external dependencies | `src/api/system/controllers/system.controller.ts:21`, `src/infra/prisma/prisma.service.ts:14-18` | `/health` answers "ok" without checking the database, so a deploy that cannot reach it is not rolled back. Three consumers trust it: the Docker `HEALTHCHECK` (`Dockerfile:28`), which decides the rollback in `deploy/deploy-staging.sh`; `service_healthy` on the API in `docker-compose.staging.yml:113`; and the external uptime monitor of NFR REL-001 (`docs/requirements/requirements.md:118`), which counts 100% uptime while the database is dead. `PrismaService` connects lazily, so an API with a wrong `MAIN_DATABASE_URL` starts and says "ok" |
-| REL-05 | C, B | Input validation; external dependencies | `src/api/common/config.ts` | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are read with `Number()` and not checked: an empty value blocks every sign-in or picks a random port |
-| REL-06 | D, B | Silent failures; external dependencies | `deploy/backup-db.sh:6`, `deploy/backup-db.sh:27-34` | A failed nightly backup skips the day without notice and leaves its `.partial` file on disk. `set -e` kills the container when `pg_dump` fails, `restart: unless-stopped` (`docker-compose.staging.yml:120`) starts it again, and the script then counts the next 01:00 as tomorrow's, so the day is skipped. Nothing checks that a copy can be restored |
-| REL-07 | D | Silent failures | `app/src/app/profile-edit.tsx` | When interests fail to load, profile edit hides the "more" button instead of showing an error |
-| REL-08 | B, D | External dependencies; silent failures | `app/src/api/session.ts:87-103`, `src/core/identity/services/sessions.service.ts:42-65` | A refresh response lost after the server rotated the token makes the app retry with the old one, and the server ends the session |
-| REL-09 | A, B | Error handling; external dependencies | `src/infra/auth/jose-google-id-tokens.ts:9,31-34`, `src/api/app.module.ts:37` | A failure to fetch Google's keys (`ERR_JWKS_TIMEOUT`) reaches `unexpected()` of the exception filter and answers 500 instead of 503 |
-| REL-10 | B | External dependencies | `deploy/deploy-staging.sh:100,114-121` | The automatic rollback starts the previous image on a database whose migrations are already applied |
-| REL-11 | A | Error handling | `src/core/import/services/event-import.service.ts:29-39` | If `finishRun` itself throws in `run()`, the original error is lost and the run stays `running` |
-| REL-12 | D | Silent failures | `app/src/api/session.ts:96` | Any refresh answer other than 401 (for example 503) reaches the screens as "Could not reach the server." |
-| REL-13 | A, C | Error handling; input validation | `src/infra/providers/concert-ua-event-provider.ts:58`, `src/core/import/services/event-import.service.ts:65` | The genre `constructor` finds a property of `Object.prototype` in `CATEGORY_BY_GENRE`, and the resulting `TypeError` fails the whole import instead of skipping the record |
+A error handling, B external dependencies, C input validation, D silent failures, E performance and blocking.
 
-## Fault, Error, Failure
+| ID | Finding | Category | Location |
+|---|---|---|---|
+| REL-01 | Database calls have no connection or statement timeout | B, E | `src/infra/prisma/prisma.service.ts` |
+| REL-02 | App requests have no timeout; on Android they can wait forever | E, D | `app/src/api/client.ts` |
+| REL-03 | Sign-out dispatches a navigation action no navigator handles | D | `app/src/app/(tabs)/profile.tsx`, `app/src/app/organization/settings.tsx` |
+| REL-04 | `/health` answers "ok" without checking the database, so a deploy that cannot reach it is not rolled back | D, B | `src/api/system/controllers/system.controller.ts:21`, `src/infra/prisma/prisma.service.ts:14-18` |
+| REL-05 | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are read with `Number()` and not checked: an empty value blocks every sign-in or picks a random port | C, B | `src/api/common/config.ts` |
+| REL-06 | A failed nightly backup skips the day without notice and leaves its `.partial` file on disk | D, B | `deploy/backup-db.sh:6`, `deploy/backup-db.sh:27-34` |
+| REL-07 | When interests fail to load, profile edit hides the "more" button instead of showing an error | D | `app/src/app/profile-edit.tsx` |
+| REL-08 | A refresh response lost after the server rotated the token makes the app retry with the old one, and the server ends the session | B, D | `app/src/api/session.ts:87-103`, `src/core/identity/services/sessions.service.ts:42-65` |
+| REL-09 | A failure to fetch Google's keys (`ERR_JWKS_TIMEOUT`) reaches `unexpected()` of the exception filter and answers 500 instead of 503 | A, B | `src/infra/auth/jose-google-id-tokens.ts:9,31-34`, `src/api/app.module.ts:37` |
+| REL-10 | The automatic rollback starts the previous image on a database whose migrations are already applied | B | `deploy/deploy-staging.sh:100,114-121` |
+| REL-11 | If `finishRun` itself throws in `run()`, the original error is lost and the run stays `running` | A | `src/core/import/services/event-import.service.ts:29-39` |
+| REL-12 | Any refresh answer other than 401 (for example 503) reaches the screens as "Could not reach the server." | D | `app/src/api/session.ts:96` |
+| REL-13 | The genre `constructor` finds a property of `Object.prototype` in `CATEGORY_BY_GENRE`, and the resulting `TypeError` fails the whole import instead of skipping the record | A, C | `src/infra/providers/concert-ua-event-provider.ts:58`, `src/core/import/services/event-import.service.ts:65` |
+
+## Details
 
 ### REL-01: Database calls without timeouts
 
@@ -42,9 +44,9 @@ Reliability risks found in the Nearby API (`src/`) and mobile app (`app/`) for L
 
 ### REL-04: `/health` does not check the database
 
-**Fault:** `getHealth` returns `{ status: 'ok' }` without touching the database, and `PrismaService` connects only on the first query, so a wrong `MAIN_DATABASE_URL` is not noticed at startup.
-**Error:** the API runs with no working database connection while its health state says it is fine.
-**Failure:** the Docker `HEALTHCHECK` passes, so a deploy that cannot reach the database is not rolled back and Caddy still waits on a "healthy" API; the uptime monitor counts 100% uptime; users get errors on every request that needs the database.
+**Fault:** `getHealth` returns `{ status: 'ok' }` without touching the database (`system.controller.ts:21`), and `PrismaService` connects lazily, on the first query (`prisma.service.ts:14-18`), so nothing fails at startup.
+**Error:** an API with no working database connection, for example with a wrong `MAIN_DATABASE_URL`, starts and reports "ok".
+**Failure:** three consumers trust `/health`: the Docker `HEALTHCHECK` (`Dockerfile:28`), whose result decides the rollback in `deploy-staging.sh`, so a deploy that cannot reach the database is not rolled back; `service_healthy` on the API in `docker-compose.staging.yml:113`, which Caddy waits for; and the external uptime monitor of NFR REL-001 (`docs/requirements/requirements.md:118`), which counts 100% uptime while the database is dead. Users get errors on every request that needs the database.
 
 ### REL-05: `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked
 
@@ -54,8 +56,8 @@ Reliability risks found in the Nearby API (`src/`) and mobile app (`app/`) for L
 
 ### REL-06: A failed nightly backup skips the day
 
-**Fault:** `backup-db.sh` runs under `set -e`, so a failed `pg_dump` ends the script; the loop computes the next 01:00 again on restart, and nothing checks the dump.
-**Error:** the container restarts after the failed dump, takes the next 01:00 as tomorrow's, and leaves the `.partial` file behind.
+**Fault:** `backup-db.sh` runs under `set -e` (line 6), so a failed `pg_dump` ends the script, and nothing checks that a dump can be restored.
+**Error:** the container restarts (`restart: unless-stopped`, `docker-compose.staging.yml:120`), the script takes the next 01:00 as tomorrow's (lines 27-34), and the `.partial` file stays on disk.
 **Failure:** no backup exists for that day and nobody is told; a copy that cannot be restored is discovered only when it is needed.
 
 ### REL-07: Profile edit hides the "more" button when interests fail to load
