@@ -14,16 +14,17 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { createEvent, updateEvent, type EventBody } from '@/api/events';
+import { createEvent, updateEvent, type Event, type EventBody } from '@/api/events';
 import { eventFailure } from '@/components/organization/event-messages';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { formatTime, kyivDay, kyivIso } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
+import { useEvent } from '@/hooks/use-event';
 import { useEvents } from '@/hooks/use-events';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { rememberOwnEvent, useOwnEvents } from '@/state/organization-events';
+import { rememberOwnEvent } from '@/state/organization-events';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Навігація" starts 56 px from the top (9 px below the iPhone 14 status bar); "03 Дія" has a 34 px bottom padding.
@@ -130,12 +131,36 @@ function parseTime(text: string): string | undefined {
   return match ? `${twoDigits(Number(match[1]))}:${match[2]}` : undefined;
 }
 
+// The id of a live event of О1 opens it for editing; without it the editor creates an event. With an id the form waits
+// for the event, so saving never creates a new one in its place.
 export default function OrganizationEventEditorScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  // The id of a live event of О1 opens it for editing; without it the editor creates an event.
   const { id } = useLocalSearchParams<{ id?: string }>();
-  const existing = useOwnEvents().find((event) => event.id === id);
+  const loaded = useEvent(id);
+
+  if (!id) return <EventForm />;
+  if (loaded.data) return <EventForm key={loaded.data.id} existing={loaded.data} />;
+  if (loaded.loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-surface-card">
+        <ActivityIndicator size="large" color={colors.brand.coral} />
+      </View>
+    );
+  }
+  return (
+    <View className="flex-1 items-center justify-center gap-4 bg-surface-card px-5">
+      <Text className="text-center font-inter-semibold text-title text-text-primary">
+        {loaded.notFound ? 'Подію не знайдено' : 'Не вдалося завантажити подію'}
+      </Text>
+      {!loaded.notFound && <Button label="Спробувати ще раз" variant="dark" onPress={loaded.reload} />}
+      <Button label="До подій" variant="light" onPress={() => router.dismissTo('/organization')} />
+    </View>
+  );
+}
+
+function EventForm({ existing }: Readonly<{ existing?: Event }>) {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const categories = useCategories();
   // The API has no list of venues. The venues of the catalog's events are the places to choose from, and it accepts
   // only the organization's own.
