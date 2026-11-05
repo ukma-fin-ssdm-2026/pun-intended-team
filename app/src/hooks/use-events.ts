@@ -1,60 +1,86 @@
 // Written with the help of Claude
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { apiClient } from '@/api/client';
 import { call } from '@/api/public-client';
 import type { components } from '@/api/schema';
+import { useApiQuery } from '@/hooks/use-api-query';
 
 type Event = components['schemas']['Event'];
+type EventsPage = components['schemas']['EventsPage'];
 
-// The API's largest page.
+// The API's largest page; the catalog has no "list all" (catalog-access.md).
 const PAGE_SIZE = 20;
 
-type Loaded = { data: Event[] } | { error: string };
-type Result = Loaded & { categoryId: string | undefined; attempt: number };
+// What the API narrows by. The search text, several categories and the districts are applied to the loaded pages only.
+export type EventQuery = { categoryId?: string; from?: string; to?: string };
 
-// Every page of the catalog, since the screens search and filter it on the device.
-async function loadAll(categoryId?: string): Promise<Loaded> {
-  const events: Event[] = [];
-  for (;;) {
-    const result = await call(() =>
-      apiClient.GET('/api/v1/events', {
-        params: { query: { categoryId, limit: PAGE_SIZE, offset: events.length } },
-      }),
-    );
-    if (!result.ok) {
-      return { error: result.status === 0 ? 'Could not reach the server.' : 'Could not load events.' };
-    }
-    events.push(...result.data.items);
-    if (!result.data.page.hasMore || result.data.items.length === 0) return { data: events };
-  }
+const fetchPage = (query: EventQuery, offset: number) =>
+  call(() => apiClient.GET('/api/v1/events', { params: { query: { ...query, limit: PAGE_SIZE, offset } } }));
+
+// Pages after the first, valid only for the first page they were loaded after: a reload or another query drops them.
+type More = { base: EventsPage; items: Event[]; hasMore: boolean; failed: boolean };
+
+// One page of the catalog; `loadMore` adds the next one, when the screen is scrolled to its end.
+export function useEvents({ categoryId, from, to }: EventQuery = {}) {
+  const first = useApiQuery(JSON.stringify([categoryId, from, to]), () => fetchPage({ categoryId, from, to }, 0));
+  const [more, setMore] = useState<More>();
+  const [loadingMore, setLoadingMore] = useState(false);
+  const busy = useRef(false);
+
+  const base = first.data;
+  const extra = base && more?.base === base ? more : undefined;
+  const data = useMemo(() => base && [...base.items, ...(extra?.items ?? [])], [base, extra]);
+  const hasMore = extra ? extra.hasMore : (base?.page.hasMore ?? false);
+
+  const loadMore = useCallback(() => {
+    if (!base || !data || !hasMore || busy.current) return;
+    busy.current = true;
+    setLoadingMore(true);
+    const items = extra?.items ?? [];
+    fetchPage({ categoryId, from, to }, data.length)
+      .then((result) =>
+        setMore(
+          result.ok
+            ? {
+                base,
+                items: [...items, ...result.data.items],
+                hasMore: result.data.page.hasMore && result.data.items.length > 0,
+                failed: false,
+              }
+            : { base, items, hasMore, failed: true },
+        ),
+      )
+      // `call` turns a failed request into a result; this is for a body that is not a page of events.
+      .catch(() => setMore({ base, items, hasMore, failed: true }))
+      .finally(() => {
+        busy.current = false;
+        setLoadingMore(false);
+      });
+  }, [base, data, extra, hasMore, categoryId, from, to]);
+
+  const error =
+    first.failure && (first.failure.status === 0 ? 'Could not reach the server.' : 'Could not load events.');
+  return {
+    data,
+    loading: first.loading,
+    error,
+    reload: first.reload,
+    hasMore,
+    loadMore,
+    loadingMore,
+    loadMoreFailed: extra?.failed ?? false,
+  };
 }
 
-export function useEvents(categoryId?: string) {
-  const [attempt, setAttempt] = useState(0);
-  const [result, setResult] = useState<Result>();
-
-  useEffect(() => {
-    let cancelled = false;
-    // `call` turns a failed request into an error result; the catch is for a body that is not a page of events.
-    loadAll(categoryId)
-      .then((loaded) => {
-        if (!cancelled) setResult({ ...loaded, categoryId, attempt });
-      })
-      .catch(() => {
-        if (!cancelled) setResult({ error: 'Could not load events.', categoryId, attempt });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [categoryId, attempt]);
-
-  const reload = useCallback(() => setAttempt((count) => count + 1), []);
-  const loading = result === undefined || result.categoryId !== categoryId || result.attempt !== attempt;
-  return {
-    data: loading || !('data' in result) ? undefined : result.data,
-    loading,
-    error: loading || !('error' in result) ? undefined : result.error,
-    reload,
-  };
+// The saved events: one request per id, since the catalog is not listed whole. An id the API does not return is left
+// out; the caller falls back to what it has.
+export function useEventsByIds(ids: string[]) {
+  const key = ids.length > 0 ? ids.join(',') : null;
+  return useApiQuery(key, async () => {
+    const results = await Promise.all(
+      ids.map((id) => call(() => apiClient.GET('/api/v1/events/{id}', { params: { path: { id } } }))),
+    );
+    return { ok: true as const, data: results.flatMap((result) => (result.ok ? [result.data] : [])) };
+  });
 }

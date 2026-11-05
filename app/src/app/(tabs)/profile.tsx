@@ -21,7 +21,7 @@ import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
-import { useEvents } from '@/hooks/use-events';
+import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
@@ -217,10 +217,10 @@ export default function ProfileScreen() {
     setChosenTab(next);
     if (saved) router.setParams({ saved: undefined });
   };
-  // Saved ids are looked up among the catalog's events first, then among the mocks. An event the catalog no longer
-  // lists (it ended, or is beyond its window) is not shown.
-  const liveEvents = useEvents().data;
-  const savedEvents = useFavoriteIds()
+  // Each saved id is asked of the API, then looked up among the mocks. An event the API no longer returns is not shown.
+  const favoriteIds = useFavoriteIds();
+  const liveEvents = useEventsByIds(favoriteIds).data;
+  const savedEvents = favoriteIds
     .map((id) => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
     .filter((event): event is SavedEvent => !!event);
   useStatusBarStyle('light');
