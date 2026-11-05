@@ -24,12 +24,13 @@ src/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, page.ts
+    common/                     domain-error.ts, kyiv-time.ts, page.ts, transaction.ts, transaction-runner.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
       services/                 events.service.ts, categories.service.ts
       types/                    event, category, venue, organization
+    jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
       adapters/                 event-provider.ts (abstract: one external listing service)
@@ -42,6 +43,7 @@ src/
     prisma/                     PrismaService (role nearby_main), ImportPrismaService (role nearby_import), one Prisma repository per core repository, catalog-rows.ts (venue and event rows to core types); generated/ is the Prisma client
     stubs/                      in-memory repositories for what is not in the database yet (events, listings, venues, organizations); data.ts, paginate.ts
     auth/                       adapters for the identity module: access tokens, Google ID tokens, password and code hashing, key files
+    jobs/                       PgBossJobQueue: the job queue on pg-boss ([job queue](job-queue.md))
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
     providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
   import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads only IMPORT_DATABASE_URL
@@ -64,7 +66,7 @@ src/
 11. **ESLint enforces rules 1, 7 and 9** with `no-restricted-imports` in `eslint.config.mjs`.
 12. **Abstract classes only where `core` depends on something outside it.** Nest injects by class, since TypeScript interfaces do not exist at runtime: an abstract class is both the interface and the injection token. Repositories (rule 7) and the adapters of HLD I5 (rule 13) are abstract classes owned by `core`. Services are injected as concrete classes, by `api` and by other modules alike; a service gets an abstract class only when it needs a second implementation. An injected class is a value import, not `import type`, because the class is the token. In tests, a service is replaced with `{ provide: EventsService, useValue: fake }`, the fake typed as `Pick<EventsService, …>`.
 
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider` and `GoogleIdTokens` exist; `PushProvider` comes with notifications.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider`, `GoogleIdTokens` and `JobQueue` exist; `PushProvider` comes with notifications.
 
 ## Planned
 
