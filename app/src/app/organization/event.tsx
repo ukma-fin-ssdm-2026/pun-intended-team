@@ -259,7 +259,8 @@ function EventForm({ existing }: Readonly<{ existing?: Event }>) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          // Opened directly (a link, a reload) there is nothing to go back to.
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/organization'))}
           className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
         >
           <Icon name="arrow-left" size={20} />
