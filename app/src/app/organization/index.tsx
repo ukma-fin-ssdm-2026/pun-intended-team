@@ -140,8 +140,8 @@ export default function OrganizationEventsScreen() {
       : `${published} опубліковано${drafts ? ` · ${drafts} ${plural(drafts, ['чернетка', 'чернетки', 'чернеток'])}` : ''}`;
 
   const openEditor = () => router.push('/organization/event');
-  const editRow = (row: Row) =>
-    row.live ? router.push({ pathname: '/organization/event', params: { id: row.event.id } }) : openEditor();
+  // A mock row opens by its id too: the API does not know it, so the editor says so instead of showing a new event.
+  const editRow = (row: Row) => router.push({ pathname: '/organization/event', params: { id: row.event.id } });
   const closeSheet = () => {
     setSheetOpen(false);
     setCancelError(undefined);
