@@ -265,7 +265,8 @@ export default function AnnouncementsScreen() {
             text="Увійди, щоб бачити, хто шукає компанію, і писати свої оголошення."
             action={{ label: 'Увійти', onPress: openGuestDialog }}
           />
-        ) : listings.loading && !listings.data ? (
+        ) : (listings.loading && !listings.data) || profile.loading ? (
+          // The own username decides which posts are the own ones, so the feed waits for the profile too.
           <View className="flex-1 items-center justify-center pb-24">
             <ActivityIndicator size="large" color={colors.brand.coral} />
           </View>

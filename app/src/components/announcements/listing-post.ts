@@ -4,7 +4,8 @@ import { formatShortDay } from '@/dates';
 import type { Post } from '@/mocks/announcements';
 
 // A listing as the feed's card shows it. The API gives no age, no district or time of posting and no name forms, so
-// the card shows the display name, the category and the day of the plan.
+// the card shows the display name, the category and the day of the plan. Whose post it is stays undefined until the own
+// username is known, so a screen does not offer a report on the own post.
 export function listingToPost(listing: Listing, ownUsername?: string): Post {
   const { id, author, category, title, description, date, eventId } = listing;
   return {
@@ -25,6 +26,6 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
     chips: [{ icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) }],
     eventId: eventId ?? undefined,
     going: false,
-    own: ownUsername !== undefined && ownUsername.toLowerCase() === author.username.toLowerCase(),
+    own: ownUsername === undefined ? undefined : ownUsername.toLowerCase() === author.username.toLowerCase(),
   };
 }
