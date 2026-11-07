@@ -4,7 +4,7 @@
 
 - **Event catalog:** browsing and filtering events, and posting, validating, editing and cancelling them (FR-006, FR-007, FR-009 to FR-011).
 - **Listings:** creating and browsing listings (FR-021, FR-022).
-- **Moderation and statistics:** reporting a user, grouping the reports into cases, banning or dismissing, and the administrator's statistics (FR-025 to FR-027, FR-030).
+- **Moderation and statistics:** reporting a user or a listing, grouping the reports into cases, banning, removing the listing or dismissing, and the administrator's statistics (FR-025 to FR-028, FR-030).
 - **Categories:** the public list and the admin endpoints (FR-029).
 - **Profile:** creating and editing the user's own profile (FR-002).
 - **Interest overlap:** the score of shared interests between two users (FR-017).
@@ -148,6 +148,10 @@ Testing under this plan is complete when all of the following hold:
 | TC-77 | `GET /categories`, a database error that is not a timeout | Integration | Negative | Error handling (`tests/reliability/`): with a database that refuses the connection, the built API answers `500` `{ "error": { "code": "INTERNAL_ERROR", "message": "Something went wrong" } }` with the cause only in the log, and keeps answering the next requests | Oleh Moshenskyi | REL-001 | done |
 | TC-78 | `fetchWithTimeout` (client) | Integration | Negative | Fault injection (`tests/reliability/`): against a fake API, a request that gets no answer is aborted after 15 s and not before, a body that stops in the middle is aborted after 15 s, and a dropped connection fails at once | Oleh Moshenskyi | REL-002 | done |
 | TC-79 | `DATABASE_STATEMENT_TIMEOUT_MS` at startup | Integration | Negative | Boundary (`tests/reliability/`): the built API starts with an empty value and with `86400000` (one day), and stops with exit code 1 and a message naming the variable on `0`, `-1`, `abc`, `86400001` and `99999999999999999999` | Oleh Moshenskyi | REL-001 | done |
+| TC-80 | `ModerationService.reportListing`, `.removeListing` | Unit | Negative | A report on someone else's active listing joins its case; an unknown, removed or own listing is refused and nothing is stored. Removal resolves the case as `removed` and removes the listing, again on a case already removed; a dismissed case, an account case and a case about the administrator's own listing are refused, and the refusals are audited | Oleh Moshenskyi | FR-028, SEC-004 | done |
+| TC-81 | `POST /reports` with `listingId`, `POST /admin/report-cases/{id}/remove-listing` | Integration | Positive | US-006 AC1: three reports on one listing make one case that shows the listing and its author; removal answers `200` with `resolution: removed`, the listing leaves `GET /listings`, `GET /listings/{id}` answers `404`, and the report and the removal are in the audit log; a dismissed listing case leaves the listing | Oleh Moshenskyi | FR-026, FR-028, SEC-004 | done |
+| TC-82 | `POST /reports` with `listingId`, `POST /admin/report-cases/{id}/ban`, `…/remove-listing` | Integration | Negative | The own listing gets `422 CANNOT_REPORT_SELF`, an unknown or removed one `422 REFERENCE_NOT_FOUND`, a body with both a username and a listing or with neither `400`; ban on a listing case and removal on a user case get `409` and are audited; a user who is not an administrator gets `404` | Oleh Moshenskyi | FR-028, SEC-001 | done |
+| TC-83 | Report sheet (client) | Unit | Positive | From a post the sheet sends `{ listingId, reason }`, from a match `{ username, reason }` | Oleh Moshenskyi | FR-028 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

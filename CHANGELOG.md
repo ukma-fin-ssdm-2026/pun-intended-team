@@ -7,9 +7,11 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 ### Added
 
 - Event import from ArtWizard and Karabas: Kyiv events of the 28-day catalog window are read from ArtWizard's events API, with ArtWizard's permission for the study project, and from the schema.org data of the Karabas pages, within its robots.txt.
+- Reporting a listing ([#382](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/382)): `POST /reports` takes `listingId` instead of `username`, and the report sheet on someone else's post reports the listing. Administrators see listing cases with the listing and its author, and `POST /admin/report-cases/{id}/remove-listing` removes the listing and resolves the case.
 
 ### Changed
 
+- The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
 - `/health` checks the database. A deploy whose API cannot reach the database is now rolled back.
 - Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
 
