@@ -119,6 +119,7 @@ package "catalog" {
     * id : uuid <<PK>>
     --
     * name : text <<UK>>
+    * slug : text <<UK>>
     * is_active : bool
   }
 

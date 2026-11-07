@@ -14,8 +14,8 @@ import type {
  * event and venue rows through its own repositories.
  */
 export abstract class ImportedEventsRepository {
-  /** Active categories, which the import may only read. */
-  abstract findActiveCategories(): Promise<ImportCategory[]>;
+  /** All categories, active or not, which the import may only read. */
+  abstract findCategories(): Promise<ImportCategory[]>;
 
   /** Records the start of a run and returns its id. */
   abstract startRun(provider: string): Promise<string>;

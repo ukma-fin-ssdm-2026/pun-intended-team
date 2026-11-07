@@ -76,6 +76,26 @@ export function formatTimeRange(startIso: string, endIso: string): string {
   return `${kyivTime(new Date(startIso)).time} – ${kyivTime(new Date(endIso)).time}`;
 }
 
+// Kyiv's offset from UTC at an instant, in minutes: 120 in winter, 180 in summer.
+function kyivOffsetMinutes(instant: Date): number {
+  const { year, month, day, time } = kyivTime(instant);
+  const [hour, minute] = time.split(':').map(Number);
+  return (Date.UTC(year, month - 1, day, hour, minute) - Math.floor(instant.getTime() / 60_000) * 60_000) / 60_000;
+}
+
+// "2026-10-25T19:00:00+03:00" for a Kyiv day and a time such as "19:00": the offset is the one Kyiv has at that moment.
+export function kyivIso(day: string, time: string): string {
+  const [year, month, date] = day.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+  const wall = Date.UTC(year, month - 1, date, hour, minute);
+  // The first pass reads the wall time as UTC; the second settles the offset when a clock change lies in between.
+  const offset = kyivOffsetMinutes(new Date(wall - kyivOffsetMinutes(new Date(wall)) * 60_000));
+  const sign = offset < 0 ? '-' : '+';
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const minutes = String(Math.abs(offset) % 60).padStart(2, '0');
+  return `${day}T${time}:00${sign}${hours}:${minutes}`;
+}
+
 // Calendar day in Kyiv as "2026-10-24", so days compare as strings.
 export type KyivDay = string;
 

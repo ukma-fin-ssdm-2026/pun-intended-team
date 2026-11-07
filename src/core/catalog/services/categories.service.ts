@@ -1,8 +1,10 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
+import { slugify, uniqueSlug } from '../../common/slug.ts';
 import { CategoriesRepository } from '../repositories/categories.repository.ts';
-import type { Category, CategoryChanges, NewCategory } from '../types/category.ts';
+import type { Category, CategoryChanges, CategoryInput } from '../types/category.ts';
+import { normalizeCategoryName } from './category-name.ts';
 
 @Injectable()
 export class CategoriesService {
@@ -31,13 +33,27 @@ export class CategoriesService {
     return category;
   }
 
-  async create(input: NewCategory): Promise<Category> {
-    return this.categoriesRepository.create(input);
+  /**
+   * Adds a category with its name normalized (`normalizeCategoryName`) and a slug made from it; a taken slug gets
+   * a number: `kino-2`.
+   */
+  async create(input: CategoryInput): Promise<Category> {
+    const name = normalizeCategoryName(input.name);
+    const taken = new Set((await this.categoriesRepository.findAll()).map((category) => category.slug));
+    return this.categoriesRepository.create({
+      name,
+      isActive: input.isActive,
+      slug: uniqueSlug(slugify(name), taken),
+    });
   }
 
-  async update(id: string, changes: CategoryChanges): Promise<Category> {
+  /** Renames or (de)activates a category, the name normalized as on create; its slug stays as it is. */
+  async update(id: string, { name, isActive }: CategoryChanges): Promise<Category> {
     await this.getById(id);
-    return this.categoriesRepository.update(id, changes);
+    return this.categoriesRepository.update(id, {
+      name: name === undefined ? undefined : normalizeCategoryName(name),
+      isActive,
+    });
   }
 
   async delete(id: string): Promise<void> {

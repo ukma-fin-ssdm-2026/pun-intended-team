@@ -77,7 +77,9 @@ export default function CompanySearchScreen() {
       <MatchingNav
         title="Пошук компанії"
         subtitle={subtitle}
-        onBack={() => router.back()}
+        onBack={() =>
+          router.canGoBack() ? router.back() : router.replace({ pathname: '/events/[id]', params: { id } })
+        }
         onMore={() => setOverlay('menu')}
       />
 

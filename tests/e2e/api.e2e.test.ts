@@ -15,6 +15,8 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
+import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
+import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are those the in-memory stubs had before #310.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
@@ -1419,7 +1421,7 @@ describe('GET /api/v1/admin/categories/{id}', () => {
   test('returns the category', async () => {
     const res = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { id: concerts, name: 'Concerts', isActive: true });
+    assert.deepEqual(res.body, { id: concerts, name: 'Концерти', slug: 'concerts', isActive: true });
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1436,6 +1438,73 @@ describe('POST /api/v1/admin/categories', () => {
     assert.equal(res.body.isActive, true);
   });
 
+  test('makes the slug from the name, in Latin', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Майстер-класи ${suffix}` },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.slug, `maister-klasy-${suffix}`);
+  });
+
+  test('adds a number to a slug another category has', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const first = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Кіно ${suffix}` },
+    });
+    const second = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Кіно, ${suffix}!` },
+    });
+    assert.equal(first.body.slug, `kino-${suffix}`);
+    assert.equal(second.status, 201);
+    assert.equal(second.body.slug, `kino-${suffix}-2`);
+  });
+
+  test('saves the name with single spaces and ʼ for every apostrophe', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `  Кав'ярні   ${suffix} ` },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.name, `Кавʼярні ${suffix}`);
+  });
+
+  // The name is compared in lower case, trimmed, with runs of spaces as one and every apostrophe alike.
+  for (const { title, variant } of [
+    { title: 'in another case', variant: (suffix: string) => `КАВʼЯРНІ ${suffix.toUpperCase()}` },
+    { title: 'with extra spaces', variant: (suffix: string) => `  Кавʼярні    ${suffix}  ` },
+    { title: "with ' as the apostrophe", variant: (suffix: string) => `Кав'ярні ${suffix}` },
+    { title: 'with ’ as the apostrophe', variant: (suffix: string) => `Кав’ярні ${suffix}` },
+  ]) {
+    test(`rejects a name that differs from another one only ${title} with 409`, async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const first = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: `Кавʼярні ${suffix}` },
+      });
+      assert.equal(first.status, 201);
+
+      const res = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: variant(suffix) },
+      });
+
+      assertRejected(res, 409, 'CONFLICT');
+    });
+  }
+
+  test('rejects a slug in the body with 400', async () => {
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `E2E ${randomUUID().slice(0, 8)}`, slug: 'my-own' },
+    });
+    assert.equal(res.status, 400);
+  });
+
   test('rejects an empty name with 400', async () => {
     const res = await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name: '' } });
     assertInvalid(res, 'body', 'name');
@@ -1445,13 +1514,48 @@ describe('POST /api/v1/admin/categories', () => {
     const res = await fetch(`${baseUrl}/api/v1/admin/categories`, {
       method: 'POST',
       headers: { authorization: `Bearer ${tokens.admin}`, 'content-type': 'application/x-www-form-urlencoded' },
-      body: 'name=Workshops',
+      body: new URLSearchParams({ name: 'Майстер-класи' }).toString(),
     });
     assert.equal(res.status, 400);
   });
 });
 
 describe('PATCH /api/v1/admin/categories/{id}', () => {
+  test('renames a category and keeps its slug', async () => {
+    const created = await newCategory();
+    const before = await call('GET', `/api/v1/admin/categories/${created.id}`, { token: tokens.admin });
+    const res = await call('PATCH', `/api/v1/admin/categories/${created.id}`, {
+      token: tokens.admin,
+      body: { name: `Renamed ${randomUUID().slice(0, 8)}` },
+    });
+    assert.equal(res.status, 200);
+    assert.notEqual(res.body.name, created.name);
+    assert.equal(res.body.slug, before.body.slug);
+  });
+
+  test('rejects a rename to the name of another category, in another case and with ’, with 409', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name: `Кавʼярні ${suffix}` } });
+    const other = await newCategory();
+
+    const res = await call('PATCH', `/api/v1/admin/categories/${other.id}`, {
+      token: tokens.admin,
+      body: { name: ` кав’ярні  ${suffix}` },
+    });
+
+    assertRejected(res, 409, 'CONFLICT');
+  });
+
+  test('rejects a slug in the body with 400 and keeps the slug', async () => {
+    const res = await call('PATCH', `/api/v1/admin/categories/${concerts}`, {
+      token: tokens.admin,
+      body: { slug: 'gigs' },
+    });
+    assert.equal(res.status, 400);
+    const after = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
+    assert.equal(after.body.slug, 'concerts');
+  });
+
   test('reactivates a category', async () => {
     const inactive = await newCategory({ isActive: false });
     const res = await call('PATCH', `/api/v1/admin/categories/${inactive.id}`, {
@@ -2431,6 +2535,41 @@ describe('Event import', () => {
       assert.equal(res.body.sourceUrl, sourceUrl);
     }
     assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
+  });
+
+  // A typo in a provider's mapping would otherwise only skip that genre's events, with no test failing.
+  test('every category slug the providers map to is an active category after the migrations', async () => {
+    const used = new Set([...ARTWIZARD_CATEGORY_SLUGS.values(), ...KARABAS_SECTIONS.map((s) => s.categorySlug)]);
+    const { rows } = await withDatabase((client) =>
+      client.query<{ slug: string }>('SELECT slug FROM categories WHERE is_active'),
+    );
+    const active = new Set(rows.map(({ slug }) => slug));
+
+    assert.deepEqual(
+      [...used].filter((slug) => !active.has(slug)),
+      [],
+    );
+  });
+
+  test('still imports into a category an admin renamed', async () => {
+    const rename = (name: string) =>
+      call('PATCH', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin, body: { name } });
+    assert.equal((await rename('Музика наживо')).status, 200);
+    try {
+      const output = await runImport();
+
+      assert.doesNotMatch(output, /Unknown category/);
+      assert.match(output, /karabas: fetched 33, .*skipped 0/);
+      const { rows } = await withDatabase((client) =>
+        client.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM events WHERE provider = 'karabas' AND category_id = $1`,
+          [concerts],
+        ),
+      );
+      assert.equal(rows[0]?.count, 20);
+    } finally {
+      assert.equal((await rename('Концерти')).status, 200);
+    }
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {

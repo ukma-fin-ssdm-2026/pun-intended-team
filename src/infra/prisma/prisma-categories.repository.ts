@@ -5,8 +5,10 @@ import type { Category, CategoryChanges, NewCategory } from '../../core/catalog/
 import { DomainError } from '../../core/common/domain-error.ts';
 import { Prisma } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { violatedIndex } from './violated-index.ts';
 
 const NAME_TAKEN = 'A category with this name already exists';
+const SLUG_TAKEN = 'Another category with the same slug was added at the same time; try again';
 
 @Injectable()
 export class PrismaCategoriesRepository implements CategoriesRepository {
@@ -38,25 +40,33 @@ export class PrismaCategoriesRepository implements CategoriesRepository {
     await this.prisma.category.deleteMany({ where: { id } }).catch(rethrowInUse);
   }
 
-  // The unique index on name is case-sensitive; this makes "cinema" and "Cinema" collide as well.
+  // The same key as categories_name_normalized_key, so the check and the index never disagree.
   private async checkNameIsFree(name: string, exceptId?: string): Promise<void> {
-    const taken = await this.prisma.category.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' }, NOT: { id: exceptId } },
-    });
-    if (taken) {
+    const taken = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "categories"
+       WHERE ${normalizedName(Prisma.raw('"name"'))} = ${normalizedName(Prisma.sql`${name}::text`)}
+         AND "id" IS DISTINCT FROM ${exceptId ?? null}::uuid
+       LIMIT 1`;
+    if (taken.length > 0) {
       throw new DomainError('CONFLICT', NAME_TAKEN);
     }
   }
 }
 
-function toCategory({ id, name, isActive }: Category): Category {
-  return { id, name, isActive };
+/** The expression of the categories_name_normalized_key index, applied to `value`. */
+function normalizedName(value: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`lower(btrim(regexp_replace(regexp_replace(${value}, '[[:space:]]+', ' ', 'g'), '[''ʼ’]', 'ʼ', 'g')))`;
 }
 
-// Two requests with the same name can both pass the check above; the unique index stops the second.
+function toCategory({ id, name, slug, isActive }: Category): Category {
+  return { id, name, slug, isActive };
+}
+
+// Two requests with the same name, or names with the same slug, can both pass the checks before the write; the
+// unique indexes stop the second.
 function rethrowNameTaken(error: unknown): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-    throw new DomainError('CONFLICT', NAME_TAKEN);
+    throw new DomainError('CONFLICT', violatedIndex(error) === 'categories_slug_key' ? SLUG_TAKEN : NAME_TAKEN);
   }
   throw error;
 }

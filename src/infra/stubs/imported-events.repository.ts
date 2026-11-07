@@ -18,7 +18,7 @@ import { events, type StoredEvent, venues } from './data.ts';
 export class StubImportedEventsRepository implements ImportedEventsRepository {
   constructor(private readonly categories: ImportCategory[] = []) {}
 
-  async findActiveCategories(): Promise<ImportCategory[]> {
+  async findCategories(): Promise<ImportCategory[]> {
     return this.categories;
   }
 
