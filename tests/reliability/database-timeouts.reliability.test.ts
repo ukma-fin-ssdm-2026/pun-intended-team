@@ -4,13 +4,9 @@
 // 503 within its time limit and log the cause, instead of hanging. Needs no database.
 // Run with `npm run test:reliability`, which builds first.
 import assert from 'node:assert/strict';
-import { type ChildProcess, spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server, type Socket } from 'node:net';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
 import { after, afterEach, before, describe, test } from 'node:test';
+import { type ApiProcess, apiEnvironment, freePort, startApi, stopApi } from './api-process.ts';
 
 const CONNECT_TIMEOUT_MS = 500;
 const STATEMENT_TIMEOUT_MS = 1_000;
@@ -36,8 +32,8 @@ const READY_FOR_QUERY = Buffer.from([0x5a, 0, 0, 0, 5, 0x49]);
 // The Sync message that ends every query of the extended protocol pg uses.
 const SYNC = Buffer.from([0x53, 0, 0, 0, 4]);
 
-let keysDir: string;
 let apiEnv: NodeJS.ProcessEnv;
+let removeKeys: () => void;
 let fakeDatabase: Server;
 let fakeDatabasePort: number;
 let mode: FakeMode = 'silent';
@@ -71,55 +67,6 @@ function onConnection(socket: Socket): void {
   });
 }
 
-async function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const probe = createServer();
-    probe.once('error', reject);
-    probe.listen(0, () => {
-      const address = probe.address();
-      probe.close(() => resolve(typeof address === 'object' && address ? address.port : 0));
-    });
-  });
-}
-
-/** Starts the built API with the fake database; resolves once it answers /health. */
-async function startApi(): Promise<{ child: ChildProcess; url: string; output: () => string }> {
-  const port = await freePort();
-  const url = `http://localhost:${port}`;
-  let output = '';
-  const child = spawn(process.execPath, ['dist/api/main.js'], {
-    env: { ...apiEnv, PORT: String(port) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  child.stdout?.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  child.stderr?.on('data', (chunk: Buffer) => (output += chunk.toString()));
-  const deadline = Date.now() + 15_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`The API exited with code ${child.exitCode}:\n${output}`);
-    }
-    try {
-      if ((await fetch(`${url}/health`)).ok) {
-        return { child, url, output: () => output };
-      }
-    } catch {
-      // Not listening yet.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  child.kill();
-  throw new Error('The API did not start within 15 s');
-}
-
-async function stopApi(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) {
-    return;
-  }
-  const exited = new Promise((resolve) => child.once('exit', resolve));
-  child.kill();
-  await exited;
-}
-
 /** GET of a catalog endpoint that reads the database, with a guest token; how long it took to answer. */
 async function listCategories(url: string): Promise<{ status: number; body: unknown; elapsedMs: number }> {
   const { accessToken } = (await (await fetch(`${url}/api/v1/auth/guest`, { method: 'POST' })).json()) as {
@@ -139,34 +86,13 @@ before(async () => {
   fakeDatabase = createServer(onConnection);
   fakeDatabasePort = await freePort();
   await new Promise<void>((resolve) => fakeDatabase.listen(fakeDatabasePort, '127.0.0.1', resolve));
-  keysDir = mkdtempSync(path.join(tmpdir(), 'nearby-reliability-'));
-  const keyFile = (name: string) => {
-    const file = path.join(keysDir, name);
-    writeFileSync(file, randomBytes(32).toString('base64url'));
-    return file;
-  };
-  const jwtKeysFile = path.join(keysDir, 'jwt-keys.json');
-  writeFileSync(
-    jwtKeysFile,
-    JSON.stringify({ keys: [{ kty: 'oct', alg: 'HS256', kid: 'test', k: randomBytes(32).toString('base64url') }] }),
-  );
-  // The API loads .env itself, but variables set here win, so a developer's .env cannot change the run.
+  const { env, cleanup } = apiEnvironment(`postgresql://nearby_main:password@127.0.0.1:${fakeDatabasePort}/nearby`);
+  removeKeys = cleanup;
   apiEnv = {
-    ...process.env,
-    // Production mode so the run does not rewrite the committed OpenAPI spec.
-    NODE_ENV: 'production',
-    MESSAGING_PROVIDER: 'disabled',
-    GOOGLE_JWKS_URL: '',
-    TRUST_PROXY: '',
-    MAIN_DATABASE_URL: `postgresql://nearby_main:password@127.0.0.1:${fakeDatabasePort}/nearby`,
+    ...env,
     DATABASE_CONNECT_TIMEOUT_MS: String(CONNECT_TIMEOUT_MS),
     DATABASE_STATEMENT_TIMEOUT_MS: String(STATEMENT_TIMEOUT_MS),
     DATABASE_LOCK_TIMEOUT_MS: String(STATEMENT_TIMEOUT_MS / 2),
-    CODE_HMAC_KEY_FILE: keyFile('code-hmac.key'),
-    CONTACT_HMAC_KEY_FILE: keyFile('contact-hmac.key'),
-    DATA_ENCRYPTION_KEY_FILE: keyFile('data-encryption.key'),
-    JWT_KEYS_FILE: jwtKeysFile,
-    GOOGLE_CLIENT_IDS: 'reliability-test.apps.googleusercontent.com',
   };
 });
 
@@ -175,15 +101,15 @@ after(async () => {
     socket.destroy();
   }
   await new Promise((resolve) => fakeDatabase.close(resolve));
-  rmSync(keysDir, { recursive: true, force: true });
+  removeKeys();
 });
 
 // REL-01
 describe('a database that accepts the connection and does not answer', () => {
-  let api: Awaited<ReturnType<typeof startApi>>;
+  let api: ApiProcess;
 
   before(async () => {
-    api = await startApi();
+    api = await startApi(apiEnv);
   });
 
   after(async () => {
