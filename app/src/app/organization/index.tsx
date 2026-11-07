@@ -1,19 +1,23 @@
 // Written with the help of Claude
-// AI Usage: organization events screen from the Figma "О1 Організація · Мої події" frame with the О3 sheet, on mock
-// data; reviewed by Daryna Halytska.
-import { Image } from 'expo-image';
+// AI Usage: organization events screen from the Figma "О1 Організація · Мої події" frame with the О3 sheet; reviewed by
+// Daryna Halytska.
+import { Image, type ImageSource } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { cancelEvent, type Event } from '@/api/events';
 import { CancelEventSheet } from '@/components/organization/cancel-event-sheet';
+import { eventFailure } from '@/components/organization/event-messages';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockOrganization, type OrganizationEvent, type OrganizationEventStatus } from '@/mocks/organization';
+import { mockOrganization, type OrganizationEventStatus } from '@/mocks/organization';
+import { plural } from '@/plural';
+import { rememberOwnEvent, useOwnEvents } from '@/state/organization-events';
 import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
 
@@ -21,6 +25,15 @@ import { colors, shadows } from '@/styles/tokens';
 const HEADER_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 const LIST_OVERLAP = 28;
+
+// A row of the list. The API has no list of an organization's own events: the events created, changed or cancelled
+// since sign-in are `live` rows, from the API's answers, and the rest are the mock rows of the prototype, which the API
+// does not know. Remove the mock rows when it has such a list.
+type Row = {
+  status: OrganizationEventStatus;
+  live: boolean;
+  event: Pick<Event, 'id' | 'title' | 'startsAt'> & { cover?: ImageSource; shortTitle?: string };
+};
 
 const statuses: Record<OrganizationEventStatus, { label: string; dot: string }> = {
   // The green of the "Опубліковано" dot is not a Figma variable.
@@ -43,7 +56,7 @@ function CardAction({ label, dark, onPress }: { label: string; dark?: boolean; o
   );
 }
 
-function EventRow({ item, onEdit, onCancel }: { item: OrganizationEvent; onEdit: () => void; onCancel: () => void }) {
+function EventRow({ item, onEdit, onCancel }: { item: Row; onEdit: () => void; onCancel: () => void }) {
   const { status, event } = item;
   const { label, dot } = statuses[status];
 
@@ -105,12 +118,52 @@ export default function OrganizationEventsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { organizationEmpty } = useSession();
+  const ownEvents = useOwnEvents();
   const [sheetOpen, setSheetOpen] = useState(false);
   // Kept after closing, so the title does not change while the sheet fades out.
   const [cancelName, setCancelName] = useState('');
+  // The id of the event to cancel when it is a live one; a mock row only closes the sheet, as in the prototype.
+  const [cancelId, setCancelId] = useState<string>();
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string>();
   useStatusBarStyle('light');
 
+  const rows: Row[] = [
+    ...ownEvents.map((event): Row => ({ status: event.status, live: true, event })),
+    ...(organizationEmpty ? [] : mockOrganization.events.map((item): Row => ({ ...item, live: false }))),
+  ];
+  const published = rows.filter((row) => row.status === 'published').length;
+  const drafts = rows.filter((row) => row.status === 'draft').length;
+  const summary =
+    rows.length === 0
+      ? mockOrganization.emptySummary
+      : `${published} опубліковано${drafts ? ` · ${drafts} ${plural(drafts, ['чернетка', 'чернетки', 'чернеток'])}` : ''}`;
+
   const openEditor = () => router.push('/organization/event');
+  // A mock row opens by its id too: the API does not know it, so the editor says so instead of showing a new event.
+  const editRow = (row: Row) => router.push({ pathname: '/organization/event', params: { id: row.event.id } });
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setCancelError(undefined);
+  };
+
+  // cancelEvent never rejects: a failure comes back as a result and is shown in the sheet.
+  const confirmCancel = async () => {
+    if (!cancelId) {
+      closeSheet();
+      return;
+    }
+    setCancelling(true);
+    setCancelError(undefined);
+    const result = await cancelEvent(cancelId);
+    setCancelling(false);
+    if (result.ok) {
+      rememberOwnEvent(result.data);
+      closeSheet();
+    } else {
+      setCancelError(eventFailure(result));
+    }
+  };
 
   return (
     <ScrollView className="flex-1 bg-surface-background">
@@ -148,9 +201,7 @@ export default function OrganizationEventsScreen() {
             <Text accessibilityRole="header" className="font-inter-bold text-display text-text-on-dark">
               Мої події
             </Text>
-            <Text className="font-inter text-body text-text-on-dark-muted">
-              {organizationEmpty ? mockOrganization.emptySummary : mockOrganization.summary}
-            </Text>
+            <Text className="font-inter text-body text-text-on-dark-muted">{summary}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -165,22 +216,31 @@ export default function OrganizationEventsScreen() {
       </View>
 
       <View className="gap-3.5 px-5 pb-10">
-        {organizationEmpty && <EmptyEvents onCreate={openEditor} />}
-        {!organizationEmpty &&
-          mockOrganization.events.map((item) => (
-            <EventRow
-              key={item.event.id}
-              item={item}
-              onEdit={openEditor}
-              onCancel={() => {
-                setCancelName(item.event.shortTitle ?? item.event.title);
-                setSheetOpen(true);
-              }}
-            />
-          ))}
+        {rows.length === 0 && <EmptyEvents onCreate={openEditor} />}
+        {rows.map((row) => (
+          <EventRow
+            key={row.event.id}
+            item={row}
+            onEdit={() => editRow(row)}
+            onCancel={() => {
+              setCancelName(row.event.shortTitle ?? row.event.title);
+              setCancelId(row.live ? row.event.id : undefined);
+              setCancelError(undefined);
+              setSheetOpen(true);
+            }}
+          />
+        ))}
       </View>
 
-      <CancelEventSheet visible={sheetOpen} eventName={cancelName} onClose={() => setSheetOpen(false)} />
+      <CancelEventSheet
+        visible={sheetOpen}
+        eventName={cancelName}
+        onClose={closeSheet}
+        // The promise comes from `confirmCancel`, which shows its own failures.
+        onConfirm={() => void confirmCancel()}
+        loading={cancelling}
+        error={cancelError}
+      />
     </ScrollView>
   );
 }

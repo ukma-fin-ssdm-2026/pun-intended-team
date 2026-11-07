@@ -70,7 +70,7 @@ export default function OrganizationSettingsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/organization'))}
           className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
         >
           <Icon name="arrow-left" size={20} />

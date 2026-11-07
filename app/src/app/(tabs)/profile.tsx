@@ -26,6 +26,7 @@ import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { mockProfile } from '@/mocks/profile';
+import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -55,13 +56,7 @@ function CoverShade() {
 
 // "3 збережені події", "1 збережена подія", "5 збережених подій".
 function savedLabel(count: number): string {
-  const lastTwo = count % 100;
-  const last = count % 10;
-  if (lastTwo < 11 || lastTwo > 14) {
-    if (last === 1) return `${count} збережена подія`;
-    if (last >= 2 && last <= 4) return `${count} збережені події`;
-  }
-  return `${count} збережених подій`;
+  return `${count} ${plural(count, ['збережена подія', 'збережені події', 'збережених подій'])}`;
 }
 
 const profileTabs = [
