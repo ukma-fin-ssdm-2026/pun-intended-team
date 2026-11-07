@@ -12,6 +12,8 @@ function load() {
   return { ...session, post: publicClient.POST as unknown as Post };
 }
 
+const conflict = { error: { error: { code: 'CONFLICT' } }, response: { status: 409 } };
+
 const renewed = {
   data: { accessToken: 'access-2', refreshToken: 'refresh-2', expiresIn: 3600 },
   response: { status: 200 },
@@ -68,5 +70,35 @@ describe('renewing the session', () => {
 
     await expect(currentAccessToken()).rejects.toThrow();
     expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  // The app's retry ran while the refresh it gave up on still renewed on a slow server, and lost the race.
+  test('sends a refresh that got 409 once more at once, also after a retry for no answer', async () => {
+    const { startSession, currentAccessToken, post } = load();
+    await startSession({ accessToken: 'access-1', tokenType: 'Bearer', refreshToken: 'refresh-1', expiresIn: 0 });
+    post
+      .mockRejectedValueOnce(new TypeError('Network request failed'))
+      .mockResolvedValueOnce(conflict)
+      .mockResolvedValueOnce(renewed);
+
+    const token = currentAccessToken();
+    await jest.advanceTimersByTimeAsync(2000);
+
+    await expect(token).resolves.toBe('access-2');
+    expect(post).toHaveBeenCalledTimes(3);
+  });
+
+  test('gives up after a second 409, keeping the refresh token', async () => {
+    const { startSession, currentAccessToken, post } = load();
+    await startSession({ accessToken: 'access-1', tokenType: 'Bearer', refreshToken: 'refresh-1', expiresIn: 0 });
+    post.mockResolvedValue(conflict);
+
+    await expect(currentAccessToken()).rejects.toThrow();
+    expect(post).toHaveBeenCalledTimes(2);
+
+    post.mockReset();
+    post.mockResolvedValueOnce(renewed);
+    await expect(currentAccessToken()).resolves.toBe('access-2');
+    expect(post.mock.calls[0]?.[1]).toEqual({ body: { refreshToken: 'refresh-1' } });
   });
 });

@@ -15,7 +15,7 @@ type Token = { value: string; expiresAt: number };
 const RENEW_BEFORE_MS = 60 * 1000;
 const REFRESH_TOKEN_KEY = 'nearby.refreshToken';
 // A refresh that got no answer, e.g. after the request timeout, is sent once more after this delay. The API accepts the
-// token it replaced for 60 s (REL-08); the timeout, this delay and the second try stay within them.
+// token it replaced for 60 s (REL-08); the timeout, this delay and the next tries stay within them.
 const REFRESH_RETRY_DELAY_MS = 2000;
 
 // The keychain or keystore on a phone; on the web, localStorage. Static web rendering has neither.
@@ -86,9 +86,23 @@ export async function restoreSession() {
   renew(refreshToken).catch(() => undefined);
 }
 
-function postRefresh(refreshToken: string) {
+// At most three tries: once more after no answer, and once more at once after 409. A 409 means a refresh with this token,
+// e.g. the one this app gave up waiting for, renewed first; the token is then the replaced one, accepted for 60 s.
+async function postRefresh(refreshToken: string) {
   const send = () => publicClient.POST('/api/v1/auth/refresh', { body: { refreshToken } });
-  return send().catch(() => new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS)).then(send));
+  let retriedNoAnswer = false;
+  let retriedConflict = false;
+  for (;;) {
+    try {
+      const result = await send();
+      if (result.response.status !== 409 || retriedConflict) return result;
+      retriedConflict = true;
+    } catch (error) {
+      if (retriedNoAnswer) throw error;
+      retriedNoAnswer = true;
+      await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+    }
+  }
 }
 
 // One renewal at a time: the API ends the session when a replaced refresh token comes back after 60 s.
