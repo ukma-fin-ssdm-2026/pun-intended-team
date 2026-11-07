@@ -10,7 +10,7 @@ Severity rates the consequence if the failure happens, not how likely it is.
 |---|---|---|---|---|
 | [REL-01](scavenger-hunt.md#rel-01-database-calls-without-timeouts) | Database calls have no connection or statement timeout | High | One stuck query could exhaust the pool and stop the whole API, sign-in included. | Fixed |
 | [REL-02](scavenger-hunt.md#rel-02-app-requests-without-a-timeout) | App requests have no timeout | Medium | A request could leave a screen loading forever on Android, but only that screen is affected. | Fixed |
-| [REL-03](scavenger-hunt.md#rel-03-sign-out-dispatches-an-unhandled-navigation-action) | Sign-out dispatches a navigation action no navigator handles | Low | Only the navigation after sign-out is affected, and the user can navigate on their own. | Open |
+| [REL-03](scavenger-hunt.md#rel-03-sign-out-dispatches-an-unhandled-navigation-action) | Sign-out dispatches a navigation action no navigator handles | Low | Only the navigation after sign-out is affected, and the user can navigate on their own. | Fixed |
 | [REL-04](scavenger-hunt.md#rel-04-health-does-not-check-the-database) | `/health` answers "ok" without checking the database | High | A dead database goes unnoticed by the deploy rollback, the compose health gate and the uptime monitor, while every request that needs it fails. | Open |
 | [REL-05](scavenger-hunt.md#rel-05-port-and-auth_rate_limit_per_minute-are-not-checked) | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked | High | The API becomes unreachable or refuses every sign-in. | Open |
 | [REL-06](scavenger-hunt.md#rel-06-a-failed-nightly-backup-skips-the-day) | A failed nightly backup skips the day without notice | Medium | The day has no backup and nobody is told. | Open |
@@ -20,7 +20,6 @@ Severity rates the consequence if the failure happens, not how likely it is.
 | [REL-10](scavenger-hunt.md#rel-10-the-rollback-runs-old-code-on-a-migrated-database) | The automatic rollback runs the old image on migrated data | High | The API can run against a schema it does not match while the deploy reports a successful rollback. | Open |
 | [REL-11](scavenger-hunt.md#rel-11-run-loses-the-cause-when-finishrun-throws) | `run()` loses the cause when `finishRun` throws | Low | The cause of a failed import is lost and the run stays marked `running`; no user is affected. | Open |
 | [REL-12](scavenger-hunt.md#rel-12-any-refresh-error-other-than-401-reads-as-no-connection) | Any refresh error other than 401 reads as "no connection" | Low | The message is misleading, but the user's data and session are not harmed. | Open |
-| [REL-13](scavenger-hunt.md#rel-13-the-genre-constructor-fails-the-whole-import) | The genre `constructor` fails the whole import | Medium | One bad record fails the whole import, so no further records of the feed are imported. | Open |
 
 ## REL-01: Database Calls Without Timeouts
 
