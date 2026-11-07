@@ -18,7 +18,7 @@
 - **The live external services** (Telegram Gateway, TurboSMS, Google): tests replace them with stubs and local fake servers and never call the real services.
 - **The Expo client UI:** the project has no UI test tooling yet.
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
-- **The real Concert.ua feed:** the adapter reads a sample feed until the provider gives us access (R-001); the tests use the sample feed and fake providers.
+- **The live ArtWizard API and Karabas site:** CI never calls them and has no ArtWizard key. The adapter tests read real responses saved on 2026-11-03 in `tests/unit/fixtures/providers/`, and the e2e run of the import serves the same responses, and a saved Nominatim answer, from a local fixture server; a live run is done by hand (`npm run import:events`).
 - **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
 - **Editing another user's profile:** there is no such request. The profile endpoints are `/me/profile` only, and the account comes from the access token; TC-34 covers a request without one.
 - **Keeping unsaved form values on the device** (INTC-003): client behaviour, part of the Expo client UI above.
@@ -95,7 +95,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-23 | `POST /auth/complete-registration` | Integration | Positive | Someone who turns 18 today is activated with `200`, and the returned access token reads listings with `200` | Viktoriia Baran | FR-001, FR-005, SAFE-001 | done |
 | TC-24 | `EventImportService.run` | Unit | Negative | Of two records, one the adapter cannot map is reported in `skipped` with its id and reason, and the other is still created | Oleh Moshenskyi | FR-015 | done |
 | TC-25 | `EventImportService.run` | Unit | Positive | A record whose event was saved before with the same fields is counted as `unchanged`; nothing is created or updated | Oleh Moshenskyi | FR-008 | done |
-| TC-26 | Import into the catalog (in-memory repositories) | Unit | Positive | After one run of the Concert.ua sample feed, `EventsService.list` returns its 3 usable events with `source: import` and no organization; a second run reports 0 created, 0 updated, 3 unchanged | Oleh Moshenskyi | FR-008, FR-015 | done |
+| TC-26 | Import into the catalog (in-memory repositories) | Unit | Positive | After one run of the Karabas adapter on the saved concerts page, `EventsService.list` returns its events with `source: import`, no organization and the Karabas page as `sourceUrl`; a second run reports 0 created, 0 updated, 20 unchanged | Oleh Moshenskyi | FR-008, FR-015 | done |
 | TC-27 | Second provider (FLEX-003) | Unit | Positive | A second adapter with its own id and record shape is imported and served by `EventsService.list`, with no change outside the adapter | Oleh Moshenskyi | FR-008, FLEX-003 | done |
 | TC-28 | `EventImportService.run` | Unit | Negative | When the provider's fetch fails, the run rejects and saves nothing, so the events of the last run stay in the catalog | Oleh Moshenskyi | FR-014, REL-003 | done |
 | TC-29 | `npm run import:events`, then `GET /events` | Integration | Positive | Events imported by the import's own process are returned by the API next to organization events | Oleh Moshenskyi | FR-008 | planned |
@@ -163,7 +163,7 @@ The run made 215,260 requests, 357 a second. The slowest request, 30.01 s, was o
 **What this result does not show:**
 
 - It is a local run, not the staging run PERF-001 asks for. k6 shared the CPU with the API, which adds to the measured times. TC-10 on staging stays planned.
-- Listings are still served from the in-memory stub repository; only the session check of each request reaches PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
+- At the time of the run, listings were served from the in-memory stub repository; only the session check of each request reached PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
 
 ### State transition table: sign-in lockout
 

@@ -81,6 +81,7 @@ jobs:
           NEARBY_IMPORT_PASSWORD: ${{ secrets.NEARBY_IMPORT_PASSWORD }}
           TELEGRAM_GATEWAY_TOKEN: ${{ secrets.TELEGRAM_GATEWAY_TOKEN }}
           TURBOSMS_TOKEN: ${{ secrets.TURBOSMS_TOKEN }}
+          ARTWIZARD_API_KEY: ${{ secrets.ARTWIZARD_API_KEY }}
         run: |
           set -o pipefail
           ssh_dir=$(mktemp -d)

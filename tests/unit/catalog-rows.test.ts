@@ -29,6 +29,8 @@ describe('toEvent', () => {
       venue: aVenue(),
       startsAt: '2026-11-14T16:00:00.000Z',
       endsAt: '2026-11-14T18:30:00.000Z',
+      imageUrl: null,
+      sourceUrl: null,
       source: 'organization',
       status: 'published',
       organizationId: ACCOUNT_ID,
@@ -37,7 +39,7 @@ describe('toEvent', () => {
 
   test('leaves out the columns an Event does not have', () => {
     const event = toEvent(
-      anEventRow({ source: 'import', provider: 'concert_ua', externalId: '42', organizationId: null }),
+      anEventRow({ source: 'import', provider: 'karabas', externalId: '42', organizationId: null }),
     );
 
     assert.deepEqual(Object.keys(event).sort(), [
@@ -45,13 +47,28 @@ describe('toEvent', () => {
       'description',
       'endsAt',
       'id',
+      'imageUrl',
       'organizationId',
       'source',
+      'sourceUrl',
       'startsAt',
       'status',
       'title',
       'venue',
     ]);
     assert.equal(event.organizationId, null);
+  });
+
+  test("keeps an imported event's image and page at the provider", () => {
+    const event = toEvent(
+      anEventRow({
+        source: 'import',
+        imageUrl: 'https://images.karabas.com/lama.jpg',
+        sourceUrl: 'https://kyiv.karabas.com/lama-15/',
+      }),
+    );
+
+    assert.equal(event.imageUrl, 'https://images.karabas.com/lama.jpg');
+    assert.equal(event.sourceUrl, 'https://kyiv.karabas.com/lama-15/');
   });
 });

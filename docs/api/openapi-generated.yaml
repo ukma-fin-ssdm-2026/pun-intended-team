@@ -270,6 +270,8 @@ components:
                 lng: 30.5181
             startsAt: '2026-10-17T19:00:00+03:00'
             endsAt: '2026-10-17T21:30:00+03:00'
+            imageUrl: null
+            sourceUrl: null
             source: organization
             status: published
         page:
@@ -296,6 +298,18 @@ components:
         endsAt:
           type: string
           format: date-time
+        imageUrl:
+          type: string
+          nullable: true
+          description: >-
+            Imported events: the provider's image URL, shown as is; null for
+            organization events
+        sourceUrl:
+          type: string
+          nullable: true
+          description: >-
+            Imported events: the event's page at the provider, to credit it and
+            to buy tickets; null otherwise
         source:
           $ref: '#/components/schemas/EventSource'
         status:
@@ -308,6 +322,8 @@ components:
         - venue
         - startsAt
         - endsAt
+        - imageUrl
+        - sourceUrl
         - source
         - status
       description: An event users can go to together
@@ -327,6 +343,8 @@ components:
             lng: 30.5181
         startsAt: '2026-10-17T19:00:00+03:00'
         endsAt: '2026-10-17T21:30:00+03:00'
+        imageUrl: null
+        sourceUrl: null
         source: organization
         status: published
     Venue:

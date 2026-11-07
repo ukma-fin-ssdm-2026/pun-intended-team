@@ -7,20 +7,25 @@ import type { components } from '@/api/schema';
 type Event = components['schemas']['Event'];
 
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
-// The API has no cover images, districts or organizers yet; those fields are mock-only. An event without a cover
-// shows the coral gradient.
+// The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
+// the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
 
-// Category ids are shared by the events below; the order is the order of the Figma chips.
+// Category ids are shared by the events below; the list is the catalog's categories, in the order of the chips.
 export const mockCategories: components['schemas']['Category'][] = [
   { id: '6f1c2a3e-0001-4a00-8000-000000000001', name: 'Концерти' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000002', name: 'Виставки' },
-  { id: '6f1c2a3e-0001-4a00-8000-000000000003', name: 'Лекції' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000003', name: 'Лекції та дискусії' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000007', name: 'Воркшопи' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000004', name: 'Кіно' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000005', name: 'Театр' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000006', name: 'Стендап' },
-  { id: '6f1c2a3e-0001-4a00-8000-000000000007', name: 'Воркшопи' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000008', name: 'Спорт' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000009', name: 'Фестивалі та ярмарки' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000010', name: 'Вечірки' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000011', name: 'Волонтерство' },
+  { id: '6f1c2a3e-0001-4a00-8000-000000000012', name: 'День відкритих дверей' },
 ];
 
 // "Де" in the filters.
@@ -42,6 +47,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-24T16:00:00Z',
     endsAt: '2026-10-24T18:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     cover: require('@/assets/images/events/jazz-evening.png'),
@@ -63,6 +70,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T18:00:00Z',
     endsAt: '2026-10-25T20:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     cover: require('@/assets/images/events/kvartyrnyk.png'),
@@ -83,6 +92,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-27T14:00:00Z',
     endsAt: '2026-10-27T15:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     district: 'Печерськ',
@@ -102,6 +113,8 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T19:00:00Z',
     endsAt: '2026-10-30T21:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     // Figma uses the jazz evening cover for this card too.
@@ -128,6 +141,8 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T16:00:00Z',
     endsAt: '2026-10-25T18:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     // Figma uses this photo for the open mic on the map.
@@ -150,6 +165,8 @@ export const mockOtherEvents: MockEvent[] = [
     // Moved to 18:30, as the notification says.
     startsAt: '2026-10-29T16:30:00Z',
     endsAt: '2026-10-29T18:30:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'import',
     status: 'published',
     district: 'Поділ',
@@ -169,6 +186,8 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T10:00:00Z',
     endsAt: '2026-10-30T17:00:00Z',
+    imageUrl: null,
+    sourceUrl: null,
     source: 'organization',
     status: 'published',
     // Figma uses the jazz evening's photo on the organizer page.
