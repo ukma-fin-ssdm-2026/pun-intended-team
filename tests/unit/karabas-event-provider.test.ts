@@ -223,6 +223,20 @@ describe('KarabasEventProvider.fetch, page after page', () => {
     assert.equal(complete, false, 'the other sections answer 404 here');
   });
 
+  test('reads on past a page whose first event is pinned after the window, by the start of its last event', async () => {
+    // The page's first event, "Квиток в Париж", moved to January; its own JSON-LD, not the page's list of events.
+    const pinned = savedPage(PAGE_1_FILE).replace(
+      /(kvytok-v-paryzh-muzychne-foye-nfu\/",\s*"startDate": ")2026-11-07T15:00:00\+02:00/,
+      '$12027-01-15T20:00:00+02:00',
+    );
+    const { http, result } = read({ '/concerts/': { status: 200, text: pinned }, [PAGE_2]: PAGE_2_FILE });
+
+    const { records } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2, PAGE_3]);
+    assert.equal(records.length, 39, 'the pinned event is outside the window');
+  });
+
   test('reads a section without a "load more" link as its last page', async () => {
     const { http, result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
 

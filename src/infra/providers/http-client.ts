@@ -24,7 +24,16 @@ export interface PoliteHttpClientOptions {
   retries?: number;
   backoffMs?: number;
   timeoutMs?: number;
+  /** The time and the wait, which tests replace; the real ones by default. */
+  clock?: Clock;
 }
+
+export interface Clock {
+  now(): number;
+  sleep(ms: number): Promise<void>;
+}
+
+const realClock: Clock = { now: () => Date.now(), sleep: (ms) => sleep(ms) };
 
 /** The URL with the value of an `apiKey` query parameter replaced by `REDACTED`, for logs and errors. */
 export function redactedUrl(url: string): string {
@@ -37,7 +46,11 @@ export class PoliteHttpClient implements HttpClient {
   private nextRequestAt = 0;
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly options: PoliteHttpClientOptions) {}
+  private readonly clock: Clock;
+
+  constructor(private readonly options: PoliteHttpClientOptions) {
+    this.clock = options.clock ?? realClock;
+  }
 
   get(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {
     const { pathname } = new URL(url);
@@ -71,16 +84,16 @@ export class PoliteHttpClient implements HttpClient {
       }
       const wait = backoffMs * 2 ** attempt;
       this.logger.warn(`GET ${redactedUrl(url)} failed (${failure}); retrying in ${wait} ms`);
-      await sleep(wait);
+      await this.clock.sleep(wait);
     }
   }
 
   private async send(url: string, headers: Record<string, string>): Promise<HttpResponse> {
-    const wait = this.nextRequestAt - Date.now();
-    if (wait > 0) {
-      await sleep(wait);
+    // A timer can fire a millisecond early, so the wait is checked again until the interval has passed.
+    for (let wait = this.nextRequestAt - this.clock.now(); wait > 0; wait = this.nextRequestAt - this.clock.now()) {
+      await this.clock.sleep(wait);
     }
-    this.nextRequestAt = Date.now() + this.options.intervalMs;
+    this.nextRequestAt = this.clock.now() + this.options.intervalMs;
     const response = await fetch(url, {
       headers: { 'user-agent': this.options.userAgent, ...headers },
       signal: AbortSignal.timeout(this.options.timeoutMs ?? 20_000),

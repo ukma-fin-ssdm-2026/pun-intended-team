@@ -11,8 +11,11 @@ import { errorMessage, fitDescription, fitTitle, inWindow, jsonLdObjects, slugOf
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
-/** A stop per section: on 2026-11-07 `/concerts/` needed about 7 pages of 20 for the 28 days of the window. */
-export const MAX_PAGES_PER_SECTION = 15;
+/**
+ * A stop per section. On 2026-11-07 the 28 days of the window took 10 pages of 20 on `/concerts/`, and about 30 on
+ * `/theatres/`, which lists some 20 shows a day.
+ */
+export const MAX_PAGES_PER_SECTION = 40;
 /**
  * Events per page. The "load more" link in the HTML leaves it out, and without it page 2 answers 100 events from
  * two weeks later, skipping the days between; the site's own button adds it.
@@ -141,13 +144,13 @@ export class KarabasEventProvider extends EventProvider {
 
       const events = jsonLdObjects(html).filter(isEvent);
       let newInSection = 0;
+      // The start of the page's last event, the one the next page is counted from (`time` in its link). Not the
+      // latest start on the page: an event pinned to the top of a page could start long after the others.
       let lastStart: Date | undefined;
       for (const event of events) {
         const start = typeof event.startDate === 'string' ? karabasStart(event.startDate) : undefined;
         const validStart = start && !Number.isNaN(start.getTime()) ? start : undefined;
-        if (validStart && (!lastStart || validStart > lastStart)) {
-          lastStart = validStart;
-        }
+        lastStart = validStart ?? lastStart;
         // The same event is listed in several sections; the first one decides its category.
         const key = typeof event.url === 'string' ? event.url : JSON.stringify(event);
         if (!seenInSection.has(key)) {
