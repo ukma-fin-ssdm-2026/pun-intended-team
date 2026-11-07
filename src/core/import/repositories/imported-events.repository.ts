@@ -20,6 +20,9 @@ export abstract class ImportedEventsRepository {
   /** Records the start of a run and returns its id. */
   abstract startRun(provider: string): Promise<string>;
 
+  /** When the provider's last succeeded run started, if it ever had one. */
+  abstract lastSucceededRunStart(provider: string): Promise<Date | undefined>;
+
   abstract finishRun(runId: string, status: ImportRunStatus): Promise<void>;
 
   /** Keeps a record the run could not use, as received, with the reason (FR-015). */

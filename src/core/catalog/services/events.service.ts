@@ -1,15 +1,13 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
-import { addDays, kyivDate } from '../../common/kyiv-time.ts';
+import { catalogWindow } from '../../common/catalog-window.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
 import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
 import { VenuesRepository } from '../repositories/venues.repository.ts';
 import type { Event, EventQuery, NewEvent } from '../types/event.ts';
 import { CategoriesService } from './categories.service.ts';
-
-const CATALOG_WINDOW_DAYS = 28;
 
 @Injectable()
 export class EventsService {
@@ -25,8 +23,7 @@ export class EventsService {
   }
 
   async list(query: EventQuery, page: PageRequest): Promise<Page<Event>> {
-    const today = kyivDate();
-    const windowEnd = addDays(today, CATALOG_WINDOW_DAYS);
+    const { from: today, to: windowEnd } = catalogWindow();
     const from = query.from && query.from > today ? query.from : today;
     const to = query.to && query.to < windowEnd ? query.to : windowEnd;
     return this.eventsRepository.findPublished({ ...query, from, to }, page);

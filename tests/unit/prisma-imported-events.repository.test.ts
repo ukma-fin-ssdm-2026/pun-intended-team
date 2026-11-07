@@ -25,6 +25,8 @@ describe('PrismaImportedEventsRepository.updateEvent', () => {
       venueId: 'b0000000-0000-4000-8000-000000000001',
       startsAt: '2026-10-22T16:00:00.000Z',
       endsAt: '2026-10-22T19:00:00.000Z',
+      imageUrl: 'https://images.example/jazz.jpg',
+      sourceUrl: 'https://tickets.example/jazz-evening/',
     };
 
     await repository.updateEvent('e0000000-0000-4000-8000-000000000001', fields);

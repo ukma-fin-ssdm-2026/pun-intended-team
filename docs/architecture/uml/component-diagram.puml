@@ -29,7 +29,8 @@ cloud "External systems" {
   [Expo Push\nEXT-02] as EXT02
   [Telegram Gateway / SMS\nEXT-03] as EXT03
   [Google\nEXT-04] as EXT04
-  [Event providers\n(Concert.ua, ArtWizard)\nEXT-01] as EXT01
+  [Event providers\n(ArtWizard, Karabas)\nEXT-01] as EXT01
+  [Nominatim\n(geocoding, OpenStreetMap)\nEXT-01] as NOMINATIM
 }
 
 Actor --> CMP01
@@ -47,6 +48,7 @@ CMP02 -down-> EXT02 : «PushProvider»
 CMP02 -down-> EXT03 : «MessagingProvider»
 CMP02 -down-> EXT04 : «GoogleIdTokens»
 CMP03 -down-> EXT01 : «EventProvider»
+CMP03 -down-> NOMINATIM : «Geocoder»
 
 note right of CMP04
   Single schema; each process

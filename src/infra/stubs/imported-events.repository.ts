@@ -26,6 +26,10 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     return randomUUID();
   }
 
+  async lastSucceededRunStart(): Promise<Date | undefined> {
+    return undefined;
+  }
+
   async finishRun(): Promise<void> {}
 
   async saveSkipped(): Promise<void> {}
@@ -68,8 +72,9 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
 
 function toRow(event: StoredEvent): ImportedEventRow {
   const { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt } = event;
+  const { imageUrl = null, sourceUrl = null } = event;
   if (provider === undefined || externalId === undefined) {
     throw new Error(`Event ${id} was not imported`);
   }
-  return { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt };
+  return { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt, imageUrl, sourceUrl };
 }

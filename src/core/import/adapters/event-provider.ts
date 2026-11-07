@@ -6,12 +6,18 @@ import type { NormalizeResult } from '../types/import.ts';
  * implementation: how records are fetched and how they map to our event model.
  */
 export abstract class EventProvider {
-  /** Stable id stored with every imported event, e.g. `concert_ua`. */
+  /** Stable id stored with every imported event, e.g. `karabas`. */
   abstract readonly id: string;
 
-  /** The provider's raw records, as received. */
+  /**
+   * The provider's raw records, as received. A record that cannot be fetched is logged and left out; the call
+   * fails only when nothing can be fetched at all. `since` is the start of the last successful run, if any.
+   */
   abstract fetch(since?: Date): Promise<unknown[]>;
 
   /** One raw record in our shape, or the reason it cannot be used. Never throws. */
   abstract normalize(raw: unknown): NormalizeResult;
 }
+
+/** Injection token for every provider the import runs, in order. An array has no class to serve as the token. */
+export const EVENT_PROVIDERS = Symbol('EVENT_PROVIDERS');

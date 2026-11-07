@@ -26,6 +26,14 @@ const EventFields = z.object({
   venue: Venue,
   startsAt: DateTime,
   endsAt: DateTime,
+  imageUrl: z
+    .string()
+    .nullable()
+    .describe("Imported events: the provider's image URL, shown as is; null for organization events"),
+  sourceUrl: z
+    .string()
+    .nullable()
+    .describe("Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise"),
   source: EventSource,
   status: EventStatus,
 });
@@ -43,6 +51,8 @@ export const eventExample: Event = {
   },
   startsAt: '2026-10-17T19:00:00+03:00',
   endsAt: '2026-10-17T21:30:00+03:00',
+  imageUrl: null,
+  sourceUrl: null,
   source: 'organization',
   status: 'published',
 };
