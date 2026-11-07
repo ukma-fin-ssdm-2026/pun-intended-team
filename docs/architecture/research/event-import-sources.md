@@ -41,7 +41,7 @@ First read from the sitemap and the event pages' JSON-LD; since the permission, 
 - **Paging** (checked on 2026-11-07): a section page shows 20 events, about 4–5 days of concerts, and ends with a "load more" link (`<a data-pagination-load-more href="/concerts/?time=<unix>&page=2">`), where `time` is the start of the page's last event. The link alone is not enough: without `per-page=20`, page 2 answers 100 events from two weeks later and skips the days between; the site's own button adds `&per-page=20`, and later pages carry it in their links. Every page is full HTML with the JSON-LD of its 20 events. The next page starts at the time of the previous page's last event, so an event may be listed on both. A section without more events has no link (`/sport/`). `/concerts/` needed 10 pages for the 28 days on 2026-11-07, `/theatres/`, with about 20 shows a day, about 30. The events of a page are in date order, except the first page of `/theatres/` (the same day, out of order) and of `/exhibitions/` (an exhibition running since 2024 first). Allowed by robots.txt (only `/ajax.php` is disallowed, which the button does not use).
 - Dates are shifted +2 h: page shows 19:00, JSON `21:00+02:00`. Take the UTC digits as Kyiv wall-clock time. `endDate` midnights are not shifted: the next midnight → no end, end of day; a later midnight → a run of shows (e.g. "Тигролови" 3–12 Nov), first show only. A time later the same day (clubs page, 19:00–21:00) is a real end, shifted like the start.
 - No coordinates → geocoding.
-- `@type` is meaningful (`MusicEvent`, `TheaterEvent`, `ScreeningEvent`, `SportsEvent`), but category comes from the section.
+- `@type` is meaningful (`MusicEvent`, `TheaterEvent`, `ScreeningEvent`, `SportsEvent`), but category comes from the section. On `/clubs/` the plain `Event` records are talks, board-game nights, wine tastings and art evenings (5 of 20 on 2026-11-03), so only its `MusicEvent` records are taken as Parties.
 - Sitemap (`events_sitemap_*.xml`, 50,000 URLs each) is mostly past events — not used.
 
 ### Concert.ua (for reference)
@@ -76,7 +76,7 @@ Concerts, Exhibitions, Talks (lectures + discussions), Workshops, Cinema, Theatr
 | Stand-up | Гумор | — |
 | Sports | — | `/sport/` |
 | Festivals | Фестивалі | `/festivals/` |
-| Parties | Вечірки | `/clubs/` |
+| Parties | Вечірки | `/clubs/`, `MusicEvent` only |
 | skipped | Дітям, Інше | `/child/`, `/excursions/`, `/circus/` |
 
 ## AI Usage Note

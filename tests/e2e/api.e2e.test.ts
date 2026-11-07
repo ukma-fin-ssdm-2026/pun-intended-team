@@ -2276,11 +2276,12 @@ describe('Event import', () => {
     await runImport();
 
     // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
-    // has no occurrence in it. Karabas: 20 concerts, 12 club events that are not concerts too, and 1 sport event.
+    // has no occurrence in it. Karabas: 20 concerts, the 7 MusicEvent records of the 12 club events that are not
+    // concerts too (the other 5 are plain Event: talks, board games, wine), and 1 sport event.
     const artWizard = await importedEvents('artwizard');
     const karabas = await importedEvents('karabas');
     assert.equal(artWizard.length, 30);
-    assert.equal(karabas.length, 33);
+    assert.equal(karabas.length, 28);
     for (const event of [...artWizard, ...karabas]) {
       assert.equal(event.organization_id, null);
       assert.equal(event.status, 'published');
@@ -2299,7 +2300,7 @@ describe('Event import', () => {
     );
     assert.deepEqual(runs, [
       { provider: 'artwizard', status: 'succeeded', finished: true, complete: true, skipped: 10 },
-      { provider: 'karabas', status: 'succeeded', finished: true, complete: true, skipped: 0 },
+      { provider: 'karabas', status: 'succeeded', finished: true, complete: true, skipped: 5 },
     ]);
   });
 
@@ -2310,7 +2311,7 @@ describe('Event import', () => {
     await runImport();
 
     assert.equal((await importedEvents('karabas')).length, first);
-    assert.equal(first, 33);
+    assert.equal(first, 28);
     // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
     assert.equal((await importedEvents('artwizard')).length, 30);
   });
@@ -2337,17 +2338,17 @@ describe('Event import', () => {
       karabasRemoved = undefined;
     }
 
-    assert.match(output, /karabas: fetched 32, .*cancelled 1, skipped 0; the full list/);
+    assert.match(output, /karabas: fetched 32, .*cancelled 1, skipped 5; the full list/);
     assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'cancelled');
     const shown = await call('GET', `/api/v1/events/${before?.id}`, { token: tokens.guest });
     assert.equal(shown.status, 200);
     assert.equal(shown.body.status, 'cancelled');
     const listed = (await importedEvents('karabas')).filter((event) => event.status === 'published');
-    assert.equal(listed.length, 32);
+    assert.equal(listed.length, 27);
 
     const back = await runImport();
 
-    assert.match(back, /karabas: fetched 33, .*\(republished 1\), unchanged 32, cancelled 0/);
+    assert.match(back, /karabas: fetched 33, .*\(republished 1\), unchanged 27, cancelled 0/);
     assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'published');
   });
 
@@ -2402,7 +2403,7 @@ describe('Event import', () => {
       { provider: 'artwizard', status: 'failed' },
       { provider: 'karabas', status: 'succeeded' },
     ]);
-    assert.equal((await importedEvents('karabas')).length, 33);
+    assert.equal((await importedEvents('karabas')).length, 28);
   });
 
   test('serves the imported events through the API, with their image and source URLs', async () => {

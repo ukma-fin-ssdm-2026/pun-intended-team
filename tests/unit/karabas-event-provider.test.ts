@@ -55,14 +55,32 @@ describe('KarabasEventProvider.fetch', () => {
     ]);
   });
 
-  test('takes the events of the clubs page, MusicEvent and Event alike, as Parties', async () => {
+  test('takes the MusicEvent records of the clubs page as Parties, and skips the plain Event ones with the reason', async () => {
     const { provider } = makeProvider({ '/clubs/': SAVED_SECTIONS['/clubs/'] });
 
     const { records } = await provider.fetch();
 
     assert.equal(records.length, 20);
-    assert.ok(records.every((record) => record.category === 'Parties'));
-    assert.deepEqual([...new Set(records.map((record) => record.event['@type']))].sort(), ['Event', 'MusicEvent']);
+    const results = records.map((record) => provider.normalize(record));
+    const parties = results.flatMap((result) => ('event' in result ? [result.event] : []));
+    const skipped = results.flatMap((result) => ('skip' in result ? [result.skip] : []));
+    assert.equal(parties.length, 15);
+    assert.ok(parties.every((event) => event.categoryName === 'Parties'));
+    assert.deepEqual(
+      skipped.map(({ externalId }) => externalId),
+      [
+        'art-vechir-v-halerei-modi-mizh-ryadkiv-2',
+        'vynohray-vyno-y-teatr-v-odnomu-kelysi-79',
+        'psykholohichnyy-zakhid-doroslist-i-separatsiya',
+        'klub-nastil-nykh-ihor-187',
+        'psykholohichnyy-zakhid-doroslist-u-stosunkakh-1',
+      ],
+    );
+    assert.ok(
+      skipped.every(
+        ({ reason }) => reason === 'Not a Parties event: @type "Event" on /clubs/, which takes only MusicEvent',
+      ),
+    );
   });
 
   test('takes the one event of the sport page as Sports', async () => {
@@ -392,7 +410,9 @@ describe('KarabasEventProvider.normalize', () => {
   test('keeps a real end later the same day, shifted like the start', async () => {
     const { provider, record } = await recordOf('psykholohichnyy-zakhid-doroslist-i-separatsiya');
 
-    const event = normalized(provider, record);
+    // The only saved event with such an end is a plain Event of the clubs page, which that page does not import;
+    // read here as if a section without a @type rule had listed it first.
+    const event = normalized(provider, { ...record, section: '/theatres/', category: 'Theatre' });
 
     // 21:00–23:00+02:00 in the JSON-LD, 19:00–21:00 on the page.
     assert.equal(record.event.endDate, '2026-11-04T23:00:00+02:00');
@@ -436,6 +456,24 @@ describe('KarabasEventProvider.normalize', () => {
 
     assert.deepEqual(karabasEnd(start, '2026-11-05T04:00:00+02:00'), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
     assert.deepEqual(karabasEnd(start, undefined), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
+  });
+
+  test('skips any @type but MusicEvent on the clubs page', async () => {
+    const { provider, record } = await recordOf('lama-15', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const result = provider.normalize({ ...record, event: { ...record.event, '@type': 'TheaterEvent' } });
+
+    assert.ok('skip' in result);
+    assert.match(result.skip.reason, /@type "TheaterEvent" on \/clubs\//);
+  });
+
+  test('keeps the category of the section that lists an event first, whatever its @type', async () => {
+    // A plain Event of the clubs page, as if the concerts page had listed it first.
+    const { provider, record } = await recordOf('klub-nastil-nykh-ihor-187', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const event = normalized(provider, { ...record, section: '/concerts/', category: 'Concerts' });
+
+    assert.equal(event.categoryName, 'Concerts');
   });
 
   test('gives no image URL for an event without an image', async () => {

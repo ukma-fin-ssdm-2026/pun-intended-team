@@ -30,15 +30,19 @@ export const MAX_PAGES_PER_SECTION = 40;
  */
 const PER_PAGE = '20';
 
-/** The Kyiv section pages we read, in order, and our category for each; the section decides, not `@type`. */
-export const KARABAS_SECTIONS: { path: string; category: string }[] = [
+/**
+ * The Kyiv section pages we read, in order, and our category for each; the section decides, not `@type`. A section
+ * with `types` takes only events of those `@type`s and skips the others: `/clubs/` also lists talks, board-game
+ * nights and wine tastings as plain `Event`, which are not parties (ADR-006).
+ */
+export const KARABAS_SECTIONS: { path: string; category: string; types?: string[] }[] = [
   { path: '/concerts/', category: 'Concerts' },
   { path: '/exhibitions/', category: 'Exhibitions' },
   { path: '/cinema/', category: 'Cinema' },
   { path: '/theatres/', category: 'Theatre' },
   { path: '/sport/', category: 'Sports' },
   { path: '/festivals/', category: 'Festivals' },
-  { path: '/clubs/', category: 'Parties' },
+  { path: '/clubs/', category: 'Parties', types: ['MusicEvent'] },
 ];
 
 /** One event as `fetch` returns it: its JSON-LD from a section page, and that section's category. */
@@ -221,6 +225,16 @@ export class KarabasEventProvider extends EventProvider {
       };
     }
     const { url, name, description, image, startDate, endDate, location } = parsed.data;
+    const types = KARABAS_SECTIONS.find(({ path }) => path === record.section)?.types;
+    const type = record.event['@type'];
+    if (types && !types.includes(String(type))) {
+      return {
+        skip: {
+          externalId: slugOf(url),
+          reason: `Not a ${record.category} event: @type ${JSON.stringify(type)} on ${record.section}, which takes only ${types.join(', ')}`,
+        },
+      };
+    }
     const start = karabasStart(startDate);
     const end = karabasEnd(start, endDate);
     if (end.runUntil) {
