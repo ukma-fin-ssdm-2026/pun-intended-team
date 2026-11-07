@@ -141,6 +141,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-69 | `SessionsService.refresh` | Unit | Negative | The token a renewal replaced is accepted 0 s and 60 s after it and renews again; 60 s + 1 ms after it, a token two renewals old, or a banned account ends the session; a renewal that loses the race to a concurrent one gets `CONFLICT` and the session stays | Viktoriia Baran | SEC-005 | done |
 | TC-70 | `POST /auth/refresh`, the answer lost | Integration | Positive | Sending the replaced refresh token again within 60 s gets new tokens that work; the token whose answer was lost then ends the session, as does the replaced token 61 s later | Viktoriia Baran | SEC-005 | done |
 | TC-71 | Session renewal (client) | Unit | Negative | A refresh that got no answer is sent once more after 2 s, and one that got `409` once more at once, and its tokens are used; if neither try gets an answer, or a second `409` comes, the refresh token is kept and the next request tries again; another answered refresh, such as `503`, is not sent again | Viktoriia Baran | SEC-005 | done |
+| TC-72 | `POST /auth/refresh`, 5 at once | Integration | Negative | One refresh token sent 5 times at the same time gets only `200` or `409`; the session is not ended, and exactly one of the returned refresh tokens is the one it stores | Viktoriia Baran | SEC-005 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

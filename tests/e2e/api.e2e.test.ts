@@ -2205,9 +2205,9 @@ describe('Parallel requests', () => {
   // On one database connection the requests would run one after another and never race.
   const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
 
-  // SEC-005. A request that reads the session after another one rotated it is a retry within 60 s (REL-08), so how
-  // many get 200 depends on timing; at most one of the tokens they return may work.
-  test('leave at most one working refresh token when one is sent 5 times at once', async () => {
+  // SEC-005, REL-08. A request that loses the race gets 409; one that reads the session after another rotated it is
+  // a retry within 60 s. How many get 200 depends on timing, but the session stays and exactly one token works.
+  test('keep the session and one working refresh token when one token is sent 5 times at once', async () => {
     const session = await newSession(subjects.user);
     await openConnections();
 
@@ -2215,17 +2215,22 @@ describe('Parallel requests', () => {
       call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
     );
 
+    const bodies = JSON.stringify(responses.map((res) => [res.status, res.body]));
+    assert.ok(
+      responses.every((res) => res.status === 200 || res.status === 409),
+      bodies,
+    );
     const issued = responses.filter((res) => res.status === 200).map((res) => res.body.refreshToken as string);
-    assert.ok(issued.length >= 1, JSON.stringify(responses.map((res) => res.body)));
+    assert.ok(issued.length >= 1, bodies);
     const [sessionId] = session.refreshToken.split('.');
     const { rows } = await withDatabase((client) =>
       client.query('SELECT token_hash, revoked_at FROM refresh_tokens WHERE id = $1', [sessionId]),
     );
-    // An ended session leaves no working token; a live one, exactly the token whose hash it stores.
     const stored = issued.filter(
       (token) => createHash('sha256').update(token.split('.')[1]).digest('base64url') === rows[0].token_hash,
     );
-    assert.ok(rows[0].revoked_at !== null || stored.length === 1, JSON.stringify({ issued, row: rows[0] }));
+    assert.equal(rows[0].revoked_at, null, bodies);
+    assert.equal(stored.length, 1, bodies);
   });
 
   // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.
