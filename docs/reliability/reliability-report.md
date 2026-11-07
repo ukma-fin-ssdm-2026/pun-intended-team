@@ -146,6 +146,12 @@ No manual action is needed. When Postgres cancels a statement, the connection go
 - **The limit is per database call, not per request.** A request that makes several queries can take several limits in total. No endpoint makes more than a few, but there is no overall request deadline.
 - **No `Retry-After` header** on the `503`; the app decides on its own when to retry. The app's own requests still have no timeout (REL-02).
 
+## Bonuses
+
+### Retries With Backoff and Jitter
+
+The import's GET requests to ArtWizard, Karabas and Nominatim (`PoliteHttpClient`) are idempotent, so a network error, timeout, `429` or `5xx` is retried: at most 4 attempts, each limited to 20 s, with a random wait before each retry of up to 1, 2, then 4 s (full jitter, never above 8 s). After the last attempt the client logs the failure and passes it on, so that provider's run fails and the catalog keeps the events of the last good run. The unit tests in [`tests/unit/polite-http-client.test.ts`](../../tests/unit/polite-http-client.test.ts) check that a server that keeps failing gets exactly the allowed attempts followed by the logged failure, and that each wait is a random part of the doubled backoff, never above the cap.
+
 ## AI Usage Note
 
 The fix, its tests and this report were generated with Claude Code from the scavenger-hunt finding. Verified by running the unit and fault-injection tests, by checking that the fault-injection tests hang without the fix, and by checking the errors pg and Prisma throw against a fake Postgres. To be reviewed by the team.
