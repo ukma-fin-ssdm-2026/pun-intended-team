@@ -2291,6 +2291,26 @@ describe('Event import', () => {
     assert.equal((await importedEvents('artwizard')).length, 30);
   });
 
+  test('marks a run that never finished as failed before the next run of its provider', async () => {
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO import_runs (provider, status, started_at) VALUES ('karabas', 'running', now() - interval '1 day')
+         RETURNING id`,
+      ),
+    );
+    const leftOver = rows[0]?.id;
+
+    await runImport();
+
+    const { rows: after } = await withDatabase((client) =>
+      client.query<{ status: string; finished: boolean }>(
+        'SELECT status, finished_at IS NOT NULL AS finished FROM import_runs WHERE id = $1',
+        [leftOver],
+      ),
+    );
+    assert.deepEqual(after, [{ status: 'failed', finished: false }]);
+  });
+
   test('without ARTWIZARD_API_KEY fails the ArtWizard run only, and still imports Karabas', async () => {
     const runsBefore = await withDatabase(async (client) =>
       (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),

@@ -22,6 +22,10 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     return this.prisma.category.findMany({ where: { isActive: true }, select: { id: true, name: true } });
   }
 
+  async failUnfinishedRuns(provider: string): Promise<void> {
+    await this.prisma.importRun.updateMany({ where: { provider, status: 'running' }, data: { status: 'failed' } });
+  }
+
   async startRun(provider: string): Promise<string> {
     const run = await this.prisma.importRun.create({ data: { provider, status: 'running' }, select: { id: true } });
     return run.id;

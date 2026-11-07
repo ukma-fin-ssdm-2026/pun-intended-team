@@ -65,6 +65,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     findActiveCategories: mock.fn((): Promise<ImportCategory[]> =>
       Promise.resolve([{ id: aCategory().id, name: aCategory().name }]),
     ),
+    failUnfinishedRuns: mock.fn<ImportedEventsRepository['failUnfinishedRuns']>(() => Promise.resolve()),
     lastSucceededRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
@@ -367,7 +368,101 @@ describe('EventImportService.importFrom, other fields', () => {
   });
 });
 
+// FR-014, REL-003: the repository stub throws where the database would.
+describe('EventImportService.importFrom, when the database fails', () => {
+  const databaseDown = () => Promise.reject(new Error('Connection terminated'));
+
+  test('marks the provider’s unfinished runs as failed before it starts a new run', async () => {
+    const { run, repository } = makeService();
+    const order: string[] = [];
+    repository.failUnfinishedRuns.mock.mockImplementation(() => (order.push('failUnfinishedRuns'), Promise.resolve()));
+    repository.startRun.mock.mockImplementation(() => (order.push('startRun'), Promise.resolve(RUN_ID)));
+
+    await run();
+
+    assert.deepEqual(repository.failUnfinishedRuns.mock.calls[0]?.arguments, [PROVIDER_ID]);
+    assert.deepEqual(order, ['failUnfinishedRuns', 'startRun']);
+  });
+
+  test('rethrows the original error when recording the failed run fails too, and logs the second error', async () => {
+    const { run, provider, repository } = makeService();
+    provider.fetch.mock.mockImplementation(() => Promise.reject(new Error('Karabas is down')));
+    repository.finishRun.mock.mockImplementation(databaseDown);
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
+    await assert.rejects(run(), { message: 'Karabas is down' });
+
+    assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'failed']);
+    const [message] = error.mock.calls[0]?.arguments as [string];
+    assert.equal(message, `${PROVIDER_ID}: could not record run ${RUN_ID} as failed: Connection terminated`);
+    error.mock.restore();
+  });
+
+  test('rethrows a database error in the middle of the run after recording the run as failed', async () => {
+    const { run, repository } = makeService();
+    repository.createEvent.mock.mockImplementation(databaseDown);
+
+    await assert.rejects(run(), { message: 'Connection terminated' });
+
+    assert.deepEqual(
+      repository.finishRun.mock.calls.map((call) => call.arguments),
+      [[RUN_ID, 'failed']],
+    );
+  });
+
+  test('rethrows the error of recording a succeeded run, and does not record it as failed instead', async () => {
+    const { run, repository } = makeService();
+    repository.finishRun.mock.mockImplementation(databaseDown);
+
+    await assert.rejects(run(), { message: 'Connection terminated' });
+
+    assert.deepEqual(
+      repository.finishRun.mock.calls.map((call) => call.arguments),
+      [[RUN_ID, 'succeeded']],
+    );
+  });
+
+  type Repository = ReturnType<typeof makeService>['repository'];
+  const beforeTheRun: [string, (repository: Repository) => void][] = [
+    ['failUnfinishedRuns', (repository) => repository.failUnfinishedRuns.mock.mockImplementation(databaseDown)],
+    ['lastSucceededRunStart', (repository) => repository.lastSucceededRunStart.mock.mockImplementation(databaseDown)],
+    ['startRun', (repository) => repository.startRun.mock.mockImplementation(databaseDown)],
+  ];
+  for (const [method, fail] of beforeTheRun) {
+    test(`lets an error of ${method} propagate, without fetching or recording anything`, async () => {
+      const { run, provider, repository } = makeService();
+      fail(repository);
+
+      await assert.rejects(run(), { message: 'Connection terminated' });
+
+      assert.equal(provider.fetch.mock.callCount(), 0);
+      assert.equal(repository.finishRun.mock.callCount(), 0);
+    });
+  }
+});
+
 describe('EventImportService.run', () => {
+  test('reports a provider whose run the database could not start, and still imports the next one', async () => {
+    const { provider, repository, geocoder } = makeService();
+    const second = { id: 'up', fetch: () => Promise.resolve([{}]), normalize: () => ({ event: anImportedEvent() }) };
+    const service = new EventImportService(
+      [provider, second] as unknown as EventProvider[],
+      repository as unknown as ImportedEventsRepository,
+      geocoder as unknown as Geocoder,
+    );
+    repository.startRun.mock.mockImplementationOnce(() => Promise.reject(new Error('Connection terminated')), 0);
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
+    const summary = await service.run();
+
+    assert.deepEqual(summary.failed, [{ provider: PROVIDER_ID, error: 'Connection terminated' }]);
+    assert.deepEqual(
+      summary.reports.map((report) => [report.provider, report.created]),
+      [['up', 1]],
+    );
+    error.mock.restore();
+  });
+
   test('imports from every provider and reports a failed one without stopping the others', async () => {
     const { repository, geocoder } = makeService();
     const failing = { id: 'down', fetch: () => Promise.reject(new Error('Karabas is down')), normalize: () => null };

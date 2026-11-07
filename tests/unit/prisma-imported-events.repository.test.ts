@@ -10,6 +10,7 @@ const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
 function makeRepository() {
   const prisma = {
     event: { update: mock.fn(() => Promise.resolve({})) },
+    importRun: { updateMany: mock.fn(() => Promise.resolve({ count: 0 })) },
     skippedRecord: { create: mock.fn(() => Promise.resolve({ id: 'skipped' })) },
   };
   return { repository: new PrismaImportedEventsRepository(prisma as unknown as ImportPrismaService), prisma };
@@ -36,6 +37,18 @@ describe('PrismaImportedEventsRepository.updateEvent', () => {
         where: { id: 'e0000000-0000-4000-8000-000000000001', source: 'import' },
         data: { ...fields, startsAt: new Date(fields.startsAt), endsAt: new Date(fields.endsAt) },
       },
+    ]);
+  });
+});
+
+describe('PrismaImportedEventsRepository.failUnfinishedRuns', () => {
+  test('marks only the provider’s running runs as failed, and leaves finished_at empty', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.failUnfinishedRuns('karabas');
+
+    assert.deepEqual(prisma.importRun.updateMany.mock.calls[0]?.arguments, [
+      { where: { provider: 'karabas', status: 'running' }, data: { status: 'failed' } },
     ]);
   });
 });

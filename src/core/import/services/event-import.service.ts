@@ -46,17 +46,33 @@ export class EventImportService {
    * its reason and reported (FR-015); the rest are still imported. A second run changes only what the provider
    * changed. Every run is recorded; one that fails, e.g. because the provider is down, is recorded as failed and
    * leaves the events of earlier runs as they are (FR-014).
+   *
+   * The error that stopped the run is the one thrown, even when recording the failure fails too. When the database
+   * cannot record the run at all, the run stays `running`, and the provider's next run marks it failed first.
    */
   async importFrom(provider: EventProvider): Promise<ImportReport> {
+    await this.importedEventsRepository.failUnfinishedRuns(provider.id);
     const since = await this.importedEventsRepository.lastSucceededRunStart(provider.id);
     const runId = await this.importedEventsRepository.startRun(provider.id);
+    let report: ImportReport;
     try {
-      const report = await this.importRecords(provider, runId, since);
-      await this.importedEventsRepository.finishRun(runId, 'succeeded');
-      return report;
+      report = await this.importRecords(provider, runId, since);
     } catch (error) {
-      await this.importedEventsRepository.finishRun(runId, 'failed');
+      await this.recordFailure(provider.id, runId);
       throw error;
+    }
+    await this.importedEventsRepository.finishRun(runId, 'succeeded');
+    return report;
+  }
+
+  /** Records the run as failed; an error doing so is logged, so it never replaces the error that stopped the run. */
+  private async recordFailure(providerId: string, runId: string): Promise<void> {
+    try {
+      await this.importedEventsRepository.finishRun(runId, 'failed');
+    } catch (error) {
+      this.logger.error(
+        `${providerId}: could not record run ${runId} as failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

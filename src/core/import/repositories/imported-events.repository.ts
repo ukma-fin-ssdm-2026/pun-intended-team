@@ -17,6 +17,12 @@ export abstract class ImportedEventsRepository {
   /** Active categories, which the import may only read. */
   abstract findActiveCategories(): Promise<ImportCategory[]>;
 
+  /**
+   * Marks the provider's runs that are still `running` as `failed`, leaving `finished_at` empty: a run that never
+   * finished, e.g. because its process was killed or the database went away, never counts as succeeded.
+   */
+  abstract failUnfinishedRuns(provider: string): Promise<void>;
+
   /** Records the start of a run and returns its id. */
   abstract startRun(provider: string): Promise<string>;
 

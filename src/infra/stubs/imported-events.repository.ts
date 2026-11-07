@@ -22,6 +22,8 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     return this.categories;
   }
 
+  async failUnfinishedRuns(): Promise<void> {}
+
   async startRun(): Promise<string> {
     return randomUUID();
   }

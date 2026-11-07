@@ -11,6 +11,10 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
 - `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
 
+### Fixed
+
+- A failed import run is reported with the error that stopped it, even when recording the failure fails too; a run that never finished is marked failed when its provider runs next, so it never counts as succeeded ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+
 ### Removed
 
 - The Concert.ua adapter and its sample feed: Concert.ua sells the same concerts as Karabas, so importing both would split applicants between copies of one event.
