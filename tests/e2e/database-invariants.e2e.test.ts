@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // Integration tests of the database constraints: the indexes and checks of the database_invariants migration,
-// the failed sign-in checks of accounts and the unique (profile_id, app) of linked_accounts. They write to the database directly, since the services check the same rules before a query and
+// the normalized category name key, the failed sign-in checks of accounts and the unique (profile_id, app) of
+// linked_accounts. They write to the database directly, since the services check the same rules before a query and
 // no HTTP request reaches the constraint.
 // Each test runs in a transaction that is rolled back, so nothing stays in the database.
 // Run with `npm run test:e2e`; the database must have all migrations applied.
@@ -158,6 +159,38 @@ describe('profiles_username_lower_key', () => {
       await aProfile(db, `Alice-${suffix}`);
 
       await aProfile(db, `Bob-${suffix}`);
+    }));
+});
+
+describe('categories_name_normalized_key', () => {
+  const aCategoryNamed = (db: pg.PoolClient, name: string) =>
+    db.query('INSERT INTO categories (name, slug) VALUES ($1, $2)', [name, `slug-${randomUUID()}`]);
+
+  const variants = [
+    { title: 'only in case', name: (suffix: string) => `КАВʼЯРНІ ${suffix.toUpperCase()}` },
+    { title: 'only in spaces', name: (suffix: string) => ` Кавʼярні   ${suffix} ` },
+    { title: "only in the apostrophe '", name: (suffix: string) => `Кав'ярні ${suffix}` },
+    { title: 'only in the apostrophe ’', name: (suffix: string) => `Кав’ярні ${suffix}` },
+  ];
+
+  for (const { title, name } of variants) {
+    test(`rejects a name that differs from another ${title}`, () =>
+      inTransaction(async (db) => {
+        const suffix = randomUUID();
+        await aCategoryNamed(db, `Кавʼярні ${suffix}`);
+
+        const insert = aCategoryNamed(db, name(suffix));
+
+        await assertViolates(insert, UNIQUE_VIOLATION, 'categories_name_normalized_key');
+      }));
+  }
+
+  test('accepts different names', () =>
+    inTransaction(async (db) => {
+      const suffix = randomUUID();
+      await aCategoryNamed(db, `Кавʼярні ${suffix}`);
+
+      await aCategoryNamed(db, `Кавʼярня ${suffix}`);
     }));
 });
 

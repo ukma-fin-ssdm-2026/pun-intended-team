@@ -14,7 +14,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ### Changed
 
-- Category names are in Ukrainian ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
+- Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
 
 ### Removed
 

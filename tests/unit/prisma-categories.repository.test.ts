@@ -43,16 +43,17 @@ describe('PrismaCategoriesRepository.delete', () => {
 describe('PrismaCategoriesRepository.create', () => {
   /** A repository whose name check passes and whose insert fails with `failure`. */
   function failingCreate(failure: unknown) {
-    const category = {
-      findFirst: mock.fn(() => Promise.resolve(null)),
-      create: mock.fn(() => Promise.reject(failure)),
+    const prisma = {
+      $queryRaw: mock.fn(() => Promise.resolve([])),
+      category: { create: mock.fn(() => Promise.reject(failure)) },
     };
-    return new PrismaCategoriesRepository({ category } as unknown as PrismaService);
+    return new PrismaCategoriesRepository(prisma as unknown as PrismaService);
   }
 
   const newCategory = { name: 'Кіно', slug: 'kino', isActive: true };
   const conflicts = [
     { index: 'categories_name_key', message: 'A category with this name already exists' },
+    { index: 'categories_name_normalized_key', message: 'A category with this name already exists' },
     {
       index: 'categories_slug_key',
       message: 'Another category with the same slug was added at the same time; try again',

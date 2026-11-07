@@ -1434,6 +1434,40 @@ describe('POST /api/v1/admin/categories', () => {
     assert.equal(second.body.slug, `kino-${suffix}-2`);
   });
 
+  test('saves the name with single spaces and ʼ for every apostrophe', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `  Кав'ярні   ${suffix} ` },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.name, `Кавʼярні ${suffix}`);
+  });
+
+  // The name is compared in lower case, trimmed, with runs of spaces as one and every apostrophe alike.
+  for (const { title, variant } of [
+    { title: 'in another case', variant: (suffix: string) => `КАВʼЯРНІ ${suffix.toUpperCase()}` },
+    { title: 'with extra spaces', variant: (suffix: string) => `  Кавʼярні    ${suffix}  ` },
+    { title: "with ' as the apostrophe", variant: (suffix: string) => `Кав'ярні ${suffix}` },
+    { title: 'with ’ as the apostrophe', variant: (suffix: string) => `Кав’ярні ${suffix}` },
+  ]) {
+    test(`rejects a name that differs from another one only ${title} with 409`, async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const first = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: `Кавʼярні ${suffix}` },
+      });
+      assert.equal(first.status, 201);
+
+      const res = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: variant(suffix) },
+      });
+
+      assertRejected(res, 409, 'CONFLICT');
+    });
+  }
+
   test('rejects a slug in the body with 400', async () => {
     const res = await call('POST', '/api/v1/admin/categories', {
       token: tokens.admin,
@@ -1468,6 +1502,19 @@ describe('PATCH /api/v1/admin/categories/{id}', () => {
     assert.equal(res.status, 200);
     assert.notEqual(res.body.name, created.name);
     assert.equal(res.body.slug, before.body.slug);
+  });
+
+  test('rejects a rename to the name of another category, in another case and with ’, with 409', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name: `Кавʼярні ${suffix}` } });
+    const other = await newCategory();
+
+    const res = await call('PATCH', `/api/v1/admin/categories/${other.id}`, {
+      token: tokens.admin,
+      body: { name: ` кав’ярні  ${suffix}` },
+    });
+
+    assertRejected(res, 409, 'CONFLICT');
   });
 
   test('rejects a slug in the body with 400 and keeps the slug', async () => {

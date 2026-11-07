@@ -22,7 +22,10 @@ const CATEGORY_NOT_FOUND = {
   schema: ErrorResponse,
 };
 
-const NAME_TAKEN = { description: 'Another category already has this name', schema: ErrorResponse };
+const NAME_TAKEN = {
+  description: 'Another category already has this name, compared regardless of case, spaces and apostrophe',
+  schema: ErrorResponse,
+};
 
 @Controller()
 export class AdminCategoriesController {

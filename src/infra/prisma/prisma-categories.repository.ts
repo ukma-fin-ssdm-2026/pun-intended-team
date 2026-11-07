@@ -40,15 +40,22 @@ export class PrismaCategoriesRepository implements CategoriesRepository {
     await this.prisma.category.deleteMany({ where: { id } }).catch(rethrowInUse);
   }
 
-  // The unique index on name is case-sensitive; this makes "cinema" and "Cinema" collide as well.
+  // The same key as categories_name_normalized_key, so the check and the index never disagree.
   private async checkNameIsFree(name: string, exceptId?: string): Promise<void> {
-    const taken = await this.prisma.category.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' }, NOT: { id: exceptId } },
-    });
-    if (taken) {
+    const taken = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT "id" FROM "categories"
+       WHERE ${normalizedName(Prisma.raw('"name"'))} = ${normalizedName(Prisma.sql`${name}::text`)}
+         AND "id" IS DISTINCT FROM ${exceptId ?? null}::uuid
+       LIMIT 1`;
+    if (taken.length > 0) {
       throw new DomainError('CONFLICT', NAME_TAKEN);
     }
   }
+}
+
+/** The expression of the categories_name_normalized_key index, applied to `value`. */
+function normalizedName(value: Prisma.Sql): Prisma.Sql {
+  return Prisma.sql`lower(btrim(regexp_replace(regexp_replace(${value}, '[[:space:]]+', ' ', 'g'), '[''ʼ’]', 'ʼ', 'g')))`;
 }
 
 function toCategory({ id, name, slug, isActive }: Category): Category {

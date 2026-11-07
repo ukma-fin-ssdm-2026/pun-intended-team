@@ -4,6 +4,7 @@ import { DomainError } from '../../common/domain-error.ts';
 import { slugify, uniqueSlug } from '../../common/slug.ts';
 import { CategoriesRepository } from '../repositories/categories.repository.ts';
 import type { Category, CategoryChanges, CategoryInput } from '../types/category.ts';
+import { normalizeCategoryName } from './category-name.ts';
 
 @Injectable()
 export class CategoriesService {
@@ -32,16 +33,27 @@ export class CategoriesService {
     return category;
   }
 
-  /** Adds a category with a slug made from its name; a taken slug gets a number: `kino-2`. */
-  async create({ name, isActive }: CategoryInput): Promise<Category> {
+  /**
+   * Adds a category with its name normalized (`normalizeCategoryName`) and a slug made from it; a taken slug gets
+   * a number: `kino-2`.
+   */
+  async create(input: CategoryInput): Promise<Category> {
+    const name = normalizeCategoryName(input.name);
     const taken = new Set((await this.categoriesRepository.findAll()).map((category) => category.slug));
-    return this.categoriesRepository.create({ name, isActive, slug: uniqueSlug(slugify(name), taken) });
+    return this.categoriesRepository.create({
+      name,
+      isActive: input.isActive,
+      slug: uniqueSlug(slugify(name), taken),
+    });
   }
 
-  /** Renames or (de)activates a category; its slug stays as it is. */
+  /** Renames or (de)activates a category, the name normalized as on create; its slug stays as it is. */
   async update(id: string, { name, isActive }: CategoryChanges): Promise<Category> {
     await this.getById(id);
-    return this.categoriesRepository.update(id, { name, isActive });
+    return this.categoriesRepository.update(id, {
+      name: name === undefined ? undefined : normalizeCategoryName(name),
+      isActive,
+    });
   }
 
   async delete(id: string): Promise<void> {

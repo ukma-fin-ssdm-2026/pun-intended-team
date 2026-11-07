@@ -4,6 +4,7 @@ import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { CategoriesRepository } from '../../dist/core/catalog/repositories/categories.repository.js';
 import { CategoriesService } from '../../dist/core/catalog/services/categories.service.js';
+import { normalizeCategoryName } from '../../dist/core/catalog/services/category-name.js';
 import type { Category, CategoryChanges, NewCategory } from '../../dist/core/catalog/types/category.js';
 import { aCategory, CATEGORY_ID } from './fixtures/catalog.ts';
 
@@ -110,6 +111,15 @@ describe('CategoriesService.create', () => {
     assert.equal(categoriesRepository.create.mock.calls[0]?.arguments[0].slug, 'kino-3');
   });
 
+  test('saves the name normalized and makes the slug from it', async () => {
+    const { service, categoriesRepository } = makeService();
+
+    await service.create({ name: "  Кав'ярні   міста ", isActive: true });
+
+    const [saved] = categoriesRepository.create.mock.calls[0]?.arguments ?? [];
+    assert.deepEqual([saved?.name, saved?.slug], ['Кавʼярні міста', 'kaviarni-mista']);
+  });
+
   test('ignores a slug sent with the input', async () => {
     const { service, categoriesRepository } = makeService();
     const input = { name: 'Кіно', isActive: true, slug: 'my-own' } as Parameters<CategoriesService['create']>[0];
@@ -132,6 +142,14 @@ describe('CategoriesService.update', () => {
 
     assert.deepEqual(categoriesRepository.update.mock.calls[0]?.arguments, [CATEGORY_ID, changes]);
     assert.equal(category, saved);
+  });
+
+  test('saves a new name normalized', async () => {
+    const { service, categoriesRepository } = makeService();
+
+    await service.update(CATEGORY_ID, { name: 'Кав’ярні  міста' });
+
+    assert.equal(categoriesRepository.update.mock.calls[0]?.arguments[1].name, 'Кавʼярні міста');
   });
 
   test('never passes a slug on, so a rename keeps it', async () => {
@@ -171,4 +189,21 @@ describe('CategoriesService.delete', () => {
     await assert.rejects(service.delete(CATEGORY_ID), isDomainError('NOT_FOUND'));
     assert.equal(categoriesRepository.delete.mock.callCount(), 0);
   });
+});
+
+describe('normalizeCategoryName', () => {
+  const cases = [
+    { name: 'Кіно', normalized: 'Кіно', title: 'keeps a name with nothing to change, case included' },
+    { name: '  Кіно  ', normalized: 'Кіно', title: 'trims spaces at the ends' },
+    { name: 'Дні   відкритих\tдверей', normalized: 'Дні відкритих дверей', title: 'makes a run of spaces one' },
+    { name: "Кав'ярні", normalized: 'Кавʼярні', title: 'writes a typewriter apostrophe as ʼ' },
+    { name: 'Кав’ярні', normalized: 'Кавʼярні', title: 'writes a right quotation mark as ʼ' },
+    { name: 'Кавʼярні', normalized: 'Кавʼярні', title: 'keeps ʼ' },
+  ];
+
+  for (const { name, normalized, title } of cases) {
+    test(title, () => {
+      assert.equal(normalizeCategoryName(name), normalized);
+    });
+  }
 });

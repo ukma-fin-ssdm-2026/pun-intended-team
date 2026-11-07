@@ -50,7 +50,14 @@ export const CategoryIdParams = z.object({
 
 export const ActiveCategoryId = Id.describe('An active category from listCategories');
 
-const CategoryName = z.string().trim().min(1).max(60).describe('Unique, case-insensitive');
+const CategoryName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .describe(
+    "Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe",
+  );
 
 const CategoryIsActive = z.boolean().describe('Whether users can pick the category');
 
