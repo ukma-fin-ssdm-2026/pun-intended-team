@@ -20,7 +20,6 @@ A error handling, B external dependencies, C input validation, D silent failures
 | REL-10 | The automatic rollback starts the previous image on a database whose migrations are already applied | B | `deploy/deploy-staging.sh` |
 | REL-11 | If `finishRun` itself throws in `run()`, the original error is lost and the run stays `running` | A | `src/core/import/services/event-import.service.ts` |
 | REL-12 | Any refresh answer other than 401 (for example 503) reaches the screens as "Could not reach the server." | D | `app/src/api/session.ts` |
-| REL-13 | The genre `constructor` finds a property of `Object.prototype` in `CATEGORY_BY_GENRE`, and the resulting `TypeError` fails the whole import instead of skipping the record | A, C | `src/infra/providers/concert-ua-event-provider.ts`, `src/core/import/services/event-import.service.ts` |
 
 ## Details
 
@@ -41,6 +40,7 @@ A error handling, B external dependencies, C input validation, D silent failures
 **Fault:** the sign-out handlers of the profile and organization settings screens dispatch a navigation action that no navigator handles.
 **Error:** the navigation action is dropped without a message.
 **Failure:** the screen stays as it was after the user chose to sign out, or the history is not reset, with no error shown.
+**Status:** already fixed in #365: both handlers call `router.dismissAll()` only when `router.canDismiss()`, so no unhandled action is dispatched.
 
 ### REL-04: `/health` does not check the database
 
@@ -95,12 +95,6 @@ A error handling, B external dependencies, C input validation, D silent failures
 **Fault:** `renew` throws a plain `Error` for every answer except 200 and 401.
 **Error:** `currentAccessToken` rejects inside the request middleware, so the request is never sent.
 **Failure:** the screens show "Could not reach the server." although the API answered, for example with 503.
-
-### REL-13: The genre `constructor` fails the whole import
-
-**Fault:** `CATEGORY_BY_GENRE[genre.toLowerCase()]` reads a plain object with a key from the provider, so `constructor` finds the function on `Object.prototype` and the "no category" check passes.
-**Error:** `categoryName` is a function, and `imported.categoryName.toLowerCase()` in `importRecords` throws a `TypeError`.
-**Failure:** the run ends as `failed` and no further record of the feed is imported, instead of only the one record being skipped.
 
 ## AI Usage Note
 

@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Global, Module } from '@nestjs/common';
 import { createRemoteJWKSet } from 'jose';
+import { BackupRunsRepository } from '../core/admin/repositories/backup-runs.repository.ts';
 import { TransactionRunner } from '../core/common/transaction-runner.ts';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
@@ -37,6 +38,7 @@ import { TurboSmsSender } from './messaging/turbosms-sender.ts';
 import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
 import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
+import { PrismaBackupRunsRepository } from './prisma/prisma-backup-runs.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
@@ -65,6 +67,7 @@ const repositories = [
   { provide: MatchesRepository, useClass: PrismaMatchesRepository },
   { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
+  { provide: BackupRunsRepository, useClass: PrismaBackupRunsRepository },
 ];
 
 const adapters = [

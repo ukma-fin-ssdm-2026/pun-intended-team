@@ -7,6 +7,9 @@ export interface Session {
   accountId: string;
   /** SHA-256 of the secret part of the refresh token. */
   tokenHash: string;
+  /** The hash the last rotation replaced, and when; a refresh whose answer was lost comes back with it (REL-08). */
+  previousTokenHash: string | null;
+  rotatedAt: Date | null;
   expiresAt: Date;
   revokedAt: Date | null;
   /** Read with the session, so a ban ends it on the next request. */
@@ -15,3 +18,6 @@ export interface Session {
 
 /** A new row as the repository stores it. */
 export type SessionRecord = Pick<Session, 'accountId' | 'tokenHash' | 'expiresAt'>;
+
+/** What a rotation writes. */
+export type SessionRotation = Pick<Session, 'tokenHash' | 'expiresAt'> & { previousTokenHash: string; rotatedAt: Date };

@@ -16,7 +16,7 @@
 
 - **Code delivery from the messaging provider to the phone:** SEC-008 puts it outside our control, since it depends on the carrier; tests stop at the hand-over to the provider.
 - **The live external services** (Telegram Gateway, TurboSMS, Google): tests replace them with stubs and local fake servers and never call the real services.
-- **The Expo client UI:** the project has no UI test tooling yet.
+- **The Expo client UI, beyond `app/tests/`:** the client's Jest tests cover single components and hooks; screens and navigation are not tested.
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
 - **The live ArtWizard API and Karabas site:** CI never calls them and has no ArtWizard key. The adapter tests read real responses saved on 2026-11-03 in `tests/unit/fixtures/providers/`, and the e2e run of the import serves the same responses, and a saved Nominatim answer, from a local fixture server; a live run is done by hand (`npm run import:events`).
 - **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
@@ -28,7 +28,7 @@
 
 | Level | Where |
 |---|---|
-| Unit | `tests/unit/` |
+| Unit | `tests/unit/`; the client's components and hooks in `app/tests/` (Jest) |
 | Integration | `tests/e2e/` |
 | System | staging, planned |
 | Acceptance | deployed system, planned |
@@ -132,6 +132,17 @@ Testing under this plan is complete when all of the following hold:
 | TC-60 | `ModerationService.report` | Unit | Positive | A filed report is logged with the reporter as actor and the reported account as target, without the comment | Viktoriia Baran | FR-025, SEC-004 | done |
 | TC-61 | `GET /admin/report-cases?status=resolved` | Integration | Positive | Resolved cases are listed on request, a page at a time: with `limit=1` and two resolved cases, one item and `hasMore: true` | Viktoriia Baran | FR-026 | done |
 | TC-62 | `POST /reports` while its case is resolved | Integration | Negative | A report sent while another connection holds an uncommitted resolution of the case waits for it, then goes into a new open case, not the resolved one | Viktoriia Baran | FR-026 | done |
+| TC-63 | `backup-db.sh nightly` | Unit | Negative | With `pg_dump` failing, the night is tried 3 times, leaves no partial file, records only a reason code and turns the health check unhealthy; a copy `pg_restore` cannot read is not kept; the `.partial` of a killed run is removed, but not one in `manual/`; a good night afterwards makes the check pass | Viktoriia Baran | REL-004 | done |
+| TC-64 | `BackupsService` | Unit | Positive | The backups are overdue when the last night failed or succeeded more than 26 hours ago, and `null` where none has run | Viktoriia Baran | REL-004 | done |
+| TC-65 | `GET /admin/backups`, `GET /admin/stats` | Integration | Positive | After a good night and a failed one, both answer `overdue: true` with the good night's time; the nights are listed newest first with only time, result, attempts, duration, size and reason; a user who is not an administrator gets `404` | Viktoriia Baran | REL-004, SEC-001 | done |
+| TC-66 | `useInterests` (client) | Unit | Negative | When the list of interests cannot be loaded, because the server is unreachable or answers `503`, the hook reports the failure, and a retry loads the list | Viktoriia Baran | FR-002 | done |
+| TC-67 | `InterestPicker` (client) | Unit | Negative | After a failed load, "+ ще" turns into a retry, coral with the error mark, and pressing it loads the list again; while the list loads, "+ ще" is disabled | Viktoriia Baran | FR-002 | done |
+| TC-68 | `FormScreen` (client) | Unit | Negative | The back button goes back through the history, and with no history, e.g. after a reload on the web, opens the screen's fallback instead of an action no navigator handles | Viktoriia Baran | FR-002 | done |
+| TC-69 | `SessionsService.refresh` | Unit | Negative | The token a renewal replaced is accepted 0 s and 60 s after it and renews again; 60 s + 1 ms after it, a token two renewals old, or a banned account ends the session; a renewal that loses the race to a concurrent one gets `CONFLICT` and the session stays | Viktoriia Baran | SEC-005 | done |
+| TC-70 | `POST /auth/refresh`, the answer lost | Integration | Positive | Sending the replaced refresh token again within 60 s gets new tokens that work; the token whose answer was lost then ends the session, as does the replaced token 61 s later | Viktoriia Baran | SEC-005 | done |
+| TC-71 | Session renewal (client) | Unit | Negative | A refresh that got no answer is sent once more after 2 s, and one that got `409` once more at once, and its tokens are used; if neither try gets an answer, or a second `409` comes, the refresh token is kept and the next request tries again; another answered refresh, such as `503`, is not sent again | Viktoriia Baran | SEC-005 | done |
+| TC-72 | `POST /auth/refresh`, 5 at once | Integration | Negative | One refresh token sent 5 times at the same time gets only `200` or `409`; the session is not ended, and exactly one of the returned refresh tokens is the one it stores | Viktoriia Baran | SEC-005 | done |
+| TC-73 | `deploy-staging.sh`: migrations a version does not know | Unit | Negative | With a database migrated past a commit, the check lists exactly the migrations that commit lacks, and nothing for a commit that knows them all; a database that cannot be read fails the check | Viktoriia Baran | REL-001 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

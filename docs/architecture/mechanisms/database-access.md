@@ -8,7 +8,7 @@ Each process connects with its **own database role**, so a compromised import se
 
 | Role | Used by | Can do |
 |---|---|---|
-| `nearby`, the owner (`POSTGRES_USER`) | Prisma migrations (CI / deploy) | Change the schema. Never used at runtime. |
+| `nearby`, the owner (`POSTGRES_USER`) | Prisma migrations (CI / deploy); the nightly backup until it has a role of its own | Change the schema. At runtime only the backup uses it: to dump the database and write `backup_runs`. |
 | `nearby_main` | Main server (CMP-02) | Read and write all application tables and the job queue's tables in the schema `pgboss` ([job queue](job-queue.md)); no schema changes |
 | `nearby_import` | Import service (CMP-03) | Write imported `events` and `venues`, `import_runs`, skipped records; enqueue `event.changed`. |
 

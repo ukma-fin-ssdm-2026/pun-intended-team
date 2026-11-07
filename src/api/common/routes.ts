@@ -44,5 +44,6 @@ export const Routes = {
     banReportCase: '/api/v1/admin/report-cases/{id}/ban',
     dismissReportCase: '/api/v1/admin/report-cases/{id}/dismiss',
     stats: '/api/v1/admin/stats',
+    backups: '/api/v1/admin/backups',
   },
 } as const;

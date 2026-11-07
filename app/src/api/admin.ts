@@ -9,11 +9,16 @@ export type ReportCaseDetails = components['schemas']['ReportCaseDetails'];
 export type ReportCasesPage = components['schemas']['ReportCasesPage'];
 export type CaseStatus = ReportCase['status'];
 export type AdminCategory = components['schemas']['AdminCategory'];
+export type BackupRun = components['schemas']['BackupRun'];
 
 export const CASES_PAGE_SIZE = 20;
 
 export function getStats() {
   return call(() => apiClient.GET('/api/v1/admin/stats'));
+}
+
+export function listBackups() {
+  return call(() => apiClient.GET('/api/v1/admin/backups'));
 }
 
 export function listReportCases(status: CaseStatus, offset: number) {

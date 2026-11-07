@@ -113,7 +113,8 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
       } else show(failureSnackbar(result));
       return;
     }
-    router.back();
+    if (router.canGoBack()) router.back();
+    else router.replace('/profile');
   };
 
   return (
@@ -121,6 +122,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
       <Stack.Screen options={{ headerShown: false }} />
       <FormScreen
         title="Редагувати профіль"
+        backTo="/profile"
         action={{ label: 'Зберегти', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
         <ProfilePhoto />
@@ -161,6 +163,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
             onToggle={(id) => setInterestIds((current) => toggleInList(current, id))}
             note={`обрано ${interestIds.length} · мін. ${MIN_INTERESTS}`}
             onMore={interests.data ? () => setSheetOpen(true) : undefined}
+            onRetry={interests.failed ? interests.reload : undefined}
           />
 
           <View className="gap-3 pt-3">
