@@ -137,6 +137,21 @@ describe('backup-db.sh nightly', () => {
     assert.match(stderr, /Could not record the backup/);
   });
 
+  test('removes the .partial of a run that was killed, but not one of a backup still running in manual/', () => {
+    mkdirSync(join(backups, 'daily'));
+    mkdirSync(join(backups, 'manual'));
+    writeFileSync(join(backups, 'daily', 'nearby-killed.dump.partial'), 'PGD');
+    writeFileSync(join(backups, 'manual', 'nearby-running.dump.partial'), 'PGD');
+
+    run('nightly');
+
+    assert.deepEqual(
+      files('daily').filter((name) => name.endsWith('.partial')),
+      [],
+    );
+    assert.deepEqual(files('manual'), ['nearby-running.dump.partial']);
+  });
+
   test('a good night after a failed one makes the check pass again', () => {
     run('nightly', { dumpError: refused });
     run('nightly');

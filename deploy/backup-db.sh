@@ -15,6 +15,8 @@ failed_marker="$backups/nightly-failed"
 # $reason on failure.
 dump() {
   mkdir -p "$backups/$1"
+  # A run that was killed leaves its .partial; only this folder's, since a deploy's `now` can run during the night.
+  rm -f "$backups/$1"/*.partial
   file="$backups/$1/$PGDATABASE-$(date -u +%Y-%m-%dT%H%M%S).dump"
   log=$(mktemp)
   started=$(date -u +%s)

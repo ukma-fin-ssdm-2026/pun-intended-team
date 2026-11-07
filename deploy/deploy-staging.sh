@@ -95,8 +95,10 @@ main() {
   backup=$("${compose[@]}" ps -q backup)
   if [[ -n "$backup" ]]; then
     "${compose[@]}" exec -T backup sh /backup-db.sh now
-    # A GitHub Actions annotation: the job shows it although the deploy goes on.
-    if [[ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$backup")" = unhealthy ]]; then
+    # A GitHub Actions annotation: the job shows it although the deploy goes on. The marker covers the 26 h after a
+    # restart, while the health check is still starting.
+    if [[ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$backup")" = unhealthy ]] ||
+      "${compose[@]}" exec -T backup test -e /backups/nightly-failed; then
       echo "::warning::The last nightly backup failed or is older than 26 hours: ${compose[*]} logs backup"
     fi
   fi
