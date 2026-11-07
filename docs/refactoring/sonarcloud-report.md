@@ -83,6 +83,8 @@ There are **16 open issues**, all with severity **MAJOR** (impact MEDIUM). None 
 
 #301 excludes `src/mcp/`, `docs/testing/coverage/` and `docs/api/openapi-generated.yaml` from analysis in [`.sonarcloud.properties`](../../.sonarcloud.properties). This changes what is measured, not the code: the excluded findings still exist in the generated files.
 
+#364 excludes `tests/unit/fixtures/providers/` on the same grounds: it holds pages saved from ArtWizard, Karabas and Nominatim, kept unchanged as test input for the import adapters. They are other sites' HTML, not code the team writes, and on PR #373 they gave 42 of the 43 new issues and the 78.7 % duplication.
+
 Expected values, calculated from the analysis of 2026-11-01 (commit `91fdcb0`, `main`), to be confirmed by the first analysis of `main` that includes the exclusion:
 
 | Metric | Before | Expected |

@@ -51,7 +51,8 @@ rectangle "Z5 · External services — outside our control" as Z5 #F3E5F5;line:6
   node "Google\nEXT-04" as google
   node "Telegram Gateway API / SMS\nEXT-03" as tg
   node "Expo Push\nEXT-02" as push
-  node "Event providers\n(Concert.ua, ArtWizard)\nEXT-01" as providers
+  node "Event providers\n(ArtWizard, Karabas)\nEXT-01" as providers
+  node "Nominatim\n(geocoding, OpenStreetMap)\nEXT-01" as nominatim
 }
 
 dev -down-> lb : **TB1**\nHTTPS (TLS 1.2+)
@@ -62,11 +63,13 @@ host_main -down-> google : **TB6**\nID token check
 host_main -down-> tg : **TB6**\nverification codes
 host_main -down-> push : **TB6**\npush batches
 host_import -down-> providers : **TB5** HTTPS pull\n(untrusted data)
+host_import -down-> nominatim : **TB5** HTTPS\nvenue lookup
 push .up.> dev : push\n(no contacts)
 
 google -[hidden]right- tg
 tg -[hidden]right- push
 push -[hidden]right- providers
+providers -[hidden]right- nominatim
 
 note right of lb
   TLS terminates here;

@@ -1,0 +1,1897 @@
+{
+  "total": 74,
+  "page": 2,
+  "data": [
+    {
+      "_id": "6ae1af091d661a2d25b4c343",
+      "title": "Презентація Telegraf №6 «Швидко. Повільно»",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/f40bb0a4-268c-4870-1ad5-9636a7a61700/public",
+      "type": [
+        "Кіно",
+        "Література",
+        "Дискусії та лекції"
+      ],
+      "tags": [],
+      "slug": "prezentatsiia-telegraf-6-shvidko-povilno--20261105",
+      "location": {
+        "description_html": null,
+        "_id": "65397141bf424e411fcb1636",
+        "name_ua": "Жовтень",
+        "name_eng": "Zhovten",
+        "address_ua": "вул. Костянтинівська, 26",
+        "address_eng": "26 Kostiantynivska St.",
+        "description": "Кінотеатр",
+        "slug": "zhovten",
+        "name_aliases": [
+          "Жовтень",
+          "Zhovten",
+          "жовтінь\nжовтєнь"
+        ],
+        "google_link": "https://maps.app.goo.gl/5GQgEMWHfdaA7rv7A",
+        "website_link": "https://zhovten-kino.kyiv.ua/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/7884c2a2-4b98-48ea-459b-87b2a8fe1a00/public",
+        "latitude": 50.468389360171614,
+        "longitude": 30.510162296073965,
+        "meta": {
+          "title": "Жовтень: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Жовтень | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65397141bf424e411fcb1637"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-25T19:49:21.125Z",
+        "updated_at": "2023-10-25T19:49:21.125Z",
+        "__v": 0
+      },
+      "price_from": 150,
+      "price_to": 150,
+      "details_url": "https://zhovten-kino.kyiv.ua/movie/356935",
+      "description": "[{\"insert\":\"«Telegraf №6. До друку» — артхаус документалка про історію друкованого Telegraf. Про шлях від ідеї на зумі до Ctrl+P в друкарні. Про закулісся, успіхи і факапи.\\nУ кадрі — ті, хто люблять створювати сміливо. І той, заради кого збираємося — новий Telegraf №6 «Швидко. Повільно».\\n\\nПісля показу — розмова з головним редактором і амбасадорами фільму про те, як народжувалося нове видання про швидкість і повільність.\\n\"}]",
+      "description_html": "<p>«Telegraf №6. До друку» — артхаус документалка про історію друкованого Telegraf. Про шлях від ідеї на зумі до Ctrl+P в друкарні. Про закулісся, успіхи і факапи.<br/>У кадрі — ті, хто люблять створювати сміливо. І той, заради кого збираємося — новий Telegraf №6 «Швидко. Повільно».<br/><br/>Після показу — розмова з головним редактором і амбасадорами фільму про те, як народжувалося нове видання про швидкість і повільність.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae1af091d661a2d25b4c34b",
+          "date_from": "2026-11-05T18:00:00.000Z",
+          "date_to": "2026-11-05T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae1af091d661a2d25b4c343",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Презентація Telegraf №6 «Швидко. Повільно» четвер, 5 листопада, 18:00: купити квитки",
+        "description": "Купити квитки на Презентація Telegraf №6 «Швидко. Повільно» четвер, 5 листопада, 18:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae1af091d661a2d25b4c344"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-28T08:15:05.773Z",
+      "updated_at": "2026-10-28T08:15:05.773Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae1af091d661a2d25b4c34b",
+          "date_from": "2026-11-05T18:00:00.000Z",
+          "date_to": "2026-11-05T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae1af091d661a2d25b4c343",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6acf571eecab826ceaa38590",
+      "title": "Відлуння",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/ae01a6e6-49a3-415b-6c70-f9bd734a1e00/public",
+      "type": [
+        "Дискусії та лекції",
+        "Театр"
+      ],
+      "tags": [],
+      "slug": "vidlunnia-20261105",
+      "location": {
+        "description_html": null,
+        "_id": "65416c1f67d3b27adf16d1a7",
+        "name_ua": "Будинок Кіно",
+        "name_eng": "House of Cinema",
+        "address_ua": "вулиця Саксаганського, 6, Київ",
+        "address_eng": "6 Saksaganskogo Street, Kyiv",
+        "description": "Всілякі події",
+        "slug": "houseofcinema",
+        "name_aliases": [
+          "Будинок Кіно",
+          "House of Cinema",
+          "кінодім\nбудинок кіна\nкіна\n"
+        ],
+        "google_link": "https://maps.app.goo.gl/jmJ38pBqLHX9TgK89",
+        "website_link": "https://www.instagram.com/budynok_kino/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/29bc3927-2066-4878-c77d-351176fffc00/public",
+        "latitude": 50.43626094344989,
+        "longitude": 30.5195041135087,
+        "meta": {
+          "title": "Будинок Кіно: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Будинок Кіно | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65416c1f67d3b27adf16d1a8"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-31T21:05:35.524Z",
+        "updated_at": "2023-10-31T21:05:35.524Z",
+        "__v": 0
+      },
+      "price_from": 350,
+      "price_to": 350,
+      "details_url": "https://secure.wayforpay.com/payment/sac31d9d2f113",
+      "description": "[{\"insert\":\"А що, якби українські митці могли самі розповісти вам історії свого життя? Про кохання, творчість, втрати й те, що залишалося за лаштунками офіційної історії.\\n\\n \\\"Відлуння\\\" — другий проєкт творчого обʼєднання Diem, створений із любов’ю до української культури.\\n\\nЦього вечору прозвучать розповіді про Юлію Сонцеву, Леоніду Світличну, Людмилу Півторадню та їхніх чоловіків. Три мистецькі родини, три різні долі й багато того, що досі відгукується в нас.\\n\"}]",
+      "description_html": "<p>А що, якби українські митці могли самі розповісти вам історії свого життя? Про кохання, творчість, втрати й те, що залишалося за лаштунками офіційної історії.<br/><br/> &quot;Відлуння&quot; — другий проєкт творчого обʼєднання Diem, створений із любов’ю до української культури.<br/><br/>Цього вечору прозвучать розповіді про Юлію Сонцеву, Леоніду Світличну, Людмилу Півторадню та їхніх чоловіків. Три мистецькі родини, три різні долі й багато того, що досі відгукується в нас.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6acf571eecab826ceaa38598",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6acf571eecab826ceaa38590",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Відлуння четвер, 5 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Відлуння четвер, 5 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6acf571eecab826ceaa38591"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-14T10:19:10.064Z",
+      "updated_at": "2026-10-14T10:19:10.064Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6acf571eecab826ceaa38598",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6acf571eecab826ceaa38590",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae4797fc04a5bf103bb8b4b",
+      "title": "Збирати своє",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/01f4d479-d162-48a7-72bc-e0b39b85a900/public",
+      "type": [
+        "Дискусії та лекції"
+      ],
+      "tags": [],
+      "slug": "zbirati-svoye-20261105",
+      "location": {
+        "_id": "65397921bf424e411fcb43e0",
+        "name_ua": "Avangarden",
+        "name_eng": "Avangarden",
+        "address_ua": "Січових стрільців 23а",
+        "address_eng": "Sichovykh Striltsiv St, 23а",
+        "description": "[{\"insert\":\"За словами авторів, цей проєкт – про світ візуального мистецтва та гастрокультури, про пристрасть жити, пізнання нового та те, що надихає\\n\"}]",
+        "slug": "avangarden",
+        "name_aliases": [
+          "Avangarden",
+          "авангарден\nавангард гарден\nгарден авангарден"
+        ],
+        "google_link": "https://maps.app.goo.gl/inzXkfFWkTaD1Hj4A",
+        "website_link": "https://www.instagram.com/avangarden_kyiv/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/63f8e5da-7710-4434-fba5-dc8c5f801000/public",
+        "latitude": 50.45617957625343,
+        "longitude": 30.50133025386707,
+        "meta": {
+          "title": "Avangarden: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Avangarden | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65397921bf424e411fcb43e1"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-25T20:22:57.042Z",
+        "updated_at": "2024-09-03T09:46:05.742Z",
+        "__v": 0,
+        "description_html": "<p>За словами авторів, цей проєкт – про світ візуального мистецтва та гастрокультури, про пристрасть жити, пізнання нового та те, що надихає</p>"
+      },
+      "price_from": 400,
+      "price_to": 400,
+      "details_url": "https://secure.wayforpay.com/payment/sec9fc40ec33f",
+      "description": "[{\"insert\":\"Формуй колекцію. наповнюй життя мистецтвом\\n\\nЧому одні речі стають для нас особливими? Як формується особистий смак і з чого почати власну колекцію творів мистецтва?\\n\\nНа першій лекції трилогії про колекціонування поговоримо про те, як звичайне збирання перетворюється на колекцію, як формується цінність мистецтва та що насправді стоїть за бажанням зберігати своє.\\n\\nЛекторка арт-менеджерка Avangarden, магістр мистецтвознавства, дослідниця та кураторка — Богдана Абраменко.\\n\\nПриходьте розібратися в колекціонуванні і, можливо, по-новому подивитися на речі, які обираєте для себе.\\n\"}]",
+      "description_html": "<p>Формуй колекцію. наповнюй життя мистецтвом<br/><br/>Чому одні речі стають для нас особливими? Як формується особистий смак і з чого почати власну колекцію творів мистецтва?<br/><br/>На першій лекції трилогії про колекціонування поговоримо про те, як звичайне збирання перетворюється на колекцію, як формується цінність мистецтва та що насправді стоїть за бажанням зберігати своє.<br/><br/>Лекторка арт-менеджерка Avangarden, магістр мистецтвознавства, дослідниця та кураторка — Богдана Абраменко.<br/><br/>Приходьте розібратися в колекціонуванні і, можливо, по-новому подивитися на речі, які обираєте для себе.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae4797fc04a5bf103bb8b53",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae4797fc04a5bf103bb8b4b",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Збирати своє четвер, 5 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Збирати своє четвер, 5 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae4797fc04a5bf103bb8b4c"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-30T11:03:27.167Z",
+      "updated_at": "2026-10-30T11:03:27.167Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae4797fc04a5bf103bb8b53",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae4797fc04a5bf103bb8b4b",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f30e1756a99d95da2348",
+      "title": "Кіно квіз",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/1a45dce1-92fe-4532-e767-abe30dce6200/public",
+      "type": [
+        "Кіно",
+        "Дискусії та лекції"
+      ],
+      "tags": [],
+      "slug": "kino-kviz-20261105",
+      "location": {
+        "description_html": null,
+        "_id": "65416c1f67d3b27adf16d1a7",
+        "name_ua": "Будинок Кіно",
+        "name_eng": "House of Cinema",
+        "address_ua": "вулиця Саксаганського, 6, Київ",
+        "address_eng": "6 Saksaganskogo Street, Kyiv",
+        "description": "Всілякі події",
+        "slug": "houseofcinema",
+        "name_aliases": [
+          "Будинок Кіно",
+          "House of Cinema",
+          "кінодім\nбудинок кіна\nкіна\n"
+        ],
+        "google_link": "https://maps.app.goo.gl/jmJ38pBqLHX9TgK89",
+        "website_link": "https://www.instagram.com/budynok_kino/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/29bc3927-2066-4878-c77d-351176fffc00/public",
+        "latitude": 50.43626094344989,
+        "longitude": 30.5195041135087,
+        "meta": {
+          "title": "Будинок Кіно: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Будинок Кіно | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65416c1f67d3b27adf16d1a8"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-31T21:05:35.524Z",
+        "updated_at": "2023-10-31T21:05:35.524Z",
+        "__v": 0
+      },
+      "price_from": 150,
+      "price_to": 700,
+      "details_url": "https://secure.wayforpay.com/payment/sce9e1ee2f561",
+      "description": "[{\"insert\":\"Хто тут справжній кіноман, а хто просто красиво вимовляє \\\"Кубрик - геній\\\"?\\n\\nПеревіримо, скільки кіно ви насправді дивилися, а скільки просто зберегли у списку must watch у своєму Letterboxd. \\nКличемо на кіно-квіз у Будинку кіно: будемо згадувати культові сцени, впізнавати фільми за деталями, перевіряти пам’ять на цитати й трохи сперечатися про те, хто тут найбільше розуміється на кінематографі.\\n\\nЗбирайте команду, готуйте свої неіснуючі дипломи кінознавців й приходьте довести, що Letterboxd є на вашому телефоні не тільки тому, що це дуже нішево.\\n\"}]",
+      "description_html": "<p>Хто тут справжній кіноман, а хто просто красиво вимовляє &quot;Кубрик - геній&quot;?<br/><br/>Перевіримо, скільки кіно ви насправді дивилися, а скільки просто зберегли у списку must watch у своєму Letterboxd. <br/>Кличемо на кіно-квіз у Будинку кіно: будемо згадувати культові сцени, впізнавати фільми за деталями, перевіряти пам’ять на цитати й трохи сперечатися про те, хто тут найбільше розуміється на кінематографі.<br/><br/>Збирайте команду, готуйте свої неіснуючі дипломи кінознавців й приходьте довести, що Letterboxd є на вашому телефоні не тільки тому, що це дуже нішево.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f30e1756a99d95da2350",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f30e1756a99d95da2348",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Кіно квіз четвер, 5 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Кіно квіз четвер, 5 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f30e1756a99d95da2349"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:31:10.691Z",
+      "updated_at": "2026-11-02T20:31:10.691Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f30e1756a99d95da2350",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f30e1756a99d95da2348",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ad5ff8da2718c6e3f36445b",
+      "title": "Письменницький клуб",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/7c603d50-940c-4286-4647-162bdd9b6300/public",
+      "type": [
+        "Література"
+      ],
+      "tags": [],
+      "slug": "pismennitskiy-klub-20261105",
+      "location": {
+        "description_html": null,
+        "_id": "65d789c41009d8eeb1d0376b",
+        "name_ua": "Сенс на Хрещатику",
+        "name_eng": "Sens Khreschatyk",
+        "address_ua": "вул. Хрещатик, 34",
+        "address_eng": "Kreschatyk str, 34",
+        "description": "Книжковий простір в самому серці країни",
+        "slug": "senskhreschatyk",
+        "name_aliases": [
+          "Сенс на Хрещатику",
+          "Sens Khreschatyk",
+          "Сенс\nСенс на Хрещатику\nСенс Хрещатик"
+        ],
+        "google_link": "https://maps.app.goo.gl/UzV11W492oZhN74g8",
+        "website_link": "https://www.instagram.com/sens_khreshchatyk/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/04aa5349-7dfd-49f3-bed4-df3e80bcb200/public",
+        "latitude": 50.4470923,
+        "longitude": 30.521552117,
+        "meta": {
+          "title": "Сенс на Хрещатику: Афіша і квитки на події в 2024",
+          "description": "Афіша і квитки на події в Сенс на Хрещатику | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65d789c41009d8eeb1d0376c"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2024-02-22T17:52:04.846Z",
+        "updated_at": "2024-02-22T17:52:04.846Z",
+        "__v": 0
+      },
+      "price_from": 0,
+      "price_to": 0,
+      "details_url": "",
+      "description": "[{\"insert\":\"Ваші тексти заслуговують бути почутими 🥰\\n\\n Знову збираємося, щоб читати написане, ділитися думками й відкривати одне для одного нові літературні бачення.\\n\\nПриносьте власні тексти, якщо хочете почути чесні читацькі відгуки, або приходьте послухати інших і долучитися до обговорень.\\n\\nКілька важливих умов:\\n• Читаємо тільки те, що написали спеціально до цієї зустрічі.\\n• Обсяг тексту — до 1000 слів, час на читання — максимум 10 хвилин.\\n• Обговорюємо відверто, проте з повагою, підкріплюючи враження аргументами.\\n• Якщо захочете підтримати нас, будемо вдячні за донат на нові випуски «Техніки читання».\\n\\nЩось лишилось незрозумілим? Модератор відповість: @s_demarov\\n\\nПишіть і не ховайте те, що написали 🫵🏻\\n\"}]",
+      "description_html": "<p>Ваші тексти заслуговують бути почутими 🥰<br/><br/> Знову збираємося, щоб читати написане, ділитися думками й відкривати одне для одного нові літературні бачення.<br/><br/>Приносьте власні тексти, якщо хочете почути чесні читацькі відгуки, або приходьте послухати інших і долучитися до обговорень.<br/><br/>Кілька важливих умов:<br/>• Читаємо тільки те, що написали спеціально до цієї зустрічі.<br/>• Обсяг тексту — до 1000 слів, час на читання — максимум 10 хвилин.<br/>• Обговорюємо відверто, проте з повагою, підкріплюючи враження аргументами.<br/>• Якщо захочете підтримати нас, будемо вдячні за донат на нові випуски «Техніки читання».<br/><br/>Щось лишилось незрозумілим? Модератор відповість: @s_demarov<br/><br/>Пишіть і не ховайте те, що написали 🫵🏻</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ad5ff8da2718c6e3f364463",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ad5ff8da2718c6e3f36445b",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Письменницький клуб четвер, 5 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Письменницький клуб четвер, 5 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ad5ff8da2718c6e3f36445c"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-19T11:31:25.840Z",
+      "updated_at": "2026-10-19T11:31:25.840Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ad5ff8da2718c6e3f364463",
+          "date_from": "2026-11-05T19:00:00.000Z",
+          "date_to": "2026-11-05T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ad5ff8da2718c6e3f36445b",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f35b1756a99d95da2c10",
+      "title": "Лекція «Секс в публічних місцях»",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/c2baa005-ccc9-476c-daf0-ba663c111b00/public",
+      "type": [
+        "Дискусії та лекції"
+      ],
+      "tags": [],
+      "slug": "lektsiia-seks-v-publichnikh-mistsiakh--20261105",
+      "location": {
+        "_id": "6534fe30a19b791332db44d6",
+        "name_ua": "Секретна Локація – Київ",
+        "name_eng": "Secret location",
+        "address_ua": "вулиця Загадкова, будинок Випадковий",
+        "address_eng": "Mystery str.",
+        "google_link": "https://maps.app.goo.gl/swfMqQUB9LZzibAp8",
+        "latitude": 50.44181836413823,
+        "longitude": 30.528524225179606,
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/f379fe17-96bd-41d3-d351-050a24848e00/public",
+        "website_link": "",
+        "name_aliases": [
+          "Секретна Локація – Київ",
+          "Secret location",
+          "Секретна Локація"
+        ],
+        "description": "[{\"insert\":\"Де подія? Коли подія? Хто подія? Не ясно. Слідкуй за деталями у подробицях самої події ;)\\n\"}]",
+        "created_at": "2023-02-09T18:02:57.000Z",
+        "updated_at": "2025-07-25T19:18:59.602Z",
+        "slug": "secretlocationkyiv",
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "description_html": "<p>Де подія? Коли подія? Хто подія? Не ясно. Слідкуй за деталями у подробицях самої події ;)</p>",
+        "meta": {
+          "_id": "6aea0fcaf0740d6ca3e9ddf5"
+        },
+        "status": "published"
+      },
+      "price_from": 0,
+      "price_to": 0,
+      "details_url": "https://l.instagram.com/?u=https%3A%2F%2Fforms.gle%2FxWEnCWZMdZySt1Jb8%3Futm_source%3Dig%26utm_medium%3Dsocial%26utm_content%3Dlink_in_bio%26fbclid%3DPAZXh0bgNhZW0CMTEAcGRvZgJzcnRjBmFwcF9pZA85MzY2MTk3NDMzOTI0NTkAAacbk5cebchHjEt14zCw-i3nAC4ygZy45Pfxz1SPp4H2ZF0DvYMB-cKzkvopaQ_aem_VlWMM2Tvk0TeMHoGG5RUxA&e=AUASvS7i7E2R7B0MV4teIQ8UEt7T9XRiYkumNGuxJ3GcQC_59dUIPybo-GGLdLepDvoA6K5_kdL1wdsxBxuMwC3Mo647Es1oXwTOILePTXn2zor9wJzmorc56W5FoA__tS5Ju4k",
+      "description": "[{\"insert\":\"🎡 Парки, ліфти, пляжі, громадські вбиральні... Чому деяких людей збуджує секс поза приватним простором? Де проходить межа між сексуальною свободою та порушенням прав інших людей?\\n\\nНа зустрічі поговоримо про:\\n— психологію сексу в публічних місцях: звідки виникає таке бажання;\\n— законодавство України та інших країн: яка відповідальність передбачена за секс у громадських місцях;\\n— реальні ризики для фізичного здоров’я, зокрема ІПСШ;\\n— як алкоголь і психоактивні речовини впливають на сексуальну поведінку та здатність давати згоду;\\n— що робити після незахищеного сексу або іншої непередбачуваної ситуації, щоб подбати про своє фізичне та ментальне здоров’я.\\n\\nСпікери: \\n• Віталій Щуренко, психіатр, сімейний лікар, консультант проєкту Drugstore; \\n• Олег Шевченко, гінеколог, мамолог.\\n\"}]",
+      "description_html": "<p>🎡 Парки, ліфти, пляжі, громадські вбиральні... Чому деяких людей збуджує секс поза приватним простором? Де проходить межа між сексуальною свободою та порушенням прав інших людей?<br/><br/>На зустрічі поговоримо про:<br/>— психологію сексу в публічних місцях: звідки виникає таке бажання;<br/>— законодавство України та інших країн: яка відповідальність передбачена за секс у громадських місцях;<br/>— реальні ризики для фізичного здоров’я, зокрема ІПСШ;<br/>— як алкоголь і психоактивні речовини впливають на сексуальну поведінку та здатність давати згоду;<br/>— що робити після незахищеного сексу або іншої непередбачуваної ситуації, щоб подбати про своє фізичне та ментальне здоров’я.<br/><br/>Спікери: <br/>• Віталій Щуренко, психіатр, сімейний лікар, консультант проєкту Drugstore; <br/>• Олег Шевченко, гінеколог, мамолог.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f35b1756a99d95da2c19",
+          "date_from": "2026-11-05T19:30:00.000Z",
+          "date_to": "2026-11-05T19:30:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f35b1756a99d95da2c10",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Лекція «Секс в публічних місцях» четвер, 5 листопада, 19:30: купити квитки",
+        "description": "Купити квитки на Лекція «Секс в публічних місцях» четвер, 5 листопада, 19:30 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f35b1756a99d95da2c11"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:32:27.027Z",
+      "updated_at": "2026-11-02T20:32:27.027Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f35b1756a99d95da2c19",
+          "date_from": "2026-11-05T19:30:00.000Z",
+          "date_to": "2026-11-05T19:30:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f35b1756a99d95da2c10",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f3f81756a99d95da4d6f",
+      "title": "День народження Марічки",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/bc86ddb3-aefa-4846-ab46-03c6dce6b400/public",
+      "type": [
+        "Вечірки"
+      ],
+      "tags": [],
+      "slug": "den-narodzhennia-marichki-20261106",
+      "location": {
+        "description_html": null,
+        "_id": "65416c1f67d3b27adf16d1a7",
+        "name_ua": "Будинок Кіно",
+        "name_eng": "House of Cinema",
+        "address_ua": "вулиця Саксаганського, 6, Київ",
+        "address_eng": "6 Saksaganskogo Street, Kyiv",
+        "description": "Всілякі події",
+        "slug": "houseofcinema",
+        "name_aliases": [
+          "Будинок Кіно",
+          "House of Cinema",
+          "кінодім\nбудинок кіна\nкіна\n"
+        ],
+        "google_link": "https://maps.app.goo.gl/jmJ38pBqLHX9TgK89",
+        "website_link": "https://www.instagram.com/budynok_kino/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/29bc3927-2066-4878-c77d-351176fffc00/public",
+        "latitude": 50.43626094344989,
+        "longitude": 30.5195041135087,
+        "meta": {
+          "title": "Будинок Кіно: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Будинок Кіно | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65416c1f67d3b27adf16d1a8"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-31T21:05:35.524Z",
+        "updated_at": "2023-10-31T21:05:35.524Z",
+        "__v": 0
+      },
+      "price_from": 0,
+      "price_to": 0,
+      "details_url": "",
+      "description": "[{\"insert\":\"Шановні пані та панове, у нас тут намічається справжній підпільний вечір.\\n\\n6 листопада святкуємо День народження Марічки — і робимо це в найкращих традиціях часів сухого закону: джаз, келихи й трохи чиказького шику.\\n\\nДрескод —  піджаки, жилетки, сорочки, краватки, блискучі туфлі та вишукані сукні. Усе, щоб виглядати так, ніби ви не просто прийшли на вечірку, а маєте тут деякі справи.\\n\\n👔 Готуйте свої найкращі образи, тримайте язик за зубами й пам’ятайте: what happens in the Speakeasy stays in the Speakeasy.\\n\\nТсссс… побачимось у Барі 🥃\\n\"}]",
+      "description_html": "<p>Шановні пані та панове, у нас тут намічається справжній підпільний вечір.<br/><br/>6 листопада святкуємо День народження Марічки — і робимо це в найкращих традиціях часів сухого закону: джаз, келихи й трохи чиказького шику.<br/><br/>Дрескод —  піджаки, жилетки, сорочки, краватки, блискучі туфлі та вишукані сукні. Усе, щоб виглядати так, ніби ви не просто прийшли на вечірку, а маєте тут деякі справи.<br/><br/>👔 Готуйте свої найкращі образи, тримайте язик за зубами й пам’ятайте: what happens in the Speakeasy stays in the Speakeasy.<br/><br/>Тсссс… побачимось у Барі 🥃</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f3f81756a99d95da4d77",
+          "date_from": "2026-11-06T19:00:00.000Z",
+          "date_to": "2026-11-06T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f3f81756a99d95da4d6f",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "День народження Марічки п’ятниця, 6 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на День народження Марічки п’ятниця, 6 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f3f81756a99d95da4d70"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:35:04.262Z",
+      "updated_at": "2026-11-02T20:35:04.262Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f3f81756a99d95da4d77",
+          "date_from": "2026-11-06T19:00:00.000Z",
+          "date_to": "2026-11-06T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f3f81756a99d95da4d6f",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f42d1756a99d95da5a0e",
+      "title": "Jazz Hall PODIL",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/4ea038af-0434-4b56-04df-0fe5fededd00/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "jazz-hall-podil-20261106",
+      "location": {
+        "_id": "65378e43d1f3951289612c52",
+        "name_ua": "КультМотив",
+        "name_eng": "CultMotive",
+        "address_ua": "Спаська 36/31",
+        "address_eng": "Spaska 36/31",
+        "description": "[{\"insert\":\"Культурний простір і Гастробар на Подолі!\\nІндустріальна локація в центрі історичного міста.\\nПодії, страви української кухні, бар, лекторій, виставкова зала.\\n\\n\"}]",
+        "slug": "kultmotyv",
+        "name_aliases": [
+          "КультМотив",
+          "CultMotive",
+          "КультМотив,CultMotive,KulʹtMotyv,Культ Мотив, Cult Motive, cult.motive"
+        ],
+        "google_link": "https://maps.app.goo.gl/9vfq3i9xa2uayGYy6",
+        "website_link": "https://www.instagram.com/cult.motive/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/bc56c78e-ab94-4e72-1b80-a3ea25eb2500/public",
+        "latitude": 50.46929510514115,
+        "longitude": 30.523124850813346,
+        "meta": {
+          "title": "КультМотив: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в КультМотив | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65378e43d1f3951289612c53"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-24T09:28:35.403Z",
+        "updated_at": "2025-08-11T16:11:05.093Z",
+        "__v": 0,
+        "description_html": "<p>Культурний простір і Гастробар на Подолі!<br/>Індустріальна локація в центрі історичного міста.<br/>Події, страви української кухні, бар, лекторій, виставкова зала.<br/></p>"
+      },
+      "price_from": 300,
+      "price_to": 300,
+      "details_url": "https://secure.wayforpay.com/payment/pjw061107110811",
+      "description": "[{\"insert\":\"Три вечори живого джазу на Подолі — і привід провести час за столом, нікуди не поспішаючи.\\n\\nДо музики додаємо те, заради чого хочеться залишитися довше: страви, приготовані на кухні КультМотиву, лімітовані спекла позиції, які хочеться досліджувати не поспішаючи. А до них — келих вина, коктейль або щось із барної карти, що пасуватиме саме вашому вечору.\\n\\nПриходьте на вечерю, зустріч із друзями чи побачення. Живий джаз стане частиною вечора, а не єдиним його приводом.\\n\\nКількість місць обмежена. Радимо приходити завчасно, щоб без поспіху зайняти свій столик, зробити замовлення та підготуватися до початку концерту.\\n\\nПовернення квитків можливе не пізніше ніж за 72 години до початку події.\\n\"}]",
+      "description_html": "<p>Три вечори живого джазу на Подолі — і привід провести час за столом, нікуди не поспішаючи.<br/><br/>До музики додаємо те, заради чого хочеться залишитися довше: страви, приготовані на кухні КультМотиву, лімітовані спекла позиції, які хочеться досліджувати не поспішаючи. А до них — келих вина, коктейль або щось із барної карти, що пасуватиме саме вашому вечору.<br/><br/>Приходьте на вечерю, зустріч із друзями чи побачення. Живий джаз стане частиною вечора, а не єдиним його приводом.<br/><br/>Кількість місць обмежена. Радимо приходити завчасно, щоб без поспіху зайняти свій столик, зробити замовлення та підготуватися до початку концерту.<br/><br/>Повернення квитків можливе не пізніше ніж за 72 години до початку події.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f42e1756a99d95da5a16",
+          "date_from": "2026-11-06T19:00:00.000Z",
+          "date_to": "2026-11-06T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        },
+        {
+          "_id": "6ae8f42e1756a99d95da5a1b",
+          "date_from": "2026-11-07T18:00:00.000Z",
+          "date_to": "2026-11-07T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        },
+        {
+          "_id": "6ae8f42e1756a99d95da5a20",
+          "date_from": "2026-11-08T18:00:00.000Z",
+          "date_to": "2026-11-08T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Jazz Hall PODIL п’ятниця, 6 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Jazz Hall PODIL п’ятниця, 6 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f42d1756a99d95da5a0f"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:35:57.954Z",
+      "updated_at": "2026-11-02T20:35:57.954Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f42e1756a99d95da5a1b",
+          "date_from": "2026-11-07T18:00:00.000Z",
+          "date_to": "2026-11-07T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        },
+        {
+          "_id": "6ae8f42e1756a99d95da5a16",
+          "date_from": "2026-11-06T19:00:00.000Z",
+          "date_to": "2026-11-06T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        },
+        {
+          "_id": "6ae8f42e1756a99d95da5a20",
+          "date_from": "2026-11-08T18:00:00.000Z",
+          "date_to": "2026-11-08T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f42d1756a99d95da5a0e",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae30511b95351930e0d2f3a",
+      "title": "Meowneeds",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/06bef6b1-3133-46da-b16a-13d95f643c00/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "meowneeds-20261107",
+      "location": {
+        "_id": "67accab9c1d38de84fa14d50",
+        "name_ua": "Реверб",
+        "name_eng": "rvrb.studio",
+        "address_ua": "Нижньоюрківська, 31",
+        "address_eng": "31, Nyzhnyoyurkivska Street",
+        "description": "[{\"insert\":\"Студія Звукозапису\\n\"}]",
+        "description_html": "<p>Студія Звукозапису</p>",
+        "slug": "rvrbstudio",
+        "name_aliases": [
+          "Реверб",
+          "rvrb.studio",
+          "рврб"
+        ],
+        "google_link": "https://maps.app.goo.gl/Cmx5qYctP2oGqkSB8",
+        "website_link": "https://www.instagram.com/rvrb.studio/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/a7e8abaf-137f-4ed1-8b1b-45c98e2a3d00/public",
+        "latitude": 50.46713097966357,
+        "longitude": 30.5003098660739,
+        "meta": {
+          "title": "Реверб: Афіша і квитки на події в 2025",
+          "description": "Афіша і квитки на події в Реверб | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "67accab9c1d38de84fa14d51"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2025-02-12T16:22:17.110Z",
+        "updated_at": "2025-02-12T16:22:17.110Z",
+        "__v": 0
+      },
+      "price_from": 300,
+      "price_to": 400,
+      "details_url": "",
+      "description": "[{\"insert\":\"Друзі везем комбучакор у Київ тому чекаємо всіх і кожного!!!\\n\\n\"},{\"insert\":\"обовʼязково вказуйте свій ПІБ в коментарях до платежу\",\"attributes\":{\"link\":\"https://send.monobank.ua/jar/6TFBC616XS?utm_source=ig&utm_medium=social&utm_content=link_in_bio\"}},{\"insert\":\"\\n\\nзустрінемось біля сцени\\n\"}]",
+      "description_html": "<p>Друзі везем комбучакор у Київ тому чекаємо всіх і кожного!!!<br/><br/><a href=\"https://send.monobank.ua/jar/6TFBC616XS?utm_source=ig&amp;utm_medium=social&amp;utm_content=link_in_bio\" target=\"_blank\">обовʼязково вказуйте свій ПІБ в коментарях до платежу</a><br/><br/>зустрінемось біля сцени</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae30511b95351930e0d2f42",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae30511b95351930e0d2f3a",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Meowneeds субота, 7 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на Meowneeds субота, 7 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae30511b95351930e0d2f3b"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-29T08:34:25.454Z",
+      "updated_at": "2026-10-29T08:34:25.454Z",
+      "donation_entry_fee": false,
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae30511b95351930e0d2f42",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae30511b95351930e0d2f3a",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae9a7dff55392822b105b54",
+      "title": "Artist Talk: MYPH PHOTOGRAPHY PRIZE III",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/2a04f7d5-b680-427d-6bce-453c7df6a700/public",
+      "type": [
+        "Дискусії та лекції"
+      ],
+      "tags": [],
+      "slug": "artist-talk-myph-photography-prize-iii-20261107",
+      "location": {
+        "description_html": null,
+        "_id": "6554f5229aebca56f74aee94",
+        "name_ua": "Галерея Димчук",
+        "name_eng": "Dymchuk gallery",
+        "address_ua": "вул. Ярославська, 21",
+        "address_eng": "21 Yaroslavska St.",
+        "description": "Галерея \n",
+        "slug": "dymchukgallery",
+        "name_aliases": [
+          "Галерея Димчук",
+          "Dymchuk gallery",
+          "дімчук\nдємчук\nдемчук\nдимчук"
+        ],
+        "google_link": "https://maps.app.goo.gl/NEoNfJj3UPw5T3zz8",
+        "website_link": "https://dymchuk.com/en/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/f91e666e-5c50-447e-9058-68bb69a33c00/public",
+        "latitude": 50.46831120645014,
+        "longitude": 30.51211353749417,
+        "meta": {
+          "title": "Галерея Димчук: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Галерея Димчук | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "6554f5229aebca56f74aee95"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-11-15T16:43:14.465Z",
+        "updated_at": "2023-11-15T16:43:14.465Z",
+        "__v": 0
+      },
+      "price_from": 0,
+      "price_to": 0,
+      "details_url": "https://docs.google.com/forms/d/e/1FAIpQLSdfMIkC-Lrn4FYaayP0MGdTyflSEtqnHKAk-LCbUyZ_SBt6IA/viewform",
+      "description": "[{\"insert\":\"Запрошуємо на Artist Talk: MYPH PHOTOGRAPHY PRIZE III, що відбудеться 7 листопада у Dymchuk Gallery за участі Вероніки Моль, Віталія Герасименка, Макса Мокрицького та Олександра Попенка.\\n\\nMYPH PHOTOGRAPHY PRIZE III — третій щорічний відкритий конкурс для українських фотографок і фотографів, які працюють із медіумом фотографії не більше п’яти років.\\n\\nЦьогоріч на конкурс надійшло близько 500 проєктів, з яких журі відібрало дев’ять робіт фіналістів/-ок. Під час Artist Talk четверо переможців/-ниць поділяться досвідом роботи над представленими фотосеріями, розкажуть про власні творчі підходи та процес створення проєктів.\\n\"}]",
+      "description_html": "<p>Запрошуємо на Artist Talk: MYPH PHOTOGRAPHY PRIZE III, що відбудеться 7 листопада у Dymchuk Gallery за участі Вероніки Моль, Віталія Герасименка, Макса Мокрицького та Олександра Попенка.<br/><br/>MYPH PHOTOGRAPHY PRIZE III — третій щорічний відкритий конкурс для українських фотографок і фотографів, які працюють із медіумом фотографії не більше п’яти років.<br/><br/>Цьогоріч на конкурс надійшло близько 500 проєктів, з яких журі відібрало дев’ять робіт фіналістів&#47;-ок. Під час Artist Talk четверо переможців&#47;-ниць поділяться досвідом роботи над представленими фотосеріями, розкажуть про власні творчі підходи та процес створення проєктів.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae9a7dff55392822b105b5c",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae9a7dff55392822b105b54",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Artist Talk: MYPH PHOTOGRAPHY PRIZE III субота, 7 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на Artist Talk: MYPH PHOTOGRAPHY PRIZE III субота, 7 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae9a7dff55392822b105b55"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-03T09:22:39.915Z",
+      "updated_at": "2026-11-03T09:22:39.915Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae9a7dff55392822b105b5c",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae9a7dff55392822b105b54",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6adf29b99fe4965fa3b29f4b",
+      "title": "utter",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/3fd5d7fa-6016-4a7d-8df3-bd491e703700/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "utter-20261107",
+      "location": {
+        "_id": "67accab9c1d38de84fa14d50",
+        "name_ua": "Реверб",
+        "name_eng": "rvrb.studio",
+        "address_ua": "Нижньоюрківська, 31",
+        "address_eng": "31, Nyzhnyoyurkivska Street",
+        "description": "[{\"insert\":\"Студія Звукозапису\\n\"}]",
+        "description_html": "<p>Студія Звукозапису</p>",
+        "slug": "rvrbstudio",
+        "name_aliases": [
+          "Реверб",
+          "rvrb.studio",
+          "рврб"
+        ],
+        "google_link": "https://maps.app.goo.gl/Cmx5qYctP2oGqkSB8",
+        "website_link": "https://www.instagram.com/rvrb.studio/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/a7e8abaf-137f-4ed1-8b1b-45c98e2a3d00/public",
+        "latitude": 50.46713097966357,
+        "longitude": 30.5003098660739,
+        "meta": {
+          "title": "Реверб: Афіша і квитки на події в 2025",
+          "description": "Афіша і квитки на події в Реверб | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "67accab9c1d38de84fa14d51"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2025-02-12T16:22:17.110Z",
+        "updated_at": "2025-02-12T16:22:17.110Z",
+        "__v": 0
+      },
+      "price_from": 300,
+      "price_to": 400,
+      "details_url": "",
+      "description": "[{\"insert\":\"7 листопада зберуться гурти, яких навряд чи зустрінеш в одному плейлисті, але точно буде круто почути на одній сцені.\\nвід фанк-року та інді до мідвест-панку, емокору й альтернативи. \\nтут буде місце і для гітарного шуму, і для трохи поплакати, і для пива, і для моментів, коли вже дуже хочеться пригати і ломати все навкруги\\n\\n\"},{\"insert\":\"❗️НАЙГОЛОВНІШЕ❗️обовʼязково вказуйте свій ПІБ в коментарях до платежу\",\"attributes\":{\"link\":\"https://send.monobank.ua/jar/6TFBC616XS?utm_source=ig&utm_medium=social&utm_content=link_in_bio\"}},{\"insert\":\"\\n\\nзустрінемось біля сцени.\\nавторка афіши @liod.es\\n\"}]",
+      "description_html": "<p>7 листопада зберуться гурти, яких навряд чи зустрінеш в одному плейлисті, але точно буде круто почути на одній сцені.<br/>від фанк-року та інді до мідвест-панку, емокору й альтернативи. <br/>тут буде місце і для гітарного шуму, і для трохи поплакати, і для пива, і для моментів, коли вже дуже хочеться пригати і ломати все навкруги<br/><br/><a href=\"https://send.monobank.ua/jar/6TFBC616XS?utm_source=ig&amp;utm_medium=social&amp;utm_content=link_in_bio\" target=\"_blank\">❗️НАЙГОЛОВНІШЕ❗️обовʼязково вказуйте свій ПІБ в коментарях до платежу</a><br/><br/>зустрінемось біля сцени.<br/>авторка афіши @liod.es</p>",
+      "event_occurrences": [
+        {
+          "_id": "6adf29b99fe4965fa3b29f53",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6adf29b99fe4965fa3b29f4b",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "utter субота, 7 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на utter субота, 7 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6adf29b99fe4965fa3b29f4c"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-26T10:21:45.549Z",
+      "updated_at": "2026-10-26T10:21:45.549Z",
+      "donation_entry_fee": false,
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6adf29b99fe4965fa3b29f53",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6adf29b99fe4965fa3b29f4b",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f641e9b5c1873c14c742",
+      "title": "Концерт SFM",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/27d868e7-e448-4052-d968-945e7900e200/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "kontsert-sfm-20261107",
+      "location": {
+        "_id": "67accab9c1d38de84fa14d50",
+        "name_ua": "Реверб",
+        "name_eng": "rvrb.studio",
+        "address_ua": "Нижньоюрківська, 31",
+        "address_eng": "31, Nyzhnyoyurkivska Street",
+        "description": "[{\"insert\":\"Студія Звукозапису\\n\"}]",
+        "description_html": "<p>Студія Звукозапису</p>",
+        "slug": "rvrbstudio",
+        "name_aliases": [
+          "Реверб",
+          "rvrb.studio",
+          "рврб"
+        ],
+        "google_link": "https://maps.app.goo.gl/Cmx5qYctP2oGqkSB8",
+        "website_link": "https://www.instagram.com/rvrb.studio/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/a7e8abaf-137f-4ed1-8b1b-45c98e2a3d00/public",
+        "latitude": 50.46713097966357,
+        "longitude": 30.5003098660739,
+        "meta": {
+          "title": "Реверб: Афіша і квитки на події в 2025",
+          "description": "Афіша і квитки на події в Реверб | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "67accab9c1d38de84fa14d51"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2025-02-12T16:22:17.110Z",
+        "updated_at": "2025-02-12T16:22:17.110Z",
+        "__v": 0
+      },
+      "price_from": 300,
+      "price_to": 400,
+      "details_url": "https://send.monobank.ua/jar/6TFBC616XS",
+      "description": "[{\"insert\":\"utter, на студії rvrb 07.11/16:00\\n\\nфанк-рок-фірмакор про ланоси, свіжість і шкоду нелегальних речовин, а що значить «фірма»? приходь на концерт, де проскурівський гурт сфм зможе тобі доступно пояснити\\n\\n\\n300 грн зараз\\n400 грн на вході\\n❗️НАЙГОЛОВНІШЕ❗️\\nобовʼязково вказуйте свій ПІБ в коментарях до платежу\\n\\nзустрінемось біля сцени\\n\\n\"}]",
+      "description_html": "<p>utter, на студії rvrb 07.11&#47;16:00<br/><br/>фанк-рок-фірмакор про ланоси, свіжість і шкоду нелегальних речовин, а що значить «фірма»? приходь на концерт, де проскурівський гурт сфм зможе тобі доступно пояснити<br/><br/><br/>300 грн зараз<br/>400 грн на вході<br/>❗️НАЙГОЛОВНІШЕ❗️<br/>обовʼязково вказуйте свій ПІБ в коментарях до платежу<br/><br/>зустрінемось біля сцени<br/></p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f641e9b5c1873c14c74a",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f641e9b5c1873c14c742",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Концерт SFM субота, 7 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на Концерт SFM субота, 7 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f641e9b5c1873c14c743"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:44:49.103Z",
+      "updated_at": "2026-11-02T20:44:49.103Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f641e9b5c1873c14c74a",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f641e9b5c1873c14c742",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6accb298ed2ababdde0aef8b",
+      "title": "🎃CRYSTAL RAVE — HALLOWEEN EDITION🎃",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/3ec80c7d-a056-49ae-8277-c96b8a54e000/public",
+      "type": [
+        "Вечірки",
+        "Музика"
+      ],
+      "tags": [
+        {
+          "_id": "651c3d091e37f6e4870148c8",
+          "name": "16+",
+          "slug": "16"
+        },
+        {
+          "_id": "671bd9789b18caf1bc6564c2",
+          "name": "хелловін",
+          "description": null,
+          "slug": "khellovin",
+          "__v": 0
+        }
+      ],
+      "slug": "crystal-rave-halloween-edition--20261107",
+      "location": {
+        "description_html": null,
+        "_id": "65398d32bf424e411fcbbfa6",
+        "name_ua": "Otel’",
+        "name_eng": "Otel’",
+        "address_ua": "вул. Нижньоюрківська 31",
+        "address_eng": "31 Nyzhniyurkivska St.",
+        "description": "Клюб в стилі лофт",
+        "slug": "otel",
+        "name_aliases": [
+          "Otel’",
+          "отель\nготель\nхотел\nхотель\nhotel\n"
+        ],
+        "google_link": "https://maps.app.goo.gl/zZvdU889BgBT5C4eA",
+        "website_link": "https://www.instagram.com/otelkyiv/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/fd938e0d-4637-49ca-e147-570f756c8c00/public",
+        "latitude": 50.46608287804204,
+        "longitude": 30.50019841902546,
+        "meta": {
+          "title": "Otel’: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Otel’ | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65398d32bf424e411fcbbfa7"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-25T21:48:34.512Z",
+        "updated_at": "2023-10-25T21:48:34.512Z",
+        "__v": 0
+      },
+      "price_from": 400,
+      "price_to": 400,
+      "details_url": "https://www.instagram.com/p/DeO3smROtfG/",
+      "description": "[{\"insert\":\"Line up:\\n-DJ SANDRO\\n-MFERLIY\\n-BENEFIK\\n-MRX\\n\\n\\n\"}]",
+      "description_html": "<p>Line up:<br/>-DJ SANDRO<br/>-MFERLIY<br/>-BENEFIK<br/>-MRX<br/><br/></p>",
+      "event_occurrences": [
+        {
+          "_id": "6accb298ed2ababdde0aef94",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6accb298ed2ababdde0aef8b",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "CRYSTAL RAVE — HALLOWEEN EDITION🎃 субота, 7 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на CRYSTAL RAVE — HALLOWEEN EDITION🎃 субота, 7 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6accb298ed2ababdde0aef8c"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-12T10:12:40.744Z",
+      "updated_at": "2026-10-13T12:54:37.539Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6accb298ed2ababdde0aef94",
+          "date_from": "2026-11-07T16:00:00.000Z",
+          "date_to": "2026-11-07T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6accb298ed2ababdde0aef8b",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f6951756a99d95da5f54",
+      "title": "Спецпоказ «Бійцівського клубу»",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/7724d76f-de0d-4988-dbeb-434e53900800/public",
+      "type": [
+        "Кіно"
+      ],
+      "tags": [],
+      "slug": "spetspokaz-biytsivskogo-klubu--20261107",
+      "location": {
+        "description_html": null,
+        "_id": "65397141bf424e411fcb1636",
+        "name_ua": "Жовтень",
+        "name_eng": "Zhovten",
+        "address_ua": "вул. Костянтинівська, 26",
+        "address_eng": "26 Kostiantynivska St.",
+        "description": "Кінотеатр",
+        "slug": "zhovten",
+        "name_aliases": [
+          "Жовтень",
+          "Zhovten",
+          "жовтінь\nжовтєнь"
+        ],
+        "google_link": "https://maps.app.goo.gl/5GQgEMWHfdaA7rv7A",
+        "website_link": "https://zhovten-kino.kyiv.ua/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/7884c2a2-4b98-48ea-459b-87b2a8fe1a00/public",
+        "latitude": 50.468389360171614,
+        "longitude": 30.510162296073965,
+        "meta": {
+          "title": "Жовтень: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Жовтень | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65397141bf424e411fcb1637"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-25T19:49:21.125Z",
+        "updated_at": "2023-10-25T19:49:21.125Z",
+        "__v": 0
+      },
+      "price_from": 250,
+      "price_to": 250,
+      "details_url": "https://gate.zhovten-kino.kyiv.ua/seats.html?CinemaId=0000000026&SessionId=98797&back_url=https://zhovten-kino.kyiv.ua",
+      "description": "[{\"insert\":\"Безсоння, криза особистості та випадкове знайомство, яке змінить усе.\\n\\nЗнайомство з Тайлером Дерденом відкриває для Оповідача світ підпільних бійцівських клубів, де можна виплеснути агресію та бодай на мить забути про звичні правила. Але те, що починалося як спосіб вирватися з буденності, швидко набуває зовсім іншого масштабу.\\n\\nЦього вечора до перегляду долучиться Павло Власенко (@pavvlasenko) — актор та автор каналу «Рубрика Кубрика». Перед сеансом Павло представить стрічку та розповість, на що варто звернути увагу під час перегляду.\\n\"}]",
+      "description_html": "<p>Безсоння, криза особистості та випадкове знайомство, яке змінить усе.<br/><br/>Знайомство з Тайлером Дерденом відкриває для Оповідача світ підпільних бійцівських клубів, де можна виплеснути агресію та бодай на мить забути про звичні правила. Але те, що починалося як спосіб вирватися з буденності, швидко набуває зовсім іншого масштабу.<br/><br/>Цього вечора до перегляду долучиться Павло Власенко (@pavvlasenko) — актор та автор каналу «Рубрика Кубрика». Перед сеансом Павло представить стрічку та розповість, на що варто звернути увагу під час перегляду.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f6961756a99d95da5f5c",
+          "date_from": "2026-11-07T16:10:00.000Z",
+          "date_to": "2026-11-07T16:10:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f6951756a99d95da5f54",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Спецпоказ «Бійцівського клубу» субота, 7 листопада, 16:10: купити квитки",
+        "description": "Купити квитки на Спецпоказ «Бійцівського клубу» субота, 7 листопада, 16:10 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f6951756a99d95da5f55"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:46:13.997Z",
+      "updated_at": "2026-11-02T20:46:13.997Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f6961756a99d95da5f5c",
+          "date_from": "2026-11-07T16:10:00.000Z",
+          "date_to": "2026-11-07T16:10:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f6951756a99d95da5f54",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ad5fc48a2718c6e3f360c2c",
+      "title": "OVERTOWN SESSIONS",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/dc0986db-4c20-42b1-c4bb-860925599800/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "overtown-sessions-20261107",
+      "location": {
+        "_id": "6ab239f40f840b89d0b7513f",
+        "name_ua": "барна \"Намір\"",
+        "name_eng": "the ‘Namir’ bar",
+        "address_ua": "вул. велика житомирська, 26",
+        "address_eng": "26 Velyka Zhytomyrska Street",
+        "description": "[{\"insert\":\"барна з великим потенціалом\"},{\"insert\":\"\\n\",\"attributes\":{\"blockquote\":true}},{\"insert\":\"ср - нд / 18:00-23:00\\nвхід через арку\\n\"}]",
+        "description_html": "<blockquote>барна з великим потенціалом</blockquote><p>ср - нд &#47; 18:00-23:00<br/>вхід через арку</p>",
+        "slug": "the-namir-bar",
+        "name_aliases": [
+          "барна \"Намір\"",
+          "the ‘Namir’ bar"
+        ],
+        "google_link": "https://maps.app.goo.gl/QMEMghFvZjCiF5f87",
+        "website_link": "https://www.instagram.com/barna.namir/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/00a8f2c7-2f30-4b33-72c3-81f62ef8ca00/public",
+        "latitude": 50.45543641911707,
+        "longitude": 30.511532685165623,
+        "meta": {
+          "title": "барна \"Намір\": Афіша і квитки на події в 2026",
+          "description": "Афіша і квитки на події в барна \"Намір\" | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "6ab239f40f840b89d0b75140"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2026-09-22T08:19:00.918Z",
+        "updated_at": "2026-09-22T08:19:00.918Z",
+        "__v": 0
+      },
+      "price_from": null,
+      "price_to": null,
+      "details_url": "",
+      "description": "[{\"insert\":\"Ну що, друзі, скучили за liquid funk та soulful?\\n\\nМаємо для вас ідеальну новину.\\nOVERTOWN SESSIONS буде знову зігрівати осінній Київ найтеплішими ритмами в @barna.namir\\n\\nLine-up:\\n🎧 @roi_s_dnb\\n🎧 @_____vi_vi_____\\n🎧 @overtown\\n\\nЧекаємо на вас!\\n\"}]",
+      "description_html": "<p>Ну що, друзі, скучили за liquid funk та soulful?<br/><br/>Маємо для вас ідеальну новину.<br/>OVERTOWN SESSIONS буде знову зігрівати осінній Київ найтеплішими ритмами в @barna.namir<br/><br/>Line-up:<br/>🎧 @roi_s_dnb<br/>🎧 @_____vi_vi_____<br/>🎧 @overtown<br/><br/>Чекаємо на вас!</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ad5fc48a2718c6e3f360c36",
+          "date_from": "2026-11-07T18:00:00.000Z",
+          "date_to": "2026-11-07T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ad5fc48a2718c6e3f360c2c",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "OVERTOWN SESSIONS субота, 7 листопада, 18:00: купити квитки",
+        "description": "Купити квитки на OVERTOWN SESSIONS субота, 7 листопада, 18:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ad5fc48a2718c6e3f360c2d"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": true,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-19T11:17:28.195Z",
+      "updated_at": "2026-10-19T11:17:28.195Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ad5fc48a2718c6e3f360c36",
+          "date_from": "2026-11-07T18:00:00.000Z",
+          "date_to": "2026-11-07T18:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ad5fc48a2718c6e3f360c2c",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f701e9b5c1873c14d886",
+      "title": "ShekBand | Colours in Motion",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/c02ebb9b-2552-4a5b-86e8-be0b3fb18400/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "shekband-colours-in-motion-20261107",
+      "location": {
+        "_id": "654267f470a242ba5c63d675",
+        "name_ua": "32 Jazz Club",
+        "name_eng": "32 Jazz Club",
+        "address_ua": "Київ, вул. Воздвиженська, 32",
+        "address_eng": "32, Vozdvyzhenska St., Kyiv",
+        "description": "[{\"insert\":\"live джаз-клуб, розташований на київському Подолі. Будучи довгий час галереєю contemporary art, сьогодні це місце зустрічі любителів вільної імпровізаційної музики.  \\n\"}]",
+        "slug": "32jazzclub",
+        "name_aliases": [
+          "32 Jazz Club",
+          "джез\nджаз\n"
+        ],
+        "google_link": "https://maps.app.goo.gl/PK6BBD4BP4CKbJEK8",
+        "website_link": "https://32jazz.club/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/aa8d1ea0-e888-4f06-4bde-23155081bd00/public",
+        "latitude": 50.45997617337743,
+        "longitude": 30.51145705047489,
+        "meta": {
+          "title": "32 Jazz Club: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в 32 Jazz Club | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "654267f470a242ba5c63d676"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-11-01T15:00:04.942Z",
+        "updated_at": "2024-09-11T13:05:05.052Z",
+        "__v": 0,
+        "description_html": "<p>live джаз-клуб, розташований на київському Подолі. Будучи довгий час галереєю contemporary art, сьогодні це місце зустрічі любителів вільної імпровізаційної музики.  </p>"
+      },
+      "price_from": 800,
+      "price_to": 800,
+      "details_url": "https://32jazz.club/event/shekband-jazz-family-trio-colours-in-motion/",
+      "description": "[{\"insert\":\"Виконавці:\\nАнна Шекера - Арфа, Рояль,\\nАртем Шекера - Контрабас,\\nМаксим Шекера - Барабани,\\nЗапрошуємо на особливий осінній джазовий вечір з ShekBand у затишній атмосфері \\nColours in Motion – це музика, у якій багато повітря, світла й кольору. Прозоре звучання, несподівані гармонії та вільний рух мелодій відкривають нові звукові простори, залишаючи місце для уяви, відчуттів і власних асоціацій.\\nНа сцені клубу – ShekBand: Jazz Family Trio, один із найцікавіших сучасних джазових колективів України, лауреати Ukrainian Jazz Prize та фіналісти престижних європейських конкурсів (Jazz in the Park, Tremplin Jazz d’Avignon).\\nСпираючись на традиції джазової музики, тріо формує власне бачення Contemporary Jazz.\\nНа концерті в Києві вперше прозвучать нові композиції з другого альбому, над яким гурт працює зараз, а також улюблені композиції з їх дебютного альбому «The Inflatable Ram».\\nНасолодіться вишуканим звучанням авторської музики та особливою атмосферою легендарного джазового клубу на Подолі.\\n\"}]",
+      "description_html": "<p>Виконавці:<br/>Анна Шекера - Арфа, Рояль,<br/>Артем Шекера - Контрабас,<br/>Максим Шекера - Барабани,<br/>Запрошуємо на особливий осінній джазовий вечір з ShekBand у затишній атмосфері <br/>Colours in Motion – це музика, у якій багато повітря, світла й кольору. Прозоре звучання, несподівані гармонії та вільний рух мелодій відкривають нові звукові простори, залишаючи місце для уяви, відчуттів і власних асоціацій.<br/>На сцені клубу – ShekBand: Jazz Family Trio, один із найцікавіших сучасних джазових колективів України, лауреати Ukrainian Jazz Prize та фіналісти престижних європейських конкурсів (Jazz in the Park, Tremplin Jazz d’Avignon).<br/>Спираючись на традиції джазової музики, тріо формує власне бачення Contemporary Jazz.<br/>На концерті в Києві вперше прозвучать нові композиції з другого альбому, над яким гурт працює зараз, а також улюблені композиції з їх дебютного альбому «The Inflatable Ram».<br/>Насолодіться вишуканим звучанням авторської музики та особливою атмосферою легендарного джазового клубу на Подолі.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f701e9b5c1873c14d88e",
+          "date_from": "2026-11-07T19:00:00.000Z",
+          "date_to": "2026-11-07T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f701e9b5c1873c14d886",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "ShekBand | Colours in Motion субота, 7 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на ShekBand | Colours in Motion субота, 7 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f701e9b5c1873c14d887"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:48:01.327Z",
+      "updated_at": "2026-11-02T20:48:01.327Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f701e9b5c1873c14d88e",
+          "date_from": "2026-11-07T19:00:00.000Z",
+          "date_to": "2026-11-07T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f701e9b5c1873c14d886",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae1af341d661a2d25b4cc0e",
+      "title": "Кіноцикл «(ĪNFĀNS) — той, хто не мовить»: «Дзеркало»",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/6a781876-d647-4728-6e22-82ff8cec3900/public",
+      "type": [
+        "Кіно"
+      ],
+      "tags": [],
+      "slug": "kinotsikl-nfns-toy-khto-ne-movit-dzerkalo--20261107",
+      "location": {
+        "description_html": null,
+        "_id": "65397141bf424e411fcb1636",
+        "name_ua": "Жовтень",
+        "name_eng": "Zhovten",
+        "address_ua": "вул. Костянтинівська, 26",
+        "address_eng": "26 Kostiantynivska St.",
+        "description": "Кінотеатр",
+        "slug": "zhovten",
+        "name_aliases": [
+          "Жовтень",
+          "Zhovten",
+          "жовтінь\nжовтєнь"
+        ],
+        "google_link": "https://maps.app.goo.gl/5GQgEMWHfdaA7rv7A",
+        "website_link": "https://zhovten-kino.kyiv.ua/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/7884c2a2-4b98-48ea-459b-87b2a8fe1a00/public",
+        "latitude": 50.468389360171614,
+        "longitude": 30.510162296073965,
+        "meta": {
+          "title": "Жовтень: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Жовтень | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65397141bf424e411fcb1637"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-25T19:49:21.125Z",
+        "updated_at": "2023-10-25T19:49:21.125Z",
+        "__v": 0
+      },
+      "price_from": 250,
+      "price_to": 250,
+      "details_url": "https://zhovten-kino.kyiv.ua/movie/356713",
+      "description": "[{\"insert\":\"КІНОЦИКЛ «(ĪNFĀNS) — ТОЙ, ХТО НЕ МОВИТЬ»\\n\\nМи, дорослі, настільки звикли до цього світу, що часто перестаємо помічати його таким, яким він є. Поняття, норми й упередження, покликані прояснити дійсність, зрештою підміняють її собою, втискуючи наше сприйняття у звичні рамки.\\n\\nЗ латини īnfāns — «той, хто не мовить». Але мовчання не означає нездатності бачити. Дитячий погляд ще не цілком підпорядкований усталеним категоріям, а тому здатен помічати те, що вислизає від дорослого. Дитинство — це межа, на якій звичні способи розуміння світу починають давати збій.\\n\\nКіно, що промовляє до нас образами, дає змогу наблизитися до ще не висловленого, побачити те, для чого ми поки не маємо слів.\\n\\nВід Джафара Панагі до Франсуа Трюффо — у цьому циклі ми зібрали чотири знакові фільми, що відкривають дитинство як особливий спосіб бачити світ. \\n\\n«Дзеркало» Панагі, лауреат «Золотого леопарда» Локарнського кінофестивалю, досліджує межу між реальністю та кінематографічною вигадкою.\\n\"}]",
+      "description_html": "<p>КІНОЦИКЛ «(ĪNFĀNS) — ТОЙ, ХТО НЕ МОВИТЬ»<br/><br/>Ми, дорослі, настільки звикли до цього світу, що часто перестаємо помічати його таким, яким він є. Поняття, норми й упередження, покликані прояснити дійсність, зрештою підміняють її собою, втискуючи наше сприйняття у звичні рамки.<br/><br/>З латини īnfāns — «той, хто не мовить». Але мовчання не означає нездатності бачити. Дитячий погляд ще не цілком підпорядкований усталеним категоріям, а тому здатен помічати те, що вислизає від дорослого. Дитинство — це межа, на якій звичні способи розуміння світу починають давати збій.<br/><br/>Кіно, що промовляє до нас образами, дає змогу наблизитися до ще не висловленого, побачити те, для чого ми поки не маємо слів.<br/><br/>Від Джафара Панагі до Франсуа Трюффо — у цьому циклі ми зібрали чотири знакові фільми, що відкривають дитинство як особливий спосіб бачити світ. <br/><br/>«Дзеркало» Панагі, лауреат «Золотого леопарда» Локарнського кінофестивалю, досліджує межу між реальністю та кінематографічною вигадкою.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae1af341d661a2d25b4cc16",
+          "date_from": "2026-11-07T19:00:00.000Z",
+          "date_to": "2026-11-07T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae1af341d661a2d25b4cc0e",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Кіноцикл «(ĪNFĀNS) — той, хто не мовить»: «Дзеркало» субота, 7 листопада, 19:00: купити квитки",
+        "description": "Купити квитки на Кіноцикл «(ĪNFĀNS) — той, хто не мовить»: «Дзеркало» субота, 7 листопада, 19:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae1af341d661a2d25b4cc0f"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-28T08:15:48.906Z",
+      "updated_at": "2026-10-28T08:15:48.906Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae1af341d661a2d25b4cc16",
+          "date_from": "2026-11-07T19:00:00.000Z",
+          "date_to": "2026-11-07T19:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae1af341d661a2d25b4cc0e",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae47eb523479c3b9471437c",
+      "title": "СМИК.Весілля",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/401ad116-432a-4e2f-c304-5ef03eab5b00/public",
+      "type": [
+        "Фестивалі",
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "smik-vesillia-20261108",
+      "location": {
+        "_id": "67b5ee194c0fb00e47de2524",
+        "name_ua": "Печерськ Палац",
+        "name_eng": "pechersk palace",
+        "address_ua": "вул.Князів Острозьких,3",
+        "address_eng": "Knyaziv Ostrozkykh St, 3",
+        "description": "[{\"insert\":\"Мистецький центр\\n\\n\"}]",
+        "description_html": "<p>Мистецький центр<br/></p>",
+        "slug": "pecherskpalace",
+        "name_aliases": [
+          "Печерськ Палац",
+          "pechersk palace",
+          "печінка"
+        ],
+        "google_link": "https://maps.app.goo.gl/HnvzzFnvivuaKMKB7",
+        "website_link": "https://www.instagram.com/pechersk.palace/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/53abde75-6d63-44ed-a76d-4ead4be92400/public",
+        "latitude": 50.328465652605175,
+        "longitude": 26.519547728835764,
+        "meta": {
+          "title": "Печерськ Палац: Афіша і квитки на події в 2025",
+          "description": "Афіша і квитки на події в Печерськ Палац | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "67b5ee194c0fb00e47de2525"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2025-02-19T14:43:37.352Z",
+        "updated_at": "2025-02-19T14:43:37.352Z",
+        "__v": 0
+      },
+      "price_from": 750,
+      "price_to": 3500,
+      "details_url": "https://l.instagram.com/?u=https%3A%2F%2Fsecure.wayforpay.com%2Fpayment%2Fcmyk_vesillia%3Futm_source%3Dig%26utm_medium%3Dsocial%26utm_content%3Dlink_in_bio%26fbclid%3DPAZXh0bgNhZW0CMTEAcGRvZgJzcnRjBmFwcF9pZA85MzY2MTk3NDMzOTI0NTkAAacardEuT2QlcQ1fyfEqYPVRVAgxvsyzZzhH7R_jgvi9mG9BJttSKp-Sz36u_Q_aem_0qISY_yAli4u5gHJeNSf_w&e=AUDdDbvG_3Z3x_LOSZIoJTXIJNTeaq_kU3g8evknHoNnAxfixP62HTMB4qAViPvqAvzObhIfxUA7_e0l48iXNnTAq46rW9mzaAbuuJ4APfw3cbtEq0hMX3tT-2O2pt7fNZP3voU",
+      "description": "[{\"insert\":\"Веселих і сумних, червонощоких і блідих, у парі і без пари — кличемо усіх на СМИК.Весілля 🤍\\n\\nВесілля — це зустріч двох родів, яка починається ритуальним протистоянням, а закінчується єднанням і народженням нової родини.\\nУ традиційній культурі це один із ключових переходів в житті людини і, звісно, привід добре погуляти!\\n\\nТож в листопаді запрошуєм відгуляти СМИК.Весілля – струнно-смичковий рейв, закорінений в українській родинній обрядовості Полісся та Поділля 🎻\\nВ лайн-апі:\\nВолодар\\nВільце\\nСільська музика\\nЩукаРиба\\nSymonenko & ДваТри\\nNFNR\\nHohe (DE)\\n\\nХто одружується? Усі і ніхто.\\nСМИК.Весілля — струнно-смичковий рейв, на якому ми відтворимо елементи української родинної обрядовості Полісся та Поділля під традиційну та електронну музику.\\n\\n\"}]",
+      "description_html": "<p>Веселих і сумних, червонощоких і блідих, у парі і без пари — кличемо усіх на СМИК.Весілля 🤍<br/><br/>Весілля — це зустріч двох родів, яка починається ритуальним протистоянням, а закінчується єднанням і народженням нової родини.<br/>У традиційній культурі це один із ключових переходів в житті людини і, звісно, привід добре погуляти!<br/><br/>Тож в листопаді запрошуєм відгуляти СМИК.Весілля – струнно-смичковий рейв, закорінений в українській родинній обрядовості Полісся та Поділля 🎻<br/>В лайн-апі:<br/>Володар<br/>Вільце<br/>Сільська музика<br/>ЩукаРиба<br/>Symonenko &amp; ДваТри<br/>NFNR<br/>Hohe (DE)<br/><br/>Хто одружується? Усі і ніхто.<br/>СМИК.Весілля — струнно-смичковий рейв, на якому ми відтворимо елементи української родинної обрядовості Полісся та Поділля під традиційну та електронну музику.<br/></p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae47eb523479c3b94714384",
+          "date_from": "2026-11-08T15:00:00.000Z",
+          "date_to": "2026-11-08T15:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae47eb523479c3b9471437c",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "СМИК.Весілля неділя, 8 листопада, 15:00: купити квитки",
+        "description": "Купити квитки на СМИК.Весілля неділя, 8 листопада, 15:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae47eb523479c3b9471437d"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-10-30T11:25:41.527Z",
+      "updated_at": "2026-10-30T11:25:41.527Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae47eb523479c3b94714384",
+          "date_from": "2026-11-08T15:00:00.000Z",
+          "date_to": "2026-11-08T15:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae47eb523479c3b9471437c",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f7811756a99d95da7f94",
+      "title": "Ансамбль Petrichor у Музеї",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/2a5b9813-de0a-45f7-33db-1c611d3d3300/public",
+      "type": [
+        "Музика"
+      ],
+      "tags": [],
+      "slug": "ansambl-petrichor-u-muze-20261108",
+      "location": {
+        "description_html": null,
+        "_id": "653a919e672e089a2b8fe546",
+        "name_ua": "Музей Ханенків",
+        "name_eng": "The Khanenko Museum",
+        "address_ua": "Київ, вул. Терещенківська, 15-17",
+        "address_eng": "15-17, Tereschenkivska St., Kyiv",
+        "description": "Найкраща колекція зарубіжного мистецтва в Україні: стародавній Єгипет, Греція та Рим та  унікальні візантійські ікони\n\n",
+        "slug": "thekhanenkomuseum",
+        "name_aliases": [
+          "Музей Ханенків",
+          "The Khanenko Museum",
+          "хоненкі\nхунєнкі\nхненкі\nханєнкі\nханенків\nхоненків\nхонєнків\nханєнків\nхнінків\nхнєнків"
+        ],
+        "google_link": "https://maps.app.goo.gl/2eALuxBCt3ZNcZWc6",
+        "website_link": "https://www.facebook.com/khanenkomuseum",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/0cd354c4-90e2-49f4-cffe-67d2fe5e3200/public",
+        "latitude": 50.44115105338951,
+        "longitude": 30.514647303764868,
+        "meta": {
+          "title": "Музей Ханенків: Афіша і квитки на події в 2023",
+          "description": "Афіша і квитки на події в Музей Ханенків | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "653a919e672e089a2b8fe547"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2023-10-26T16:19:42.796Z",
+        "updated_at": "2023-10-26T16:19:42.796Z",
+        "__v": 0
+      },
+      "price_from": 250,
+      "price_to": 250,
+      "details_url": "https://khanenkomuseum.event.net.ua/cart/cart?id_date=48695",
+      "description": "[{\"insert\":\"Запрошуємо провести недільний вечір у товаристві Ансамбль Petrichor ( @petrichor.ensemble ).\\nЦього разу в Музеї Ханенків звучатимуть твори Франца Шуберта та Йоганнеса Брамса — музика 19 століття, що запрошує разом вслухатися в мінливі настрої, діалог інструментів і найтонші емоційні відтінки.\\n\\nУ програмі:\\nФранц Шуберт\\nСтрунне тріо сі-бемоль мажор, D 471 (1816)\\n\\nЙоганнес Брамс\\nФортепіанний квартет № 3 до мінор, Op. 60 (1875). Присвята Ґіорґо Ґіні\\nI. Allegro non troppo\\nII. Scherzo. Allegro\\nIII. Andante\\nIV. Finale. Allegro comodo\\n\\nВиконавці:\\nКатерина Березникова — скрипка\\nАкім Зварич — альт\\nОлександр Подик — віолончель\\nАнна Зварич — фортепіано\\n\"}]",
+      "description_html": "<p>Запрошуємо провести недільний вечір у товаристві Ансамбль Petrichor ( @petrichor.ensemble ).<br/>Цього разу в Музеї Ханенків звучатимуть твори Франца Шуберта та Йоганнеса Брамса — музика 19 століття, що запрошує разом вслухатися в мінливі настрої, діалог інструментів і найтонші емоційні відтінки.<br/><br/>У програмі:<br/>Франц Шуберт<br/>Струнне тріо сі-бемоль мажор, D 471 (1816)<br/><br/>Йоганнес Брамс<br/>Фортепіанний квартет № 3 до мінор, Op. 60 (1875). Присвята Ґіорґо Ґіні<br/>I. Allegro non troppo<br/>II. Scherzo. Allegro<br/>III. Andante<br/>IV. Finale. Allegro comodo<br/><br/>Виконавці:<br/>Катерина Березникова — скрипка<br/>Акім Зварич — альт<br/>Олександр Подик — віолончель<br/>Анна Зварич — фортепіано</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f7811756a99d95da7f9c",
+          "date_from": "2026-11-08T16:00:00.000Z",
+          "date_to": "2026-11-08T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f7811756a99d95da7f94",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Ансамбль Petrichor у Музеї неділя, 8 листопада, 16:00: купити квитки",
+        "description": "Купити квитки на Ансамбль Petrichor у Музеї неділя, 8 листопада, 16:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f7811756a99d95da7f95"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:50:09.708Z",
+      "updated_at": "2026-11-02T20:50:09.708Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f7811756a99d95da7f9c",
+          "date_from": "2026-11-08T16:00:00.000Z",
+          "date_to": "2026-11-08T16:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f7811756a99d95da7f94",
+          "__v": 0
+        }
+      ]
+    },
+    {
+      "_id": "6ae8f91b1756a99d95dab705",
+      "title": "Чому нам варто бути меркантильними?",
+      "picture_url": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/08f39599-9a79-49db-56a6-3a1c55547c00/public",
+      "type": [
+        "Дискусії та лекції",
+        "Література"
+      ],
+      "tags": [],
+      "slug": "chomu-nam-varto-buti-merkantilnimi--20261108",
+      "location": {
+        "description_html": null,
+        "_id": "65d789c41009d8eeb1d0376b",
+        "name_ua": "Сенс на Хрещатику",
+        "name_eng": "Sens Khreschatyk",
+        "address_ua": "вул. Хрещатик, 34",
+        "address_eng": "Kreschatyk str, 34",
+        "description": "Книжковий простір в самому серці країни",
+        "slug": "senskhreschatyk",
+        "name_aliases": [
+          "Сенс на Хрещатику",
+          "Sens Khreschatyk",
+          "Сенс\nСенс на Хрещатику\nСенс Хрещатик"
+        ],
+        "google_link": "https://maps.app.goo.gl/UzV11W492oZhN74g8",
+        "website_link": "https://www.instagram.com/sens_khreshchatyk/",
+        "image_link": "https://artwizard.io/cdn-cgi/imagedelivery/nEFkEwcLfsgJlYjxGEgkpQ/04aa5349-7dfd-49f3-bed4-df3e80bcb200/public",
+        "latitude": 50.4470923,
+        "longitude": 30.521552117,
+        "meta": {
+          "title": "Сенс на Хрещатику: Афіша і квитки на події в 2024",
+          "description": "Афіша і квитки на події в Сенс на Хрещатику | Розклад і детальна інформація від ArtWizard ✅ Купити квитки онлайн ✅",
+          "_id": "65d789c41009d8eeb1d0376c"
+        },
+        "city": {
+          "_id": "651c2bf5db8ca9e1ecbdb601",
+          "name": "Київ",
+          "slug": "kyiv",
+          "created_at": "2023-10-03T11:00:00.000Z",
+          "updated_at": "2026-08-30T14:28:00.631Z",
+          "status": "published",
+          "name_gen": "Києва",
+          "name_loc": "у Києві",
+          "order": 0
+        },
+        "status": "published",
+        "created_at": "2024-02-22T17:52:04.846Z",
+        "updated_at": "2024-02-22T17:52:04.846Z",
+        "__v": 0
+      },
+      "price_from": 0,
+      "price_to": 0,
+      "details_url": "https://l.instagram.com/?u=https%3A%2F%2Fdocs.google.com%2Fforms%2Fd%2F1rzP8fH3EDEV4mNihRQ8MkG-4aUcanvyZwHs8ouk7kTg%2Fedit%3Futm_source%3Dig%26utm_medium%3Dsocial%26utm_content%3Dlink_in_bio&e=AUASPPgnuisCoZGLhbtrblErHcLSnBvRtdXyDT0nDhIKZGKx4ZNms8ZeBUfU1g7xovF8_9haOWTgb6ayPYpMgf3Bg2OrKjGw87WTxWFiNtC2wG6MAPz9AzOWqKEoDnp1O6NHpo8",
+      "description": "[{\"insert\":\"Чому бути меркантильними — це не соромно? Як навчитися говорити про гроші без страху, перестати жити від зарплати до зарплати та створити власну фінансову подушку безпеки?\\n\\nЗапрошуємо вас на презентацію книги «Чому нам варто бути меркантильними?» разом із її авторкою, фінансовою радницею та ведучою подкасту «Фінансова терапія» Галиною Тритяк у @sens_khreshatyk.\\n\\nПоговоримо про здорові стосунки з грошима, фінансову незалежність, заощадження та вміння цінувати власну працю. А ще — про те, як перестати боятися грошей, навчитися керувати ними та будувати життя, у якому є місце не лише для обов’язкових витрат, а й для задоволення.\\n\"}]",
+      "description_html": "<p>Чому бути меркантильними — це не соромно? Як навчитися говорити про гроші без страху, перестати жити від зарплати до зарплати та створити власну фінансову подушку безпеки?<br/><br/>Запрошуємо вас на презентацію книги «Чому нам варто бути меркантильними?» разом із її авторкою, фінансовою радницею та ведучою подкасту «Фінансова терапія» Галиною Тритяк у @sens_khreshatyk.<br/><br/>Поговоримо про здорові стосунки з грошима, фінансову незалежність, заощадження та вміння цінувати власну працю. А ще — про те, як перестати боятися грошей, навчитися керувати ними та будувати життя, у якому є місце не лише для обов’язкових витрат, а й для задоволення.</p>",
+      "event_occurrences": [
+        {
+          "_id": "6ae8f91b1756a99d95dab70d",
+          "date_from": "2026-11-08T17:00:00.000Z",
+          "date_to": "2026-11-08T17:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f91b1756a99d95dab705",
+          "__v": 0
+        }
+      ],
+      "percent_for_afu": null,
+      "meta": {
+        "title": "Чому нам варто бути меркантильними? неділя, 8 листопада, 17:00: купити квитки",
+        "description": "Купити квитки на Чому нам варто бути меркантильними? неділя, 8 листопада, 17:00 ✅ Розклад & детальна інформація від ArtWizard ✅",
+        "_id": "6ae8f91b1756a99d95dab706"
+      },
+      "status": "published",
+      "involved_artists": [],
+      "ticket_infos": [],
+      "donation_entry_fee": false,
+      "promo_code": null,
+      "organiser": null,
+      "created_at": "2026-11-02T20:56:59.045Z",
+      "updated_at": "2026-11-02T20:56:59.045Z",
+      "__v": 0,
+      "event_occurrences_data": [
+        {
+          "_id": "6ae8f91b1756a99d95dab70d",
+          "date_from": "2026-11-08T17:00:00.000Z",
+          "date_to": "2026-11-08T17:00:00.000Z",
+          "details_url": null,
+          "picture_url": null,
+          "event": "6ae8f91b1756a99d95dab705",
+          "__v": 0
+        }
+      ]
+    }
+  ],
+  "page_size": 20,
+  "total_pages": 4
+}

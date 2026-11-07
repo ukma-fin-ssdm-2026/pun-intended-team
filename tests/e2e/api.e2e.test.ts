@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
-import { createServer } from 'node:net';
+import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -2154,80 +2154,182 @@ describe('Parallel requests', () => {
 });
 
 // CMP-03, FR-008, FR-015: the import is a process of its own, connected as nearby_import (database-access.md).
+// It reads ArtWizard, Karabas and Nominatim from a local server with the responses saved on 2026-11-03, never the
+// sites.
 describe('Event import', () => {
-  /** One import run from a folder without .env, with IMPORT_DATABASE_URL as its only setting: no key file, no MAIN_DATABASE_URL. */
-  function runImport() {
+  const ARTWIZARD_TEST_KEY = 'e2e-artwizard-key';
+  let providerSite: Server;
+  let providerSiteUrl = '';
+
+  before(async () => {
+    const saved = (file: string) => readFileSync(path.resolve('tests/unit/fixtures/providers', file));
+    const pages: Record<string, string> = {
+      '/concerts/': 'karabas/kyiv-concerts.html',
+      '/clubs/': 'karabas/kyiv-clubs.html',
+      '/sport/': 'karabas/kyiv-sport.html',
+      '/search': 'nominatim/search.json',
+    };
+    // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
+    const artWizardPage = (page: string) => {
+      const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
+      return JSON.stringify({ ...body, total_pages: 2 });
+    };
+    providerSite = createHttpServer((req, res) => {
+      const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      if (pathname === '/events') {
+        const page = searchParams.get('page') ?? '';
+        if (searchParams.get('apiKey') !== ARTWIZARD_TEST_KEY) {
+          res.writeHead(401).end();
+        } else {
+          res
+            .writeHead(['1', '2'].includes(page) ? 200 : 404)
+            .end(['1', '2'].includes(page) ? artWizardPage(page) : '');
+        }
+        return;
+      }
+      const file = pages[pathname];
+      res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
+    });
+    await new Promise<void>((resolve) => providerSite.listen(0, resolve));
+    const { port } = providerSite.address() as AddressInfo;
+    providerSiteUrl = `http://localhost:${port}`;
+  });
+
+  after(() => new Promise<void>((resolve) => providerSite.close(() => resolve())));
+
+  /**
+   * One import run from a folder without .env, with no key file and no MAIN_DATABASE_URL. Asynchronous, so the
+   * local provider site in this process can answer it. Returns what the process printed.
+   */
+  async function runImport({ artWizardApiKey = ARTWIZARD_TEST_KEY, exitCode = 0 } = {}) {
     const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
     try {
-      const run = spawnSync(process.execPath, [path.resolve('dist/import/main.js')], {
+      const child = spawn(process.execPath, [path.resolve('dist/import/main.js')], {
         cwd,
-        encoding: 'utf8',
-        env: { PATH: process.env.PATH, IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL') },
+        env: {
+          PATH: process.env.PATH,
+          IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
+          ARTWIZARD_API_URL: providerSiteUrl,
+          ARTWIZARD_API_KEY: artWizardApiKey,
+          KARABAS_BASE_URL: providerSiteUrl,
+          NOMINATIM_BASE_URL: providerSiteUrl,
+          IMPORT_REQUEST_INTERVAL_MS: '0',
+          IMPORT_NOW: '2026-11-03T10:00:00Z',
+        },
       });
-      assert.equal(run.status, 0, `${run.stdout}${run.stderr}`);
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
+      assert.equal(status, exitCode, output);
+      return output;
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
   }
 
-  const importedEvents = () =>
+  const importedEvents = (provider: string) =>
     withDatabase(async (client) => {
-      const { rows } = await client.query<{ organization_id: string | null; status: string; venue_source: string }>(
-        `SELECT e.organization_id, e.status, v.source AS venue_source
+      const { rows } = await client.query<{
+        organization_id: string | null;
+        status: string;
+        venue_source: string;
+        source_url: string | null;
+      }>(
+        `SELECT e.organization_id, e.status, v.source AS venue_source, e.source_url
            FROM events e JOIN venues v ON v.id = e.venue_id
-          WHERE e.source = 'import' AND e.provider = 'concert_ua'`,
+          WHERE e.source = 'import' AND e.provider = $1`,
+        [provider],
       );
       return rows;
     });
 
-  test('takes the usable records of the feed into events and venues, and keeps the run and the skipped ones', async () => {
+  test('takes the usable events of both providers into events and venues, and keeps the runs and the skipped ones', async () => {
     const runsBefore = await withDatabase(async (client) =>
       (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
     );
 
-    runImport();
+    await runImport();
 
-    const events = await importedEvents();
-    assert.equal(events.length, 3);
-    for (const event of events) {
-      assert.deepEqual(event, { organization_id: null, status: 'published', venue_source: 'import' });
+    // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
+    // has no occurrence in it. Karabas: 20 concerts, 12 club events that are not concerts too, and 1 sport event.
+    const artWizard = await importedEvents('artwizard');
+    const karabas = await importedEvents('karabas');
+    assert.equal(artWizard.length, 30);
+    assert.equal(karabas.length, 33);
+    for (const event of [...artWizard, ...karabas]) {
+      assert.equal(event.organization_id, null);
+      assert.equal(event.status, 'published');
+      assert.equal(event.venue_source, 'import');
+      assert.match(event.source_url ?? '', /^https:\/\/(artwizard\.io|kyiv\.karabas\.com)\//);
     }
     const { rows: runs } = await withDatabase((client) =>
-      client.query<{ status: string; finished: boolean; skipped: number }>(
-        `SELECT r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
+      client.query<{ provider: string; status: string; finished: boolean; skipped: number }>(
+        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
            FROM import_runs r LEFT JOIN skipped_records s ON s.import_run_id = r.id
-          WHERE r.provider = 'concert_ua' AND NOT (r.id = ANY($1::uuid[]))
-          GROUP BY r.id`,
+          WHERE NOT (r.id = ANY($1::uuid[]))
+          GROUP BY r.id
+          ORDER BY r.provider`,
         [runsBefore],
       ),
     );
-    assert.deepEqual(runs, [{ status: 'succeeded', finished: true, skipped: 3 }]);
+    assert.deepEqual(runs, [
+      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 10 },
+      { provider: 'karabas', status: 'succeeded', finished: true, skipped: 0 },
+    ]);
   });
 
-  test('changes nothing when the feed has not changed', async () => {
-    runImport();
-    const first = await importedEvents();
+  test('changes nothing when the providers have not changed', async () => {
+    await runImport();
+    const first = (await importedEvents('karabas')).length;
 
-    runImport();
+    await runImport();
 
-    assert.equal((await importedEvents()).length, first.length);
-    assert.equal(first.length, 3);
+    assert.equal((await importedEvents('karabas')).length, first);
+    assert.equal(first, 33);
+    // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
+    assert.equal((await importedEvents('artwizard')).length, 30);
   });
 
-  test('serves the imported events through the API', async () => {
-    runImport();
-    const ids = await withDatabase(async (client) =>
-      (
-        await client.query<{ id: string }>(`SELECT id FROM events WHERE source = 'import' AND provider = 'concert_ua'`)
-      ).rows.map(({ id }) => id),
+  test('without ARTWIZARD_API_KEY fails the ArtWizard run only, and still imports Karabas', async () => {
+    const runsBefore = await withDatabase(async (client) =>
+      (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
     );
 
-    assert.equal(ids.length, 3);
-    for (const id of ids) {
+    // As on staging without the secret: the variable is set, but empty.
+    const output = await runImport({ artWizardApiKey: '', exitCode: 1 });
+
+    assert.match(output, /artwizard: the run failed: ARTWIZARD_API_KEY is not set/);
+    const { rows: runs } = await withDatabase((client) =>
+      client.query<{ provider: string; status: string }>(
+        'SELECT provider, status FROM import_runs WHERE NOT (id = ANY($1::uuid[])) ORDER BY provider',
+        [runsBefore],
+      ),
+    );
+    assert.deepEqual(runs, [
+      { provider: 'artwizard', status: 'failed' },
+      { provider: 'karabas', status: 'succeeded' },
+    ]);
+    assert.equal((await importedEvents('karabas')).length, 33);
+  });
+
+  test('serves the imported events through the API, with their image and source URLs', async () => {
+    await runImport();
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string; image_url: string | null; source_url: string | null }>(
+        `SELECT id, image_url, source_url FROM events WHERE source = 'import' AND provider IN ('artwizard', 'karabas')`,
+      ),
+    );
+
+    assert.ok(rows.length > 0);
+    for (const { id, image_url: imageUrl, source_url: sourceUrl } of rows) {
       const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
       assert.equal(res.status, 200);
       assert.equal(res.body.source, 'import');
+      assert.equal(res.body.imageUrl, imageUrl);
+      assert.equal(res.body.sourceUrl, sourceUrl);
     }
+    assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {

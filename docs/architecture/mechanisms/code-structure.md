@@ -25,6 +25,7 @@ src/
       controllers/  schemas/
   core/                         business logic, no HTTP
     common/                     domain-error.ts, kyiv-time.ts, page.ts, transaction.ts, transaction-runner.ts
+    common/                     domain-error.ts, kyiv-time.ts, catalog-window.ts, page.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
@@ -33,20 +34,21 @@ src/
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
-      adapters/                 event-provider.ts (abstract: one external listing service)
+      adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
       services/                 event-import.service.ts
       types/                    import
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
-    import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, EventProvider), loaded by src/import/ only, without InfraModule
+    import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, the EventProviders, Geocoder), loaded by src/import/ only, without InfraModule
     prisma/                     PrismaService (role nearby_main), ImportPrismaService (role nearby_import), one Prisma repository per core repository, catalog-rows.ts (venue and event rows to core types); generated/ is the Prisma client
     stubs/                      the import's in-memory repository (imported-events) and data.ts, only for the unit test of the import catalog
     auth/                       adapters for the identity module: access tokens, Google ID tokens, password and code hashing, key files
     jobs/                       PgBossJobQueue: the job queue on pg-boss ([job queue](job-queue.md))
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
-    providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
-  import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads only IMPORT_DATABASE_URL
+    providers/                  one adapter per external event provider (artwizard-, karabas-event-provider.ts), the polite HTTP client they share, import-settings.ts
+    geocoding/                  Geocoder implementation (nominatim-geocoder.ts)
+  import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads IMPORT_DATABASE_URL and the import settings of .env.example
   scripts/                      generate-spec.ts (npm run docs:generate), generate-keys.ts, set-role-passwords.ts
   mcp/                          MCP server generated from the spec; a separate Node project, not edited by hand
 ```
@@ -69,6 +71,7 @@ src/
 13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider`, `GoogleIdTokens` and `JobQueue` exist; `PushProvider` comes with notifications.
 
 14. **Transactions across modules** (HLD I2, I3) are explicit. A service starts one with `TransactionRunner.run(async (tx) => …)` (an abstract class in `core/common`, implemented with Prisma in `infra/prisma/`) and passes `tx` to every repository method, `notify(…, tx)` and `JobQueue.enqueue(…, tx)` that must join it. A repository method that can join takes `tx?: Transaction` and uses `tx ?? this.prisma`. Details: [database access](database-access.md#transactions). `@nestjs-cls/transactional` (implicit, no `tx` parameter) was considered and not adopted: an explicit `tx` keeps every transaction visible in signatures and needs no request context in job handlers.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. `EventProvider`, `Geocoder`, `MessagingProvider` and `GoogleIdTokens` exist; `PushProvider` comes with notifications. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
 
 ## Planned
 
