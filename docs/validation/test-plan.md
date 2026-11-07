@@ -163,7 +163,7 @@ The run made 215,260 requests, 357 a second. The slowest request, 30.01 s, was o
 **What this result does not show:**
 
 - It is a local run, not the staging run PERF-001 asks for. k6 shared the CPU with the API, which adds to the measured times. TC-10 on staging stays planned.
-- Listings are still served from the in-memory stub repository; only the session check of each request reaches PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
+- At the time of the run, listings were served from the in-memory stub repository; only the session check of each request reached PostgreSQL. The result covers the HTTP layer, token validation and the session lookup, not database queries for listings.
 
 ### State transition table: sign-in lockout
 
