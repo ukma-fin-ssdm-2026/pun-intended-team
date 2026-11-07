@@ -143,6 +143,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-71 | Session renewal (client) | Unit | Negative | A refresh that got no answer is sent once more after 2 s, and one that got `409` once more at once, and its tokens are used; if neither try gets an answer, or a second `409` comes, the refresh token is kept and the next request tries again; another answered refresh, such as `503`, is not sent again | Viktoriia Baran | SEC-005 | done |
 | TC-72 | `POST /auth/refresh`, 5 at once | Integration | Negative | One refresh token sent 5 times at the same time gets only `200` or `409`; the session is not ended, and exactly one of the returned refresh tokens is the one it stores | Viktoriia Baran | SEC-005 | done |
 | TC-73 | `deploy-staging.sh`: migrations a version does not know | Unit | Negative | With a database migrated past a commit, the check lists exactly the migrations that commit lacks, and nothing for a commit that knows them all; a database that cannot be read fails the check | Viktoriia Baran | REL-001 | done |
+| TC-76 | `PoliteHttpClient` retries | Unit | Negative | A server that keeps answering `503` gets exactly the allowed attempts, then the last answer is returned and logged as a failure; an unreachable one makes the call throw after its attempts and log it; each wait is a random part of the doubled backoff, never above `maxBackoffMs` | Viktoriia Baran | REL-003 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

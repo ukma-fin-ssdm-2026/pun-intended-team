@@ -14,6 +14,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ### Changed
 
+- The import's requests to the event providers and Nominatim wait a random time before each retry, at most 8 s, and log a request that failed after its last attempt.
 - Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
 
 ### Removed
