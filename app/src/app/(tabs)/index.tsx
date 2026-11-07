@@ -3,7 +3,7 @@
 // data; reviewed by Daryna Halytska.
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,16 +14,24 @@ import { Chip } from '@/components/ui/chip';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
-import { Icon } from '@/components/ui/icon';
+import { Icon, type IconName } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
-import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
+import { useCategories } from '@/hooks/use-categories';
+import { useEvents } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
-import { mockCategories, mockEvents } from '@/mocks/events';
+import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockUser } from '@/mocks/user';
-import { filterEvents, resetFilters, selectCategory, setQuery, useCatalogFilters } from '@/state/catalog-filters';
+import {
+  eventQuery,
+  filterEvents,
+  resetFilters,
+  selectCategory,
+  setQuery,
+  useCatalogFilters,
+} from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -37,6 +45,35 @@ const LIST_BOTTOM_GAP = 26;
 const LOADING_MS = 1500;
 const DISSOLVE_MS = 250;
 const SKELETON_COUNT = 2;
+// The next page is requested this far (px) before the end of the list.
+const NEXT_PAGE_DISTANCE = 400;
+
+// The 01.3 card, also used when the catalog is empty or cannot be loaded.
+function CatalogNotice({
+  icon,
+  title,
+  text,
+  action,
+}: {
+  icon: IconName;
+  title: string;
+  text: string;
+  action?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View className="items-center gap-3 overflow-hidden rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
+      <View
+        className="size-[76px] items-center justify-center rounded-[38px] bg-brand-coral"
+        style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
+      >
+        <Icon name={icon} size={34} color={colors.text['on-dark']} />
+      </View>
+      <Text className="text-center font-inter-semibold text-h2 text-text-primary">{title}</Text>
+      <Text className="text-center font-inter text-body text-text-secondary">{text}</Text>
+      {action && <Button label={action.label} size="sm" onPress={action.onPress} />}
+    </View>
+  );
+}
 
 export default function CatalogScreen() {
   const router = useRouter();
@@ -47,6 +84,9 @@ export default function CatalogScreen() {
   const filters = useCatalogFilters();
   const favoriteIds = useFavoriteIds();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // The API narrows by one category and by the days; the next page is loaded when the list is scrolled to its end.
+  const allEvents = useEvents(eventQuery(filters));
+  const categories = useCategories();
   useStatusBarStyle('light');
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.
@@ -58,10 +98,21 @@ export default function CatalogScreen() {
     }, [catalogLoading]),
   );
 
-  const chips = [{ id: undefined, name: 'Усі' }, ...mockCategories.slice(0, visibleCategories(width))];
+  // The development switch can hold the skeleton longer than the request takes.
+  const loading = catalogLoading || allEvents.loading;
+  const categoryList = categories.data ?? [];
+  const chips = [{ id: undefined, name: 'Усі' }, ...categoryList.slice(0, visibleCategories(width))];
   const isChipSelected = (id: string | undefined) =>
     id ? filters.categoryIds.includes(id) : filters.categoryIds.length === 0;
-  const events = filterEvents(mockEvents, filters);
+  const loadedEvents = allEvents.data ?? [];
+  // Gap: the search text, several categories and "Де" filter only the pages loaded so far (catalog-access.md: no bulk
+  // access, so the app does not load the whole catalog to search it).
+  const events = filterEvents(loadedEvents, filters);
+
+  const retry = () => {
+    allEvents.reload();
+    if (categories.error) categories.reload();
+  };
 
   // A guest also opens the event page; it shows the sign-in dialog over it (02.2).
   const openEvent = (id: string) => router.push({ pathname: '/events/[id]', params: { id } });
@@ -72,6 +123,12 @@ export default function CatalogScreen() {
         className="flex-1 bg-surface-background"
         contentContainerStyle={{ paddingBottom: BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP }}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={200}
+        onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+          if (contentOffset.y + layoutMeasurement.height >= contentSize.height - NEXT_PAGE_DISTANCE) {
+            allEvents.loadMore();
+          }
+        }}
       >
         {/* Taller than the header, so the first card starts over the gradient, as in Figma. */}
         <View className="absolute left-0 right-0 top-0 h-[484px]">
@@ -84,7 +141,7 @@ export default function CatalogScreen() {
           <CatalogHeader
             name={profile.data?.displayName}
             // Figma hides the unread dot while the catalog loads.
-            hasUnread={mockUser.hasUnreadNotifications && !catalogLoading}
+            hasUnread={mockUser.hasUnreadNotifications && !loading}
             onNotificationsPress={() => router.push('/notifications')}
             onAvatarPress={() => router.navigate('/profile')}
           />
@@ -107,7 +164,7 @@ export default function CatalogScreen() {
           </View>
         </View>
 
-        {catalogLoading ? (
+        {loading ? (
           <View className="gap-4 px-5 pt-7">
             {Array.from({ length: SKELETON_COUNT }, (_, index) => (
               <EventCardSkeleton key={index} />
@@ -124,42 +181,62 @@ export default function CatalogScreen() {
                   category={event.category.name}
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
-                  cover={event.cover}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.
                   onPress={() => openEvent(event.id)}
                 />
               ))}
-              {events.length === 0 && (
-                // 01.3: nothing matches the search or the filters.
-                <View className="items-center gap-3 overflow-hidden rounded-[22px] bg-surface-card px-6 pb-7 pt-8">
-                  <View
-                    className="size-[76px] items-center justify-center rounded-[38px] bg-brand-coral"
-                    style={{ boxShadow: '0px 0px 30px rgba(223, 84, 74, 0.5)' }}
-                  >
-                    <Icon name="empty-search" size={34} color={colors.text['on-dark']} />
-                  </View>
-                  <Text className="text-center font-inter-semibold text-h2 text-text-primary">Нічого не знайшли</Text>
-                  <Text className="text-center font-inter text-body text-text-secondary">
-                    Спробуй змінити фільтри або дати. Нові події зʼявляються щодня.
-                  </Text>
-                  <Button
-                    label="Скинути фільтри"
-                    size="sm"
-                    onPress={() => {
-                      setQuery('');
-                      resetFilters();
+              {allEvents.error ? (
+                <CatalogNotice
+                  icon="state-danger"
+                  title="Не вдалося завантажити події"
+                  text="Перевір зʼєднання з інтернетом і спробуй ще раз."
+                  action={{ label: 'Спробувати ще раз', onPress: retry }}
+                />
+              ) : loadedEvents.length === 0 ? (
+                <CatalogNotice
+                  icon="empty-search"
+                  title="Поки немає подій"
+                  text="Нові події зʼявляються щодня. Зазирни трохи пізніше."
+                />
+              ) : (
+                events.length === 0 && (
+                  // 01.3: nothing matches the search or the filters.
+                  <CatalogNotice
+                    icon="empty-search"
+                    title="Нічого не знайшли"
+                    text="Спробуй змінити фільтри або дати. Нові події зʼявляються щодня."
+                    action={{
+                      label: 'Скинути фільтри',
+                      onPress: () => {
+                        setQuery('');
+                        resetFilters();
+                      },
                     }}
                   />
-                </View>
+                )
+              )}
+              {allEvents.loadingMore && <ActivityIndicator color={colors.brand.coral} />}
+              {allEvents.hasMore && !allEvents.loadingMore && !allEvents.error && (
+                // Also for a list too short to scroll, e.g. when the search hides most of the loaded events.
+                <Button
+                  label={allEvents.loadMoreFailed ? 'Не вдалося завантажити. Спробувати ще раз' : 'Показати ще'}
+                  variant="light"
+                  onPress={allEvents.loadMore}
+                />
               )}
             </View>
           </Animated.View>
         )}
       </ScrollView>
 
-      <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersSheet
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        events={loadedEvents}
+        categories={categoryList}
+      />
     </>
   );
 }
