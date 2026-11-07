@@ -2158,22 +2158,37 @@ describe('Parallel requests', () => {
 // sites.
 describe('Event import', () => {
   const ARTWIZARD_TEST_KEY = 'e2e-artwizard-key';
+  const KARABAS_SECTIONS = [
+    '/concerts/',
+    '/exhibitions/',
+    '/cinema/',
+    '/theatres/',
+    '/sport/',
+    '/festivals/',
+    '/clubs/',
+  ];
   let providerSite: Server;
   let providerSiteUrl = '';
+  /** A Karabas event the local site leaves out of every page while set, as if Karabas had removed it. */
+  let karabasRemoved: string | undefined;
 
   before(async () => {
     const saved = (file: string) => readFileSync(path.resolve('tests/unit/fixtures/providers', file));
-    const pages: Record<string, string> = {
-      '/concerts/': 'karabas/kyiv-concerts.html',
-      '/clubs/': 'karabas/kyiv-clubs.html',
-      '/sport/': 'karabas/kyiv-sport.html',
-      '/search': 'nominatim/search.json',
-    };
+    const pages = new Map([
+      ['/concerts/', 'karabas/kyiv-concerts.html'],
+      ['/clubs/', 'karabas/kyiv-clubs.html'],
+      ['/sport/', 'karabas/kyiv-sport.html'],
+      ['/search', 'nominatim/search.json'],
+    ]);
     // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
     const artWizardPage = (page: string) => {
       const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
       return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
+    const eventBlocks = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
+    const noEvents = saved('karabas/kyiv-sport-2026-11-07.html').toString().replace(eventBlocks, '');
+    const withoutEvent = (html: string, slug: string) =>
+      html.replace(eventBlocks, (block) => (block.includes(`/${slug}/"`) ? '' : block));
     providerSite = createHttpServer((req, res) => {
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
       if (pathname === '/events') {
@@ -2187,8 +2202,16 @@ describe('Event import', () => {
         }
         return;
       }
-      // Only the first page of each Karabas section was saved on 3 November; its next page answers 404.
-      const file = searchParams.has('page') ? undefined : pages[pathname];
+      // Only the first page of three Karabas sections was saved on 3 November. The others, and the next page of a
+      // saved one, answer with a saved page without its events, which has no "load more" link either: the end of
+      // the section, so a Karabas run reads its full list.
+      if (KARABAS_SECTIONS.includes(pathname)) {
+        const file = searchParams.has('page') ? undefined : pages.get(pathname);
+        const html = file ? saved(file).toString() : noEvents;
+        res.writeHead(200).end(karabasRemoved ? withoutEvent(html, karabasRemoved) : html);
+        return;
+      }
+      const file = pages.get(pathname);
       res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
     });
     await new Promise<void>((resolve) => providerSite.listen(0, resolve));
@@ -2265,8 +2288,8 @@ describe('Event import', () => {
       assert.match(event.source_url ?? '', /^https:\/\/(artwizard\.io|kyiv\.karabas\.com)\//);
     }
     const { rows: runs } = await withDatabase((client) =>
-      client.query<{ provider: string; status: string; finished: boolean; skipped: number }>(
-        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
+      client.query<{ provider: string; status: string; finished: boolean; complete: boolean; skipped: number }>(
+        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, r.complete, count(s.id)::int AS skipped
            FROM import_runs r LEFT JOIN skipped_records s ON s.import_run_id = r.id
           WHERE NOT (r.id = ANY($1::uuid[]))
           GROUP BY r.id
@@ -2275,8 +2298,8 @@ describe('Event import', () => {
       ),
     );
     assert.deepEqual(runs, [
-      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 10 },
-      { provider: 'karabas', status: 'succeeded', finished: true, skipped: 0 },
+      { provider: 'artwizard', status: 'succeeded', finished: true, complete: true, skipped: 10 },
+      { provider: 'karabas', status: 'succeeded', finished: true, complete: true, skipped: 0 },
     ]);
   });
 
@@ -2290,6 +2313,54 @@ describe('Event import', () => {
     assert.equal(first, 33);
     // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
     assert.equal((await importedEvents('artwizard')).length, 30);
+  });
+
+  const eventStatus = async (provider: string, externalId: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ id: string; status: string }>(
+        'SELECT id, status FROM events WHERE provider = $1 AND external_id = $2',
+        [provider, externalId],
+      );
+      return rows[0];
+    });
+
+  test('cancels a Karabas event gone from its full list, and publishes it again when it comes back', async () => {
+    await runImport();
+    const before = await eventStatus('karabas', 'lama-15');
+    assert.equal(before?.status, 'published');
+
+    karabasRemoved = 'lama-15';
+    let output: string;
+    try {
+      output = await runImport();
+    } finally {
+      karabasRemoved = undefined;
+    }
+
+    assert.match(output, /karabas: fetched 32, .*cancelled 1, skipped 0; the full list/);
+    assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'cancelled');
+    const shown = await call('GET', `/api/v1/events/${before?.id}`, { token: tokens.guest });
+    assert.equal(shown.status, 200);
+    assert.equal(shown.body.status, 'cancelled');
+    const listed = (await importedEvents('karabas')).filter((event) => event.status === 'published');
+    assert.equal(listed.length, 32);
+
+    const back = await runImport();
+
+    assert.match(back, /karabas: fetched 33, .*\(republished 1\), unchanged 32, cancelled 0/);
+    assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'published');
+  });
+
+  test('cancels nothing when an ArtWizard run fails', async () => {
+    await runImport();
+    const published = async () =>
+      (await importedEvents('artwizard')).filter((event) => event.status === 'published').length;
+    const before = await published();
+
+    await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
+
+    assert.equal(await published(), before);
+    assert.equal(before, 30);
   });
 
   test('marks a run that never finished as failed before the next run of its provider', async () => {

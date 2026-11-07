@@ -167,6 +167,9 @@ package "import (CMP-03)" {
     * started_at : timestamptz
     finished_at : timestamptz
     * status : text
+    * complete : boolean
+    seen : integer
+    parts : jsonb
   }
 
   entity "SkippedRecord" as skipped_record {

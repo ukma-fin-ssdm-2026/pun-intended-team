@@ -6,7 +6,7 @@ import { addDays, fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
-import { errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
+import { coveredInstants, errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
 export const ARTWIZARD_API_URL = 'https://api.artwizard.io';
 /** Where the event pages are; `sourceUrl` points there, never to `details_url`, which is empty or another site. */
@@ -98,7 +98,8 @@ export class ArtWizardEventProvider extends EventProvider {
     if (!this.apiKey) {
       throw new Error('ARTWIZARD_API_KEY is not set: see .env.example');
     }
-    const window = permittedWindow(this.now());
+    const now = this.now();
+    const window = permittedWindow(now);
     const events: unknown[] = [];
     let total = 0;
     let totalPages = 0;
@@ -119,7 +120,7 @@ export class ArtWizardEventProvider extends EventProvider {
           : `Not the full list: ${events.length} events read, the API names ${total}`,
       );
     }
-    return { records: events, complete };
+    return { records: events, complete, covers: coveredInstants(now, window) };
   }
 
   private async fetchPage(window: { from: string; to: string }, page: number): Promise<z.infer<typeof EventsPage>> {

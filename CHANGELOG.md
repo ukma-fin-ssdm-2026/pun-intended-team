@@ -11,6 +11,10 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
 - `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
 
+### Added
+
+- Imported events that a provider no longer lists are cancelled after a run that read its full list, and published again when they come back; a failed or partial run, or a list that looks broken, cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366), ADR-006 decision 10). `import_runs` records whether a run's list was complete, how many records it saw and how many events each Karabas section listed (migration `import_run_lists`).
+
 ### Fixed
 
 - Karabas events are imported for the whole 28-day catalog window instead of the first page of each section, about 4 days: the import follows each section's "load more" link with `per-page=20`, at most 40 pages a section, so `/theatres/` with about 20 shows a day is read to the end too ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).

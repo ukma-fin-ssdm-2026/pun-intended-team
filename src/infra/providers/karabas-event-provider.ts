@@ -7,7 +7,15 @@ import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/c
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
 import type { HttpClient } from './http-client.ts';
-import { errorMessage, fitDescription, fitTitle, inWindow, jsonLdObjects, slugOf } from './provider-pages.ts';
+import {
+  coveredInstants,
+  errorMessage,
+  fitDescription,
+  fitTitle,
+  inWindow,
+  jsonLdObjects,
+  slugOf,
+} from './provider-pages.ts';
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
@@ -85,14 +93,17 @@ export class KarabasEventProvider extends EventProvider {
    * complete only when every section was read to that point.
    */
   async fetch(): Promise<FetchResult<KarabasRecord>> {
-    const window = catalogWindow(this.now());
+    const now = this.now();
+    const window = catalogWindow(now);
     const byUrl = new Map<string, KarabasRecord>();
     const read = { pages: 0, outsideWindow: 0 };
+    // Events in the window per section, before an event listed in two sections is kept once.
+    const parts = new Map<string, number>();
     let failedSections = 0;
     let incompleteSections = 0;
 
     for (const section of KARABAS_SECTIONS) {
-      const result = await this.readSection(section, window, byUrl, read);
+      const result = await this.readSection(section, window, byUrl, read, parts);
       if (result === 'failed') {
         failedSections++;
       } else if (result === 'incomplete') {
@@ -107,7 +118,12 @@ export class KarabasEventProvider extends EventProvider {
         `${read.outsideWindow} outside it; ${failedSections} of ${KARABAS_SECTIONS.length} sections failed, ` +
         `${incompleteSections} not read to the end`,
     );
-    return { records: [...byUrl.values()], complete: failedSections === 0 && incompleteSections === 0 };
+    return {
+      records: [...byUrl.values()],
+      complete: failedSections === 0 && incompleteSections === 0,
+      covers: coveredInstants(now, window),
+      parts: Object.fromEntries(parts),
+    };
   }
 
   /**
@@ -120,9 +136,11 @@ export class KarabasEventProvider extends EventProvider {
     window: { from: string; to: string },
     byUrl: Map<string, KarabasRecord>,
     read: { pages: number; outsideWindow: number },
+    parts: Map<string, number>,
   ): Promise<'complete' | 'incomplete' | 'failed'> {
     const sectionUrl = new URL(path, this.baseUrl);
     const seenInSection = new Set<string>();
+    const inWindowInSection = new Set<string>();
     let url = sectionUrl.href;
     for (let page = 1; ; page++) {
       if (page > MAX_PAGES_PER_SECTION) {
@@ -141,6 +159,7 @@ export class KarabasEventProvider extends EventProvider {
         return page === 1 ? 'failed' : 'incomplete';
       }
       read.pages++;
+      parts.set(path, inWindowInSection.size);
 
       const events = jsonLdObjects(html).filter(isEvent);
       let newInSection = 0;
@@ -160,6 +179,10 @@ export class KarabasEventProvider extends EventProvider {
         if (validStart && !inWindow(validStart, window)) {
           read.outsideWindow++;
           continue;
+        }
+        if (!inWindowInSection.has(key)) {
+          inWindowInSection.add(key);
+          parts.set(path, inWindowInSection.size);
         }
         if (!byUrl.has(key)) {
           byUrl.set(key, { section: path, category, event });

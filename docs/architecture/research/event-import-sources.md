@@ -51,6 +51,7 @@ First read from the sitemap and the event pages' JSON-LD; since the permission, 
 
 ## Decisions
 
+- Removed and cancelled events: after a full list, a provider's imported events it no longer lists are cancelled, and published again when they come back; nothing is cancelled after a failed or partial run, or a list that looks broken (no records, under half of the last full list, or a section that had events and is now empty). `/festivals/` was empty on 2026-11-07, so an empty section is possible and is compared with the last full list. See ADR-006, decision 10.
 - Karabas: every page of each section, through the "load more" link with `per-page=20`, until the last event of a page starts after the window; at most 40 pages per section.
 
 - Sources: ArtWizard (through its API, with its permission) and Karabas.

@@ -237,6 +237,31 @@ describe('KarabasEventProvider.fetch, page after page', () => {
     assert.equal(records.length, 39, 'the pinned event is outside the window');
   });
 
+  test('counts the events in the window per section, before an event of two sections is kept once', async () => {
+    const { result } = read({ ...concerts, '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    const { parts } = await result;
+
+    // The sections that answered 404 are not counted: the list is not complete anyway.
+    assert.deepEqual(parts, { '/concerts/': 40, '/sport/': 1 });
+  });
+
+  test('counts a section that answers a page without events as 0', async () => {
+    const empty = savedPage('karabas/kyiv-sport-2026-11-07.html').replace(
+      /<script type="application\/ld\+json">[\s\S]*?<\/script>/g,
+      '',
+    );
+    const { result } = read({ '/festivals/': { status: 200, text: empty } });
+
+    assert.deepEqual((await result).parts, { '/festivals/': 0 });
+  });
+
+  test('covers the list from the time it was read to the end of the window’s last Kyiv day', async () => {
+    const { result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    assert.deepEqual((await result).covers, { from: '2026-11-07T10:00:00.000Z', to: '2026-12-05T21:59:59.999Z' });
+  });
+
   test('reads a section without a "load more" link as its last page', async () => {
     const { http, result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
 

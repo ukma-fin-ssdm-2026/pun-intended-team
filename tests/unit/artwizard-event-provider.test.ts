@@ -144,6 +144,13 @@ describe('ArtWizardEventProvider.fetch', () => {
     );
   });
 
+  test('covers the list from the time it was read to the end of the 28th day', async () => {
+    const { covers, parts } = await makeProvider().fetch();
+
+    assert.deepEqual(covers, { from: '2026-11-03T10:00:00.000Z', to: '2026-11-30T21:59:59.999Z' });
+    assert.equal(parts, undefined);
+  });
+
   test('reports the list as not complete when it holds fewer events than the API names', async () => {
     // The saved run named 74 events in 4 pages; here pages 1 and 2 claim to be all of them.
     const http = apiClient({

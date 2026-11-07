@@ -5,15 +5,21 @@ import { EVENT_PROVIDERS, EventProvider } from '../adapters/event-provider.ts';
 import { Geocoder } from '../adapters/geocoder.ts';
 import { ImportedEventsRepository } from '../repositories/imported-events.repository.ts';
 import type {
+  CompleteRun,
+  FetchResult,
   ImportedEvent,
   ImportedEventFields,
   ImportedEventRow,
   ImportReport,
   ImportRunSummary,
+  RunDetails,
   SkippedRecord,
 } from '../types/import.ts';
 
-type Saved = 'created' | 'updated' | 'unchanged';
+type Saved = 'created' | 'updated' | 'unchanged' | 'republished';
+
+/** A complete list is taken as broken, and cancels nothing, when it sees fewer than this share of the last one's. */
+const LEAST_SHARE_OF_LAST_LIST = 0.5;
 
 /** FR-008: takes the events of the external providers into the catalog. */
 @Injectable()
@@ -47,6 +53,9 @@ export class EventImportService {
    * changed. Every run is recorded; one that fails, e.g. because the provider is down, is recorded as failed and
    * leaves the events of earlier runs as they are (FR-014).
    *
+   * After a complete list, the provider's imported events that it no longer lists are cancelled, and a cancelled
+   * one it lists again is published again (ADR-006). A failed run, or a list that is not complete, cancels nothing.
+   *
    * The error that stopped the run is the one thrown, even when recording the failure fails too. When the database
    * cannot record the run at all, the run stays `running`, and the provider's next run marks it failed first.
    */
@@ -54,15 +63,15 @@ export class EventImportService {
     await this.importedEventsRepository.failUnfinishedRuns(provider.id);
     const since = await this.importedEventsRepository.lastSucceededRunStart(provider.id);
     const runId = await this.importedEventsRepository.startRun(provider.id);
-    let report: ImportReport;
+    let result: { report: ImportReport; details: RunDetails };
     try {
-      report = await this.importRecords(provider, runId, since);
+      result = await this.importRecords(provider, runId, since);
     } catch (error) {
       await this.recordFailure(provider.id, runId);
       throw error;
     }
-    await this.importedEventsRepository.finishRun(runId, 'succeeded');
-    return report;
+    await this.importedEventsRepository.finishRun(runId, 'succeeded', result.details);
+    return result.report;
   }
 
   /** Records the run as failed; an error doing so is logged, so it never replaces the error that stopped the run. */
@@ -76,8 +85,13 @@ export class EventImportService {
     }
   }
 
-  private async importRecords(provider: EventProvider, runId: string, since?: Date): Promise<ImportReport> {
-    const { records: raws, complete } = await provider.fetch(since);
+  private async importRecords(
+    provider: EventProvider,
+    runId: string,
+    since?: Date,
+  ): Promise<{ report: ImportReport; details: RunDetails }> {
+    const list = await provider.fetch(since);
+    const { records: raws, complete } = list;
     const categoryIdsByName = new Map(
       (await this.importedEventsRepository.findActiveCategories()).map((category) => [
         category.name.toLowerCase(),
@@ -91,10 +105,15 @@ export class EventImportService {
       created: 0,
       updated: 0,
       unchanged: 0,
+      cancelled: 0,
+      republished: 0,
       skipped: [],
     };
     // Addresses the geocoder could not find in this run, so a venue with many events is asked about once.
     const notFound = new Set<string>();
+    // The provider's events this run saw: saved, or skipped only because the geocoder failed or found nothing,
+    // which says nothing about whether the event still exists.
+    const seen = new Set<string>();
 
     for (const raw of raws) {
       const result = provider.normalize(raw);
@@ -114,19 +133,30 @@ export class EventImportService {
         continue;
       }
       const venue = await this.venueFor(imported, notFound);
+      seen.add(imported.externalId);
       if (typeof venue === 'string') {
         await skip(venue);
         continue;
       }
-      report[await this.save(provider.id, imported, categoryId, venue.id)]++;
+      count(report, await this.save(provider.id, imported, categoryId, venue.id));
     }
 
+    const last = await this.importedEventsRepository.lastCompleteRun(provider.id);
+    const brokenBecause = complete ? whyBroken(list, seen.size, last) : 'the list is not complete';
+    if (brokenBecause) {
+      this.logger.warn(`${report.provider}: cancelling nothing: ${brokenBecause}`);
+    } else {
+      report.cancelled = await this.importedEventsRepository.cancelUnseen(provider.id, [...seen], list.covers);
+    }
+    report.complete = !brokenBecause;
+
     this.logger.log(
-      `${report.provider}: fetched ${report.fetched}, created ${report.created}, updated ${report.updated}, ` +
-        `unchanged ${report.unchanged}, skipped ${report.skipped.length}; ` +
+      `${report.provider}: fetched ${report.fetched}, created ${report.created}, updated ${report.updated} ` +
+        `(republished ${report.republished}), unchanged ${report.unchanged}, cancelled ${report.cancelled}, ` +
+        `skipped ${report.skipped.length}; ` +
         (report.complete ? 'the full list' : 'not the full list'),
     );
-    return report;
+    return { report, details: { complete: report.complete, seen: seen.size, parts: list.parts } };
   }
 
   /**
@@ -176,17 +206,52 @@ export class EventImportService {
       await this.importedEventsRepository.createEvent({ ...fields, provider, externalId });
       return 'created';
     }
-    if (isSame(existing, fields)) {
+    if (existing.status === 'published' && isSame(existing, fields)) {
       return 'unchanged';
     }
     await this.importedEventsRepository.updateEvent(existing.id, fields);
-    return 'updated';
+    return existing.status === 'cancelled' ? 'republished' : 'updated';
   }
 
   private async skip(report: ImportReport, runId: string, raw: unknown, record: SkippedRecord): Promise<void> {
     report.skipped.push(record);
     await this.importedEventsRepository.saveSkipped(runId, raw, record.reason);
     this.logger.warn(`${report.provider}: skipped ${record.externalId ?? 'a record without id'}: ${record.reason}`);
+  }
+}
+
+/**
+ * Why a complete list still looks broken: it saw no records, or, compared with the provider's last complete list, it
+ * saw fewer than half as many, or a part that listed records then lists none now. Undefined when it looks whole.
+ */
+function whyBroken(list: FetchResult, seen: number, last: CompleteRun | undefined): string | undefined {
+  if (seen === 0) {
+    return 'it saw no records';
+  }
+  if (!last) {
+    return undefined;
+  }
+  if (seen < last.seen * LEAST_SHARE_OF_LAST_LIST) {
+    return `it saw ${seen} records, under half of the ${last.seen} of the last complete list`;
+  }
+  const now = new Map(Object.entries(list.parts ?? {}));
+  const emptied = Object.entries(last.parts)
+    .filter(([part, count]) => count > 0 && (now.get(part) ?? 0) === 0)
+    .map(([part]) => part);
+  return emptied.length > 0 ? `${emptied.join(', ')} listed records in the last complete list and none now` : undefined;
+}
+
+/** Counts a saved record in the report; a republished event is also an updated one. */
+function count(report: ImportReport, saved: Saved): void {
+  if (saved === 'created') {
+    report.created++;
+  } else if (saved === 'unchanged') {
+    report.unchanged++;
+  } else {
+    report.updated++;
+    if (saved === 'republished') {
+      report.republished++;
+    }
   }
 }
 

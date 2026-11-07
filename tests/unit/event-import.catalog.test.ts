@@ -40,6 +40,7 @@ class GalleryEventProvider extends EventProvider {
     return Promise.resolve({
       records: [{ ref: 7, name: 'Gallery opening', place: 'Art Hall', when: '2026-11-08T16:00:00Z' }],
       complete: true,
+      covers: { from: '2026-11-03T10:00:00.000Z', to: '2026-12-01T21:59:59.999Z' },
     });
   }
 

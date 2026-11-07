@@ -34,6 +34,10 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
 
   async finishRun(): Promise<void> {}
 
+  async lastCompleteRun(): Promise<undefined> {
+    return undefined;
+  }
+
   async saveSkipped(): Promise<void> {}
 
   async findVenue(name: string, address: string): Promise<Venue | undefined> {
@@ -68,15 +72,48 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     if (!event) {
       throw new Error(`No imported event ${id}`);
     }
-    Object.assign(event, fields);
+    Object.assign(event, fields, { status: 'published' });
+  }
+
+  async cancelUnseen(
+    provider: string,
+    seenExternalIds: string[],
+    range: { from: string; to: string },
+  ): Promise<number> {
+    const unseen = events.filter(
+      (event) =>
+        event.source === 'import' &&
+        event.provider === provider &&
+        event.status === 'published' &&
+        !seenExternalIds.includes(event.externalId ?? '') &&
+        Date.parse(event.startsAt) > Date.parse(range.from) &&
+        Date.parse(event.startsAt) <= Date.parse(range.to),
+    );
+    for (const event of unseen) {
+      event.status = 'cancelled';
+    }
+    return unseen.length;
   }
 }
 
 function toRow(event: StoredEvent): ImportedEventRow {
-  const { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt } = event;
+  const { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt, status } = event;
   const { imageUrl = null, sourceUrl = null } = event;
   if (provider === undefined || externalId === undefined) {
     throw new Error(`Event ${id} was not imported`);
   }
-  return { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt, imageUrl, sourceUrl };
+  return {
+    id,
+    provider,
+    externalId,
+    title,
+    description,
+    categoryId,
+    venueId,
+    startsAt,
+    endsAt,
+    imageUrl,
+    sourceUrl,
+    status,
+  };
 }

@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import type { Category } from '../../catalog/types/category.ts';
+import type { EventStatus } from '../../catalog/types/event.ts';
 import type { Venue } from '../../catalog/types/venue.ts';
 
 /** An external event in our own shape: what an adapter's `normalize` returns. */
@@ -38,6 +39,24 @@ export interface FetchResult<Raw = unknown> {
    * page limit stopped the reading early. Only a complete list can tell that an event is gone from the provider.
    */
   complete: boolean;
+  /**
+   * The instants the list covers, as ISO strings: from when it was read to the end of the last day asked for. Only
+   * an event of the provider that starts in between and is missing from a complete list counts as gone.
+   */
+  covers: { from: string; to: string };
+  /**
+   * How many records each part of the provider listed, e.g. per Karabas section, when it has parts. A part that
+   * listed records in the last complete run and none now makes the list not complete: more likely a broken page
+   * than a part with no events.
+   */
+  parts?: Record<string, number>;
+}
+
+/** What the last complete run of a provider read, for the checks of the next one. */
+export interface CompleteRun {
+  /** Records it saw: saved, or skipped only because the geocoder failed or found nothing. */
+  seen: number;
+  parts: Record<string, number>;
 }
 
 export interface ImportReport {
@@ -48,6 +67,10 @@ export interface ImportReport {
   created: number;
   updated: number;
   unchanged: number;
+  /** Imported events that were missing from the provider's complete list, now `cancelled`. */
+  cancelled: number;
+  /** Cancelled events that the provider lists again, now `published`. */
+  republished: number;
   skipped: SkippedRecord[];
 }
 
@@ -76,6 +99,15 @@ export interface ImportedEventRow extends ImportedEventFields {
   id: string;
   provider: string;
   externalId: string;
+  status: EventStatus;
+}
+
+/** How a finished run is recorded besides its status. */
+export interface RunDetails {
+  /** Whether the list was complete and passed the checks, so a later run may compare itself with it. */
+  complete: boolean;
+  seen: number;
+  parts?: Record<string, number>;
 }
 
 /** A category a provider's genre can map to. */

@@ -1,11 +1,13 @@
 // Written with the help of Claude
 import type { Venue } from '../../catalog/types/venue.ts';
 import type {
+  CompleteRun,
   ImportCategory,
   ImportedEventFields,
   ImportedEventRow,
   ImportRunStatus,
   NewImportedVenue,
+  RunDetails,
 } from '../types/import.ts';
 
 /**
@@ -29,7 +31,11 @@ export abstract class ImportedEventsRepository {
   /** When the provider's last succeeded run started, if it ever had one. */
   abstract lastSucceededRunStart(provider: string): Promise<Date | undefined>;
 
-  abstract finishRun(runId: string, status: ImportRunStatus): Promise<void>;
+  /** Records how the run ended; a succeeded run also records what it read. */
+  abstract finishRun(runId: string, status: ImportRunStatus, details?: RunDetails): Promise<void>;
+
+  /** What the provider's last succeeded run with a complete list read, if it had one. */
+  abstract lastCompleteRun(provider: string): Promise<CompleteRun | undefined>;
 
   /** Keeps a record the run could not use, as received, with the reason (FR-015). */
   abstract saveSkipped(runId: string, raw: unknown, reason: string): Promise<void>;
@@ -44,7 +50,18 @@ export abstract class ImportedEventsRepository {
   abstract findEvent(provider: string, externalId: string): Promise<ImportedEventRow | undefined>;
 
   /** Saves a new event with `source` import, no organization, published. */
-  abstract createEvent(event: Omit<ImportedEventRow, 'id'>): Promise<ImportedEventRow>;
+  abstract createEvent(event: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow>;
 
+  /** Changes an imported event and publishes it, since the provider lists it. */
   abstract updateEvent(id: string, fields: ImportedEventFields): Promise<void>;
+
+  /**
+   * Cancels the provider's published imported events that start after `from` and by `to` and are not among
+   * `seenExternalIds`; organization events are never touched. Returns how many it cancelled.
+   */
+  abstract cancelUnseen(
+    provider: string,
+    seenExternalIds: string[],
+    range: { from: string; to: string },
+  ): Promise<number>;
 }
