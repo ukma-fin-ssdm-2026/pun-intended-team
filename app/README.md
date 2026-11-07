@@ -124,6 +124,7 @@ Administrators review reports, ban users and manage categories at `/admin`, e.g.
 | `npm run ios:build`     | Build the development build locally and install it in the iOS simulator (needs Xcode and CocoaPods; `-- --device` for a connected iPhone)  |
 | `npm run lint`          | Lint with `expo lint` (eslint-config-expo)                                                                                                 |
 | `npm run typecheck`     | Type-check with `tsc --noEmit`                                                                                                             |
+| `npm test`              | Run the tests in `tests/` with Jest (jest-expo and React Native Testing Library)                                                           |
 | `npm run format`        | Format with Prettier (uses the root `.prettierrc`)                                                                                         |
 | `npm run api:types`     | Regenerate `src/api/schema.d.ts` from the API spec                                                                                         |
 
@@ -140,7 +141,7 @@ The client steps of the "CI passed" job ([`ci.yml`](../.github/workflows/ci.yml)
 | Formatting           | `npx prettier --check .` (fix with `npm run format`)                 |
 | API types match spec | `npm run api:types`, then `git diff --exit-code src/api/schema.d.ts` |
 
-After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm run api:types` and commit the regenerated `src/api/schema.d.ts`; otherwise the last check fails in CI. The client has no tests, and its dependencies are not audited in CI.
+After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm run api:types` and commit the regenerated `src/api/schema.d.ts`; otherwise the last check fails in CI. The client's tests (`npm test`) do not run in CI yet, and its dependencies are not audited there.
 
 ## Project structure
 
@@ -156,6 +157,7 @@ app/
 ├─ assets/
 │  ├─ icons/            Solar Linear icons exported from Figma
 │  └─ images/           app icons, splash, spinner and mock event covers
+├─ tests/               Jest tests; setup.ts mocks Reanimated, svg-mock.tsx stands in for SVG imports
 └─ src/
    ├─ app/              Expo Router routes (every file is a screen)
    │  ├─ _layout.tsx    root Stack navigator; loads the fonts and global.css

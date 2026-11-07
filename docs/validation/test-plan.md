@@ -16,7 +16,7 @@
 
 - **Code delivery from the messaging provider to the phone:** SEC-008 puts it outside our control, since it depends on the carrier; tests stop at the hand-over to the provider.
 - **The live external services** (Telegram Gateway, TurboSMS, Google): tests replace them with stubs and local fake servers and never call the real services.
-- **The Expo client UI:** the project has no UI test tooling yet.
+- **The Expo client UI, beyond `app/tests/`:** the client's Jest tests cover single components and hooks; screens and navigation are not tested.
 - **Notifications** (FR-023, FR-024): designed but not built yet; rows are added once they are implemented.
 - **The live ArtWizard API and Karabas site:** CI never calls them and has no ArtWizard key. The adapter tests read real responses saved on 2026-11-03 in `tests/unit/fixtures/providers/`, and the e2e run of the import serves the same responses, and a saved Nominatim answer, from a local fixture server; a live run is done by hand (`npm run import:events`).
 - **The "last updated" notice of FR-014:** the client part is not built; TC-28 checks only that a failed run leaves the imported events as they were.
@@ -28,7 +28,7 @@
 
 | Level | Where |
 |---|---|
-| Unit | `tests/unit/` |
+| Unit | `tests/unit/`; the client's components and hooks in `app/tests/` (Jest) |
 | Integration | `tests/e2e/` |
 | System | staging, planned |
 | Acceptance | deployed system, planned |
