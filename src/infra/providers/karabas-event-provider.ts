@@ -10,21 +10,21 @@ import { errorMessage, fitDescription, fitTitle, inWindow, jsonLdObjects, slugOf
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
-/** The Kyiv section pages we read, in order, and our category for each; the section decides, not `@type`. */
-export const KARABAS_SECTIONS: { path: string; category: string }[] = [
-  { path: '/concerts/', category: 'Concerts' },
-  { path: '/exhibitions/', category: 'Exhibitions' },
-  { path: '/cinema/', category: 'Cinema' },
-  { path: '/theatres/', category: 'Theatre' },
-  { path: '/sport/', category: 'Sports' },
-  { path: '/festivals/', category: 'Festivals' },
-  { path: '/clubs/', category: 'Parties' },
+/** The Kyiv section pages we read, in order, and the slug of our category for each; the section decides, not `@type`. */
+export const KARABAS_SECTIONS: { path: string; categorySlug: string }[] = [
+  { path: '/concerts/', categorySlug: 'concerts' },
+  { path: '/exhibitions/', categorySlug: 'exhibitions' },
+  { path: '/cinema/', categorySlug: 'cinema' },
+  { path: '/theatres/', categorySlug: 'theatre' },
+  { path: '/sport/', categorySlug: 'sports' },
+  { path: '/festivals/', categorySlug: 'festivals' },
+  { path: '/clubs/', categorySlug: 'parties' },
 ];
 
-/** One event as `fetch` returns it: its JSON-LD from a section page, and that section's category. */
+/** One event as `fetch` returns it: its JSON-LD from a section page, and the slug of that section's category. */
 export interface KarabasRecord {
   section: string;
-  category: string;
+  categorySlug: string;
   event: Record<string, unknown>;
 }
 
@@ -74,7 +74,7 @@ export class KarabasEventProvider extends EventProvider {
     let failedSections = 0;
     let outsideWindow = 0;
 
-    for (const { path, category } of KARABAS_SECTIONS) {
+    for (const { path, categorySlug } of KARABAS_SECTIONS) {
       const url = new URL(path, this.baseUrl).href;
       let events: Record<string, unknown>[];
       try {
@@ -97,7 +97,7 @@ export class KarabasEventProvider extends EventProvider {
         // The same event is listed in several sections; the first one decides its category.
         const key = typeof event.url === 'string' ? event.url : JSON.stringify(event);
         if (!byUrl.has(key)) {
-          byUrl.set(key, { section: path, category, event });
+          byUrl.set(key, { section: path, categorySlug, event });
         }
       }
     }
@@ -135,7 +135,7 @@ export class KarabasEventProvider extends EventProvider {
         externalId: slugOf(url),
         title: fitTitle(name),
         description: fitDescription(description),
-        categoryName: record.category,
+        categorySlug: record.categorySlug,
         venue: { name: location.name, address, location: null },
         startsAt: start.toISOString(),
         endsAt: end.endsAt.toISOString(),

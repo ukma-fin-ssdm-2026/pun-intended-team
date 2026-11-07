@@ -22,7 +22,10 @@ const CATEGORY_NOT_FOUND = {
   schema: ErrorResponse,
 };
 
-const NAME_TAKEN = { description: 'Another category already has this name', schema: ErrorResponse };
+const NAME_TAKEN = {
+  description: 'Another category already has this name, compared regardless of case, spaces and apostrophe',
+  schema: ErrorResponse,
+};
 
 @Controller()
 export class AdminCategoriesController {
@@ -69,6 +72,9 @@ export class AdminCategoriesController {
     path: Routes.admin.categories,
     operationId: 'adminCreateCategory',
     summary: 'Add a category',
+    description:
+      'Add a category. The server makes its slug from the name, transliterated to Latin (Майстер-класи → ' +
+      'maister-klasy), with a number added if another category has it (maister-klasy-2).',
     tags: ['Categories'],
     access: 'admin',
     request: CreateCategoryRequest,
@@ -87,6 +93,7 @@ export class AdminCategoriesController {
     path: Routes.admin.categoryById,
     operationId: 'adminUpdateCategory',
     summary: 'Rename, deactivate or reactivate a category',
+    description: 'Change the name or whether the category is active. The slug stays as it was made.',
     tags: ['Categories'],
     access: 'admin',
     request: UpdateCategoryRequest,

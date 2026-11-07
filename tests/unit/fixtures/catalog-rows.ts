@@ -41,7 +41,7 @@ export function anEventRow(overrides: Partial<EventRow> = {}): EventRow {
     status: 'published',
     createdAt: CREATED,
     updatedAt: CREATED,
-    category: { id: CATEGORY_ID, name: 'Concerts' },
+    category: { id: CATEGORY_ID, name: 'Концерти' },
     venue: aVenueRow(),
     ...overrides,
   };

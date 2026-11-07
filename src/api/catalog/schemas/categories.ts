@@ -9,7 +9,7 @@ const CategoryFields = z.object({
 
 export const categoryExample: Category = {
   id: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03',
-  name: 'Concerts',
+  name: 'Концерти',
 };
 
 export const Category = CategoryFields.meta({
@@ -23,10 +23,16 @@ export const CategoryList = z
   .meta({ id: 'CategoryList', example: { items: [categoryExample] } });
 
 const AdminCategoryFields = CategoryFields.extend({
+  slug: z
+    .string()
+    .describe(
+      'Made from the name when the category is added and never changed, also on a rename; ' +
+        "the event import maps providers' genres to it",
+    ),
   isActive: z.boolean().describe('Inactive categories are hidden from filters and cannot be picked'),
 });
 
-const adminCategoryExample: AdminCategory = { ...categoryExample, isActive: true };
+const adminCategoryExample: AdminCategory = { ...categoryExample, slug: 'concerts', isActive: true };
 
 export const AdminCategory = AdminCategoryFields.meta({
   id: 'AdminCategory',
@@ -44,7 +50,14 @@ export const CategoryIdParams = z.object({
 
 export const ActiveCategoryId = Id.describe('An active category from listCategories');
 
-const CategoryName = z.string().trim().min(1).max(60).describe('Unique, case-insensitive');
+const CategoryName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(60)
+  .describe(
+    "Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe",
+  );
 
 const CategoryIsActive = z.boolean().describe('Whether users can pick the category');
 
@@ -55,7 +68,7 @@ const CreateCategoryFields = z.strictObject({
 
 export const CreateCategoryBody = CreateCategoryFields.meta({
   id: 'CreateCategoryBody',
-  example: { name: 'Workshops' } satisfies CreateCategoryBody,
+  example: { name: 'Майстер-класи' } satisfies CreateCategoryBody,
 });
 
 const UpdateCategoryFields = z.strictObject({

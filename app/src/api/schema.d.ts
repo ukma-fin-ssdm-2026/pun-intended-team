@@ -39,7 +39,7 @@ export interface paths {
         put?: never;
         /**
          * Add a category
-         * @description Add a category. Needs an administrator account; other accounts get 404.
+         * @description Add a category. The server makes its slug from the name, transliterated to Latin (Майстер-класи → maister-klasy), with a number added if another category has it (maister-klasy-2). Needs an administrator account; other accounts get 404.
          */
         post: operations["adminCreateCategory"];
         delete?: never;
@@ -71,7 +71,7 @@ export interface paths {
         head?: never;
         /**
          * Rename, deactivate or reactivate a category
-         * @description Rename, deactivate or reactivate a category. Needs an administrator account; other accounts get 404.
+         * @description Change the name or whether the category is active. The slug stays as it was made. Needs an administrator account; other accounts get 404.
          */
         patch: operations["adminUpdateCategory"];
         trace?: never;
@@ -607,7 +607,8 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Concerts",
+         *           "name": "Концерти",
+         *           "slug": "concerts",
          *           "isActive": true
          *         }
          *       ]
@@ -620,7 +621,8 @@ export interface components {
          * @description A category as administrators see it
          * @example {
          *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *       "name": "Concerts",
+         *       "name": "Концерти",
+         *       "slug": "concerts",
          *       "isActive": true
          *     }
          */
@@ -628,16 +630,18 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            /** @description Made from the name when the category is added and never changed, also on a rename; the event import maps providers' genres to it */
+            slug: string;
             /** @description Inactive categories are hidden from filters and cannot be picked */
             isActive: boolean;
         };
         /**
          * @example {
-         *       "name": "Workshops"
+         *       "name": "Майстер-класи"
          *     }
          */
         CreateCategoryBody: {
-            /** @description Unique, case-insensitive */
+            /** @description Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe */
             name: string;
             /**
              * @description Whether users can pick the category
@@ -652,7 +656,7 @@ export interface components {
          *     }
          */
         UpdateCategoryBody: {
-            /** @description Unique, case-insensitive */
+            /** @description Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe */
             name?: string;
             /** @description Whether users can pick the category */
             isActive?: boolean;
@@ -662,7 +666,7 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Concerts"
+         *           "name": "Концерти"
          *         }
          *       ]
          *     }
@@ -674,7 +678,7 @@ export interface components {
          * @description An event category from the directory administrators manage
          * @example {
          *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *       "name": "Concerts"
+         *       "name": "Концерти"
          *     }
          */
         Category: {
@@ -691,7 +695,7 @@ export interface components {
          *           "description": "Screening in the park, bring a blanket.",
          *           "category": {
          *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *             "name": "Concerts"
+         *             "name": "Концерти"
          *           },
          *           "venue": {
          *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -729,7 +733,7 @@ export interface components {
          *       "description": "Screening in the park, bring a blanket.",
          *       "category": {
          *         "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *         "name": "Concerts"
+         *         "name": "Концерти"
          *       },
          *       "venue": {
          *         "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -908,7 +912,7 @@ export interface components {
          *           },
          *           "category": {
          *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
-         *             "name": "Exhibitions"
+         *             "name": "Виставки"
          *           },
          *           "eventId": null,
          *           "title": "Looking for company for an exhibition on Saturday",
@@ -938,7 +942,7 @@ export interface components {
          *       },
          *       "category": {
          *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
-         *         "name": "Exhibitions"
+         *         "name": "Виставки"
          *       },
          *       "eventId": null,
          *       "title": "Looking for company for an exhibition on Saturday",
@@ -1477,7 +1481,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Another category already has this name */
+            /** @description Another category already has this name, compared regardless of case, spaces and apostrophe */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1647,7 +1651,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Another category already has this name */
+            /** @description Another category already has this name, compared regardless of case, spaces and apostrophe */
             409: {
                 headers: {
                     [name: string]: unknown;

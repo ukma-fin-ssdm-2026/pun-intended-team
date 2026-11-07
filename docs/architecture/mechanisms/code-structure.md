@@ -24,12 +24,11 @@ src/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, page.ts, transaction.ts, transaction-runner.ts
-    common/                     domain-error.ts, kyiv-time.ts, catalog-window.ts, page.ts
+    common/                     domain-error.ts, kyiv-time.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
-      services/                 events.service.ts, categories.service.ts
+      services/                 events.service.ts, categories.service.ts, category-name.ts (how a category name is saved)
       types/                    event, category, venue, organization
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
     import/                     the import (CMP-03); only src/import/ loads it, never the API
@@ -37,7 +36,7 @@ src/
       adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
       services/                 event-import.service.ts
-      types/                    import
+      types/                    import (ImportedEvent.categorySlug: the providers' adapters map genres to category slugs, which never change)
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
     import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, the EventProviders, Geocoder), loaded by src/import/ only, without InfraModule
