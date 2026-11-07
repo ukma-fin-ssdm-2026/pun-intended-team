@@ -160,6 +160,7 @@ components:
         items:
           - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
             name: Концерти
+            slug: concerts
             isActive: true
     AdminCategory:
       type: object
@@ -169,17 +170,24 @@ components:
           format: uuid
         name:
           type: string
+        slug:
+          type: string
+          description: >-
+            Made from the name when the category is added and never changed,
+            also on a rename; the event import maps providers' genres to it
         isActive:
           type: boolean
           description: Inactive categories are hidden from filters and cannot be picked
       required:
         - id
         - name
+        - slug
         - isActive
       description: A category as administrators see it
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
         name: Концерти
+        slug: concerts
         isActive: true
     CreateCategoryBody:
       type: object
@@ -188,7 +196,9 @@ components:
           type: string
           minLength: 1
           maxLength: 60
-          description: Unique, case-insensitive
+          description: >-
+            Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ;
+            unique regardless of case, spaces and apostrophe
         isActive:
           type: boolean
           default: true
@@ -205,7 +215,9 @@ components:
           type: string
           minLength: 1
           maxLength: 60
-          description: Unique, case-insensitive
+          description: >-
+            Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ;
+            unique regardless of case, spaces and apostrophe
         isActive:
           type: boolean
           description: Whether users can pick the category
@@ -1255,7 +1267,11 @@ paths:
     post:
       operationId: adminCreateCategory
       summary: Add a category
-      description: Add a category. Needs an administrator account; other accounts get 404.
+      description: >-
+        Add a category. The server makes its slug from the name, transliterated
+        to Latin (Майстер-класи → maister-klasy), with a number added if another
+        category has it (maister-klasy-2). Needs an administrator account; other
+        accounts get 404.
       tags:
         - Categories
       security:
@@ -1296,7 +1312,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Another category already has this name
+          description: >-
+            Another category already has this name, compared regardless of case,
+            spaces and apostrophe
           content:
             application/json:
               schema:
@@ -1350,8 +1368,8 @@ paths:
       operationId: adminUpdateCategory
       summary: Rename, deactivate or reactivate a category
       description: >-
-        Rename, deactivate or reactivate a category. Needs an administrator
-        account; other accounts get 404.
+        Change the name or whether the category is active. The slug stays as it
+        was made. Needs an administrator account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -1396,7 +1414,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Another category already has this name
+          description: >-
+            Another category already has this name, compared regardless of case,
+            spaces and apostrophe
           content:
             application/json:
               schema:

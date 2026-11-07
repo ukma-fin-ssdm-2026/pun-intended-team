@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T12:54:32.012Z
+ * Generated on: 2026-11-07T15:34:19.576Z
  */
 
 import { existsSync } from 'node:fs';
@@ -91,9 +91,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminCreateCategory", {
     name: "adminCreateCategory",
     title: "Add a category",
-    description: `Add a category. Needs an administrator account; other accounts get 404.
+    description: `Add a category. The server makes its slug from the name, transliterated to Latin (Майстер-класи → maister-klasy), with a number added if another category has it (maister-klasy-2). Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Майстер-класи"}],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Майстер-класи"}],"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/admin/categories",
     executionParameters: [],
@@ -136,9 +136,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminUpdateCategory", {
     name: "adminUpdateCategory",
     title: "Rename, deactivate or reactivate a category",
-    description: `Rename, deactivate or reactivate a category. Needs an administrator account; other accounts get 404.
+    description: `Change the name or whether the category is active. The slug stays as it was made. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","description":"Whether users can pick the category"}},"additionalProperties":false,"description":"Only the fields to change","examples":[{"isActive":false}]}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe"},"isActive":{"type":"boolean","description":"Whether users can pick the category"}},"additionalProperties":false,"description":"Only the fields to change","examples":[{"isActive":false}]}},"required":["id"]},
     method: "patch",
     pathTemplate: "/api/v1/admin/categories/{id}",
     executionParameters: [{"name":"id","in":"path"}],
