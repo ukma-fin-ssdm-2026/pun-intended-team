@@ -17,7 +17,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
    | Business rules | `core/*/services/`, `core/common/kyiv-time.ts` |
    | HTTP behaviour | `api/common/`: `endpoint.ts`, `auth.ts`, `api-exception.filter.ts`, `api-express-adapter.ts`, `security-headers.ts` |
    | Controllers | `api/*/controllers/` |
-   | Adapters | `infra/auth/`, `infra/prisma/` |
+   | Adapters | `infra/auth/`, `infra/prisma/`, `infra/jobs/` |
 
    Left out:
 
