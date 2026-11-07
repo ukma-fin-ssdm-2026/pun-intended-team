@@ -10,6 +10,7 @@ import { SearchRadar } from '@/components/matching/search-radar';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatShortDay } from '@/dates';
+import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { mockSearch } from '@/mocks/matching';
@@ -60,8 +61,11 @@ export default function CompanySearchScreen() {
     }, [router, overlay]),
   );
 
-  const event = findMockEvent(id);
-  const subtitle = event ? `${event.shortTitle ?? event.title} · ${formatShortDay(event.startsAt)}` : undefined;
+  // Catalog events come from the API; the Метчі tab still opens this screen for a mock event.
+  const { data: liveEvent } = useEvent(id);
+  const mockEvent = findMockEvent(id);
+  const event = liveEvent ?? mockEvent;
+  const subtitle = event ? `${mockEvent?.shortTitle ?? event.title} · ${formatShortDay(event.startsAt)}` : undefined;
 
   return (
     <ScrollView className="flex-1 bg-surface-card">

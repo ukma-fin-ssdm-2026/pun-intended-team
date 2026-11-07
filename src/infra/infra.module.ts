@@ -35,28 +35,28 @@ import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
 import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
+import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
+import { PrismaOrganizationsRepository } from './prisma/prisma-organizations.repository.ts';
 import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
 import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
 import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
+import { PrismaVenuesRepository } from './prisma/prisma-venues.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
-import { StubEventsRepository } from './stubs/events.repository.ts';
-import { StubListingsRepository } from './stubs/listings.repository.ts';
-import { StubOrganizationsRepository } from './stubs/organizations.repository.ts';
-import { StubVenuesRepository } from './stubs/venues.repository.ts';
 
 const repositories = [
-  { provide: EventsRepository, useClass: StubEventsRepository },
+  { provide: EventsRepository, useClass: PrismaEventsRepository },
   { provide: CategoriesRepository, useClass: PrismaCategoriesRepository },
-  { provide: VenuesRepository, useClass: StubVenuesRepository },
-  { provide: OrganizationsRepository, useClass: StubOrganizationsRepository },
+  { provide: VenuesRepository, useClass: PrismaVenuesRepository },
+  { provide: OrganizationsRepository, useClass: PrismaOrganizationsRepository },
   { provide: AccountsRepository, useClass: PrismaAccountsRepository },
   { provide: VerificationCodesRepository, useClass: PrismaVerificationCodesRepository },
   { provide: SessionsRepository, useClass: PrismaSessionsRepository },
   { provide: ProfilesRepository, useClass: PrismaProfilesRepository },
-  { provide: ListingsRepository, useClass: StubListingsRepository },
+  { provide: ListingsRepository, useClass: PrismaListingsRepository },
   { provide: InterestsRepository, useClass: PrismaInterestsRepository },
   { provide: MatchesRepository, useClass: PrismaMatchesRepository },
   { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },

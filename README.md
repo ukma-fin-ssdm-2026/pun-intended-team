@@ -99,8 +99,7 @@ For a production build: `npm run build`, then `npm start`.
 | `DATABASE_STATEMENT_TIMEOUT_MS` | `10000` | Postgres cancels an API statement that runs longer, and the API answers `503`; the client itself gives up 1 s later if the server does not answer at all |
 | `DATABASE_LOCK_TIMEOUT_MS` | `3000` | How long an API statement waits for a lock before Postgres gives up; must not exceed the statement timeout |
 | `DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS` | `15000` | Postgres ends an API session that stays idle inside an open transaction, so it cannot hold its locks |
-| `IMPORT_DATABASE_URL` | — | **Import service only.** Connection string of the `nearby_import` role, set in `.env.example`. `npm run import:events` reads this variable and no other database setting: no key file and no `MAIN_DATABASE_URL`. `npm run db:set-passwords` reads it to set the role's password |
-| `ARTWIZARD_API_KEY` | — | **Import service only.** The key ArtWizard gave the team for its events API ([ADR-006](docs/architecture/decisions/ADR-006.md)); a secret, ask the team for it. Unset, the ArtWizard run fails and Karabas is still imported |
+| `IMPORT_DATABASE_URL` | — | **Import service only.** Connection string of the `nearby_import` role, set in `.env.example`. `npm run import:events` reads this variable and no other: no key file and no `MAIN_DATABASE_URL`. `npm run db:set-passwords` reads it to set the role's password |
 | `JWT_KEYS_FILE` | — | Keys that sign access tokens, created by `npm run keys:generate`; the server does not start without it |
 | `CODE_HMAC_KEY_FILE` | — | Key that hashes verification codes, created by `npm run keys:generate`; the server does not start without it |
 | `CONTACT_HMAC_KEY_FILE` | — | Key that hashes phone numbers to look accounts up by, created by `npm run keys:generate`; the server does not start without it. Losing or changing it fails without an error: existing accounts are no longer found, and their numbers can register a second account |
@@ -120,15 +119,15 @@ Before the first commit, enable the commit message hook: `git config core.hooksP
 
 ### Event import
 
-The import service (CMP-03, FR-008) takes the events of the external providers into the catalog: ArtWizard and Karabas ([ADR-006](docs/architecture/decisions/ADR-006.md)). It runs on its own, apart from the API: [`src/import/`](src/import/) loads only the import module [`src/core/import/`](src/core/import/) and [`ImportInfraModule`](src/infra/import-infra.module.ts), which connects to the database as `nearby_import` ([database access](docs/architecture/mechanisms/database-access.md)) and binds the provider adapter. It needs only `IMPORT_DATABASE_URL` and `ARTWIZARD_API_KEY` (and optionally `IMPORT_USER_AGENT`), no key file and none of the API's settings, and its role may read `categories` and write only `events`, `venues`, `import_runs` and `skipped_records`.
+The import service (CMP-03, FR-008) takes the events of one external provider into the catalog. It runs on its own, apart from the API: [`src/import/`](src/import/) loads only the import module [`src/core/import/`](src/core/import/) and [`ImportInfraModule`](src/infra/import-infra.module.ts), which connects to the database as `nearby_import` ([database access](docs/architecture/mechanisms/database-access.md)) and binds the provider adapter. It needs only `IMPORT_DATABASE_URL`, no key file and none of the API's settings, and its role may read `categories` and write only `events`, `venues`, `import_runs` and `skipped_records`.
 
-Each provider sits behind the `EventProvider` adapter: [`ArtWizardEventProvider`](src/infra/providers/artwizard-event-provider.ts) reads ArtWizard's events API, which ArtWizard permits the study project to use, [`KarabasEventProvider`](src/infra/providers/karabas-event-provider.ts) the schema.org JSON-LD of the Kyiv section pages of Karabas. A further provider is a new class and a line in `ImportInfraModule` (FLEX-003). Requests go one at a time, at least 1 s apart, with retries, and never to paths the sites' robots.txt disallows; the ArtWizard key is shown as `REDACTED` in every log line and error. Only Kyiv events in the 28-day catalog window are taken. A venue without coordinates gets those of the saved venue with the same name and address, or else from [Nominatim](src/infra/geocoding/nominatim-geocoder.ts) (data © OpenStreetMap contributors, ODbL). Each run is recorded per provider in `import_runs` as succeeded or failed (FR-014). A page or record that cannot be used is kept in `skipped_records` with its reason and logged (FR-015), and a second run changes only what the provider changed.
+The provider sits behind the `EventProvider` adapter, and [`ConcertUaEventProvider`](src/infra/providers/concert-ua-event-provider.ts) is bound to it; a second provider is a new class and a changed line there (FLEX-003). Until Concert.ua gives us access, the adapter reads a sample feed. Each run is recorded in `import_runs` as succeeded or failed (FR-014). A record that cannot be mapped is kept in `skipped_records` with its reason and logged (FR-015), and a second run changes only what the provider changed.
 
 ```bash
-npm run import:events   # one run against the live sources: fetch, normalize, save, print a report; needs the local database, IMPORT_DATABASE_URL and ARTWIZARD_API_KEY
+npm run import:events   # one run: fetch, normalize, save, print a report; needs the local database and IMPORT_DATABASE_URL
 ```
 
-The API still reads events from the in-memory stubs until they move to the database (#310), so it does not serve what a run imported yet. Until then, the e2e tests check the rows a run writes, reading the responses saved in `tests/unit/fixtures/providers/` from a local server, and `tests/unit/event-import.catalog.test.ts` checks that the catalog serves imported events.
+The API reads events from the same database, so it serves what a run imported. The e2e tests check the rows a run writes, and `tests/unit/event-import.catalog.test.ts` checks that the catalog serves imported events.
 
 ### Staging
 
@@ -191,7 +190,7 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories, accounts, verification codes, sessions, profiles, interests, report cases and the audit log are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes, sessions, profiles, interests, report cases, the audit log, events, venues, organizations and listings are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)). A new local database has no events or listings until the development seed returns ([#354](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/354)). You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
