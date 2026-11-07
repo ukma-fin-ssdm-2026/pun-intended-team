@@ -2313,20 +2313,23 @@ describe('Event import', () => {
     assert.equal((await importedEvents('karabas')).length, 33);
   });
 
-  test('serves the imported events through the API', async () => {
-    runImport();
-    const ids = await withDatabase(async (client) =>
-      (
-        await client.query<{ id: string }>(`SELECT id FROM events WHERE source = 'import' AND provider = 'concert_ua'`)
-      ).rows.map(({ id }) => id),
+  test('serves the imported events through the API, with their image and source URLs', async () => {
+    await runImport();
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string; image_url: string | null; source_url: string | null }>(
+        `SELECT id, image_url, source_url FROM events WHERE source = 'import' AND provider IN ('artwizard', 'karabas')`,
+      ),
     );
 
-    assert.equal(ids.length, 3);
-    for (const id of ids) {
+    assert.ok(rows.length > 0);
+    for (const { id, image_url: imageUrl, source_url: sourceUrl } of rows) {
       const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
       assert.equal(res.status, 200);
       assert.equal(res.body.source, 'import');
+      assert.equal(res.body.imageUrl, imageUrl);
+      assert.equal(res.body.sourceUrl, sourceUrl);
     }
+    assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {
