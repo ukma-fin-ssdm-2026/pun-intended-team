@@ -86,6 +86,12 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
 | **DeviceToken** | PK `id` | `account_id` FK, `refresh_token_id` FK — the service deletes the row when that session is revoked (sign-out); the FK cascade only removes what is left when expired tokens are cleaned up daily, `push_token` (P, UK), `platform` (ios / android) |
 
+### admin
+
+| Entity | Key | Main attributes |
+|---|---|---|
+| **BackupRun** | PK `id` | `finished_at`, `succeeded`, `attempts`, `duration_seconds`, `size_bytes` (null when failed), `reason` — a code (unreachable / auth_failed / timeout / locked / unreadable / failed), null when it succeeded; the error message stays in the backup log. One row per nightly backup, written by `deploy/backup-db.sh` when it ends, so it has no `created_at`; the admin panel warns when the last one failed or is older than 26 h |
+
 ## 3. Relationships
 
 | Relationship | Cardinality | Note |

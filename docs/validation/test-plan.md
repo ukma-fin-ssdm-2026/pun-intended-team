@@ -132,6 +132,9 @@ Testing under this plan is complete when all of the following hold:
 | TC-60 | `ModerationService.report` | Unit | Positive | A filed report is logged with the reporter as actor and the reported account as target, without the comment | Viktoriia Baran | FR-025, SEC-004 | done |
 | TC-61 | `GET /admin/report-cases?status=resolved` | Integration | Positive | Resolved cases are listed on request, a page at a time: with `limit=1` and two resolved cases, one item and `hasMore: true` | Viktoriia Baran | FR-026 | done |
 | TC-62 | `POST /reports` while its case is resolved | Integration | Negative | A report sent while another connection holds an uncommitted resolution of the case waits for it, then goes into a new open case, not the resolved one | Viktoriia Baran | FR-026 | done |
+| TC-63 | `backup-db.sh nightly` | Unit | Negative | With `pg_dump` failing, the night is tried 3 times, leaves no partial file, records only a reason code and turns the health check unhealthy; a copy `pg_restore` cannot read is not kept; a good night afterwards makes the check pass | Viktoriia Baran | REL-004 | done |
+| TC-64 | `BackupsService` | Unit | Positive | The backups are overdue when the last night failed or succeeded more than 26 hours ago, and `null` where none has run | Viktoriia Baran | REL-004 | done |
+| TC-65 | `GET /admin/backups`, `GET /admin/stats` | Integration | Positive | After a good night and a failed one, both answer `overdue: true` with the good night's time; the nights are listed newest first with only time, result, attempts, duration, size and reason; a user who is not an administrator gets `404` | Viktoriia Baran | REL-004, SEC-001 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 
