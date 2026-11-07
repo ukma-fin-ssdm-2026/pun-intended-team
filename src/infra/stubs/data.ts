@@ -1,25 +1,14 @@
 // Written with the help of Claude
-// Stub data until the database is connected. Kept in memory: changes made
-// through the API last until the server restarts.
+// In-memory data of the import's stub repository, which only the unit test of the import catalog uses.
 import { addDays, kyivDate } from '../../core/common/kyiv-time.ts';
 import type { Event } from '../../core/catalog/types/event.ts';
-import type { Organization } from '../../core/catalog/types/organization.ts';
 import type { Venue } from '../../core/catalog/types/venue.ts';
-import type { Listing } from '../../core/listings/types/listing.ts';
 
-// Accounts are in the database; the stubs refer to them by these ids, and the e2e tests create accounts with them.
+// The organizations' accounts are in the database; the stubs refer to them by these ids.
 export const accounts = {
-  olena: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
-  taras: 'd8e2b4c6-1a3f-4e5d-8b7c-9f0a2c4e6b18',
   filmClub: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c',
   newGallery: 'f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d',
-  admin: 'a0c2e4f6-8b1d-4a3c-9e5f-7b9d1f3a5c6e',
 } as const;
-
-export const organizations: Organization[] = [
-  { accountId: accounts.filmClub, name: 'Podil Film Club', verificationStatus: 'verified' },
-  { accountId: accounts.newGallery, name: 'New Gallery', verificationStatus: 'pending' },
-];
 
 // Seeded by the seed_categories migration; the categories themselves live in the database.
 const categoryIds = {
@@ -70,7 +59,9 @@ export const venues: Venue[] = [
 const inDays = (days: number) => addDays(kyivDate(), days);
 
 /** How an event row is stored: category and venue by id, joined on read. */
-export type StoredEvent = Omit<Event, 'category' | 'venue'> & {
+export type StoredEvent = Omit<Event, 'category' | 'venue' | 'imageUrl' | 'sourceUrl'> & {
+  imageUrl?: string | null;
+  sourceUrl?: string | null;
   categoryId: string;
   venueId: string;
   /** Set on imported events: the provider and its id for the record. */
@@ -114,28 +105,5 @@ export const events: StoredEvent[] = [
     source: 'organization',
     status: 'cancelled',
     organizationId: accounts.filmClub,
-  },
-];
-
-export const listings: Listing[] = [
-  {
-    id: '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09',
-    authorId: accounts.olena,
-    categoryId: categoryIds.exhibitions,
-    eventId: eventIds.arsenalExhibition,
-    title: 'Looking for company for the Arsenal exhibition',
-    description: 'Planning to go in the evening, happy to grab a coffee after.',
-    date: inDays(16),
-    status: 'active',
-  },
-  {
-    id: 'af5b7d9e-1a3c-4e5f-9b7d-9e1a3c5e7f10',
-    authorId: accounts.taras,
-    categoryId: categoryIds.concerts,
-    eventId: null,
-    title: 'Anyone up for a jazz concert?',
-    description: 'No ticket yet, open to suggestions.',
-    date: inDays(7),
-    status: 'active',
   },
 ];

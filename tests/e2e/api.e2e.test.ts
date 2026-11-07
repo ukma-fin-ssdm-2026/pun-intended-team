@@ -5,28 +5,33 @@
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
-import { createServer } from 'node:net';
+import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 
-// Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+// Categories seeded by the seed_categories migration; the rest of the ids are those the in-memory stubs had before #310.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
+const arsenalVenue = '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06';
+const newGalleryHall = '7c3e5a7b-9d1f-4b3c-8e5a-7b9c1d3f5a07';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
+const arsenalExhibition = 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
+const tarasListing = 'af5b7d9e-1a3c-4e5f-9b7d-9e1a3c5e7f10';
 const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
-// The accounts the stubs in src/infra/stubs/data.ts belong to; the test creates them and signs their Google ID tokens.
+// The accounts the former in-memory stubs belonged to; the test creates them and signs their Google ID tokens.
 const stubAccounts = {
   user: {
     id: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -75,6 +80,104 @@ const stubProfiles = [
     communicationFormat: 'casual',
     interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
     telegram: 'taras_m',
+  },
+];
+
+// Dates count from the day of the run, as the stubs' did, so the catalog always has upcoming events.
+const inDays = (days: number) => addDays(kyivDate(), days);
+
+const stubOrganizations = [
+  { accountId: stubAccounts.org.id, name: 'Podil Film Club', verificationStatus: 'verified' },
+  { accountId: stubAccounts.orgPending.id, name: 'New Gallery', verificationStatus: 'pending' },
+];
+
+const stubVenues = [
+  {
+    id: filmClubVenue,
+    name: 'Natalka Park lawn',
+    address: 'Naberezhno-Luhova St, Kyiv',
+    latitude: 50.4825,
+    longitude: 30.5181,
+    source: 'organization',
+    organizationId: stubAccounts.org.id,
+  },
+  {
+    id: arsenalVenue,
+    name: 'Mystetskyi Arsenal',
+    address: '10-12 Lavrska St, Kyiv',
+    latitude: 50.4357,
+    longitude: 30.5555,
+    source: 'import',
+    organizationId: null,
+  },
+  {
+    id: newGalleryHall,
+    name: 'New Gallery hall',
+    address: '5 Velyka Vasylkivska St, Kyiv',
+    latitude: 50.4401,
+    longitude: 30.5203,
+    source: 'organization',
+    organizationId: stubAccounts.orgPending.id,
+  },
+];
+
+const stubEvents = [
+  {
+    id: filmNight,
+    title: 'Open-air film night: Shadows of Forgotten Ancestors',
+    description: 'Screening in the park, bring a blanket.',
+    categoryId: concerts,
+    venueId: filmClubVenue,
+    startsAt: `${inDays(13)}T19:00:00+03:00`,
+    endsAt: `${inDays(13)}T21:30:00+03:00`,
+    source: 'organization',
+    status: 'published',
+    organizationId: stubAccounts.org.id,
+  },
+  {
+    id: arsenalExhibition,
+    title: 'Contemporary art exhibition at the Arsenal',
+    description: 'Imported from a partner listing.',
+    categoryId: exhibitions,
+    venueId: arsenalVenue,
+    startsAt: `${inDays(16)}T11:00:00+03:00`,
+    endsAt: `${inDays(16)}T23:59:59+03:00`,
+    source: 'import',
+    status: 'published',
+    organizationId: null,
+  },
+  {
+    id: cancelledFilmEvent,
+    title: 'Silent film with live piano',
+    description: 'Cancelled: the pianist is ill.',
+    categoryId: concerts,
+    venueId: filmClubVenue,
+    startsAt: `${inDays(20)}T18:00:00+03:00`,
+    endsAt: `${inDays(20)}T20:00:00+03:00`,
+    source: 'organization',
+    status: 'cancelled',
+    organizationId: stubAccounts.org.id,
+  },
+];
+
+const stubListings = [
+  {
+    id: olenasListing,
+    authorId: stubAccounts.user.id,
+    categoryId: exhibitions,
+    eventId: arsenalExhibition,
+    title: 'Looking for company for the Arsenal exhibition',
+    description: 'Planning to go in the evening, happy to grab a coffee after.',
+    date: inDays(16),
+  },
+  {
+    id: tarasListing,
+    authorId: tarasAccount.id,
+    categoryId: concerts,
+    eventId: null,
+    title: 'Anyone up for a jazz concert?',
+    description: 'No ticket yet, open to suggestions.',
+    date: inDays(7),
   },
 ];
 
@@ -308,6 +411,51 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
   });
 }
 
+/** The stubs' organizations, venues, events and listings with their ids, after the accounts they belong to. */
+async function addStubCatalog(): Promise<void> {
+  await withDatabase(async (client) => {
+    for (const { accountId, name, verificationStatus } of stubOrganizations) {
+      await client.query(`INSERT INTO organizations (account_id, name, verification_status) VALUES ($1, $2, $3)`, [
+        accountId,
+        name,
+        verificationStatus,
+      ]);
+    }
+    for (const { id, name, address, latitude, longitude, source, organizationId } of stubVenues) {
+      await client.query(
+        `INSERT INTO venues (id, name, address, latitude, longitude, source, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, name, address, latitude, longitude, source, organizationId],
+      );
+    }
+    for (const event of stubEvents) {
+      await client.query(
+        `INSERT INTO events (id, title, description, category_id, venue_id, starts_at, ends_at, source, status, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          event.id,
+          event.title,
+          event.description,
+          event.categoryId,
+          event.venueId,
+          event.startsAt,
+          event.endsAt,
+          event.source,
+          event.status,
+          event.organizationId,
+        ],
+      );
+    }
+    for (const { id, authorId, categoryId, eventId, title, description, date } of stubListings) {
+      await client.query(
+        `INSERT INTO listings (id, author_id, category_id, event_id, title, description, date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, authorId, categoryId, eventId, title, description, date],
+      );
+    }
+  });
+}
+
 /** Kyiv date `years` years before today. */
 function yearsAgo(years: number, plusDays = 0): string {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(Date.now());
@@ -353,11 +501,16 @@ async function freshDatabase(): Promise<string> {
 
 /** MAIN_DATABASE_URL pointed at the run's database: the API and the seed connect as nearby_main. */
 function mainDatabaseUrl(): string {
-  const mainUrl = process.env.MAIN_DATABASE_URL;
-  if (!mainUrl) {
-    throw new Error('MAIN_DATABASE_URL is not set: see .env.example');
+  return runDatabaseUrl('MAIN_DATABASE_URL');
+}
+
+/** The role's connection string from `variable`, pointed at the run's database. */
+function runDatabaseUrl(variable: 'MAIN_DATABASE_URL' | 'IMPORT_DATABASE_URL'): string {
+  const roleUrl = process.env[variable];
+  if (!roleUrl) {
+    throw new Error(`${variable} is not set: see .env.example`);
   }
-  const url = new URL(mainUrl);
+  const url = new URL(roleUrl);
   url.pathname = new URL(databaseUrl).pathname;
   return url.toString();
 }
@@ -456,6 +609,7 @@ before(async () => {
   };
   runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
   await addStubAccounts(new PersonalDataCipher(dataEncryptionKey, contactHmacKey));
+  await addStubCatalog();
   // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
   // stdout is kept for the test that checks what the log contains.
   ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
@@ -1070,7 +1224,8 @@ describe('PUT /api/v1/events/{id}', () => {
     assert.equal(res.body.id, filmNight);
     assert.equal(res.body.title, replacement.title);
     assert.equal(res.body.description, replacement.description);
-    assert.equal(res.body.startsAt, replacement.startsAt);
+    // The database keeps the instant, not the offset it was sent with.
+    assert.equal(Date.parse(res.body.startsAt), Date.parse(replacement.startsAt));
     assert.equal(res.body.status, 'published');
   });
 
@@ -1295,6 +1450,12 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
     });
     const res = await call('DELETE', `/api/v1/admin/categories/${created.body.id}`, { token: tokens.admin });
     assert.equal(res.status, 204);
+  });
+
+  test('rejects a category that events and listings use with 409', async () => {
+    const res = await call('DELETE', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
+    assertRejected(res, 409, 'CONFLICT');
+    assert.equal(res.body.error.message, 'The category is in use; deactivate it instead');
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1988,6 +2149,196 @@ describe('Parallel requests', () => {
     assert.equal((await complete(first?.body.accessToken)).status, 200);
     for (const res of others) {
       assertRejected(await complete(res.body.accessToken), 409, 'CONFLICT');
+    }
+  });
+});
+
+// CMP-03, FR-008, FR-015: the import is a process of its own, connected as nearby_import (database-access.md).
+// It reads ArtWizard, Karabas and Nominatim from a local server with the responses saved on 2026-11-03, never the
+// sites.
+describe('Event import', () => {
+  const ARTWIZARD_TEST_KEY = 'e2e-artwizard-key';
+  let providerSite: Server;
+  let providerSiteUrl = '';
+
+  before(async () => {
+    const saved = (file: string) => readFileSync(path.resolve('tests/unit/fixtures/providers', file));
+    const pages: Record<string, string> = {
+      '/concerts/': 'karabas/kyiv-concerts.html',
+      '/clubs/': 'karabas/kyiv-clubs.html',
+      '/sport/': 'karabas/kyiv-sport.html',
+      '/search': 'nominatim/search.json',
+    };
+    // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
+    const artWizardPage = (page: string) => {
+      const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
+      return JSON.stringify({ ...body, total_pages: 2 });
+    };
+    providerSite = createHttpServer((req, res) => {
+      const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
+      if (pathname === '/events') {
+        const page = searchParams.get('page') ?? '';
+        if (searchParams.get('apiKey') !== ARTWIZARD_TEST_KEY) {
+          res.writeHead(401).end();
+        } else {
+          res
+            .writeHead(['1', '2'].includes(page) ? 200 : 404)
+            .end(['1', '2'].includes(page) ? artWizardPage(page) : '');
+        }
+        return;
+      }
+      const file = pages[pathname];
+      res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
+    });
+    await new Promise<void>((resolve) => providerSite.listen(0, resolve));
+    const { port } = providerSite.address() as AddressInfo;
+    providerSiteUrl = `http://localhost:${port}`;
+  });
+
+  after(() => new Promise<void>((resolve) => providerSite.close(() => resolve())));
+
+  /**
+   * One import run from a folder without .env, with no key file and no MAIN_DATABASE_URL. Asynchronous, so the
+   * local provider site in this process can answer it. Returns what the process printed.
+   */
+  async function runImport({ artWizardApiKey = ARTWIZARD_TEST_KEY, exitCode = 0 } = {}) {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
+    try {
+      const child = spawn(process.execPath, [path.resolve('dist/import/main.js')], {
+        cwd,
+        env: {
+          PATH: process.env.PATH,
+          IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
+          ARTWIZARD_API_URL: providerSiteUrl,
+          ARTWIZARD_API_KEY: artWizardApiKey,
+          KARABAS_BASE_URL: providerSiteUrl,
+          NOMINATIM_BASE_URL: providerSiteUrl,
+          IMPORT_REQUEST_INTERVAL_MS: '0',
+          IMPORT_NOW: '2026-11-03T10:00:00Z',
+        },
+      });
+      let output = '';
+      child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+      const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
+      assert.equal(status, exitCode, output);
+      return output;
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
+  const importedEvents = (provider: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{
+        organization_id: string | null;
+        status: string;
+        venue_source: string;
+        source_url: string | null;
+      }>(
+        `SELECT e.organization_id, e.status, v.source AS venue_source, e.source_url
+           FROM events e JOIN venues v ON v.id = e.venue_id
+          WHERE e.source = 'import' AND e.provider = $1`,
+        [provider],
+      );
+      return rows;
+    });
+
+  test('takes the usable events of both providers into events and venues, and keeps the runs and the skipped ones', async () => {
+    const runsBefore = await withDatabase(async (client) =>
+      (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
+    );
+
+    await runImport();
+
+    // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
+    // has no occurrence in it. Karabas: 20 concerts, 12 club events that are not concerts too, and 1 sport event.
+    const artWizard = await importedEvents('artwizard');
+    const karabas = await importedEvents('karabas');
+    assert.equal(artWizard.length, 30);
+    assert.equal(karabas.length, 33);
+    for (const event of [...artWizard, ...karabas]) {
+      assert.equal(event.organization_id, null);
+      assert.equal(event.status, 'published');
+      assert.equal(event.venue_source, 'import');
+      assert.match(event.source_url ?? '', /^https:\/\/(artwizard\.io|kyiv\.karabas\.com)\//);
+    }
+    const { rows: runs } = await withDatabase((client) =>
+      client.query<{ provider: string; status: string; finished: boolean; skipped: number }>(
+        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
+           FROM import_runs r LEFT JOIN skipped_records s ON s.import_run_id = r.id
+          WHERE NOT (r.id = ANY($1::uuid[]))
+          GROUP BY r.id
+          ORDER BY r.provider`,
+        [runsBefore],
+      ),
+    );
+    assert.deepEqual(runs, [
+      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 10 },
+      { provider: 'karabas', status: 'succeeded', finished: true, skipped: 0 },
+    ]);
+  });
+
+  test('changes nothing when the providers have not changed', async () => {
+    await runImport();
+    const first = (await importedEvents('karabas')).length;
+
+    await runImport();
+
+    assert.equal((await importedEvents('karabas')).length, first);
+    assert.equal(first, 33);
+    // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
+    assert.equal((await importedEvents('artwizard')).length, 30);
+  });
+
+  test('without ARTWIZARD_API_KEY fails the ArtWizard run only, and still imports Karabas', async () => {
+    const runsBefore = await withDatabase(async (client) =>
+      (await client.query('SELECT id FROM import_runs')).rows.map(({ id }: { id: string }) => id),
+    );
+
+    // As on staging without the secret: the variable is set, but empty.
+    const output = await runImport({ artWizardApiKey: '', exitCode: 1 });
+
+    assert.match(output, /artwizard: the run failed: ARTWIZARD_API_KEY is not set/);
+    const { rows: runs } = await withDatabase((client) =>
+      client.query<{ provider: string; status: string }>(
+        'SELECT provider, status FROM import_runs WHERE NOT (id = ANY($1::uuid[])) ORDER BY provider',
+        [runsBefore],
+      ),
+    );
+    assert.deepEqual(runs, [
+      { provider: 'artwizard', status: 'failed' },
+      { provider: 'karabas', status: 'succeeded' },
+    ]);
+    assert.equal((await importedEvents('karabas')).length, 33);
+  });
+
+  test('serves the imported events through the API, with their image and source URLs', async () => {
+    await runImport();
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string; image_url: string | null; source_url: string | null }>(
+        `SELECT id, image_url, source_url FROM events WHERE source = 'import' AND provider IN ('artwizard', 'karabas')`,
+      ),
+    );
+
+    assert.ok(rows.length > 0);
+    for (const { id, image_url: imageUrl, source_url: sourceUrl } of rows) {
+      const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.source, 'import');
+      assert.equal(res.body.imageUrl, imageUrl);
+      assert.equal(res.body.sourceUrl, sourceUrl);
+    }
+    assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
+  });
+
+  test('connects as nearby_import, which may not read a table outside its grants', async () => {
+    const client = new pg.Client({ connectionString: runDatabaseUrl('IMPORT_DATABASE_URL') });
+    await client.connect();
+    try {
+      await assert.rejects(client.query('SELECT id FROM accounts LIMIT 1'), /permission denied for table accounts/);
+    } finally {
+      await client.end();
     }
   });
 });

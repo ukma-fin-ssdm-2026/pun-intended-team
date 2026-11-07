@@ -14,6 +14,10 @@ export interface Event {
   venue: Venue;
   startsAt: string;
   endsAt: string;
+  /** Set on imported events: the provider's image, linked, never copied. */
+  imageUrl: string | null;
+  /** Set on imported events: the event's page at the provider, for attribution and tickets. */
+  sourceUrl: string | null;
   source: EventSource;
   status: EventStatus;
   organizationId: string | null;

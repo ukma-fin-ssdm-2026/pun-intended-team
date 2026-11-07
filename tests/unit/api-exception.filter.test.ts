@@ -34,7 +34,7 @@ function anError(code: ErrorCode, message: string, details?: ValidationIssue[]):
 }
 
 /** Runs the filter against a fake HTTP adapter and returns the one reply it wrote and what it logged. */
-function runFilter(exception: unknown) {
+function runFilter(exception: unknown, isUnavailable?: (exception: unknown) => boolean) {
   const logError = mock.method(Logger.prototype, 'error', () => {});
   const response = { id: 'the response of the request' };
   const replies: { response: unknown; body: ErrorResponse; status: number }[] = [];
@@ -47,7 +47,7 @@ function runFilter(exception: unknown) {
   } as unknown as HttpAdapterHost;
   const host = { switchToHttp: () => ({ getResponse: () => response }) } as unknown as ArgumentsHost;
 
-  new ApiExceptionFilter(adapterHost).catch(exception, host);
+  new ApiExceptionFilter(adapterHost, isUnavailable).catch(exception, host);
 
   assert.equal(replies.length, 1);
   const [reply] = replies;
@@ -67,6 +67,7 @@ describe('ApiExceptionFilter', () => {
       { code: 'ORGANIZATION_NOT_VERIFIED', status: 422 },
       { code: 'RATE_LIMITED', status: 429 },
       { code: 'PHONE_CODES_UNAVAILABLE', status: 503 },
+      { code: 'SERVICE_UNAVAILABLE', status: 503 },
     ];
 
     for (const { code, status } of statusByCode) {
@@ -234,6 +235,41 @@ describe('ApiExceptionFilter', () => {
         });
       });
     }
+  });
+
+  // REL-01: a dependency that ran out of time fails fast with 503 instead of a request that never ends.
+  describe('an error the unavailable check accepts', () => {
+    const timeout = new Error('Query read timeout');
+    const isTimeout = (exception: unknown) => exception === timeout;
+
+    test('answers 503 SERVICE_UNAVAILABLE and logs the cause with its stack', () => {
+      const reply = runFilter(timeout, isTimeout);
+
+      assert.deepEqual(reply, {
+        status: 503,
+        body: anError('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable. Try again later'),
+        logged: [[`A dependency timed out: ${timeout.message}`, timeout.stack]],
+      });
+    });
+
+    test('never returns the cause to the client', () => {
+      const { body } = runFilter(timeout, isTimeout);
+
+      assert.doesNotMatch(JSON.stringify(body), /Query read timeout/);
+    });
+
+    test('leaves an error it does not accept to the other rules', () => {
+      const reply = runFilter(new Error('database is down'), isTimeout);
+
+      assert.equal(reply.status, 500);
+      assert.equal(reply.body.error.code, 'INTERNAL_ERROR');
+    });
+
+    test('comes after the expected errors, so an ApiException keeps its own status', () => {
+      const reply = runFilter(new ApiException('NOT_FOUND', 'Not found'), () => true);
+
+      assert.deepEqual(reply, { status: 404, body: anError('NOT_FOUND', 'Not found'), logged: [] });
+    });
   });
 
   describe('anything else', () => {

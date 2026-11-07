@@ -405,6 +405,8 @@ model Event {
   externalId     String?       @map("external_id")
   title          String
   description    String
+  imageUrl       String?       @map("image_url")
+  sourceUrl      String?       @map("source_url")
   startsAt       DateTime      @map("starts_at") @db.Timestamptz(3)
   endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
   status         EventStatus   @default(published)

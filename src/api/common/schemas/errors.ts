@@ -10,6 +10,7 @@ export const ErrorCode = z
     'PAYLOAD_TOO_LARGE',
     'RATE_LIMITED',
     'INTERNAL_ERROR',
+    'SERVICE_UNAVAILABLE',
     // Raised by the business logic in core
     ...domainErrorCodes,
   ])

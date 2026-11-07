@@ -1,14 +1,39 @@
 // Written with the help of Claude
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
 import type { Venue } from '../../core/catalog/types/venue.ts';
 import { ImportedEventsRepository } from '../../core/import/repositories/imported-events.repository.ts';
-import type { ImportedEventFields, ImportedEventRow, NewImportedVenue } from '../../core/import/types/import.ts';
+import type {
+  ImportCategory,
+  ImportedEventFields,
+  ImportedEventRow,
+  NewImportedVenue,
+} from '../../core/import/types/import.ts';
 import { events, type StoredEvent, venues } from './data.ts';
 
-/** Writes into the same arrays the catalog stubs read, as the import and the catalog will share the tables. */
-@Injectable()
+/**
+ * For the unit tests that check the catalog serves imported events: it writes into the same arrays the catalog
+ * stubs read. The import itself runs on the database (`PrismaImportedEventsRepository`). Runs and skipped records
+ * are not kept.
+ */
 export class StubImportedEventsRepository implements ImportedEventsRepository {
+  constructor(private readonly categories: ImportCategory[] = []) {}
+
+  async findActiveCategories(): Promise<ImportCategory[]> {
+    return this.categories;
+  }
+
+  async startRun(): Promise<string> {
+    return randomUUID();
+  }
+
+  async lastSucceededRunStart(): Promise<Date | undefined> {
+    return undefined;
+  }
+
+  async finishRun(): Promise<void> {}
+
+  async saveSkipped(): Promise<void> {}
+
   async findVenue(name: string, address: string): Promise<Venue | undefined> {
     return venues.find((venue) => venue.source === 'import' && venue.name === name && venue.address === address);
   }
@@ -47,8 +72,9 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
 
 function toRow(event: StoredEvent): ImportedEventRow {
   const { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt } = event;
+  const { imageUrl = null, sourceUrl = null } = event;
   if (provider === undefined || externalId === undefined) {
     throw new Error(`Event ${id} was not imported`);
   }
-  return { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt };
+  return { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt, imageUrl, sourceUrl };
 }

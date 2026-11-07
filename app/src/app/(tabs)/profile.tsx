@@ -304,7 +304,7 @@ export default function ProfileScreen() {
           setSignOutOpen(false);
           void signOut();
           // Signing out starts a new history on the onboarding, so back cannot return to the account.
-          router.dismissAll();
+          if (router.canDismiss()) router.dismissAll();
           router.replace('/onboarding');
         }}
       />

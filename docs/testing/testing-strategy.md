@@ -22,8 +22,8 @@ MCR, 1 November 2026 ([all tests](coverage/all/index.html), [unit tests](coverag
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| All tests | 94.78% | 89.49% | 92.86% | 93.61% |
-| Unit tests only | 63.51% | 70.38% | 56.59% | 52.02% |
+| All tests | 95.05% | 89.69% | 93.23% | 93.98% |
+| Unit tests only | 64.83% | 70.31% | 58.59% | 53.87% |
 
 Unit tests reach `core/` and `infra/auth/`; controllers, `api/common/` and the database code are covered by the integration tests alone. MAIN-001 asks for 70% overall, which is met, and 85% for the critical modules: the authorization guards (`api/common/auth.ts`) are at 89%; the `match` algorithm is covered by its unit tests, and the report and ban flow (FR-025 to FR-027) is at 97% of lines in `moderation.service.ts` and 93% in `prisma-report-cases.repository.ts`; the rest of matching is measured once it is built.
 
@@ -31,7 +31,7 @@ Not covered, and why:
 - **`api-express-adapter.ts` (33%)** maps Express errors (invalid JSON, body too large, malformed URL); no test sends such a request yet. Next integration test to add.
 - **`auth.ts` (89%)**: the errors `@CurrentAccount()` and `@CurrentRegistrant()` throw when an endpoint declares the wrong access, a programming error no request can cause.
 - **Routes paused by [ADR-004](../architecture/decisions/ADR-004.md)**: the database code for phone numbers, passwords, the lockout and verification codes (`prisma-accounts.repository.ts` 48%, `prisma-verification-codes.repository.ts` 30%) runs only through the removed routes; the `AuthService` logic behind them keeps its unit tests.
-- **`prisma-categories.repository.ts` (77%, branches 43%)**: name clashes, deleting a category in use and the race the unique index stops have no tests yet.
+- **`prisma-categories.repository.ts` (76%, branches 50%)**: renaming, name clashes and the race the unique index stops have no tests yet. Deleting a category in use is tested: an e2e test for the database's refusal and a unit test for the error it is turned into.
 - **`api-exception.filter.ts` (branches 63%)**: the `500` for an unexpected error and the mapping of Nest's own `403`.
 - **Production and start-up only**: HSTS in production, a missing `DATABASE_URL`, a malformed stored password hash; these need another environment or a broken dependency.
 
@@ -67,7 +67,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 
 **Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` on every pull request and fails the build when either value is below the threshold.
 
-**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.61% and 89.49% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
+**Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.98% and 89.69% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
 
 **Evidence.** The step passes on `main` after the gate was added: [run 39924791190](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190), commit `63319ab`. When a threshold is raised above the current coverage, the run fails with `Coverage of "All tests" is too low` and exit code 1.
 

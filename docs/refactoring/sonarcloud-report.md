@@ -83,6 +83,8 @@ There are **16 open issues**, all with severity **MAJOR** (impact MEDIUM). None 
 
 #301 excludes `src/mcp/`, `docs/testing/coverage/` and `docs/api/openapi-generated.yaml` from analysis in [`.sonarcloud.properties`](../../.sonarcloud.properties). This changes what is measured, not the code: the excluded findings still exist in the generated files.
 
+#364 excludes `tests/unit/fixtures/providers/` on the same grounds: it holds pages saved from ArtWizard, Karabas and Nominatim, kept unchanged as test input for the import adapters. They are other sites' HTML, not code the team writes, and on PR #373 they gave 42 of the 43 new issues and the 78.7 % duplication.
+
 Expected values, calculated from the analysis of 2026-11-01 (commit `91fdcb0`, `main`), to be confirmed by the first analysis of `main` that includes the exclusion:
 
 | Metric | Before | Expected |
@@ -101,24 +103,26 @@ The Overall Metrics and Issues by Rule tables above are a snapshot of 2026-10-26
 
 - **Before:** commit `91fdcb0`, the last analysis before #301 and #300.
 - **After:** commit `7886fde`, the merge of #300. Only #301 and #300 were merged between the two commits, and later merges (#334, #342, #343, #345, #346) are not included.
-- **Not yet included:** #306 (PR #320) is not merged yet, and its effect on these metrics is expected to be negligible: it replaces time arithmetic with shared constants, and the analysis of the pull request reports 28 new lines, no new duplicated lines and no new issues.
+- **Not included:** #306 (PR #320), merged later on 2026-11-01 (`1a646c4`). It replaces time arithmetic with shared constants; the analysis of the pull request reports 28 new lines, no new duplicated lines and no new issues, and the analysis of `2d5d5ed` (2026-11-02), which includes it, still shows 3 Reliability issues, 124 duplicated lines and 60 min of Technical Debt.
 
 | Metric | Before | After | Changed by |
 |---|---|---|---|
 | Reliability issues | 9 | 3 | #301 (measurement) |
 | Duplicated lines | 396 (1.3 %) | 124 (0.5 %) | #301 (measurement) |
-| Coverage | not imported | not imported | nothing yet |
+| Technical Debt | 180 min | 60 min | #301 (measurement) |
 | Lines of code, for context | 24,174 | 21,050 | #301 (−3,127), #300 (+3) |
+
+SonarCloud's history keeps one analysis a day, so Technical Debt is not shown for `91fdcb0` and `7886fde` themselves: it is 180 min on 2026-11-01 (`2025c20`, before #301) and 60 min on 2026-11-02 (`2d5d5ed`). In both analyses it is the `S8786` findings alone, 20 min each, with 0 Maintainability issues, so it follows the Reliability issues: 9 × 20 = 180 min before, 3 × 20 = 60 min after.
 
 **Why these three.** They come from the plan and conclusions above, which were written before the changes:
 
 - **Reliability issues:** `S8786` is the rule with the most findings, and its Plan names a step for each of the 9: exclude 6, trim the regex in 2 files, mark 1 as a false positive.
 - **Duplications:** the conclusions place most duplicated lines in generated code, so the number said little about the code the team writes.
-- **Coverage:** the conclusions note that it is not sent to SonarCloud, so the dashboard cannot show coverage on new code.
+- **Technical Debt:** the Overall Metrics give 3 h, and the issues behind it are the `S8786` findings, so it shows in time how much of the Plan for that rule is done.
 
 **What changed the numbers.** The analysis of `67cd776`, the merge of #301 alone, separates the two pull requests. It already shows 3 Reliability issues, 124 duplicated lines and 21,047 lines of code, with Security issues still at 6. The analysis of `7886fde` adds the code fix from #300: Security issues drop to 0, and the new install steps in `ci.yml` add 3 lines of code.
 
-The improvement in Reliability issues and Duplications is therefore a change in measurement, not in code. The 6 `S8786` findings are still in `src/mcp/src/index.ts`, although SonarCloud lists them as Fixed because the file is no longer analyzed. Coverage has not changed at all.
+The improvement in Reliability issues, Duplications and Technical Debt is therefore a change in measurement, not in code. The 6 `S8786` findings are still in `src/mcp/src/index.ts`, although SonarCloud lists them as Fixed because the file is no longer analyzed.
 
 The 124 duplicated lines in `app/` were not in the 2026-10-26 analysis: duplicated lines rose from 272 to 396 with the merge of PR #339 (`91fdcb0`).
 
@@ -126,7 +130,7 @@ The 124 duplicated lines in `app/` were not in the 2026-10-26 analysis: duplicat
 
 - **Reliability issues:** 3 `S8786` findings, in [src/infra/auth/argon2-password-hasher.ts](../../src/infra/auth/argon2-password-hasher.ts), [app/src/app/events/[id]/index.tsx](../../app/src/app/events/[id]/index.tsx) and [app/src/components/ui/tab-bar-shape.ts](../../app/src/components/ui/tab-bar-shape.ts).
 - **Duplications:** 124 lines, in [app/src/app/profile-edit.tsx](../../app/src/app/profile-edit.tsx) and [app/src/app/profile-setup.tsx](../../app/src/app/profile-setup.tsx) (34 each), and [app/src/hooks/use-categories.ts](../../app/src/hooks/use-categories.ts) and [app/src/hooks/use-interests.ts](../../app/src/hooks/use-interests.ts) (28 each).
-- **Coverage:** not imported into SonarCloud.
+- **Technical Debt:** 60 min, the 3 `S8786` findings above.
 
 ## Security Rating
 
