@@ -15,12 +15,15 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 - The Concert.ua adapter and its sample feed: Concert.ua sells the same concerts as Karabas, so importing both would split applicants between copies of one event.
 
+### Refactoring
+
+- The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
+
 ## [1.1.1] - 2026-11-01
 
 ### Refactoring
 
 - Durations use shared time constants instead of hand-written arithmetic ([#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306)). Technique: Replace Magic Number with Symbolic Constant.
-- The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
 
 ## [1.1.0] - 2026-11-01
 
@@ -53,7 +56,7 @@ The first release, deployed to staging: the API at <https://api.nearbystaging.ap
 ### Refactoring
 
 - Event lookup for editing and cancelling reuses the plain lookup instead of repeating it ([#294](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/294)). Technique: Replace Inline Code with Function Call.
-- Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Move Statements to Callers.
+- Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Extract Function and Change Function Declaration.
 - Registration and profiles share one age calculation ([#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304)). Technique: Move Function.
 
 [Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.1...HEAD
