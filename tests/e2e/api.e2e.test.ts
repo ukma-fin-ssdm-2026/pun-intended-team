@@ -13,20 +13,25 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 
-// Categories seeded by the seed_categories migration; the rest of the ids are from src/infra/stubs/data.ts.
+// Categories seeded by the seed_categories migration; the rest of the ids are those the in-memory stubs had before #310.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
 const concerts = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
 const exhibitions = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
 const filmClubVenue = '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05';
+const arsenalVenue = '6b2d4f6a-8c0e-4a2b-9d4f-6a8b0c2e4f06';
+const newGalleryHall = '7c3e5a7b-9d1f-4b3c-8e5a-7b9c1d3f5a07';
 const filmNight = '3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10';
+const arsenalExhibition = 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e';
 const olenasListing = '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09';
+const tarasListing = 'af5b7d9e-1a3c-4e5f-9b7d-9e1a3c5e7f10';
 const cancelledFilmEvent = 'b8e5f1c3-2d4a-4c6b-9f0e-1a3d5c7b9e2f';
 const interestFilms = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e02';
 const interestHiking = 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e15';
 
-// The accounts the stubs in src/infra/stubs/data.ts belong to; the test creates them and signs their Google ID tokens.
+// The accounts the former in-memory stubs belonged to; the test creates them and signs their Google ID tokens.
 const stubAccounts = {
   user: {
     id: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14',
@@ -75,6 +80,104 @@ const stubProfiles = [
     communicationFormat: 'casual',
     interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
     telegram: 'taras_m',
+  },
+];
+
+// Dates count from the day of the run, as the stubs' did, so the catalog always has upcoming events.
+const inDays = (days: number) => addDays(kyivDate(), days);
+
+const stubOrganizations = [
+  { accountId: stubAccounts.org.id, name: 'Podil Film Club', verificationStatus: 'verified' },
+  { accountId: stubAccounts.orgPending.id, name: 'New Gallery', verificationStatus: 'pending' },
+];
+
+const stubVenues = [
+  {
+    id: filmClubVenue,
+    name: 'Natalka Park lawn',
+    address: 'Naberezhno-Luhova St, Kyiv',
+    latitude: 50.4825,
+    longitude: 30.5181,
+    source: 'organization',
+    organizationId: stubAccounts.org.id,
+  },
+  {
+    id: arsenalVenue,
+    name: 'Mystetskyi Arsenal',
+    address: '10-12 Lavrska St, Kyiv',
+    latitude: 50.4357,
+    longitude: 30.5555,
+    source: 'import',
+    organizationId: null,
+  },
+  {
+    id: newGalleryHall,
+    name: 'New Gallery hall',
+    address: '5 Velyka Vasylkivska St, Kyiv',
+    latitude: 50.4401,
+    longitude: 30.5203,
+    source: 'organization',
+    organizationId: stubAccounts.orgPending.id,
+  },
+];
+
+const stubEvents = [
+  {
+    id: filmNight,
+    title: 'Open-air film night: Shadows of Forgotten Ancestors',
+    description: 'Screening in the park, bring a blanket.',
+    categoryId: concerts,
+    venueId: filmClubVenue,
+    startsAt: `${inDays(13)}T19:00:00+03:00`,
+    endsAt: `${inDays(13)}T21:30:00+03:00`,
+    source: 'organization',
+    status: 'published',
+    organizationId: stubAccounts.org.id,
+  },
+  {
+    id: arsenalExhibition,
+    title: 'Contemporary art exhibition at the Arsenal',
+    description: 'Imported from a partner listing.',
+    categoryId: exhibitions,
+    venueId: arsenalVenue,
+    startsAt: `${inDays(16)}T11:00:00+03:00`,
+    endsAt: `${inDays(16)}T23:59:59+03:00`,
+    source: 'import',
+    status: 'published',
+    organizationId: null,
+  },
+  {
+    id: cancelledFilmEvent,
+    title: 'Silent film with live piano',
+    description: 'Cancelled: the pianist is ill.',
+    categoryId: concerts,
+    venueId: filmClubVenue,
+    startsAt: `${inDays(20)}T18:00:00+03:00`,
+    endsAt: `${inDays(20)}T20:00:00+03:00`,
+    source: 'organization',
+    status: 'cancelled',
+    organizationId: stubAccounts.org.id,
+  },
+];
+
+const stubListings = [
+  {
+    id: olenasListing,
+    authorId: stubAccounts.user.id,
+    categoryId: exhibitions,
+    eventId: arsenalExhibition,
+    title: 'Looking for company for the Arsenal exhibition',
+    description: 'Planning to go in the evening, happy to grab a coffee after.',
+    date: inDays(16),
+  },
+  {
+    id: tarasListing,
+    authorId: tarasAccount.id,
+    categoryId: concerts,
+    eventId: null,
+    title: 'Anyone up for a jazz concert?',
+    description: 'No ticket yet, open to suggestions.',
+    date: inDays(7),
   },
 ];
 
@@ -308,6 +411,51 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
   });
 }
 
+/** The stubs' organizations, venues, events and listings with their ids, after the accounts they belong to. */
+async function addStubCatalog(): Promise<void> {
+  await withDatabase(async (client) => {
+    for (const { accountId, name, verificationStatus } of stubOrganizations) {
+      await client.query(`INSERT INTO organizations (account_id, name, verification_status) VALUES ($1, $2, $3)`, [
+        accountId,
+        name,
+        verificationStatus,
+      ]);
+    }
+    for (const { id, name, address, latitude, longitude, source, organizationId } of stubVenues) {
+      await client.query(
+        `INSERT INTO venues (id, name, address, latitude, longitude, source, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, name, address, latitude, longitude, source, organizationId],
+      );
+    }
+    for (const event of stubEvents) {
+      await client.query(
+        `INSERT INTO events (id, title, description, category_id, venue_id, starts_at, ends_at, source, status, organization_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          event.id,
+          event.title,
+          event.description,
+          event.categoryId,
+          event.venueId,
+          event.startsAt,
+          event.endsAt,
+          event.source,
+          event.status,
+          event.organizationId,
+        ],
+      );
+    }
+    for (const { id, authorId, categoryId, eventId, title, description, date } of stubListings) {
+      await client.query(
+        `INSERT INTO listings (id, author_id, category_id, event_id, title, description, date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [id, authorId, categoryId, eventId, title, description, date],
+      );
+    }
+  });
+}
+
 /** Kyiv date `years` years before today. */
 function yearsAgo(years: number, plusDays = 0): string {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Kyiv' }).format(Date.now());
@@ -461,6 +609,7 @@ before(async () => {
   };
   runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
   await addStubAccounts(new PersonalDataCipher(dataEncryptionKey, contactHmacKey));
+  await addStubCatalog();
   // Every test calls from the same IP, so the per-IP auth limit is lifted here and tested on its own API.
   // stdout is kept for the test that checks what the log contains.
   ({ child: server, url: baseUrl } = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '10000' }, (chunk) => {
@@ -1075,7 +1224,8 @@ describe('PUT /api/v1/events/{id}', () => {
     assert.equal(res.body.id, filmNight);
     assert.equal(res.body.title, replacement.title);
     assert.equal(res.body.description, replacement.description);
-    assert.equal(res.body.startsAt, replacement.startsAt);
+    // The database keeps the instant, not the offset it was sent with.
+    assert.equal(Date.parse(res.body.startsAt), Date.parse(replacement.startsAt));
     assert.equal(res.body.status, 'published');
   });
 
@@ -1300,6 +1450,12 @@ describe('DELETE /api/v1/admin/categories/{id}', () => {
     });
     const res = await call('DELETE', `/api/v1/admin/categories/${created.body.id}`, { token: tokens.admin });
     assert.equal(res.status, 204);
+  });
+
+  test('rejects a category that events and listings use with 409', async () => {
+    const res = await call('DELETE', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
+    assertRejected(res, 409, 'CONFLICT');
+    assert.equal(res.body.error.message, 'The category is in use; deactivate it instead');
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -2056,6 +2212,22 @@ describe('Event import', () => {
 
     assert.equal((await importedEvents()).length, first.length);
     assert.equal(first.length, 3);
+  });
+
+  test('serves the imported events through the API', async () => {
+    runImport();
+    const ids = await withDatabase(async (client) =>
+      (
+        await client.query<{ id: string }>(`SELECT id FROM events WHERE source = 'import' AND provider = 'concert_ua'`)
+      ).rows.map(({ id }) => id),
+    );
+
+    assert.equal(ids.length, 3);
+    for (const id of ids) {
+      const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
+      assert.equal(res.status, 200);
+      assert.equal(res.body.source, 'import');
+    }
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {

@@ -5,7 +5,7 @@ import { BlurTargetView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -16,6 +16,7 @@ import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDay, formatShortDay, formatTimeRange } from '@/dates';
+import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
@@ -141,13 +142,28 @@ export default function EventScreen() {
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 
-  const event = findMockEvent(id);
+  const { data: liveEvent, loading, error, notFound, reload } = useEvent(id);
+  // Temporary: the screens still on mocks (map, matches, saved events, notifications) open mock events, which the API
+  // does not know. Remove the fallback when those screens move to the API.
+  const mockEvent = liveEvent ? undefined : findMockEvent(id);
+  const event = liveEvent ?? mockEvent;
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-surface-background">
+        <ActivityIndicator size="large" color={colors.brand.coral} />
+      </View>
+    );
+  }
 
   if (!event) {
     return (
       <View className="flex-1 items-center justify-center gap-4 bg-surface-background px-5">
-        <Text className="font-inter-semibold text-title text-text-primary">Подію не знайдено</Text>
+        <Text className="text-center font-inter-semibold text-title text-text-primary">
+          {notFound || !error ? 'Подію не знайдено' : 'Не вдалося завантажити подію'}
+        </Text>
+        {!notFound && error && <Button label="Спробувати ще раз" variant="dark" onPress={reload} />}
         <Button label="До каталогу" variant="light" onPress={() => router.replace('/')} />
       </View>
     );
@@ -174,8 +190,9 @@ export default function EventScreen() {
         <View className="h-[340px] overflow-hidden">
           {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
           <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-            {event.cover ? (
-              <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            {/* The API has no cover images yet; only mock events have one. */}
+            {mockEvent?.cover ? (
+              <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
             ) : (
               <CoralGradient preset="cover" />
             )}
@@ -231,7 +248,7 @@ export default function EventScreen() {
             <DetailRow
               icon="pin"
               value={event.venue.name}
-              note={[event.venue.address, event.district].filter(Boolean).join(' · ')}
+              note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
               // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
               onPress={() => router.navigate('/map')}
             />
@@ -241,13 +258,18 @@ export default function EventScreen() {
               value={formatEventDay(event.startsAt)}
               note={formatTimeRange(event.startsAt, event.endsAt)}
             />
-            <View className="h-px bg-border-default" />
-            <DetailRow
-              icon="building"
-              value={event.organizer}
-              note="Організатор події"
-              onPress={() => router.push('/organizer')}
-            />
+            {/* The API has no organizer name yet; only mock events have one. */}
+            {mockEvent && (
+              <>
+                <View className="h-px bg-border-default" />
+                <DetailRow
+                  icon="building"
+                  value={mockEvent.organizer}
+                  note="Організатор події"
+                  onPress={() => router.push('/organizer')}
+                />
+              </>
+            )}
           </View>
 
           <View className="gap-3">

@@ -41,7 +41,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Failure condition:** any of the three thresholds is exceeded in a 10-minute run
 - **Implementation:**
   - paginated list responses (at most 20 items, see QA-SEC-02)
-  - stateless API apart from events and listings, still kept in memory in `src/infra/stubs/data.ts` until they move to the database (FLEX-002); accounts, sessions, categories and profiles are in PostgreSQL
+  - stateless API: no data is kept in the process, it is all in PostgreSQL (FLEX-002)
   - indexed queries for the catalog filters (planned)
 - **Measurement:** k6 against staging, 500 sessions, 10 minutes. Stub-phase smoke run: 50 connections, 60 s, local server, `GET /api/v1/events`, thresholds p95 ≤ 1000 ms and no non-`2xx` answers:
   `TOKEN=$(curl -s -X POST http://localhost:4100/api/v1/auth/guest | node -pe 'JSON.parse(require("fs").readFileSync(0)).accessToken')`

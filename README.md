@@ -127,7 +127,7 @@ The provider sits behind the `EventProvider` adapter, and [`ConcertUaEventProvid
 npm run import:events   # one run: fetch, normalize, save, print a report; needs the local database and IMPORT_DATABASE_URL
 ```
 
-The API still reads events from the in-memory stubs until they move to the database (#310), so it does not serve what a run imported yet. Until then, the e2e tests check the rows a run writes, and `tests/unit/event-import.catalog.test.ts` checks that the catalog serves imported events.
+The API reads events from the same database, so it serves what a run imported. The e2e tests check the rows a run writes, and `tests/unit/event-import.catalog.test.ts` checks that the catalog serves imported events.
 
 ### Staging
 
@@ -190,7 +190,7 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories, accounts, verification codes, sessions, profiles, interests, report cases and the audit log are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)); the other data is still served from stubs. You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes, sessions, profiles, interests, report cases, the audit log, events, venues, organizations and listings are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)). A new local database has no events or listings until the development seed returns ([#354](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/354)). You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy

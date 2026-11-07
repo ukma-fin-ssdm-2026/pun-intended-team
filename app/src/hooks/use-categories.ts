@@ -1,38 +1,15 @@
 // Written with the help of Claude
-import { useEffect, useState } from 'react';
-
 import { apiClient } from '@/api/client';
-import type { components } from '@/api/schema';
+import { call } from '@/api/public-client';
+import { useApiQuery } from '@/hooks/use-api-query';
 
-type Category = components['schemas']['Category'];
+async function loadCategories() {
+  const result = await call(() => apiClient.GET('/api/v1/categories'));
+  return result.ok ? { ...result, data: result.data.items } : result;
+}
 
 export function useCategories() {
-  const [data, setData] = useState<Category[]>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
-
-  useEffect(() => {
-    let cancelled = false;
-    apiClient
-      .GET('/api/v1/categories')
-      .then((response) => {
-        if (cancelled) return;
-        if (response.data) {
-          setData(response.data.items);
-        } else {
-          setError('Could not load categories.');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not reach the server.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { data, loading, error };
+  const { data, failure, loading, reload } = useApiQuery('categories', loadCategories);
+  const error = failure && (failure.status === 0 ? 'Could not reach the server.' : 'Could not load categories.');
+  return { data, loading, error, reload };
 }
