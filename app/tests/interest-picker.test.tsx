@@ -32,13 +32,15 @@ describe('InterestPicker', () => {
   });
 
   // REL-07: the list failed to load.
-  test('turns "+ ще" into a retry after the list failed to load', async () => {
+  test('turns "+ ще" into "Повторити" after the list failed to load', async () => {
     const onRetry = jest.fn();
     await render(
       <InterestPicker options={options} selected={[]} onToggle={() => {}} note="обрано 0" onRetry={onRetry} />,
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: 'Не вдалося завантажити інтереси. Спробувати ще раз' }));
+    expect(screen.getByText('Повторити')).toBeOnTheScreen();
+    expect(screen.queryByText('+ ще')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Не вдалося завантажити інтереси. Повторити' }));
 
     expect(onRetry).toHaveBeenCalledTimes(1);
   });

@@ -172,7 +172,7 @@ type InterestPickerProps = {
   note: string;
   // "+ ще" opens the full list (П1.2); without a handler, while the list loads, it is dimmed.
   onMore?: () => void;
-  // Set when the full list could not be loaded: "+ ще" turns coral with the error mark and loads it again (REL-07).
+  // Set when the full list could not be loaded: "+ ще" becomes a coral "Повторити" with the error mark (REL-07).
   onRetry?: () => void;
 };
 
@@ -214,7 +214,7 @@ export function InterestPicker({ options, selected, onToggle, note, onMore, onRe
         {onRetry ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Не вдалося завантажити інтереси. Спробувати ще раз"
+            accessibilityLabel="Не вдалося завантажити інтереси. Повторити"
             onPress={onRetry}
             className="flex-row items-center gap-1.5 rounded-[18px] bg-brand-coral-soft py-2 pl-2 pr-3.5"
           >
@@ -222,7 +222,7 @@ export function InterestPicker({ options, selected, onToggle, note, onMore, onRe
             <View className="size-5 items-center justify-center rounded-full bg-brand-coral">
               <Icon name="danger" size={12} color={colors.text['on-dark']} />
             </View>
-            <Text className="font-inter-medium text-label text-brand-coral">+ ще</Text>
+            <Text className="font-inter-medium text-label text-brand-coral">Повторити</Text>
           </Pressable>
         ) : (
           <Pressable
