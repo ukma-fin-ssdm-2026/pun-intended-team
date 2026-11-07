@@ -41,6 +41,8 @@ export function toEvent(row: EventRow): Event {
     venue: toVenue(row.venue),
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
+    imageUrl: row.imageUrl,
+    sourceUrl: row.sourceUrl,
     source: row.source,
     status: row.status,
     organizationId: row.organizationId,

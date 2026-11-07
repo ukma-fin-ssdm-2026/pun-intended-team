@@ -36,6 +36,8 @@ export function anEventRow(overrides: Partial<EventRow> = {}): EventRow {
     description: 'Bring a blanket.',
     startsAt: new Date('2026-11-14T16:00:00Z'),
     endsAt: new Date('2026-11-14T18:30:00Z'),
+    imageUrl: null,
+    sourceUrl: null,
     status: 'published',
     createdAt: CREATED,
     updatedAt: CREATED,
