@@ -12,7 +12,7 @@ import { DeletePostDialog } from '@/components/announcements/delete-post-dialog'
 import { listingToPost } from '@/components/announcements/listing-post';
 import { PostCard } from '@/components/announcements/post-card';
 import { PostComposer } from '@/components/announcements/post-composer';
-import { ReportFlow, type ReportStep } from '@/components/matching/report-flow';
+import { ReportFlow, type ReportedPerson, type ReportStep } from '@/components/matching/report-flow';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
@@ -24,7 +24,7 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useListings } from '@/hooks/use-listings';
 import { useProfile, useProfileInitial } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import type { Author, Post } from '@/mocks/announcements';
+import type { Post } from '@/mocks/announcements';
 import { usePostRequests } from '@/state/post-requests';
 import { openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
@@ -130,7 +130,7 @@ export default function AnnouncementsScreen() {
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [searchTab, setSearchTab] = useState(searchTabs[0]);
-  const [reported, setReported] = useState<Author>();
+  const [reported, setReported] = useState<ReportedPerson>();
   const [report, setReport] = useState<ReportStep>('closed');
   const [deleting, setDeleting] = useState<Post>();
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -295,7 +295,8 @@ export default function AnnouncementsScreen() {
               <PostCard
                 post={post}
                 onReport={() => {
-                  setReported(post.author);
+                  // The post is a listing from the API, so the listing is reported, not its author.
+                  setReported({ ...post.author, listingId: post.id });
                   setReport('form');
                 }}
                 onDelete={() => setDeleting(post)}

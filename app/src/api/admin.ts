@@ -35,6 +35,10 @@ export function banReportedUser(id: string) {
   return call(() => apiClient.POST('/api/v1/admin/report-cases/{id}/ban', { params: { path: { id } } }));
 }
 
+export function removeReportedListing(id: string) {
+  return call(() => apiClient.POST('/api/v1/admin/report-cases/{id}/remove-listing', { params: { path: { id } } }));
+}
+
 export function dismissReportCase(id: string) {
   return call(() => apiClient.POST('/api/v1/admin/report-cases/{id}/dismiss', { params: { path: { id } } }));
 }
