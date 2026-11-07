@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { reportCaseStatuses, reportReasons } from '../../../core/moderation/types/report.ts';
-import { DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { reportCaseStatuses, reportReasons, reportTargetTypes } from '../../../core/moderation/types/report.ts';
+import { CalendarDate, DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
 
 const ReportReason = z
   .enum(reportReasons)
@@ -10,11 +10,22 @@ const ReportReason = z
       'or other',
   );
 
-const CreateReportFields = z.strictObject({
-  username: z.string().trim().min(1).max(50).describe('Username of the user being reported, as their profile shows it'),
-  reason: ReportReason,
-  comment: z.string().trim().max(1000).optional().describe('What happened, in the reporter’s words'),
-});
+const CreateReportFields = z
+  .strictObject({
+    username: z
+      .string()
+      .trim()
+      .min(1)
+      .max(50)
+      .optional()
+      .describe('Username of the user being reported, as their profile shows it; send this or listingId'),
+    listingId: Id.optional().describe('Id of the listing being reported; send this or username'),
+    reason: ReportReason,
+    comment: z.string().trim().max(1000).optional().describe('What happened, in the reporter’s words'),
+  })
+  .refine((body) => (body.username === undefined) !== (body.listingId === undefined), {
+    message: 'Send either username or listingId',
+  });
 
 export const createReportExample: CreateReportBody = {
   username: 'olena_k',
@@ -22,7 +33,11 @@ export const createReportExample: CreateReportBody = {
   comment: 'We agreed to meet at the entrance; she did not come and did not answer.',
 };
 
-export const CreateReportBody = CreateReportFields.meta({ id: 'CreateReportBody', example: createReportExample });
+export const CreateReportBody = CreateReportFields.meta({
+  id: 'CreateReportBody',
+  description: 'A report on a user (username) or on a listing (listingId), never both',
+  example: createReportExample,
+});
 
 const CaseAccount = z
   .object({
@@ -32,9 +47,21 @@ const CaseAccount = z
   })
   .meta({ id: 'CaseAccount', description: 'A reported user or a reporter, as an administrator sees them' });
 
+const CaseListing = z
+  .object({
+    id: Id,
+    title: z.string(),
+    description: z.string(),
+    date: CalendarDate.describe('Kyiv date'),
+    status: z.enum(['active', 'removed']).describe('removed once an administrator or the author removed it'),
+  })
+  .meta({ id: 'CaseListing', description: 'A reported listing, as an administrator sees it' });
+
 const ReportCaseFields = z.object({
   id: Id,
-  account: CaseAccount.describe('The reported user'),
+  targetType: z.enum(reportTargetTypes).describe('account: a user was reported; listing: a listing was'),
+  account: CaseAccount.describe('The reported user, or the author of the reported listing'),
+  listing: CaseListing.nullable().describe('The reported listing; null in an account case'),
   status: z.enum(reportCaseStatuses),
   resolution: z.enum(['banned', 'removed', 'dismissed']).nullable().describe('Null while the case is open'),
   reportCount: z.number().int().describe('Reports in the case, repeated reports by one user included'),
@@ -47,7 +74,9 @@ const accountExample = { id: 'c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14', username: '
 
 export const reportCaseExample: ReportCase = {
   id: '5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30',
+  targetType: 'account',
   account: accountExample,
+  listing: null,
   status: 'open',
   resolution: null,
   reportCount: 2,

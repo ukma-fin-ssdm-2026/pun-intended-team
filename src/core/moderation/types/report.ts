@@ -10,16 +10,30 @@ export interface NewReport {
   comment?: string;
 }
 
+export interface NewListingReport {
+  listingId: string;
+  reason: ReportReason;
+  comment?: string;
+}
+
+export const reportTargetTypes = ['account', 'listing'] as const;
+
+export type ReportTargetType = (typeof reportTargetTypes)[number];
+
 export const reportCaseStatuses = ['open', 'resolved'] as const;
 
 export type ReportCaseStatus = (typeof reportCaseStatuses)[number];
 
 export type ReportResolution = 'banned' | 'removed' | 'dismissed';
 
-/** A case as storage keeps it: every report on one account until an administrator resolves it (FR-026). */
+/** A case as storage keeps it: every report on one account or listing until an administrator resolves it (FR-026). */
 export interface ReportCaseRecord {
   id: string;
-  accountId: string;
+  targetType: ReportTargetType;
+  /** The reported account; null in a listing case. */
+  accountId: string | null;
+  /** The reported listing; null in an account case. */
+  listingId: string | null;
   status: ReportCaseStatus;
   resolution: ReportResolution | null;
   reportCount: number;
@@ -43,8 +57,20 @@ export interface CaseAccount {
   displayName: string | null;
 }
 
-export interface ReportCase extends Omit<ReportCaseRecord, 'accountId'> {
+/** A reported listing as the administrator sees it, also after it was removed. */
+export interface CaseListing {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  status: 'active' | 'removed';
+}
+
+export interface ReportCase extends Omit<ReportCaseRecord, 'accountId' | 'listingId'> {
+  /** The reported user, or the author of the reported listing. */
   account: CaseAccount;
+  /** Null in an account case. */
+  listing: CaseListing | null;
 }
 
 export interface ReportCaseDetails extends ReportCase {
