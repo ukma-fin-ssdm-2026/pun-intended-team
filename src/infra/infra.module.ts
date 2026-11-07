@@ -21,6 +21,7 @@ import { AuditLogRepository } from '../core/moderation/repositories/audit-log.re
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
+import { DatabaseProbe } from '../core/system/adapters/database-probe.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { loadGoogleSettings } from './auth/google-settings.ts';
 import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
@@ -38,6 +39,7 @@ import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
 import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
+import { PrismaDatabaseProbe } from './prisma/prisma-database-probe.ts';
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
@@ -69,6 +71,7 @@ const repositories = [
 
 const adapters = [
   { provide: TransactionRunner, useClass: PrismaTransactionRunner },
+  { provide: DatabaseProbe, useClass: PrismaDatabaseProbe },
   { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },

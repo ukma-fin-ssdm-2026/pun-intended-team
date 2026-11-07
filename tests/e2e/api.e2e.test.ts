@@ -632,10 +632,10 @@ after(() => {
 });
 
 describe('GET /health', () => {
-  test('reports ok without a token', async () => {
+  test('reports healthy, with the database up, without a token', async () => {
     const res = await call('GET', '/health');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { status: 'ok' });
+    assert.deepEqual(res.body, { status: 'healthy', checks: { database: 'up' } });
     assert.equal(res.headers.get('x-powered-by'), null);
   });
 

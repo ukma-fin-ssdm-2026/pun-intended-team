@@ -528,8 +528,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Check that the API is running
-         * @description Check that the API is running. No access token needed.
+         * Check that the API and its database are up
+         * @description Checks that the API is running and that its database answers within 2 s. `200` while it is healthy; `503` with the dependency that is down in `checks`. No access token needed.
          */
         get: operations["getHealth"];
         put?: never;
@@ -1336,14 +1336,25 @@ export interface components {
             }[];
         };
         /**
-         * @description Returned while the API is up
+         * @description Whether the API and the dependencies it needs are up
          * @example {
-         *       "status": "ok"
+         *       "status": "healthy",
+         *       "checks": {
+         *         "database": "up"
+         *       }
          *     }
          */
         HealthResponse: {
-            /** @enum {string} */
-            status: "ok";
+            /**
+             * @description healthy only while every dependency in checks is up
+             * @enum {string}
+             */
+            status: "healthy" | "unhealthy";
+            /** @description Each dependency the API needs, up or down; the cause of a failure is only logged */
+            checks: {
+                /** @enum {string} */
+                database: "up" | "down";
+            };
         };
     };
     responses: never;
@@ -2983,8 +2994,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The API is up */
+            /** @description The API and its database are up */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description A dependency the API needs is down */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

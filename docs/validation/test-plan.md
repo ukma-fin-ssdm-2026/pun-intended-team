@@ -132,6 +132,8 @@ Testing under this plan is complete when all of the following hold:
 | TC-60 | `ModerationService.report` | Unit | Positive | A filed report is logged with the reporter as actor and the reported account as target, without the comment | Viktoriia Baran | FR-025, SEC-004 | done |
 | TC-61 | `GET /admin/report-cases?status=resolved` | Integration | Positive | Resolved cases are listed on request, a page at a time: with `limit=1` and two resolved cases, one item and `hasMore: true` | Viktoriia Baran | FR-026 | done |
 | TC-62 | `POST /reports` while its case is resolved | Integration | Negative | A report sent while another connection holds an uncommitted resolution of the case waits for it, then goes into a new open case, not the resolved one | Viktoriia Baran | FR-026 | done |
+| TC-74 | `HealthService.check` | Unit | Negative | The check is healthy while the database answers; a database that fails, or does not answer within 2 s, makes it unhealthy with `database: down`, and the cause is logged | Viktoriia Baran | REL-001 | done |
+| TC-75 | `GET /health`, database unreachable | Integration | Negative | Fault injection (`tests/reliability/`): with a database that refuses the connection, or accepts it and never answers, the built API answers `503` `{ "status": "unhealthy", "checks": { "database": "down" } }` within 2 s, with the cause only in the log, and the Dockerfile's `HEALTHCHECK` command exits 1 | Viktoriia Baran | REL-001 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

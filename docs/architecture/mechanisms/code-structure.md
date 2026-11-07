@@ -31,6 +31,7 @@ src/
       services/                 events.service.ts, categories.service.ts, category-name.ts (how a category name is saved)
       types/                    event, category, venue, organization
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
+    system/                     HealthService behind /health; adapters/database-probe.ts (abstract: does the database answer)
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
       adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
