@@ -18,6 +18,9 @@ const SIGNED_TOKEN = 'signed-token';
 // SEC-005
 const ACCESS_TOKEN_SECONDS = 60 * 60;
 const REFRESH_TOKEN_MS = 30 * 24 * 60 * 60 * 1000;
+// REL-08
+const REFRESH_REUSE_MS = 60 * 1000;
+const NEXT_SECRET = 'n'.repeat(43);
 const REFRESH_TOKEN = /^b0000000-0000-4000-8000-000000000001\.([\w-]{43})$/;
 
 function hashOf(secret: string): string {
@@ -30,6 +33,8 @@ function aSession(overrides: Partial<Session> = {}): Session {
     id: SESSION_ID,
     accountId: ACCOUNT_ID,
     tokenHash: hashOf(SECRET),
+    previousTokenHash: null,
+    rotatedAt: null,
     expiresAt: new Date(NOW.getTime() + REFRESH_TOKEN_MS),
     revokedAt: null,
     accountStatus: 'active',
@@ -108,13 +113,76 @@ describe('SessionsService.refresh', () => {
     assert.deepEqual(sessions.rotate.mock.calls[0]?.arguments, [
       SESSION_ID,
       hashOf(SECRET),
-      { tokenHash: hashOf(secret), expiresAt: new Date(NOW.getTime() + REFRESH_TOKEN_MS) },
+      {
+        tokenHash: hashOf(secret),
+        expiresAt: new Date(NOW.getTime() + REFRESH_TOKEN_MS),
+        previousTokenHash: hashOf(SECRET),
+        rotatedAt: NOW,
+      },
     ]);
     assert.deepEqual(accessTokens.issue.mock.calls[0]?.arguments, [
       { kind: 'account', accountId: ACCOUNT_ID, role: 'user', sessionId: SESSION_ID },
       ACCESS_TOKEN_SECONDS,
     ]);
     assert.equal(sessions.revoke.mock.callCount(), 0);
+  });
+
+  /** The session after SECRET was rotated to NEXT_SECRET `ago` ms before NOW, and the answer never arrived. */
+  function rotatedAgo(ago: number): Session {
+    return aSession({
+      tokenHash: hashOf(NEXT_SECRET),
+      previousTokenHash: hashOf(SECRET),
+      rotatedAt: new Date(NOW.getTime() - ago),
+    });
+  }
+
+  // REL-08: the client lost the answer of a rotation and comes back with the token it still has.
+  for (const ago of [0, REFRESH_REUSE_MS]) {
+    test(`accepts the replaced secret ${ago / 1000} s after the rotation, and rotates again`, async () => {
+      const { service, sessions } = makeService();
+      sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(ago)));
+
+      const tokens = await service.refresh(`${SESSION_ID}.${SECRET}`);
+
+      const secret = REFRESH_TOKEN.exec(tokens.refreshToken)?.[1] ?? '';
+      assert.deepEqual(sessions.rotate.mock.calls[0]?.arguments, [
+        SESSION_ID,
+        hashOf(NEXT_SECRET),
+        {
+          tokenHash: hashOf(secret),
+          expiresAt: new Date(NOW.getTime() + REFRESH_TOKEN_MS),
+          previousTokenHash: hashOf(SECRET),
+          rotatedAt: new Date(NOW.getTime() - ago),
+        },
+      ]);
+      assert.equal(sessions.revoke.mock.callCount(), 0);
+    });
+  }
+
+  test('ends the session when the replaced secret comes more than 60 s after the rotation', async () => {
+    const { service, sessions } = makeService();
+    sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(REFRESH_REUSE_MS + 1)));
+
+    await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.equal(sessions.rotate.mock.callCount(), 0);
+  });
+
+  test('ends the session when a secret two rotations old comes, even within 60 s', async () => {
+    const { service, sessions } = makeService();
+    sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(0)));
+
+    await assert.rejects(service.refresh(`${SESSION_ID}.${'o'.repeat(43)}`), isDomainError('INVALID_REFRESH_TOKEN'));
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+  });
+
+  test('ends the session of a banned account even for a retry within 60 s', async () => {
+    const { service, sessions, accounts } = makeService();
+    sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(0)));
+    accounts.findById.mock.mockImplementation(() => Promise.resolve(anAccount({ status: 'banned' })));
+
+    await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
   });
 
   const malformed = ['', 'not-a-token', `${SESSION_ID}.short`, `not-a-uuid.${SECRET}`, `${SESSION_ID}${SECRET}`];
@@ -144,8 +212,8 @@ describe('SessionsService.refresh', () => {
     });
   }
 
-  // A rotated token coming back means two holders: the session ends for both. Any wrong secret counts, since only
-  // the current hash is stored and an older token cannot be told from a guess.
+  // A rotated token coming back after its 60 s means two holders: the session ends for both. Any wrong secret counts,
+  // since an older token cannot be told from a guess.
   test('ends the session when a wrong secret comes', async () => {
     const { service, sessions } = makeService();
 

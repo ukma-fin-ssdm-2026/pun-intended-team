@@ -7,11 +7,15 @@ import { AccessTokens } from '../adapters/access-tokens.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { SessionsRepository } from '../repositories/sessions.repository.ts';
 import type { SessionTokens } from '../types/auth.ts';
+import type { Session } from '../types/session.ts';
 import type { AccountRole } from '../types/caller.ts';
 
 // SEC-005
 export const ACCESS_TOKEN_SECONDS = HOUR_SECONDS;
 const REFRESH_TOKEN_MS = 30 * DAY_MS;
+// A refresh whose answer was lost comes back with the token it replaced; accepted this long after the rotation
+// (REL-08). Okta allows at most 60 s, as does the OAuth working group's proposal for grace periods.
+export const REFRESH_REUSE_MS = 60 * 1000;
 const SECRET_BYTES = 32;
 
 /** `<session id>.<secret>`: the id finds the row, the secret proves the token. */
@@ -36,8 +40,10 @@ export class SessionsService {
   }
 
   /**
-   * Rotates the refresh token: the old one stops working and the session gets another 30 days. A wrong secret means
-   * a token that was already rotated, so stolen or replayed: it ends the session for both holders.
+   * Rotates the refresh token: the old one stops working and the session gets another 30 days. The token the last
+   * rotation replaced still works for 60 s, as the retry of an answer that was lost; it rotates again, and the token
+   * whose answer was lost stops working. Any other secret means a stolen or replayed token: it ends the session for
+   * both holders.
    */
   async refresh(refreshToken: string): Promise<SessionTokens> {
     const [, sessionId, secret] = REFRESH_TOKEN.exec(refreshToken) ?? [];
@@ -50,7 +56,10 @@ export class SessionsService {
       throw invalidRefreshToken();
     }
     const account = await this.accountsRepository.findById(session.accountId);
-    if (!sameHash(session.tokenHash, hashSecret(secret)) || account?.status !== 'active') {
+    const presented = hashSecret(secret);
+    const current = sameHash(session.tokenHash, presented);
+    const retry = !current && isRetryOfLostAnswer(session, presented, now);
+    if ((!current && !retry) || account?.status !== 'active') {
       await this.sessionsRepository.revoke(session.id, now);
       throw invalidRefreshToken();
     }
@@ -58,6 +67,10 @@ export class SessionsService {
     const rotated = await this.sessionsRepository.rotate(session.id, session.tokenHash, {
       tokenHash: hashSecret(next),
       expiresAt: new Date(now.getTime() + REFRESH_TOKEN_MS),
+      // A retry keeps the token it was made with as the previous one, and the 60 s of the first rotation.
+      ...(retry
+        ? { previousTokenHash: presented, rotatedAt: session.rotatedAt! }
+        : { previousTokenHash: session.tokenHash, rotatedAt: now }),
     });
     if (!rotated) {
       await this.sessionsRepository.revoke(session.id, now);
@@ -112,6 +125,16 @@ function hashSecret(secret: string): string {
 function sameHash(stored: string, actual: string): boolean {
   const [a, b] = [Buffer.from(stored), Buffer.from(actual)];
   return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** The token the last rotation replaced, within 60 s of it. */
+function isRetryOfLostAnswer(session: Session, presented: string, now: Date): boolean {
+  return (
+    session.previousTokenHash !== null &&
+    session.rotatedAt !== null &&
+    sameHash(session.previousTokenHash, presented) &&
+    now.getTime() - session.rotatedAt.getTime() <= REFRESH_REUSE_MS
+  );
 }
 
 function invalidRefreshToken(): DomainError {

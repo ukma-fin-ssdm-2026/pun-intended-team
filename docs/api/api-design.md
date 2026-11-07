@@ -149,7 +149,7 @@ Sign-up and sign-in are Google-only for now ([ADR-004](../architecture/decisions
 
 `google/register`, `google` and `refresh` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`; the ones that sign in add `refreshToken`.
 
-A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one; a wrong refresh token for the session, such as a replaced one used again, ends the session. `sign-out` ends the current session. An ended session's access token gets `401` on the next request, before it expires.
+A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one. The replaced token still works for 60 seconds, so an app whose answer was lost can send it again; it gets new tokens, and the ones whose answer was lost stop working. A wrong refresh token for the session, such as a replaced one used again later, ends the session. `sign-out` ends the current session. An ended session's access token gets `401` on the next request, before it expires.
 
 ### Events
 

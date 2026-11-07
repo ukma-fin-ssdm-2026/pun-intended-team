@@ -2,7 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { SessionsRepository } from '../../core/identity/repositories/sessions.repository.ts';
 import type { AccountStatus } from '../../core/identity/types/account.ts';
-import type { Session, SessionRecord } from '../../core/identity/types/session.ts';
+import type { Session, SessionRecord, SessionRotation } from '../../core/identity/types/session.ts';
 import type { RefreshToken } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 
@@ -21,7 +21,7 @@ export class PrismaSessionsRepository implements SessionsRepository {
     return row ? toSession(row) : undefined;
   }
 
-  async rotate(id: string, currentHash: string, next: Pick<Session, 'tokenHash' | 'expiresAt'>): Promise<boolean> {
+  async rotate(id: string, currentHash: string, next: SessionRotation): Promise<boolean> {
     const { count } = await this.prisma.refreshToken.updateMany({
       where: { id, tokenHash: currentHash, revokedAt: null },
       data: next,
@@ -45,9 +45,20 @@ function toSession({
   id,
   accountId,
   tokenHash,
+  previousTokenHash,
+  rotatedAt,
   expiresAt,
   revokedAt,
   account,
 }: RefreshToken & { account: { status: AccountStatus } }): Session {
-  return { id, accountId, tokenHash, expiresAt, revokedAt, accountStatus: account.status };
+  return {
+    id,
+    accountId,
+    tokenHash,
+    previousTokenHash,
+    rotatedAt,
+    expiresAt,
+    revokedAt,
+    accountStatus: account.status,
+  };
 }

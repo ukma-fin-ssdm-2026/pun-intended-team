@@ -275,7 +275,7 @@ export interface paths {
         put?: never;
         /**
          * Renew the access token
-         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one, since the old one no longer works, and using it again ends the session. No access token needed.
+         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one. If the answer is lost, send the old one again within 60 seconds; after that, or for any older token, it ends the session. No access token needed.
          */
         post: operations["refreshSession"];
         delete?: never;

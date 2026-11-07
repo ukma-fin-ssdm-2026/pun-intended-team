@@ -4,7 +4,7 @@
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { type AddressInfo, createServer } from 'node:net';
@@ -988,7 +988,7 @@ describe('Per-IP limit behind a reverse proxy', () => {
 
 // SEC-005: sessions renew without signing in again, and end at once on sign-out.
 describe('POST /api/v1/auth/refresh', () => {
-  test('returns new tokens, and the old refresh token stops working', async () => {
+  test('returns new tokens that work', async () => {
     const session = await newSession(subjects.user);
 
     const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
@@ -999,9 +999,28 @@ describe('POST /api/v1/auth/refresh', () => {
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
-  test('ends the session when a refresh token is used a second time', async () => {
+  // REL-08: the answer of a refresh was lost, so the app still has the token that refresh replaced.
+  test('accepts the replaced refresh token within 60 s as a retry, and the lost one stops working', async () => {
+    const session = await newSession(subjects.user);
+    const lost = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    const retry = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: retry.body.accessToken })).status, 200);
+    const next = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: retry.body.refreshToken } });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    const lostUsed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: lost.body.refreshToken } });
+    assertRejected(lostUsed, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('ends the session when a replaced refresh token comes back more than 60 s later', async () => {
     const session = await newSession(subjects.user);
     const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    const [sessionId] = session.refreshToken.split('.');
+    await withDatabase((client) =>
+      client.query(`UPDATE refresh_tokens SET rotated_at = now() - interval '61 seconds' WHERE id = $1`, [sessionId]),
+    );
 
     const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
 
@@ -2186,8 +2205,9 @@ describe('Parallel requests', () => {
   // On one database connection the requests would run one after another and never race.
   const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
 
-  // SEC-005
-  test('renew a session once when one refresh token is sent 5 times at once', async () => {
+  // SEC-005. A request that reads the session after another one rotated it is a retry within 60 s (REL-08), so how
+  // many get 200 depends on timing; at most one of the tokens they return may work.
+  test('leave at most one working refresh token when one is sent 5 times at once', async () => {
     const session = await newSession(subjects.user);
     await openConnections();
 
@@ -2195,7 +2215,17 @@ describe('Parallel requests', () => {
       call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
     );
 
-    assert.equal(responses.filter((res) => res.status === 200).length, 1);
+    const issued = responses.filter((res) => res.status === 200).map((res) => res.body.refreshToken as string);
+    assert.ok(issued.length >= 1, JSON.stringify(responses.map((res) => res.body)));
+    const [sessionId] = session.refreshToken.split('.');
+    const { rows } = await withDatabase((client) =>
+      client.query('SELECT token_hash, revoked_at FROM refresh_tokens WHERE id = $1', [sessionId]),
+    );
+    // An ended session leaves no working token; a live one, exactly the token whose hash it stores.
+    const stored = issued.filter(
+      (token) => createHash('sha256').update(token.split('.')[1]).digest('base64url') === rows[0].token_hash,
+    );
+    assert.ok(rows[0].revoked_at !== null || stored.length === 1, JSON.stringify({ issued, row: rows[0] }));
   });
 
   // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.

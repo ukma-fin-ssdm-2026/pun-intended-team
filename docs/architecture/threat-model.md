@@ -40,6 +40,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TB6 main server → external | Google tokens verified server-side | TLS | provider request IDs stored | codes and push text carry no contacts | TM-08 | — |
 | Expo Push → user device | push is only a hint; the app reads the inbox through the API | TLS (Expo, APNs / FCM) | — | push text carries no contacts | missed push: the inbox still has the row (notifications.md) | — |
 | CI runner (self-hosted) | — | TM-16 | — | — | — | TM-16 |
+| TM-17 | identity | Spoofing | An attacker who stole a refresh token uses it within 60 seconds after the app renewed it. The server takes it for the app's retry of a lost answer (REL-08), renews the session for the attacker, and the app's token stops working. | Medium | **Accepted.** Without the window a lost answer signs the user out. Only the immediately previous token qualifies, for at most 60 s, as at Okta (default 30 s, at most 60 s) and in the OAuth working group's proposal; a reuse after that, or of an older token, still ends the session (SEC-005). The app makes one refresh at a time and retries once. Further step: tokens bound to the device (DPoP, RFC 9449), which need no rotation. |
 
 ## 3. Risks
 
@@ -74,6 +75,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TM-09 lockout abuse | short lockout, other sign-in paths remain | abuse shows up in the audit log |
 | TM-13 unencrypted internal hop | single private network of one provider | the edge and the app host are split across providers |
 | TM-15 several accounts per person | Google's sign-up checks, per-IP limits, bans | paid phone codes are funded ([ADR-004](decisions/ADR-004.md)) |
+| TM-17 refresh token replayed within 60 s | a lost answer would otherwise sign the user out; the window is the industry's usual cap | the app supports device-bound tokens (DPoP) |
 
 TM-10 is partly mitigated and TM-14 mitigated, but their residual part — copying what a legitimate user can already see — is accepted as well.
 
