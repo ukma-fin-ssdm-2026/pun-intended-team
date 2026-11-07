@@ -5,37 +5,117 @@
 # Reviewed by: Viktoriia Baran
 set -eu
 
+backups=${BACKUP_ROOT:-/backups}
+retry_delay=${BACKUP_RETRY_DELAY_SECONDS:-600}
+attempts=3
+# Marks a nightly backup that failed every attempt, for `check`; removed by the next good one.
+failed_marker="$backups/nightly-failed"
+
+# Writes one copy to $backups/$1 and keeps it only if pg_restore can read it. Sets $file, $duration and $size, or
+# $reason on failure.
 dump() {
-  mkdir -p "/backups/$1"
-  file="/backups/$1/$PGDATABASE-$(date -u +%Y-%m-%dT%H%M%S).dump"
-  pg_dump --format=custom --file="$file.partial"
-  mv "$file.partial" "$file"
-  echo "Backup written: $file"
-}
-
-# Keeps the newest $2 files in /backups/$1.
-keep() {
-  ls -1t "/backups/$1"/*.dump 2>/dev/null | tail -n +"$(($2 + 1))" | xargs -r rm --
-}
-
-if [ "${1:-}" = now ]; then
-  dump manual
-  keep manual 5
-  exit 0
-fi
-
-while true; do
-  next=$(date -u -d '01:00' +%s)
-  if [ "$next" -le "$(date -u +%s)" ]; then
-    next=$(date -u -d 'tomorrow 01:00' +%s)
+  mkdir -p "$backups/$1"
+  file="$backups/$1/$PGDATABASE-$(date -u +%Y-%m-%dT%H%M%S).dump"
+  log=$(mktemp)
+  started=$(date -u +%s)
+  status=0
+  step=dump
+  timeout 15m pg_dump --format=custom --lock-wait-timeout=5min --file="$file.partial" 2>"$log" || status=$?
+  if [ "$status" -eq 0 ]; then
+    step=restore
+    pg_restore --list "$file.partial" >/dev/null 2>"$log" || status=$?
   fi
-  sleep $((next - $(date -u +%s)))
-  dump daily
+  duration=$(($(date -u +%s) - started))
+  if [ "$status" -eq 0 ]; then
+    rm -f "$log"
+    mv "$file.partial" "$file"
+    size=$(wc -c <"$file" | tr -d ' ')
+    echo "Backup written: $file"
+    return 0
+  fi
+  rm -f "$file.partial"
+  cat "$log" >&2
+  reason=$(failure_reason)
+  rm -f "$log"
+  echo "Backup failed: $reason" >&2
+  return 1
+}
+
+# The cause as one of the codes the admin panel shows; the details, with hosts and users, stay in this log.
+failure_reason() {
+  if [ "$step" = restore ]; then
+    echo unreadable
+  elif [ "$status" -eq 124 ]; then
+    echo timeout
+  elif grep -q -E 'password authentication failed|no pg_hba.conf entry|role ".*" does not exist' "$log"; then
+    echo auth_failed
+  elif grep -q 'lock timeout' "$log"; then
+    echo locked
+  elif grep -q -E 'could not connect|Connection refused|could not translate host name|timeout expired|No route to host|server closed the connection' "$log"; then
+    echo unreachable
+  else
+    echo failed
+  fi
+}
+
+keep() {
+  ls -1t "$backups/$1"/*.dump 2>/dev/null | tail -n +"$(($2 + 1))" | xargs -r rm --
+}
+
+record() {
+  if ! timeout 1m psql --quiet --no-psqlrc -v ON_ERROR_STOP=1 -v succeeded="$1" -v attempts="$attempt" \
+    -v duration="$duration" -v size="$2" -v reason="$3" >/dev/null <<'SQL'
+INSERT INTO backup_runs (succeeded, attempts, duration_seconds, size_bytes, reason)
+VALUES (:'succeeded', :'attempts', :'duration', NULLIF(:'size', '')::bigint, NULLIF(:'reason', ''));
+SQL
+  then
+    echo "Could not record the backup in backup_runs" >&2
+  fi
+}
+
+nightly() {
+  attempt=1
+  until dump daily; do
+    if [ "$attempt" -ge "$attempts" ]; then
+      echo "The nightly backup failed $attempts times; the next one starts at 01:00 UTC" >&2
+      echo "$(date -u +%FT%TZ) $reason" >"$failed_marker"
+      record false '' "$reason"
+      return 1
+    fi
+    echo "Retrying the backup in $retry_delay s" >&2
+    attempt=$((attempt + 1))
+    sleep "$retry_delay"
+  done
+  rm -f "$failed_marker"
+  record true "$size" ''
   keep daily 7
   # Sunday's copy is also the weekly one.
   if [ "$(date -u +%u)" = 7 ]; then
-    mkdir -p /backups/weekly
-    cp "$file" /backups/weekly/
+    mkdir -p "$backups/weekly"
+    cp "$file" "$backups/weekly/"
     keep weekly 4
   fi
-done
+}
+
+case "${1:-}" in
+  now)
+    dump manual
+    keep manual 5
+    ;;
+  nightly)
+    nightly
+    ;;
+  check)
+    [ ! -e "$failed_marker" ] && find "$backups/daily" -name '*.dump' -mmin -1560 2>/dev/null | grep -q .
+    ;;
+  *)
+    while true; do
+      next=$(date -u -d '01:00' +%s)
+      if [ "$next" -le "$(date -u +%s)" ]; then
+        next=$(date -u -d 'tomorrow 01:00' +%s)
+      fi
+      sleep $((next - $(date -u +%s)))
+      nightly || true
+    done
+    ;;
+esac

@@ -91,8 +91,14 @@ main() {
   "${compose[@]}" run --rm --no-deps --user root -v "$PWD/keys:/app/keys" migrate \
     sh -c 'node dist/scripts/generate-keys.js && chown -R node:node keys'
 
-  if [[ -n "$("${compose[@]}" ps -q backup)" ]]; then
+  local backup
+  backup=$("${compose[@]}" ps -q backup)
+  if [[ -n "$backup" ]]; then
     "${compose[@]}" exec -T backup sh /backup-db.sh now
+    # A GitHub Actions annotation: the job shows it although the deploy goes on.
+    if [[ "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$backup")" = unhealthy ]]; then
+      echo "::warning::The last nightly backup failed or is older than 26 hours: ${compose[*]} logs backup"
+    fi
   fi
 
   # On its own first: `up` replaces the API before migrate runs, so a failed migration there would take the

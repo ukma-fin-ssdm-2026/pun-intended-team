@@ -112,7 +112,15 @@ Each container keeps at most 3 log files of 10 MB; older lines are dropped. Afte
 
 ## Backups and restore
 
-Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A restore replaces the current data:
+Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A copy is kept only if `pg_restore --list` can read it, and `pg_dump` gives up after 15 minutes. A failed nightly backup is tried 3 times, 10 minutes apart; after that the night is recorded as failed and the next try is the following night. A failed backup before a deploy stops the deploy.
+
+Each night is a row in `backup_runs`, shown on the **Резервні копії** page of the admin panel with its result, attempts, duration, size and, for a failed night, a reason code. When the last one failed or is older than 26 hours, the `backup` service turns unhealthy, the next deploy job shows a warning, and the overview of the admin panel shows a warning. The error message, with hosts and users, is only in the log (`logs backup`). To make up a missed night by hand:
+
+```bash
+docker compose -f docker-compose.staging.yml exec backup sh /backup-db.sh nightly
+```
+
+A restore replaces the current data:
 
 ```bash
 docker compose -f docker-compose.staging.yml stop api
