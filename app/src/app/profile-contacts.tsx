@@ -39,6 +39,7 @@ export default function ProfileContactsScreen() {
       {/* "Готово" opens the catalog with a new history, as signing in does. */}
       <FormScreen
         step={{ current: 2, total: 2 }}
+        backTo="/profile-setup"
         action={{ label: 'Готово', onPress: () => void finish(), disabled: shared.length === 0, loading: saving }}
       >
         <View className="gap-3 px-5 pt-2">

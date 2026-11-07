@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/admin/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the nightly database backups
+         * @description Tell whether the nightly database backups are up to date and list the last 30 nights. A failed night carries a reason code only; hosts, users and error messages stay in the server log. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListBackups"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stats": {
         parameters: {
             query?: never;
@@ -13,7 +33,7 @@ export interface paths {
         };
         /**
          * Get platform statistics
-         * @description Count active users, upcoming events, matches and open report cases. Needs an administrator account; other accounts get 404.
+         * @description Count active users, upcoming events, matches and open report cases, and tell whether the nightly database backups are up to date. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminGetStats"];
         put?: never;
@@ -255,7 +275,7 @@ export interface paths {
         put?: never;
         /**
          * Renew the access token
-         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one, since the old one no longer works, and using it again ends the session. No access token needed.
+         * @description Renew the access token with the refresh token, without signing in again. The refresh token is replaced: keep the new one. If the answer is lost, send the old one again within 60 seconds; after that, or for any older token, it ends the session. No access token needed.
          */
         post: operations["refreshSession"];
         delete?: never;
@@ -546,21 +566,62 @@ export interface components {
     schemas: {
         /**
          * @example {
-         *       "users": 128,
-         *       "events": 42,
-         *       "matches": 0,
-         *       "openReports": 3
+         *       "status": {
+         *         "lastSucceededAt": "2026-11-06T01:00:12.000Z",
+         *         "overdue": true
+         *       },
+         *       "items": [
+         *         {
+         *           "finishedAt": "2026-11-07T01:20:31.000Z",
+         *           "succeeded": false,
+         *           "attempts": 3,
+         *           "durationSeconds": 0,
+         *           "sizeBytes": null,
+         *           "reason": "unreachable"
+         *         },
+         *         {
+         *           "finishedAt": "2026-11-06T01:00:12.000Z",
+         *           "succeeded": true,
+         *           "attempts": 1,
+         *           "durationSeconds": 12,
+         *           "sizeBytes": 4404019,
+         *           "reason": null
+         *         }
+         *       ]
          *     }
          */
-        PlatformStats: {
-            /** @description Active accounts: registered and not banned */
-            users: number;
-            /** @description Published events that have not ended yet */
-            events: number;
-            /** @description Matches proposed so far */
-            matches: number;
-            /** @description Open report cases */
-            openReports: number;
+        BackupHistory: {
+            /** @description Null where no nightly backup has run, e.g. in development */
+            status: {
+                /**
+                 * Format: date-time
+                 * @description When the last nightly backup succeeded; null if none has
+                 */
+                lastSucceededAt: string | null;
+                /** @description The last nightly backup failed, or it is more than 26 hours old */
+                overdue: boolean;
+            } | null;
+            /** @description The last 30 nights, newest first */
+            items: components["schemas"]["BackupRun"][];
+        };
+        BackupRun: {
+            /**
+             * Format: date-time
+             * @description When the night ended: the copy was kept, or the last attempt failed
+             */
+            finishedAt: string;
+            succeeded: boolean;
+            /** @description Attempts that night, at most 3 */
+            attempts: number;
+            /** @description How long the last attempt took */
+            durationSeconds: number;
+            /** @description Size of the copy; null when the night failed */
+            sizeBytes: number | null;
+            /**
+             * @description Why the night failed; null when it succeeded. `unreachable`: the database did not answer. `auth_failed`: it refused the sign-in. `timeout`: the copy took more than 15 minutes. `locked`: tables stayed locked, e.g. by a migration. `unreadable`: the copy could not be read back. `failed`: anything else. The details are only in the server log
+             * @enum {string|null}
+             */
+            reason: "unreachable" | "auth_failed" | "timeout" | "locked" | "unreadable" | "failed" | null;
         };
         /**
          * @description The body of every error response
@@ -602,6 +663,38 @@ export interface components {
          * @enum {string}
          */
         ValidationLocation: "params" | "query" | "body";
+        /**
+         * @example {
+         *       "users": 128,
+         *       "events": 42,
+         *       "matches": 0,
+         *       "openReports": 3,
+         *       "backup": {
+         *         "lastSucceededAt": "2026-11-07T01:00:42.000Z",
+         *         "overdue": false
+         *       }
+         *     }
+         */
+        PlatformStats: {
+            /** @description Active accounts: registered and not banned */
+            users: number;
+            /** @description Published events that have not ended yet */
+            events: number;
+            /** @description Matches proposed so far */
+            matches: number;
+            /** @description Open report cases */
+            openReports: number;
+            /** @description Nightly database backups; null where none has run, e.g. in development */
+            backup: {
+                /**
+                 * Format: date-time
+                 * @description When the last nightly backup succeeded; null if none has
+                 */
+                lastSucceededAt: string | null;
+                /** @description The last nightly backup failed, or it is more than 26 hours old */
+                overdue: boolean;
+            } | null;
+        };
         /**
          * @example {
          *       "items": [
@@ -1365,6 +1458,44 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    adminListBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The status and the last nights */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupHistory"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     adminGetStats: {
         parameters: {
             query?: never;
@@ -2184,6 +2315,15 @@ export interface operations {
             };
             /** @description `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the token was already used */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: another renewal with the same token ran at the same time; keep the token and try again */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -62,9 +62,11 @@ export function LoadState({ failure, onRetry }: { failure?: Failure; onRetry: ()
   );
 }
 
-export function Badge({ label, tone }: { label: string; tone: 'coral' | 'muted' | 'dark' }) {
+export function Badge({ label, tone }: { label: string; tone: 'coral' | 'muted' | 'dark' | 'green' }) {
   const look = {
     coral: 'bg-brand-coral-soft text-brand-coral-dark',
+    // Tailwind's green, as the "published" dot on the organization's events; the design has no green token.
+    green: 'bg-green-100 text-green-700',
     muted: 'bg-surface-background text-text-secondary',
     dark: 'bg-brand-ink text-text-on-dark',
   }[tone];

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T16:46:33.808Z
+ * Generated on: 2026-11-07T17:00:15.419Z
  */
 
 import { existsSync } from 'node:fs';
@@ -58,10 +58,25 @@ console.error("API_BASE_URL is set to:", API_BASE_URL);
  */
 const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
+  ["adminListBackups", {
+    name: "adminListBackups",
+    title: "List the nightly database backups",
+    description: `Tell whether the nightly database backups are up to date and list the last 30 nights. A failed night carries a reason code only; hosts, users and error messages stay in the server log. Needs an administrator account; other accounts get 404.
+(Tags: Admin)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/backups",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Admin"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
   ["adminGetStats", {
     name: "adminGetStats",
     title: "Get platform statistics",
-    description: `Count active users, upcoming events, matches and open report cases. Needs an administrator account; other accounts get 404.
+    description: `Count active users, upcoming events, matches and open report cases, and tell whether the nightly database backups are up to date. Needs an administrator account; other accounts get 404.
 (Tags: Admin)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

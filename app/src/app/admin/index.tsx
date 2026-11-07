@@ -5,10 +5,13 @@ import { Pressable, Text, View } from 'react-native';
 import { getStats, type PlatformStats } from '@/api/admin';
 import { Card, LoadState, PageHeader } from '@/components/admin/admin-ui';
 import { Icon } from '@/components/ui/icon';
+import { formatDateTime } from '@/dates';
 import { useApiQuery } from '@/hooks/use-api-query';
 import { colors } from '@/styles/tokens';
 
-const tiles: { key: keyof PlatformStats; label: string; note: string }[] = [
+type CountKey = Exclude<keyof PlatformStats, 'backup'>;
+
+const tiles: { key: CountKey; label: string; note: string }[] = [
   { key: 'users', label: 'Користувачі', note: 'Активні акаунти, без заблокованих' },
   { key: 'events', label: 'Події', note: 'Опубліковані, що ще не завершилися' },
   { key: 'matches', label: 'Метчі', note: 'Запропоновано за весь час' },
@@ -22,6 +25,7 @@ export default function AdminOverview() {
   return (
     <>
       <PageHeader title="Огляд" note="Стан Nearby зараз." />
+      {stats.data?.backup?.overdue && <BackupWarning lastSucceededAt={stats.data.backup.lastSucceededAt} />}
       {stats.data ? (
         <View className="flex-row flex-wrap gap-5">
           {tiles.map((tile) => {
@@ -61,5 +65,23 @@ export default function AdminOverview() {
         <LoadState failure={stats.failure} onRetry={stats.reload} />
       )}
     </>
+  );
+}
+
+function BackupWarning({ lastSucceededAt }: { lastSucceededAt: string | null }) {
+  const router = useRouter();
+  const last = lastSucceededAt ? `Остання копія: ${formatDateTime(lastSucceededAt)}.` : 'Успішних копій ще немає.';
+  return (
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => router.push('/admin/backups')}
+      className="mb-5 flex-row items-center gap-3 rounded-[16px] bg-brand-coral-soft px-5 py-4"
+    >
+      <Icon name="danger" size={20} color={colors.brand.coral} />
+      <Text className="flex-1 font-inter-medium text-label text-brand-coral-dark">
+        Резервне копіювання бази даних потребує уваги. {last}
+      </Text>
+      <Icon name="arrow-right" size={18} color={colors.brand.coral} />
+    </Pressable>
   );
 }

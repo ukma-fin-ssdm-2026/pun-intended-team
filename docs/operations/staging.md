@@ -85,7 +85,7 @@ docker login ghcr.io -u <your GitHub user>
 docker logout ghcr.io
 ```
 
-A rollback does not undo migrations, so it only works while the older code still fits the database. A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
+A rollback does not undo migrations: the earlier code runs on the newer schema, which is better than no API but may fail where the schema changed. When that happens, the job fails with an error naming the migrations, and `deploy.log` says so; deploying an earlier commit by hand gives a warning instead. See [A version runs on a newer schema](#a-version-runs-on-a-newer-schema). A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
 
 ## A migration failed
 
@@ -98,6 +98,14 @@ Migrations run before anything is replaced, so the version that was running keep
      node_modules/.bin/prisma migrate resolve --rolled-back <migration name>
    ```
 3. Fix the migration in a new commit on `main` and push it to `staging`; its deploy applies it again.
+
+## A version runs on a newer schema
+
+After a rollback, or a deploy of an earlier commit, the job names the migrations the running version does not know (REL-10). Prisma has no down migrations, so the schema stays as it is. On the server, in `/opt/nearby`:
+
+1. Check what fails: `docker compose -f docker-compose.staging.yml logs api`. Migrations that only add tables or nullable columns usually leave the earlier code working.
+2. If it works, fix the failed version and deploy the fix; its deploy finds the migrations already applied.
+3. If it does not, restore the copy taken just before the failed deploy, the newest in `/var/backups/nearby/manual/` ([Backups and restore](#backups-and-restore)): its schema is the one the running version knows. This loses what was written since that copy.
 
 ## Logs
 
@@ -112,7 +120,15 @@ Each container keeps at most 3 log files of 10 MB; older lines are dropped. Afte
 
 ## Backups and restore
 
-Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A restore replaces the current data:
+Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A copy is kept only if `pg_restore --list` can read it, and `pg_dump` gives up after 15 minutes. A failed nightly backup is tried 3 times, 10 minutes apart; after that the night is recorded as failed and the next try is the following night. A failed backup before a deploy stops the deploy.
+
+Each night is a row in `backup_runs`, shown on the **Резервні копії** page of the admin panel with its result, attempts, duration, size and, for a failed night, a reason code. When the last one failed or is older than 26 hours, the `backup` service turns unhealthy, the next deploy job shows a warning, and the overview of the admin panel shows a warning. The error message, with hosts and users, is only in the log (`logs backup`). To make up a missed night by hand:
+
+```bash
+docker compose -f docker-compose.staging.yml exec backup sh /backup-db.sh nightly
+```
+
+A restore replaces the current data:
 
 ```bash
 docker compose -f docker-compose.staging.yml stop api

@@ -4,7 +4,7 @@
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { type AddressInfo, createServer } from 'node:net';
@@ -528,6 +528,16 @@ async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promis
   }
 }
 
+/** A good night a day ago and a failed one now, as deploy/backup-db.sh writes them. */
+async function insertBackupNights(): Promise<{ finished_at: Date }[]> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`INSERT INTO backup_runs (finished_at, succeeded, attempts, duration_seconds, size_bytes, reason)
+      VALUES (now() - interval '1 day', true, 1, 12, 4404019, NULL), (now(), false, 3, 0, NULL, 'unreachable')
+      RETURNING finished_at`),
+  );
+  return rows;
+}
+
 /** The `sub` claim of an access token: the account id. */
 function accountIdOf(token: string): string {
   return JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sub;
@@ -980,7 +990,7 @@ describe('Per-IP limit behind a reverse proxy', () => {
 
 // SEC-005: sessions renew without signing in again, and end at once on sign-out.
 describe('POST /api/v1/auth/refresh', () => {
-  test('returns new tokens, and the old refresh token stops working', async () => {
+  test('returns new tokens that work', async () => {
     const session = await newSession(subjects.user);
 
     const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
@@ -991,9 +1001,28 @@ describe('POST /api/v1/auth/refresh', () => {
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
-  test('ends the session when a refresh token is used a second time', async () => {
+  // REL-08: the answer of a refresh was lost, so the app still has the token that refresh replaced.
+  test('accepts the replaced refresh token within 60 s as a retry, and the lost one stops working', async () => {
+    const session = await newSession(subjects.user);
+    const lost = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    const retry = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: retry.body.accessToken })).status, 200);
+    const next = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: retry.body.refreshToken } });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    const lostUsed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: lost.body.refreshToken } });
+    assertRejected(lostUsed, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('ends the session when a replaced refresh token comes back more than 60 s later', async () => {
     const session = await newSession(subjects.user);
     const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    const [sessionId] = session.refreshToken.split('.');
+    await withDatabase((client) =>
+      client.query(`UPDATE refresh_tokens SET rotated_at = now() - interval '61 seconds' WHERE id = $1`, [sessionId]),
+    );
 
     const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
 
@@ -1818,10 +1847,66 @@ describe('GET /api/v1/admin/stats', () => {
     );
     assert.deepEqual({ users: res.body.users, matches: res.body.matches, openReports: res.body.openReports }, rows[0]);
     assert.ok(res.body.events > 0, JSON.stringify(res.body));
+    assert.equal(res.body.backup, null);
+  });
+
+  test('reports the nightly backups as overdue after one failed', async () => {
+    const [good] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/stats', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body.backup, { lastSucceededAt: good.finished_at.toISOString(), overdue: true });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
   });
 
   test('answers a signed-in user who is not an administrator with 404', async () => {
     assertRejected(await call('GET', '/api/v1/admin/stats', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
+});
+
+// REL-06
+describe('GET /api/v1/admin/backups', () => {
+  test('has no status and no nights where no backup has run', async () => {
+    const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { status: null, items: [] });
+  });
+
+  test('lists the nights newest first, with only what the panel may show', async () => {
+    const [good, bad] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body, {
+        status: { lastSucceededAt: good.finished_at.toISOString(), overdue: true },
+        items: [
+          {
+            finishedAt: bad.finished_at.toISOString(),
+            succeeded: false,
+            attempts: 3,
+            durationSeconds: 0,
+            sizeBytes: null,
+            reason: 'unreachable',
+          },
+          {
+            finishedAt: good.finished_at.toISOString(),
+            succeeded: true,
+            attempts: 1,
+            durationSeconds: 12,
+            sizeBytes: 4404019,
+            reason: null,
+          },
+        ],
+      });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
+  });
+
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/backups', { token: tokens.user }), 404, 'NOT_FOUND');
   });
 });
 
@@ -2224,8 +2309,9 @@ describe('Parallel requests', () => {
   // On one database connection the requests would run one after another and never race.
   const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
 
-  // SEC-005
-  test('renew a session once when one refresh token is sent 5 times at once', async () => {
+  // SEC-005, REL-08. A request that loses the race gets 409; one that reads the session after another rotated it is
+  // a retry within 60 s. How many get 200 depends on timing, but the session stays and exactly one token works.
+  test('keep the session and one working refresh token when one token is sent 5 times at once', async () => {
     const session = await newSession(subjects.user);
     await openConnections();
 
@@ -2233,7 +2319,22 @@ describe('Parallel requests', () => {
       call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
     );
 
-    assert.equal(responses.filter((res) => res.status === 200).length, 1);
+    const bodies = JSON.stringify(responses.map((res) => [res.status, res.body]));
+    assert.ok(
+      responses.every((res) => res.status === 200 || res.status === 409),
+      bodies,
+    );
+    const issued = responses.filter((res) => res.status === 200).map((res) => res.body.refreshToken as string);
+    assert.ok(issued.length >= 1, bodies);
+    const [sessionId] = session.refreshToken.split('.');
+    const { rows } = await withDatabase((client) =>
+      client.query('SELECT token_hash, revoked_at FROM refresh_tokens WHERE id = $1', [sessionId]),
+    );
+    const stored = issued.filter(
+      (token) => createHash('sha256').update(token.split('.')[1]).digest('base64url') === rows[0].token_hash,
+    );
+    assert.equal(rows[0].revoked_at, null, bodies);
+    assert.equal(stored.length, 1, bodies);
   });
 
   // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.

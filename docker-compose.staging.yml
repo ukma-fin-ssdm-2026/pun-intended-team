@@ -122,6 +122,11 @@ services:
     image: postgres:18
     restart: unless-stopped
     entrypoint: ['sh', '/backup-db.sh']
+    healthcheck:
+      test: ['CMD', 'sh', '/backup-db.sh', 'check']
+      interval: 10m
+      timeout: 10s
+      start_period: 26h
     environment:
       PGHOST: db
       PGUSER: ${POSTGRES_USER}
