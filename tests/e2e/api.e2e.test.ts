@@ -2364,6 +2364,35 @@ describe('Event import', () => {
     assert.equal(before, 30);
   });
 
+  test('finds an ArtWizard venue saved with the city twice, as earlier runs saved it, instead of saving it again', async () => {
+    await runImport();
+    // As the import wrote it before: the API's address already ends with Київ, and the city was added again.
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `UPDATE venues SET address = address || ', Київ'
+          WHERE source = 'import' AND name = 'Будинок Кіно' AND address = 'вулиця Саксаганського, 6, Київ'
+          RETURNING id`,
+      ),
+    );
+    assert.equal(rows.length, 1);
+
+    await runImport();
+
+    const { rows: venues } = await withDatabase((client) =>
+      client.query<{ id: string; address: string }>(
+        `SELECT id, address FROM venues WHERE source = 'import' AND name = 'Будинок Кіно'`,
+      ),
+    );
+    assert.deepEqual(venues, [{ id: rows[0]?.id, address: 'вулиця Саксаганського, 6, Київ, Київ' }]);
+    const { rows: events } = await withDatabase((client) =>
+      client.query<{ venue_id: string }>(
+        `SELECT DISTINCT e.venue_id FROM events e JOIN venues v ON v.id = e.venue_id
+          WHERE e.provider = 'artwizard' AND v.name = 'Будинок Кіно'`,
+      ),
+    );
+    assert.deepEqual(events, [{ venue_id: rows[0]?.id }]);
+  });
+
   test('marks a run that never finished as failed before the next run of its provider', async () => {
     const { rows } = await withDatabase((client) =>
       client.query<{ id: string }>(

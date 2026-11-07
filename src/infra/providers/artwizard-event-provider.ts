@@ -92,7 +92,8 @@ export class ArtWizardEventProvider extends EventProvider {
 
   /**
    * Every page of the answer. The list is complete only when every page the API names was read and they held as
-   * many events as its `total`; an event added while the pages are read shifts the later pages by one.
+   * many distinct events as its `total`; an event added while the pages are read shifts the later pages by one, so
+   * one event comes twice and another not at all.
    */
   async fetch(): Promise<FetchResult> {
     if (!this.apiKey) {
@@ -101,23 +102,37 @@ export class ArtWizardEventProvider extends EventProvider {
     const now = this.now();
     const window = permittedWindow(now);
     const events: unknown[] = [];
+    // The page each slug was first read on. A slug on two pages means the order shifted while the pages were read,
+    // so another event was most likely never returned: it is kept once, and the list is not complete.
+    const firstPage = new Map<string, number>();
     let total = 0;
     let totalPages = 0;
     let pages = 1;
     for (let page = 1; page <= pages; page++) {
       const body = await this.fetchPage(window, page);
-      events.push(...body.data);
+      for (const record of body.data) {
+        const slug = slugOf(record);
+        const seenOn = slug === undefined ? undefined : firstPage.get(slug);
+        if (slug !== undefined && seenOn !== undefined) {
+          this.logger.warn(`${slug}: listed again on page ${page}, first on page ${seenOn}; kept once`);
+          continue;
+        }
+        if (slug !== undefined) {
+          firstPage.set(slug, page);
+        }
+        events.push(record);
+      }
       total = body.total;
       totalPages = body.total_pages;
       pages = Math.min(totalPages, MAX_PAGES);
     }
     this.logger.log(`${events.length} of ${total} Kyiv events from ${window.from} to ${window.to}, ${pages} pages`);
-    const complete = totalPages <= MAX_PAGES && events.length === total;
+    const complete = totalPages <= MAX_PAGES && firstPage.size === total;
     if (!complete) {
       this.logger.warn(
         totalPages > MAX_PAGES
           ? `Not the full list: the API names ${totalPages} pages, only the first ${MAX_PAGES} were read`
-          : `Not the full list: ${events.length} events read, the API names ${total}`,
+          : `Not the full list: ${firstPage.size} distinct events read, the API names ${total}`,
       );
     }
     return { records: events, complete, covers: coveredInstants(now, window) };
@@ -159,8 +174,7 @@ export class ArtWizardEventProvider extends EventProvider {
   }
 
   normalize(raw: unknown): NormalizeResult {
-    const slug = (raw as { slug?: unknown } | null)?.slug;
-    const externalId = typeof slug === 'string' && slug.trim() ? slug.trim() : null;
+    const externalId = slugOf(raw) ?? null;
     if (!externalId) {
       return { skip: { externalId: null, reason: 'Invalid record: slug' } };
     }
@@ -201,8 +215,6 @@ export class ArtWizardEventProvider extends EventProvider {
     // The API writes Kyiv time with a `Z`: 18:00 on the page is `18:00:00.000Z`.
     const start = fromKyivWallClock(first.date_from);
     const end = fromKyivWallClock(first.date_to);
-    // Our venues are matched by name and address, and the earlier import wrote the address with the city.
-    const address = [location.address_ua, location.city?.name].filter(Boolean).join(', ');
     const coordinates =
       location.latitude != null && location.longitude != null
         ? { lat: location.latitude, lng: location.longitude }
@@ -213,7 +225,11 @@ export class ArtWizardEventProvider extends EventProvider {
         title: fitTitle(title),
         description: fitDescription(quillText(description ?? '')),
         categoryName,
-        venue: { name: location.name_ua, address, location: coordinates },
+        venue: {
+          name: location.name_ua,
+          ...venueAddress(location.address_ua, location.city?.name),
+          location: coordinates,
+        },
         startsAt: start.toISOString(),
         // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the
         // end of its day.
@@ -223,6 +239,29 @@ export class ArtWizardEventProvider extends EventProvider {
       },
     };
   }
+}
+
+/**
+ * The venue's address with its city once. Our venues are matched by name and address, and the import has always
+ * added the city, which some ArtWizard addresses already end with ("вулиця Саксаганського, 6, Київ"). Such a
+ * venue was saved before with the city twice, which is kept as a former address so the venue is found again.
+ */
+export function venueAddress(
+  address: string | null | undefined,
+  city: string | null | undefined,
+): { address: string; formerAddresses?: string[] } {
+  const street = address?.trim() ?? '';
+  const lastPart = street.split(',').at(-1)?.trim().toLowerCase();
+  if (!city || !street || lastPart !== city.trim().toLowerCase()) {
+    return { address: [street, city].filter(Boolean).join(', ') };
+  }
+  return { address: street, formerAddresses: [`${street}, ${city}`] };
+}
+
+/** The record's slug, its external id; undefined when it has none. */
+function slugOf(raw: unknown): string | undefined {
+  const slug = (raw as { slug?: unknown } | null)?.slug;
+  return typeof slug === 'string' && slug.trim() ? slug.trim() : undefined;
 }
 
 /** The Kyiv dates the import may ask ArtWizard for: the catalog window's first 28, both ends included. */

@@ -17,6 +17,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ### Fixed
 
+- An ArtWizard list that repeats an event across pages is no longer taken as complete, so the event it most likely left out is not cancelled; the repeat is imported once. ArtWizard venue addresses name the city once, and venues saved with it twice are still found ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Karabas `/clubs/` events that are not parties are no longer imported as Parties: only its `MusicEvent` records are, and the plain `Event` ones (talks, board-game nights, wine tastings) are skipped with the reason ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Karabas events are imported for the whole 28-day catalog window instead of the first page of each section, about 4 days: the import follows each section's "load more" link with `per-page=20`, at most 40 pages a section, so `/theatres/` with about 20 shows a day is read to the end too ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Requests to a provider site are never less than the interval apart: the wait is checked again when the timer fires early, which a live run showed at 0.999 s.

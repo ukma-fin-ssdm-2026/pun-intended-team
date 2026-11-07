@@ -32,7 +32,8 @@ First read from the sitemap and the event pages' JSON-LD; since the permission, 
 - Request: `GET https://api.artwizard.io/events?apiKey=<key>&city=kyiv&filter[event_occurrences_data.date_from:lte]=date:<today + 27 days>&filter[event_occurrences_data.date_to:gte]=date:<today>&page_size=20&page=<n>`: the coming 4 weeks the permission covers, one day less than the catalog window. Answer: `{ total, page, page_size, total_pages, data: [...] }`; 74 Kyiv events in 4 pages on 2026-11-03. A `date:` filter covers the whole day.
 - `slug` is the same as in the page URLs (`<slug>-YYYYMMDD`), so it stays the external id. `details_url` is empty or another site's ticket page — the source link is `https://artwizard.io/<city>/e/<slug>`.
 - `description` is a Quill Delta JSON string — join the `insert` values. `type` is the list of type tags; `status` is `published` for a public event.
-- `location` has `name_ua`, `address_ua`, `latitude`, `longitude` and `city.slug` — no geocoding needed.
+- `location` has `name_ua`, `address_ua`, `latitude`, `longitude` and `city.slug` — no geocoding needed. Some `address_ua` already end with the city (5 of 40 on 2026-11-03), so the city is added only when it is missing.
+- Paging is by offset and can shift between pages: on 2026-11-07, 83 records in 5 pages held one event twice (pages 1 and 2), 82 distinct events against `total` 83. A list is complete only when its distinct slugs equal `total`.
 - `event_occurrences_data` lists the occurrences, unordered, in Kyiv wall-clock time wrongly marked `Z` (page shows 18:00, JSON `18:00:00.000Z`) — reinterpret in Europe/Kyiv. `date_from == date_to` → no end, end of day; a later `date_to` → real end; 00:00 to 23:59:59 → no time given (exhibition runs; "Я бачу, вас цікавить пітьма", which Karabas sells at 18:00) → not importable. An exhibition usually has an opening with a time plus such a run.
 - `picture_url` is under the disallowed `/cdn-cgi/imagedelivery/` — store the URL only.
 

@@ -84,7 +84,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
-    findVenue: mock.fn((): Promise<Venue | undefined> => Promise.resolve(undefined)),
+    findVenue: mock.fn<ImportedEventsRepository['findVenue']>(() => Promise.resolve(undefined)),
     createVenue: mock.fn((venue: NewImportedVenue): Promise<Venue> => Promise.resolve(anImportedVenue({ ...venue }))),
     findEvent: mock.fn((): Promise<ImportedEventRow | undefined> => Promise.resolve(undefined)),
     createEvent: mock.fn((row: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow> =>
@@ -335,6 +335,45 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
     assert.deepEqual(repository.findVenue.mock.calls[0]?.arguments, ['Docker-G pub', 'вул. Ігорівська, 13/5, Київ']);
     assert.equal(geocoder.locate.mock.callCount(), 0);
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
+  });
+
+  test('finds a venue saved under one of its former addresses, without saving it again', async () => {
+    const moved = anImportedEvent({
+      venue: {
+        name: 'Будинок Кіно',
+        address: 'вулиця Саксаганського, 6, Київ',
+        formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
+        location: { lat: 50.44, lng: 30.51 },
+      },
+    });
+    const { run, repository } = makeService([{}], [{ event: moved }]);
+    repository.findVenue.mock.mockImplementation((_name: string, address: string) =>
+      Promise.resolve(address.endsWith('Київ, Київ') ? anImportedVenue({ id: 'saved-before' }) : undefined),
+    );
+
+    await run();
+
+    assert.deepEqual(
+      repository.findVenue.mock.calls.map((call) => call.arguments),
+      [
+        ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ'],
+        ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ, Київ'],
+      ],
+    );
+    assert.equal(repository.createVenue.mock.callCount(), 0);
+    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'saved-before');
+  });
+
+  test('saves a new venue under its address, not a former one', async () => {
+    const venue = { name: 'Хора', address: 'Бульварно-Кудрявська, 22, Київ', location: { lat: 50.45, lng: 30.5 } };
+    const { run, repository } = makeService(
+      [{}],
+      [{ event: anImportedEvent({ venue: { ...venue, formerAddresses: ['x'] } }) }],
+    );
+
+    await run();
+
+    assert.deepEqual(repository.createVenue.mock.calls[0]?.arguments, [venue]);
   });
 
   test('saves a new venue with the coordinates the geocoder found', async () => {

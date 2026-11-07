@@ -3,7 +3,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
-import { ArtWizardEventProvider, quillText } from '../../dist/infra/providers/artwizard-event-provider.js';
+import {
+  ArtWizardEventProvider,
+  quillText,
+  venueAddress,
+} from '../../dist/infra/providers/artwizard-event-provider.js';
 import type { HttpClient, HttpResponse } from '../../dist/infra/providers/http-client.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
 import { PAGES_SAVED_AT, savedPage } from './fixtures/provider-pages.ts';
@@ -165,20 +169,55 @@ describe('ArtWizardEventProvider.fetch', () => {
     assert.equal(complete, false);
     assert.deepEqual(
       warn.mock.calls.map((call) => call.arguments[0]),
-      ['Not the full list: 40 events read, the API names 74'],
+      ['Not the full list: 40 distinct events read, the API names 74'],
     );
   });
 
   test('reads at most 50 pages, and reports the list as not complete when the API names more', async () => {
-    const page = { ...savedEventsPage(1), total: 1020, total_pages: 51 };
-    const http = apiClient(Object.fromEntries(Array.from({ length: 51 }, (_, i) => [i + 1, page])));
+    // Each page has its own slugs, so no record is a repeat.
+    const pageOf = (n: number) => {
+      const { data, ...rest } = savedEventsPage(1);
+      const records = (data as { slug: string }[]).map((record) => ({ ...record, slug: `${record.slug}-p${n}` }));
+      return { ...rest, data: records, total: 1020, total_pages: 51 };
+    };
+    const http = apiClient(Object.fromEntries(Array.from({ length: 51 }, (_, i) => [i + 1, pageOf(i + 1)])));
     const warn = mock.method(Logger.prototype, 'warn', () => {});
 
-    const { complete } = await makeProvider({ http }).fetch();
+    const { records, complete } = await makeProvider({ http }).fetch();
 
     assert.equal(http.requested.length, 50);
+    assert.equal(records.length, 1000);
     assert.equal(complete, false);
-    assert.match(String(warn.mock.calls[0]?.arguments[0]), /names 51 pages, only the first 50 were read/);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      ['Not the full list: the API names 51 pages, only the first 50 were read'],
+    );
+  });
+
+  test('keeps an event listed on two pages once, logs the repeat, and reports the list as not complete', async () => {
+    // As on 2026-11-07: page 2 repeats an event of page 1 in place of another, so the API's total of 40 is right
+    // and the pages still hold 40 records, but only 39 distinct events.
+    const page1 = savedEventsPage(1);
+    const page2 = savedEventsPage(2);
+    const repeated = (page1.data as { slug: string }[])[0];
+    const http = apiClient({
+      1: { ...page1, total: 40, total_pages: 2 },
+      2: { ...page2, total: 40, total_pages: 2, data: [...(page2.data as unknown[]).slice(0, -1), repeated] },
+    });
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { records, complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(records.length, 39);
+    assert.equal(new Set(records.map((record) => (record as { slug: string }).slug)).size, 39);
+    assert.equal(complete, false);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      [
+        `${repeated?.slug}: listed again on page 2, first on page 1; kept once`,
+        'Not the full list: 39 distinct events read, the API names 40',
+      ],
+    );
   });
 
   test('fails the run without a key, and sends nothing', async () => {
@@ -223,7 +262,8 @@ describe('ArtWizardEventProvider.normalize', () => {
         categoryName: 'Cinema',
         venue: {
           name: 'Будинок Кіно',
-          address: 'вулиця Саксаганського, 6, Київ, Київ',
+          address: 'вулиця Саксаганського, 6, Київ',
+          formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
           location: event.venue.location,
         },
         startsAt: '2026-11-03T16:00:00.000Z',
@@ -367,8 +407,67 @@ describe('ArtWizardEventProvider.normalize', () => {
     assert.equal(skipReason({ ...savedEvent('santimetri-20261103'), title: ' ' }), 'Invalid record: title');
   });
 
+  test('adds the city to a venue address without it, with no former address', () => {
+    const { venue } = normalized(savedEvent('santimetri-20261103'), makeProvider());
+    const raw = savedEvent('santimetri-20261103');
+    raw.location = savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820').location;
+
+    const other = normalized(raw);
+
+    assert.equal(venue.address, 'вулиця Саксаганського, 6, Київ');
+    assert.deepEqual(other.venue, {
+      name: 'Музей Івана Гончара',
+      address: 'вул. Лаврська, 19, Київ',
+      location: other.venue.location,
+    });
+  });
+
   test('joins the inserts of a Quill description into plain text', () => {
     assert.equal(quillText('Just text, [not JSON'), 'Just text, [not JSON');
     assert.equal(quillText('[{"insert":"One "},{"insert":{"image":"x"}},{"insert":"two"}]'), 'One two');
   });
+});
+
+describe('venueAddress', () => {
+  const cases = [
+    {
+      title: 'adds the city',
+      address: 'вул. Лаврська, 19',
+      city: 'Київ',
+      result: { address: 'вул. Лаврська, 19, Київ' },
+    },
+    {
+      title: 'does not add a city the address ends with, and keeps the doubled one as the former address',
+      address: 'вулиця Саксаганського, 6, Київ',
+      city: 'Київ',
+      result: {
+        address: 'вулиця Саксаганського, 6, Київ',
+        formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
+      },
+    },
+    {
+      title: 'compares the city without regard to case and spaces',
+      address: 'Нижньоюрківська, 31,  київ ',
+      city: 'Київ',
+      result: { address: 'Нижньоюрківська, 31,  київ', formerAddresses: ['Нижньоюрківська, 31,  київ, Київ'] },
+    },
+    {
+      title: 'adds the city to a street that only contains it',
+      address: 'вул. Київська, 5',
+      city: 'Київ',
+      result: { address: 'вул. Київська, 5, Київ' },
+    },
+    { title: 'is the city alone without an address', address: null, city: 'Київ', result: { address: 'Київ' } },
+    {
+      title: 'is the address alone without a city',
+      address: 'вул. Лаврська, 19',
+      city: null,
+      result: { address: 'вул. Лаврська, 19' },
+    },
+  ];
+  for (const { title, address, city, result } of cases) {
+    test(title, () => {
+      assert.deepEqual(venueAddress(address, city), result);
+    });
+  }
 });

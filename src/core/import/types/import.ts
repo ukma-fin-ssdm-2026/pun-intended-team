@@ -21,7 +21,14 @@ export interface ImportedEvent {
 }
 
 /** A venue as a provider gives it; without coordinates the import looks them up (`Geocoder`). */
-export type ImportedVenue = Pick<Venue, 'name' | 'address'> & { location: Venue['location'] | null };
+export type ImportedVenue = Pick<Venue, 'name' | 'address'> & {
+  location: Venue['location'] | null;
+  /**
+   * Addresses an earlier version of the adapter saved this venue under, tried after `address`, so a venue saved
+   * before the adapter changed how it writes addresses is found instead of saved twice.
+   */
+  formerAddresses?: string[];
+};
 
 /** A record the import did not take, and why. `externalId` is null when the record had none. */
 export interface SkippedRecord {

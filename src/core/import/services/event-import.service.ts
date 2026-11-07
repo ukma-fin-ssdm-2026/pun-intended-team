@@ -164,12 +164,15 @@ export class EventImportService {
    * one, with the provider's coordinates or the geocoder's. A string is the reason the event has no venue.
    */
   private async venueFor({ venue }: ImportedEvent, notFound: Set<string>): Promise<Venue | string> {
-    const known = await this.importedEventsRepository.findVenue(venue.name, venue.address);
-    if (known) {
-      return known;
+    for (const address of [venue.address, ...(venue.formerAddresses ?? [])]) {
+      const known = await this.importedEventsRepository.findVenue(venue.name, address);
+      if (known) {
+        return known;
+      }
     }
+    const { name, address } = venue;
     if (venue.location) {
-      return this.importedEventsRepository.createVenue({ ...venue, location: venue.location });
+      return this.importedEventsRepository.createVenue({ name, address, location: venue.location });
     }
     const key = `${venue.name}\n${venue.address}`;
     if (notFound.has(key)) {
@@ -185,7 +188,7 @@ export class EventImportService {
       notFound.add(key);
       return 'The geocoder found no coordinates for the venue';
     }
-    return this.importedEventsRepository.createVenue({ ...venue, location });
+    return this.importedEventsRepository.createVenue({ name, address, location });
   }
 
   private async save(provider: string, imported: ImportedEvent, categoryId: string, venueId: string): Promise<Saved> {
