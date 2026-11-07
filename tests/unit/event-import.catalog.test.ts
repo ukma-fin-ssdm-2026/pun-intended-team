@@ -17,6 +17,7 @@ import type { PageRequest } from '../../dist/core/common/page.js';
 import { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
+import { IMPORT_CATEGORY_IDS as CATEGORY_IDS } from '../../dist/core/import/import-categories.js';
 import type { NormalizeResult } from '../../dist/core/import/types/import.js';
 import { KarabasEventProvider } from '../../dist/infra/providers/karabas-event-provider.js';
 import { events, venues } from '../../dist/infra/stubs/data.js';
@@ -47,7 +48,7 @@ class GalleryEventProvider extends EventProvider {
         externalId: String(ref),
         title: name,
         description: '',
-        categoryName: 'Exhibitions',
+        categoryId: CATEGORY_IDS.exhibitions,
         venue: { name: place, address: 'Kyiv', location: { lat: 50.45, lng: 30.52 } },
         startsAt: when,
         endsAt: '2026-11-08T18:00:00Z',
@@ -62,8 +63,7 @@ class GalleryEventProvider extends EventProvider {
 const geocoder = { locate: () => Promise.resolve({ lat: 50.45, lng: 30.52 }) } as unknown as Geocoder;
 
 // The ids the stub events are seeded with.
-const CONCERTS_ID = '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03';
-const EXHIBITIONS_ID = '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02';
+const { concerts: CONCERTS_ID, exhibitions: EXHIBITIONS_ID } = CATEGORY_IDS;
 
 /** The catalog's side of the stubs: published events in the filter's dates and the venues, read from the arrays the
  * import writes to, since the catalog itself reads the database. */
@@ -99,15 +99,13 @@ function catalogReading(categories: Category[]) {
 
 function makeCatalog(provider: EventProvider) {
   const categories = [
-    aCategory({ name: 'Concerts', id: CONCERTS_ID }),
-    aCategory({ name: 'Exhibitions', id: EXHIBITIONS_ID }),
+    aCategory({ name: 'Концерти', id: CONCERTS_ID }),
+    aCategory({ name: 'Виставки', id: EXHIBITIONS_ID }),
   ];
   const categoriesRepository = {
     findAll: mock.fn(() => Promise.resolve(categories)),
     findById: mock.fn((id: string) =>
-      Promise.resolve(
-        id === CONCERTS_ID ? aCategory({ name: 'Concerts', id }) : aCategory({ name: 'Exhibitions', id }),
-      ),
+      Promise.resolve(id === CONCERTS_ID ? aCategory({ name: 'Концерти', id }) : aCategory({ name: 'Виставки', id })),
     ),
   } as unknown as CategoriesRepository;
   const categoriesService = new CategoriesService(categoriesRepository);
@@ -116,8 +114,8 @@ function makeCatalog(provider: EventProvider) {
     importService: new EventImportService(
       [provider],
       new StubImportedEventsRepository([
-        { id: CONCERTS_ID, name: 'Concerts' },
-        { id: EXHIBITIONS_ID, name: 'Exhibitions' },
+        { id: CONCERTS_ID, name: 'Концерти' },
+        { id: EXHIBITIONS_ID, name: 'Виставки' },
       ]),
       geocoder,
     ),
@@ -149,7 +147,7 @@ describe('import into the catalog', () => {
     );
     assert.equal(imported.length, 1);
     assert.equal(imported[0]?.organizationId, null);
-    assert.equal(imported[0]?.category.name, 'Concerts');
+    assert.equal(imported[0]?.category.name, 'Концерти');
     assert.equal(imported[0]?.venue.source, 'import');
     assert.equal(imported[0]?.sourceUrl, 'https://kyiv.karabas.com/lama-15/');
     assert.match(imported[0]?.imageUrl ?? '', /^https:\/\/images\.karabas\.com\//);

@@ -9,6 +9,7 @@ import {
   type KarabasRecord,
   karabasEnd,
 } from '../../dist/infra/providers/karabas-event-provider.js';
+import { IMPORT_CATEGORY_IDS as CATEGORY_IDS } from '../../dist/core/import/import-categories.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
 import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
 
@@ -45,7 +46,7 @@ describe('KarabasEventProvider.fetch', () => {
     const records = await provider.fetch();
 
     assert.equal(records.length, 20);
-    assert.ok(records.every((record) => record.category === 'Concerts'));
+    assert.ok(records.every((record) => record.categoryId === CATEGORY_IDS.concerts));
     assert.deepEqual([...new Set(records.map((record) => record.event['@type']))].sort(), [
       'MusicEvent',
       'ScreeningEvent',
@@ -59,7 +60,7 @@ describe('KarabasEventProvider.fetch', () => {
     const records = await provider.fetch();
 
     assert.equal(records.length, 20);
-    assert.ok(records.every((record) => record.category === 'Parties'));
+    assert.ok(records.every((record) => record.categoryId === CATEGORY_IDS.parties));
     assert.deepEqual([...new Set(records.map((record) => record.event['@type']))].sort(), ['Event', 'MusicEvent']);
   });
 
@@ -71,7 +72,7 @@ describe('KarabasEventProvider.fetch', () => {
     assert.equal(records.length, 1);
     const event = normalized(provider, records[0] as KarabasRecord);
     assert.equal(event.externalId, 'blahodiynyy-turnir-liha-profesiynoho-sambo-11-0');
-    assert.equal(event.categoryName, 'Sports');
+    assert.equal(event.categoryId, CATEGORY_IDS.sports);
   });
 
   test('keeps an event listed in two sections once, under the first section', async () => {
@@ -85,8 +86,8 @@ describe('KarabasEventProvider.fetch', () => {
     assert.equal(records.length, 33);
     const lama = records.filter((record) => String(record.event.url).endsWith('/lama-15/'));
     assert.deepEqual(
-      lama.map((record) => record.category),
-      ['Concerts'],
+      lama.map((record) => record.categoryId),
+      [CATEGORY_IDS.concerts],
     );
   });
 
@@ -135,7 +136,7 @@ describe('KarabasEventProvider.normalize', () => {
         externalId: 'lama-15',
         title: 'LAMA',
         description: 'LAMA — легенда та розкіш української муз',
-        categoryName: 'Concerts',
+        categoryId: CATEGORY_IDS.concerts,
         venue: { name: 'CARIBBEAN club', address: 'вул. С. Петлюри, 4, Київ', location: null },
         // 21:00+02:00 in the JSON-LD, 19:00 on the page.
         startsAt: '2026-11-05T17:00:00.000Z',
@@ -184,7 +185,7 @@ describe('KarabasEventProvider.normalize', () => {
     // As "Тигролови" on the theatres page on 2026-11-03: shows from 3 to 12 November.
     const run: KarabasRecord = {
       section: '/theatres/',
-      category: 'Theatre',
+      categoryId: CATEGORY_IDS.theatre,
       event: {
         '@type': 'TheaterEvent',
         url: 'https://kyiv.karabas.com/tyhrolovy-teatr-zoloti-vorota-7/',

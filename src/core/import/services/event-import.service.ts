@@ -62,11 +62,8 @@ export class EventImportService {
 
   private async importRecords(provider: EventProvider, runId: string, since?: Date): Promise<ImportReport> {
     const raws = await provider.fetch(since);
-    const categoryIdsByName = new Map(
-      (await this.importedEventsRepository.findActiveCategories()).map((category) => [
-        category.name.toLowerCase(),
-        category.id,
-      ]),
+    const activeCategoryIds = new Set(
+      (await this.importedEventsRepository.findActiveCategories()).map((category) => category.id),
     );
     const report: ImportReport = {
       provider: provider.id,
@@ -87,9 +84,9 @@ export class EventImportService {
       }
       const imported = result.event;
       const skip = (reason: string) => this.skip(report, runId, raw, { externalId: imported.externalId, reason });
-      const categoryId = categoryIdsByName.get(imported.categoryName.toLowerCase());
-      if (!categoryId) {
-        await skip(`Unknown category "${imported.categoryName}"`);
+      const { categoryId } = imported;
+      if (!activeCategoryIds.has(categoryId)) {
+        await skip(`No active category ${categoryId}`);
         continue;
       }
       if (!(Date.parse(imported.endsAt) > Date.parse(imported.startsAt))) {

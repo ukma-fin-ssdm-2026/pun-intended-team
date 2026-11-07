@@ -8,8 +8,8 @@ export interface ImportedEvent {
   externalId: string;
   title: string;
   description: string;
-  /** Name of one of our categories; the provider's adapter maps its own genres to it. */
-  categoryName: string;
+  /** Id of one of our categories (`IMPORT_CATEGORY_IDS`); the provider's adapter maps its own genres to it. */
+  categoryId: string;
   venue: ImportedVenue;
   startsAt: string;
   endsAt: string;

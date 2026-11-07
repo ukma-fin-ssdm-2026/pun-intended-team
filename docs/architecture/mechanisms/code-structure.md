@@ -32,6 +32,7 @@ src/
       types/                    event, category, venue, organization
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
+      import-categories.ts      the fixed ids of our categories, which the providers' adapters map genres to
       adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
       services/                 event-import.service.ts

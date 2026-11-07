@@ -19,13 +19,15 @@ import { aCategory, aVenue, CATEGORY_ID, VENUE_ID } from './fixtures/catalog.ts'
 
 const PROVIDER_ID = 'test_provider';
 const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
+/** Not among the active categories: missing, or deactivated by an admin. */
+const UNKNOWN_CATEGORY_ID = 'c0000000-0000-4000-8000-0000000000ff';
 
 function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent {
   return {
     externalId: 'ext-1',
     title: 'Jazz evening',
     description: 'Live quartet.',
-    categoryName: 'Exhibitions',
+    categoryId: CATEGORY_ID,
     venue: { name: 'Caribbean Club', address: 'Kyiv', location: { lat: 50.46, lng: 30.52 } },
     startsAt: '2026-10-22T16:00:00.000Z',
     endsAt: '2026-10-22T19:00:00.000Z',
@@ -136,8 +138,11 @@ describe('EventImportService.importFrom', () => {
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
   });
 
-  test('matches the category name without regard to case', async () => {
-    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'EXHIBITIONS' }) }]);
+  test('finds the category by id, whatever an admin has renamed it to', async () => {
+    const { run, repository } = makeService();
+    repository.findActiveCategories.mock.mockImplementation(() =>
+      Promise.resolve([{ id: CATEGORY_ID, name: 'Перейменована категорія' }]),
+    );
 
     await run();
 
@@ -175,12 +180,12 @@ describe('EventImportService.importFrom', () => {
     assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
   });
 
-  test('skips a record with an unknown category and saves nothing for it', async () => {
-    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'Comedy' }) }]);
+  test('skips a record whose category is missing or inactive and saves nothing for it', async () => {
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryId: UNKNOWN_CATEGORY_ID }) }]);
 
     const report = await run();
 
-    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'Unknown category "Comedy"' }]);
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: `No active category ${UNKNOWN_CATEGORY_ID}` }]);
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.equal(repository.createVenue.mock.callCount(), 0);
   });
@@ -269,7 +274,7 @@ describe('EventImportService.importFrom', () => {
       [unusable, unknownCategory],
       [
         { skip: { externalId: 'bad-1', reason: 'Invalid record: title' } },
-        { event: anImportedEvent({ categoryName: 'Comedy' }) },
+        { event: anImportedEvent({ categoryId: UNKNOWN_CATEGORY_ID }) },
       ],
     );
 
@@ -279,7 +284,7 @@ describe('EventImportService.importFrom', () => {
       repository.saveSkipped.mock.calls.map((call) => call.arguments),
       [
         [RUN_ID, unusable, 'Invalid record: title'],
-        [RUN_ID, unknownCategory, 'Unknown category "Comedy"'],
+        [RUN_ID, unknownCategory, `No active category ${UNKNOWN_CATEGORY_ID}`],
       ],
     );
   });

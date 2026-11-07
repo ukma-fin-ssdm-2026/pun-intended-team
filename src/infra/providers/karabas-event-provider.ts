@@ -4,27 +4,28 @@ import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
 import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
+import { IMPORT_CATEGORY_IDS as CATEGORY_IDS } from '../../core/import/import-categories.ts';
 import type { NormalizeResult } from '../../core/import/types/import.ts';
 import type { HttpClient } from './http-client.ts';
 import { errorMessage, fitDescription, fitTitle, inWindow, jsonLdObjects, slugOf } from './provider-pages.ts';
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
-/** The Kyiv section pages we read, in order, and our category for each; the section decides, not `@type`. */
-export const KARABAS_SECTIONS: { path: string; category: string }[] = [
-  { path: '/concerts/', category: 'Concerts' },
-  { path: '/exhibitions/', category: 'Exhibitions' },
-  { path: '/cinema/', category: 'Cinema' },
-  { path: '/theatres/', category: 'Theatre' },
-  { path: '/sport/', category: 'Sports' },
-  { path: '/festivals/', category: 'Festivals' },
-  { path: '/clubs/', category: 'Parties' },
+/** The Kyiv section pages we read, in order, and the id of our category for each; the section decides, not `@type`. */
+export const KARABAS_SECTIONS: { path: string; categoryId: string }[] = [
+  { path: '/concerts/', categoryId: CATEGORY_IDS.concerts },
+  { path: '/exhibitions/', categoryId: CATEGORY_IDS.exhibitions },
+  { path: '/cinema/', categoryId: CATEGORY_IDS.cinema },
+  { path: '/theatres/', categoryId: CATEGORY_IDS.theatre },
+  { path: '/sport/', categoryId: CATEGORY_IDS.sports },
+  { path: '/festivals/', categoryId: CATEGORY_IDS.festivals },
+  { path: '/clubs/', categoryId: CATEGORY_IDS.parties },
 ];
 
-/** One event as `fetch` returns it: its JSON-LD from a section page, and that section's category. */
+/** One event as `fetch` returns it: its JSON-LD from a section page, and the id of that section's category. */
 export interface KarabasRecord {
   section: string;
-  category: string;
+  categoryId: string;
   event: Record<string, unknown>;
 }
 
@@ -74,7 +75,7 @@ export class KarabasEventProvider extends EventProvider {
     let failedSections = 0;
     let outsideWindow = 0;
 
-    for (const { path, category } of KARABAS_SECTIONS) {
+    for (const { path, categoryId } of KARABAS_SECTIONS) {
       const url = new URL(path, this.baseUrl).href;
       let events: Record<string, unknown>[];
       try {
@@ -97,7 +98,7 @@ export class KarabasEventProvider extends EventProvider {
         // The same event is listed in several sections; the first one decides its category.
         const key = typeof event.url === 'string' ? event.url : JSON.stringify(event);
         if (!byUrl.has(key)) {
-          byUrl.set(key, { section: path, category, event });
+          byUrl.set(key, { section: path, categoryId, event });
         }
       }
     }
@@ -135,7 +136,7 @@ export class KarabasEventProvider extends EventProvider {
         externalId: slugOf(url),
         title: fitTitle(name),
         description: fitDescription(description),
-        categoryName: record.category,
+        categoryId: record.categoryId,
         venue: { name: location.name, address, location: null },
         startsAt: start.toISOString(),
         endsAt: end.endsAt.toISOString(),
