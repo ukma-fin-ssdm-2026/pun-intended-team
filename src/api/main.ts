@@ -38,6 +38,8 @@ if (serveSwaggerUi) {
 // Exit normally on SIGTERM so coverage (npm run test:coverage) is written.
 process.once('SIGTERM', () => void app.close().then(() => process.exit(0)));
 
+// SIGTERM and SIGINT close the app, so the job queue lets running jobs finish and the database connections close.
+app.enableShutdownHooks();
 await app.listen(port);
 const logger = new Logger('Bootstrap');
 logger.log(`API:        http://localhost:${port}`);
