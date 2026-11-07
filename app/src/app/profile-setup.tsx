@@ -84,6 +84,7 @@ export default function ProfileSetupScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <FormScreen
         step={{ current: 1, total: 2 }}
+        backTo="/onboarding"
         action={{ label: 'Далі', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
         <ProfilePhoto />

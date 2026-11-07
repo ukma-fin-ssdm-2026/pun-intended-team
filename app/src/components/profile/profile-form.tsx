@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: shared parts of the Figma profile forms ("П1 Редагувати профіль", "В7" and "В8 Заповнення профілю");
 // reviewed by Daryna Halytska.
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,7 +40,12 @@ type NavProps =
   // В7, В8: "Крок 1 з 2", the progress bar and "Чернетку збережено".
   | { step: { current: number; total: number }; title?: never };
 
-function FormNav({ title, step }: Readonly<NavProps>) {
+type FormNavProps = NavProps & {
+  // Where back leads when there is no history, e.g. after the page was reloaded on the web.
+  backTo: Href;
+};
+
+function FormNav({ title, step, backTo }: Readonly<FormNavProps>) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -50,7 +55,7 @@ function FormNav({ title, step }: Readonly<NavProps>) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(backTo))}
           className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
         >
           <Icon name="arrow-left" size={20} />
@@ -85,7 +90,7 @@ function FormNav({ title, step }: Readonly<NavProps>) {
   );
 }
 
-type FormScreenProps = NavProps & {
+type FormScreenProps = FormNavProps & {
   children: ReactNode;
   action: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean };
 };
@@ -104,7 +109,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
           paddingBottom: ACTION_TOP + BUTTON_HEIGHT + actionBottom + FORM_BOTTOM_GAP - ACTION_BOTTOM,
         }}
       >
-        <FormNav {...(nav as NavProps)} />
+        <FormNav {...(nav as FormNavProps)} />
         {children}
       </ScrollView>
 

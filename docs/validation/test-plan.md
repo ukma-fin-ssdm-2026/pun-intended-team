@@ -137,6 +137,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-65 | `GET /admin/backups`, `GET /admin/stats` | Integration | Positive | After a good night and a failed one, both answer `overdue: true` with the good night's time; the nights are listed newest first with only time, result, attempts, duration, size and reason; a user who is not an administrator gets `404` | Viktoriia Baran | REL-004, SEC-001 | done |
 | TC-66 | `useInterests` (client) | Unit | Negative | When the list of interests cannot be loaded, because the server is unreachable or answers `503`, the hook reports the failure, and a retry loads the list | Viktoriia Baran | FR-002 | done |
 | TC-67 | `InterestPicker` (client) | Unit | Negative | After a failed load, "+ ще" turns into a retry, coral with the error mark, and pressing it loads the list again; while the list loads, "+ ще" is disabled | Viktoriia Baran | FR-002 | done |
+| TC-68 | `FormScreen` (client) | Unit | Negative | The back button goes back through the history, and with no history, e.g. after a reload on the web, opens the screen's fallback instead of an action no navigator handles | Viktoriia Baran | FR-002 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 
