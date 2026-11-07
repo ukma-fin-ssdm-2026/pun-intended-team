@@ -9,7 +9,14 @@ Services the API and the app depend on outside the repository. Amounts paid and 
 | Hetzner Cloud | Staging host: one CX23 server (API, web app, Postgres, reverse proxy) | Viktoriia Baran | Card, monthly | CX23, billed by the hour up to a monthly cap | — (set on the host) | Active |
 | name.com | Domain `nearbystaging.app` | Viktoriia Baran | GitHub Student Developer Pack | Free until about October 2027, then ≈ $24 per year | — | Active |
 | Google Cloud | OAuth clients for Google sign-in: web, iOS and Android (`ua.nearby.app`; the Android client has the SHA-1 of the EAS keystore) | Viktoriia Baran | — | Free | `GOOGLE_CLIENT_IDS` (API); `EXPO_PUBLIC_GOOGLE_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` (app) | Active |
+| Google Maps Platform (Maps SDK for Android) | The venue map in the Android app (FR-012, FR-013) | Viktoriia Baran (the Google Cloud project of the sign-in clients) | The project needs a billing account | Map loads of the Android SDK are free under Google's price list; check it before release | `GOOGLE_MAPS_ANDROID_API_KEY`, read by `app/app.config.ts` at build time, set in the EAS `development` environment; the key is restricted to the Maps SDK for Android and to the app (`ua.nearby.app` with the SHA-1 of the EAS keystore) | **To set up**: without the key the Android map shows the pins on a blank map |
+| Apple Maps (MapKit) | The venue map in the iOS app | — | — | Free, no key | — | Active with the first iOS build |
+| OpenFreeMap | Map tiles of the venue map in the web app ([`venue-map.web.tsx`](../../app/src/components/map/venue-map.web.tsx)) | — | — | Free, no registration or key; the public instance has no guaranteed availability | — | Active |
 | Expo (EAS) | Development builds of the app; keeps the Android signing keystore | Nearby (`nearby.ukma`, project `@nearbyukmas-team/nearby`) | — | Free plan | The app's `EXPO_PUBLIC_GOOGLE_*`, set in the EAS `development` environment | Active |
+
+## Maps
+
+The map tab shows only Kyiv, the catalog's city: it cannot be moved away from the city, so no regional borders are shown. Android draws it with Google Maps and iOS with Apple Maps through `react-native-maps`; the web app uses MapLibre with OpenFreeMap's tiles, which are built from OpenStreetMap data (ODbL). The attribution each provider requires stays on the map. No key is kept in the repository.
 
 ## Phone codes while paused
 
