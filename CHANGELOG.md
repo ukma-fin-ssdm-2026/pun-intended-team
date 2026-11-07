@@ -17,6 +17,10 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 - The Concert.ua adapter and its sample feed: Concert.ua sells the same concerts as Karabas, so importing both would split applicants between copies of one event.
 
+### Fixed
+
+- The API refuses to start with a database time limit above one day ([#385](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/385)). Such a value used to pass the check and break every database call.
+
 ### Refactoring
 
 - The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
