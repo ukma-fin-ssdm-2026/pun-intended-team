@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockPostPlace } from '@/mocks/map';
+import { mockPostPlace } from '@/mocks/announcements';
 import { colors } from '@/styles/tokens';
 
 // "01 Пошук": top padding 56 in the iPhone 14 frame (9 px below its status bar). "02 Обране місце" has a 34 px bottom

@@ -78,3 +78,9 @@ export const mockJoinRequest = {
   details: 'Нд, 19 жовт · 17:00 · Антикафе «Ліхтар»',
   note: 'Прийми, і ви одразу зможете домовитися про зустріч.',
 };
+
+// Д2.1 Місце на мапі: the place under the drop pin.
+export const mockPostPlace = {
+  name: 'Антикафе «Ліхтар»',
+  address: 'вул. Ярославська, 22 · Поділ',
+};
