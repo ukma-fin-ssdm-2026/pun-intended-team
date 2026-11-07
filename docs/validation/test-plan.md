@@ -135,6 +135,8 @@ Testing under this plan is complete when all of the following hold:
 | TC-63 | `backup-db.sh nightly` | Unit | Negative | With `pg_dump` failing, the night is tried 3 times, leaves no partial file, records only a reason code and turns the health check unhealthy; a copy `pg_restore` cannot read is not kept; a good night afterwards makes the check pass | Viktoriia Baran | REL-004 | done |
 | TC-64 | `BackupsService` | Unit | Positive | The backups are overdue when the last night failed or succeeded more than 26 hours ago, and `null` where none has run | Viktoriia Baran | REL-004 | done |
 | TC-65 | `GET /admin/backups`, `GET /admin/stats` | Integration | Positive | After a good night and a failed one, both answer `overdue: true` with the good night's time; the nights are listed newest first with only time, result, attempts, duration, size and reason; a user who is not an administrator gets `404` | Viktoriia Baran | REL-004, SEC-001 | done |
+| TC-66 | `useInterests` (client) | Unit | Negative | When the list of interests cannot be loaded, because the server is unreachable or answers `503`, the hook reports the failure, and a retry loads the list | Viktoriia Baran | FR-002 | done |
+| TC-67 | `InterestPicker` (client) | Unit | Negative | After a failed load, "+ ще" turns into a retry, coral with the error mark, and pressing it loads the list again; while the list loads, "+ ще" is disabled | Viktoriia Baran | FR-002 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

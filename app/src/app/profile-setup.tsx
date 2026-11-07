@@ -3,7 +3,7 @@
 // Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { createProfile, replaceInterests, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
@@ -122,10 +122,8 @@ export default function ProfileSetupScreen() {
             onToggle={(id) => setInterestIds((current) => toggleInList(current, id))}
             note={`обрано ${interestIds.length} · мін. ${MIN_INTERESTS}`}
             onMore={interests.data ? () => setSheetOpen(true) : undefined}
+            onRetry={interests.failed ? interests.reload : undefined}
           />
-          {interests.error && (
-            <Text className="font-inter text-caption text-brand-coral">Не вдалося завантажити інтереси</Text>
-          )}
         </View>
       </FormScreen>
 

@@ -161,6 +161,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
             onToggle={(id) => setInterestIds((current) => toggleInList(current, id))}
             note={`обрано ${interestIds.length} · мін. ${MIN_INTERESTS}`}
             onMore={interests.data ? () => setSheetOpen(true) : undefined}
+            onRetry={interests.failed ? interests.reload : undefined}
           />
 
           <View className="gap-3 pt-3">

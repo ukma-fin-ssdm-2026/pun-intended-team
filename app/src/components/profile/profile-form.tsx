@@ -165,12 +165,14 @@ type InterestPickerProps = {
   onToggle: (id: string) => void;
   // The note on the right of "Інтереси *", e.g. "обрано 3".
   note: string;
-  // "+ ще" opens П1.2 on П1; without a handler it does nothing, as on В7.
+  // "+ ще" opens the full list (П1.2); without a handler, while the list loads, it is dimmed.
   onMore?: () => void;
+  // Set when the full list could not be loaded: "+ ще" turns coral with the error mark and loads it again (REL-07).
+  onRetry?: () => void;
 };
 
 // "Інтереси": selected chips are dark with a check; "+ ще" ends the list.
-export function InterestPicker({ options, selected, onToggle, note, onMore }: Readonly<InterestPickerProps>) {
+export function InterestPicker({ options, selected, onToggle, note, onMore, onRetry }: Readonly<InterestPickerProps>) {
   return (
     <View className="gap-2.5">
       <View className="flex-row items-start justify-between">
@@ -204,14 +206,29 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: Re
             </Pressable>
           );
         })}
-        <Pressable
-          accessibilityRole="button"
-          disabled={!onMore}
-          onPress={onMore}
-          className="rounded-[18px] bg-surface-background px-3.5 py-2"
-        >
-          <Text className="font-inter-medium text-label text-text-primary">+ ще</Text>
-        </Pressable>
+        {onRetry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Не вдалося завантажити інтереси. Спробувати ще раз"
+            onPress={onRetry}
+            className="flex-row items-center gap-1.5 rounded-[18px] bg-brand-coral-soft py-2 pl-2 pr-3.5"
+          >
+            {/* The error mark of the snackbar, at chip size. */}
+            <View className="size-5 items-center justify-center rounded-full bg-brand-coral">
+              <Icon name="danger" size={12} color={colors.text['on-dark']} />
+            </View>
+            <Text className="font-inter-medium text-label text-brand-coral">+ ще</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            disabled={!onMore}
+            onPress={onMore}
+            className={`rounded-[18px] bg-surface-background px-3.5 py-2 ${onMore ? '' : 'opacity-45'}`}
+          >
+            <Text className="font-inter-medium text-label text-text-primary">+ ще</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
