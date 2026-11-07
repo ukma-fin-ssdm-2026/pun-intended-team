@@ -22,6 +22,16 @@ start() {
   return 1
 }
 
+# The migrations in the database that commit $1 does not have, one per line: its code runs on a newer schema. 
+# Fails if the database cannot be read.
+migrations_unknown_to() {
+  local applied
+  applied=$("${compose[@]}" exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc \
+    "SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL"') ||
+    return 1
+  comm -23 <(printf '%s\n' "$applied" | grep . | sort) <(git ls-tree --name-only "$1:prisma/migrations" | sort)
+}
+
 # On every exit: the checkout goes back to the version that is still running, if the deploy did not get
 # that far, then the registry login and the lock go.
 restore=''
@@ -111,6 +121,13 @@ main() {
     exit 1
   fi
 
+  # Deploying an earlier commit by hand: it runs on the newer schema, as a rollback does.
+  local newer
+  if newer=$(migrations_unknown_to "$version") && [[ -n "$newer" ]]; then
+    echo "::warning::$version does not know the migrations ${newer//$'\n'/, } of the database:" \
+      "\"A version runs on a newer schema\" in docs/operations/staging.md"
+  fi
+
   if start; then
     restore=''
     echo "$(date -u +%FT%TZ) $version" >>deploy.log
@@ -121,12 +138,22 @@ main() {
 
   echo "$version is not healthy: ${compose[*]} logs api migrate" >&2
   if [[ -n "$previous" && "$previous" != "$version" ]]; then
+    # Migrations cannot be undone, so the earlier code runs on them: better than no API, but the job says so.
+    local kept
+    kept=$(migrations_unknown_to "$previous") || kept='(the database could not be read)'
+    kept=${kept//$'\n'/, }
     git checkout --quiet --detach "$previous"
     restore=''
     export API_VERSION=$previous
     if start; then
-      echo "$(date -u +%FT%TZ) $previous (rolled back from $version)" >>deploy.log
-      echo "Rolled back to $previous" >&2
+      if [[ -n "$kept" ]]; then
+        echo "$(date -u +%FT%TZ) $previous (rolled back from $version; the database keeps $kept)" >>deploy.log
+        echo "::error::Rolled back to $previous, but the database keeps the migrations $kept, which $previous" \
+          "does not know: \"A version runs on a newer schema\" in docs/operations/staging.md"
+      else
+        echo "$(date -u +%FT%TZ) $previous (rolled back from $version)" >>deploy.log
+        echo "Rolled back to $previous" >&2
+      fi
     else
       echo "Rolling back to $previous failed too" >&2
     fi

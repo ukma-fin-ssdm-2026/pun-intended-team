@@ -142,6 +142,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-70 | `POST /auth/refresh`, the answer lost | Integration | Positive | Sending the replaced refresh token again within 60 s gets new tokens that work; the token whose answer was lost then ends the session, as does the replaced token 61 s later | Viktoriia Baran | SEC-005 | done |
 | TC-71 | Session renewal (client) | Unit | Negative | A refresh that got no answer is sent once more after 2 s, and one that got `409` once more at once, and its tokens are used; if neither try gets an answer, or a second `409` comes, the refresh token is kept and the next request tries again; another answered refresh, such as `503`, is not sent again | Viktoriia Baran | SEC-005 | done |
 | TC-72 | `POST /auth/refresh`, 5 at once | Integration | Negative | One refresh token sent 5 times at the same time gets only `200` or `409`; the session is not ended, and exactly one of the returned refresh tokens is the one it stores | Viktoriia Baran | SEC-005 | done |
+| TC-73 | `deploy-staging.sh`: migrations a version does not know | Unit | Negative | With a database migrated past a commit, the check lists exactly the migrations that commit lacks, and nothing for a commit that knows them all; a database that cannot be read fails the check | Viktoriia Baran | REL-001 | done |
 
 Owners marked TBD are assigned when the team schedules the test.
 

@@ -85,7 +85,7 @@ docker login ghcr.io -u <your GitHub user>
 docker logout ghcr.io
 ```
 
-A rollback does not undo migrations, so it only works while the older code still fits the database. A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
+A rollback does not undo migrations: the earlier code runs on the newer schema, which is better than no API but may fail where the schema changed. When that happens, the job fails with an error naming the migrations, and `deploy.log` says so; deploying an earlier commit by hand gives a warning instead. See [A version runs on a newer schema](#a-version-runs-on-a-newer-schema). A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
 
 ## A migration failed
 
@@ -98,6 +98,14 @@ Migrations run before anything is replaced, so the version that was running keep
      node_modules/.bin/prisma migrate resolve --rolled-back <migration name>
    ```
 3. Fix the migration in a new commit on `main` and push it to `staging`; its deploy applies it again.
+
+## A version runs on a newer schema
+
+After a rollback, or a deploy of an earlier commit, the job names the migrations the running version does not know (REL-10). Prisma has no down migrations, so the schema stays as it is. On the server, in `/opt/nearby`:
+
+1. Check what fails: `docker compose -f docker-compose.staging.yml logs api`. Migrations that only add tables or nullable columns usually leave the earlier code working.
+2. If it works, fix the failed version and deploy the fix; its deploy finds the migrations already applied.
+3. If it does not, restore the copy taken just before the failed deploy, the newest in `/var/backups/nearby/manual/` ([Backups and restore](#backups-and-restore)): its schema is the one the running version knows. This loses what was written since that copy.
 
 ## Logs
 
