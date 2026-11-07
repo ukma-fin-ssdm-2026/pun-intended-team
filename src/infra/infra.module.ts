@@ -2,6 +2,7 @@
 import { Global, Module } from '@nestjs/common';
 import { createRemoteJWKSet } from 'jose';
 import { BackupRunsRepository } from '../core/admin/repositories/backup-runs.repository.ts';
+import { TransactionRunner } from '../core/common/transaction-runner.ts';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
@@ -19,6 +20,7 @@ import { ListingsRepository } from '../core/listings/repositories/listings.repos
 import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
 import { AuditLogRepository } from '../core/moderation/repositories/audit-log.repository.ts';
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
+import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { loadGoogleSettings } from './auth/google-settings.ts';
@@ -26,6 +28,7 @@ import { HmacCodeHasher } from './auth/hmac-code-hasher.ts';
 import { JoseAccessTokens } from './auth/jose-access-tokens.ts';
 import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadContactHmacKey, loadDataEncryptionKey, loadSigningKeys } from './auth/key-files.ts';
+import { PgBossJobQueue } from './jobs/pg-boss-job-queue.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
 import { DisabledMessagingProvider } from './messaging/disabled-messaging-provider.ts';
 import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
@@ -48,6 +51,7 @@ import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts
 import { PrismaVenuesRepository } from './prisma/prisma-venues.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
+import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: PrismaEventsRepository },
@@ -67,6 +71,8 @@ const repositories = [
 ];
 
 const adapters = [
+  { provide: TransactionRunner, useClass: PrismaTransactionRunner },
+  { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
@@ -81,6 +87,14 @@ const adapters = [
 ];
 
 const providers = [...repositories, ...adapters];
+
+function jobQueue(): JobQueue {
+  const connectionString = process.env.MAIN_DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('MAIN_DATABASE_URL is not set: see .env.example');
+  }
+  return new PgBossJobQueue(connectionString);
+}
 
 function messagingProvider(): MessagingProvider {
   const settings = loadMessagingSettings();
