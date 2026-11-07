@@ -32,15 +32,14 @@ Each component and boundary was checked against the six questions. A cell names 
 | TB1 device ↔ LB | TLS 1.2+ (SEC-001) | TLS 1.2+ | — | TLS 1.2+; plain HTTP redirected | TM-08, TM-10 | — |
 | Load balancer (Z1) | — | — | — | — | per-IP backstop limit | — |
 | TB2 LB ↔ main server | — | — | — | TM-13 | — | — |
-| Main server (Z2) | TM-01, TM-02, TM-12 | input validation | TM-05 | TM-06, TM-14 | TM-09; rounds run in a worker thread (ADR-001) | TM-11 |
-| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (the owner `nearby` only in migrations) |
-| PostgreSQL (Z4) | — | TM-03 | TM-05 | TM-07 | managed host, daily backups (REL-004) | — |
+| Main server (Z2) | TM-01, TM-02, TM-12, TM-17 | input validation | TM-05 | TM-06, TM-14 | TM-09; rounds run in a worker thread (ADR-001) | TM-11 |
+| TB3 main server ↔ DB | own database role | — | — | — | — | role without schema rights (the owner `nearby` only in migrations and the nightly backup) |
+| PostgreSQL (Z4) | — | TM-03 | TM-05 | TM-07 | nightly backup with retries; an overdue one warns the deploy job and the admin panel (REL-004) | — |
 | Import service (Z3), TB4 | — | TM-03, TM-04 | — | role cannot read personal tables | — | role limited to imported events, venues, import runs and skipped records |
 | TB5 providers → import | — | TM-04 | — | — | provider outage: REL-003 | — |
 | TB6 main server → external | Google tokens verified server-side | TLS | provider request IDs stored | codes and push text carry no contacts | TM-08 | — |
 | Expo Push → user device | push is only a hint; the app reads the inbox through the API | TLS (Expo, APNs / FCM) | — | push text carries no contacts | missed push: the inbox still has the row (notifications.md) | — |
 | CI runner (self-hosted) | — | TM-16 | — | — | — | TM-16 |
-| TM-17 | identity | Spoofing | An attacker who stole a refresh token uses it within 60 seconds after the app renewed it. The server takes it for the app's retry of a lost answer (REL-08), renews the session for the attacker, and the app's token stops working. | Medium | **Accepted.** Without the window a lost answer signs the user out. Only the immediately previous token qualifies, for at most 60 s, as at Okta (default 30 s, at most 60 s) and in the OAuth working group's proposal; a reuse after that, or of an older token, still ends the session (SEC-005). The app makes one refresh at a time and retries once. Further step: tokens bound to the device (DPoP, RFC 9449), which need no rotation. |
 
 ## 3. Risks
 
@@ -64,6 +63,7 @@ Each component and boundary was checked against the six questions. A cell names 
 | TM-14 | main server, photo endpoint | Information disclosure | A registered account downloads other users' photos in bulk to build a scraped dataset. | Medium | **Mitigated, residual accepted.** Photos are served only through an authenticated endpoint, never as public links; per-token rate limits apply; mass access shows up in logs and the account can be banned. A signed-in user can still save the photos they are shown. |
 | TM-15 | identity | Spoofing | While sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), one person registers several accounts with throwaway Google accounts: fake profiles, or a new account after a ban. | Medium | **Accepted** until the phone flow returns. Google's own sign-up checks make many accounts costly; per-IP limits on registration; a banned account's sessions end at once (SEC-005). |
 | TM-16 | CI, self-hosted runner | Elevation of privilege, Tampering | A compromised npm package runs its install script during `npm ci` and executes code on the self-hosted runner. The same runner builds and pushes the staging images and runs the staging deployment, so the code could also alter an image before it is pushed. | Medium | **Mitigated** in #300: CI installs with `npm ci --ignore-scripts` and runs `npx --no-install`, so only locked versions run and no install scripts by default. `npm audit` separately reports known vulnerable versions. Residual risk: `npm rebuild @prisma/engines` still runs that package's install script, and a compromised package's code still runs when the build or the tests load it. |
+| TM-17 | identity | Spoofing | An attacker who stole a refresh token uses it within 60 seconds after the app renewed it. The server takes it for the app's retry of a lost answer (REL-08), renews the session for the attacker, and the app's token stops working. | Medium | **Accepted.** Without the window a lost answer signs the user out. Only the immediately previous token qualifies, for at most 60 s, as at Okta (default 30 s, at most 60 s) and in the OAuth working group's proposal; a reuse after that, or of an older token, still ends the session (SEC-005). The app makes one refresh at a time and retries once. Further step: tokens bound to the device (DPoP, RFC 9449), which need no rotation. |
 
 ## 4. Accepted Risks
 
