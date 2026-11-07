@@ -68,10 +68,11 @@ src/
 
 13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider`, `GoogleIdTokens` and `JobQueue` exist; `PushProvider` comes with notifications.
 
+14. **Transactions across modules** (HLD I2, I3) are explicit. A service starts one with `TransactionRunner.run(async (tx) => …)` (an abstract class in `core/common`, implemented with Prisma in `infra/prisma/`) and passes `tx` to every repository method, `notify(…, tx)` and `JobQueue.enqueue(…, tx)` that must join it. A repository method that can join takes `tx?: Transaction` and uses `tx ?? this.prisma`. Details: [database access](database-access.md#transactions). `@nestjs-cls/transactional` (implicit, no `tx` parameter) was considered and not adopted: an explicit `tx` keeps every transaction visible in signatures and needs no request context in job handlers.
+
 ## Planned
 
-14. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
-15. **Transactions across modules** (HLD I2, I3: `notify(…, tx)`, jobs enqueued in the same transaction) via `@nestjs-cls/transactional` with its Prisma adapter, so repositories join the caller's transaction without passing `tx` around.
+15. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
 16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. `npm run import:events` makes one run; the schedule (`import.run`, HLD I3) is still to come.
 
 ## AI Usage Note
