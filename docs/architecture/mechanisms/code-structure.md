@@ -40,7 +40,7 @@ src/
     infra.module.ts             binds every repository to its implementation
     import-infra.module.ts      the import's bindings (ImportPrismaService, ImportedEventsRepository, EventProvider), loaded by src/import/ only, without InfraModule
     prisma/                     PrismaService (role nearby_main), ImportPrismaService (role nearby_import), one Prisma repository per core repository, catalog-rows.ts (venue and event rows to core types); generated/ is the Prisma client
-    stubs/                      in-memory repositories for what is not in the database yet (events, listings, venues, organizations); data.ts, paginate.ts
+    stubs/                      the import's in-memory repository (imported-events) and data.ts, only for the unit test of the import catalog
     auth/                       adapters for the identity module: access tokens, Google ID tokens, password and code hashing, key files
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
     providers/                  one adapter per external event provider (concert-ua-event-provider.ts)
@@ -57,7 +57,7 @@ src/
 4. **A module with endpoints has two Nest modules.** The `core` module (`CatalogModule`) provides and exports the services. The `api` module (`CatalogApiModule`) imports it and declares the controllers.
 5. **API schemas are separate from domain types.** `api/*/schemas/` holds the zod request and response schemas: the DTOs, and the source of the OpenAPI spec. `core/*/types/` holds plain TypeScript entities together with service inputs. Controllers may return domain objects: `@Endpoint` parses every success response with its schema, so fields the schema does not declare (internal or sensitive ones) never reach the client. Request body schemas are the opposite: `z.strictObject`, so an unknown field is a `400`.
 6. **`core` errors carry a code, not a status.** `core` throws `DomainError` with a code (`NOT_FOUND`, `CONFLICT`, one code per business rule). `api` maps each code to a status (`api-exception.ts`), and `ApiExceptionFilter` is the only place that builds `ErrorResponse`. Codes that only HTTP raises (`VALIDATION_ERROR`, `UNAUTHENTICATED`, `PAYLOAD_TOO_LARGE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`) stay in `api`; `app.module.ts` passes infra's `isDatabaseTimeout` to the filter, which answers the errors it accepts with `SERVICE_UNAVAILABLE`. Statuses are listed in [api-design.md](../../api/api-design.md).
-7. **Services reach storage only through repositories.** A repository is an abstract class in `core/*/repositories/`, and Nest uses it as the injection token. `InfraModule` (global, so `core` never imports it) binds it to an implementation: a Prisma repository in `infra/prisma/` (`PrismaService` connects as `nearby_main`, see [database access](database-access.md)), or an in-memory stub in `infra/stubs/` for the data not in the database yet (#310). Moving a repository to the database changes only its binding in `infra.module.ts`. A module's repositories touch only its own tables (HLD I2).
+7. **Services reach storage only through repositories.** A repository is an abstract class in `core/*/repositories/`, and Nest uses it as the injection token. `InfraModule` (global, so `core` never imports it) binds it to an implementation: a Prisma repository in `infra/prisma/` (`PrismaService` connects as `nearby_main`, see [database access](database-access.md)). Moving a repository to the database changes only its binding in `infra.module.ts`. A module's repositories touch only its own tables (HLD I2).
 8. **Inside a module, subfolders group files by kind** (`controllers/`, `schemas/`, `repositories/`, `services/`, `types/`). A subfolder is created only when its first file appears.
 9. **A module's exported services are its public API** (HLD I2). Everything outside the module, whether a controller, another module, a job handler or the import service, calls only the services its Nest module exports, and may import its `types/`. Its repositories stay private.
 10. **Relative imports name the `.ts` file.** `tsc` rewrites them to `.js` in `dist/` (`rewriteRelativeImportExtensions`). Imports used only as types are written `import type` (`verbatimModuleSyntax`).
@@ -68,7 +68,7 @@ src/
 
 ## Planned
 
-14. **Database for the rest:** events, listings, venues and organizations move from `infra/stubs/` to Prisma repositories (#310); then `infra/stubs/` is deleted.
+14. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
 15. **Transactions across modules** (HLD I2, I3: `notify(…, tx)`, jobs enqueued in the same transaction) via `@nestjs-cls/transactional` with its Prisma adapter, so repositories join the caller's transaction without passing `tx` around.
 16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. `npm run import:events` makes one run; the schedule (`import.run`, HLD I3) is still to come.
 

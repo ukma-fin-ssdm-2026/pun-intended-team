@@ -352,7 +352,7 @@ Get a token from an Auth endpoint, then in Swagger UI (`/api-docs`) click **Auth
 - **Your account:** sign up or sign in with Google in the app's web build, then copy the `accessToken` from the response of `/auth/google` or `/auth/complete-registration` in the browser's network tab. There are no shared development accounts.
 - **Administrator:** set your account's `role` to `admin` in the database ([local database](../../README.md#local-database)), then sign in again: the role is part of the access token.
 
-Accounts and sessions are in the database. Profiles, organizations, events and listings are still stubs in `src/infra/stubs/data.ts`, kept in memory until the server restarts; they belong to account ids that only the e2e tests create.
+Everything is in the database. A new local database has no events, venues, organizations or listings, and the e2e tests insert their own; the development seed went with the phone sign-in ([ADR-004](../architecture/decisions/ADR-004.md)) and comes back with it ([#354](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/354)).
 
 ## AI Usage Note
 
