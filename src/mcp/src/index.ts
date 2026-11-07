@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T22:57:30.111Z
+ * Generated on: 2026-11-07T23:01:09.661Z
  */
 
 import { existsSync } from 'node:fs';
@@ -253,6 +253,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
+  ["getMyOrganization", {
+    name: "getMyOrganization",
+    title: "Get your organization request",
+    description: `Get the caller’s organization request with its verification status: pending, verified or rejected. Only a verified organization can publish events. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/organization",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["requestOrganizationStatus", {
+    name: "requestOrganizationStatus",
+    title: "Request organization status",
+    description: `Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":100,"description":"The organization’s name, as users will see it"},"description":{"type":"string","minLength":1,"maxLength":1000,"description":"What the organization does"},"officialLink":{"type":"string","maxLength":500,"format":"uri","description":"The organization’s official site or page, where an administrator can check it"}},"required":["name","description","officialLink"],"additionalProperties":false,"examples":[{"name":"Мистецький Арсенал","description":"Культурний комплекс у центрі Києва: виставки, концерти, лекції.","officialLink":"https://artarsenal.in.ua"}],"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/organization",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
   ["listListings", {
     name: "listListings",
     title: "Browse listings",
@@ -312,6 +342,51 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Listings"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["adminListOrganizations", {
+    name: "adminListOrganizations",
+    title: "List organization requests",
+    description: `List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/organizations",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminApproveOrganization", {
+    name: "adminApproveOrganization",
+    title: "Verify an organization",
+    description: `Approve a pending request: the organization becomes verified and can publish events. The administrator and the time are recorded. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"accountId":{"type":"string","format":"uuid","description":"Account id of the organization"}},"required":["accountId"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/organizations/{accountId}/approve",
+    executionParameters: [{"name":"accountId","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["adminRejectOrganization", {
+    name: "adminRejectOrganization",
+    title: "Reject an organization request",
+    description: `Reject a pending request. The account can send the request again. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"accountId":{"type":"string","format":"uuid","description":"Account id of the organization"}},"required":["accountId"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/organizations/{accountId}/reject",
+    executionParameters: [{"name":"accountId","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
   ["adminListReportCases", {
     name: "adminListReportCases",
