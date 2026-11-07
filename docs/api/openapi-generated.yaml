@@ -24,7 +24,7 @@ tags:
   - name: Moderation
     description: Reports on users and how administrators resolve them
   - name: Admin
-    description: Platform statistics for administrators
+    description: Platform statistics and database backups for administrators
   - name: System
     description: Service endpoints
 components:
@@ -37,31 +37,94 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
-    PlatformStats:
+    BackupHistory:
       type: object
       properties:
-        users:
-          type: integer
-          description: 'Active accounts: registered and not banned'
-        events:
-          type: integer
-          description: Published events that have not ended yet
-        matches:
-          type: integer
-          description: Matches proposed so far
-        openReports:
-          type: integer
-          description: Open report cases
+        status:
+          type: object
+          nullable: true
+          properties:
+            lastSucceededAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: When the last nightly backup succeeded; null if none has
+            overdue:
+              type: boolean
+              description: The last nightly backup failed, or it is more than 26 hours old
+          required:
+            - lastSucceededAt
+            - overdue
+          description: Null where no nightly backup has run, e.g. in development
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BackupRun'
+          description: The last 30 nights, newest first
       required:
-        - users
-        - events
-        - matches
-        - openReports
+        - status
+        - items
       example:
-        users: 128
-        events: 42
-        matches: 0
-        openReports: 3
+        status:
+          lastSucceededAt: '2026-11-06T01:00:12.000Z'
+          overdue: true
+        items:
+          - finishedAt: '2026-11-07T01:20:31.000Z'
+            succeeded: false
+            attempts: 3
+            durationSeconds: 0
+            sizeBytes: null
+            reason: unreachable
+          - finishedAt: '2026-11-06T01:00:12.000Z'
+            succeeded: true
+            attempts: 1
+            durationSeconds: 12
+            sizeBytes: 4404019
+            reason: null
+    BackupRun:
+      type: object
+      properties:
+        finishedAt:
+          type: string
+          format: date-time
+          description: 'When the night ended: the copy was kept, or the last attempt failed'
+        succeeded:
+          type: boolean
+        attempts:
+          type: integer
+          description: Attempts that night, at most 3
+        durationSeconds:
+          type: integer
+          description: How long the last attempt took
+        sizeBytes:
+          type: integer
+          nullable: true
+          description: Size of the copy; null when the night failed
+        reason:
+          type: string
+          nullable: true
+          enum:
+            - unreachable
+            - auth_failed
+            - timeout
+            - locked
+            - unreadable
+            - failed
+            - null
+          description: >-
+            Why the night failed; null when it succeeded. `unreachable`: the
+            database did not answer. `auth_failed`: it refused the sign-in.
+            `timeout`: the copy took more than 15 minutes. `locked`: tables
+            stayed locked, e.g. by a migration. `unreadable`: the copy could not
+            be read back. `failed`: anything else. The details are only in the
+            server log
+      required:
+        - finishedAt
+        - succeeded
+        - attempts
+        - durationSeconds
+        - sizeBytes
+        - reason
     ErrorResponse:
       type: object
       properties:
@@ -147,6 +210,53 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    PlatformStats:
+      type: object
+      properties:
+        users:
+          type: integer
+          description: 'Active accounts: registered and not banned'
+        events:
+          type: integer
+          description: Published events that have not ended yet
+        matches:
+          type: integer
+          description: Matches proposed so far
+        openReports:
+          type: integer
+          description: Open report cases
+        backup:
+          type: object
+          nullable: true
+          properties:
+            lastSucceededAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: When the last nightly backup succeeded; null if none has
+            overdue:
+              type: boolean
+              description: The last nightly backup failed, or it is more than 26 hours old
+          required:
+            - lastSucceededAt
+            - overdue
+          description: >-
+            Nightly database backups; null where none has run, e.g. in
+            development
+      required:
+        - users
+        - events
+        - matches
+        - openReports
+        - backup
+      example:
+        users: 128
+        events: 42
+        matches: 0
+        openReports: 3
+        backup:
+          lastSucceededAt: '2026-11-07T01:00:42.000Z'
+          overdue: false
     AdminCategoryList:
       type: object
       properties:
@@ -1191,13 +1301,46 @@ components:
         status: ok
   parameters: {}
 paths:
+  /api/v1/admin/backups:
+    get:
+      operationId: adminListBackups
+      summary: List the nightly database backups
+      description: >-
+        Tell whether the nightly database backups are up to date and list the
+        last 30 nights. A failed night carries a reason code only; hosts, users
+        and error messages stay in the server log. Needs an administrator
+        account; other accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The status and the last nights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupHistory'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/stats:
     get:
       operationId: adminGetStats
       summary: Get platform statistics
       description: >-
-        Count active users, upcoming events, matches and open report cases.
-        Needs an administrator account; other accounts get 404.
+        Count active users, upcoming events, matches and open report cases, and
+        tell whether the nightly database backups are up to date. Needs an
+        administrator account; other accounts get 404.
       tags:
         - Admin
       security:

@@ -588,6 +588,21 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// One row per nightly backup, written by deploy/backup-db.sh (REL-06). `reason` is a code; CHECK constraints in
+// the migration keep it to the codes the admin panel knows.
+model BackupRun {
+  id              BigInt   @id @default(autoincrement())
+  finishedAt      DateTime @default(now()) @map("finished_at") @db.Timestamptz(3)
+  succeeded       Boolean
+  attempts        Int
+  durationSeconds Int      @map("duration_seconds")
+  sizeBytes       BigInt?  @map("size_bytes")
+  reason          String?
+
+  @@index([finishedAt])
+  @@map("backup_runs")
+}
+
 model Notification {
   id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   accountId  String           @map("account_id") @db.Uuid

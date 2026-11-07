@@ -228,9 +228,10 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
-| `GET` | `/api/v1/admin/stats` | Administrator | `200` `{ users, events, matches, openReports }` | `401`, `404` |
+| `GET` | `/api/v1/admin/stats` | Administrator | `200` `{ users, events, matches, openReports, backup }` | `401`, `404` |
+| `GET` | `/api/v1/admin/backups` | Administrator | `200` `{ status, items }` | `401`, `404` |
 
-`users` counts active accounts; `events` counts published events that have not ended; `matches` counts every match proposed; `openReports` counts open report cases (FR-030).
+`users` counts active accounts; `events` counts published events that have not ended; `matches` counts every match proposed; `openReports` counts open report cases (FR-030). `backup` is `{ lastSucceededAt, overdue }`: `overdue` when the last nightly backup failed or is more than 26 hours old; `null` where none has run. `/admin/backups` gives the same status and the last 30 nights, newest first. A failed night carries a reason code (`unreachable`, `auth_failed`, `timeout`, `locked`, `unreadable`, `failed`); hosts, users and error messages stay in the server log.
 
 ### System
 

@@ -526,6 +526,16 @@ async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promis
   }
 }
 
+/** A good night a day ago and a failed one now, as deploy/backup-db.sh writes them. */
+async function insertBackupNights(): Promise<{ finished_at: Date }[]> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`INSERT INTO backup_runs (finished_at, succeeded, attempts, duration_seconds, size_bytes, reason)
+      VALUES (now() - interval '1 day', true, 1, 12, 4404019, NULL), (now(), false, 3, 0, NULL, 'unreachable')
+      RETURNING finished_at`),
+  );
+  return rows;
+}
+
 /** The `sub` claim of an access token: the account id. */
 function accountIdOf(token: string): string {
   return JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sub;
@@ -1714,10 +1724,66 @@ describe('GET /api/v1/admin/stats', () => {
     );
     assert.deepEqual({ users: res.body.users, matches: res.body.matches, openReports: res.body.openReports }, rows[0]);
     assert.ok(res.body.events > 0, JSON.stringify(res.body));
+    assert.equal(res.body.backup, null);
+  });
+
+  test('reports the nightly backups as overdue after one failed', async () => {
+    const [good] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/stats', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body.backup, { lastSucceededAt: good.finished_at.toISOString(), overdue: true });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
   });
 
   test('answers a signed-in user who is not an administrator with 404', async () => {
     assertRejected(await call('GET', '/api/v1/admin/stats', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
+});
+
+// REL-06
+describe('GET /api/v1/admin/backups', () => {
+  test('has no status and no nights where no backup has run', async () => {
+    const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { status: null, items: [] });
+  });
+
+  test('lists the nights newest first, with only what the panel may show', async () => {
+    const [good, bad] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body, {
+        status: { lastSucceededAt: good.finished_at.toISOString(), overdue: true },
+        items: [
+          {
+            finishedAt: bad.finished_at.toISOString(),
+            succeeded: false,
+            attempts: 3,
+            durationSeconds: 0,
+            sizeBytes: null,
+            reason: 'unreachable',
+          },
+          {
+            finishedAt: good.finished_at.toISOString(),
+            succeeded: true,
+            attempts: 1,
+            durationSeconds: 12,
+            sizeBytes: 4404019,
+            reason: null,
+          },
+        ],
+      });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
+  });
+
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/backups', { token: tokens.user }), 404, 'NOT_FOUND');
   });
 });
 
