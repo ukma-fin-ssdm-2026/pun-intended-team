@@ -2,9 +2,9 @@
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
-import { fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
+import { addDays, fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
-import type { NormalizeResult } from '../../core/import/types/import.ts';
+import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
 import { errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
@@ -14,6 +14,11 @@ const ARTWIZARD_SITE_URL = 'https://artwizard.io';
 const PAGE_SIZE = 20;
 /** A stop for a response whose `total_pages` is wrong: Kyiv had 4 pages of 20 on 2026-11-03. */
 const MAX_PAGES = 50;
+/**
+ * ArtWizard's permission covers Kyiv events of the coming 4 weeks (ADR-006, decision 9): today and the 27 days
+ * after it, one day less than the catalog window.
+ */
+const DAYS_AHEAD = 27;
 
 /** ArtWizard's event types (`type`), and our category for each; the first known type wins. */
 const CATEGORY_BY_TAG = new Map([
@@ -67,7 +72,7 @@ export interface ArtWizardOptions {
 
 /**
  * ArtWizard (artwizard.io) behind the EventProvider port, through the events API ArtWizard gave us access to
- * (ADR-006). One request per page of 20 Kyiv events whose occurrences touch the catalog window.
+ * (ADR-006). One request per page of 20 Kyiv events whose occurrences touch the coming 4 weeks.
  */
 export class ArtWizardEventProvider extends EventProvider {
   readonly id = 'artwizard';
@@ -85,22 +90,36 @@ export class ArtWizardEventProvider extends EventProvider {
     this.now = now;
   }
 
-  async fetch(): Promise<unknown[]> {
+  /**
+   * Every page of the answer. The list is complete only when every page the API names was read and they held as
+   * many events as its `total`; an event added while the pages are read shifts the later pages by one.
+   */
+  async fetch(): Promise<FetchResult> {
     if (!this.apiKey) {
       throw new Error('ARTWIZARD_API_KEY is not set: see .env.example');
     }
-    const window = catalogWindow(this.now());
+    const window = permittedWindow(this.now());
     const events: unknown[] = [];
     let total = 0;
+    let totalPages = 0;
     let pages = 1;
     for (let page = 1; page <= pages; page++) {
       const body = await this.fetchPage(window, page);
       events.push(...body.data);
       total = body.total;
-      pages = Math.min(body.total_pages, MAX_PAGES);
+      totalPages = body.total_pages;
+      pages = Math.min(totalPages, MAX_PAGES);
     }
     this.logger.log(`${events.length} of ${total} Kyiv events from ${window.from} to ${window.to}, ${pages} pages`);
-    return events;
+    const complete = totalPages <= MAX_PAGES && events.length === total;
+    if (!complete) {
+      this.logger.warn(
+        totalPages > MAX_PAGES
+          ? `Not the full list: the API names ${totalPages} pages, only the first ${MAX_PAGES} were read`
+          : `Not the full list: ${events.length} events read, the API names ${total}`,
+      );
+    }
+    return { records: events, complete };
   }
 
   private async fetchPage(window: { from: string; to: string }, page: number): Promise<z.infer<typeof EventsPage>> {
@@ -161,7 +180,7 @@ export class ArtWizardEventProvider extends EventProvider {
       return { skip: { externalId, reason: `No category for the types ${JSON.stringify(type)}` } };
     }
 
-    const window = catalogWindow(this.now());
+    const window = permittedWindow(this.now());
     const inWindow = event_occurrences_data
       .filter((occurrence) => occurrenceInWindow(occurrence, window))
       .sort((a, b) => a.date_from.localeCompare(b.date_from));
@@ -203,6 +222,12 @@ export class ArtWizardEventProvider extends EventProvider {
       },
     };
   }
+}
+
+/** The Kyiv dates the import may ask ArtWizard for: the catalog window's first 28, both ends included. */
+function permittedWindow(now: Date): { from: string; to: string } {
+  const { from } = catalogWindow(now);
+  return { from, to: addDays(from, DAYS_AHEAD) };
 }
 
 /**

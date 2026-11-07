@@ -13,6 +13,8 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ### Fixed
 
+- Karabas events are imported for the whole 28-day catalog window instead of the first page of each section, about 4 days: the import follows each section's "load more" link with `per-page=20`, at most 15 pages a section ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+- The ArtWizard import asks for the coming 4 weeks only, the scope of ArtWizard's permission, one day less than the catalog window.
 - A failed import run is reported with the error that stopped it, even when recording the failure fails too; a run that never finished is marked failed when its provider runs next, so it never counts as succeeded ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 
 ### Removed

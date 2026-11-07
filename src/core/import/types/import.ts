@@ -30,8 +30,20 @@ export interface SkippedRecord {
 
 export type NormalizeResult = { event: ImportedEvent } | { skip: SkippedRecord };
 
+/** What an adapter's `fetch` returns. */
+export interface FetchResult<Raw = unknown> {
+  records: Raw[];
+  /**
+   * Whether the records are every event the provider lists for the window: false when a page failed, or when a
+   * page limit stopped the reading early. Only a complete list can tell that an event is gone from the provider.
+   */
+  complete: boolean;
+}
+
 export interface ImportReport {
   provider: string;
+  /** Whether the provider's list was complete (`FetchResult.complete`). */
+  complete: boolean;
   fetched: number;
   created: number;
   updated: number;

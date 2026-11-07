@@ -60,7 +60,11 @@ const anImportedVenue = (overrides: Partial<Venue> = {}) =>
 function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ event: anImportedEvent() }]) {
   const normalize = mock.fn((): NormalizeResult => ({ skip: { externalId: null, reason: 'unset' } }));
   normalized.forEach((result, call) => normalize.mock.mockImplementationOnce(() => result, call));
-  const provider = { id: PROVIDER_ID, fetch: mock.fn(() => Promise.resolve(raws)), normalize };
+  const provider = {
+    id: PROVIDER_ID,
+    fetch: mock.fn(() => Promise.resolve({ records: raws, complete: true })),
+    normalize,
+  };
   const repository = {
     findActiveCategories: mock.fn((): Promise<ImportCategory[]> =>
       Promise.resolve([{ id: aCategory().id, name: aCategory().name }]),
@@ -111,6 +115,7 @@ describe('EventImportService.importFrom', () => {
     });
     assert.deepEqual(report, {
       provider: PROVIDER_ID,
+      complete: true,
       fetched: 1,
       created: 1,
       updated: 0,
@@ -230,11 +235,25 @@ describe('EventImportService.importFrom', () => {
     warn.mock.restore();
   });
 
+  test('reports whether the provider gave its full list, and still imports a partial one', async () => {
+    const { run, provider } = makeService();
+    provider.fetch.mock.mockImplementation(() => Promise.resolve({ records: [{}], complete: false }));
+    const log = mock.method(Logger.prototype, 'log', () => {});
+
+    const report = await run();
+
+    assert.equal(report.complete, false);
+    assert.equal(report.created, 1);
+    assert.match(String(log.mock.calls.at(-1)?.arguments[0]), /; not the full list$/);
+    log.mock.restore();
+  });
+
   test('imports nothing from an empty feed', async () => {
     const { run } = makeService([], []);
 
     assert.deepEqual(await run(), {
       provider: PROVIDER_ID,
+      complete: true,
       fetched: 0,
       created: 0,
       updated: 0,
@@ -444,7 +463,11 @@ describe('EventImportService.importFrom, when the database fails', () => {
 describe('EventImportService.run', () => {
   test('reports a provider whose run the database could not start, and still imports the next one', async () => {
     const { provider, repository, geocoder } = makeService();
-    const second = { id: 'up', fetch: () => Promise.resolve([{}]), normalize: () => ({ event: anImportedEvent() }) };
+    const second = {
+      id: 'up',
+      fetch: () => Promise.resolve({ records: [{}], complete: true }),
+      normalize: () => ({ event: anImportedEvent() }),
+    };
     const service = new EventImportService(
       [provider, second] as unknown as EventProvider[],
       repository as unknown as ImportedEventsRepository,
@@ -466,7 +489,11 @@ describe('EventImportService.run', () => {
   test('imports from every provider and reports a failed one without stopping the others', async () => {
     const { repository, geocoder } = makeService();
     const failing = { id: 'down', fetch: () => Promise.reject(new Error('Karabas is down')), normalize: () => null };
-    const working = { id: 'up', fetch: () => Promise.resolve([{}]), normalize: () => ({ event: anImportedEvent() }) };
+    const working = {
+      id: 'up',
+      fetch: () => Promise.resolve({ records: [{}], complete: true }),
+      normalize: () => ({ event: anImportedEvent() }),
+    };
     const service = new EventImportService(
       [failing, working] as unknown as EventProvider[],
       repository as unknown as ImportedEventsRepository,

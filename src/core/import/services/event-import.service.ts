@@ -77,7 +77,7 @@ export class EventImportService {
   }
 
   private async importRecords(provider: EventProvider, runId: string, since?: Date): Promise<ImportReport> {
-    const raws = await provider.fetch(since);
+    const { records: raws, complete } = await provider.fetch(since);
     const categoryIdsByName = new Map(
       (await this.importedEventsRepository.findActiveCategories()).map((category) => [
         category.name.toLowerCase(),
@@ -86,6 +86,7 @@ export class EventImportService {
     );
     const report: ImportReport = {
       provider: provider.id,
+      complete,
       fetched: raws.length,
       created: 0,
       updated: 0,
@@ -122,7 +123,8 @@ export class EventImportService {
 
     this.logger.log(
       `${report.provider}: fetched ${report.fetched}, created ${report.created}, updated ${report.updated}, ` +
-        `unchanged ${report.unchanged}, skipped ${report.skipped.length}`,
+        `unchanged ${report.unchanged}, skipped ${report.skipped.length}; ` +
+        (report.complete ? 'the full list' : 'not the full list'),
     );
     return report;
   }

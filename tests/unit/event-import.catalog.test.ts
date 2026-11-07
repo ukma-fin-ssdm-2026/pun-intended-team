@@ -17,7 +17,7 @@ import type { PageRequest } from '../../dist/core/common/page.js';
 import { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
-import type { NormalizeResult } from '../../dist/core/import/types/import.js';
+import type { FetchResult, NormalizeResult } from '../../dist/core/import/types/import.js';
 import { KarabasEventProvider } from '../../dist/infra/providers/karabas-event-provider.js';
 import { events, venues } from '../../dist/infra/stubs/data.js';
 import { StubImportedEventsRepository } from '../../dist/infra/stubs/imported-events.repository.js';
@@ -36,8 +36,11 @@ const karabas = () =>
 class GalleryEventProvider extends EventProvider {
   readonly id = 'gallery';
 
-  fetch(): Promise<unknown[]> {
-    return Promise.resolve([{ ref: 7, name: 'Gallery opening', place: 'Art Hall', when: '2026-11-08T16:00:00Z' }]);
+  fetch(): Promise<FetchResult> {
+    return Promise.resolve({
+      records: [{ ref: 7, name: 'Gallery opening', place: 'Art Hall', when: '2026-11-08T16:00:00Z' }],
+      complete: true,
+    });
   }
 
   normalize(raw: unknown): NormalizeResult {

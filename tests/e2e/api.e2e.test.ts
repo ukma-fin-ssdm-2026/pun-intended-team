@@ -2172,7 +2172,7 @@ describe('Event import', () => {
     // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
     const artWizardPage = (page: string) => {
       const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
-      return JSON.stringify({ ...body, total_pages: 2 });
+      return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
     providerSite = createHttpServer((req, res) => {
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
@@ -2187,7 +2187,8 @@ describe('Event import', () => {
         }
         return;
       }
-      const file = pages[pathname];
+      // Only the first page of each Karabas section was saved on 3 November; its next page answers 404.
+      const file = searchParams.has('page') ? undefined : pages[pathname];
       res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
     });
     await new Promise<void>((resolve) => providerSite.listen(0, resolve));

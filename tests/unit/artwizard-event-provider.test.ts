@@ -44,8 +44,8 @@ type Answer = EventsPage | { status: number; text?: string } | Error;
  */
 function apiClient(pages: Record<number, Answer> = {}): HttpClient & { requested: URL[] } {
   const answers: Record<number, Answer> = {
-    1: { ...savedEventsPage(1), total_pages: 2 },
-    2: { ...savedEventsPage(2), total_pages: 2 },
+    1: { ...savedEventsPage(1), total: 40, total_pages: 2 },
+    2: { ...savedEventsPage(2), total: 40, total_pages: 2 },
     ...pages,
   };
   const requested: URL[] = [];
@@ -94,12 +94,13 @@ afterEach(() => mock.restoreAll());
 
 // FR-008, FR-015
 describe('ArtWizardEventProvider.fetch', () => {
-  test('requests every page of the Kyiv events that touch the catalog window, with the key', async () => {
+  test('requests every page of the Kyiv events of the coming 4 weeks, with the key', async () => {
     const http = apiClient();
 
-    const events = await makeProvider({ http }).fetch();
+    const { records, complete } = await makeProvider({ http }).fetch();
 
-    assert.equal(events.length, 40);
+    assert.equal(records.length, 40);
+    assert.equal(complete, true);
     assert.deepEqual(
       http.requested.map((url) => [url.origin + url.pathname, Object.fromEntries(url.searchParams)]),
       [1, 2].map((page) => [
@@ -107,7 +108,7 @@ describe('ArtWizardEventProvider.fetch', () => {
         {
           apiKey: API_KEY,
           city: 'kyiv',
-          'filter[event_occurrences_data.date_from:lte]': 'date:2026-12-01',
+          'filter[event_occurrences_data.date_from:lte]': 'date:2026-11-30',
           'filter[event_occurrences_data.date_to:gte]': 'date:2026-11-03',
           page_size: '20',
           page: String(page),
@@ -119,16 +120,58 @@ describe('ArtWizardEventProvider.fetch', () => {
   test('logs the totals, and never the key', async () => {
     await makeProvider().fetch();
 
-    assert.deepEqual(logged, ['40 of 74 Kyiv events from 2026-11-03 to 2026-12-01, 2 pages']);
+    assert.deepEqual(logged, ['40 of 40 Kyiv events from 2026-11-03 to 2026-11-30, 2 pages']);
   });
 
   test('stops at the last page the API names', async () => {
-    const http = apiClient({ 1: { ...savedEventsPage(1), total_pages: 1 } });
+    const http = apiClient({ 1: { ...savedEventsPage(1), total: 20, total_pages: 1 } });
 
-    const events = await makeProvider({ http }).fetch();
+    const { records } = await makeProvider({ http }).fetch();
 
-    assert.equal(events.length, 20);
+    assert.equal(records.length, 20);
     assert.equal(http.requested.length, 1);
+  });
+
+  test('asks for nothing after the 28th day, one day before the end of the catalog window', async () => {
+    const http = apiClient();
+
+    await makeProvider({ http, now: new Date('2026-11-07T10:00:00Z') }).fetch();
+
+    assert.ok(
+      http.requested.every(
+        (url) => url.searchParams.get('filter[event_occurrences_data.date_from:lte]') === 'date:2026-12-04',
+      ),
+    );
+  });
+
+  test('reports the list as not complete when it holds fewer events than the API names', async () => {
+    // The saved run named 74 events in 4 pages; here pages 1 and 2 claim to be all of them.
+    const http = apiClient({
+      1: { ...savedEventsPage(1), total: 74, total_pages: 2 },
+      2: { ...savedEventsPage(2), total: 74, total_pages: 2 },
+    });
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { records, complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(records.length, 40);
+    assert.equal(complete, false);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      ['Not the full list: 40 events read, the API names 74'],
+    );
+  });
+
+  test('reads at most 50 pages, and reports the list as not complete when the API names more', async () => {
+    const page = { ...savedEventsPage(1), total: 1020, total_pages: 51 };
+    const http = apiClient(Object.fromEntries(Array.from({ length: 51 }, (_, i) => [i + 1, page])));
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(http.requested.length, 50);
+    assert.equal(complete, false);
+    assert.match(String(warn.mock.calls[0]?.arguments[0]), /names 51 pages, only the first 50 were read/);
   });
 
   test('fails the run without a key, and sends nothing', async () => {
@@ -219,7 +262,7 @@ describe('ArtWizardEventProvider.normalize', () => {
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T15:00:00.000Z', '2026-11-05T21:59:59.999Z']);
     assert.deepEqual(logged, [
-      'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-12-01; importing the one of 2026-11-05T17:00 only',
+      'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-11-30; importing the one of 2026-11-05T17:00 only',
     ]);
   });
 
@@ -235,7 +278,7 @@ describe('ArtWizardEventProvider.normalize', () => {
     // The 2026 occurrences are past and the 2027 one is after the window.
     assert.equal(
       skipReason(savedEvent('muzichna-programa-14-18-zhovtnia-20261015')),
-      'No occurrence from 2026-11-03 to 2026-12-01',
+      'No occurrence from 2026-11-03 to 2026-11-30',
     );
   });
 
