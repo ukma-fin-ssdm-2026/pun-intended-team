@@ -44,7 +44,7 @@ describe('renewing the session', () => {
     ]);
   });
 
-  test('stays signed in when the second try gets no answer either, and tries again on the next request', async () => {
+  test('keeps the refresh token when neither try gets an answer, and tries again on the next request', async () => {
     const { startSession, currentAccessToken, post } = load();
     await startSession({ accessToken: 'access-1', tokenType: 'Bearer', refreshToken: 'refresh-1', expiresIn: 0 });
     post.mockRejectedValue(new TypeError('Network request failed'));

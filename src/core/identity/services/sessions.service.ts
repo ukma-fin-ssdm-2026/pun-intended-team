@@ -7,8 +7,8 @@ import { AccessTokens } from '../adapters/access-tokens.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { SessionsRepository } from '../repositories/sessions.repository.ts';
 import type { SessionTokens } from '../types/auth.ts';
-import type { Session } from '../types/session.ts';
 import type { AccountRole } from '../types/caller.ts';
+import type { Session } from '../types/session.ts';
 
 // SEC-005
 export const ACCESS_TOKEN_SECONDS = HOUR_SECONDS;
@@ -43,7 +43,7 @@ export class SessionsService {
    * Rotates the refresh token: the old one stops working and the session gets another 30 days. The token the last
    * rotation replaced still works for 60 s, as the retry of an answer that was lost; it rotates again, and the token
    * whose answer was lost stops working. Any other secret means a stolen or replayed token: it ends the session for
-   * both holders.
+   * both holders. Of two refreshes with one token at once, the second gets CONFLICT and may try again within the 60 s.
    */
   async refresh(refreshToken: string): Promise<SessionTokens> {
     const [, sessionId, secret] = REFRESH_TOKEN.exec(refreshToken) ?? [];
@@ -58,8 +58,8 @@ export class SessionsService {
     const account = await this.accountsRepository.findById(session.accountId);
     const presented = hashSecret(secret);
     const current = sameHash(session.tokenHash, presented);
-    const retry = !current && isRetryOfLostAnswer(session, presented, now);
-    if ((!current && !retry) || account?.status !== 'active') {
+    const retryOf = current ? undefined : rotationRetried(session, presented, now);
+    if ((!current && !retryOf) || account?.status !== 'active') {
       await this.sessionsRepository.revoke(session.id, now);
       throw invalidRefreshToken();
     }
@@ -68,13 +68,14 @@ export class SessionsService {
       tokenHash: hashSecret(next),
       expiresAt: new Date(now.getTime() + REFRESH_TOKEN_MS),
       // A retry keeps the token it was made with as the previous one, and the 60 s of the first rotation.
-      ...(retry
-        ? { previousTokenHash: presented, rotatedAt: session.rotatedAt! }
+      ...(retryOf
+        ? { previousTokenHash: presented, rotatedAt: retryOf }
         : { previousTokenHash: session.tokenHash, rotatedAt: now }),
     });
+    // Another refresh with this token rotated it first, e.g. the one whose answer the app stopped waiting for while
+    // this retry ran (REL-08). Nothing changes: the app keeps its token and tries again, as a retry within the 60 s.
     if (!rotated) {
-      await this.sessionsRepository.revoke(session.id, now);
-      throw invalidRefreshToken();
+      throw new DomainError('CONFLICT', 'Another renewal of this session is in progress. Try again');
     }
     return this.tokens(session.id, account.id, account.role, next);
   }
@@ -127,14 +128,11 @@ function sameHash(stored: string, actual: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** The token the last rotation replaced, within 60 s of it. */
-function isRetryOfLostAnswer(session: Session, presented: string, now: Date): boolean {
-  return (
-    session.previousTokenHash !== null &&
-    session.rotatedAt !== null &&
-    sameHash(session.previousTokenHash, presented) &&
-    now.getTime() - session.rotatedAt.getTime() <= REFRESH_REUSE_MS
-  );
+/** When the last rotation replaced `presented`, if that was within 60 s; a retry of its lost answer then. */
+function rotationRetried(session: Session, presented: string, now: Date): Date | undefined {
+  const { previousTokenHash, rotatedAt } = session;
+  const within = rotatedAt !== null && now.getTime() - rotatedAt.getTime() <= REFRESH_REUSE_MS;
+  return within && previousTokenHash !== null && sameHash(previousTokenHash, presented) ? rotatedAt : undefined;
 }
 
 function invalidRefreshToken(): DomainError {

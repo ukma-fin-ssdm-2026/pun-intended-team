@@ -230,12 +230,13 @@ describe('SessionsService.refresh', () => {
     assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
   });
 
-  test('ends the session when a concurrent refresh rotated the token first', async () => {
+  // REL-08: e.g. the app's retry, while the refresh it gave up on is still running on a slow server.
+  test('answers CONFLICT and keeps the session when a concurrent refresh rotated the token first', async () => {
     const { service, sessions, accessTokens } = makeService();
     sessions.rotate.mock.mockImplementation(() => Promise.resolve(false));
 
-    await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('CONFLICT'));
+    assert.equal(sessions.revoke.mock.callCount(), 0);
     assert.equal(accessTokens.issue.mock.callCount(), 0);
   });
 });

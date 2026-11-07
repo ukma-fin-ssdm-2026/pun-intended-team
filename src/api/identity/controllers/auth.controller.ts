@@ -146,6 +146,11 @@ export class AuthController {
         description: '`INVALID_REFRESH_TOKEN`: the session expired, was ended, or the token was already used',
         schema: ErrorResponse,
       },
+      409: {
+        description:
+          '`CONFLICT`: another renewal with the same token ran at the same time; keep the token and try again',
+        schema: ErrorResponse,
+      },
     },
   })
   async refreshSession(@Input() { body }: RouteInput<typeof RefreshSessionRequest>): Promise<SessionTokensResponse> {

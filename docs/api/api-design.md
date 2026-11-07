@@ -141,7 +141,7 @@ Each endpoint lists every status it can return. `429` (rate limit) and `500` can
 | `POST` | `/api/v1/auth/google/register` | Anyone, no token | `200` a registration token | `400`, `409`, `422` |
 | `POST` | `/api/v1/auth/complete-registration` | The registration token | `200` the tokens of the new account's first session | `400`, `401`, `404`, `409`, `422` |
 | `POST` | `/api/v1/auth/google` | Anyone, no token | `200` the tokens of a new session | `400`, `401` |
-| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401` |
+| `POST` | `/api/v1/auth/refresh` | Anyone, no token | `200` a new access token and refresh token | `400`, `401`, `409` |
 | `POST` | `/api/v1/auth/sign-out` | Signed-in user | `204` | `401` |
 | `POST` | `/api/v1/auth/guest` | Anyone, no token | `200` a guest token | — |
 
@@ -149,7 +149,7 @@ Sign-up and sign-in are Google-only for now ([ADR-004](../architecture/decisions
 
 `google/register`, `google` and `refresh` take 20 requests a minute per IP each. Every token response is `{ accessToken, tokenType: "Bearer", expiresIn }`; the ones that sign in add `refreshToken`.
 
-A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one. The replaced token still works for 60 seconds, so an app whose answer was lost can send it again; it gets new tokens, and the ones whose answer was lost stop working. A wrong refresh token for the session, such as a replaced one used again later, ends the session. `sign-out` ends the current session. An ended session's access token gets `401` on the next request, before it expires.
+A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token and replaces that token, so the app keeps the new one. The replaced token still works for 60 seconds, so an app whose answer was lost can send it again; it gets new tokens, and the ones whose answer was lost stop working. A wrong refresh token for the session, such as a replaced one used again later, ends the session. Of two refreshes with the same token at once, the second gets `409 CONFLICT` and changes nothing; the app keeps its token and tries again. `sign-out` ends the current session. An ended session's access token gets `401` on the next request, before it expires.
 
 ### Events
 

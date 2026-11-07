@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T13:33:35.899Z
+ * Generated on: 2026-11-07T13:50:31.511Z
  */
 
 import { existsSync } from 'node:fs';
