@@ -1390,7 +1390,7 @@ describe('GET /api/v1/admin/categories/{id}', () => {
   test('returns the category', async () => {
     const res = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { id: concerts, name: 'Concerts', isActive: true });
+    assert.deepEqual(res.body, { id: concerts, name: 'Концерти', isActive: true });
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1416,7 +1416,7 @@ describe('POST /api/v1/admin/categories', () => {
     const res = await fetch(`${baseUrl}/api/v1/admin/categories`, {
       method: 'POST',
       headers: { authorization: `Bearer ${tokens.admin}`, 'content-type': 'application/x-www-form-urlencoded' },
-      body: 'name=Workshops',
+      body: new URLSearchParams({ name: 'Майстер-класи' }).toString(),
     });
     assert.equal(res.status, 400);
   });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-01T19:11:48.147Z
+ * Generated on: 2026-11-07T12:54:32.012Z
  */
 
 import { existsSync } from 'node:fs';
@@ -93,7 +93,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     title: "Add a category",
     description: `Add a category. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Workshops"}],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Майстер-класи"}],"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/admin/categories",
     executionParameters: [],

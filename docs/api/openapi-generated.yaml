@@ -159,7 +159,7 @@ components:
       example:
         items:
           - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
+            name: Концерти
             isActive: true
     AdminCategory:
       type: object
@@ -179,7 +179,7 @@ components:
       description: A category as administrators see it
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
+        name: Концерти
         isActive: true
     CreateCategoryBody:
       type: object
@@ -197,7 +197,7 @@ components:
         - name
       additionalProperties: false
       example:
-        name: Workshops
+        name: Майстер-класи
     UpdateCategoryBody:
       type: object
       properties:
@@ -225,7 +225,7 @@ components:
       example:
         items:
           - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
+            name: Концерти
     Category:
       type: object
       properties:
@@ -240,7 +240,7 @@ components:
       description: An event category from the directory administrators manage
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
+        name: Концерти
     EventsPage:
       type: object
       properties:
@@ -260,7 +260,7 @@ components:
             description: Screening in the park, bring a blanket.
             category:
               id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-              name: Concerts
+              name: Концерти
             venue:
               id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
               name: Natalka Park lawn
@@ -333,7 +333,7 @@ components:
         description: Screening in the park, bring a blanket.
         category:
           id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-          name: Concerts
+          name: Концерти
         venue:
           id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
           name: Natalka Park lawn
@@ -553,7 +553,7 @@ components:
               displayName: Olena
             category:
               id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
-              name: Exhibitions
+              name: Виставки
             eventId: null
             title: Looking for company for an exhibition on Saturday
             description: Planning to go in the evening, happy to grab a coffee after.
@@ -604,7 +604,7 @@ components:
           displayName: Olena
         category:
           id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
-          name: Exhibitions
+          name: Виставки
         eventId: null
         title: Looking for company for an exhibition on Saturday
         description: Planning to go in the evening, happy to grab a coffee after.

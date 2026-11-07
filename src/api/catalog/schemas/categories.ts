@@ -9,7 +9,7 @@ const CategoryFields = z.object({
 
 export const categoryExample: Category = {
   id: '2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03',
-  name: 'Concerts',
+  name: 'Концерти',
 };
 
 export const Category = CategoryFields.meta({
@@ -55,7 +55,7 @@ const CreateCategoryFields = z.strictObject({
 
 export const CreateCategoryBody = CreateCategoryFields.meta({
   id: 'CreateCategoryBody',
-  example: { name: 'Workshops' } satisfies CreateCategoryBody,
+  example: { name: 'Майстер-класи' } satisfies CreateCategoryBody,
 });
 
 const UpdateCategoryFields = z.strictObject({

@@ -607,7 +607,7 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Concerts",
+         *           "name": "Концерти",
          *           "isActive": true
          *         }
          *       ]
@@ -620,7 +620,7 @@ export interface components {
          * @description A category as administrators see it
          * @example {
          *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *       "name": "Concerts",
+         *       "name": "Концерти",
          *       "isActive": true
          *     }
          */
@@ -633,7 +633,7 @@ export interface components {
         };
         /**
          * @example {
-         *       "name": "Workshops"
+         *       "name": "Майстер-класи"
          *     }
          */
         CreateCategoryBody: {
@@ -662,7 +662,7 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Concerts"
+         *           "name": "Концерти"
          *         }
          *       ]
          *     }
@@ -674,7 +674,7 @@ export interface components {
          * @description An event category from the directory administrators manage
          * @example {
          *       "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *       "name": "Concerts"
+         *       "name": "Концерти"
          *     }
          */
         Category: {
@@ -691,7 +691,7 @@ export interface components {
          *           "description": "Screening in the park, bring a blanket.",
          *           "category": {
          *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *             "name": "Concerts"
+         *             "name": "Концерти"
          *           },
          *           "venue": {
          *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -729,7 +729,7 @@ export interface components {
          *       "description": "Screening in the park, bring a blanket.",
          *       "category": {
          *         "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *         "name": "Concerts"
+         *         "name": "Концерти"
          *       },
          *       "venue": {
          *         "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
@@ -908,7 +908,7 @@ export interface components {
          *           },
          *           "category": {
          *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
-         *             "name": "Exhibitions"
+         *             "name": "Виставки"
          *           },
          *           "eventId": null,
          *           "title": "Looking for company for an exhibition on Saturday",
@@ -938,7 +938,7 @@ export interface components {
          *       },
          *       "category": {
          *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
-         *         "name": "Exhibitions"
+         *         "name": "Виставки"
          *       },
          *       "eventId": null,
          *       "title": "Looking for company for an exhibition on Saturday",
