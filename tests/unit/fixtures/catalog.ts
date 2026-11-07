@@ -10,7 +10,7 @@ export const VENUE_ID = 'b0000000-0000-4000-8000-000000000001';
 export const EVENT_ID = 'e0000000-0000-4000-8000-000000000001';
 
 export function aCategory(overrides: Partial<Category> = {}): Category {
-  return { id: CATEGORY_ID, name: 'Виставки', isActive: true, ...overrides };
+  return { id: CATEGORY_ID, name: 'Виставки', slug: 'exhibitions', isActive: true, ...overrides };
 }
 
 /** A venue of the organization with ACCOUNT_ID. */

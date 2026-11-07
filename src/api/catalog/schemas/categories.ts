@@ -23,10 +23,16 @@ export const CategoryList = z
   .meta({ id: 'CategoryList', example: { items: [categoryExample] } });
 
 const AdminCategoryFields = CategoryFields.extend({
+  slug: z
+    .string()
+    .describe(
+      'Made from the name when the category is added and never changed, also on a rename; ' +
+        "the event import maps providers' genres to it",
+    ),
   isActive: z.boolean().describe('Inactive categories are hidden from filters and cannot be picked'),
 });
 
-const adminCategoryExample: AdminCategory = { ...categoryExample, isActive: true };
+const adminCategoryExample: AdminCategory = { ...categoryExample, slug: 'concerts', isActive: true };
 
 export const AdminCategory = AdminCategoryFields.meta({
   id: 'AdminCategory',

@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
 import { fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
-import { IMPORT_CATEGORY_IDS as CATEGORY_IDS } from '../../core/import/import-categories.ts';
 import type { NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
 import { errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
@@ -16,18 +15,18 @@ const PAGE_SIZE = 20;
 /** A stop for a response whose `total_pages` is wrong: Kyiv had 4 pages of 20 on 2026-11-03. */
 const MAX_PAGES = 50;
 
-/** ArtWizard's event types (`type`), and the id of our category for each; the first known type wins. */
-const CATEGORY_ID_BY_TAG = new Map<string, string>([
-  ['Музика', CATEGORY_IDS.concerts],
-  ['Виставки', CATEGORY_IDS.exhibitions],
-  ['Дискусії та лекції', CATEGORY_IDS.talks],
-  ['Література', CATEGORY_IDS.talks],
-  ['Майстер-класи', CATEGORY_IDS.workshops],
-  ['Кіно', CATEGORY_IDS.cinema],
-  ['Театр', CATEGORY_IDS.theatre],
-  ['Гумор', CATEGORY_IDS.standUp],
-  ['Фестивалі', CATEGORY_IDS.festivals],
-  ['Вечірки', CATEGORY_IDS.parties],
+/** ArtWizard's event types (`type`), and the slug of our category for each; the first known type wins. */
+export const ARTWIZARD_CATEGORY_SLUGS = new Map<string, string>([
+  ['Музика', 'concerts'],
+  ['Виставки', 'exhibitions'],
+  ['Дискусії та лекції', 'talks'],
+  ['Література', 'talks'],
+  ['Майстер-класи', 'workshops'],
+  ['Кіно', 'cinema'],
+  ['Театр', 'theatre'],
+  ['Гумор', 'stand-up'],
+  ['Фестивалі', 'festivals'],
+  ['Вечірки', 'parties'],
 ]);
 
 const EventsPage = z.object({
@@ -157,8 +156,8 @@ export class ArtWizardEventProvider extends EventProvider {
     if (city !== 'kyiv') {
       return { skip: { externalId, reason: `Not in Kyiv (city ${JSON.stringify(city ?? null)})` } };
     }
-    const categoryId = type.map((tag) => CATEGORY_ID_BY_TAG.get(tag)).find(Boolean);
-    if (!categoryId) {
+    const categorySlug = type.map((tag) => ARTWIZARD_CATEGORY_SLUGS.get(tag)).find(Boolean);
+    if (!categorySlug) {
       return { skip: { externalId, reason: `No category for the types ${JSON.stringify(type)}` } };
     }
 
@@ -193,7 +192,7 @@ export class ArtWizardEventProvider extends EventProvider {
         externalId,
         title: fitTitle(title),
         description: fitDescription(quillText(description ?? '')),
-        categoryId,
+        categorySlug,
         venue: { name: location.name_ua, address, location: coordinates },
         startsAt: start.toISOString(),
         // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the

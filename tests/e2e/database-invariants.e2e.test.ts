@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // Integration tests of the database constraints: the indexes and checks of the database_invariants migration,
-// the failed sign-in checks of accounts and the unique (profile_id, app) of linked_accounts. They write to the
-// database directly, since the services check the same rules before a query and no HTTP request reaches the constraint.
+// the failed sign-in checks of accounts and the unique (profile_id, app) of linked_accounts. They write to the database directly, since the services check the same rules before a query and
+// no HTTP request reaches the constraint.
 // Each test runs in a transaction that is rolled back, so nothing stays in the database.
 // Run with `npm run test:e2e`; the database must have all migrations applied.
 import assert from 'node:assert/strict';
@@ -71,7 +71,11 @@ function aLinkedAccount(db: pg.PoolClient, profileId: string, app: string): Prom
 }
 
 function aCategory(db: pg.PoolClient): Promise<string> {
-  return insertId(db, 'INSERT INTO categories (name) VALUES ($1)', [`DB test ${randomUUID()}`]);
+  const suffix = randomUUID();
+  return insertId(db, 'INSERT INTO categories (name, slug) VALUES ($1, $2)', [
+    `DB test ${suffix}`,
+    `db-test-${suffix}`,
+  ]);
 }
 
 async function aSession(db: pg.PoolClient): Promise<string> {

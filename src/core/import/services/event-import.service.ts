@@ -62,8 +62,8 @@ export class EventImportService {
 
   private async importRecords(provider: EventProvider, runId: string, since?: Date): Promise<ImportReport> {
     const raws = await provider.fetch(since);
-    const activeCategoryIds = new Set(
-      (await this.importedEventsRepository.findActiveCategories()).map((category) => category.id),
+    const categories = new Map(
+      (await this.importedEventsRepository.findCategories()).map((category) => [category.slug, category]),
     );
     const report: ImportReport = {
       provider: provider.id,
@@ -84,9 +84,13 @@ export class EventImportService {
       }
       const imported = result.event;
       const skip = (reason: string) => this.skip(report, runId, raw, { externalId: imported.externalId, reason });
-      const { categoryId } = imported;
-      if (!activeCategoryIds.has(categoryId)) {
-        await skip(`No active category ${categoryId}`);
+      const category = categories.get(imported.categorySlug);
+      if (!category) {
+        await skip(`Unknown category ${JSON.stringify(imported.categorySlug)}`);
+        continue;
+      }
+      if (!category.isActive) {
+        await skip(`Inactive category ${JSON.stringify(imported.categorySlug)}`);
         continue;
       }
       if (!(Date.parse(imported.endsAt) > Date.parse(imported.startsAt))) {
@@ -98,7 +102,7 @@ export class EventImportService {
         await skip(venue);
         continue;
       }
-      report[await this.save(provider.id, imported, categoryId, venue.id)]++;
+      report[await this.save(provider.id, imported, category.id, venue.id)]++;
     }
 
     this.logger.log(

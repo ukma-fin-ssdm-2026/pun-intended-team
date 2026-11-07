@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
 import { ArtWizardEventProvider, quillText } from '../../dist/infra/providers/artwizard-event-provider.js';
 import type { HttpClient, HttpResponse } from '../../dist/infra/providers/http-client.js';
-import { IMPORT_CATEGORY_IDS as CATEGORY_IDS } from '../../dist/core/import/import-categories.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
 import { PAGES_SAVED_AT, savedPage } from './fixtures/provider-pages.ts';
 
@@ -171,7 +170,7 @@ describe('ArtWizardEventProvider.normalize', () => {
         externalId: 'santimetri-20261103',
         title: 'Сантиметри',
         description: event.description.slice(0, 40),
-        categoryId: CATEGORY_IDS.cinema,
+        categorySlug: 'cinema',
         venue: {
           name: 'Будинок Кіно',
           address: 'вулиця Саксаганського, 6, Київ, Київ',
@@ -273,7 +272,7 @@ describe('ArtWizardEventProvider.normalize', () => {
   test('takes the first type that has a category', () => {
     const raw = { ...savedEvent('santimetri-20261103'), type: ['Дітям', 'Театр', 'Кіно'] };
 
-    assert.equal(normalized(raw).categoryId, CATEGORY_IDS.theatre);
+    assert.equal(normalized(raw).categorySlug, 'theatre');
   });
 
   test('skips an event whose types have no category, with the types in the reason', () => {
