@@ -14,6 +14,9 @@ type Token = { value: string; expiresAt: number };
 // Renewed this long before it expires, so a request never carries a token that runs out on the way.
 const RENEW_BEFORE_MS = 60 * 1000;
 const REFRESH_TOKEN_KEY = 'nearby.refreshToken';
+// A refresh that got no answer, e.g. after the request timeout, is sent once more after this delay. The API accepts the
+// token it replaced for 60 s (REL-08); the timeout, this delay and the second try stay within them.
+const REFRESH_RETRY_DELAY_MS = 2000;
 
 // The keychain or keystore on a phone; on the web, localStorage. Static web rendering has neither.
 const storage =
@@ -83,10 +86,14 @@ export async function restoreSession() {
   renew(refreshToken).catch(() => undefined);
 }
 
-// One renewal at a time: the API ends the session when a replaced refresh token is used again.
+function postRefresh(refreshToken: string) {
+  const send = () => publicClient.POST('/api/v1/auth/refresh', { body: { refreshToken } });
+  return send().catch(() => new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS)).then(send));
+}
+
+// One renewal at a time: the API ends the session when a replaced refresh token comes back after 60 s.
 function renew(refreshToken: string): Promise<void> {
-  renewal ??= publicClient
-    .POST('/api/v1/auth/refresh', { body: { refreshToken } })
+  renewal ??= postRefresh(refreshToken)
     .then(async ({ data, response }) => {
       if (data) {
         await startSession(data);
