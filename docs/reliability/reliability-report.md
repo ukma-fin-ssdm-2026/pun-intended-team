@@ -22,7 +22,7 @@ Severity rates the consequence if the failure happens, not how likely it is. It 
 | [REL-12](scavenger-hunt.md#rel-12-any-refresh-error-other-than-401-reads-as-no-connection) | Any refresh error other than 401 reads as "no connection" | Low | The message is misleading, but the user's data and session are not harmed. | Open |
 | [REL-14](scavenger-hunt.md#rel-14-karabas-pages-without-usable-json-ld-give-a-succeeded-run) | Karabas pages without usable JSON-LD give a succeeded run with 0 events | Medium | New and changed Karabas events stop arriving while every run is recorded as succeeded; the events imported earlier stay in the catalog. | Open |
 
-Each fix below starts from one question (§3.1 of the lecture): which is worse in this place, a wrong answer or no answer? A wrong answer being worse calls for failing fast, no answer being worse for failing safe. Where one call gets a timeout, retries and a fallback, they are stacked in the order of §3.5: the timeout on each attempt, bounded retries over it, and the way out once the retries are spent. No fix uses a circuit breaker.
+Each fix below starts from one question (§3.1 of the lecture): which is worse in this place, a wrong answer or no answer? A wrong answer being worse calls for failing fast, no answer being worse for failing safe. Where one call gets a timeout, retries and a fallback, they are stacked in the order of §3.5: the timeout on each attempt, bounded retries over it, and the way out once the retries are spent.
 
 ## REL-01: Database Calls Without Timeouts
 
@@ -137,8 +137,6 @@ No manual action is needed. When Postgres cancels a statement, the connection go
   - the fake completes the startup and never answers a query (what a locked table looks like): `503` after the statement timeout and before the query timeout, cause logged;
   - the fake answers with Postgres's `57014`: `503`, no database error in the body;
   - 15 requests in a row after timeouts all answer at once: the pool gives its connections back.
-
-  With the old `new PrismaPg({ connectionString })` the first two tests are still waiting when their 12 s guard aborts them, which is the hang REL-01 describes.
 - [`tests/reliability/error-handling.reliability.test.ts`](../../tests/reliability/error-handling.reliability.test.ts) (error handling) checks the other side of the narrow mapping: a refused connection is not a timeout, so it stays a `500` with the generic body, and the API keeps answering.
 - [`tests/reliability/database-timeout-settings.reliability.test.ts`](../../tests/reliability/database-timeout-settings.reliability.test.ts) (boundary) starts the API with edge values of `DATABASE_STATEMENT_TIMEOUT_MS`.
 - [`tests/unit/database-timeouts.test.ts`](../../tests/unit/database-timeouts.test.ts) checks the defaults, that every variable reaches the pool config, that invalid values stop the start, and which errors count as a timeout.
@@ -455,7 +453,7 @@ Both, at different levels.
 ### What the User Sees
 
 - **Administrators in the app:** the admin overview shows "Резервне копіювання бази даних потребує уваги." with the time of the last good copy, and the new **Резервні копії** page lists the last 30 nights with date, status, attempts, duration, size and the reason in Ukrainian. Hosts, users and error messages never reach the API.
-- **Server operators:** the `backup` container turns unhealthy, and the next deploy job shows a `::warning::`. The warning also appears in the 26 h after a restart, while the health check is still starting.
+- **Server operators:** the `backup` container turns unhealthy, and the next deploy job shows a `::warning::`. For 26 h after a restart (`start_period` in `docker-compose.staging.yml`) a failed check leaves the container `starting`, not `unhealthy`, so the deploy also looks for the `nightly-failed` marker, which stays in the backups folder across a restart: a night that failed every attempt is still warned about, but a copy that is only older than 26 h, with no failed night, is not warned about until the start period ends.
 - **Users:** nothing; the backup does not affect requests.
 
 ### Recovery
@@ -465,7 +463,7 @@ Automatic the next night: a good night removes the marker and the health check p
 ### Verification
 
 - [`tests/unit/backup-db.test.ts`](../../tests/unit/backup-db.test.ts) runs the real script with fake Postgres tools, under `sh` and `dash`: a good night, three failed attempts with no `.partial` left, a success after a failure, an unreadable copy, a run that cannot be recorded, every reason code, the health check, and the pre-deploy backup failing at once.
-- [`tests/unit/backups.service.test.ts`](../../tests/unit/backups.service.test.ts) and the e2e tests of `GET /admin/backups`.
+- [`tests/unit/backups.service.test.ts`](../../tests/unit/backups.service.test.ts) and the e2e tests of `GET /admin/backups` in [`tests/e2e/api.e2e.test.ts`](../../tests/e2e/api.e2e.test.ts).
 
 ### Open Issues
 
@@ -477,8 +475,42 @@ Automatic the next night: a good night removes the marker and the health check p
 
 ### Before
 
+```ts
+// app/src/hooks/use-interests.ts: one load when the screen mounts; an error message, but no way to load again
+export function useInterests() {
+  const [data, setData] = useState<Interest[]>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .GET('/api/v1/interests')
+      .then((response) => {
+        if (cancelled) return;
+        if (response.data) {
+          setData(response.data.items);
+        } else {
+          setError('Could not load interests.');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not reach the server.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { data, loading, error };
+}
+```
+
 ```tsx
-// app/src/app/profile-edit.tsx
+// app/src/app/profile-edit.tsx: `interests.error` is never read
 onMore={interests.data ? () => setSheetOpen(true) : undefined}
 ```
 
@@ -704,7 +736,7 @@ Manual, following "A version runs on a newer schema" in [staging](../operations/
 
 ## Reliability Tests
 
-The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 20 tests in 5 files (6 suites), all passing.
+The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 20 tests in 5 files, all passing.
 
 | File | Type | Finding | What it proves |
 |---|---|---|---|
