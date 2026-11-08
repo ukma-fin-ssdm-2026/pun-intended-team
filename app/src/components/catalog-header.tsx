@@ -26,7 +26,7 @@ export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, o
   return (
     <View className="gap-6 px-5" style={{ paddingTop: Math.max(TOP_PADDING, insets.top + GAP_BELOW_STATUS_BAR) }}>
       <View className="flex-row items-center justify-between">
-        <Text className="font-alice text-logo text-text-on-dark">Nearby</Text>
+        <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
         <View className="flex-row items-center gap-3">
           {onNotificationsPress && (
             <Pressable

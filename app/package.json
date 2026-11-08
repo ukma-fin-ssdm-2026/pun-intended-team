@@ -3,8 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.1.1",
   "dependencies": {
-    "@expo-google-fonts/alice": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/otomanopee-one": "^0.2.2",
     "@react-native-google-signin/google-signin": "16.1.5",
     "expo": "~57.0.27",
     "expo-blur": "~57.0.3",
