@@ -82,9 +82,10 @@ type DialogProps = {
   onClose: () => void;
   // "Вийти з підбору" opens the event page (02).
   onLeave: () => void;
+  leaving?: boolean;
 };
 
-export function LeavePoolDialog({ visible, onClose, onLeave }: DialogProps) {
+export function LeavePoolDialog({ visible, onClose, onLeave, leaving = false }: DialogProps) {
   return (
     <Overlay visible={visible} onClose={onClose} placement="center">
       <View
@@ -103,7 +104,7 @@ export function LeavePoolDialog({ visible, onClose, onLeave }: DialogProps) {
             Повернутися можна будь-коли зі сторінки події.
           </Text>
         </View>
-        <Button label="Вийти з підбору" variant="dark" onPress={onLeave} />
+        <Button label="Вийти з підбору" variant="dark" loading={leaving} onPress={onLeave} />
         <Button label="Залишитися" variant="light" onPress={onClose} />
       </View>
     </Overlay>

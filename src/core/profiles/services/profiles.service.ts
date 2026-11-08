@@ -40,6 +40,12 @@ export class ProfilesService {
     return this.interestsRepository.findAll();
   }
 
+  /** Whether the profile has what matching needs (use case E1); false without a profile. */
+  async isComplete(accountId: string): Promise<boolean> {
+    const profile = await this.profilesRepository.findByAccountId(accountId);
+    return profile !== undefined && isComplete(profile);
+  }
+
   async getOwn(accountId: string): Promise<ProfileDetails> {
     return this.withDetails(await this.requireProfile(accountId));
   }
@@ -135,7 +141,12 @@ export class ProfilesService {
         username,
         url: socialNetworkUrl(network, username),
       })),
-      isComplete: profile.communicationFormat !== null && interests.length > 0 && profile.linkedAccounts.length > 0,
+      isComplete: isComplete(profile),
     };
   }
+}
+
+/** A communication format, at least one interest and at least one linked network. */
+function isComplete(profile: Profile): boolean {
+  return profile.communicationFormat !== null && profile.interestIds.length > 0 && profile.linkedAccounts.length > 0;
 }
