@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-08T11:45:45.709Z
+ * Generated on: 2026-11-08T12:06:55.084Z
  */
 
 import { existsSync } from 'node:fs';
@@ -346,9 +346,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["applyToEvent", {
     name: "applyToEvent",
     title: "Ask for a match at an event",
-    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`date\` picks the day. The answer says when the next matching round pairs the pool. Needs a signed-in account; a guest token gets 401.
+    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"date":{"type":"string","format":"date","description":"The Kyiv day to go on; needed only for an event that runs on several days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"dates":{"type":"array","items":{"type":"string","format":"date"},"minItems":1,"maxItems":31,"description":"The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
     method: "post",
     pathTemplate: "/api/v1/events/{id}/applications",
     executionParameters: [{"name":"id","in":"path"}],
@@ -361,7 +361,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listMyApplications", {
     name: "listMyApplications",
     title: "List your applications",
-    description: `The caller’s active applications (in the pool, paired or paused), soonest session first. Needs a signed-in account; a guest token gets 401.
+    description: `The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

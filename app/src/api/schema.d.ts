@@ -387,7 +387,7 @@ export interface paths {
         put?: never;
         /**
          * Ask for a match at an event
-         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `date` picks the day. The answer says when the next matching round pairs the pool. Needs a signed-in account; a guest token gets 401.
+         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `dates` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["applyToEvent"];
         delete?: never;
@@ -405,7 +405,7 @@ export interface paths {
         };
         /**
          * List your applications
-         * @description The caller’s active applications (in the pool, paired or paused), soonest session first. Needs a signed-in account; a guest token gets 401.
+         * @description The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listMyApplications"];
         put?: never;
@@ -1329,8 +1329,17 @@ export interface components {
          * @example {
          *       "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
          *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
-         *       "sessionStartsAt": "2026-10-24T16:00:00.000Z",
-         *       "cutoffAt": "2026-10-24T15:00:00.000Z",
+         *       "sessions": [
+         *         {
+         *           "startsAt": "2026-10-24T16:00:00.000Z",
+         *           "cutoffAt": "2026-10-24T15:00:00.000Z"
+         *         },
+         *         {
+         *           "startsAt": "2026-10-25T17:00:00.000Z",
+         *           "cutoffAt": "2026-10-25T16:00:00.000Z"
+         *         }
+         *       ],
+         *       "cutoffAt": "2026-10-25T16:00:00.000Z",
          *       "desiredCompany": "company",
          *       "afterEventPlans": [
          *         "walk",
@@ -1346,14 +1355,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             eventId: string;
+            /** @description The days the user can go, soonest first: the event's only session, or the picked days of a multi-day event */
+            sessions: components["schemas"]["ApplicationSession"][];
             /**
              * Format: date-time
-             * @description When the session starts: the event start, or the chosen day of a multi-day event at its time of day
-             */
-            sessionStartsAt: string;
-            /**
-             * Format: date-time
-             * @description When matching for the session stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode
+             * @description The last day's cutoff: until then the application can be matched
              */
             cutoffAt: string;
             desiredCompany: components["schemas"]["CommunicationFormat"];
@@ -1362,11 +1368,24 @@ export interface components {
             status: components["schemas"]["ApplicationStatus"];
             /**
              * Format: date-time
-             * @description When the next matching round pairs the pool; null when the application is not waiting in the pool or no round is left
+             * @description The earliest matching round still to come on any of the days; null when the application is not waiting in the pool or no round is left
              */
             nextRoundAt: string | null;
             /** Format: date-time */
             createdAt: string;
+        };
+        /** @description A day the user can go */
+        ApplicationSession: {
+            /**
+             * Format: date-time
+             * @description The event start, or a picked day of a multi-day event at its time of day
+             */
+            startsAt: string;
+            /**
+             * Format: date-time
+             * @description When matching for this day stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode
+             */
+            cutoffAt: string;
         };
         /**
          * @description What the user is looking for when they go to an event
@@ -1393,11 +1412,8 @@ export interface components {
          *     }
          */
         CreateApplicationBody: {
-            /**
-             * Format: date
-             * @description The Kyiv day to go on; needed only for an event that runs on several days
-             */
-            date?: string;
+            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days */
+            dates?: string[];
             /**
              * @description What kind of company the user is looking for at this event
              * @enum {string}
@@ -1411,8 +1427,17 @@ export interface components {
          *       {
          *         "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
          *         "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
-         *         "sessionStartsAt": "2026-10-24T16:00:00.000Z",
-         *         "cutoffAt": "2026-10-24T15:00:00.000Z",
+         *         "sessions": [
+         *           {
+         *             "startsAt": "2026-10-24T16:00:00.000Z",
+         *             "cutoffAt": "2026-10-24T15:00:00.000Z"
+         *           },
+         *           {
+         *             "startsAt": "2026-10-25T17:00:00.000Z",
+         *             "cutoffAt": "2026-10-25T16:00:00.000Z"
+         *           }
+         *         ],
+         *         "cutoffAt": "2026-10-25T16:00:00.000Z",
          *         "desiredCompany": "company",
          *         "afterEventPlans": [
          *           "walk",
@@ -3148,7 +3173,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `ALREADY_APPLIED`: the caller is already in the pool of this session. */
+            /** @description `ALREADY_APPLIED`: the caller is already in the pool of this event. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3157,7 +3182,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the session’s cutoff has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on several days and `date` is missing. */
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or runs on several days and `dates` is missing. */
             422: {
                 headers: {
                     [name: string]: unknown;
