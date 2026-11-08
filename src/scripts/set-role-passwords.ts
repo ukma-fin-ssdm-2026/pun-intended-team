@@ -1,12 +1,13 @@
 // Written with the help of Claude
-// Sets the passwords of nearby_main and nearby_import (npm run db:set-passwords). They come from
-// MAIN_DATABASE_URL and IMPORT_DATABASE_URL; the statements run as the role in DATABASE_URL, which owns the
+// Sets the passwords of nearby_main, nearby_import and nearby_backup (npm run db:set-passwords). They come from
+// MAIN_DATABASE_URL, IMPORT_DATABASE_URL and BACKUP_DATABASE_URL; the statements run as the role in DATABASE_URL, which owns the
 // schema. Safe to repeat: ALTER ROLE just sets the same password again. Passwords are never printed.
 import pg from 'pg';
 
 const roles = [
   { name: 'nearby_main', variable: 'MAIN_DATABASE_URL', value: process.env.MAIN_DATABASE_URL },
   { name: 'nearby_import', variable: 'IMPORT_DATABASE_URL', value: process.env.IMPORT_DATABASE_URL },
+  { name: 'nearby_backup', variable: 'BACKUP_DATABASE_URL', value: process.env.BACKUP_DATABASE_URL },
 ];
 
 function required(variable: string, value: string | undefined): string {

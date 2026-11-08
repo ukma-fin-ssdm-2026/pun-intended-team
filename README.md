@@ -197,7 +197,7 @@ docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docke
 npx prisma migrate deploy   # creates the tables and the starting categories
 ```
 
-Each process connects with its own database role ([database access](docs/architecture/mechanisms/database-access.md)): migrations run as the owner in `DATABASE_URL`, the API as `nearby_main` and the import service as `nearby_import`. The migration creates the two roles without a password; after `prisma migrate deploy`, run `npm run db:set-passwords` once to set the passwords from `MAIN_DATABASE_URL` and `IMPORT_DATABASE_URL` (repeating it is safe, and it prints no passwords). The owner needs the `CREATEROLE` privilege, which the Docker user already has.
+Each process connects with its own database role ([database access](docs/architecture/mechanisms/database-access.md)): migrations run as the owner in `DATABASE_URL`, the API as `nearby_main`, the import service as `nearby_import` and the staging backup as the read-only `nearby_backup`. The migrations create the roles without a password; after `prisma migrate deploy`, run `npm run db:set-passwords` once to set the passwords from `MAIN_DATABASE_URL`, `IMPORT_DATABASE_URL` and `BACKUP_DATABASE_URL` (add the last to your `.env`, see `.env.example`) (repeating it is safe, and it prints no passwords). The owner needs the `CREATEROLE` privilege, which the Docker user already has.
 
 `npm run test:e2e` never touches this database: it creates `<POSTGRES_DB>_e2e` next to it on every run, with keys of its own.
 
