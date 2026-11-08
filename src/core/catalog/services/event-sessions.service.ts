@@ -39,13 +39,9 @@ export class EventSessionsService {
     if (starts.some((startsAt) => sessionCutoff(event, startsAt) <= now)) {
       throw new DomainError('APPLICATIONS_CLOSED', 'A picked session no longer takes applications');
     }
-    const sessions: EventSession[] = [];
-    for (const startsAt of starts) {
-      const session = withCutoff(await this.eventSessionsRepository.findOrCreate(event.id, startsAt));
-      if (session.status === 'cancelled') {
-        throw new DomainError('EVENT_CANCELLED', 'A cancelled event takes no applications');
-      }
-      sessions.push(session);
+    const sessions = (await this.eventSessionsRepository.findOrCreateMany(event.id, starts)).map(withCutoff);
+    if (sessions.some(({ status }) => status === 'cancelled')) {
+      throw new DomainError('EVENT_CANCELLED', 'A cancelled event takes no applications');
     }
     return sessions.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }

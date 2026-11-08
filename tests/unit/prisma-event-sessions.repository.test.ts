@@ -15,7 +15,6 @@ function makeRepository() {
   const eventSession = {
     createMany: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve({ count: 0 })),
     findMany: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve([ROW])),
-    findUniqueOrThrow: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve(ROW)),
   };
   return {
     repository: new PrismaEventSessionsRepository({ eventSession } as unknown as PrismaService),
@@ -23,18 +22,22 @@ function makeRepository() {
   };
 }
 
-describe('PrismaEventSessionsRepository.findOrCreate', () => {
-  test('inserts the session unless it exists, then reads it by event and start', async () => {
+describe('PrismaEventSessionsRepository.findOrCreateMany', () => {
+  test('inserts the sessions that do not exist in one query, then reads them all in another', async () => {
     const { repository, eventSession } = makeRepository();
+    const later = new Date('2026-10-23T16:00:00.000Z');
 
-    const session = await repository.findOrCreate(EVENT_ID, STARTS_AT);
+    const [session] = await repository.findOrCreateMany(EVENT_ID, [STARTS_AT, later]);
 
     assert.deepEqual(eventSession.createMany.mock.calls[0]?.arguments[0], {
-      data: [{ eventId: EVENT_ID, startsAt: STARTS_AT }],
+      data: [
+        { eventId: EVENT_ID, startsAt: STARTS_AT },
+        { eventId: EVENT_ID, startsAt: later },
+      ],
       skipDuplicates: true,
     });
-    assert.deepEqual(eventSession.findUniqueOrThrow.mock.calls[0]?.arguments[0], {
-      where: { eventId_startsAt: { eventId: EVENT_ID, startsAt: STARTS_AT } },
+    assert.deepEqual(eventSession.findMany.mock.calls[0]?.arguments[0], {
+      where: { eventId: EVENT_ID, startsAt: { in: [STARTS_AT, later] } },
       include: WITH_EVENT_TIMES,
     });
     assert.deepEqual(session, {

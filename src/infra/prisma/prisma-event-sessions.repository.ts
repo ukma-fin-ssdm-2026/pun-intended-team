@@ -13,14 +13,17 @@ type EventSessionWithEvent = EventSessionRow & { event: { startsAt: Date; endsAt
 export class PrismaEventSessionsRepository implements EventSessionsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findOrCreate(eventId: string, startsAt: Date): Promise<EventSessionRecord> {
+  async findOrCreateMany(eventId: string, starts: Date[]): Promise<EventSessionRecord[]> {
     // ON CONFLICT DO NOTHING: of two first applications at once, both get the one session.
-    await this.prisma.eventSession.createMany({ data: [{ eventId, startsAt }], skipDuplicates: true });
-    const row = await this.prisma.eventSession.findUniqueOrThrow({
-      where: { eventId_startsAt: { eventId, startsAt } },
+    await this.prisma.eventSession.createMany({
+      data: starts.map((startsAt) => ({ eventId, startsAt })),
+      skipDuplicates: true,
+    });
+    const rows = await this.prisma.eventSession.findMany({
+      where: { eventId, startsAt: { in: starts } },
       include: withEventTimes,
     });
-    return toEventSession(row);
+    return rows.map(toEventSession);
   }
 
   async findByIds(ids: string[]): Promise<EventSessionRecord[]> {

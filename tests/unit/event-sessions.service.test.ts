@@ -25,8 +25,16 @@ function makeService(event: Event | null = anEvent(), status: EventSession['stat
         ids.map((id) => ({ id, eventId: EVENT_ID, startsAt: '2026-10-22T16:00:00.000Z', status, event: times })),
       ),
     ),
-    findOrCreate: mock.fn((eventId: string, startsAt: Date): Promise<EventSessionRecord> =>
-      Promise.resolve({ id: SESSION_ID, eventId, startsAt: startsAt.toISOString(), status, event: times }),
+    findOrCreateMany: mock.fn((eventId: string, starts: Date[]): Promise<EventSessionRecord[]> =>
+      Promise.resolve(
+        starts.map((startsAt, index) => ({
+          id: index === 0 ? SESSION_ID : `${SESSION_ID}-${index}`,
+          eventId,
+          startsAt: startsAt.toISOString(),
+          status,
+          event: times,
+        })),
+      ),
     ),
   };
   const service = new EventSessionsService(
@@ -55,7 +63,7 @@ describe('EventSessionsService.open', () => {
       cutoffAt: '2026-10-22T15:00:00.000Z',
       status: 'scheduled',
     });
-    assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 1);
+    assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 1);
   });
 
   test('opens the session on the chosen day of a multi-day event', async () => {
@@ -105,14 +113,15 @@ describe('EventSessionsService.open', () => {
       sessions.map(({ startsAt }) => startsAt),
       ['2026-10-24T16:00:00.000Z', '2026-10-26T17:00:00.000Z'],
     );
-    assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 2);
+    assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 1, 'one batch for all the days');
+    assert.equal(eventSessionsRepository.findOrCreateMany.mock.calls[0]?.arguments[1].length, 2);
   });
 
   test('opens no session when one of the picked days is wrong', async () => {
     const { service, eventSessionsRepository } = makeService(anEvent(EXHIBITION));
 
     await assert.rejects(service.open(EVENT_ID, ['2026-10-24', '2026-10-31']), rejectsWith('INVALID_SESSION_DAY'));
-    assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 0);
+    assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 0);
   });
 
   test('takes an empty list of days as none', async () => {
@@ -174,7 +183,7 @@ describe('EventSessionsService.open', () => {
       const { service, eventSessionsRepository } = makeService(event);
 
       await assert.rejects(service.open(EVENT_ID, day && [day]), rejectsWith(code));
-      assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 0);
+      assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 0);
     });
   }
 
