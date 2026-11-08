@@ -31,8 +31,12 @@ export function putApplication(application: Application, from = session) {
   if (from !== session || current.status !== 'loaded') return;
   const others = current.applications.filter(({ id }) => id !== application.id);
   const applications = ACTIVE.includes(application.status) ? [...others, application] : others;
-  applications.sort((a, b) => Date.parse(a.sessionStartsAt) - Date.parse(b.sessionStartsAt));
+  applications.sort((a, b) => firstStart(a) - firstStart(b));
   store.set({ state: { status: 'loaded', applications } });
+}
+
+function firstStart(application: Application): number {
+  return Date.parse(application.sessions[0]?.startsAt ?? '');
 }
 
 // Where matching stands for an application in the pool: a round is coming, the pool is in open mode after the last

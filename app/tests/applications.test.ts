@@ -20,7 +20,7 @@ function anApplication(overrides: Partial<Application> = {}): Application {
   return {
     id: 'a1',
     eventId: 'e1',
-    sessionStartsAt: '2026-10-25T17:00:00.000Z',
+    sessions: [{ startsAt: '2026-10-25T17:00:00.000Z', cutoffAt: '2026-10-25T16:00:00.000Z' }],
     cutoffAt: '2026-10-25T16:00:00.000Z',
     desiredCompany: 'company',
     afterEventPlans: ['walk'],
@@ -41,7 +41,10 @@ beforeEach(() => {
 describe('putApplication', () => {
   test('adds an active application, soonest session first, and drops a withdrawn one', () => {
     const { putApplication, setApplicationsState, applicationsState } = load();
-    const later = anApplication({ id: 'later', sessionStartsAt: '2026-10-28T17:00:00.000Z' });
+    const later = anApplication({
+      id: 'later',
+      sessions: [{ startsAt: '2026-10-28T17:00:00.000Z', cutoffAt: '2026-10-28T16:00:00.000Z' }],
+    });
     setApplicationsState({ status: 'loaded', applications: [later] });
 
     putApplication(anApplication({ id: 'sooner' }));
@@ -64,15 +67,25 @@ describe('putApplication', () => {
 });
 
 describe('changeAnswers', () => {
+  const BEFORE_CUTOFF = new Date('2026-10-20T09:00:00.000Z');
   const answers = { desiredCompany: 'dating' as const, afterEventPlans: [] };
 
-  test('withdraws the application and applies again for the same day with the new answers', async () => {
+  test('leaves an application with no day still open as it is', async () => {
+    const { changeAnswers, post } = load();
+
+    const result = await changeAnswers(anApplication(), answers, new Date('2026-10-25T16:30:00.000Z'));
+
+    expect(result).toMatchObject({ ok: false, code: 'APPLICATIONS_CLOSED' });
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  test('withdraws the application and applies again for its open days with the new answers', async () => {
     const { changeAnswers, post } = load();
     post
       .mockResolvedValueOnce(ok(anApplication({ status: 'withdrawn' })))
       .mockResolvedValueOnce(ok(anApplication({ id: 'a2', desiredCompany: 'dating', afterEventPlans: [] })));
 
-    const result = await changeAnswers(anApplication(), answers);
+    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
 
     expect(result.ok).toBe(true);
     expect(post.mock.calls.map(([path]) => path)).toEqual([
@@ -81,7 +94,7 @@ describe('changeAnswers', () => {
     ]);
     expect(post.mock.calls[1]?.[1]).toEqual({
       params: { path: { id: 'e1' } },
-      body: { ...answers, date: '2026-10-25' },
+      body: { ...answers, dates: ['2026-10-25'] },
     });
   });
 
@@ -92,7 +105,7 @@ describe('changeAnswers', () => {
       .mockResolvedValueOnce(refused(422, 'APPLICATIONS_CLOSED'))
       .mockResolvedValueOnce(ok(anApplication({ id: 'a3' })));
 
-    const result = await changeAnswers(anApplication(), answers);
+    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
 
     expect(result).toMatchObject({ ok: false, code: 'APPLICATIONS_CLOSED' });
     expect(post.mock.calls[2]?.[1]).toMatchObject({
@@ -104,7 +117,7 @@ describe('changeAnswers', () => {
     const { changeAnswers, post } = load();
     post.mockResolvedValueOnce(refused(409, 'CONFLICT'));
 
-    const result = await changeAnswers(anApplication(), answers);
+    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
 
     expect(result).toMatchObject({ ok: false, code: 'CONFLICT' });
     expect(post).toHaveBeenCalledTimes(1);

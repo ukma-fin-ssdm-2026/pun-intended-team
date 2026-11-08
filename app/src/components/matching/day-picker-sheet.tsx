@@ -18,32 +18,40 @@ type Props = {
   eventTitle: string;
   // The starts of the sessions that still take applications.
   sessions: string[];
-  onPick: (sessionStartsAt: string) => void;
+  onPick: (sessionStarts: string[]) => void;
 };
 
 export function DayPickerSheet({ visible, onClose, eventTitle, sessions, onPick }: Props) {
-  const [picked, setPicked] = useState(sessions[0]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const toggle = (session: string) =>
+    setPicked((current) =>
+      current.includes(session) ? current.filter((value) => value !== session) : [...current, session],
+    );
 
   return (
     <Sheet visible={visible} onClose={onClose} gapClass="gap-6">
       <View className="gap-1.5">
         <Text className="font-inter text-caption text-text-secondary">{eventTitle}</Text>
         <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-          Коли йдеш?
+          Коли тобі буде зручно?
         </Text>
+        {sessions.length > 1 && (
+          <Text className="font-inter text-caption text-text-secondary">Можна обрати кілька днів</Text>
+        )}
       </View>
 
       {sessions.length > 0 ? (
-        <ScrollView style={{ maxHeight: LIST_MAX_HEIGHT }} contentContainerClassName="gap-2.5">
-          <View accessibilityRole="radiogroup" className="gap-2.5">
+        <ScrollView style={{ maxHeight: LIST_MAX_HEIGHT }}>
+          <View className="gap-2.5">
             {sessions.map((session) => (
               <RadioOption
                 key={session}
+                multiple
                 icon="calendar"
                 title={formatEventDay(session)}
                 note={formatTime(session)}
-                selected={picked === session}
-                onPress={() => setPicked(session)}
+                selected={picked.includes(session)}
+                onPress={() => toggle(session)}
               />
             ))}
           </View>
@@ -54,7 +62,12 @@ export function DayPickerSheet({ visible, onClose, eventTitle, sessions, onPick 
         </Text>
       )}
 
-      <Button label="Далі" variant="dark" disabled={!picked} onPress={() => picked && onPick(picked)} />
+      <Button
+        label="Далі"
+        variant="dark"
+        disabled={picked.length === 0}
+        onPress={() => onPick(sessions.filter((session) => picked.includes(session)))}
+      />
     </Sheet>
   );
 }

@@ -24,6 +24,7 @@ import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay
 import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useProfile } from '@/hooks/use-profile';
+import { plural } from '@/plural';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
@@ -64,6 +65,12 @@ const CHANGE_FAILED: SnackbarContent = {
   title: 'Не вдалося оновити побажання',
   note: 'Спробуй ще раз за хвилину',
 };
+
+// "Сб, 24 жовт" for one day, "3 дні" for several.
+function daysLabel(starts: string[], eventStart: string): string {
+  if (starts.length > 1) return `${starts.length} ${plural(starts.length, ['день', 'дні', 'днів'])}`;
+  return formatShortDay(starts[0] ?? eventStart);
+}
 
 function preview(text: string): string | undefined {
   if (text.length <= DESCRIPTION_PREVIEW) return undefined;
@@ -165,7 +172,8 @@ export default function EventScreen() {
   const { application, reload: reloadApplications } = useEventApplication(id);
   // A multi-day event asks for the day first, then opens 03 for it.
   const [step, setStep] = useState<'day' | 'request' | null>(null);
-  const [sessionStart, setSessionStart] = useState<string>();
+  // The days picked for a multi-day event; none for a single-day one.
+  const [sessionStarts, setSessionStarts] = useState<string[]>([]);
   // The days that still take applications, picked when the day step opens.
   const [openSessions, setOpenSessions] = useState<string[]>([]);
   // Each opening of 03 starts from fresh answers.
@@ -235,7 +243,7 @@ export default function EventScreen() {
       setOpenSessions(sessions.filter((start) => sessionCutoff(event.startsAt, event.endsAt, start) > Date.now()));
       setStep('day');
     } else {
-      setSessionStart(undefined);
+      setSessionStarts([]);
       openRequest();
     }
   };
@@ -249,17 +257,21 @@ export default function EventScreen() {
     setSubmitting(true);
     const result = application
       ? await changeAnswers(application, answers)
-      : await applyToEvent(event.id, answers, sessionStart && kyivDay(new Date(sessionStart)));
+      : await applyToEvent(
+          event.id,
+          answers,
+          sessionStarts.map((start) => kyivDay(new Date(start))),
+        );
     setSubmitting(false);
     closeRequest();
     if (result.ok) {
       openSearch();
-    } else if (result.code === 'PROFILE_INCOMPLETE') {
-      profile.reload();
-      setProfileDialogOpen(true);
     } else if (result.code === 'ALREADY_APPLIED') {
       reloadApplications();
       openSearch();
+    } else if (result.code === 'PROFILE_INCOMPLETE') {
+      profile.reload();
+      setProfileDialogOpen(true);
     } else {
       show((result.code && refusals[result.code]) || (application ? CHANGE_FAILED : failureSnackbar(result)));
     }
@@ -382,8 +394,8 @@ export default function EventScreen() {
         onClose={() => setStep(null)}
         eventTitle={event.title}
         sessions={openSessions}
-        onPick={(start) => {
-          setSessionStart(start);
+        onPick={(starts) => {
+          setSessionStarts(starts);
           openRequest();
         }}
       />
@@ -392,7 +404,10 @@ export default function EventScreen() {
         key={`request-${requestKey}-${application?.id ?? 'new'}-${profile.data ? 'profile' : 'none'}`}
         visible={requestOpen}
         onClose={closeRequest}
-        eventLabel={`${event.title} · ${formatShortDay(sessionStart ?? application?.sessionStartsAt ?? event.startsAt)}`}
+        eventLabel={`${event.title} · ${daysLabel(
+          sessionStarts.length > 0 ? sessionStarts : (application?.sessions.map(({ startsAt }) => startsAt) ?? []),
+          event.startsAt,
+        )}`}
         initial={initialAnswers}
         submitLabel={application ? 'Оновити побажання' : undefined}
         submitting={submitting}

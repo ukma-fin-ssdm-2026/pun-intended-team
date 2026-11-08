@@ -41,13 +41,13 @@ async function saved(result: Promise<ApiResult<Application>>) {
   return outcome;
 }
 
-// `date` picks the day of a multi-day event; a single-day event needs none.
-export function applyToEvent(eventId: string, answers: ApplicationAnswers, date?: string) {
+// `dates` are the Kyiv days of a multi-day event the user can go on; a single-day event needs none.
+export function applyToEvent(eventId: string, answers: ApplicationAnswers, dates?: string[]) {
   return saved(
     call(() =>
       apiClient.POST('/api/v1/events/{id}/applications', {
         params: { path: { id: eventId } },
-        body: { ...answers, ...(date && { date }) },
+        body: { ...answers, ...(dates?.length && { dates }) },
       }),
     ),
   );
@@ -57,16 +57,20 @@ export function withdrawApplication(id: string) {
   return saved(call(() => apiClient.POST('/api/v1/applications/{id}/withdraw', { params: { path: { id } } })));
 }
 
-// The API cannot edit an application, so new answers withdraw it and apply again for the same session. When the new
-// application is refused, the old answers are sent again, so the user stays in the pool if the API allows it.
-export async function changeAnswers(application: Application, answers: ApplicationAnswers) {
+// The API cannot edit an application, so new answers withdraw it and apply again for its days that are still open.
+// When the new application is refused, the old answers are sent again, so the user stays in the pool if the API allows
+// it. With no day open, the application is left as it is.
+export async function changeAnswers(application: Application, answers: ApplicationAnswers, now = new Date()) {
+  const dates = application.sessions
+    .filter(({ cutoffAt }) => Date.parse(cutoffAt) > now.getTime())
+    .map(({ startsAt }) => kyivDay(new Date(startsAt)));
+  if (dates.length === 0) return { ok: false, status: 422, code: 'APPLICATIONS_CLOSED' } as const;
   const withdrawn = await withdrawApplication(application.id);
   if (!withdrawn.ok) return withdrawn;
-  const date = kyivDay(new Date(application.sessionStartsAt));
-  const applied = await applyToEvent(application.eventId, answers, date);
+  const applied = await applyToEvent(application.eventId, answers, dates);
   if (!applied.ok) {
     const { desiredCompany, afterEventPlans } = application;
-    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, date);
+    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, dates);
   }
   return applied;
 }

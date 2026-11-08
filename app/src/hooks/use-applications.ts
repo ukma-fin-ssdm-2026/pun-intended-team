@@ -26,7 +26,7 @@ export function useMyApplications() {
   };
 }
 
-// The soonest active application for the event: a multi-day event can have one per day.
+// The user's active application for the event; there is at most one, with all the days they picked.
 export function useEventApplication(eventId: string | undefined) {
   const { applications, ...rest } = useMyApplications();
   return { application: applications.find((application) => application.eventId === eventId), ...rest };

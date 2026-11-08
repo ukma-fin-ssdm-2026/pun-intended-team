@@ -18,6 +18,7 @@ import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
+import { plural } from '@/plural';
 import { matchingPhase } from '@/state/applications';
 import { colors } from '@/styles/tokens';
 
@@ -25,11 +26,15 @@ const HOUR_MS = 60 * 60 * 1000;
 // How long before the session each round runs, as in the API (matching.md, policy).
 const ROUND_OFFSETS_MS = [7 * 24 * HOUR_MS, 3 * 24 * HOUR_MS, 24 * HOUR_MS, 6 * HOUR_MS];
 
-// The number of the next round, from 1; one past the last when no round is left.
-function roundNumber(sessionStartsAt: string, nextRoundAt: string | null): number {
+// The number of the next round among its day's rounds, from 1; one past the last when no round is left.
+function roundNumber(sessions: { startsAt: string }[], nextRoundAt: string | null): number {
   if (!nextRoundAt) return ROUND_OFFSETS_MS.length + 1;
-  const start = Date.parse(sessionStartsAt);
-  return ROUND_OFFSETS_MS.filter((offset) => start - offset < Date.parse(nextRoundAt)).length + 1;
+  const next = Date.parse(nextRoundAt);
+  const day =
+    sessions.find(({ startsAt }) => ROUND_OFFSETS_MS.some((offset) => Date.parse(startsAt) - offset === next)) ??
+    sessions[0];
+  const start = Date.parse(day?.startsAt ?? nextRoundAt);
+  return ROUND_OFFSETS_MS.filter((offset) => start - offset < next).length + 1;
 }
 
 function WaitingItem({
@@ -70,8 +75,13 @@ export default function CompanySearchScreen() {
   const { data: liveEvent } = useEvent(id);
   const mockEvent = findMockEvent(id);
   const event = liveEvent ?? mockEvent;
-  const day = application?.sessionStartsAt ?? event?.startsAt;
-  const subtitle = event && day ? `${mockEvent?.shortTitle ?? event.title} · ${formatShortDay(day)}` : undefined;
+  const picked = application?.sessions ?? [];
+  const day = picked[0]?.startsAt ?? event?.startsAt;
+  const days =
+    picked.length > 1
+      ? `${picked.length} ${plural(picked.length, ['день', 'дні', 'днів'])}`
+      : day && formatShortDay(day);
+  const subtitle = event && days ? `${mockEvent?.shortTitle ?? event.title} · ${days}` : undefined;
   const backToEvent = () => router.dismissTo({ pathname: '/events/[id]', params: { id } });
 
   // Without an application for the event, e.g. after leaving the pool on another device, there is nothing to wait for.
@@ -81,7 +91,7 @@ export default function CompanySearchScreen() {
 
   const nextRoundAt = application?.nextRoundAt ?? null;
   const phase = application ? matchingPhase(application) : 'rounds';
-  const round = application ? roundNumber(application.sessionStartsAt, nextRoundAt) : 1;
+  const round = roundNumber(picked, nextRoundAt);
   const rounds = ROUND_OFFSETS_MS.length;
   const pick = {
     rounds: {
@@ -104,6 +114,7 @@ export default function CompanySearchScreen() {
     },
   }[phase];
 
+  // Leaves the pool on every picked day; a day that fails stays, and the snackbar says so.
   const leave = async () => {
     if (!application) return;
     setLeaving(true);

@@ -32,7 +32,7 @@ function MatchCard({
   status,
   onPress,
 }: {
-  event: { title: string; startsAt: string; cover?: ImageSource | number };
+  event: { title: string; dateLabel: string; cover?: ImageSource | number };
   status: ReactNode;
   // Without a link (Т2.2's first card) the card is not pressable.
   onPress?: () => void;
@@ -51,7 +51,7 @@ function MatchCard({
           <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
             {event.title}
           </Text>
-          <Text className="font-inter text-caption text-text-secondary">{formatEventDate(event.startsAt)}</Text>
+          <Text className="font-inter text-caption text-text-secondary">{event.dateLabel}</Text>
         </View>
       </View>
       <View className="flex-row items-center gap-3 rounded-[18px] bg-surface-background py-2.5 pl-2.5 pr-3">
@@ -91,7 +91,16 @@ function statusNote(application: Application): string {
   return phase === 'open' ? `Відкритий підбір до ${formatTime(application.cutoffAt)}` : 'Підбір завершено';
 }
 
-// The card of one application; its date is the session's, the chosen day of a multi-day event.
+// "Сб, 24 жовт · 19:00", or the first picked day of a multi-day event and how many more.
+function daysLabel(sessions: Application['sessions']): string {
+  const first = sessions[0]?.startsAt ?? '';
+  const more = sessions.length - 1;
+  return more > 0
+    ? `${formatShortDay(first)} і ще ${more} ${plural(more, ['день', 'дні', 'днів'])}`
+    : formatEventDate(first);
+}
+
+// The card of one application, with the days it waits on.
 function SearchCard({ application }: { application: Application }) {
   const router = useRouter();
   const { data: event } = useEvent(application.eventId);
@@ -99,7 +108,7 @@ function SearchCard({ application }: { application: Application }) {
     <MatchCard
       event={{
         title: event?.title ?? ' ',
-        startsAt: application.sessionStartsAt,
+        dateLabel: daysLabel(application.sessions),
         cover: findMockEvent(application.eventId)?.cover,
       }}
       onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}
