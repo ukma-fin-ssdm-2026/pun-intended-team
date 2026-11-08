@@ -11,7 +11,7 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | Registration and sign-in | Account, AuthMethod, VerificationCode, RefreshToken |
 | User profile | Profile, ProfilePhoto, LinkedAccount, Interest, ProfileInterest |
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
-| Event-based matching | Application, Match, Exclusion |
+| Event-based matching | Application, ApplicationAfterEventPlan, Match, Exclusion |
 | Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice_ack_at |
 | Listings | Listing |
 | Notifications | Notification, DeviceToken |
@@ -61,7 +61,8 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Application** | PK `id` | `user_id` FK, `session_id` FK, `desired_company` (S; friends / casual / dating), `open_to_extend` (S; bool) — answers to the matching questions, which are the same for every event; each new question becomes a new column, `status` (in_pool / paired / paused / removed / withdrawn / no_match / cancelled) — `paused`: first unanswered proposal, waiting for the user to confirm "continue matching?"; `removed`: second unanswered proposal; `cancelled`: the event was cancelled or the user banned, `no_response_count` (0–2) — unanswered proposals in this application ([matching](mechanisms/matching.md) rule 6); a new application for the same session starts at 0, `created_at` — order in open mode |
+| **Application** | PK `id` | `user_id` FK, `session_id` FK, `desired_company` (S; friends / casual / dating) — the answer to the matching question on the kind of company, the same for every event; the plans after the event are in ApplicationAfterEventPlan, `status` (in_pool / paired / paused / removed / withdrawn / no_match / cancelled) — `paused`: first unanswered proposal, waiting for the user to confirm "continue matching?"; `removed`: second unanswered proposal; `cancelled`: the event was cancelled or the user banned, `no_response_count` (0–2) — unanswered proposals in this application ([matching](mechanisms/matching.md) rule 6); a new application for the same session starts at 0, `created_at` — order in open mode |
+| **ApplicationAfterEventPlan** | PK (`application_id`, `plan`) | junction table: `plan` (S; walk / coffee / dinner) — what the user would do together after the event; no rows means only the event |
 | **Match** | PK `id` | `application_a_id` FK, `application_b_id` FK, `source` (instant / round / open), `score` — the share of matching interests, 0–1, `decimal(4,3)` (threshold: [matching](mechanisms/matching.md)), `seed` (FUNC-001), `status` (proposed / accepted_a / accepted_b / mutual / declined / expired / cancelled), `cancel_reason` (event_cancelled / participant_banned / participant_withdrew) — `cancelled` creates no Exclusion and does not count as a decline, `valid_until` = min(`created_at` + 24 h, start of the next round, or the cutoff after the last round); at that moment the `matching.expire` job writes `expired` and applies a strike to each participant who did not respond (both, if neither did) |
 | **Exclusion** | PK `id` | `user_id` FK, `excluded_user_id` FK, `event_id` FK, `match_id` FK, `reason` (declined / expired) — one row per declined or expired proposal; the check is symmetric, so one row keeps the pair apart in both directions until the event ends. Reported and banned users come from `moderation.exclusionsFor(userId)` and are not copied here. |
 
@@ -112,6 +113,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | ImportRun — SkippedRecord | 1 : 0..* | |
 | Account — Application | 1 : 0..* | at most one active application per user and session |
 | EventSession — Application | 1 : 0..* | the session's pool |
+| Application — ApplicationAfterEventPlan | 1 : 0..3 | each plan at most once |
 | Application — Match | 1 : 0..* (as A or B) | each Match joins exactly two applications; an application has at most one open match at a time (FUNC-002) |
 | Match — Exclusion | 1 : 0..1 | a row when the match was declined or expired |
 | Event — Exclusion | 1 : 0..* | an exclusion is scoped to one event |
@@ -157,7 +159,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Phone number, linked-account usernames | Account.contact_identifier, VerificationCode.contact, LinkedAccount.username | S | column-level encryption (SEC-003); the phone number is looked up only through `contact_hash`; account and linked contacts are revealed only after mutual acceptance and safety acknowledgment (SEC-001, SAFE-002); VerificationCode.contact is never revealed |
 | Date of birth | Account.date_of_birth | S | encrypted at rest (SEC-003); other users see only the age, computed on the server |
 | Photo | ProfilePhoto.content | S | encrypted at rest with the database volume; served only through an authenticated API endpoint, never as a public link |
-| Communication format, per-event answers | Profile.communication_format, Application.desired_company, Application.open_to_extend | S | reveal a "dating" preference; shown only to a proposed match |
+| Communication format, per-event answers | Profile.communication_format, Application.desired_company, ApplicationAfterEventPlan.plan | S | reveal a "dating" preference; shown only to a proposed match |
 | Google subject ID | AuthMethod.secret (type google) | P | never returned by the API |
 | Username, display name, description, interests, age | Profile, ProfileInterest | P | shown to other signed-in users by design, never to guests. The description is free text and may contain whatever the user chooses to disclose; reports (FR-025) cover misuse. |
 | Listing text, report comment | Listing.description, Report.comment | P | report comments visible to administrators only |

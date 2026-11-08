@@ -186,10 +186,14 @@ package "matching" {
     * user_id : uuid <<FK>>
     * session_id : uuid <<FK>>
     * <color:#B71C1C>desired_company : friends | casual | dating (S)</color>
-    * <color:#B71C1C>open_to_extend : bool (S)</color>
     * status : in_pool | paired | paused | removed
       | withdrawn | no_match | cancelled
     * no_response_count : int (0..2)
+  }
+
+  entity "ApplicationAfterEventPlan" as application_after_event_plan {
+    * application_id : uuid <<PK, FK>>
+    * <color:#B71C1C>plan : walk | coffee | dinner (S)</color> <<PK>>
   }
 
   entity "Match" as match {
@@ -328,6 +332,7 @@ import_run ||--o{ skipped_record
 ' ---- matching ----
 account ||--o{ application : applies
 event_session ||--o{ application : pool
+application ||--o{ application_after_event_plan : plans
 application ||--o{ match : as A
 application ||--o{ match : as B
 match ||--o| exclusion

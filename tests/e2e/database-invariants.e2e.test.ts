@@ -100,8 +100,8 @@ async function aSession(db: pg.PoolClient): Promise<string> {
 function anApplication(db: pg.PoolClient, userId: string, sessionId: string, status = 'in_pool'): Promise<string> {
   return insertId(
     db,
-    `INSERT INTO applications (user_id, session_id, desired_company, open_to_extend, status)
-     VALUES ($1, $2, 'friends', false, $3)`,
+    `INSERT INTO applications (user_id, session_id, desired_company, status)
+     VALUES ($1, $2, 'friends', $3)`,
     [userId, sessionId, status],
   );
 }

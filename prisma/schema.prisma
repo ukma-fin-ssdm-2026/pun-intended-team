@@ -100,6 +100,14 @@ enum ApplicationStatus {
   @@map("application_status")
 }
 
+enum AfterEventPlan {
+  walk
+  coffee
+  dinner
+
+  @@map("after_event_plan")
+}
+
 enum MatchSource {
   instant
   round
@@ -276,8 +284,8 @@ model VerificationCode {
 }
 
 model RefreshToken {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId String    @map("account_id") @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId         String    @map("account_id") @db.Uuid
   tokenHash         String    @map("token_hash")
   previousTokenHash String?   @map("previous_token_hash")
   rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
@@ -474,18 +482,28 @@ model Application {
   userId          String            @map("user_id") @db.Uuid
   sessionId       String            @map("session_id") @db.Uuid
   desiredCompany  DesiredCompany    @map("desired_company")
-  openToExtend    Boolean           @map("open_to_extend")
   status          ApplicationStatus @default(in_pool)
   noResponseCount Int               @default(0) @map("no_response_count")
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user       Account      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  session    EventSession @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  matchesAsA Match[]      @relation("MatchApplicationA")
-  matchesAsB Match[]      @relation("MatchApplicationB")
+  user            Account                     @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  session         EventSession                @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  afterEventPlans ApplicationAfterEventPlan[]
+  matchesAsA      Match[]                     @relation("MatchApplicationA")
+  matchesAsB      Match[]                     @relation("MatchApplicationB")
 
   @@map("applications")
+}
+
+model ApplicationAfterEventPlan {
+  applicationId String         @map("application_id") @db.Uuid
+  plan          AfterEventPlan
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([applicationId, plan])
+  @@map("application_after_event_plans")
 }
 
 model Match {
