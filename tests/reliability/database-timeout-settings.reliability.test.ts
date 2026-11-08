@@ -44,7 +44,12 @@ describe(VARIABLE, () => {
     test(`starts the API with a value that is ${title}`, async () => {
       const api = await startApi({ ...env, [VARIABLE]: value });
 
-      await stopApi(api.child);
+      try {
+        // startApi resolves once /health answers, so the API is up and still running.
+        assert.equal(api.child.exitCode, null);
+      } finally {
+        await stopApi(api.child);
+      }
     });
   }
 
