@@ -25,6 +25,7 @@ import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useProfile } from '@/hooks/use-profile';
 import { plural } from '@/plural';
+import { openSessions } from '@/state/applications';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
@@ -70,6 +71,12 @@ const CHANGE_FAILED: SnackbarContent = {
 function daysLabel(starts: string[], eventStart: string): string {
   if (starts.length > 1) return `${starts.length} ${plural(starts.length, ['день', 'дні', 'днів'])}`;
   return formatShortDay(starts[0] ?? eventStart);
+}
+
+// The sessions that still take applications, for the day picker.
+function stillOpen(sessions: string[], startsAt: string, endsAt: string): string[] {
+  const now = Date.now();
+  return sessions.filter((start) => sessionCutoff(startsAt, endsAt, start) > now);
 }
 
 function preview(text: string): string | undefined {
@@ -170,23 +177,20 @@ export default function EventScreen() {
   const [expanded, setExpanded] = useState(false);
   const profile = useProfile();
   const { application, reload: reloadApplications } = useEventApplication(id);
-  // A multi-day event asks for the day first, then opens 03 for it.
+  // A multi-day event asks for the days first, then opens 03 for them.
   const [step, setStep] = useState<'day' | 'request' | null>(null);
   // The days picked for a multi-day event; none for a single-day one.
   const [sessionStarts, setSessionStarts] = useState<string[]>([]);
-  // The days that still take applications, picked when the day step opens.
-  const [openSessions, setOpenSessions] = useState<string[]>([]);
   // Each opening of 03 starts from fresh answers.
   const [requestKey, setRequestKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const { snackbar, show } = useSnackbar();
-  const requestOpen = step === 'request' || request === '1';
   const openRequest = () => {
     setRequestKey((key) => key + 1);
     setStep('request');
   };
-  const closeRequest = () => {
+  const closeSteps = () => {
     setStep(null);
     if (request) router.setParams({ request: undefined });
   };
@@ -223,6 +227,16 @@ export default function EventScreen() {
   const inPool = !isGuest && application !== undefined;
   const sessions = eventSessions(event.startsAt, event.endsAt);
   const multiDay = sessions.length > 1;
+  // "Змінити побажання" on 04.1 comes back with `request`: the days first for a multi-day event, then 03.
+  const changing = request === '1' && step === null;
+  const dayOpen = step === 'day' || (changing && multiDay);
+  const requestOpen = step === 'request' || (changing && !multiDay);
+  const pickable = dayOpen ? stillOpen(sessions, event.startsAt, event.endsAt) : [];
+  const alreadyPicked = application
+    ? pickable.filter((start) =>
+        application.sessions.some(({ startsAt }) => Date.parse(startsAt) === Date.parse(start)),
+      )
+    : [];
   const profileIncomplete = profile.missing || profile.data?.isComplete === false;
   // With an application, 03 changes its answers; otherwise the format comes from the profile.
   const initialAnswers: ApplicationAnswers = application
@@ -239,10 +253,8 @@ export default function EventScreen() {
     if (isGuest) setDialogOpen(true);
     else if (inPool) openSearch();
     else if (profileIncomplete) setProfileDialogOpen(true);
-    else if (multiDay) {
-      setOpenSessions(sessions.filter((start) => sessionCutoff(event.startsAt, event.endsAt, start) > Date.now()));
-      setStep('day');
-    } else {
+    else if (multiDay) setStep('day');
+    else {
       setSessionStarts([]);
       openRequest();
     }
@@ -255,15 +267,12 @@ export default function EventScreen() {
 
   const submit = async (answers: ApplicationAnswers) => {
     setSubmitting(true);
+    const dates = sessionStarts.map((start) => kyivDay(new Date(start)));
     const result = application
-      ? await changeAnswers(application, answers)
-      : await applyToEvent(
-          event.id,
-          answers,
-          sessionStarts.map((start) => kyivDay(new Date(start))),
-        );
+      ? await changeAnswers(application, answers, { dates: dates.length > 0 ? dates : undefined })
+      : await applyToEvent(event.id, answers, dates);
     setSubmitting(false);
-    closeRequest();
+    closeSteps();
     if (result.ok) {
       openSearch();
     } else if (result.code === 'ALREADY_APPLIED') {
@@ -389,11 +398,12 @@ export default function EventScreen() {
       </View>
 
       <DayPickerSheet
-        key={`days-${step === 'day'}`}
-        visible={step === 'day'}
-        onClose={() => setStep(null)}
+        key={`days-${dayOpen}`}
+        visible={dayOpen}
+        onClose={closeSteps}
         eventTitle={event.title}
-        sessions={openSessions}
+        sessions={pickable}
+        initial={alreadyPicked}
         onPick={(starts) => {
           setSessionStarts(starts);
           openRequest();
@@ -403,9 +413,11 @@ export default function EventScreen() {
       <CompanyRequestSheet
         key={`request-${requestKey}-${application?.id ?? 'new'}-${profile.data ? 'profile' : 'none'}`}
         visible={requestOpen}
-        onClose={closeRequest}
+        onClose={closeSteps}
         eventLabel={`${event.title} · ${daysLabel(
-          sessionStarts.length > 0 ? sessionStarts : (application?.sessions.map(({ startsAt }) => startsAt) ?? []),
+          sessionStarts.length > 0
+            ? sessionStarts
+            : (application ? openSessions(application) : []).map(({ startsAt }) => startsAt),
           event.startsAt,
         )}`}
         initial={initialAnswers}

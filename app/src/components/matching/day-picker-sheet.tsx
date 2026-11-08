@@ -18,11 +18,13 @@ type Props = {
   eventTitle: string;
   // The starts of the sessions that still take applications.
   sessions: string[];
+  // The days ticked when the sheet opens: those the user already picked, when changing them.
+  initial?: string[];
   onPick: (sessionStarts: string[]) => void;
 };
 
-export function DayPickerSheet({ visible, onClose, eventTitle, sessions, onPick }: Props) {
-  const [picked, setPicked] = useState<string[]>([]);
+export function DayPickerSheet({ visible, onClose, eventTitle, sessions, initial = [], onPick }: Props) {
+  const [picked, setPicked] = useState<string[]>(initial);
   const toggle = (session: string) =>
     setPicked((current) =>
       current.includes(session) ? current.filter((value) => value !== session) : [...current, session],

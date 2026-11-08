@@ -73,7 +73,7 @@ describe('changeAnswers', () => {
   test('leaves an application with no day still open as it is', async () => {
     const { changeAnswers, post } = load();
 
-    const result = await changeAnswers(anApplication(), answers, new Date('2026-10-25T16:30:00.000Z'));
+    const result = await changeAnswers(anApplication(), answers, { now: new Date('2026-10-25T16:30:00.000Z') });
 
     expect(result).toMatchObject({ ok: false, code: 'APPLICATIONS_CLOSED' });
     expect(post).not.toHaveBeenCalled();
@@ -85,7 +85,7 @@ describe('changeAnswers', () => {
       .mockResolvedValueOnce(ok(anApplication({ status: 'withdrawn' })))
       .mockResolvedValueOnce(ok(anApplication({ id: 'a2', desiredCompany: 'dating', afterEventPlans: [] })));
 
-    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
+    const result = await changeAnswers(anApplication(), answers, { now: BEFORE_CUTOFF });
 
     expect(result.ok).toBe(true);
     expect(post.mock.calls.map(([path]) => path)).toEqual([
@@ -98,6 +98,22 @@ describe('changeAnswers', () => {
     });
   });
 
+  test('applies again for newly picked days, and restores the old days when they are refused', async () => {
+    const { changeAnswers, post } = load();
+    post
+      .mockResolvedValueOnce(ok(anApplication({ status: 'withdrawn' })))
+      .mockResolvedValueOnce(refused(422, 'INVALID_SESSION_DAY'))
+      .mockResolvedValueOnce(ok(anApplication({ id: 'a3' })));
+
+    const result = await changeAnswers(anApplication(), answers, { dates: ['2026-10-26'], now: BEFORE_CUTOFF });
+
+    expect(result).toMatchObject({ ok: false, code: 'INVALID_SESSION_DAY' });
+    expect(post.mock.calls[1]?.[1]).toMatchObject({ body: { ...answers, dates: ['2026-10-26'] } });
+    expect(post.mock.calls[2]?.[1]).toMatchObject({
+      body: { desiredCompany: 'company', afterEventPlans: ['walk'], dates: ['2026-10-25'] },
+    });
+  });
+
   test('applies again with the old answers when the new application is refused', async () => {
     const { changeAnswers, post } = load();
     post
@@ -105,7 +121,7 @@ describe('changeAnswers', () => {
       .mockResolvedValueOnce(refused(422, 'APPLICATIONS_CLOSED'))
       .mockResolvedValueOnce(ok(anApplication({ id: 'a3' })));
 
-    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
+    const result = await changeAnswers(anApplication(), answers, { now: BEFORE_CUTOFF });
 
     expect(result).toMatchObject({ ok: false, code: 'APPLICATIONS_CLOSED' });
     expect(post.mock.calls[2]?.[1]).toMatchObject({
@@ -117,7 +133,7 @@ describe('changeAnswers', () => {
     const { changeAnswers, post } = load();
     post.mockResolvedValueOnce(refused(409, 'CONFLICT'));
 
-    const result = await changeAnswers(anApplication(), answers, BEFORE_CUTOFF);
+    const result = await changeAnswers(anApplication(), answers, { now: BEFORE_CUTOFF });
 
     expect(result).toMatchObject({ ok: false, code: 'CONFLICT' });
     expect(post).toHaveBeenCalledTimes(1);
@@ -140,5 +156,26 @@ describe('matchingPhase', () => {
   test('is over once the cutoff has passed', () => {
     const { matchingPhase } = load();
     expect(matchingPhase(anApplication({ nextRoundAt: null, cutoffAt: '2026-10-25T11:00:00.000Z' }), now)).toBe('over');
+  });
+});
+
+describe('openSessions', () => {
+  const two = anApplication({
+    sessions: [
+      { startsAt: '2026-10-25T17:00:00.000Z', cutoffAt: '2026-10-25T16:00:00.000Z' },
+      { startsAt: '2026-10-26T17:00:00.000Z', cutoffAt: '2026-10-26T16:00:00.000Z' },
+    ],
+  });
+
+  test('leaves out the days whose cutoff has passed', () => {
+    const { openSessions } = load();
+    expect(openSessions(two, new Date('2026-10-25T18:00:00.000Z')).map(({ startsAt }) => startsAt)).toEqual([
+      '2026-10-26T17:00:00.000Z',
+    ]);
+  });
+
+  test('keeps every day once none is open', () => {
+    const { openSessions } = load();
+    expect(openSessions(two, new Date('2026-10-27T00:00:00.000Z'))).toHaveLength(2);
   });
 });

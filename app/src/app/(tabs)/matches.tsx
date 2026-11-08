@@ -11,13 +11,13 @@ import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
-import { formatEventDate, formatShortDay, formatTime } from '@/dates';
+import { formatEventDate, formatShortDay } from '@/dates';
 import { useMyApplications } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
-import { matchingPhase, type Application } from '@/state/applications';
+import { matchingPhase, openSessions, type Application } from '@/state/applications';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 64 in the iPhone 14 frame (17 px below its status bar), 52 at the bottom, of which the list
@@ -88,7 +88,7 @@ function statusNote(application: Application): string {
   if (phase === 'rounds' && application.nextRoundAt) {
     return `Наступний підбір: ${formatShortDay(application.nextRoundAt)}`;
   }
-  return phase === 'open' ? `Відкритий підбір до ${formatTime(application.cutoffAt)}` : 'Підбір завершено';
+  return phase === 'open' ? `Відкритий підбір до ${formatEventDate(application.cutoffAt)}` : 'Підбір завершено';
 }
 
 // "Сб, 24 жовт · 19:00", or the first picked day of a multi-day event and how many more.
@@ -108,7 +108,7 @@ function SearchCard({ application }: { application: Application }) {
     <MatchCard
       event={{
         title: event?.title ?? ' ',
-        dateLabel: daysLabel(application.sessions),
+        dateLabel: daysLabel(openSessions(application)),
         cover: findMockEvent(application.eventId)?.cover,
       }}
       onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}

@@ -19,7 +19,7 @@ import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
-import { matchingPhase } from '@/state/applications';
+import { matchingPhase, openSessions } from '@/state/applications';
 import { colors } from '@/styles/tokens';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -75,7 +75,7 @@ export default function CompanySearchScreen() {
   const { data: liveEvent } = useEvent(id);
   const mockEvent = findMockEvent(id);
   const event = liveEvent ?? mockEvent;
-  const picked = application?.sessions ?? [];
+  const picked = application ? openSessions(application) : [];
   const day = picked[0]?.startsAt ?? event?.startsAt;
   const days =
     picked.length > 1
@@ -114,7 +114,6 @@ export default function CompanySearchScreen() {
     },
   }[phase];
 
-  // Leaves the pool on every picked day; a day that fails stays, and the snackbar says so.
   const leave = async () => {
     if (!application) return;
     setLeaving(true);

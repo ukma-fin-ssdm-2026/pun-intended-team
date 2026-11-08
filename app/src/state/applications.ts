@@ -39,6 +39,12 @@ function firstStart(application: Application): number {
   return Date.parse(application.sessions[0]?.startsAt ?? '');
 }
 
+// The days that still take part in matching; all of them once none does, so a finished application keeps its days.
+export function openSessions(application: Application, now = new Date()): Application['sessions'] {
+  const open = application.sessions.filter(({ cutoffAt }) => Date.parse(cutoffAt) > now.getTime());
+  return open.length > 0 ? open : application.sessions;
+}
+
 // Where matching stands for an application in the pool: a round is coming, the pool is in open mode after the last
 // round (matching.md, rule 3), or the cutoff has passed.
 export function matchingPhase(application: Application, now = new Date()): 'rounds' | 'open' | 'over' {

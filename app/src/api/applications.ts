@@ -57,20 +57,25 @@ export function withdrawApplication(id: string) {
   return saved(call(() => apiClient.POST('/api/v1/applications/{id}/withdraw', { params: { path: { id } } })));
 }
 
-// The API cannot edit an application, so new answers withdraw it and apply again for its days that are still open.
-// When the new application is refused, the old answers are sent again, so the user stays in the pool if the API allows
-// it. With no day open, the application is left as it is.
-export async function changeAnswers(application: Application, answers: ApplicationAnswers, now = new Date()) {
-  const dates = application.sessions
+// The API cannot edit an application, so new answers withdraw it and apply again, for the newly picked `dates` or for
+// its days that are still open. When the new application is refused, the old answers are sent again for those open
+// days, so the user stays in the pool if the API allows it. With no day open, the application is left as it is.
+export async function changeAnswers(
+  application: Application,
+  answers: ApplicationAnswers,
+  { dates: picked, now = new Date() }: { dates?: string[]; now?: Date } = {},
+) {
+  const openDays = application.sessions
     .filter(({ cutoffAt }) => Date.parse(cutoffAt) > now.getTime())
     .map(({ startsAt }) => kyivDay(new Date(startsAt)));
+  const dates = picked ?? openDays;
   if (dates.length === 0) return { ok: false, status: 422, code: 'APPLICATIONS_CLOSED' } as const;
   const withdrawn = await withdrawApplication(application.id);
   if (!withdrawn.ok) return withdrawn;
   const applied = await applyToEvent(application.eventId, answers, dates);
-  if (!applied.ok) {
+  if (!applied.ok && openDays.length > 0) {
     const { desiredCompany, afterEventPlans } = application;
-    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, dates);
+    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, openDays);
   }
   return applied;
 }
