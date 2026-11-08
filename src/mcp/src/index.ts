@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T16:37:43.205Z
+ * Generated on: 2026-11-07T17:00:15.419Z
  */
 
 import { existsSync } from 'node:fs';
@@ -480,8 +480,8 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getHealth", {
     name: "getHealth",
-    title: "Check that the API is running",
-    description: `Check that the API is running. No access token needed.
+    title: "Check that the API and its database are up",
+    description: `Checks that the API is running and that its database answers within 2 s. \`200\` while it is healthy; \`503\` with the dependency that is down in \`checks\`. No access token needed.
 (Tags: System)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

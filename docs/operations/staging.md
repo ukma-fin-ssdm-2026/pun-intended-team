@@ -73,7 +73,7 @@ A merge to `main` does not deploy. To deploy, move `staging` to the latest `main
 ```bash
 git fetch origin && git push origin origin/main:staging
 ```
-The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes, or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
+The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes (its `/health` answers `503` while the database does not answer), or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
 
 To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `staging` with its full SHA; leave it empty for the latest `staging`. The run shows who deployed what.
 
