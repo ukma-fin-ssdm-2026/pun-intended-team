@@ -9,7 +9,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 1. **Unit tests** (`tests/unit/`) check business rules in `src/core/` and adapters with logic, with mocked ports. They take what an HTTP request cannot set up reliably: time limits, races, data errors and pure functions.
 2. **Integration tests** (`tests/e2e/`, despite the name) start the API and call it over HTTP, through every layer and the real database. Each run drops and creates a database of its own, `<database>_e2e`, migrates it and adds the accounts the stubs belong to and the profiles of the listings' authors, so no run sees rows of another. They check the HTTP contract: status codes, validation, access and response bodies.
 
-   **Fault-injection tests** (`tests/reliability/`) start the built API against a fake dependency that misbehaves on purpose, such as a database that accepts the connection and never answers, and check that the API fails fast instead of hanging. They need no database.
+   **Reliability tests** (`tests/reliability/`, `npm run test:reliability`) start the built API, or run the app's request code, against a fake dependency that misbehaves on purpose, such as a database that accepts the connection and never answers, and check that the code fails fast instead of hanging; others start the API with edge values of its settings. They need no database.
 3. **Coverage scope** — measured:
 
    | Category | Files |
@@ -17,7 +17,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
    | Business rules | `core/*/services/`, `core/common/kyiv-time.ts` |
    | HTTP behaviour | `api/common/`: `endpoint.ts`, `auth.ts`, `api-exception.filter.ts`, `api-express-adapter.ts`, `security-headers.ts` |
    | Controllers | `api/*/controllers/` |
-   | Adapters | `infra/auth/`, `infra/prisma/` |
+   | Adapters | `infra/auth/`, `infra/prisma/`, `infra/jobs/` |
 
    Left out:
 

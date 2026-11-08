@@ -10,7 +10,7 @@ export const VENUE_ID = 'b0000000-0000-4000-8000-000000000001';
 export const EVENT_ID = 'e0000000-0000-4000-8000-000000000001';
 
 export function aCategory(overrides: Partial<Category> = {}): Category {
-  return { id: CATEGORY_ID, name: 'Exhibitions', isActive: true, ...overrides };
+  return { id: CATEGORY_ID, name: 'Виставки', slug: 'exhibitions', isActive: true, ...overrides };
 }
 
 /** A venue of the organization with ACCOUNT_ID. */
@@ -28,7 +28,15 @@ export function aVenue(overrides: Partial<Venue> = {}): Venue {
 
 /** The verified organization of the account ACCOUNT_ID. */
 export function anOrganization(overrides: Partial<Organization> = {}): Organization {
-  return { accountId: ACCOUNT_ID, name: 'Natalka Park', verificationStatus: 'verified', ...overrides };
+  return {
+    accountId: ACCOUNT_ID,
+    name: 'Natalka Park',
+    description: 'Open-air cinema and concerts by the Dnipro.',
+    officialLink: 'https://natalka.park',
+    verificationStatus: 'verified',
+    verifiedAt: '2026-10-01T10:00:00.000Z',
+    ...overrides,
+  };
 }
 
 /** A published event of ACCOUNT_ID, a week after NOW. */
@@ -37,7 +45,7 @@ export function anEvent(overrides: Partial<Event> = {}): Event {
     id: EVENT_ID,
     title: 'Film quiz night',
     description: 'Teams of up to four, questions on Ukrainian cinema.',
-    category: { id: CATEGORY_ID, name: 'Exhibitions' },
+    category: { id: CATEGORY_ID, name: 'Виставки' },
     venue: aVenue(),
     startsAt: '2026-10-22T19:00:00+03:00',
     endsAt: '2026-10-22T21:00:00+03:00',

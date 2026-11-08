@@ -17,6 +17,10 @@ describe('PoliteHttpClient', () => {
   before(async () => {
     server = createServer((req, res) => {
       received.push({ path: req.url, userAgent: req.headers['user-agent'], at: Date.now() });
+      if (req.url?.startsWith('/down')) {
+        res.writeHead(503).end();
+        return;
+      }
       if (req.url?.startsWith('/flaky') && failuresLeft > 0) {
         failuresLeft--;
         res.writeHead(503).end();
@@ -105,8 +109,38 @@ describe('PoliteHttpClient', () => {
     assert.equal(received.length, 1);
   });
 
-  test('throws after the retries when the server cannot be reached', async () => {
+  test('throws after the retries when the server cannot be reached, and logs it', async () => {
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
     await assert.rejects(client({ retries: 1 }).get('http://localhost:1/unreachable'));
+
+    assert.equal(error.mock.callCount(), 1);
+    assert.match(String(error.mock.calls[0]?.arguments[0]), /unreachable failed after 2 attempts .*; giving up/);
+  });
+
+  test('stops after the last retry of a server that keeps failing, and logs the last answer', async () => {
+    received.length = 0;
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
+    const response = await client({ retries: 2 }).get(`${baseUrl}/down`);
+
+    assert.equal(response.status, 503);
+    assert.equal(received.length, 3);
+    assert.equal(error.mock.callCount(), 1);
+    assert.match(String(error.mock.calls[0]?.arguments[0]), /\/down failed after 3 attempts \(status 503\); giving up/);
+  });
+
+  test('waits a random part of the doubled backoff, never more than maxBackoffMs', async () => {
+    const random = mock.method(Math, 'random', () => 0.5);
+    mock.method(Logger.prototype, 'error', () => {});
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    await client({ retries: 3, backoffMs: 4, maxBackoffMs: 10 }).get(`${baseUrl}/down`);
+
+    random.mock.restore();
+    const waits = warn.mock.calls.map((call) => /retrying in (\d+) ms/.exec(String(call.arguments[0]))?.[1]);
+    // Half of 4, 8 and 16 ms, the last capped at 10 ms.
+    assert.deepEqual(waits, ['2', '4', '5']);
   });
 
   const disallowed = [{ site: 'Karabas', paths: ['/ajax.php'], url: '/ajax.php?action=events' }];

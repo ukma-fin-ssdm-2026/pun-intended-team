@@ -9,8 +9,8 @@ export interface ImportedEvent {
   externalId: string;
   title: string;
   description: string;
-  /** Name of one of our categories; the provider's adapter maps its own genres to it. */
-  categoryName: string;
+  /** Slug of one of our categories, which never changes; the provider's adapter maps its own genres to it. */
+  categorySlug: string;
   venue: ImportedVenue;
   startsAt: string;
   endsAt: string;
@@ -117,8 +117,8 @@ export interface RunDetails {
   parts?: Record<string, number>;
 }
 
-/** A category a provider's genre can map to. */
-export type ImportCategory = Pick<Category, 'id' | 'name'>;
+/** A category a provider's genre can map to, by its slug. */
+export type ImportCategory = Pick<Category, 'id' | 'slug' | 'isActive'>;
 
 /** How an import run ended; the last `succeeded` run gives the "last updated" notice (FR-014). */
 export type ImportRunStatus = 'succeeded' | 'failed';

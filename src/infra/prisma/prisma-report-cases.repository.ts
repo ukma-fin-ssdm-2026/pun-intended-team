@@ -13,30 +13,29 @@ import type { Report as ReportRow, ReportCase as ReportCaseRow } from './generat
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
 
-const OPEN_ACCOUNT_CASE_INDEX = 'report_cases_open_target_account_key';
+// One open case per account and per listing (FR-026).
+const OPEN_CASE_INDEXES = new Set(['report_cases_open_target_account_key', 'report_cases_open_target_listing_key']);
 const MAX_ATTEMPTS = 3;
+
+type CaseTarget =
+  { targetType: 'account'; targetAccountId: string } | { targetType: 'listing'; targetListingId: string };
+type NewReportRow = { reporterId: string; reason: ReportReason; comment: string | null };
 
 @Injectable()
 export class PrismaReportCasesRepository implements ReportCasesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addAccountReport(
-    accountId: string,
-    report: { reporterId: string; reason: ReportReason; comment: string | null },
-  ): Promise<string> {
-    // A case can be resolved, or opened by a parallel first report, between the lookup and the write; try again then.
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const caseId = await this.addToOpenCase(accountId, report);
-      if (caseId) {
-        return caseId;
-      }
-    }
-    throw new Error(`Could not add the report on account ${accountId}: its case kept changing`);
+  async addAccountReport(accountId: string, report: NewReportRow): Promise<string> {
+    return this.addReport({ targetType: 'account', targetAccountId: accountId }, report);
+  }
+
+  async addListingReport(listingId: string, report: NewReportRow): Promise<string> {
+    return this.addReport({ targetType: 'listing', targetListingId: listingId }, report);
   }
 
   async findPage(status: ReportCaseStatus, { limit, offset }: PageRequest): Promise<Page<ReportCaseRecord>> {
     const rows = await this.prisma.reportCase.findMany({
-      where: { targetType: 'account', status },
+      where: { status },
       include: { _count: { select: { reports: true } } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       skip: offset,
@@ -63,7 +62,7 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
 
   async findById(id: string): Promise<(ReportCaseRecord & { reports: ReportRecord[] }) | undefined> {
     const row = await this.prisma.reportCase.findFirst({
-      where: { id, targetType: 'account' },
+      where: { id },
       include: { reports: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
     });
     if (!row) {
@@ -86,13 +85,24 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
     return this.prisma.reportCase.count({ where: { status: 'open' } });
   }
 
+  private async addReport(target: CaseTarget, report: NewReportRow): Promise<string> {
+    // A case can be resolved, or opened by a parallel first report, between the lookup and the write; try again then.
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const caseId = await this.addToOpenCase(target, report);
+      if (caseId) {
+        return caseId;
+      }
+    }
+    throw new Error(`Could not add the report on ${target.targetType} ${targetId(target)}: its case kept changing`);
+  }
+
   /** Adds the report to the open case, or opens one with it; undefined when the case changed in the meantime. */
   private async addToOpenCase(
-    accountId: string,
-    { reporterId, reason, comment }: { reporterId: string; reason: ReportReason; comment: string | null },
+    target: CaseTarget,
+    { reporterId, reason, comment }: NewReportRow,
   ): Promise<string | undefined> {
     const open = await this.prisma.reportCase.findFirst({
-      where: { targetType: 'account', targetAccountId: accountId, status: 'open' },
+      where: { ...target, status: 'open' },
       select: { id: true },
     });
     if (open) {
@@ -106,15 +116,11 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
     }
     try {
       const created = await this.prisma.reportCase.create({
-        data: {
-          targetType: 'account',
-          targetAccountId: accountId,
-          reports: { create: { reporterId, reason, comment } },
-        },
+        data: { ...target, reports: { create: { reporterId, reason, comment } } },
       });
       return created.id;
     } catch (error) {
-      if (violatedIndex(error) === OPEN_ACCOUNT_CASE_INDEX) {
+      if (OPEN_CASE_INDEXES.has(violatedIndex(error) ?? '')) {
         return undefined;
       }
       throw error;
@@ -122,11 +128,16 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
   }
 }
 
+function targetId(target: CaseTarget): string {
+  return target.targetType === 'account' ? target.targetAccountId : target.targetListingId;
+}
+
 function toCaseRecord(row: ReportCaseRow, reportCount: number, first: Date, last: Date): ReportCaseRecord {
   return {
     id: row.id,
-    // Only account cases are read here, so the account is always set.
-    accountId: row.targetAccountId ?? '',
+    targetType: row.targetType,
+    accountId: row.targetAccountId,
+    listingId: row.targetListingId,
     status: row.status,
     resolution: row.resolution,
     reportCount,

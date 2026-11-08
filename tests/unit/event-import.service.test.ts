@@ -28,13 +28,17 @@ function aList(records: unknown[], overrides: Partial<FetchResult> = {}): FetchR
   return { records, complete: true, covers: COVERS, ...overrides };
 }
 const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
+/** The slug of aCategory(), the one category the repository knows. */
+const CATEGORY_SLUG = aCategory().slug;
+/** No category has it, e.g. a typo in a provider's mapping. */
+const UNKNOWN_SLUG = 'concertz';
 
 function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent {
   return {
     externalId: 'ext-1',
     title: 'Jazz evening',
     description: 'Live quartet.',
-    categoryName: 'Exhibitions',
+    categorySlug: CATEGORY_SLUG,
     venue: { name: 'Caribbean Club', address: 'Kyiv', location: { lat: 50.46, lng: 30.52 } },
     startsAt: '2026-10-22T16:00:00.000Z',
     endsAt: '2026-10-22T19:00:00.000Z',
@@ -76,8 +80,8 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     normalize,
   };
   const repository = {
-    findActiveCategories: mock.fn((): Promise<ImportCategory[]> =>
-      Promise.resolve([{ id: aCategory().id, name: aCategory().name }]),
+    findCategories: mock.fn((): Promise<ImportCategory[]> =>
+      Promise.resolve([{ id: CATEGORY_ID, slug: CATEGORY_SLUG, isActive: true }]),
     ),
     failUnfinishedRuns: mock.fn<ImportedEventsRepository['failUnfinishedRuns']>(() => Promise.resolve()),
     lastSucceededRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
@@ -156,14 +160,6 @@ describe('EventImportService.importFrom', () => {
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
   });
 
-  test('matches the category name without regard to case', async () => {
-    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'EXHIBITIONS' }) }]);
-
-    await run();
-
-    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].categoryId, CATEGORY_ID);
-  });
-
   test('looks the event up by provider and external id, so an organization event is never touched', async () => {
     const { run, repository } = makeService();
 
@@ -195,14 +191,34 @@ describe('EventImportService.importFrom', () => {
     assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
   });
 
-  test('skips a record with an unknown category and saves nothing for it', async () => {
-    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'Comedy' }) }]);
+  test('saves the event under the id of the category with its slug', async () => {
+    const { run, repository } = makeService();
+
+    await run();
+
+    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].categoryId, CATEGORY_ID);
+  });
+
+  test('skips a record whose category slug is unknown, names the slug and saves nothing for it', async () => {
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categorySlug: UNKNOWN_SLUG }) }]);
 
     const report = await run();
 
-    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'Unknown category "Comedy"' }]);
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'Unknown category "concertz"' }]);
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.equal(repository.createVenue.mock.callCount(), 0);
+  });
+
+  test('skips a record whose category an admin deactivated', async () => {
+    const { run, repository } = makeService();
+    repository.findCategories.mock.mockImplementation(() =>
+      Promise.resolve([{ id: CATEGORY_ID, slug: CATEGORY_SLUG, isActive: false }]),
+    );
+
+    const report = await run();
+
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: `Inactive category "${CATEGORY_SLUG}"` }]);
+    assert.equal(repository.createEvent.mock.callCount(), 0);
   });
 
   const badTimes = [
@@ -305,7 +321,7 @@ describe('EventImportService.importFrom', () => {
       [unusable, unknownCategory],
       [
         { skip: { externalId: 'bad-1', reason: 'Invalid record: title' } },
-        { event: anImportedEvent({ categoryName: 'Comedy' }) },
+        { event: anImportedEvent({ categorySlug: UNKNOWN_SLUG }) },
       ],
     );
 
@@ -315,7 +331,7 @@ describe('EventImportService.importFrom', () => {
       repository.saveSkipped.mock.calls.map((call) => call.arguments),
       [
         [RUN_ID, unusable, 'Invalid record: title'],
-        [RUN_ID, unknownCategory, 'Unknown category "Comedy"'],
+        [RUN_ID, unknownCategory, 'Unknown category "concertz"'],
       ],
     );
   });
@@ -492,7 +508,7 @@ describe('EventImportService.importFrom, removed and cancelled events', () => {
       [{}, {}, {}],
       [
         { skip: { externalId: 'no-start-time', reason: 'No start time (00:00 on ArtWizard)' } },
-        { event: anImportedEvent({ externalId: 'comedy', categoryName: 'Comedy' }) },
+        { event: anImportedEvent({ externalId: 'comedy', categorySlug: 'comedy' }) },
         { event: anImportedEvent() },
       ],
     );
@@ -585,14 +601,14 @@ describe('EventImportService.importFrom, removed and cancelled events', () => {
   });
 
   test('cancels nothing after a complete list that saw no records, even without an earlier complete list', async () => {
-    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categoryName: 'Comedy' }) }]);
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ categorySlug: 'comedy' }) }]);
 
     const report = await run();
 
     assert.equal(repository.cancelUnseen.mock.callCount(), 0);
     assert.equal(report.complete, false);
     assert.deepEqual(warnings(), [
-      `${PROVIDER_ID}: skipped ext-1: Unknown category "Comedy"`,
+      `${PROVIDER_ID}: skipped ext-1: Unknown category "comedy"`,
       `${PROVIDER_ID}: cancelling nothing: it saw no records`,
     ]);
   });

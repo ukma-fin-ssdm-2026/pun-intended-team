@@ -8,8 +8,8 @@ Staging runs the `staging` branch on one Linux server: the API at `https://api.n
 | `api` | The API, `NODE_ENV=production`, as the `nearby_main` role | `caddy` only |
 | `web` | The web app: the static export of `app/`, served by its own Caddy ([`app/Caddyfile`](../../app/Caddyfile)) | `caddy` only |
 | `db` | PostgreSQL 18, data in the `nearby-staging-db` volume | The server itself (`127.0.0.1:5432`) |
-| `migrate` | Before every API start, from the same image: `prisma migrate deploy` as the owner, then the passwords of `nearby_main` and `nearby_import`; then exits | — |
-| `backup` | Nightly `pg_dump` at 01:00 UTC, 7 daily and 4 weekly copies ([`deploy/backup-db.sh`](../../deploy/backup-db.sh)) | — |
+| `migrate` | Before every API start, from the same image: `prisma migrate deploy` as the owner, then the passwords of `nearby_main`, `nearby_import` and `nearby_backup`; then exits | — |
+| `backup` | Nightly `pg_dump` at 01:00 UTC, 7 daily and 4 weekly copies ([`deploy/backup-db.sh`](../../deploy/backup-db.sh)), as the read-only role `nearby_backup`; starts after `migrate` | — |
 | `import` | One event import run, started by hand | — |
 
 ## Settings and secrets
@@ -21,7 +21,7 @@ The server's `.env` is rendered on every deploy from [`deploy/staging.env`](../.
 | `SSH_HOST`, `SSH_USER` | variable | The server's IP and the `deploy` user |
 | `SSH_KNOWN_HOSTS` | variable | The server's host key: `ssh-keyscan <SSH_HOST>` |
 | `SSH_KEY` | secret | The private half of the deploy key |
-| `POSTGRES_PASSWORD`, `NEARBY_MAIN_PASSWORD`, `NEARBY_IMPORT_PASSWORD` | secret | Each from `openssl rand -hex 24` |
+| `POSTGRES_PASSWORD`, `NEARBY_MAIN_PASSWORD`, `NEARBY_IMPORT_PASSWORD`, `NEARBY_BACKUP_PASSWORD` | secret | Each from `openssl rand -hex 24` |
 | `GOOGLE_CLIENT_IDS` | variable | As in the local `.env` |
 | `TURBOSMS_SENDER` | variable | Optional |
 | `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN` | secret | Optional; codes are switched off ([ADR-004](../architecture/decisions/ADR-004.md)) |
@@ -73,7 +73,7 @@ A merge to `main` does not deploy. To deploy, move `staging` to the latest `main
 ```bash
 git fetch origin && git push origin origin/main:staging
 ```
-The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes, or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
+The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes (its `/health` answers `503` while the database does not answer), or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
 
 To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `staging` with its full SHA; leave it empty for the latest `staging`. The run shows who deployed what.
 
@@ -85,7 +85,7 @@ docker login ghcr.io -u <your GitHub user>
 docker logout ghcr.io
 ```
 
-A rollback does not undo migrations, so it only works while the older code still fits the database. A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
+A rollback does not undo migrations: the earlier code runs on the newer schema, which is better than no API but may fail where the schema changed. When that happens, the job fails with an error naming the migrations, and `deploy.log` says so; deploying an earlier commit by hand gives a warning instead. See [A version runs on a newer schema](#a-version-runs-on-a-newer-schema). A deploy that changes the `db` service in the compose file restarts the database for a few seconds. Deploy only through the script. A `docker compose` command that starts a container by hand needs the deployed image: prefix it with `API_VERSION=$(git rev-parse HEAD)`, since the checkout always matches the running version.
 
 ## A migration failed
 
@@ -98,6 +98,14 @@ Migrations run before anything is replaced, so the version that was running keep
      node_modules/.bin/prisma migrate resolve --rolled-back <migration name>
    ```
 3. Fix the migration in a new commit on `main` and push it to `staging`; its deploy applies it again.
+
+## A version runs on a newer schema
+
+After a rollback, or a deploy of an earlier commit, the job names the migrations the running version does not know (REL-10). Prisma has no down migrations, so the schema stays as it is. On the server, in `/opt/nearby`:
+
+1. Check what fails: `docker compose -f docker-compose.staging.yml logs api`. Migrations that only add tables or nullable columns usually leave the earlier code working.
+2. If it works, fix the failed version and deploy the fix; its deploy finds the migrations already applied.
+3. If it does not, restore the copy taken just before the failed deploy, the newest in `/var/backups/nearby/manual/` ([Backups and restore](#backups-and-restore)): its schema is the one the running version knows. This loses what was written since that copy.
 
 ## Logs
 
@@ -112,13 +120,23 @@ Each container keeps at most 3 log files of 10 MB; older lines are dropped. Afte
 
 ## Backups and restore
 
-Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A restore replaces the current data:
+Backups are in `/var/backups/nearby/`: `daily/`, `weekly/` and `manual/` (before each deploy, last 5). A copy is kept only if `pg_restore --list` can read it, and `pg_dump` gives up after 15 minutes. A failed nightly backup is tried 3 times, 10 minutes apart; after that the night is recorded as failed and the next try is the following night. A failed backup before a deploy stops the deploy.
+
+Each night is a row in `backup_runs`, shown on the **Резервні копії** page of the admin panel with its result, attempts, duration, size and, for a failed night, a reason code. When the last one failed or is older than 26 hours, the `backup` service turns unhealthy, the next deploy job shows a warning, and the overview of the admin panel shows a warning. The error message, with hosts and users, is only in the log (`logs backup`). To make up a missed night by hand:
+
+```bash
+docker compose -f docker-compose.staging.yml exec backup sh /backup-db.sh nightly
+```
+
+A restore replaces the current data. The `backup` service only reads, so the owner does it, from the `db` container: its local socket needs no password, so the owner's password is never typed or passed. The dump is piped in from the host:
 
 ```bash
 docker compose -f docker-compose.staging.yml stop api
-docker compose -f docker-compose.staging.yml exec backup pg_restore --clean --if-exists -d nearby /backups/daily/<file>.dump
+docker compose -f docker-compose.staging.yml exec -T db pg_restore -U nearby --clean --if-exists -d nearby < /var/backups/nearby/daily/<file>.dump
 docker compose -f docker-compose.staging.yml start api
 ```
+
+`pg_restore` may print three `cannot drop inherited constraint` errors for the `pgboss` partitions and end with `errors ignored on restore: 3`; the data is restored.
 
 `docker compose down -v` does not delete the data: both volumes are external. Only `docker volume rm nearby-staging-db` does.
 

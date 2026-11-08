@@ -19,6 +19,9 @@ export type Post = {
   eventId?: string;
   photo?: ImageSource;
   going: boolean;
+  // Only posts that come from the API have them: the heading of the post, and whether the signed-in user wrote it.
+  title?: string;
+  own?: boolean;
 };
 
 // Dates are shifted like the mock events (Figma's Нд, 19 жовт is Нд, 25 жовт here).

@@ -11,7 +11,7 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | Registration and sign-in | Account, AuthMethod, VerificationCode, RefreshToken |
 | User profile | Profile, ProfilePhoto, LinkedAccount, Interest, ProfileInterest |
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
-| Event-based matching | Application, Match, Exclusion |
+| Event-based matching | Application, ApplicationSession, ApplicationAfterEventPlan, Match, Exclusion |
 | Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice_ack_at |
 | Listings | Listing |
 | Notifications | Notification, DeviceToken |
@@ -28,7 +28,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | **Account** | PK `id` | `role` (user / admin), `contact_identifier` (S, encrypted) — the verified phone number (E.164), revealed on a mutual match unless `Profile.share_phone` is off; null while sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), `contact_hash` (UK, nullable) — HMAC of the number with a key from the main server's env file; the encrypted value cannot be indexed, so uniqueness and every lookup go through the hash, `date_of_birth` (S, SAFE-001), `status` (pending / active / banned) — `pending` until the date of birth passes the age check; a pending account can only finish registration, `failed_signins`, `failed_signins_since` — the first failure counted in the current 15-minute window, `locked_until` (SEC-007). Administrator accounts are created by the team. |
 | **AuthMethod** | PK `id` | `account_id` FK, `type` (password / google), `secret` — argon2id hash (C) for a password, Google `sub` (P) for Google; UK (`account_id`, `type`), UK (`type`, `secret`) |
 | **VerificationCode** | PK `id` | `contact` (S, encrypted) — phone number, `contact_hash` — for the resend throttle, `channel` (telegram / sms) — Telegram Gateway API first, SMS as fallback; null until a provider takes the code, `provider_request_id` — for delivery checks and cost tracking, `code_hash` (C), `purpose` (registration / reset), `sent_at`, `expires_at`, `attempts`, `used_at` (SEC-008). No FK: the code is sent before the account exists. |
-| **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
+| **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `previous_token_hash` (C) and `rotated_at` — the hash the last renewal replaced and when, accepted for 60 s as the retry of a lost answer (REL-08), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
 
 ### profiles
 
@@ -45,7 +45,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Entity | Key | Main attributes |
 |---|---|---|
 | **Organization** | PK = FK `account_id` | `name`, `description`, `official_link`, `verification_status` (pending / verified / rejected / revoked), `verified_by` FK → Account (admin), `verified_at`. An organization is a regular user account with this extra row; it publishes events only when `verified`, and verification is done by the team. |
-| **Category** | PK `id` | `name` (UK), `is_active` (FR-029). Seeded with fixed ids: Concerts, Exhibitions, Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals, Parties, Volunteering and Open days; the import maps providers' genres to the first ten ([ADR-006](decisions/ADR-006.md)), Volunteering and Open days have listings only |
+| **Category** | PK `id` | `name` (UK; unique once normalized, see invariants), `slug` (UK; set once when the category is created and never changed, also on a rename: the seeded ones by the migration, the others made by the server from the name in Latin, `-2`, `-3`… when taken), `is_active` (FR-029). Seeded: Концерти, Виставки, Лекції, Майстер-класи, Кіно, Театр, Стендап, Спорт, Фестивалі, Вечірки, Волонтерство and Дні відкритих дверей, with the slugs `concerts`, `exhibitions`, `talks`, `workshops`, `cinema`, `theatre`, `stand-up`, `sports`, `festivals`, `parties`, `volunteering` and `open-days`; the import maps providers' genres to the first ten by slug ([ADR-006](decisions/ADR-006.md)), Волонтерство and Дні відкритих дверей have listings only |
 | **Venue** | PK `id` | `name`, `address`, `latitude`, `longitude` (FR-012) — placed on the map by the organization, taken from the provider, or found by the geocoder for a provider that gives none, `source` (organization / import), `organization_id` FK (organization venues only) |
 | **Event** | PK `id` | `category_id` FK, `venue_id` FK, `organization_id` FK (null for imported), `source` (organization / import), `provider` and `external_id` (imported only, UK together — re-import updates the same row), `title`, `description`, `image_url` and `source_url` (imported only, nullable: the provider's image and event page, linked, never copied), `starts_at`, `ends_at` (FR-007 date filter; when a provider gives no end, the end of the start day in Europe/Kyiv), `status` (published / cancelled) |
 | **EventSession** | PK `id` | `event_id` FK, `starts_at`, `status` (scheduled / cancelled); UK (`event_id`, `starts_at`). Matching rounds are anchored here ([matching](mechanisms/matching.md)). Created when the first user applies: one session for a single-day event, one per day for a multi-day event, at the time of day of `Event.starts_at` in Europe/Kyiv. |
@@ -61,7 +61,9 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Application** | PK `id` | `user_id` FK, `session_id` FK, `desired_company` (S; friends / casual / dating), `open_to_extend` (S; bool) — answers to the matching questions, which are the same for every event; each new question becomes a new column, `status` (in_pool / paired / paused / removed / withdrawn / no_match / cancelled) — `paused`: first unanswered proposal, waiting for the user to confirm "continue matching?"; `removed`: second unanswered proposal; `cancelled`: the event was cancelled or the user banned, `no_response_count` (0–2) — unanswered proposals in this application ([matching](mechanisms/matching.md) rule 6); a new application for the same session starts at 0, `created_at` — order in open mode |
+| **Application** | PK `id` | `user_id` FK, `event_id` FK — the days the user can go are in ApplicationSession, `desired_company` (S; friends / casual / dating) — the answer to the matching question on the kind of company, the same for every event; the plans after the event are in ApplicationAfterEventPlan, `status` (in_pool / paired / paused / removed / withdrawn / no_match / cancelled) — `paused`: first unanswered proposal, waiting for the user to confirm "continue matching?"; `removed`: second unanswered proposal; `cancelled`: the event was cancelled or the user banned, `no_response_count` (0–2) — unanswered proposals in this application ([matching](mechanisms/matching.md) rule 6); a new application for the same session starts at 0, `created_at` — order in open mode |
+| **ApplicationSession** | PK (`application_id`, `session_id`) | junction table: the days of the event the user can go, any one of which suits them; one row for a single-day event. A match picks one day both applications list ([matching](mechanisms/matching.md), rule 9) |
+| **ApplicationAfterEventPlan** | PK (`application_id`, `plan`) | junction table: `plan` (S; walk / coffee / dinner) — what the user would do together after the event; no rows means only the event |
 | **Match** | PK `id` | `application_a_id` FK, `application_b_id` FK, `source` (instant / round / open), `score` — the share of matching interests, 0–1, `decimal(4,3)` (threshold: [matching](mechanisms/matching.md)), `seed` (FUNC-001), `status` (proposed / accepted_a / accepted_b / mutual / declined / expired / cancelled), `cancel_reason` (event_cancelled / participant_banned / participant_withdrew) — `cancelled` creates no Exclusion and does not count as a decline, `valid_until` = min(`created_at` + 24 h, start of the next round, or the cutoff after the last round); at that moment the `matching.expire` job writes `expired` and applies a strike to each participant who did not respond (both, if neither did) |
 | **Exclusion** | PK `id` | `user_id` FK, `excluded_user_id` FK, `event_id` FK, `match_id` FK, `reason` (declined / expired) — one row per declined or expired proposal; the check is symmetric, so one row keeps the pair apart in both directions until the event ends. Reported and banned users come from `moderation.exclusionsFor(userId)` and are not copied here. |
 
@@ -86,6 +88,12 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
 | **DeviceToken** | PK `id` | `account_id` FK, `refresh_token_id` FK — the service deletes the row when that session is revoked (sign-out); the FK cascade only removes what is left when expired tokens are cleaned up daily, `push_token` (P, UK), `platform` (ios / android) |
 
+### admin
+
+| Entity | Key | Main attributes |
+|---|---|---|
+| **BackupRun** | PK `id` | `finished_at`, `succeeded`, `attempts`, `duration_seconds`, `size_bytes` (null when failed), `reason` — a code (unreachable / auth_failed / timeout / locked / unreadable / failed), null when it succeeded; the error message stays in the backup log. One row per nightly backup, written by `deploy/backup-db.sh` when it ends, so it has no `created_at`; the admin panel warns when the last one failed or is older than 26 h |
+
 ## 3. Relationships
 
 | Relationship | Cardinality | Note |
@@ -104,8 +112,10 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Venue — Event | 1 : 0..* | |
 | Event — EventSession | 1 : 0..* | none until someone applies |
 | ImportRun — SkippedRecord | 1 : 0..* | |
-| Account — Application | 1 : 0..* | at most one active application per user and session |
-| EventSession — Application | 1 : 0..* | the session's pool |
+| Account — Application | 1 : 0..* | at most one active application per user and event |
+| Event — Application | 1 : 0..* | the event's applications |
+| Application — EventSession | M : N | via ApplicationSession: the days each application waits in the pool of |
+| Application — ApplicationAfterEventPlan | 1 : 0..3 | each plan at most once |
 | Application — Match | 1 : 0..* (as A or B) | each Match joins exactly two applications; an application has at most one open match at a time (FUNC-002) |
 | Match — Exclusion | 1 : 0..1 | a row when the match was declined or expired |
 | Event — Exclusion | 1 : 0..* | an exclusion is scoped to one event |
@@ -124,15 +134,17 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Invariant | Enforced by |
 |---|---|
 | Usernames are unique regardless of case | unique index on `lower(username)` |
+| Category names are unique regardless of case, spaces and apostrophe (' ’ ʼ) | unique index on `name` in lower case, trimmed, with runs of spaces as one and every apostrophe as ʼ; the service saves names normalized the same way, apart from the case |
+| A category keeps its slug | the API accepts no slug and the service never passes one on an update |
 | One linked account per app | UK (`profile_id`, `app`) |
 | One password and one Google account per account, and a Google account linked to one account only | UK (`account_id`, `type`) and UK (`type`, `secret`) on AuthMethod |
-| One active application per user and session | partial unique index on (`user_id`, `session_id`) where `status` in (in_pool, paired, paused) — a paused user cannot skip the "continue?" step by applying again; `removed` stays outside, so a removed user may apply again |
+| One active application per user and event | partial unique index on (`user_id`, `event_id`) where `status` in (in_pool, paired, paused) — a paused user cannot apply again alongside the paused application; `removed` and `withdrawn` stay outside, so a removed user may apply again, and so may a paused user who withdraws, skipping the "continue?" step with no strikes, like a removed user (rule 6) |
 | One open case per report target | partial unique index on the target where `status = open` |
 | Exactly one target in a ReportCase | CHECK |
 | A Match joins two different applications | CHECK (`application_a_id <> application_b_id`) |
 | An active account has a date of birth (SAFE-001) | CHECK (`status <> 'active' OR date_of_birth IS NOT NULL`) — the database checks only that the date exists; the date is encrypted, so the age of at least 18 is checked by the service (identity) before the status becomes `active` |
 | A failure count has the start of its window (SEC-007) | CHECK (`(failed_signins = 0) = (failed_signins_since IS NULL)`) and CHECK (`failed_signins >= 0`); the threshold of 5 is checked by the service (identity) |
-| Both applications of a Match belong to the same session | service (matching), under the per-session lock |
+| Both applications of a Match belong to the same event and list its day | service (matching), under the per-event lock |
 | At least one shared contact (`share_phone` or a linked account) | service (profiles): a linked account, while sign-in is Google-only and there is no phone — spans two tables |
 | Only verified organizations publish events; organization accounts do not apply for matching | service — the data lives in other modules |
 
@@ -149,7 +161,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Phone number, linked-account usernames | Account.contact_identifier, VerificationCode.contact, LinkedAccount.username | S | column-level encryption (SEC-003); the phone number is looked up only through `contact_hash`; account and linked contacts are revealed only after mutual acceptance and safety acknowledgment (SEC-001, SAFE-002); VerificationCode.contact is never revealed |
 | Date of birth | Account.date_of_birth | S | encrypted at rest (SEC-003); other users see only the age, computed on the server |
 | Photo | ProfilePhoto.content | S | encrypted at rest with the database volume; served only through an authenticated API endpoint, never as a public link |
-| Communication format, per-event answers | Profile.communication_format, Application.desired_company, Application.open_to_extend | S | reveal a "dating" preference; shown only to a proposed match |
+| Communication format, per-event answers | Profile.communication_format, Application.desired_company, ApplicationAfterEventPlan.plan | S | reveal a "dating" preference; shown only to a proposed match |
 | Google subject ID | AuthMethod.secret (type google) | P | never returned by the API |
 | Username, display name, description, interests, age | Profile, ProfileInterest | P | shown to other signed-in users by design, never to guests. The description is free text and may contain whatever the user chooses to disclose; reports (FR-025) cover misuse. |
 | Listing text, report comment | Listing.description, Report.comment | P | report comments visible to administrators only |

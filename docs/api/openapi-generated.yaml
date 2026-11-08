@@ -15,16 +15,20 @@ tags:
     description: Events users can go to together
   - name: Listings
     description: '"Looking for company" posts'
+  - name: Matching
+    description: Asking for a match at an event and leaving the pool
   - name: Profiles
     description: The signed-in user’s profile, filled in step by step during onboarding
   - name: Interests
     description: The fixed list of interests users pick from
   - name: Categories
     description: The event category directory
+  - name: Organizations
+    description: 'Organization status: an account requests it, administrators verify it'
   - name: Moderation
-    description: Reports on users and how administrators resolve them
+    description: Reports on users and listings, and how administrators resolve them
   - name: Admin
-    description: Platform statistics for administrators
+    description: Platform statistics and database backups for administrators
   - name: System
     description: Service endpoints
 components:
@@ -37,31 +41,94 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
-    PlatformStats:
+    BackupHistory:
       type: object
       properties:
-        users:
-          type: integer
-          description: 'Active accounts: registered and not banned'
-        events:
-          type: integer
-          description: Published events that have not ended yet
-        matches:
-          type: integer
-          description: Matches proposed so far
-        openReports:
-          type: integer
-          description: Open report cases
+        status:
+          type: object
+          nullable: true
+          properties:
+            lastSucceededAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: When the last nightly backup succeeded; null if none has
+            overdue:
+              type: boolean
+              description: The last nightly backup failed, or it is more than 26 hours old
+          required:
+            - lastSucceededAt
+            - overdue
+          description: Null where no nightly backup has run, e.g. in development
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BackupRun'
+          description: The last 30 nights, newest first
       required:
-        - users
-        - events
-        - matches
-        - openReports
+        - status
+        - items
       example:
-        users: 128
-        events: 42
-        matches: 0
-        openReports: 3
+        status:
+          lastSucceededAt: '2026-11-06T01:00:12.000Z'
+          overdue: true
+        items:
+          - finishedAt: '2026-11-07T01:20:31.000Z'
+            succeeded: false
+            attempts: 3
+            durationSeconds: 0
+            sizeBytes: null
+            reason: unreachable
+          - finishedAt: '2026-11-06T01:00:12.000Z'
+            succeeded: true
+            attempts: 1
+            durationSeconds: 12
+            sizeBytes: 4404019
+            reason: null
+    BackupRun:
+      type: object
+      properties:
+        finishedAt:
+          type: string
+          format: date-time
+          description: 'When the night ended: the copy was kept, or the last attempt failed'
+        succeeded:
+          type: boolean
+        attempts:
+          type: integer
+          description: Attempts that night, at most 3
+        durationSeconds:
+          type: integer
+          description: How long the last attempt took
+        sizeBytes:
+          type: integer
+          nullable: true
+          description: Size of the copy; null when the night failed
+        reason:
+          type: string
+          nullable: true
+          enum:
+            - unreachable
+            - auth_failed
+            - timeout
+            - locked
+            - unreadable
+            - failed
+            - null
+          description: >-
+            Why the night failed; null when it succeeded. `unreachable`: the
+            database did not answer. `auth_failed`: it refused the sign-in.
+            `timeout`: the copy took more than 15 minutes. `locked`: tables
+            stayed locked, e.g. by a migration. `unreadable`: the copy could not
+            be read back. `failed`: anything else. The details are only in the
+            server log
+      required:
+        - finishedAt
+        - succeeded
+        - attempts
+        - durationSeconds
+        - sizeBytes
+        - reason
     ErrorResponse:
       type: object
       properties:
@@ -108,9 +175,13 @@ components:
         - ORGANIZATION_NOT_VERIFIED
         - EVENT_CANCELLED
         - EVENT_ENDS_BEFORE_START
+        - APPLICATIONS_CLOSED
+        - INVALID_SESSION_DAY
         - LISTING_DATE_IN_PAST
         - USERNAME_TAKEN
         - PROFILE_EXISTS
+        - PROFILE_INCOMPLETE
+        - ALREADY_APPLIED
         - CONTACT_REQUIRED
         - INVALID_SOCIAL_HANDLE
         - INVALID_CREDENTIALS
@@ -125,6 +196,7 @@ components:
         - CANNOT_REPORT_SELF
         - CANNOT_RESOLVE_OWN_CASE
         - CANNOT_BAN_ADMIN
+        - CANNOT_DECIDE_OWN_REQUEST
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -147,6 +219,53 @@ components:
         - query
         - body
       description: Part of the request the invalid field is in
+    PlatformStats:
+      type: object
+      properties:
+        users:
+          type: integer
+          description: 'Active accounts: registered and not banned'
+        events:
+          type: integer
+          description: Published events that have not ended yet
+        matches:
+          type: integer
+          description: Matches proposed so far
+        openReports:
+          type: integer
+          description: Open report cases
+        backup:
+          type: object
+          nullable: true
+          properties:
+            lastSucceededAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: When the last nightly backup succeeded; null if none has
+            overdue:
+              type: boolean
+              description: The last nightly backup failed, or it is more than 26 hours old
+          required:
+            - lastSucceededAt
+            - overdue
+          description: >-
+            Nightly database backups; null where none has run, e.g. in
+            development
+      required:
+        - users
+        - events
+        - matches
+        - openReports
+        - backup
+      example:
+        users: 128
+        events: 42
+        matches: 0
+        openReports: 3
+        backup:
+          lastSucceededAt: '2026-11-07T01:00:42.000Z'
+          overdue: false
     AdminCategoryList:
       type: object
       properties:
@@ -159,7 +278,8 @@ components:
       example:
         items:
           - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
+            name: Концерти
+            slug: concerts
             isActive: true
     AdminCategory:
       type: object
@@ -169,17 +289,24 @@ components:
           format: uuid
         name:
           type: string
+        slug:
+          type: string
+          description: >-
+            Made from the name when the category is added and never changed,
+            also on a rename; the event import maps providers' genres to it
         isActive:
           type: boolean
           description: Inactive categories are hidden from filters and cannot be picked
       required:
         - id
         - name
+        - slug
         - isActive
       description: A category as administrators see it
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
+        name: Концерти
+        slug: concerts
         isActive: true
     CreateCategoryBody:
       type: object
@@ -188,7 +315,9 @@ components:
           type: string
           minLength: 1
           maxLength: 60
-          description: Unique, case-insensitive
+          description: >-
+            Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ;
+            unique regardless of case, spaces and apostrophe
         isActive:
           type: boolean
           default: true
@@ -197,7 +326,7 @@ components:
         - name
       additionalProperties: false
       example:
-        name: Workshops
+        name: Майстер-класи
     UpdateCategoryBody:
       type: object
       properties:
@@ -205,7 +334,9 @@ components:
           type: string
           minLength: 1
           maxLength: 60
-          description: Unique, case-insensitive
+          description: >-
+            Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ;
+            unique regardless of case, spaces and apostrophe
         isActive:
           type: boolean
           description: Whether users can pick the category
@@ -225,7 +356,7 @@ components:
       example:
         items:
           - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Concerts
+            name: Концерти
     Category:
       type: object
       properties:
@@ -240,7 +371,7 @@ components:
       description: An event category from the directory administrators manage
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-        name: Concerts
+        name: Концерти
     EventsPage:
       type: object
       properties:
@@ -260,7 +391,7 @@ components:
             description: Screening in the park, bring a blanket.
             category:
               id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-              name: Concerts
+              name: Концерти
             venue:
               id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
               name: Natalka Park lawn
@@ -333,7 +464,7 @@ components:
         description: Screening in the park, bring a blanket.
         category:
           id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-          name: Concerts
+          name: Концерти
         venue:
           id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
           name: Natalka Park lawn
@@ -446,6 +577,74 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
+    Organization:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        officialLink:
+          type: string
+          nullable: true
+        verificationStatus:
+          type: string
+          enum:
+            - pending
+            - verified
+            - rejected
+            - revoked
+          description: >-
+            pending: waits for an administrator; only a verified organization
+            publishes events
+        verifiedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When an administrator verified it; null otherwise
+      required:
+        - name
+        - description
+        - officialLink
+        - verificationStatus
+        - verifiedAt
+      description: The caller’s organization request and its status
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
+        verificationStatus: pending
+        verifiedAt: null
+    OrganizationRequestBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: The organization’s name, as users will see it
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: What the organization does
+        officialLink:
+          type: string
+          maxLength: 500
+          format: uri
+          description: >-
+            The organization’s official site or page, where an administrator can
+            check it
+      required:
+        - name
+        - description
+        - officialLink
+      additionalProperties: false
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
     AccessTokenResponse:
       type: object
       properties:
@@ -553,7 +752,7 @@ components:
               displayName: Olena
             category:
               id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
-              name: Exhibitions
+              name: Виставки
             eventId: null
             title: Looking for company for an exhibition on Saturday
             description: Planning to go in the evening, happy to grab a coffee after.
@@ -604,7 +803,7 @@ components:
           displayName: Olena
         category:
           id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
-          name: Exhibitions
+          name: Виставки
         eventId: null
         title: Looking for company for an exhibition on Saturday
         description: Planning to go in the evening, happy to grab a coffee after.
@@ -662,13 +861,188 @@ components:
         title: Looking for company for the Arsenal exhibition
         description: Planning to go in the evening, happy to grab a coffee after.
         date: '2026-10-20'
-    ReportCasesPage:
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationSession'
+          description: >-
+            The days the user can go, soonest first: the event's only session,
+            or the picked days of a multi-day event
+        cutoffAt:
+          type: string
+          format: date-time
+          description: 'The last day''s cutoff: until then the application can be matched'
+        desiredCompany:
+          $ref: '#/components/schemas/CommunicationFormat'
+        afterEventPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfterEventPlan'
+          description: >-
+            What the user would do together after the event; empty: only the
+            event
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        nextRoundAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: >-
+            The earliest matching round still to come on any of the days; null
+            when the application is not waiting in the pool or no round is left
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventId
+        - sessions
+        - cutoffAt
+        - desiredCompany
+        - afterEventPlans
+        - status
+        - nextRoundAt
+        - createdAt
+      description: The caller’s request to be matched in one session of an event
+      example:
+        id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+        eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+        sessions:
+          - startsAt: '2026-10-24T16:00:00.000Z'
+            cutoffAt: '2026-10-24T15:00:00.000Z'
+          - startsAt: '2026-10-25T17:00:00.000Z'
+            cutoffAt: '2026-10-25T16:00:00.000Z'
+        cutoffAt: '2026-10-25T16:00:00.000Z'
+        desiredCompany: company
+        afterEventPlans:
+          - walk
+          - coffee
+        status: in_pool
+        nextRoundAt: '2026-10-21T16:00:00.000Z'
+        createdAt: '2026-10-15T09:00:00.000Z'
+    ApplicationSession:
+      type: object
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: >-
+            The event start, or a picked day of a multi-day event at its time of
+            day
+        cutoffAt:
+          type: string
+          format: date-time
+          description: >-
+            When matching for this day stops: an hour before it starts, or for a
+            session of 3 hours or more 2 hours before it ends. After the last
+            round and before this, the pool is in open mode
+      required:
+        - startsAt
+        - cutoffAt
+      description: A day the user can go
+    CommunicationFormat:
+      type: string
+      enum:
+        - friends
+        - dating
+        - company
+      description: What the user is looking for when they go to an event
+    AfterEventPlan:
+      type: string
+      enum:
+        - walk
+        - coffee
+        - dinner
+      description: Something to do together after the event
+    ApplicationStatus:
+      type: string
+      enum:
+        - in_pool
+        - paired
+        - paused
+        - removed
+        - withdrawn
+        - no_match
+        - cancelled
+      description: >-
+        `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`:
+        a proposal went unanswered, waiting for the user to continue. `removed`:
+        a second proposal went unanswered. `withdrawn`: the user left the pool.
+        `no_match`: no match was found before the event. `cancelled`: the event
+        was cancelled or the user banned
+    CreateApplicationBody:
+      type: object
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+          minItems: 1
+          maxItems: 366
+          description: >-
+            The Kyiv days the user can go on, any one of which suits them;
+            needed only for an event that runs on several days
+        desiredCompany:
+          type: string
+          enum:
+            - friends
+            - dating
+            - company
+          description: What kind of company the user is looking for at this event
+        afterEventPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfterEventPlan'
+          maxItems: 3
+          description: >-
+            What the user would do together after the event; an empty list means
+            only the event
+      required:
+        - desiredCompany
+        - afterEventPlans
+      additionalProperties: false
+      example:
+        desiredCompany: company
+        afterEventPlans:
+          - walk
+          - coffee
+    ApplicationList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Application'
+      example:
+        - id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+          eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+          sessions:
+            - startsAt: '2026-10-24T16:00:00.000Z'
+              cutoffAt: '2026-10-24T15:00:00.000Z'
+            - startsAt: '2026-10-25T17:00:00.000Z'
+              cutoffAt: '2026-10-25T16:00:00.000Z'
+          cutoffAt: '2026-10-25T16:00:00.000Z'
+          desiredCompany: company
+          afterEventPlans:
+            - walk
+            - coffee
+          status: in_pool
+          nextRoundAt: '2026-10-21T16:00:00.000Z'
+          createdAt: '2026-10-15T09:00:00.000Z'
+    AdminOrganizationsPage:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ReportCase'
+            $ref: '#/components/schemas/AdminOrganization'
         page:
           $ref: '#/components/schemas/PageInfo'
       required:
@@ -676,27 +1050,52 @@ components:
         - page
       example:
         items:
-          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+          - name: Мистецький Арсенал
+            description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+            officialLink: https://artarsenal.in.ua
+            verificationStatus: pending
+            verifiedAt: null
+            accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
             account:
-              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
-              username: olena_k
-              displayName: Olena
-            status: open
-            resolution: null
-            reportCount: 2
-            firstReportedAt: '2026-10-30T19:12:00.000Z'
-            lastReportedAt: '2026-10-31T08:40:00.000Z'
-            resolvedAt: null
+              id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+              username: arsenal
+              displayName: Арсенал
         page:
           limit: 20
           offset: 0
           hasMore: false
-    ReportCase:
+    AdminOrganization:
       type: object
       properties:
-        id:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        officialLink:
+          type: string
+          nullable: true
+        verificationStatus:
+          type: string
+          enum:
+            - pending
+            - verified
+            - rejected
+            - revoked
+          description: >-
+            pending: waits for an administrator; only a verified organization
+            publishes events
+        verifiedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When an administrator verified it; null otherwise
+        accountId:
           type: string
           format: uuid
+          description: >-
+            The account that sent the request; the id in the approve and reject
+            paths
         account:
           type: object
           properties:
@@ -714,7 +1113,116 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The account that sent the request
+      required:
+        - name
+        - description
+        - officialLink
+        - verificationStatus
+        - verifiedAt
+        - accountId
+        - account
+      description: An organization request as an administrator reviews it
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
+        verificationStatus: pending
+        verifiedAt: null
+        accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+        account:
+          id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+          username: arsenal
+          displayName: Арсенал
+    ReportCasesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportCase'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+            targetType: account
+            account:
+              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+              username: olena_k
+              displayName: Olena
+            listing: null
+            status: open
+            resolution: null
+            reportCount: 2
+            firstReportedAt: '2026-10-30T19:12:00.000Z'
+            lastReportedAt: '2026-10-31T08:40:00.000Z'
+            resolvedAt: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    ReportCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -744,7 +1252,9 @@ components:
           format: date-time
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -753,10 +1263,12 @@ components:
         - resolvedAt
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -769,6 +1281,12 @@ components:
         id:
           type: string
           format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
         account:
           type: object
           properties:
@@ -786,7 +1304,35 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -850,7 +1396,9 @@ components:
           description: Every report in the case, oldest first
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -860,10 +1408,12 @@ components:
         - reports
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -906,7 +1456,13 @@ components:
           type: string
           minLength: 1
           maxLength: 50
-          description: Username of the user being reported, as their profile shows it
+          description: >-
+            Username of the user being reported, as their profile shows it; send
+            this or listingId
+        listingId:
+          type: string
+          format: uuid
+          description: Id of the listing being reported; send this or username
         reason:
           type: string
           enum:
@@ -923,9 +1479,9 @@ components:
           maxLength: 1000
           description: What happened, in the reporter’s words
       required:
-        - username
         - reason
       additionalProperties: false
+      description: A report on a user (username) or on a listing (listingId), never both
       example:
         username: olena_k
         reason: no_show
@@ -1120,13 +1676,6 @@ components:
       description: Only the fields to change; at least one
       example:
         communicationFormat: friends
-    CommunicationFormat:
-      type: string
-      enum:
-        - friends
-        - dating
-        - company
-      description: What the user is looking for when they go to an event
     ReplaceInterestsBody:
       type: object
       properties:
@@ -1183,21 +1732,72 @@ components:
         status:
           type: string
           enum:
-            - ok
+            - healthy
+            - unhealthy
+          description: healthy only while every dependency in checks is up
+        checks:
+          type: object
+          properties:
+            database:
+              type: string
+              enum:
+                - up
+                - down
+          required:
+            - database
+          description: >-
+            Each dependency the API needs, up or down; the cause of a failure is
+            only logged
       required:
         - status
-      description: Returned while the API is up
+        - checks
+      description: Whether the API and the dependencies it needs are up
       example:
-        status: ok
+        status: healthy
+        checks:
+          database: up
   parameters: {}
 paths:
+  /api/v1/admin/backups:
+    get:
+      operationId: adminListBackups
+      summary: List the nightly database backups
+      description: >-
+        Tell whether the nightly database backups are up to date and list the
+        last 30 nights. A failed night carries a reason code only; hosts, users
+        and error messages stay in the server log. Needs an administrator
+        account; other accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The status and the last nights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupHistory'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/stats:
     get:
       operationId: adminGetStats
       summary: Get platform statistics
       description: >-
-        Count active users, upcoming events, matches and open report cases.
-        Needs an administrator account; other accounts get 404.
+        Count active users, upcoming events, matches and open report cases, and
+        tell whether the nightly database backups are up to date. Needs an
+        administrator account; other accounts get 404.
       tags:
         - Admin
       security:
@@ -1255,7 +1855,11 @@ paths:
     post:
       operationId: adminCreateCategory
       summary: Add a category
-      description: Add a category. Needs an administrator account; other accounts get 404.
+      description: >-
+        Add a category. The server makes its slug from the name, transliterated
+        to Latin (Майстер-класи → maister-klasy), with a number added if another
+        category has it (maister-klasy-2). Needs an administrator account; other
+        accounts get 404.
       tags:
         - Categories
       security:
@@ -1296,7 +1900,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Another category already has this name
+          description: >-
+            Another category already has this name, compared regardless of case,
+            spaces and apostrophe
           content:
             application/json:
               schema:
@@ -1350,8 +1956,8 @@ paths:
       operationId: adminUpdateCategory
       summary: Rename, deactivate or reactivate a category
       description: >-
-        Rename, deactivate or reactivate a category. Needs an administrator
-        account; other accounts get 404.
+        Change the name or whether the category is active. The slug stays as it
+        was made. Needs an administrator account; other accounts get 404.
       tags:
         - Categories
       security:
@@ -1396,7 +2002,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Another category already has this name
+          description: >-
+            Another category already has this name, compared regardless of case,
+            spaces and apostrophe
           content:
             application/json:
               schema:
@@ -1757,6 +2365,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/organization:
+    get:
+      operationId: getMyOrganization
+      summary: Get your organization request
+      description: >-
+        Get the caller’s organization request with its verification status:
+        pending, verified or rejected. Only a verified organization can publish
+        events. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The request and its status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The caller has not requested organization status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: requestOrganizationStatus
+      summary: Request organization status
+      description: >-
+        Ask to become a verified organization with a name, a description and an
+        official link. The request waits as pending until an administrator
+        decides it. A pending request is replaced, and after a rejection the
+        request can be sent again. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationRequestBody'
+      responses:
+        '200':
+          description: The request, now pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the organization is already verified, or its
+            verification was revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/google/register:
     post:
       operationId: registerWithGoogle
@@ -1917,9 +2601,9 @@ paths:
       summary: Renew the access token
       description: >-
         Renew the access token with the refresh token, without signing in again.
-        The refresh token is replaced: keep the new one, since the old one no
-        longer works, and using it again ends the session. No access token
-        needed.
+        The refresh token is replaced: keep the new one. If the answer is lost,
+        send the old one again within 60 seconds; after that, or for any older
+        token, it ends the session. No access token needed.
       tags:
         - Auth
       x-mcp: false
@@ -1945,6 +2629,14 @@ paths:
           description: >-
             `INVALID_REFRESH_TOKEN`: the session expired, was ended, or the
             token was already used
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: another renewal with the same token ran at the same
+            time; keep the token and try again
           content:
             application/json:
               schema:
@@ -2150,14 +2842,383 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/applications:
+    post:
+      operationId: applyToEvent
+      summary: Ask for a match at an event
+      description: >-
+        Join the matching pool of the event with the answers to the matching
+        questions. A single-day event has one session; for an event that runs on
+        several days, `dates` lists the days the user can go, and a match picks
+        one of them. The answer says when the next matching round runs. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationBody'
+      responses:
+        '201':
+          description: The application, waiting in the pool
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`ALREADY_APPLIED`: the caller is already in the pool of this event.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `PROFILE_INCOMPLETE`: the profile lacks a communication format, an
+            interest or a linked account; the app sends the user to complete it.
+            `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`:
+            the cutoff of a picked day has passed: an hour before it starts, or
+            for a session of 3 hours or more, 2 hours before it ends.
+            `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or
+            runs on several days and `dates` is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/applications:
+    get:
+      operationId: listMyApplications
+      summary: List your applications
+      description: >-
+        The caller’s active applications (in the pool, paired or paused),
+        soonest first day first. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The active applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/applications/{id}:
+    get:
+      operationId: getApplication
+      summary: Get one of your applications
+      description: >-
+        Get one of the caller’s applications, whatever its status. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Application id
+          required: true
+          description: Application id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No application with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/applications/{id}/withdraw:
+    post:
+      operationId: withdrawApplication
+      summary: Leave the matching pool
+      description: >-
+        Withdraw one of the caller’s applications; withdrawing it again changes
+        nothing. The caller can apply to the same event again later. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Application id
+          required: true
+          description: Application id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The withdrawn application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No application with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`CONFLICT`: the application is no longer waiting in the pool.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations:
+    get:
+      operationId: adminListOrganizations
+      summary: List organization requests
+      description: >-
+        List organization requests: pending ones first, oldest first, then the
+        verified, rejected and revoked ones. Needs an administrator account;
+        other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations/{accountId}/approve:
+    post:
+      operationId: adminApproveOrganization
+      summary: Verify an organization
+      description: >-
+        Approve a pending request: the organization becomes verified and can
+        publish events. The administrator and the time are recorded. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id of the organization
+          required: true
+          description: Account id of the organization
+          name: accountId
+          in: path
+      responses:
+        '200':
+          description: The organization, now verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            The account has not requested organization status, or the caller is
+            not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`:
+            it is the caller’s own request, which another administrator decides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations/{accountId}/reject:
+    post:
+      operationId: adminRejectOrganization
+      summary: Reject an organization request
+      description: >-
+        Reject a pending request. The account can send the request again. Needs
+        an administrator account; other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id of the organization
+          required: true
+          description: Account id of the organization
+          name: accountId
+          in: path
+      responses:
+        '200':
+          description: The organization, now rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            The account has not requested organization status, or the caller is
+            not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`:
+            it is the caller’s own request, which another administrator decides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/report-cases:
     get:
       operationId: adminListReportCases
       summary: List report cases
       description: >-
-        List report cases, oldest first: one case per reported user, with the
-        number of reports. Open cases by default; `status=resolved` lists the
-        resolved ones. Needs an administrator account; other accounts get 404.
+        List report cases, oldest first: one case per reported user or listing,
+        with the number of reports. Open cases by default; `status=resolved`
+        lists the resolved ones. Needs an administrator account; other accounts
+        get 404.
       tags:
         - Moderation
       security:
@@ -2225,7 +3286,8 @@ paths:
       summary: Get a report case
       description: >-
         Get a report case with every report in it: who reported, the reason and
-        the comment. Needs an administrator account; other accounts get 404.
+        the comment. A listing case shows the listing, also after it was
+        removed. Needs an administrator account; other accounts get 404.
       tags:
         - Moderation
       security:
@@ -2314,9 +3376,67 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: >-
-            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
-            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
-            about the caller, whom another administrator must judge
+            `CONFLICT`: the case was dismissed, or it is about a listing.
+            `CANNOT_BAN_ADMIN`: the reported user is an administrator.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/remove-listing:
+    post:
+      operationId: adminRemoveReportedListing
+      summary: Remove the reported listing
+      description: >-
+        Remove the listing a listing case is about and resolve the case as
+        `removed`. The listing leaves the feed and its page answers 404, as
+        after the author deletes it. On a case already resolved as removed, the
+        removal is applied again, so a removal that failed halfway can be
+        retried. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case was banned or dismissed, or it is about a user.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
           content:
             application/json:
               schema:
@@ -2369,21 +3489,23 @@ paths:
         '409':
           description: >-
             `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
-            the case is about the caller, whom another administrator must judge
+            the case is about the caller or their listing, which another
+            administrator must judge
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/reports:
     post:
-      operationId: reportUser
-      summary: Report a user
+      operationId: createReport
+      summary: Report a user or a listing
       description: >-
-        Report a user by username, with a reason and an optional comment.
-        Administrators review it; repeated reports on one user are grouped into
-        one case. The reporter gets no details about the case, and a report on a
-        banned user is accepted the same way but not stored. Needs a signed-in
-        account; a guest token gets 401.
+        Report a user by username, or someone else’s listing by its id, with a
+        reason and an optional comment. Administrators review it; repeated
+        reports on one user or one listing are grouped into one case. The
+        reporter gets no details about the case, and a report on a banned user
+        is accepted the same way but not stored. Needs a signed-in account; a
+        guest token gets 401.
       tags:
         - Moderation
       security:
@@ -2410,8 +3532,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: >-
-            `REFERENCE_NOT_FOUND`: no user has this username.
-            `CANNOT_REPORT_SELF`: it is your own username.
+            `REFERENCE_NOT_FOUND`: no user has this username, or no active
+            listing has this id. `CANNOT_REPORT_SELF`: it is your own username
+            or your own listing.
           content:
             application/json:
               schema:
@@ -2670,13 +3793,22 @@ paths:
   /health:
     get:
       operationId: getHealth
-      summary: Check that the API is running
-      description: Check that the API is running. No access token needed.
+      summary: Check that the API and its database are up
+      description: >-
+        Checks that the API is running and that its database answers within 2 s.
+        `200` while it is healthy; `503` with the dependency that is down in
+        `checks`. No access token needed.
       tags:
         - System
       responses:
         '200':
-          description: The API is up
+          description: The API and its database are up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: A dependency the API needs is down
           content:
             application/json:
               schema:

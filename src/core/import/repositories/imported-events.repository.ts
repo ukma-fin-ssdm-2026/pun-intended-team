@@ -16,8 +16,8 @@ import type {
  * event and venue rows through its own repositories.
  */
 export abstract class ImportedEventsRepository {
-  /** Active categories, which the import may only read. */
-  abstract findActiveCategories(): Promise<ImportCategory[]>;
+  /** All categories, active or not, which the import may only read. */
+  abstract findCategories(): Promise<ImportCategory[]>;
 
   /**
    * Marks the provider's runs that are still `running` as `failed`, leaving `finished_at` empty: a run that never

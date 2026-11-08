@@ -7,7 +7,7 @@ import { rejectedPaths } from './fixtures/schemas.ts';
 const NAME_MAX = 60;
 
 function aCreateCategoryBody(overrides: { name?: string; isActive?: boolean } = {}) {
-  return { name: 'Workshops', isActive: true, ...overrides };
+  return { name: 'Майстер-класи', isActive: true, ...overrides };
 }
 
 // FR-029

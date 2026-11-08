@@ -3,9 +3,10 @@ import { apiClient } from '@/api/client';
 import { call } from '@/api/public-client';
 import { useApiQuery } from '@/hooks/use-api-query';
 
-export function useEvent(id: string) {
-  const { data, failure, loading, reload } = useApiQuery(id, () =>
-    call(() => apiClient.GET('/api/v1/events/{id}', { params: { path: { id } } })),
+// Loads nothing while `id` is undefined.
+export function useEvent(id: string | undefined) {
+  const { data, failure, loading, reload } = useApiQuery(id ?? null, () =>
+    call(() => apiClient.GET('/api/v1/events/{id}', { params: { path: { id: id ?? '' } } })),
   );
   const notFound = failure?.status === 404;
   let error: string | undefined;

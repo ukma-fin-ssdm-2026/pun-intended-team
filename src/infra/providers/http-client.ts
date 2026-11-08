@@ -20,9 +20,13 @@ export interface PoliteHttpClientOptions {
   intervalMs: number;
   /** Path prefixes the site's robots.txt disallows; a request for one throws without being sent. */
   disallowedPaths?: string[];
-  /** Retries after a network error, 429 or 5xx; the wait doubles from `backoffMs`. */
+  /**
+   * Retries after a network error, a timeout, 429 or 5xx. Each wait is random between 0 and `backoffMs` doubled per
+   * attempt, at most `maxBackoffMs` (full jitter); after the last attempt the failure is logged and passed on.
+   */
   retries?: number;
   backoffMs?: number;
+  maxBackoffMs?: number;
   timeoutMs?: number;
   /** The time and the wait, which tests replace; the real ones by default. */
   clock?: Clock;
@@ -64,7 +68,7 @@ export class PoliteHttpClient implements HttpClient {
   }
 
   private async getWithRetries(url: string, headers: Record<string, string>): Promise<HttpResponse> {
-    const { retries = 3, backoffMs = 1000 } = this.options;
+    const { retries = 3, backoffMs = 1000, maxBackoffMs = 8000 } = this.options;
     for (let attempt = 0; ; attempt++) {
       let failure: string;
       try {
@@ -72,20 +76,26 @@ export class PoliteHttpClient implements HttpClient {
         if (response.status !== 429 && response.status < 500) {
           return response;
         }
+        failure = `status ${response.status}`;
         if (attempt >= retries) {
+          this.giveUp(url, attempt, failure);
           return response;
         }
-        failure = `status ${response.status}`;
       } catch (error) {
+        failure = error instanceof Error ? error.message : String(error);
         if (attempt >= retries) {
+          this.giveUp(url, attempt, failure);
           throw error;
         }
-        failure = error instanceof Error ? error.message : String(error);
       }
-      const wait = backoffMs * 2 ** attempt;
+      const wait = Math.round(Math.random() * Math.min(maxBackoffMs, backoffMs * 2 ** attempt));
       this.logger.warn(`GET ${redactedUrl(url)} failed (${failure}); retrying in ${wait} ms`);
       await this.clock.sleep(wait);
     }
+  }
+
+  private giveUp(url: string, attempt: number, failure: string): void {
+    this.logger.error(`GET ${redactedUrl(url)} failed after ${attempt + 1} attempts (${failure}); giving up`);
   }
 
   private async send(url: string, headers: Record<string, string>): Promise<HttpResponse> {

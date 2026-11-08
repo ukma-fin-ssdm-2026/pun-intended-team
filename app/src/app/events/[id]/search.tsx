@@ -1,24 +1,41 @@
 // Written with the help of Claude
-// AI Usage: company search screen from the Figma "04 Пошук компанії" frame, on mock data; reviewed by Daryna Halytska.
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+// AI Usage: company search screen from the Figma "04 Пошук компанії" frame, on the user's application; reviewed by
+// Daryna Halytska.
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { withdrawApplication } from '@/api/applications';
+import { failureSnackbar } from '@/auth/messages';
 import { MatchingNav } from '@/components/matching/matching-nav';
 import { LeavePoolDialog, SearchMenuSheet } from '@/components/matching/search-menu';
 import { SearchRadar } from '@/components/matching/search-radar';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
-import { formatShortDay } from '@/dates';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
+import { formatEventDate, formatShortDay, formatUntil } from '@/dates';
+import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
-import { mockSearch } from '@/mocks/matching';
-import { setInPool } from '@/state/session';
+import { plural } from '@/plural';
+import { matchingPhase, openSessions } from '@/state/applications';
 import { colors } from '@/styles/tokens';
 
-// The prototype shows the proposed match (05) after 4 s of searching.
-const SEARCH_MS = 4000;
+const HOUR_MS = 60 * 60 * 1000;
+// How long before the session each round runs, as in the API (matching.md, policy).
+const ROUND_OFFSETS_MS = [7 * 24 * HOUR_MS, 3 * 24 * HOUR_MS, 24 * HOUR_MS, 6 * HOUR_MS];
+
+// The number of the next round among its day's rounds, from 1; one past the last when no round is left.
+function roundNumber(sessions: { startsAt: string }[], nextRoundAt: string | null): number {
+  if (!nextRoundAt) return ROUND_OFFSETS_MS.length + 1;
+  const next = Date.parse(nextRoundAt);
+  const day =
+    sessions.find(({ startsAt }) => ROUND_OFFSETS_MS.some((offset) => Date.parse(startsAt) - offset === next)) ??
+    sessions[0];
+  const start = Date.parse(day?.startsAt ?? nextRoundAt);
+  return ROUND_OFFSETS_MS.filter((offset) => start - offset < next).length + 1;
+}
 
 function WaitingItem({
   icon,
@@ -50,22 +67,66 @@ export default function CompanySearchScreen() {
   const router = useRouter();
   // "Ще" opens the 04.1 menu, whose "Вийти з підбору" opens the 04.2 dialog.
   const [overlay, setOverlay] = useState<'menu' | 'leave' | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const { snackbar, show } = useSnackbar();
   useStatusBarStyle('light');
 
-  // Only 04 itself moves on to 05; the menu and the dialog keep the search waiting.
-  useFocusEffect(
-    useCallback(() => {
-      if (overlay) return;
-      const timer = setTimeout(() => router.push('/proposal'), SEARCH_MS);
-      return () => clearTimeout(timer);
-    }, [router, overlay]),
-  );
-
-  // Catalog events come from the API; the Метчі tab still opens this screen for a mock event.
+  const { application, loaded } = useEventApplication(id);
   const { data: liveEvent } = useEvent(id);
   const mockEvent = findMockEvent(id);
   const event = liveEvent ?? mockEvent;
-  const subtitle = event ? `${mockEvent?.shortTitle ?? event.title} · ${formatShortDay(event.startsAt)}` : undefined;
+  const picked = application ? openSessions(application) : [];
+  const day = picked[0]?.startsAt ?? event?.startsAt;
+  const days =
+    picked.length > 1
+      ? `${picked.length} ${plural(picked.length, ['день', 'дні', 'днів'])}`
+      : day && formatShortDay(day);
+  const subtitle = event && days ? `${mockEvent?.shortTitle ?? event.title} · ${days}` : undefined;
+  const backToEvent = () => router.dismissTo({ pathname: '/events/[id]', params: { id } });
+
+  // Without an application for the event, e.g. after leaving the pool on another device, there is nothing to wait for.
+  useEffect(() => {
+    if (loaded && !application && !leaving) router.replace({ pathname: '/events/[id]', params: { id } });
+  }, [loaded, application, leaving, router, id]);
+
+  const nextRoundAt = application?.nextRoundAt ?? null;
+  const phase = application ? matchingPhase(application) : 'rounds';
+  const round = roundNumber(picked, nextRoundAt);
+  const rounds = ROUND_OFFSETS_MS.length;
+  const pick = {
+    rounds: {
+      label: 'Наступний підбір',
+      value: nextRoundAt ? `${formatShortDay(nextRoundAt)} · ${formatUntil(nextRoundAt)}` : '',
+      progress: `Підбір ${round} з ${rounds}`,
+      note: 'останній за 6 год до події',
+    },
+    open: {
+      label: 'Відкритий підбір',
+      value: application ? `до ${formatEventDate(application.cutoffAt)}` : '',
+      progress: `Усі ${rounds} підбори минули`,
+      note: 'пару шукаємо одразу',
+    },
+    over: {
+      label: 'Підбір',
+      value: 'Підбір на цю подію завершено',
+      progress: `Усі ${rounds} підбори минули`,
+      note: '',
+    },
+  }[phase];
+
+  const leave = async () => {
+    if (!application) return;
+    setLeaving(true);
+    const result = await withdrawApplication(application.id);
+    if (result.ok) {
+      setOverlay(null);
+      backToEvent();
+    } else {
+      setLeaving(false);
+      setOverlay(null);
+      show(failureSnackbar(result));
+    }
+  };
 
   return (
     <ScrollView className="flex-1 bg-surface-card">
@@ -77,7 +138,9 @@ export default function CompanySearchScreen() {
       <MatchingNav
         title="Пошук компанії"
         subtitle={subtitle}
-        onBack={() => router.back()}
+        onBack={() =>
+          router.canGoBack() ? router.back() : router.replace({ pathname: '/events/[id]', params: { id } })
+        }
         onMore={() => setOverlay('menu')}
       />
 
@@ -100,28 +163,22 @@ export default function CompanySearchScreen() {
               <Icon name="clock" size={22} color={colors.brand.coral} />
             </View>
             <View className="flex-1 gap-0.5">
-              <Text className="font-inter text-caption text-text-secondary">Наступний підбір</Text>
-              <Text className="font-inter-medium text-body text-text-primary">{mockSearch.nextPick}</Text>
+              <Text className="font-inter text-caption text-text-secondary">{pick.label}</Text>
+              <Text className="font-inter-medium text-body text-text-primary">{pick.value}</Text>
             </View>
           </View>
           <View className="gap-2">
             <View className="flex-row gap-1.5">
-              {Array.from({ length: mockSearch.rounds }, (_, index) => {
-                const round = index + 1;
+              {Array.from({ length: rounds }, (_, index) => {
+                const number = index + 1;
                 const color =
-                  round < mockSearch.round
-                    ? 'bg-brand-ink'
-                    : round === mockSearch.round
-                      ? 'bg-brand-coral'
-                      : 'bg-border-default';
-                return <View key={round} className={`h-1.5 flex-1 rounded-[3px] ${color}`} />;
+                  number < round ? 'bg-brand-ink' : number === round ? 'bg-brand-coral' : 'bg-border-default';
+                return <View key={number} className={`h-1.5 flex-1 rounded-[3px] ${color}`} />;
               })}
             </View>
             <View className="flex-row justify-between">
-              <Text className="font-inter text-caption text-text-primary">
-                Підбір {mockSearch.round} з {mockSearch.rounds}
-              </Text>
-              <Text className="font-inter text-caption text-text-secondary">{mockSearch.roundsNote}</Text>
+              <Text className="font-inter text-caption text-text-primary">{pick.progress}</Text>
+              <Text className="font-inter text-caption text-text-secondary">{pick.note}</Text>
             </View>
           </View>
         </View>
@@ -158,12 +215,11 @@ export default function CompanySearchScreen() {
       <LeavePoolDialog
         visible={overlay === 'leave'}
         onClose={() => setOverlay('menu')}
-        onLeave={() => {
-          setOverlay(null);
-          setInPool(false);
-          router.dismissTo({ pathname: '/events/[id]', params: { id } });
-        }}
+        leaving={leaving}
+        onLeave={() => void leave()}
       />
+
+      {snackbar && <Snackbar {...snackbar} />}
     </ScrollView>
   );
 }

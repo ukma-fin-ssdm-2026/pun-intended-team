@@ -142,7 +142,7 @@ Quality goals for the Nearby REST API (Lab 4). Every goal below has four parts: 
 - **Goal:** monthly uptime ≥ 99% on `/health` — about 7 h 12 min of downtime in a 30-day month — excluding maintenance announced at least 24 h ahead and totalling at most 2 h per month
 - **Failure condition:** uptime below 99% in a calendar month, or announced maintenance above 2 h
 - **Implementation:**
-  - `GET /health` returns `200` and `{ "status": "ok" }`; it needs no token and is not versioned. Checked locally in the validation log. It is in the generated spec and in the endpoint tables of `api-design.md`
+  - `GET /health` returns `200` and `{ "status": "healthy", "checks": { "database": "up" } }`, or `503` and `"unhealthy"` when the database does not answer within 2 s, so the monitor counts a dead database as downtime; it needs no token and is not versioned. Checked locally in the validation log. It is in the generated spec and in the endpoint tables of `api-design.md`
   - stateless server that can be restarted at any time
 - **Measurement:** external uptime monitor polling `/health` every 5 minutes
 - **Source:** REL-001

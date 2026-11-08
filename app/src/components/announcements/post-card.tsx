@@ -6,6 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
+import { useEvent } from '@/hooks/use-event';
 import type { Post } from '@/mocks/announcements';
 import { findMockEvent } from '@/mocks/events';
 import { toggleLike, useLiked } from '@/state/post-likes';
@@ -15,6 +16,8 @@ import { colors } from '@/styles/tokens';
 type Props = {
   post: Post;
   onReport: () => void;
+  // The menu of the user's own post deletes it instead of reporting it.
+  onDelete?: () => void;
   // Called after "Хочу піти"; Т3.3 returns to the feed, which shows Т3.2.
   onRequest?: () => void;
 };
@@ -52,9 +55,37 @@ function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void })
   );
 }
 
-export function PostCard({ post, onReport, onRequest }: Props) {
+// The event a post is about: from the API or, until the screens that still use mock events move to the API, a mock one.
+// An event that is neither is left out of the card.
+function LinkedEvent({ eventId }: { eventId: string }) {
+  const { data } = useEvent(eventId);
+  const mockEvent = data ? undefined : findMockEvent(eventId);
+  const event = data ?? mockEvent;
+  if (!event) return null;
+
+  return (
+    // Inside 1 px stroke, as above: Figma's padding 8 / 8 / 12 minus the border.
+    <View className="flex-row items-center gap-3 rounded-2xl border border-border-default py-[7px] pl-[7px] pr-[11px]">
+      <View className="size-14 overflow-hidden rounded-xl">
+        {mockEvent?.cover ? (
+          <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+        ) : (
+          <CoralGradient preset="cover" />
+        )}
+      </View>
+      <View className="flex-1 gap-0.5">
+        <Text className="font-inter-semibold text-tag text-brand-coral">Подія з каталогу</Text>
+        <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
+          {event.title}
+        </Text>
+        <Text className="font-inter text-caption text-text-secondary">{formatEventDate(event.startsAt)}</Text>
+      </View>
+    </View>
+  );
+}
+
+export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
   const liked = useLiked(post.id);
-  const event = post.eventId ? findMockEvent(post.eventId) : undefined;
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
@@ -65,12 +96,18 @@ export function PostCard({ post, onReport, onRequest }: Props) {
         <View className="flex-row items-center gap-1.5">
           <Text className="font-inter-medium text-label text-text-primary">{post.nameAge}</Text>
           <Text className="flex-1 font-inter text-caption text-text-secondary">{post.meta}</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Ще" onPress={onReport} hitSlop={10}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={post.own && onDelete ? 'Видалити допис' : 'Ще'}
+            onPress={post.own && onDelete ? onDelete : onReport}
+            hitSlop={10}
+          >
             <Icon name="menu-dots" size={18} color={colors.text.secondary} />
           </Pressable>
         </View>
 
-        <Text className="font-inter text-body text-text-primary">{post.text}</Text>
+        {post.title && <Text className="font-inter-semibold text-body text-text-primary">{post.title}</Text>}
+        {post.text !== '' && <Text className="font-inter text-body text-text-primary">{post.text}</Text>}
 
         {post.chips && (
           <View className="flex-row gap-2">
@@ -86,25 +123,7 @@ export function PostCard({ post, onReport, onRequest }: Props) {
           </View>
         )}
 
-        {event && (
-          // Inside 1 px stroke, as above: Figma's padding 8 / 8 / 12 minus the border.
-          <View className="flex-row items-center gap-3 rounded-2xl border border-border-default py-[7px] pl-[7px] pr-[11px]">
-            <View className="size-14 overflow-hidden rounded-xl">
-              {event.cover ? (
-                <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-              ) : (
-                <CoralGradient preset="cover" />
-              )}
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text className="font-inter-semibold text-tag text-brand-coral">Подія з каталогу</Text>
-              <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
-                {event.title}
-              </Text>
-              <Text className="font-inter text-caption text-text-secondary">{formatEventDate(event.startsAt)}</Text>
-            </View>
-          </View>
-        )}
+        {post.eventId && <LinkedEvent eventId={post.eventId} />}
 
         {post.photo && (
           <View className="h-[150px] overflow-hidden rounded-2xl">
@@ -113,7 +132,11 @@ export function PostCard({ post, onReport, onRequest }: Props) {
         )}
 
         <View className="flex-row items-center gap-5">
-          <JoinAction post={post} onRequest={onRequest} />
+          {post.own ? (
+            <Text className="font-inter-semibold text-tag text-text-secondary">Твій допис</Text>
+          ) : (
+            <JoinAction post={post} onRequest={onRequest} />
+          )}
           {/* Share has no prototype link; shown as in Figma. */}
           <Icon name="share" size={18} color={colors.text.secondary} />
           <Pressable

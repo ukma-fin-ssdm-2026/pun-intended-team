@@ -51,7 +51,7 @@ class GalleryEventProvider extends EventProvider {
         externalId: String(ref),
         title: name,
         description: '',
-        categoryName: 'Exhibitions',
+        categorySlug: 'exhibitions',
         venue: { name: place, address: 'Kyiv', location: { lat: 50.45, lng: 30.52 } },
         startsAt: when,
         endsAt: '2026-11-08T18:00:00Z',
@@ -103,28 +103,17 @@ function catalogReading(categories: Category[]) {
 
 function makeCatalog(provider: EventProvider) {
   const categories = [
-    aCategory({ name: 'Concerts', id: CONCERTS_ID }),
-    aCategory({ name: 'Exhibitions', id: EXHIBITIONS_ID }),
+    aCategory({ name: 'Концерти', slug: 'concerts', id: CONCERTS_ID }),
+    aCategory({ name: 'Виставки', slug: 'exhibitions', id: EXHIBITIONS_ID }),
   ];
   const categoriesRepository = {
     findAll: mock.fn(() => Promise.resolve(categories)),
-    findById: mock.fn((id: string) =>
-      Promise.resolve(
-        id === CONCERTS_ID ? aCategory({ name: 'Concerts', id }) : aCategory({ name: 'Exhibitions', id }),
-      ),
-    ),
+    findById: mock.fn((id: string) => Promise.resolve(categories.find((category) => category.id === id))),
   } as unknown as CategoriesRepository;
   const categoriesService = new CategoriesService(categoriesRepository);
   const { eventsRepository, venuesRepository } = catalogReading(categories);
   return {
-    importService: new EventImportService(
-      [provider],
-      new StubImportedEventsRepository([
-        { id: CONCERTS_ID, name: 'Concerts' },
-        { id: EXHIBITIONS_ID, name: 'Exhibitions' },
-      ]),
-      geocoder,
-    ),
+    importService: new EventImportService([provider], new StubImportedEventsRepository(categories), geocoder),
     eventsService: new EventsService(
       eventsRepository,
       {} as OrganizationsRepository,
@@ -153,7 +142,7 @@ describe('import into the catalog', () => {
     );
     assert.equal(imported.length, 1);
     assert.equal(imported[0]?.organizationId, null);
-    assert.equal(imported[0]?.category.name, 'Concerts');
+    assert.equal(imported[0]?.category.name, 'Концерти');
     assert.equal(imported[0]?.venue.source, 'import');
     assert.equal(imported[0]?.sourceUrl, 'https://kyiv.karabas.com/lama-15/');
     assert.match(imported[0]?.imageUrl ?? '', /^https:\/\/images\.karabas\.com\//);

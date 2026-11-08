@@ -31,24 +31,24 @@ export const MAX_PAGES_PER_SECTION = 40;
 const PER_PAGE = '20';
 
 /**
- * The Kyiv section pages we read, in order, and our category for each; the section decides, not `@type`. A section
- * with `types` takes only events of those `@type`s and skips the others: `/clubs/` also lists talks, board-game
- * nights and wine tastings as plain `Event`, which are not parties (ADR-006).
+ * The Kyiv section pages we read, in order, and the slug of our category for each; the section decides, not
+ * `@type`. A section with `types` takes only events of those `@type`s and skips the others: `/clubs/` also lists
+ * talks, board-game nights and wine tastings as plain `Event`, which are not parties (ADR-006).
  */
-export const KARABAS_SECTIONS: { path: string; category: string; types?: string[] }[] = [
-  { path: '/concerts/', category: 'Concerts' },
-  { path: '/exhibitions/', category: 'Exhibitions' },
-  { path: '/cinema/', category: 'Cinema' },
-  { path: '/theatres/', category: 'Theatre' },
-  { path: '/sport/', category: 'Sports' },
-  { path: '/festivals/', category: 'Festivals' },
-  { path: '/clubs/', category: 'Parties', types: ['MusicEvent'] },
+export const KARABAS_SECTIONS: { path: string; categorySlug: string; types?: string[] }[] = [
+  { path: '/concerts/', categorySlug: 'concerts' },
+  { path: '/exhibitions/', categorySlug: 'exhibitions' },
+  { path: '/cinema/', categorySlug: 'cinema' },
+  { path: '/theatres/', categorySlug: 'theatre' },
+  { path: '/sport/', categorySlug: 'sports' },
+  { path: '/festivals/', categorySlug: 'festivals' },
+  { path: '/clubs/', categorySlug: 'parties', types: ['MusicEvent'] },
 ];
 
-/** One event as `fetch` returns it: its JSON-LD from a section page, and that section's category. */
+/** One event as `fetch` returns it: its JSON-LD from a section page, and the slug of that section's category. */
 export interface KarabasRecord {
   section: string;
-  category: string;
+  categorySlug: string;
   event: Record<string, unknown>;
 }
 
@@ -136,7 +136,7 @@ export class KarabasEventProvider extends EventProvider {
    * "load more" link that leads out of the section.
    */
   private async readSection(
-    { path, category }: { path: string; category: string },
+    { path, categorySlug }: { path: string; categorySlug: string },
     window: { from: string; to: string },
     byUrl: Map<string, KarabasRecord>,
     read: { pages: number; outsideWindow: number },
@@ -189,7 +189,7 @@ export class KarabasEventProvider extends EventProvider {
           parts.set(path, inWindowInSection.size);
         }
         if (!byUrl.has(key)) {
-          byUrl.set(key, { section: path, category, event });
+          byUrl.set(key, { section: path, categorySlug, event });
         }
       }
 
@@ -231,7 +231,7 @@ export class KarabasEventProvider extends EventProvider {
       return {
         skip: {
           externalId: slugOf(url),
-          reason: `Not a ${record.category} event: @type ${JSON.stringify(type)} on ${record.section}, which takes only ${types.join(', ')}`,
+          reason: `@type ${JSON.stringify(type)} on ${record.section}, which takes only ${types.join(', ')}`,
         },
       };
     }
@@ -246,7 +246,7 @@ export class KarabasEventProvider extends EventProvider {
         externalId: slugOf(url),
         title: fitTitle(name),
         description: fitDescription(description),
-        categoryName: record.category,
+        categorySlug: record.categorySlug,
         venue: { name: location.name, address, location: null },
         startsAt: start.toISOString(),
         endsAt: end.endsAt.toISOString(),

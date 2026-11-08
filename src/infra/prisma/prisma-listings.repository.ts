@@ -15,6 +15,10 @@ export class PrismaListingsRepository implements ListingsRepository {
     return listing ? toListing(listing) : undefined;
   }
 
+  async findByIds(ids: string[]): Promise<Listing[]> {
+    return (await this.prisma.listing.findMany({ where: { id: { in: ids } } })).map(toListing);
+  }
+
   async findActive(fromDate: string, { limit, offset }: PageRequest): Promise<Page<Listing>> {
     const rows = await this.prisma.listing.findMany({
       where: { status: 'active', date: { gte: toDateColumn(fromDate) } },

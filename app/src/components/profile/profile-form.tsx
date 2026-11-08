@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: shared parts of the Figma profile forms ("П1 Редагувати профіль", "В7" and "В8 Заповнення профілю");
 // reviewed by Daryna Halytska.
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,7 +40,12 @@ type NavProps =
   // В7, В8: "Крок 1 з 2", the progress bar and "Чернетку збережено".
   | { step: { current: number; total: number }; title?: never };
 
-function FormNav({ title, step }: Readonly<NavProps>) {
+type FormNavProps = NavProps & {
+  // Where back leads when there is no history, e.g. after the page was reloaded on the web.
+  backTo: Href;
+};
+
+function FormNav({ title, step, backTo }: Readonly<FormNavProps>) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -50,7 +55,7 @@ function FormNav({ title, step }: Readonly<NavProps>) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(backTo))}
           className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
         >
           <Icon name="arrow-left" size={20} />
@@ -85,7 +90,7 @@ function FormNav({ title, step }: Readonly<NavProps>) {
   );
 }
 
-type FormScreenProps = NavProps & {
+type FormScreenProps = FormNavProps & {
   children: ReactNode;
   action: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean };
 };
@@ -104,7 +109,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
           paddingBottom: ACTION_TOP + BUTTON_HEIGHT + actionBottom + FORM_BOTTOM_GAP - ACTION_BOTTOM,
         }}
       >
-        <FormNav {...(nav as NavProps)} />
+        <FormNav {...(nav as FormNavProps)} />
         {children}
       </ScrollView>
 
@@ -165,12 +170,14 @@ type InterestPickerProps = {
   onToggle: (id: string) => void;
   // The note on the right of "Інтереси *", e.g. "обрано 3".
   note: string;
-  // "+ ще" opens П1.2 on П1; without a handler it does nothing, as on В7.
+  // "+ ще" opens the full list (П1.2); without a handler, while the list loads, it is dimmed.
   onMore?: () => void;
+  // Set when the full list could not be loaded: "+ ще" becomes a coral "Повторити" with the error mark (REL-07).
+  onRetry?: () => void;
 };
 
 // "Інтереси": selected chips are dark with a check; "+ ще" ends the list.
-export function InterestPicker({ options, selected, onToggle, note, onMore }: Readonly<InterestPickerProps>) {
+export function InterestPicker({ options, selected, onToggle, note, onMore, onRetry }: Readonly<InterestPickerProps>) {
   return (
     <View className="gap-2.5">
       <View className="flex-row items-start justify-between">
@@ -204,14 +211,29 @@ export function InterestPicker({ options, selected, onToggle, note, onMore }: Re
             </Pressable>
           );
         })}
-        <Pressable
-          accessibilityRole="button"
-          disabled={!onMore}
-          onPress={onMore}
-          className="rounded-[18px] bg-surface-background px-3.5 py-2"
-        >
-          <Text className="font-inter-medium text-label text-text-primary">+ ще</Text>
-        </Pressable>
+        {onRetry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Не вдалося завантажити інтереси. Повторити"
+            onPress={onRetry}
+            className="flex-row items-center gap-1.5 rounded-[18px] bg-brand-coral-soft py-2 pl-2 pr-3.5"
+          >
+            {/* The error mark of the snackbar, at chip size. */}
+            <View className="size-5 items-center justify-center rounded-full bg-brand-coral">
+              <Icon name="danger" size={12} color={colors.text['on-dark']} />
+            </View>
+            <Text className="font-inter-medium text-label text-brand-coral">Повторити</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            disabled={!onMore}
+            onPress={onMore}
+            className={`rounded-[18px] bg-surface-background px-3.5 py-2 ${onMore ? '' : 'opacity-45'}`}
+          >
+            <Text className="font-inter-medium text-label text-text-primary">+ ще</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

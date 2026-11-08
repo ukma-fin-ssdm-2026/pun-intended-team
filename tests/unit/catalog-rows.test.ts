@@ -25,7 +25,7 @@ describe('toEvent', () => {
       id: EVENT_ID,
       title: 'Open-air film night',
       description: 'Bring a blanket.',
-      category: { id: CATEGORY_ID, name: 'Concerts' },
+      category: { id: CATEGORY_ID, name: 'Концерти' },
       venue: aVenue(),
       startsAt: '2026-11-14T16:00:00.000Z',
       endsAt: '2026-11-14T18:30:00.000Z',
