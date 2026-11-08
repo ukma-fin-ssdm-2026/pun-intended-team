@@ -452,6 +452,13 @@ describe('EventImportService.importFrom, venue reuse', () => {
       'МЦКМ (Жовтневий палац)',
       'Алея Героїв Небесної Сотні, 1, Київ',
     ],
+    ['Stereo Plaza', 'Лобановського пр-т, 119, Київ', 'Stereo Plaza. Мала зала', 'Лобановського пр-т, 119'],
+    [
+      'Будинок Офіцерів',
+      'вул. Грушевського, 30/1, Київ',
+      'Центральний будинок офіцерів Збройних Сил України',
+      'вул. М. Грушевського, 30/1, Київ',
+    ],
     [
       'Театр "Браво"',
       'вул. Олеся Гончара, 79, Київ',
@@ -472,6 +479,7 @@ describe('EventImportService.importFrom, venue reuse', () => {
     ['Реверб', 'Нижньоюрківська, 31, Київ', 'Otel’', 'вул. Нижньоюрківська 31, Київ'],
     ['Закапелок', 'вулиця Верхній Вал, 62, Київ', 'Продюсерський центр Ізмайлової', 'вул. Верхній Вал, 66а, Київ'],
     ['Закапелок', 'вул. Верхній Вал, 66а, Київ', 'Продюсерський центр Ізмайлової', 'вул. Верхній Вал, 66а, Київ'],
+    ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ', 'Будинок вчених', 'вул. Саксаганського, 6, Київ'],
   ];
   for (const [savedName, savedAddress, name, address] of apart) {
     test(`keeps "${savedName}" and "${name}" apart, whatever the address`, async () => {
@@ -607,6 +615,17 @@ describe('EventImportService.importFrom, venue reuse', () => {
     );
 
     assert.equal(venueId, 'in-kyiv');
+  });
+
+  test('reuses a venue whose name is only generic words for the same name', async () => {
+    // On 2026-11-08 every event of "Малий театр" got a venue of its own before this was fixed.
+    const { venueId, repository } = await venueOf(
+      [saved('saved', 'Малий театр', 'вул. Олеся Гончара, 33, Київ')],
+      arriving('Малий театр', 'вул. Олеся Гончара, 33, Київ'),
+    );
+
+    assert.equal(venueId, 'saved');
+    assert.equal(repository.createVenue.mock.callCount(), 0);
   });
 
   test('reuses a venue saved earlier in the same run', async () => {

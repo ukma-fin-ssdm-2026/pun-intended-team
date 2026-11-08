@@ -51,21 +51,109 @@ export function nameWords(name: string): string[] {
 }
 
 /**
- * Whether two names may be one venue: one contains the other word for word ("Pepper's Club" and
- * `Music Pub "Pepper's Club"`), or they share at least half of the words of the longer one ("Театр Браво" and
- * "Київський драматичний театр Браво"). Only ever asked about venues at the same address.
+ * Words that say what kind of place a venue is, or describe it, rather than which one: two names that share only such
+ * words ("Будинок Кіно" and "Будинок вчених") are not one venue. Matched as whole words.
+ */
+const GENERIC_NAME_WORDS = new Set([
+  // kinds of place
+  'будинок',
+  'дім',
+  'театр',
+  'кінотеатр',
+  'клуб',
+  'палац',
+  'центр',
+  'зала',
+  'зал',
+  'хол',
+  'сцена',
+  'галерея',
+  'музей',
+  'студія',
+  'простір',
+  'бар',
+  'паб',
+  'кафе',
+  'ресторан',
+  'арт',
+  'pub',
+  'club',
+  'music',
+  'hall',
+  'bar',
+  'cafe',
+  'art',
+  'gallery',
+  'museum',
+  'theatre',
+  'theater',
+  'cinema',
+  'stage',
+  'space',
+  'studio',
+  'house',
+  'center',
+  'centre',
+  // descriptions
+  'національний',
+  'національна',
+  'центральний',
+  'центральна',
+  'київський',
+  'київська',
+  'міський',
+  'міська',
+  'державний',
+  'академічний',
+  'драматичний',
+  'культурний',
+  'культури',
+  'мистецтв',
+  'мистецтва',
+  'мала',
+  'малий',
+  'велика',
+  'великий',
+  'ім',
+  'імені',
+  // small words
+  'на',
+  'в',
+  'у',
+  'і',
+  'й',
+  'та',
+  'the',
+  'of',
+  'and',
+]);
+
+/**
+ * Whether two names may be one venue (ADR-006, decision 7). The same name always is. Otherwise they must share a
+ * distinctive word, one that `GENERIC_NAME_WORDS` does not list, and either one contains the other word for word ("Pepper's Club" and
+ * `Music Pub "Pepper's Club"`), or they share at least half of the distinctive words of the one with more ("Палац
+ * Україна" and "Національний палац мистецтв «Україна»"). Only ever asked about venues at the same address.
  */
 export function similarNames(a: string, b: string): boolean {
   const [first, second] = [nameWords(a), nameWords(b)];
-  const [shorter, longer] = first.length <= second.length ? [first, second] : [second, first];
-  if (shorter.length === 0) {
-    return false;
-  }
-  if (containsRun(longer, shorter)) {
+  // The same name is one venue, also one made only of generic words, such as "Малий театр".
+  if (first.length > 0 && first.join(' ') === second.join(' ')) {
     return true;
   }
-  const shared = new Set(shorter.filter((word) => longer.includes(word))).size;
-  return shared * 2 >= new Set(longer).size;
+  const [few, many] = [distinctive(first), distinctive(second)].sort((x, y) => x.size - y.size) as [
+    Set<string>,
+    Set<string>,
+  ];
+  const shared = [...few].filter((word) => many.has(word)).length;
+  if (shared === 0) {
+    return false;
+  }
+  const [shorter, longer] = first.length <= second.length ? [first, second] : [second, first];
+  return containsRun(longer, shorter) || shared * 2 >= many.size;
+}
+
+function distinctive(words: string[]): Set<string> {
+  return new Set(words.filter((word) => !GENERIC_NAME_WORDS.has(word)));
 }
 
 /**

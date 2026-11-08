@@ -49,6 +49,9 @@ describe('similarNames', () => {
     ['Місце проведення: МЦКМ', 'МЦКМ (Жовтневий палац)'],
     ['Театр Браво', 'Київський драматичний театр Браво'],
     ['Палац Україна', 'Національний палац мистецтв «Україна»'],
+    ['Stereo Plaza', 'Stereo Plaza. Мала зала'],
+    ['Будинок Офіцерів', 'Центральний будинок офіцерів Збройних Сил України'],
+    ['Печерськ Палац', 'Культурний центр "Печерськ Палац"'],
   ];
   for (const [a, b] of similar) {
     test(`takes "${a}" and "${b}" as one venue`, () => {
@@ -61,6 +64,9 @@ describe('similarNames', () => {
     ['Реверб', 'Otel’'],
     ['Закапелок', 'Продюсерський центр Ізмайлової'],
     ['Палац Україна', 'Палац спорту на Олімпійській'],
+    ['Будинок Кіно', 'Будинок вчених'],
+    ['Театр на Подолі', 'Театр на лівому березі'],
+    ['Клуб', 'Джаз клуб'],
     ['', 'Хора'],
   ];
   for (const [a, b] of different) {
@@ -68,6 +74,17 @@ describe('similarNames', () => {
       assert.equal(similarNames(a, b), false);
     });
   }
+
+  test('takes the same name made only of generic words as one venue, and no other name with it', () => {
+    assert.equal(similarNames('Малий театр', 'Малий театр'), true);
+    assert.equal(similarNames('Малий театр', '«Малий театр»'), true);
+    assert.equal(similarNames('Малий театр', 'Малий театр ляльок'), false);
+  });
+
+  test('needs a shared word that does not only say what kind of place it is', () => {
+    assert.equal(similarNames('Театр', 'Театр Браво'), false);
+    assert.equal(similarNames('Music Pub', 'Music Pub "Pepper\'s Club"'), false);
+  });
 
   test('compares whole words, not parts of them', () => {
     assert.equal(similarNames('Арт', 'Будинок архітектора'), false);
