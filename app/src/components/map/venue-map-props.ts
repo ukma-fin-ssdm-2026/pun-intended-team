@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { MapPoint } from './kyiv';
+import { isInKyiv, type MapPoint } from './kyiv';
 
 export type VenuePin = { id: string; location: MapPoint; count: number; name: string };
 
@@ -17,3 +17,13 @@ export const SELECTED_PIN_SIZE = 44;
 
 // The venue card covers about this much of the map's bottom; a selected pin is moved into the part above it.
 export const VENUE_CARD_HEIGHT = 380;
+
+/**
+ * Where the map moves: to the selected pin, and to the user once the location is known and in the city. Plain numbers,
+ * so the map's effects run only when a point really changes.
+ */
+export function mapTargets({ pins, selectedId, user }: Pick<VenueMapProps, 'pins' | 'selectedId' | 'user'>) {
+  const selected = pins.find((pin) => pin.id === selectedId)?.location;
+  const located = user && isInKyiv(user) ? user : undefined;
+  return { selectedLat: selected?.lat, selectedLng: selected?.lng, userLat: located?.lat, userLng: located?.lng };
+}

@@ -9,8 +9,8 @@ import { View } from 'react-native';
 
 import { colors } from '@/styles/tokens';
 
-import { isInKyiv, KYIV_BOUNDS, KYIV_CENTER } from './kyiv';
-import { PIN_SIZE, SELECTED_PIN_SIZE, VENUE_CARD_HEIGHT, type VenueMapProps } from './venue-map-props';
+import { KYIV_BOUNDS, KYIV_CENTER } from './kyiv';
+import { mapTargets, PIN_SIZE, SELECTED_PIN_SIZE, VENUE_CARD_HEIGHT, type VenueMapProps } from './venue-map-props';
 
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const CITY_ZOOM = 10.5;
@@ -97,10 +97,9 @@ export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) 
     return () => markers.forEach((marker) => marker.remove());
   }, [pins, selectedId]);
 
+  const { selectedLat, selectedLng, userLat, userLng } = mapTargets({ pins, selectedId, user });
+
   // A selected pin moves above the venue card.
-  const selected = pins.find((pin) => pin.id === selectedId);
-  const selectedLat = selected?.location.lat;
-  const selectedLng = selected?.location.lng;
   useEffect(() => {
     if (selectedLat === undefined || selectedLng === undefined) return;
     map.current?.easeTo({
@@ -110,8 +109,6 @@ export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) 
   }, [selectedLat, selectedLng]);
 
   // The location arrives after the map is shown; the map moves to it once, if it is in the city.
-  const userLat = user && isInKyiv(user) ? user.lat : undefined;
-  const userLng = user && isInKyiv(user) ? user.lng : undefined;
   useEffect(() => {
     const current = map.current;
     if (!current || userLat === undefined || userLng === undefined) return;

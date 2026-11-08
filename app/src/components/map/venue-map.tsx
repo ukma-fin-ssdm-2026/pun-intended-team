@@ -6,7 +6,7 @@ import { StyleSheet } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 
 import { clampToKyiv, isInKyiv, KYIV_CENTER, type MapPoint } from './kyiv';
-import { VENUE_CARD_HEIGHT, type VenueMapProps } from './venue-map-props';
+import { mapTargets, VENUE_CARD_HEIGHT, type VenueMapProps } from './venue-map-props';
 import { VenuePinView } from './venue-pin';
 
 // The whole city, so every pin is on screen; a closer view around the user.
@@ -23,18 +23,15 @@ const regionAround = ({ lat, lng }: MapPoint, delta: number): Region => ({
 export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) {
   const map = useRef<MapView>(null);
 
+  const { selectedLat, selectedLng, userLat, userLng } = mapTargets({ pins, selectedId, user });
+
   // The location arrives after the map is shown; the map moves to it once, if it is in the city.
-  const userLat = user && isInKyiv(user) ? user.lat : undefined;
-  const userLng = user && isInKyiv(user) ? user.lng : undefined;
   useEffect(() => {
     if (userLat === undefined || userLng === undefined) return;
     map.current?.animateToRegion(regionAround({ lat: userLat, lng: userLng }, USER_DELTA), 400);
   }, [userLat, userLng]);
 
   // A selected pin moves above the venue card.
-  const selected = pins.find((pin) => pin.id === selectedId);
-  const selectedLat = selected?.location.lat;
-  const selectedLng = selected?.location.lng;
   useEffect(() => {
     if (selectedLat === undefined || selectedLng === undefined) return;
     map.current?.animateCamera({ center: { latitude: selectedLat, longitude: selectedLng } }, { duration: 300 });

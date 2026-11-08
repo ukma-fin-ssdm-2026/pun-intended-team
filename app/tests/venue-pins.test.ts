@@ -1,40 +1,10 @@
 // Written with the help of Claude
 import { describe, expect, test } from '@jest/globals';
 
-import type { components } from '@/api/schema';
 import { clampToKyiv, isInKyiv, KYIV_BOUNDS } from '@/components/map/kyiv';
 import { eventsLabel, matchesMapSearch, venuesOf } from '@/components/map/venue-pins';
 
-type Event = components['schemas']['Event'];
-
-const arsenal = {
-  id: 'v1',
-  name: 'Мистецький Арсенал',
-  address: 'вул. Лаврська, 10–12',
-  location: { lat: 50.4359, lng: 30.5578 },
-};
-const atlas = {
-  id: 'v2',
-  name: 'Атлас',
-  address: 'вул. Січових Стрільців, 37',
-  location: { lat: 50.4558, lng: 30.4964 },
-};
-
-function anEvent(id: string, title: string, venue = arsenal): Event {
-  return {
-    id,
-    title,
-    description: '',
-    category: { id: 'c1', name: 'Концерти' },
-    venue,
-    startsAt: '2026-11-10T19:00:00+02:00',
-    endsAt: '2026-11-10T21:00:00+02:00',
-    imageUrl: null,
-    sourceUrl: null,
-    source: 'import',
-    status: 'published',
-  };
-}
+import { anEvent, arsenal, atlas } from './fixtures/events';
 
 // FR-012
 describe('venuesOf', () => {
