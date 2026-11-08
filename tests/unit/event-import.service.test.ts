@@ -84,7 +84,6 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
       Promise.resolve([{ id: CATEGORY_ID, slug: CATEGORY_SLUG, isActive: true }]),
     ),
     failUnfinishedRuns: mock.fn<ImportedEventsRepository['failUnfinishedRuns']>(() => Promise.resolve()),
-    lastSucceededRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
@@ -653,17 +652,6 @@ describe('EventImportService.importFrom, other fields', () => {
     assert.equal(repository.updateEvent.mock.calls[0]?.arguments[1].imageUrl, null);
     assert.equal(report.updated, 1);
   });
-
-  test('passes the start of the last succeeded run to the provider', async () => {
-    const lastRun = new Date('2026-11-02T03:00:00Z');
-    const { run, provider, repository } = makeService();
-    repository.lastSucceededRunStart.mock.mockImplementation(() => Promise.resolve(lastRun));
-
-    await run();
-
-    assert.deepEqual(repository.lastSucceededRunStart.mock.calls[0]?.arguments, [PROVIDER_ID]);
-    assert.deepEqual(provider.fetch.mock.calls[0]?.arguments, [lastRun]);
-  });
 });
 
 // ADR-006: an event gone from a provider's complete list is no longer served as published.
@@ -903,7 +891,6 @@ describe('EventImportService.importFrom, when the database fails', () => {
   type Repository = ReturnType<typeof makeService>['repository'];
   const beforeTheRun: [string, (repository: Repository) => void][] = [
     ['failUnfinishedRuns', (repository) => repository.failUnfinishedRuns.mock.mockImplementation(databaseDown)],
-    ['lastSucceededRunStart', (repository) => repository.lastSucceededRunStart.mock.mockImplementation(databaseDown)],
     ['startRun', (repository) => repository.startRun.mock.mockImplementation(databaseDown)],
   ];
   for (const [method, fail] of beforeTheRun) {

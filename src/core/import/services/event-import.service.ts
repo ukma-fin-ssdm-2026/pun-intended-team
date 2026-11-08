@@ -64,11 +64,10 @@ export class EventImportService {
    */
   async importFrom(provider: EventProvider): Promise<ImportReport> {
     await this.importedEventsRepository.failUnfinishedRuns(provider.id);
-    const since = await this.importedEventsRepository.lastSucceededRunStart(provider.id);
     const runId = await this.importedEventsRepository.startRun(provider.id);
     let result: { report: ImportReport; details: RunDetails };
     try {
-      result = await this.importRecords(provider, runId, since);
+      result = await this.importRecords(provider, runId);
     } catch (error) {
       await this.recordFailure(provider.id, runId);
       throw error;
@@ -91,9 +90,8 @@ export class EventImportService {
   private async importRecords(
     provider: EventProvider,
     runId: string,
-    since?: Date,
   ): Promise<{ report: ImportReport; details: RunDetails }> {
-    const list = await provider.fetch(since);
+    const list = await provider.fetch();
     const { records: raws, complete } = list;
     const categories = new Map(
       (await this.importedEventsRepository.findCategories()).map((category) => [category.slug, category]),
