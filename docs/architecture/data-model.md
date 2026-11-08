@@ -28,7 +28,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | **Account** | PK `id` | `role` (user / admin), `contact_identifier` (S, encrypted) — the verified phone number (E.164), revealed on a mutual match unless `Profile.share_phone` is off; null while sign-in is Google-only ([ADR-004](decisions/ADR-004.md)), `contact_hash` (UK, nullable) — HMAC of the number with a key from the main server's env file; the encrypted value cannot be indexed, so uniqueness and every lookup go through the hash, `date_of_birth` (S, SAFE-001), `status` (pending / active / banned) — `pending` until the date of birth passes the age check; a pending account can only finish registration, `failed_signins`, `failed_signins_since` — the first failure counted in the current 15-minute window, `locked_until` (SEC-007). Administrator accounts are created by the team. |
 | **AuthMethod** | PK `id` | `account_id` FK, `type` (password / google), `secret` — argon2id hash (C) for a password, Google `sub` (P) for Google; UK (`account_id`, `type`), UK (`type`, `secret`) |
 | **VerificationCode** | PK `id` | `contact` (S, encrypted) — phone number, `contact_hash` — for the resend throttle, `channel` (telegram / sms) — Telegram Gateway API first, SMS as fallback; null until a provider takes the code, `provider_request_id` — for delivery checks and cost tracking, `code_hash` (C), `purpose` (registration / reset), `sent_at`, `expires_at`, `attempts`, `used_at` (SEC-008). No FK: the code is sent before the account exists. |
-| **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
+| **RefreshToken** | PK `id` | `account_id` FK, `token_hash` (C), `previous_token_hash` (C) and `rotated_at` — the hash the last renewal replaced and when, accepted for 60 s as the retry of a lost answer (REL-08), `expires_at`, `revoked_at` (SEC-005). One row is one session: access tokens carry its ID, so a sign-out or ban takes effect on the next request; rotation replaces the hash in the same row. |
 
 ### profiles
 
@@ -45,7 +45,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Entity | Key | Main attributes |
 |---|---|---|
 | **Organization** | PK = FK `account_id` | `name`, `description`, `official_link`, `verification_status` (pending / verified / rejected / revoked), `verified_by` FK → Account (admin), `verified_at`. An organization is a regular user account with this extra row; it publishes events only when `verified`, and verification is done by the team. |
-| **Category** | PK `id` | `name` (UK), `is_active` (FR-029). Seeded with fixed ids: Concerts, Exhibitions, Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals, Parties, Volunteering and Open days; the import maps providers' genres to the first ten ([ADR-006](decisions/ADR-006.md)), Volunteering and Open days have listings only |
+| **Category** | PK `id` | `name` (UK; unique once normalized, see invariants), `slug` (UK; set once when the category is created and never changed, also on a rename: the seeded ones by the migration, the others made by the server from the name in Latin, `-2`, `-3`… when taken), `is_active` (FR-029). Seeded: Концерти, Виставки, Лекції, Майстер-класи, Кіно, Театр, Стендап, Спорт, Фестивалі, Вечірки, Волонтерство and Дні відкритих дверей, with the slugs `concerts`, `exhibitions`, `talks`, `workshops`, `cinema`, `theatre`, `stand-up`, `sports`, `festivals`, `parties`, `volunteering` and `open-days`; the import maps providers' genres to the first ten by slug ([ADR-006](decisions/ADR-006.md)), Волонтерство and Дні відкритих дверей have listings only |
 | **Venue** | PK `id` | `name`, `address`, `latitude`, `longitude` (FR-012) — placed on the map by the organization, taken from the provider, or found by the geocoder for a provider that gives none, `source` (organization / import), `organization_id` FK (organization venues only) |
 | **Event** | PK `id` | `category_id` FK, `venue_id` FK, `organization_id` FK (null for imported), `source` (organization / import), `provider` and `external_id` (imported only, UK together — re-import updates the same row), `title`, `description`, `image_url` and `source_url` (imported only, nullable: the provider's image and event page, linked, never copied), `starts_at`, `ends_at` (FR-007 date filter; when a provider gives no end, the end of the start day in Europe/Kyiv), `status` (published / cancelled) |
 | **EventSession** | PK `id` | `event_id` FK, `starts_at`, `status` (scheduled / cancelled); UK (`event_id`, `starts_at`). Matching rounds are anchored here ([matching](mechanisms/matching.md)). Created when the first user applies: one session for a single-day event, one per day for a multi-day event, at the time of day of `Event.starts_at` in Europe/Kyiv. |
@@ -86,6 +86,12 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
 | **DeviceToken** | PK `id` | `account_id` FK, `refresh_token_id` FK — the service deletes the row when that session is revoked (sign-out); the FK cascade only removes what is left when expired tokens are cleaned up daily, `push_token` (P, UK), `platform` (ios / android) |
 
+### admin
+
+| Entity | Key | Main attributes |
+|---|---|---|
+| **BackupRun** | PK `id` | `finished_at`, `succeeded`, `attempts`, `duration_seconds`, `size_bytes` (null when failed), `reason` — a code (unreachable / auth_failed / timeout / locked / unreadable / failed), null when it succeeded; the error message stays in the backup log. One row per nightly backup, written by `deploy/backup-db.sh` when it ends, so it has no `created_at`; the admin panel warns when the last one failed or is older than 26 h |
+
 ## 3. Relationships
 
 | Relationship | Cardinality | Note |
@@ -124,6 +130,8 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Invariant | Enforced by |
 |---|---|
 | Usernames are unique regardless of case | unique index on `lower(username)` |
+| Category names are unique regardless of case, spaces and apostrophe (' ’ ʼ) | unique index on `name` in lower case, trimmed, with runs of spaces as one and every apostrophe as ʼ; the service saves names normalized the same way, apart from the case |
+| A category keeps its slug | the API accepts no slug and the service never passes one on an update |
 | One linked account per app | UK (`profile_id`, `app`) |
 | One password and one Google account per account, and a Google account linked to one account only | UK (`account_id`, `type`) and UK (`type`, `secret`) on AuthMethod |
 | One active application per user and session | partial unique index on (`user_id`, `session_id`) where `status` in (in_pool, paired, paused) — a paused user cannot skip the "continue?" step by applying again; `removed` stays outside, so a removed user may apply again |

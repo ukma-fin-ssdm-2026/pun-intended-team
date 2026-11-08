@@ -6,6 +6,7 @@ import { Prisma } from '../../dist/infra/prisma/generated/client.js';
 import { PrismaCategoriesRepository } from '../../dist/infra/prisma/prisma-categories.repository.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { CATEGORY_ID } from './fixtures/catalog.ts';
+import { aUniqueViolation } from './fixtures/prisma-errors.ts';
 
 function makeRepository(failure: unknown) {
   const deleteMany = mock.fn<(args: unknown) => Promise<unknown>>();
@@ -37,4 +38,36 @@ describe('PrismaCategoriesRepository.delete', () => {
 
     await assert.rejects(repository.delete(CATEGORY_ID), (error) => error === failure);
   });
+});
+
+describe('PrismaCategoriesRepository.create', () => {
+  /** A repository whose name check passes and whose insert fails with `failure`. */
+  function failingCreate(failure: unknown) {
+    const prisma = {
+      $queryRaw: mock.fn(() => Promise.resolve([])),
+      category: { create: mock.fn(() => Promise.reject(failure)) },
+    };
+    return new PrismaCategoriesRepository(prisma as unknown as PrismaService);
+  }
+
+  const newCategory = { name: 'Кіно', slug: 'kino', isActive: true };
+  const conflicts = [
+    { index: 'categories_name_key', message: 'A category with this name already exists' },
+    { index: 'categories_name_normalized_key', message: 'A category with this name already exists' },
+    {
+      index: 'categories_slug_key',
+      message: 'Another category with the same slug was added at the same time; try again',
+    },
+  ];
+
+  for (const { index, message } of conflicts) {
+    test(`answers a write that runs into ${index} with CONFLICT`, async () => {
+      const repository = failingCreate(aUniqueViolation({ index }));
+
+      await assert.rejects(
+        repository.create(newCategory),
+        (error) => error instanceof DomainError && error.code === 'CONFLICT' && error.message === message,
+      );
+    });
+  }
 });

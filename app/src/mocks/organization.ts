@@ -25,28 +25,6 @@ export const mockOrganization = {
   ] satisfies OrganizationEvent[],
 };
 
-// О2.1: the categories of the "Категорія" list.
-export const mockEventCategories = [
-  'Концерти',
-  'Виставки',
-  'Кіно',
-  'Лекції',
-  'Театр',
-  'Стендап',
-  'Майстер-класи',
-  'Фестивалі',
-  'Вечірки',
-];
-
-// О2 opens the lecture draft, filled in as in Figma.
-export const mockEventDraft = {
-  title: 'Лекція: як читати сучасне мистецтво',
-  category: 'Лекції',
-  date: '21.10.2026',
-  time: '16:00',
-  description: 'Відкрита лекція про те, як дивитися на сучасне мистецтво без страху «не зрозуміти». Вхід вільний.',
-};
-
 // Сторінка організатора: the organizer of the jazz evening, as the event page links to it.
 export const mockOrganizer = {
   name: 'Мистецький Арсенал',

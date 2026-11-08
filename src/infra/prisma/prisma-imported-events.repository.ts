@@ -18,8 +18,8 @@ import { ImportPrismaService } from './import-prisma.service.ts';
 export class PrismaImportedEventsRepository implements ImportedEventsRepository {
   constructor(private readonly prisma: ImportPrismaService) {}
 
-  async findActiveCategories(): Promise<ImportCategory[]> {
-    return this.prisma.category.findMany({ where: { isActive: true }, select: { id: true, name: true } });
+  async findCategories(): Promise<ImportCategory[]> {
+    return this.prisma.category.findMany({ select: { id: true, slug: true, isActive: true } });
   }
 
   async startRun(provider: string): Promise<string> {

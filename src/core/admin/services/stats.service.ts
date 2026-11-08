@@ -4,12 +4,15 @@ import { EventsService } from '../../catalog/services/events.service.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { MatchingService } from '../../matching/services/matching.service.ts';
 import { ModerationService } from '../../moderation/services/moderation.service.ts';
+import type { BackupStatus } from '../types/backup.ts';
+import { BackupsService } from './backups.service.ts';
 
 export interface PlatformStats {
   users: number;
   events: number;
   matches: number;
   openReports: number;
+  backup: BackupStatus | null;
 }
 
 /** Platform statistics for administrators (FR-030); each module counts its own data. */
@@ -20,15 +23,17 @@ export class StatsService {
     private readonly eventsService: EventsService,
     private readonly matchingService: MatchingService,
     private readonly moderationService: ModerationService,
+    private readonly backupsService: BackupsService,
   ) {}
 
   async get(): Promise<PlatformStats> {
-    const [users, events, matches, reports] = await Promise.all([
+    const [users, events, matches, reports, backup] = await Promise.all([
       this.accountsService.stats(),
       this.eventsService.stats(),
       this.matchingService.stats(),
       this.moderationService.stats(),
+      this.backupsService.status(),
     ]);
-    return { ...users, ...events, ...matches, ...reports };
+    return { ...users, ...events, ...matches, ...reports, backup };
   }
 }

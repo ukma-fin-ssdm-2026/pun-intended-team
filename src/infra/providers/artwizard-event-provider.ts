@@ -15,18 +15,18 @@ const PAGE_SIZE = 20;
 /** A stop for a response whose `total_pages` is wrong: Kyiv had 4 pages of 20 on 2026-11-03. */
 const MAX_PAGES = 50;
 
-/** ArtWizard's event types (`type`), and our category for each; the first known type wins. */
-const CATEGORY_BY_TAG = new Map([
-  ['Музика', 'Concerts'],
-  ['Виставки', 'Exhibitions'],
-  ['Дискусії та лекції', 'Talks'],
-  ['Література', 'Talks'],
-  ['Майстер-класи', 'Workshops'],
-  ['Кіно', 'Cinema'],
-  ['Театр', 'Theatre'],
-  ['Гумор', 'Stand-up'],
-  ['Фестивалі', 'Festivals'],
-  ['Вечірки', 'Parties'],
+/** ArtWizard's event types (`type`), and the slug of our category for each; the first known type wins. */
+export const ARTWIZARD_CATEGORY_SLUGS = new Map<string, string>([
+  ['Музика', 'concerts'],
+  ['Виставки', 'exhibitions'],
+  ['Дискусії та лекції', 'talks'],
+  ['Література', 'talks'],
+  ['Майстер-класи', 'workshops'],
+  ['Кіно', 'cinema'],
+  ['Театр', 'theatre'],
+  ['Гумор', 'stand-up'],
+  ['Фестивалі', 'festivals'],
+  ['Вечірки', 'parties'],
 ]);
 
 const EventsPage = z.object({
@@ -156,8 +156,8 @@ export class ArtWizardEventProvider extends EventProvider {
     if (city !== 'kyiv') {
       return { skip: { externalId, reason: `Not in Kyiv (city ${JSON.stringify(city ?? null)})` } };
     }
-    const categoryName = type.map((tag) => CATEGORY_BY_TAG.get(tag)).find(Boolean);
-    if (!categoryName) {
+    const categorySlug = type.map((tag) => ARTWIZARD_CATEGORY_SLUGS.get(tag)).find(Boolean);
+    if (!categorySlug) {
       return { skip: { externalId, reason: `No category for the types ${JSON.stringify(type)}` } };
     }
 
@@ -192,7 +192,7 @@ export class ArtWizardEventProvider extends EventProvider {
         externalId,
         title: fitTitle(title),
         description: fitDescription(quillText(description ?? '')),
-        categoryName,
+        categorySlug,
         venue: { name: location.name_ua, address, location: coordinates },
         startsAt: start.toISOString(),
         // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the

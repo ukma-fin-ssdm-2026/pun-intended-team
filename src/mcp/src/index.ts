@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-01T19:11:48.147Z
+ * Generated on: 2026-11-07T23:01:09.661Z
  */
 
 import { existsSync } from 'node:fs';
@@ -58,10 +58,25 @@ console.error("API_BASE_URL is set to:", API_BASE_URL);
  */
 const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
+  ["adminListBackups", {
+    name: "adminListBackups",
+    title: "List the nightly database backups",
+    description: `Tell whether the nightly database backups are up to date and list the last 30 nights. A failed night carries a reason code only; hosts, users and error messages stay in the server log. Needs an administrator account; other accounts get 404.
+(Tags: Admin)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/backups",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Admin"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
   ["adminGetStats", {
     name: "adminGetStats",
     title: "Get platform statistics",
-    description: `Count active users, upcoming events, matches and open report cases. Needs an administrator account; other accounts get 404.
+    description: `Count active users, upcoming events, matches and open report cases, and tell whether the nightly database backups are up to date. Needs an administrator account; other accounts get 404.
 (Tags: Admin)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -91,9 +106,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminCreateCategory", {
     name: "adminCreateCategory",
     title: "Add a category",
-    description: `Add a category. Needs an administrator account; other accounts get 404.
+    description: `Add a category. The server makes its slug from the name, transliterated to Latin (Майстер-класи → maister-klasy), with a number added if another category has it (maister-klasy-2). Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Workshops"}],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe"},"isActive":{"type":"boolean","default":true,"description":"Whether users can pick the category"}},"required":["name"],"additionalProperties":false,"examples":[{"name":"Майстер-класи"}],"description":"The JSON request body."}}},
     method: "post",
     pathTemplate: "/api/v1/admin/categories",
     executionParameters: [],
@@ -136,9 +151,9 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminUpdateCategory", {
     name: "adminUpdateCategory",
     title: "Rename, deactivate or reactivate a category",
-    description: `Rename, deactivate or reactivate a category. Needs an administrator account; other accounts get 404.
+    description: `Change the name or whether the category is active. The slug stays as it was made. Needs an administrator account; other accounts get 404.
 (Tags: Categories)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Unique, case-insensitive"},"isActive":{"type":"boolean","description":"Whether users can pick the category"}},"additionalProperties":false,"description":"Only the fields to change","examples":[{"isActive":false}]}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Category id"},"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":60,"description":"Saved with runs of spaces as one and every apostrophe (' ’ ʼ) as ʼ; unique regardless of case, spaces and apostrophe"},"isActive":{"type":"boolean","description":"Whether users can pick the category"}},"additionalProperties":false,"description":"Only the fields to change","examples":[{"isActive":false}]}},"required":["id"]},
     method: "patch",
     pathTemplate: "/api/v1/admin/categories/{id}",
     executionParameters: [{"name":"id","in":"path"}],
@@ -238,6 +253,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
+  ["getMyOrganization", {
+    name: "getMyOrganization",
+    title: "Get your organization request",
+    description: `Get the caller’s organization request with its verification status: pending, verified or rejected. Only a verified organization can publish events. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/organization",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["requestOrganizationStatus", {
+    name: "requestOrganizationStatus",
+    title: "Request organization status",
+    description: `Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":100,"description":"The organization’s name, as users will see it"},"description":{"type":"string","minLength":1,"maxLength":1000,"description":"What the organization does"},"officialLink":{"type":"string","maxLength":500,"format":"uri","description":"The organization’s official site or page, where an administrator can check it"}},"required":["name","description","officialLink"],"additionalProperties":false,"examples":[{"name":"Мистецький Арсенал","description":"Культурний комплекс у центрі Києва: виставки, концерти, лекції.","officialLink":"https://artarsenal.in.ua"}],"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/organization",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
   ["listListings", {
     name: "listListings",
     title: "Browse listings",
@@ -298,10 +343,55 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
   }],
+  ["adminListOrganizations", {
+    name: "adminListOrganizations",
+    title: "List organization requests",
+    description: `List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/organizations",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminApproveOrganization", {
+    name: "adminApproveOrganization",
+    title: "Verify an organization",
+    description: `Approve a pending request: the organization becomes verified and can publish events. The administrator and the time are recorded. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"accountId":{"type":"string","format":"uuid","description":"Account id of the organization"}},"required":["accountId"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/organizations/{accountId}/approve",
+    executionParameters: [{"name":"accountId","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["adminRejectOrganization", {
+    name: "adminRejectOrganization",
+    title: "Reject an organization request",
+    description: `Reject a pending request. The account can send the request again. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"accountId":{"type":"string","format":"uuid","description":"Account id of the organization"}},"required":["accountId"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/organizations/{accountId}/reject",
+    executionParameters: [{"name":"accountId","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
   ["adminListReportCases", {
     name: "adminListReportCases",
     title: "List report cases",
-    description: `List report cases, oldest first: one case per reported user, with the number of reports. Open cases by default; \`status=resolved\` lists the resolved ones. Needs an administrator account; other accounts get 404.
+    description: `List report cases, oldest first: one case per reported user or listing, with the number of reports. Open cases by default; \`status=resolved\` lists the resolved ones. Needs an administrator account; other accounts get 404.
 (Tags: Moderation)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"status":{"type":"string","enum":["open","resolved"],"default":"open","description":"open (the default) or resolved"}}},
     method: "get",
@@ -316,7 +406,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminGetReportCase", {
     name: "adminGetReportCase",
     title: "Get a report case",
-    description: `Get a report case with every report in it: who reported, the reason and the comment. Needs an administrator account; other accounts get 404.
+    description: `Get a report case with every report in it: who reported, the reason and the comment. A listing case shows the listing, also after it was removed. Needs an administrator account; other accounts get 404.
 (Tags: Moderation)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
     method: "get",
@@ -343,6 +433,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
+  ["adminRemoveReportedListing", {
+    name: "adminRemoveReportedListing",
+    title: "Remove the reported listing",
+    description: `Remove the listing a listing case is about and resolve the case as \`removed\`. The listing leaves the feed and its page answers 404, as after the author deletes it. On a case already resolved as removed, the removal is applied again, so a removal that failed halfway can be retried. Needs an administrator account; other accounts get 404.
+(Tags: Moderation)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Report case id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/admin/report-cases/{id}/remove-listing",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
   ["adminDismissReportCase", {
     name: "adminDismissReportCase",
     title: "Dismiss a report case",
@@ -358,12 +463,12 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
-  ["reportUser", {
-    name: "reportUser",
-    title: "Report a user",
-    description: `Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
+  ["createReport", {
+    name: "createReport",
+    title: "Report a user or a listing",
+    description: `Report a user by username, or someone else’s listing by its id, with a reason and an optional comment. Administrators review it; repeated reports on one user or one listing are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
 (Tags: Moderation)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"username":{"type":"string","minLength":1,"maxLength":50,"description":"Username of the user being reported, as their profile shows it"},"reason":{"type":"string","enum":["offensive_messages","no_show","fake_profile","unsafe_behaviour","other"],"description":"offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other"},"comment":{"type":"string","maxLength":1000,"description":"What happened, in the reporter’s words"}},"required":["username","reason"],"additionalProperties":false,"examples":[{"username":"olena_k","reason":"no_show","comment":"We agreed to meet at the entrance; she did not come and did not answer."}],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"username":{"type":"string","minLength":1,"maxLength":50,"description":"Username of the user being reported, as their profile shows it; send this or listingId"},"listingId":{"type":"string","format":"uuid","description":"Id of the listing being reported; send this or username"},"reason":{"type":"string","enum":["offensive_messages","no_show","fake_profile","unsafe_behaviour","other"],"description":"offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other"},"comment":{"type":"string","maxLength":1000,"description":"What happened, in the reporter’s words"}},"required":["reason"],"additionalProperties":false,"description":"A report on a user (username) or on a listing (listingId), never both","examples":[{"username":"olena_k","reason":"no_show","comment":"We agreed to meet at the entrance; she did not come and did not answer."}]}}},
     method: "post",
     pathTemplate: "/api/v1/reports",
     executionParameters: [],
@@ -465,8 +570,8 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   }],
   ["getHealth", {
     name: "getHealth",
-    title: "Check that the API is running",
-    description: `Check that the API is running. No access token needed.
+    title: "Check that the API and its database are up",
+    description: `Checks that the API is running and that its database answers within 2 s. \`200\` while it is healthy; \`503\` with the dependency that is down in \`checks\`. No access token needed.
 (Tags: System)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",

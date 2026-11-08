@@ -170,7 +170,7 @@ describe('ArtWizardEventProvider.normalize', () => {
         externalId: 'santimetri-20261103',
         title: 'Сантиметри',
         description: event.description.slice(0, 40),
-        categoryName: 'Cinema',
+        categorySlug: 'cinema',
         venue: {
           name: 'Будинок Кіно',
           address: 'вулиця Саксаганського, 6, Київ, Київ',
@@ -272,7 +272,7 @@ describe('ArtWizardEventProvider.normalize', () => {
   test('takes the first type that has a category', () => {
     const raw = { ...savedEvent('santimetri-20261103'), type: ['Дітям', 'Театр', 'Кіно'] };
 
-    assert.equal(normalized(raw).categoryName, 'Theatre');
+    assert.equal(normalized(raw).categorySlug, 'theatre');
   });
 
   test('skips an event whose types have no category, with the types in the reason', () => {

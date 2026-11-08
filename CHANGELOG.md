@@ -10,17 +10,34 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - `ARTWIZARD_API_KEY`, the import's key for the ArtWizard API, in `.env.example` and the staging settings.
 - Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
 - `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
+- `slug` on categories ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)): made by the server from the name in Latin when a category is added and never changed, shown to administrators. The import maps providers' genres to slugs, so renaming a category no longer breaks it, and a skipped record names the slug: `Unknown category "concerts"`.
+- Reporting a listing ([#382](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/382)): `POST /reports` takes `listingId` instead of `username`, and the report sheet on someone else's post reports the listing. Administrators see listing cases with the listing and its author, and `POST /admin/report-cases/{id}/remove-listing` removes the listing and resolves the case.
+- Organization verification ([#383](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/383)): an account requests organization status with a name, a description and an official link (`PUT /me/organization`) and sees its status on the organization settings screen. Administrators verify or reject requests on the new Організації page of the admin panel (`/admin/organizations`); only a verified organization publishes events, and every decision is audited.
+
+### Changed
+
+- The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
+- The import's requests to the event providers and Nominatim wait a random time before each retry, at most 8 s, and log a request that failed after its last attempt.
+- `/health` checks the database. A deploy whose API cannot reach the database is now rolled back.
+- Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
 
 ### Removed
 
 - The Concert.ua adapter and its sample feed: Concert.ua sells the same concerts as Karabas, so importing both would split applicants between copies of one event.
+
+### Fixed
+
+- The API refuses to start with a database time limit above one day ([#385](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/385)). Such a value used to pass the check and break every database call.
+
+### Refactoring
+
+- The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
 
 ## [1.1.1] - 2026-11-01
 
 ### Refactoring
 
 - Durations use shared time constants instead of hand-written arithmetic ([#306](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/306)). Technique: Replace Magic Number with Symbolic Constant.
-- The error filter answers a Nest 403 as 404 from its status table instead of a separate check, after characterization tests fixed its behaviour ([#348](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/348)). Technique: Substitute Algorithm (nearest catalog entry).
 
 ## [1.1.0] - 2026-11-01
 
@@ -53,7 +70,7 @@ The first release, deployed to staging: the API at <https://api.nearbystaging.ap
 ### Refactoring
 
 - Event lookup for editing and cancelling reuses the plain lookup instead of repeating it ([#294](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/294)). Technique: Replace Inline Code with Function Call.
-- Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Move Statements to Callers.
+- Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them ([#302](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/302)). Technique: Extract Function and Change Function Declaration.
 - Registration and profiles share one age calculation ([#304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/304)). Technique: Move Function.
 
 [Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.1...HEAD

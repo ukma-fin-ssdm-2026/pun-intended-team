@@ -63,6 +63,7 @@ Before changing code in one of these areas, read its mechanism in [`docs/archite
 | Registration, sign-in and tokens | [`authentication.md`](docs/architecture/mechanisms/authentication.md) |
 | Catalog endpoints, guest tokens and rate limits | [`catalog-access.md`](docs/architecture/mechanisms/catalog-access.md) |
 | Database roles and migrations | [`database-access.md`](docs/architecture/mechanisms/database-access.md) |
+| Background jobs: enqueueing, handlers, schedules | [`job-queue.md`](docs/architecture/mechanisms/job-queue.md) |
 | Applications, matching rounds and proposals | [`matching.md`](docs/architecture/mechanisms/matching.md) |
 | Inbox and push notifications | [`notifications.md`](docs/architecture/mechanisms/notifications.md) |
 | Tests and coverage: `tests/`, `mcr.config.mjs` | [`testing.md`](docs/architecture/mechanisms/testing.md) |

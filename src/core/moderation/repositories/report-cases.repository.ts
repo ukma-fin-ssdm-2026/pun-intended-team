@@ -15,7 +15,13 @@ export abstract class ReportCasesRepository {
     report: { reporterId: string; reason: ReportReason; comment: string | null },
   ): Promise<string>;
 
-  /** Cases with the status, oldest first. */
+  /** Adds the report to the listing's open case, or opens one; returns the case id. */
+  abstract addListingReport(
+    listingId: string,
+    report: { reporterId: string; reason: ReportReason; comment: string | null },
+  ): Promise<string>;
+
+  /** Account and listing cases with the status, oldest first. */
   abstract findPage(status: ReportCaseStatus, page: PageRequest): Promise<Page<ReportCaseRecord>>;
 
   /** The case with its reports, oldest first. */

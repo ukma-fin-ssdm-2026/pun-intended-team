@@ -10,7 +10,9 @@ import { colors } from '@/styles/tokens';
 const sections: { href: Href; path: string; label: string; icon: IconName }[] = [
   { href: '/admin', path: '/admin', label: 'Огляд', icon: 'home' },
   { href: '/admin/reports', path: '/admin/reports', label: 'Скарги', icon: 'shield' },
+  { href: '/admin/organizations', path: '/admin/organizations', label: 'Організації', icon: 'building' },
   { href: '/admin/categories', path: '/admin/categories', label: 'Категорії', icon: 'list' },
+  { href: '/admin/backups', path: '/admin/backups', label: 'Резервні копії', icon: 'clock' },
 ];
 
 function Notice({ title, text, action }: { title: string; text: string; action?: { label: string; href: Href } }) {

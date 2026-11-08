@@ -24,13 +24,19 @@ type Props = {
   eventName: string;
   // "Так, скасувати подію", "Залишити" and the backdrop all return to О1 in the prototype.
   onClose: () => void;
+  // Cancels a real event; without it "Так, скасувати подію" only closes the sheet, as in the prototype.
+  onConfirm?: () => void;
+  // The request is running: the buttons wait.
+  loading?: boolean;
+  // Why the API refused, shown above the buttons.
+  error?: string;
 };
 
-export function CancelEventSheet({ visible, eventName, onClose }: Props) {
+export function CancelEventSheet({ visible, eventName, onClose, onConfirm, loading = false, error }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
-    <Overlay visible={visible} onClose={onClose} placement="bottom">
+    <Overlay visible={visible} onClose={loading ? () => {} : onClose} placement="bottom">
       <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
         <View
           className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
@@ -66,8 +72,13 @@ export function CancelEventSheet({ visible, eventName, onClose }: Props) {
             ))}
           </View>
 
-          <Button label="Так, скасувати подію" onPress={onClose} />
-          <Button label="Залишити" variant="light" onPress={onClose} />
+          {error && (
+            <Text accessibilityRole="alert" className="text-center font-inter text-caption text-brand-coral">
+              {error}
+            </Text>
+          )}
+          <Button label="Так, скасувати подію" loading={loading} onPress={onConfirm ?? onClose} />
+          <Button label="Залишити" variant="light" disabled={loading} onPress={onClose} />
         </View>
       </Animated.View>
     </Overlay>

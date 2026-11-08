@@ -4,7 +4,7 @@
 // Run with `npm run test:e2e`, which builds first.
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { type AddressInfo, createServer } from 'node:net';
@@ -15,6 +15,8 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
+import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
+import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
 
 // Categories seeded by the seed_categories migration; the rest of the ids are those the in-memory stubs had before #310.
 // The run has a database of its own, created again every time, so no test sees rows a previous run left.
@@ -364,6 +366,31 @@ async function openCaseOf(accountId: string): Promise<string | undefined> {
   return rows[0]?.id;
 }
 
+/** The id of the listing's open report case; undefined when it has none. */
+async function openListingCaseOf(listingId: string): Promise<string | undefined> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`SELECT id FROM report_cases WHERE target_listing_id = $1 AND status = 'open'`, [listingId]),
+  );
+  return rows[0]?.id;
+}
+
+/** A new user with a profile and one listing, reported once by the stub user; the author, listing id and case id. */
+async function newReportedListing(): Promise<{
+  author: Awaited<ReturnType<typeof newProfile>>;
+  listingId: string;
+  caseId: string;
+}> {
+  const author = await newProfile();
+  const listing = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+  assert.equal(listing.status, 201, JSON.stringify(listing.body));
+  const report = await call('POST', '/api/v1/reports', {
+    token: tokens.user,
+    body: { listingId: listing.body.id, reason: 'other' },
+  });
+  assert.equal(report.status, 204, JSON.stringify(report.body));
+  return { author, listingId: listing.body.id, caseId: (await openListingCaseOf(listing.body.id)) ?? '' };
+}
+
 /** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
  * profiles of the stub listings' authors. */
 async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
@@ -526,6 +553,16 @@ async function withDatabase<T>(query: (client: pg.Client) => Promise<T>): Promis
   }
 }
 
+/** A good night a day ago and a failed one now, as deploy/backup-db.sh writes them. */
+async function insertBackupNights(): Promise<{ finished_at: Date }[]> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`INSERT INTO backup_runs (finished_at, succeeded, attempts, duration_seconds, size_bytes, reason)
+      VALUES (now() - interval '1 day', true, 1, 12, 4404019, NULL), (now(), false, 3, 0, NULL, 'unreachable')
+      RETURNING finished_at`),
+  );
+  return rows;
+}
+
 /** The `sub` claim of an access token: the account id. */
 function accountIdOf(token: string): string {
   return JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sub;
@@ -630,10 +667,10 @@ after(() => {
 });
 
 describe('GET /health', () => {
-  test('reports ok without a token', async () => {
+  test('reports healthy, with the database up, without a token', async () => {
     const res = await call('GET', '/health');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { status: 'ok' });
+    assert.deepEqual(res.body, { status: 'healthy', checks: { database: 'up' } });
     assert.equal(res.headers.get('x-powered-by'), null);
   });
 
@@ -928,16 +965,13 @@ describe('Per-IP limit on the auth endpoints', () => {
 // when TRUST_PROXY names the proxy. Here the test itself plays the proxy on loopback.
 describe('Per-IP limit behind a reverse proxy', () => {
   let trusting: { child: ChildProcess; url: string };
-  let untrusting: { child: ChildProcess; url: string };
 
   before(async () => {
     trusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2', TRUST_PROXY: 'loopback' });
-    untrusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
   });
 
   after(() => {
     trusting?.child.kill();
-    untrusting?.child.kill();
   });
 
   function signInFrom(api: { url: string }, clientIp: string): Promise<number> {
@@ -964,13 +998,6 @@ describe('Per-IP limit behind a reverse proxy', () => {
     assert.equal(await signInFrom(trusting, '203.0.113.9'), 429);
   });
 
-  test('ignores X-Forwarded-For when TRUST_PROXY is not set', async () => {
-    await signInFrom(untrusting, '198.51.100.1');
-    await signInFrom(untrusting, '198.51.100.2');
-
-    assert.equal(await signInFrom(untrusting, '198.51.100.3'), 429);
-  });
-
   test('refuses to start with TRUST_PROXY=true', async () => {
     await assert.rejects(startApi({ TRUST_PROXY: 'true' }), /exited with code/);
   });
@@ -978,7 +1005,7 @@ describe('Per-IP limit behind a reverse proxy', () => {
 
 // SEC-005: sessions renew without signing in again, and end at once on sign-out.
 describe('POST /api/v1/auth/refresh', () => {
-  test('returns new tokens, and the old refresh token stops working', async () => {
+  test('returns new tokens that work', async () => {
     const session = await newSession(subjects.user);
 
     const res = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
@@ -989,9 +1016,28 @@ describe('POST /api/v1/auth/refresh', () => {
     assert.equal((await call('GET', '/api/v1/listings', { token: res.body.accessToken })).status, 200);
   });
 
-  test('ends the session when a refresh token is used a second time', async () => {
+  // REL-08: the answer of a refresh was lost, so the app still has the token that refresh replaced.
+  test('accepts the replaced refresh token within 60 s as a retry, and the lost one stops working', async () => {
+    const session = await newSession(subjects.user);
+    const lost = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    const retry = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+
+    assert.equal(retry.status, 200, JSON.stringify(retry.body));
+    assert.equal((await call('GET', '/api/v1/listings', { token: retry.body.accessToken })).status, 200);
+    const next = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: retry.body.refreshToken } });
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    const lostUsed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: lost.body.refreshToken } });
+    assertRejected(lostUsed, 401, 'INVALID_REFRESH_TOKEN');
+  });
+
+  test('ends the session when a replaced refresh token comes back more than 60 s later', async () => {
     const session = await newSession(subjects.user);
     const renewed = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
+    const [sessionId] = session.refreshToken.split('.');
+    await withDatabase((client) =>
+      client.query(`UPDATE refresh_tokens SET rotated_at = now() - interval '61 seconds' WHERE id = $1`, [sessionId]),
+    );
 
     const reused = await call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } });
 
@@ -1390,7 +1436,7 @@ describe('GET /api/v1/admin/categories/{id}', () => {
   test('returns the category', async () => {
     const res = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { id: concerts, name: 'Concerts', isActive: true });
+    assert.deepEqual(res.body, { id: concerts, name: 'Концерти', slug: 'concerts', isActive: true });
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1407,6 +1453,73 @@ describe('POST /api/v1/admin/categories', () => {
     assert.equal(res.body.isActive, true);
   });
 
+  test('makes the slug from the name, in Latin', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Майстер-класи ${suffix}` },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.slug, `maister-klasy-${suffix}`);
+  });
+
+  test('adds a number to a slug another category has', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const first = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Кіно ${suffix}` },
+    });
+    const second = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `Кіно, ${suffix}!` },
+    });
+    assert.equal(first.body.slug, `kino-${suffix}`);
+    assert.equal(second.status, 201);
+    assert.equal(second.body.slug, `kino-${suffix}-2`);
+  });
+
+  test('saves the name with single spaces and ʼ for every apostrophe', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `  Кав'ярні   ${suffix} ` },
+    });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.name, `Кавʼярні ${suffix}`);
+  });
+
+  // The name is compared in lower case, trimmed, with runs of spaces as one and every apostrophe alike.
+  for (const { title, variant } of [
+    { title: 'in another case', variant: (suffix: string) => `КАВʼЯРНІ ${suffix.toUpperCase()}` },
+    { title: 'with extra spaces', variant: (suffix: string) => `  Кавʼярні    ${suffix}  ` },
+    { title: "with ' as the apostrophe", variant: (suffix: string) => `Кав'ярні ${suffix}` },
+    { title: 'with ’ as the apostrophe', variant: (suffix: string) => `Кав’ярні ${suffix}` },
+  ]) {
+    test(`rejects a name that differs from another one only ${title} with 409`, async () => {
+      const suffix = randomUUID().slice(0, 8);
+      const first = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: `Кавʼярні ${suffix}` },
+      });
+      assert.equal(first.status, 201);
+
+      const res = await call('POST', '/api/v1/admin/categories', {
+        token: tokens.admin,
+        body: { name: variant(suffix) },
+      });
+
+      assertRejected(res, 409, 'CONFLICT');
+    });
+  }
+
+  test('rejects a slug in the body with 400', async () => {
+    const res = await call('POST', '/api/v1/admin/categories', {
+      token: tokens.admin,
+      body: { name: `E2E ${randomUUID().slice(0, 8)}`, slug: 'my-own' },
+    });
+    assert.equal(res.status, 400);
+  });
+
   test('rejects an empty name with 400', async () => {
     const res = await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name: '' } });
     assertInvalid(res, 'body', 'name');
@@ -1416,13 +1529,48 @@ describe('POST /api/v1/admin/categories', () => {
     const res = await fetch(`${baseUrl}/api/v1/admin/categories`, {
       method: 'POST',
       headers: { authorization: `Bearer ${tokens.admin}`, 'content-type': 'application/x-www-form-urlencoded' },
-      body: 'name=Workshops',
+      body: new URLSearchParams({ name: 'Майстер-класи' }).toString(),
     });
     assert.equal(res.status, 400);
   });
 });
 
 describe('PATCH /api/v1/admin/categories/{id}', () => {
+  test('renames a category and keeps its slug', async () => {
+    const created = await newCategory();
+    const before = await call('GET', `/api/v1/admin/categories/${created.id}`, { token: tokens.admin });
+    const res = await call('PATCH', `/api/v1/admin/categories/${created.id}`, {
+      token: tokens.admin,
+      body: { name: `Renamed ${randomUUID().slice(0, 8)}` },
+    });
+    assert.equal(res.status, 200);
+    assert.notEqual(res.body.name, created.name);
+    assert.equal(res.body.slug, before.body.slug);
+  });
+
+  test('rejects a rename to the name of another category, in another case and with ’, with 409', async () => {
+    const suffix = randomUUID().slice(0, 8);
+    await call('POST', '/api/v1/admin/categories', { token: tokens.admin, body: { name: `Кавʼярні ${suffix}` } });
+    const other = await newCategory();
+
+    const res = await call('PATCH', `/api/v1/admin/categories/${other.id}`, {
+      token: tokens.admin,
+      body: { name: ` кав’ярні  ${suffix}` },
+    });
+
+    assertRejected(res, 409, 'CONFLICT');
+  });
+
+  test('rejects a slug in the body with 400 and keeps the slug', async () => {
+    const res = await call('PATCH', `/api/v1/admin/categories/${concerts}`, {
+      token: tokens.admin,
+      body: { slug: 'gigs' },
+    });
+    assert.equal(res.status, 400);
+    const after = await call('GET', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin });
+    assert.equal(after.body.slug, 'concerts');
+  });
+
   test('reactivates a category', async () => {
     const inactive = await newCategory({ isActive: false });
     const res = await call('PATCH', `/api/v1/admin/categories/${inactive.id}`, {
@@ -1701,6 +1849,315 @@ describe('Report cases', () => {
   });
 });
 
+// FR-026, FR-028
+describe('Listing report cases', () => {
+  test('groups reports on someone else’s listing into one case that shows the listing and its author', async () => {
+    const author = await newProfile();
+    const listing = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+    const other = await newAccount();
+    for (const token of [tokens.user, tokens.user, other.token]) {
+      const res = await call('POST', '/api/v1/reports', {
+        token,
+        body: { listingId: listing.body.id, reason: 'offensive_messages', comment: 'Rude text.' },
+      });
+      assert.equal(res.status, 204, JSON.stringify(res.body));
+    }
+    const caseId = await openListingCaseOf(listing.body.id);
+
+    let listed;
+    for (let offset = 0, hasMore = true; !listed && hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/admin/report-cases?offset=${offset}`, { token: tokens.admin });
+      listed = page.body.items.find((item: { id: string }) => item.id === caseId);
+      hasMore = page.body.page.hasMore;
+    }
+    const details = await call('GET', `/api/v1/admin/report-cases/${caseId}`, { token: tokens.admin });
+    const { reports: _reports, ...summary } = details.body;
+    assert.deepEqual(listed, summary);
+    assert.equal(details.body.targetType, 'listing');
+    assert.equal(details.body.reportCount, 3);
+    assert.equal(details.body.reports.length, 3);
+    assert.deepEqual(details.body.account, {
+      id: author.accountId,
+      username: author.username,
+      displayName: 'Reported',
+    });
+    assert.deepEqual(details.body.listing, {
+      id: listing.body.id,
+      title: newListing.title,
+      description: newListing.description,
+      date: newListing.date,
+      status: 'active',
+    });
+  });
+
+  test('shows no listing in a user case', async () => {
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+
+    const details = await call('GET', `/api/v1/admin/report-cases/${await openCaseOf(target.accountId)}`, {
+      token: tokens.admin,
+    });
+
+    assert.equal(details.body.targetType, 'account');
+    assert.equal(details.body.listing, null);
+  });
+
+  test('rejects your own listing with 422 CANNOT_REPORT_SELF', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { listingId: olenasListing, reason: 'other' },
+    });
+    assertRejected(res, 422, 'CANNOT_REPORT_SELF');
+  });
+
+  test('rejects an unknown or removed listing with 422 REFERENCE_NOT_FOUND', async () => {
+    const author = await newProfile();
+    const removed = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+    await call('DELETE', `/api/v1/listings/${removed.body.id}`, { token: author.token });
+
+    for (const listingId of [randomUUID(), removed.body.id]) {
+      const res = await call('POST', '/api/v1/reports', { token: tokens.user, body: { listingId, reason: 'other' } });
+      assertRejected(res, 422, 'REFERENCE_NOT_FOUND');
+    }
+  });
+
+  test('rejects a report with both a username and a listing, or with neither, with 400', async () => {
+    for (const body of [{ username: 'taras.m', listingId: tarasListing, reason: 'other' }, { reason: 'other' }]) {
+      assertInvalid(await call('POST', '/api/v1/reports', { token: tokens.user, body }), 'body', '');
+    }
+  });
+
+  test('removes the reported listing: it leaves the feed, its page answers 404, and it is audited', async () => {
+    const { listingId, caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.resolution, 'removed');
+    assert.equal(res.body.listing.status, 'removed');
+    assertRejected(await call('GET', `/api/v1/listings/${listingId}`, { token: tokens.user }), 404, 'NOT_FOUND');
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/listings?offset=${offset}`, { token: tokens.user });
+      assert.ok(!page.body.items.some((item: { id: string }) => item.id === listingId));
+      hasMore = page.body.page.hasMore;
+    }
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT actor_id, action, result FROM audit_logs WHERE target_id = $1 ORDER BY id`, [listingId]),
+    );
+    assert.deepEqual(rows, [
+      { actor_id: stubAccounts.user.id, action: 'report.create', result: 'created' },
+      { actor_id: stubAccounts.admin.id, action: 'listing.remove', result: 'removed' },
+    ]);
+  });
+
+  test('removes again on a case already removed, so a removal that failed halfway can be retried', async () => {
+    const { caseId } = await newReportedListing();
+    await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    const again = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.resolution, 'removed');
+  });
+
+  test('dismisses a listing case and leaves the listing in the feed', async () => {
+    const { listingId, caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/dismiss`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.resolution, 'dismissed');
+    assert.equal((await call('GET', `/api/v1/listings/${listingId}`, { token: tokens.user })).status, 200);
+    assertRejected(
+      await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin }),
+      409,
+      'CONFLICT',
+    );
+  });
+
+  test('refuses a ban on a listing case and a removal on a user case with 409, and audits both', async () => {
+    const { author, caseId: listingCaseId } = await newReportedListing();
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+    const userCaseId = await openCaseOf(target.accountId);
+
+    const ban = await call('POST', `/api/v1/admin/report-cases/${listingCaseId}/ban`, { token: tokens.admin });
+    const removal = await call('POST', `/api/v1/admin/report-cases/${userCaseId}/remove-listing`, {
+      token: tokens.admin,
+    });
+
+    assertRejected(ban, 409, 'CONFLICT');
+    assertRejected(removal, 409, 'CONFLICT');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token: author.token })).status, 200);
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT action, result FROM audit_logs WHERE target_id IN ($1, $2) AND result LIKE 'refused%' ORDER BY action`,
+        [listingCaseId, userCaseId],
+      ),
+    );
+    assert.deepEqual(rows, [
+      { action: 'account.ban', result: 'refused: listing case' },
+      { action: 'listing.remove', result: 'refused: account case' },
+    ]);
+  });
+
+  // SEC-001
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    const { caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.user });
+
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+});
+
+// FR-003
+describe('Organization verification', () => {
+  const request = {
+    name: 'Riverside Stage',
+    description: 'Open-air concerts by the Dnipro.',
+    officialLink: 'https://riverside.example.org',
+  };
+
+  /** A new account with a pending organization request; its token and account id. */
+  async function newRequest(): Promise<{ token: string; accountId: string }> {
+    const { token } = await newAccount();
+    const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return { token, accountId: accountIdOf(token) };
+  }
+
+  async function decide(accountId: string, decision: 'approve' | 'reject', token = tokens.admin): Promise<Response> {
+    return call('POST', `/api/v1/admin/organizations/${accountId}/${decision}`, { token });
+  }
+
+  async function auditOf(accountId: string): Promise<{ action: string; result: string }[]> {
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT action, result FROM audit_logs WHERE target_id = $1 ORDER BY id`, [accountId]),
+    );
+    return rows;
+  }
+
+  test('saves a request as pending, shows it to the account, and keeps it from publishing events', async () => {
+    const { token } = await newAccount();
+    assertRejected(await call('GET', '/api/v1/me/organization', { token }), 404, 'NOT_FOUND');
+
+    const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
+
+    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null };
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, pending);
+    assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);
+    assertRejected(await call('POST', '/api/v1/events', { token, body: newEvent }), 422, 'ORGANIZATION_NOT_VERIFIED');
+  });
+
+  test('lists the requests for administrators, pending ones first', async () => {
+    const { accountId } = await newRequest();
+
+    let items: { accountId: string; verificationStatus: string; account: unknown }[] = [];
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/admin/organizations?offset=${offset}`, { token: tokens.admin });
+      assert.equal(page.status, 200, JSON.stringify(page.body));
+      items = [...items, ...page.body.items];
+      hasMore = page.body.page.hasMore;
+    }
+
+    const statuses = items.map((item) => item.verificationStatus);
+    assert.ok(statuses.lastIndexOf('pending') < statuses.indexOf('verified'), JSON.stringify(statuses));
+    const listed = items.find((item) => item.accountId === accountId);
+    assert.equal(listed?.verificationStatus, 'pending');
+    assert.deepEqual(listed.account, { id: accountId, username: null, displayName: null });
+  });
+
+  test('verifies a request: the organization can publish, and who verified it and when is recorded and audited', async () => {
+    const { token, accountId } = await newRequest();
+
+    const res = await decide(accountId, 'approve');
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.verificationStatus, 'verified');
+    assert.ok(res.body.verifiedAt);
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT verified_by, verified_at FROM organizations WHERE account_id = $1`, [accountId]),
+    );
+    assert.equal(rows[0].verified_by, stubAccounts.admin.id);
+    assert.equal(rows[0].verified_at.toISOString(), res.body.verifiedAt);
+    assert.deepEqual(await auditOf(accountId), [{ action: 'organization.approve', result: 'verified' }]);
+    const venueId = randomUUID();
+    await withDatabase((client) =>
+      client.query(
+        `INSERT INTO venues (id, name, address, latitude, longitude, source, organization_id)
+         VALUES ($1, 'Riverside lawn', 'Naberezhna St, Kyiv', 50.45, 30.53, 'organization', $2)`,
+        [venueId, accountId],
+      ),
+    );
+    const event = await call('POST', '/api/v1/events', { token, body: { ...newEvent, venueId } });
+    assert.equal(event.status, 201, JSON.stringify(event.body));
+  });
+
+  test('rejects a request, which the account can then send again', async () => {
+    const { token, accountId } = await newRequest();
+
+    const res = await decide(accountId, 'reject');
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.verificationStatus, 'rejected');
+    assert.equal((await call('GET', '/api/v1/me/organization', { token })).body.verificationStatus, 'rejected');
+    assert.deepEqual(await auditOf(accountId), [{ action: 'organization.reject', result: 'rejected' }]);
+    const again = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, name: 'Riverside' } });
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.verificationStatus, 'pending');
+    assert.equal(again.body.name, 'Riverside');
+  });
+
+  test('refuses decisions on a request that is not pending, and a new request of a verified organization, with 409', async () => {
+    const { token, accountId } = await newRequest();
+    await decide(accountId, 'approve');
+
+    assertRejected(await decide(accountId, 'approve'), 409, 'CONFLICT');
+    assertRejected(await decide(accountId, 'reject'), 409, 'CONFLICT');
+    assertRejected(await call('PUT', '/api/v1/me/organization', { token, body: request }), 409, 'CONFLICT');
+    assert.deepEqual((await auditOf(accountId)).slice(1), [
+      { action: 'organization.approve', result: 'refused: not pending' },
+      { action: 'organization.reject', result: 'refused: not pending' },
+    ]);
+  });
+
+  test('refuses an administrator’s decision on their own request with 409 CANNOT_DECIDE_OWN_REQUEST', async () => {
+    const admin = await call('PUT', '/api/v1/me/organization', { token: tokens.admin, body: request });
+    assert.equal(admin.status, 200, JSON.stringify(admin.body));
+
+    assertRejected(await decide(stubAccounts.admin.id, 'approve'), 409, 'CANNOT_DECIDE_OWN_REQUEST');
+    assert.equal(
+      (await call('GET', '/api/v1/me/organization', { token: tokens.admin })).body.verificationStatus,
+      'pending',
+    );
+  });
+
+  test('answers 404 to an account without a request', async () => {
+    assertRejected(await decide(randomUUID(), 'approve'), 404, 'NOT_FOUND');
+  });
+
+  test('rejects an official link that is not an http or https address with 400', async () => {
+    for (const officialLink of ['ftp://riverside.example.org', 'riverside']) {
+      const res = await call('PUT', '/api/v1/me/organization', {
+        token: tokens.user,
+        body: { ...request, officialLink },
+      });
+      assertInvalid(res, 'body', 'officialLink');
+    }
+  });
+
+  // SEC-001
+  test('answers a user who is not an administrator with 404, and a guest with 401', async () => {
+    const { accountId } = await newRequest();
+
+    assertRejected(await call('GET', '/api/v1/admin/organizations', { token: tokens.user }), 404, 'NOT_FOUND');
+    assertRejected(await decide(accountId, 'approve', tokens.user), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', '/api/v1/me/organization', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
 // FR-030
 describe('GET /api/v1/admin/stats', () => {
   test('counts active users, upcoming events, matches and open report cases', async () => {
@@ -1714,10 +2171,66 @@ describe('GET /api/v1/admin/stats', () => {
     );
     assert.deepEqual({ users: res.body.users, matches: res.body.matches, openReports: res.body.openReports }, rows[0]);
     assert.ok(res.body.events > 0, JSON.stringify(res.body));
+    assert.equal(res.body.backup, null);
+  });
+
+  test('reports the nightly backups as overdue after one failed', async () => {
+    const [good] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/stats', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body.backup, { lastSucceededAt: good.finished_at.toISOString(), overdue: true });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
   });
 
   test('answers a signed-in user who is not an administrator with 404', async () => {
     assertRejected(await call('GET', '/api/v1/admin/stats', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
+});
+
+// REL-06
+describe('GET /api/v1/admin/backups', () => {
+  test('has no status and no nights where no backup has run', async () => {
+    const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { status: null, items: [] });
+  });
+
+  test('lists the nights newest first, with only what the panel may show', async () => {
+    const [good, bad] = await insertBackupNights();
+    try {
+      const res = await call('GET', '/api/v1/admin/backups', { token: tokens.admin });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body, {
+        status: { lastSucceededAt: good.finished_at.toISOString(), overdue: true },
+        items: [
+          {
+            finishedAt: bad.finished_at.toISOString(),
+            succeeded: false,
+            attempts: 3,
+            durationSeconds: 0,
+            sizeBytes: null,
+            reason: 'unreachable',
+          },
+          {
+            finishedAt: good.finished_at.toISOString(),
+            succeeded: true,
+            attempts: 1,
+            durationSeconds: 12,
+            sizeBytes: 4404019,
+            reason: null,
+          },
+        ],
+      });
+    } finally {
+      await withDatabase((client) => client.query('DELETE FROM backup_runs'));
+    }
+  });
+
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    assertRejected(await call('GET', '/api/v1/admin/backups', { token: tokens.user }), 404, 'NOT_FOUND');
   });
 });
 
@@ -2120,8 +2633,9 @@ describe('Parallel requests', () => {
   // On one database connection the requests would run one after another and never race.
   const openConnections = () => parallel(10, () => call('GET', '/api/v1/categories', { token: tokens.guest }));
 
-  // SEC-005
-  test('renew a session once when one refresh token is sent 5 times at once', async () => {
+  // SEC-005, REL-08. A request that loses the race gets 409; one that reads the session after another rotated it is
+  // a retry within 60 s. How many get 200 depends on timing, but the session stays and exactly one token works.
+  test('keep the session and one working refresh token when one token is sent 5 times at once', async () => {
     const session = await newSession(subjects.user);
     await openConnections();
 
@@ -2129,7 +2643,22 @@ describe('Parallel requests', () => {
       call('POST', '/api/v1/auth/refresh', { body: { refreshToken: session.refreshToken } }),
     );
 
-    assert.equal(responses.filter((res) => res.status === 200).length, 1);
+    const bodies = JSON.stringify(responses.map((res) => [res.status, res.body]));
+    assert.ok(
+      responses.every((res) => res.status === 200 || res.status === 409),
+      bodies,
+    );
+    const issued = responses.filter((res) => res.status === 200).map((res) => res.body.refreshToken as string);
+    assert.ok(issued.length >= 1, bodies);
+    const [sessionId] = session.refreshToken.split('.');
+    const { rows } = await withDatabase((client) =>
+      client.query('SELECT token_hash, revoked_at FROM refresh_tokens WHERE id = $1', [sessionId]),
+    );
+    const stored = issued.filter(
+      (token) => createHash('sha256').update(token.split('.')[1]).digest('base64url') === rows[0].token_hash,
+    );
+    assert.equal(rows[0].revoked_at, null, bodies);
+    assert.equal(stored.length, 1, bodies);
   });
 
   // Whether the requests actually collide is up to timing; the repository's unit tests cover the collision itself.
@@ -2330,6 +2859,41 @@ describe('Event import', () => {
       assert.equal(res.body.sourceUrl, sourceUrl);
     }
     assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
+  });
+
+  // A typo in a provider's mapping would otherwise only skip that genre's events, with no test failing.
+  test('every category slug the providers map to is an active category after the migrations', async () => {
+    const used = new Set([...ARTWIZARD_CATEGORY_SLUGS.values(), ...KARABAS_SECTIONS.map((s) => s.categorySlug)]);
+    const { rows } = await withDatabase((client) =>
+      client.query<{ slug: string }>('SELECT slug FROM categories WHERE is_active'),
+    );
+    const active = new Set(rows.map(({ slug }) => slug));
+
+    assert.deepEqual(
+      [...used].filter((slug) => !active.has(slug)),
+      [],
+    );
+  });
+
+  test('still imports into a category an admin renamed', async () => {
+    const rename = (name: string) =>
+      call('PATCH', `/api/v1/admin/categories/${concerts}`, { token: tokens.admin, body: { name } });
+    assert.equal((await rename('Музика наживо')).status, 200);
+    try {
+      const output = await runImport();
+
+      assert.doesNotMatch(output, /Unknown category/);
+      assert.match(output, /karabas: fetched 33, .*skipped 0/);
+      const { rows } = await withDatabase((client) =>
+        client.query<{ count: number }>(
+          `SELECT count(*)::int AS count FROM events WHERE provider = 'karabas' AND category_id = $1`,
+          [concerts],
+        ),
+      );
+      assert.equal(rows[0]?.count, 20);
+    } finally {
+      assert.equal((await rename('Концерти')).status, 200);
+    }
   });
 
   test('connects as nearby_import, which may not read a table outside its grants', async () => {

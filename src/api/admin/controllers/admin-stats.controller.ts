@@ -14,7 +14,8 @@ export class AdminStatsController {
     path: Routes.admin.stats,
     operationId: 'adminGetStats',
     summary: 'Get platform statistics',
-    description: 'Count active users, upcoming events, matches and open report cases.',
+    description:
+      'Count active users, upcoming events, matches and open report cases, and tell whether the nightly database backups are up to date.',
     tags: ['Admin'],
     access: 'admin',
     responses: {

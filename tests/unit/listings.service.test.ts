@@ -59,6 +59,7 @@ function makeService() {
     ),
     create: mock.fn((record: ListingRecord): Promise<Listing> => Promise.resolve({ id: LISTING_ID, ...record })),
     markRemoved: mock.fn(() => Promise.resolve()),
+    findByIds: mock.fn((): Promise<Listing[]> => Promise.resolve([aListing({ status: 'removed' })])),
   };
   const categoriesService = {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
@@ -238,5 +239,32 @@ describe('ListingsService.remove', () => {
 
     await assert.rejects(service.remove(ACCOUNT_ID, LISTING_ID), isDomainError('NOT_FOUND'));
     assert.equal(listingsRepository.markRemoved.mock.callCount(), 0);
+  });
+});
+
+// FR-028
+describe('ListingsService.findByIds', () => {
+  test('gives the listings in any status, removed ones included', async () => {
+    const { service } = makeService();
+
+    assert.deepEqual(await service.findByIds([LISTING_ID]), [aListing({ status: 'removed' })]);
+  });
+
+  test('asks the repository nothing for no ids', async () => {
+    const { service, listingsRepository } = makeService();
+
+    assert.deepEqual(await service.findByIds([]), []);
+    assert.equal(listingsRepository.findByIds.mock.callCount(), 0);
+  });
+});
+
+// FR-028
+describe('ListingsService.removeReported', () => {
+  test('marks someone else’s listing as removed, for an administrator', async () => {
+    const { service, listingsRepository } = makeService();
+
+    await service.removeReported(LISTING_ID);
+
+    assert.deepEqual(listingsRepository.markRemoved.mock.calls[0]?.arguments, [LISTING_ID]);
   });
 });

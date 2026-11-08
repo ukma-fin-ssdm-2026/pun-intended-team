@@ -3,7 +3,13 @@ import { Link, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { banReportedUser, dismissReportCase, getReportCase, type ReportCaseDetails } from '@/api/admin';
+import {
+  banReportedUser,
+  dismissReportCase,
+  getReportCase,
+  removeReportedListing,
+  type ReportCaseDetails,
+} from '@/api/admin';
 import type { ApiResult } from '@/api/public-client';
 import {
   Badge,
@@ -17,11 +23,11 @@ import {
 import { reportReasons } from '@/components/matching/report-flow';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { formatDateTime } from '@/dates';
+import { formatDateTime, formatShortDay } from '@/dates';
 import { useApiQuery } from '@/hooks/use-api-query';
 import { colors } from '@/styles/tokens';
 
-type Action = 'ban' | 'dismiss';
+type Action = 'ban' | 'remove' | 'dismiss';
 
 const actions: Record<
   Action,
@@ -33,10 +39,16 @@ const actions: Record<
     text: 'Акаунт буде заблоковано, усі його сесії завершаться, і він більше не зможе увійти. Скасувати це з панелі не можна.',
     label: 'Заблокувати',
   },
+  remove: {
+    run: removeReportedListing,
+    title: 'Видалити оголошення?',
+    text: 'Оголошення зникне зі стрічки, і його більше не можна буде відкрити. Скасувати це з панелі не можна.',
+    label: 'Видалити',
+  },
   dismiss: {
     run: dismissReportCase,
     title: 'Відхилити скарги?',
-    text: 'Справу буде закрито без покарання. Нові скарги на цього користувача відкриють нову справу.',
+    text: 'Справу буде закрито без покарання. Нові скарги відкриють нову справу.',
     label: 'Відхилити',
   },
 };
@@ -80,7 +92,7 @@ export default function AdminReportCase() {
     } else if (result.code === 'CANNOT_BAN_ADMIN') {
       setError('Адміністратора не можна заблокувати.');
     } else if (result.code === 'CANNOT_RESOLVE_OWN_CASE') {
-      setError('Скаргу на тебе має розглянути інший адміністратор.');
+      setError('Скаргу на тебе чи твоє оголошення має розглянути інший адміністратор.');
     } else if (result.status === 409) {
       setError('Цю справу вже розглянули.');
       found.reload();
@@ -101,16 +113,37 @@ export default function AdminReportCase() {
       {item ? (
         <>
           <PageHeader
-            title={item.account.displayName ?? 'Без профілю'}
+            title={item.listing ? 'Скарга на оголошення' : (item.account.displayName ?? 'Без профілю')}
             note={item.account.username ? `@${item.account.username}` : item.account.id}
           >
             {item.status === 'open' && (
               <View className="flex-row gap-3">
                 <Button label="Відхилити" variant="light" onPress={() => setAction('dismiss')} />
-                <Button label="Заблокувати" onPress={() => setAction('ban')} />
+                {item.listing ? (
+                  <Button label="Видалити оголошення" onPress={() => setAction('remove')} />
+                ) : (
+                  <Button label="Заблокувати" onPress={() => setAction('ban')} />
+                )}
               </View>
             )}
           </PageHeader>
+
+          {item.listing && (
+            <Card className="gap-2 px-6 py-5">
+              <View className="flex-row items-center justify-between gap-4">
+                <Text className="flex-1 font-inter-semibold text-body text-text-primary">{item.listing.title}</Text>
+                {item.listing.status === 'removed' && <Badge label="Видалено" tone="muted" />}
+              </View>
+              <Text className="font-inter text-body text-text-primary">{item.listing.description}</Text>
+              <Text className="font-inter text-caption text-text-secondary">
+                {formatShortDay(`${item.listing.date}T12:00:00Z`)}
+              </Text>
+              <View className="flex-row items-center gap-1.5">
+                <Text className="font-inter text-caption text-text-secondary">Автор</Text>
+                <Person person={item.account} />
+              </View>
+            </Card>
+          )}
 
           <Card className="flex-row gap-10 px-6 py-5">
             <View className="gap-1.5">
