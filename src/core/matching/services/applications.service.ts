@@ -98,7 +98,7 @@ function withSessions(
     cutoffAt:
       sessions
         .map(({ cutoffAt }) => cutoffAt)
-        .sort()
+        .sort((a, b) => a.localeCompare(b))
         .at(-1) ?? '',
     nextRoundAt: rounds[0]?.toISOString() ?? null,
   };
