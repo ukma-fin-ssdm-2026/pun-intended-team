@@ -1,11 +1,13 @@
 // Written with the help of Claude
 // Starts the built API (dist/) for the fault-injection tests, with keys of its own and no real database.
-import { type ChildProcess, spawn } from 'node:child_process';
+import assert from 'node:assert/strict';
+import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 
 export interface ApiProcess {
   child: ChildProcess;
@@ -90,4 +92,25 @@ export async function stopApi(child: ChildProcess): Promise<void> {
   const exited = new Promise((resolve) => child.once('exit', resolve));
   child.kill();
   await exited;
+}
+
+/**
+ * Starts the built API with `variable` set to `value` and expects the start to stop with code 1, an error that
+ * names the variable and quotes the value. Any other variable of `env` is left as it is, and PORT is a free one
+ * unless it is the variable under test.
+ */
+export async function assertStartRefused(env: NodeJS.ProcessEnv, variable: string, value: string): Promise<void> {
+  const start = promisify(execFile)(process.execPath, ['dist/api/main.js'], {
+    env: { ...env, PORT: String(await freePort()), [variable]: value },
+    // An API that starts instead is stopped after 10 s, and the test fails.
+    timeout: 10_000,
+  });
+
+  await assert.rejects(start, (error: { code: unknown; stderr: string }) => {
+    assert.equal(error.code, 1);
+    // The name is checked as well as the value: Node itself refuses some bad ports, without naming the variable.
+    assert.ok(error.stderr.includes(`${variable} must be `), error.stderr);
+    assert.ok(error.stderr.includes(`got "${value}"`), error.stderr);
+    return true;
+  });
 }

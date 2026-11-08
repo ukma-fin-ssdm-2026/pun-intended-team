@@ -4,10 +4,8 @@
 // names the variable. Before the one-day limit, a value too long for Node's timers or Postgres started an API
 // whose every database call failed. Needs no database. Run with `npm run test:reliability`, which builds first.
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { after, before, describe, test } from 'node:test';
-import { promisify } from 'node:util';
-import { apiEnvironment, freePort, startApi, stopApi } from './api-process.ts';
+import { apiEnvironment, assertStartRefused, freePort, startApi, stopApi } from './api-process.ts';
 
 const VARIABLE = 'DATABASE_STATEMENT_TIMEOUT_MS';
 
@@ -55,18 +53,7 @@ describe(VARIABLE, () => {
 
   for (const { title, value } of REFUSED) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      const start = promisify(execFile)(process.execPath, ['dist/api/main.js'], {
-        env: { ...env, [VARIABLE]: value, PORT: String(await freePort()) },
-        // An API that starts instead is stopped after 10 s, and the test fails.
-        timeout: 10_000,
-      });
-
-      await assert.rejects(start, (error: { code: unknown; stderr: string }) => {
-        assert.equal(error.code, 1);
-        assert.ok(error.stderr.includes(`${VARIABLE} must be `), error.stderr);
-        assert.ok(error.stderr.includes(`got "${value}"`), error.stderr);
-        return true;
-      });
+      await assertStartRefused(env, VARIABLE, value);
     });
   }
 });

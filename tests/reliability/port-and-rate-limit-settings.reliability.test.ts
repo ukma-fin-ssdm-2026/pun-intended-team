@@ -5,10 +5,8 @@
 // the limit refused every sign-in, and a bad PORT either gave Node's own error or a random port.
 // Needs no database. Run with `npm run test:reliability`, which builds first.
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
 import { after, before, describe, test } from 'node:test';
-import { promisify } from 'node:util';
-import { apiEnvironment, freePort, startApi, stopApi } from './api-process.ts';
+import { apiEnvironment, assertStartRefused, freePort, startApi, stopApi } from './api-process.ts';
 
 const PORT = 'PORT';
 const RATE_LIMIT = 'AUTH_RATE_LIMIT_PER_MINUTE';
@@ -42,28 +40,11 @@ after(() => {
   removeKeys();
 });
 
-/** Starts the built API with `overrides` and expects it to stop with code 1, naming `variable` and `value`. */
-async function assertRefused(overrides: NodeJS.ProcessEnv, variable: string, value: string): Promise<void> {
-  const start = promisify(execFile)(process.execPath, ['dist/api/main.js'], {
-    env: { ...env, PORT: String(await freePort()), ...overrides },
-    // An API that starts instead is stopped after 10 s, and the test fails.
-    timeout: 10_000,
-  });
-
-  await assert.rejects(start, (error: { code: unknown; stderr: string }) => {
-    assert.equal(error.code, 1);
-    // The name is checked as well as the value: Node itself refuses some bad ports, without naming the variable.
-    assert.ok(error.stderr.includes(`${variable} must be `), error.stderr);
-    assert.ok(error.stderr.includes(`got "${value}"`), error.stderr);
-    return true;
-  });
-}
-
 // REL-05
 describe(PORT, () => {
   for (const { title, value } of REFUSED_PORTS) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      await assertRefused({ [PORT]: value }, PORT, value);
+      await assertStartRefused(env, PORT, value);
     });
   }
 });
@@ -72,7 +53,7 @@ describe(PORT, () => {
 describe(RATE_LIMIT, () => {
   for (const { title, value } of REFUSED_LIMITS) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      await assertRefused({ [RATE_LIMIT]: value }, RATE_LIMIT, value);
+      await assertStartRefused(env, RATE_LIMIT, value);
     });
   }
 
