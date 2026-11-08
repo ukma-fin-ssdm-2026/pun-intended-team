@@ -148,6 +148,30 @@ describe('ProfilesService.getOwn', () => {
 });
 
 // FR-002
+describe('ProfilesService.isComplete', () => {
+  const complete = { communicationFormat: 'friends' as const, interestIds: [HIKING.id], linkedAccounts: [TELEGRAM] };
+  const cases = [
+    { title: 'is true with a format, an interest and a network', profile: aProfile(complete), result: true },
+    {
+      title: 'is false without a format',
+      profile: aProfile({ ...complete, communicationFormat: null }),
+      result: false,
+    },
+    { title: 'is false without an interest', profile: aProfile({ ...complete, interestIds: [] }), result: false },
+    { title: 'is false without a network', profile: aProfile({ ...complete, linkedAccounts: [] }), result: false },
+    { title: 'is false without a profile', profile: undefined, result: false },
+  ];
+
+  for (const { title, profile, result } of cases) {
+    test(title, async () => {
+      const { service, profilesRepository } = makeService();
+      profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(profile));
+
+      assert.equal(await service.isComplete(ACCOUNT_ID), result);
+    });
+  }
+});
+
 describe('ProfilesService.create', () => {
   useFixedClock();
 
