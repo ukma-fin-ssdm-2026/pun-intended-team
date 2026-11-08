@@ -10,7 +10,7 @@ Severity rates the consequence if the failure happens, not how likely it is. It 
 |---|---|---|---|---|
 | [REL-01](scavenger-hunt.md#rel-01-database-calls-without-timeouts) | Database calls have no connection or statement timeout | High | One stuck query could exhaust the pool and stop the whole API, sign-in included. | Fixed (#367) |
 | [REL-02](scavenger-hunt.md#rel-02-app-requests-without-a-timeout) | App requests have no timeout | Medium | A request could leave a screen loading forever on Android, but only that screen is affected. | Fixed (#367) |
-| [REL-03](scavenger-hunt.md#rel-03-sign-out-dispatches-an-unhandled-navigation-action) | Sign-out dispatches a navigation action no navigator handles | Low | Only the navigation after sign-out is affected, and the user can navigate on their own. | Fixed (#367) |
+| [REL-03](scavenger-hunt.md#rel-03-sign-out-dispatches-an-unhandled-navigation-action) | Sign-out dispatches a navigation action no navigator handles | Low | Sign-out still reaches the onboarding; the only effect is an error logged in development builds. | Fixed (#367) |
 | [REL-04](scavenger-hunt.md#rel-04-health-does-not-check-the-database) | `/health` answers "ok" without checking the database | High | A dead database goes unnoticed by the deploy rollback, the compose health gate and the uptime monitor, while every request that needs it fails. | Fixed (#399) |
 | [REL-05](scavenger-hunt.md#rel-05-port-and-auth_rate_limit_per_minute-are-not-checked) | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked | High | The API becomes unreachable or refuses every sign-in. | Open |
 | [REL-06](scavenger-hunt.md#rel-06-a-failed-nightly-backup-skips-the-day) | A failed nightly backup skips the day without notice | Medium | The day has no backup and nobody is told. | Fixed (#398) |
@@ -203,7 +203,7 @@ export const publicClient = createClient<paths>({ baseUrl: config.apiUrl, fetch:
 The chosen reaction is to **fail fast**: after 15 s the request ends with an error, and the app does not retry it on its own.
 
 - A **safe failure** would show something in place of the answer, but an empty list or old data shown as the answer would mislead the user, and for an action such as saving the profile there is no stand-in at all.
-- An **automatic retry** is not safe in general: a request that timed out may still have reached the server. The one exception is the session renewal, which the server made safe to repeat within 60 s in #398, so only it is retried ([REL-08](#rel-08-a-lost-refresh-response-ends-the-session)).
+- An **automatic retry** is not safe in general: a request that timed out may still have reached the server. The one exception is the session renewal, which the server made safe to repeat within 60 s, so only it is retried ([REL-08](#rel-08-a-lost-refresh-response-ends-the-session)).
 - The user decides when to try again, for example with the catalog's retry button.
 
 ### What the User Sees
@@ -231,7 +231,7 @@ No manual action is needed beyond trying again. An aborted request leaves no sta
 ### Open Issues
 
 - **A timeout reads as "no connection".** `call()` returns status `0` for any thrown error, so the user is told to check the internet even when the server is reachable but slow.
-- **A timed-out renewal can still end the session after a long outage.** The app now retries a renewal with no answer, and the server accepts the replaced token for 60 s ([REL-08](#rel-08-a-lost-refresh-response-ends-the-session)), but an outage longer than about 32 s still signs the user out.
+- **A timed-out renewal can still end the session after a long outage**; see the Open Issues of [REL-08](#rel-08-a-lost-refresh-response-ends-the-session).
 - **The limit is fixed in code.** `REQUEST_TIMEOUT_MS` is the same for every request and cannot be changed without a new build.
 
 ## REL-03: Sign-Out Dispatches an Unhandled Navigation Action
@@ -289,7 +289,7 @@ No recovery is needed: the unhandled action changed no state, and each sign-out 
 
 ### Verification
 
-- No automated test covers it: the app's Jest tests, added in #398, do not include the sign-out.
+- No automated test covers it: the app's Jest tests do not include the sign-out.
 - Checked in the code: both sign-out handlers call `dismissAll()` only after `canDismiss()`. In expo-router 57, `dismissAll()` adds `POP_TO_TOP` to the routing queue, and the unhandled-action handler of `ExpoRoot` logs it with `console.error` outside production and does nothing in production.
 
 ### Open Issues
@@ -469,8 +469,7 @@ Automatic the next night: a good night removes the marker and the health check p
 
 ### Open Issues
 
-- **`pg_restore --list` reads the archive's table of contents, not the data.** A real restore is still the REL-004 restore drill.
-- The role of the backup, which #398 left as the database owner, is now the read-only `nearby_backup` (#401).
+- **`pg_restore --list` reads the archive's table of contents, not the data.** A real restore is still the NFR REL-004 restore drill.
 
 ## REL-07: Profile Edit Hides the "More" Button When Interests Fail to Load
 
@@ -586,7 +585,7 @@ async function postRefresh(refreshToken: string) {
 }
 ```
 
-The session keeps the hash of the token it replaced and the time of the rotation (`previousTokenHash`, `rotatedAt`). The 60 s window follows Okta (30 s by default, at most 60 s), Auth0 (only the previous token) and the OAuth working group's proposal (at most 60 s).
+The session keeps the hash of the token it replaced and the time of the rotation (`previousTokenHash`, `rotatedAt`). The 60 s window follows [Okta](https://developer.okta.com/docs/guides/refresh-tokens/main/) (30 s by default, at most 60 s), [Auth0](https://support.auth0.com/center/s/article/Failed-token-exchange-when-reusing-an-older-refresh-token-within-leeway-period) (only the most recently replaced token) and a [proposal on the OAuth working group's list](https://mailarchive.ietf.org/arch/msg/oauth/X2S1otBruLSligdwp6vPs_WyZzo/) for the Security BCP (at most 60 s).
 
 ### Patterns Applied
 
@@ -602,7 +601,7 @@ In the order of §3.5:
 **Fail safe for the user, fail fast for theft.**
 
 - For the user, **no answer is worse than a repeated one**: being signed out over a dropped packet loses the session for nothing, so a retry within 60 s is accepted.
-- For a stolen token, a **wrong answer is worse**: handing new tokens to an attacker. So the previous token after 60 s, an older token, a wrong secret or a banned account still end the session (SEC-005). The accepted risk is TM-17 in the threat model, with device-bound tokens (DPoP) as the further step.
+- For a stolen token, a **wrong answer is worse**: handing new tokens to an attacker. So the previous token after 60 s, an older token, a wrong secret or a banned account still end the session (NFR SEC-005). The accepted risk is TM-17 in the threat model, with device-bound tokens (DPoP) as the further step.
 
 ### What the User Sees
 
@@ -615,7 +614,7 @@ Automatic.
 ### Verification
 
 - [`tests/unit/sessions.service.test.ts`](../../tests/unit/sessions.service.test.ts): the window's edges, a token two rotations old, a ban within the window, and the `409` race.
-- E2E: a lost answer and its retry, reuse after 61 s, and 5 parallel refreshes keeping the session.
+- [`tests/e2e/api.e2e.test.ts`](../../tests/e2e/api.e2e.test.ts): a lost answer and its retry, reuse after 61 s, and 5 parallel refreshes keeping the session.
 - [`app/tests/session.test.ts`](../../app/tests/session.test.ts): one more try after no answer, the token kept when neither try is answered, no retry of an answered refresh, and the `409` retry.
 
 ### Open Issues
@@ -682,7 +681,7 @@ The chosen reaction is to **fail safe**, but no longer silently.
   - **The old import imports nothing.** It looks categories up by their English names, which a migration renamed into Ukrainian, so every record is skipped as `Unknown category` and reported as skipped.
   - **No write was found that stores wrong data.** The other new columns allow `NULL`, so rows the old code writes leave them empty, and its session rotation leaves the new `refresh_tokens` columns as they were.
   This holds for these migrations only; any later rollback needs the same check of the migrations the `::error::` names.
-- Undoing the migrations is not an option: Prisma has no down migrations, and its documentation advises against automating them.
+- Undoing the migrations is not an option: Prisma does not generate down migrations, and [its guide](https://www.prisma.io/docs/orm/prisma-migrate/workflows/generating-down-migrations) applies a hand-written one only after a failed migration; a migration that succeeded is reverted by a new migration.
 - What was a wrong answer, "rolled back" with nothing more, is now an error that names the migrations, so an operator knows the rollback is only partial.
 
 ### What the User Sees
@@ -705,7 +704,7 @@ Manual, following "A version runs on a newer schema" in [staging](../operations/
 
 ## Reliability Tests
 
-The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). On this branch: 20 tests in 6 suites, all passing.
+The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 20 tests in 5 files (6 suites), all passing.
 
 | File | Type | Finding | What it proves |
 |---|---|---|---|
@@ -717,16 +716,24 @@ The tests in [`tests/reliability/`](../../tests/reliability/) start the built AP
 
 [`api-process.ts`](../../tests/reliability/api-process.ts) is not a test: it starts and stops the built API for the others.
 
-All three types the lab asks for are there. Each test was also run against the code before its fix, or with the behaviour broken on purpose, and fails there. The fixes of REL-06, REL-07, REL-08 and REL-10 are covered by unit, e2e and app tests, listed in their sections.
+All three types the lab asks for are there. The tests were also run against broken code, and fail there:
+
+- `database-timeouts`: with the pool of before the fix, the two tests that wait for an answer hang until their 12 s guard; the other two check the error mapping and the pool and pass with it;
+- `health-check`: all four fail on the code before the REL-04 fix;
+- `error-handling`: both fail when the filter puts the error's message in the body;
+- `request-timeout`: the no-answer test fails with a 10 s limit, and the stalled-body test when the timer is cleared once the headers arrive; the dropped-connection test was not checked this way;
+- `database-timeout-settings`: the two values above one day fail without the one-day check.
+
+The fixes of REL-06, REL-07, REL-08 and REL-10 are covered by unit, e2e and app tests, listed in their sections.
 
 ## Open Findings
 
-- **REL-05** (High): not fixed in this lab; #384 was closed without it. Proposed: read `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` like the database limits, so an empty value takes the default and anything but a positive integer stops the start (fail fast).
+- **REL-05** (High): not fixed in this lab. Proposed: read `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` like the database limits, so an empty value takes the default and anything but a positive integer stops the start (fail fast).
 - **REL-09** (Low): sign-in fails either way, so only the status is wrong. Proposed: pass a check for the key-fetch errors to `ApiExceptionFilter` in `app.module.ts` next to `isDatabaseTimeout`, so they answer `503`.
 - **REL-11** (Low): no user request is affected. Proposed: guard `finishRun` in the `catch` of `importFrom()`, log its error and rethrow the original one.
 - **REL-12** (Low): only the message is wrong. Proposed: let `renew` throw an error with the response status and let `call()` report that status instead of `0`.
 - **REL-14** (Medium): found after the fixes were chosen. Proposed: a warning for each section page with no events in its JSON-LD, and an error that fails the run when no section has any (fail fast). The events have to be counted before the catalog window filter, since a section can rightly have no events in the window (the unit test "leaves out the events after the catalog window").
-- **What is left of REL-08 and REL-10** is in their Open Issues above: an outage longer than about 32 s still ends the session, and the old code can still fail on a newer schema.
+- **What is left of REL-08 and REL-10** is in their Open Issues: [REL-08](#rel-08-a-lost-refresh-response-ends-the-session) and [REL-10](#rel-10-the-rollback-runs-old-code-on-a-migrated-database).
 
 ## Bonuses
 
@@ -736,7 +743,7 @@ The import's GET requests to ArtWizard, Karabas and Nominatim go through [`Polit
 
 1. **Timeout** on each attempt: 20 s (`AbortSignal.timeout`).
 2. **Bounded retries** over it: at most 4 attempts, only after a network error, a timeout, `429` or `5xx`; a `404` is returned at once. Before each retry the client waits a random time between 0 and `backoffMs · 2^attempt` (1, 2, then 4 s), never above `maxBackoffMs` (8 s): full jitter.
-3. **The way out** after the last attempt: the failure is logged as an error (`GET … failed after 4 attempts (…); giving up`) and passed on, so that provider's run fails, and the catalog keeps the events of the last good run (REL-003, TC-28).
+3. **The way out** after the last attempt: the failure is logged as an error (`GET … failed after 4 attempts (…); giving up`) and passed on, so that provider's run fails, and the catalog keeps the events of the last good run (NFR REL-003, TC-28).
 
 ```ts
 // src/infra/providers/http-client.ts, in getWithRetries()
@@ -750,11 +757,7 @@ await sleep(wait);
 
 ### Health Check (REL-04)
 
-`GET /health` checks the database with `SELECT 1` and answers `200` `{ "status": "healthy", "checks": { "database": "up" } }`, or `503` `{ "status": "unhealthy", "checks": { "database": "down" } }` when the database does not answer within 2 s; the cause goes only to the log. Because the Dockerfile's `HEALTHCHECK` fails on the `503`, a deploy that cannot reach the database is now rolled back. Details in [REL-04](#rel-04-health-does-not-check-the-database).
-
-- **Code:** [`health.service.ts`](../../src/core/system/services/health.service.ts), [`prisma-database-probe.ts`](../../src/infra/prisma/prisma-database-probe.ts), [`system.controller.ts`](../../src/api/system/controllers/system.controller.ts).
-- **Test:** the fault-injection test [`tests/reliability/health-check.reliability.test.ts`](../../tests/reliability/health-check.reliability.test.ts) starts the API with a database that refuses the connection and with one that never answers, and checks that `/health` reports "unhealthy" and the `HEALTHCHECK` command fails in both cases.
-- **PR:** #399 (issue #388).
+`GET /health` checks the database with `SELECT 1` and answers `503 unhealthy` when it fails or does not answer within 2 s, so the deploy's rollback reacts to a dead database; a fault-injection test shows "unhealthy" with a database that refuses the connection and with one that never answers. Details in [REL-04](#rel-04-health-does-not-check-the-database); code in [`health.service.ts`](../../src/core/system/services/health.service.ts) and [`prisma-database-probe.ts`](../../src/infra/prisma/prisma-database-probe.ts), test in [`health-check.reliability.test.ts`](../../tests/reliability/health-check.reliability.test.ts), PR #399.
 
 ### Reliability Tests as a Required Check
 
