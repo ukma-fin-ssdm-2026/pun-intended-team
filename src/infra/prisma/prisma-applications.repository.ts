@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../core/common/domain-error.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { ApplicationsRepository } from '../../core/matching/repositories/applications.repository.ts';
 import {
   afterEventPlans,
@@ -9,7 +10,7 @@ import {
   type ApplicationStatus,
 } from '../../core/matching/types/application.ts';
 import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
-import type { AfterEventPlan, Application as ApplicationRow } from './generated/client.ts';
+import type { AfterEventPlan, Application as ApplicationRow, Prisma } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
 
@@ -27,9 +28,10 @@ type ApplicationWithDaysAndPlans = ApplicationRow & {
 export class PrismaApplicationsRepository implements ApplicationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(application: ApplicationRecord): Promise<Application> {
+  async create(application: ApplicationRecord, tx?: Transaction): Promise<Application> {
+    const client = (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
     try {
-      const row = await this.prisma.application.create({
+      const row = await client.application.create({
         data: {
           userId: application.userId,
           eventId: application.eventId,
@@ -47,6 +49,15 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       }
       throw error;
     }
+  }
+
+  async findPool(sessionIds: string[], tx: Transaction): Promise<Application[]> {
+    const rows = await (tx as unknown as Prisma.TransactionClient).application.findMany({
+      where: { status: 'in_pool', sessions: { some: { sessionId: { in: sessionIds } } } },
+      include: withDaysAndPlans,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toApplication);
   }
 
   async findById(id: string): Promise<Application | undefined> {

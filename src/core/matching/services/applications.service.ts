@@ -1,12 +1,14 @@
 // Written with the help of Claude
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EventSessionsService } from '../../catalog/services/event-sessions.service.ts';
 import type { EventSession } from '../../catalog/types/event-session.ts';
 import { DomainError } from '../../common/domain-error.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import type { Application, ApplicationDetails, ApplicationStatus, NewApplication } from '../types/application.ts';
 import { canApply } from './application-status.ts';
+import { MatchingService } from './matching.service.ts';
 import { nextRoundAt } from './rounds.ts';
 
 const ACTIVE: ApplicationStatus[] = ['in_pool', 'paired', 'paused'];
@@ -15,13 +17,20 @@ const WITHDRAWABLE: ApplicationStatus[] = ['in_pool', 'paused'];
 
 @Injectable()
 export class ApplicationsService {
+  readonly #logger = new Logger(ApplicationsService.name);
+
   constructor(
     private readonly applicationsRepository: ApplicationsRepository,
     private readonly eventSessionsService: EventSessionsService,
     private readonly profilesService: ProfilesService,
+    private readonly matchingService: MatchingService,
+    private readonly transactions: TransactionRunner,
   ) {}
 
-  /** Puts the user in the pool of the event for the days they can go (UC-001 steps 2–5). */
+  /**
+   * Puts the user in the pool of the event for the days they can go (UC-001 steps 2–5), and proposes a match at once
+   * when an exceptionally good partner is waiting (rule 1).
+   */
   async apply(userId: string, input: NewApplication): Promise<ApplicationDetails> {
     // Checked before the sessions are opened, so an incomplete profile never creates one.
     if (!(await this.profilesService.isComplete(userId))) {
@@ -32,15 +41,27 @@ export class ApplicationsService {
     if (!canApply(existing.map((application) => application.status))) {
       throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this event');
     }
-    const sessions = await this.eventSessionsService.open(input.eventId, input.dates);
-    const application = await this.applicationsRepository.create({
-      userId,
-      eventId: input.eventId,
-      sessionIds: sessions.map(({ id }) => id),
-      desiredCompany: input.desiredCompany,
-      afterEventPlans: input.afterEventPlans,
+    // The sessions, the application and the rounds of new sessions commit together.
+    const { application, sessions } = await this.transactions.run(async (tx) => {
+      const sessions = await this.eventSessionsService.open(input.eventId, input.dates, tx);
+      const application = await this.applicationsRepository.create(
+        {
+          userId,
+          eventId: input.eventId,
+          sessionIds: sessions.map(({ id }) => id),
+          desiredCompany: input.desiredCompany,
+          afterEventPlans: input.afterEventPlans,
+        },
+        tx,
+      );
+      await this.matchingService.scheduleRounds(sessions, tx);
+      return { application, sessions };
     });
-    return withSessions(application, new Map(sessions.map((session) => [session.id, session])));
+    const paired = await this.matchAtOnce(application);
+    return withSessions(
+      paired ? { ...application, status: 'paired' } : application,
+      new Map(sessions.map((session) => [session.id, session])),
+    );
   }
 
   /** The user's active applications, soonest first day first. */
@@ -67,6 +88,19 @@ export class ApplicationsService {
       throw new DomainError('CONFLICT', 'Only an application waiting in the pool can be withdrawn');
     }
     return this.withSessionOf(withdrawn);
+  }
+
+  /**
+   * The application is in the pool whatever comes of this: a failure leaves it there for the next round, and the user
+   * is not told to apply again, which would be refused.
+   */
+  private async matchAtOnce(application: Application): Promise<boolean> {
+    try {
+      return await this.matchingService.matchOnApply(application);
+    } catch (error) {
+      this.#logger.error(`Instant match for application ${application.id} failed`, error);
+      return false;
+    }
   }
 
   /** Someone else's application is reported missing. */

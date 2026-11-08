@@ -1,9 +1,10 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import { EventSessionsRepository } from '../repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
-import type { EventSession, EventSessionRecord } from '../types/event-session.ts';
+import type { EventSession, EventSessionRecord, OpenedSession } from '../types/event-session.ts';
 import { sessionCutoff, sessionStart } from './session-start.ts';
 
 @Injectable()
@@ -17,7 +18,7 @@ export class EventSessionsService {
    * The sessions a user applies to: the event's only one, or one for each of `days` of a multi-day event. Every day
    * must take applications, or none is opened.
    */
-  async open(eventId: string, days?: string[]): Promise<EventSession[]> {
+  async open(eventId: string, days?: string[], tx?: Transaction): Promise<OpenedSession[]> {
     const event = await this.eventsRepository.findById(eventId);
     if (!event) {
       throw new DomainError('NOT_FOUND', 'Event not found');
@@ -39,7 +40,9 @@ export class EventSessionsService {
     if (starts.some((startsAt) => sessionCutoff(event, startsAt) <= now)) {
       throw new DomainError('APPLICATIONS_CLOSED', 'A picked session no longer takes applications');
     }
-    const sessions = (await this.eventSessionsRepository.findOrCreateMany(event.id, starts)).map(withCutoff);
+    const sessions = (await this.eventSessionsRepository.findOrCreateMany(event.id, starts, tx)).map(
+      ({ created, ...session }) => ({ ...withCutoff(session), created }),
+    );
     if (sessions.some(({ status }) => status === 'cancelled')) {
       throw new DomainError('EVENT_CANCELLED', 'A cancelled event takes no applications');
     }

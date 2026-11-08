@@ -30,7 +30,7 @@ await this.transactions.run(async (tx) => {
 });
 ```
 
-Repositories join a transaction only where a method takes `tx`. No method does yet; add the parameter when a use case needs it, in the abstract class and in the Prisma repository:
+Repositories join a transaction only where a method takes `tx`, as applying for a match does: the sessions, the application and the round jobs commit together. Add the parameter when a use case needs it, in the abstract class and in the Prisma repository:
 
 ```ts
 // core/matching/repositories/matches.repository.ts

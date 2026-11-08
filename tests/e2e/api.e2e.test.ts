@@ -10,7 +10,7 @@ import { createServer as createHttpServer, type Server } from 'node:http';
 import { type AddressInfo, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { after, before, describe, test } from 'node:test';
+import { after, before, beforeEach, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
@@ -1450,11 +1450,12 @@ describe('Applications', () => {
   // From the day after tomorrow to three days later, at 19:00 Kyiv time.
   const multiDay = () => ({ startsAt: at19(inDays(2)), endsAt: at19(inDays(5)) });
 
-  // Events of their own: other tests edit the stub events.
+  // Events of their own: other tests edit the stub events. New ones for every test, so the applications of one test
+  // never meet those of another in a pool and get matched.
   let soonEvent = '';
   let laterEvent = '';
 
-  before(async () => {
+  beforeEach(async () => {
     soonEvent = await newEventAt(at19(inDays(13)), at21(inDays(13)));
     laterEvent = await newEventAt(at19(inDays(16)), at21(inDays(16)));
   });
@@ -1689,6 +1690,67 @@ describe('Applications', () => {
       404,
       'NOT_FOUND',
     );
+  });
+
+  // FR-017, matching.md rule 1: the same interests, company and plans score 1.
+  test('proposes a match at once to two users who suit each other exceptionally well', async () => {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    const first = await apply(waiting.token, soonEvent);
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'paired');
+    assert.equal(res.body.nextRoundAt, null);
+    const waited = await call('GET', `/api/v1/applications/${first.body.id}`, { token: waiting.token });
+    assert.equal(waited.body.status, 'paired');
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT source, score FROM matches WHERE application_a_id = $1 AND application_b_id = $2`, [
+        res.body.id,
+        first.body.id,
+      ]),
+    );
+    assert.deepEqual(rows, [{ source: 'instant', score: '1.000' }]);
+  });
+
+  test('leaves the caller in the pool when nobody suits them well enough', async () => {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    await apply(waiting.token, soonEvent, { desiredCompany: 'friends', afterEventPlans: [] });
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
+  // FUNC-002: both rank the waiting user first, and only one of them gets them.
+  test('never proposes one waiting user to two applications sent at once', async () => {
+    const waiting = await newCompleteProfile();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    const waited = await apply(waiting.token, soonEvent);
+
+    const results = await Promise.all([apply(first.token, soonEvent), apply(second.token, soonEvent)]);
+
+    assert.deepEqual(
+      results.map((res) => res.status),
+      [201, 201],
+    );
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT application_a_id, application_b_id FROM matches
+          WHERE application_a_id = ANY($1) OR application_b_id = ANY($1)`,
+        [[waited.body.id, ...results.map((res) => res.body.id)]],
+      ),
+    );
+    // Of the three, one pair is proposed and one user keeps waiting, whoever the pair is.
+    const matched = rows.flatMap((row: { application_a_id: string; application_b_id: string }) => [
+      row.application_a_id,
+      row.application_b_id,
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(new Set(matched).size, 2);
   });
 });
 

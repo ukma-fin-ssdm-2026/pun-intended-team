@@ -2,10 +2,13 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import type { EventSessionsService } from '../../dist/core/catalog/services/event-sessions.service.js';
-import type { EventSession } from '../../dist/core/catalog/types/event-session.js';
+import type { EventSession, OpenedSession } from '../../dist/core/catalog/types/event-session.js';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { ApplicationsRepository } from '../../dist/core/matching/repositories/applications.repository.js';
 import { ApplicationsService } from '../../dist/core/matching/services/applications.service.js';
+import type { MatchingService } from '../../dist/core/matching/services/matching.service.js';
 import type {
   Application,
   ApplicationRecord,
@@ -36,6 +39,8 @@ const LATER_SESSION: EventSession = {
   cutoffAt: '2026-10-28T16:00:00.000Z',
 };
 
+const TX = {} as Transaction;
+
 const INPUT: NewApplication = { eventId: EVENT_ID, desiredCompany: 'company', afterEventPlans: ['walk'] };
 
 function anApplication(overrides: Partial<Application> = {}): Application {
@@ -54,7 +59,9 @@ function anApplication(overrides: Partial<Application> = {}): Application {
 
 function makeService({ complete = true, existing = [] as Application[], stored = anApplication() } = {}) {
   const applicationsRepository = {
-    create: mock.fn((record: ApplicationRecord) => Promise.resolve(anApplication(record))),
+    create: mock.fn<(record: ApplicationRecord, tx?: Transaction) => Promise<Application>>((record) =>
+      Promise.resolve(anApplication(record)),
+    ),
     findById: mock.fn((): Promise<Application | undefined> => Promise.resolve(stored)),
     findByUserAndEvent: mock.fn(() => Promise.resolve(existing)),
     findByUserWithStatus: mock.fn<(userId: string, statuses: ApplicationStatus[]) => Promise<Application[]>>(() =>
@@ -63,7 +70,9 @@ function makeService({ complete = true, existing = [] as Application[], stored =
     withdraw: mock.fn((): Promise<Application | undefined> => Promise.resolve(anApplication({ status: 'withdrawn' }))),
   };
   const eventSessionsService = {
-    open: mock.fn<(eventId: string, days?: string[]) => Promise<EventSession[]>>(() => Promise.resolve([SESSION])),
+    open: mock.fn<(eventId: string, days?: string[], tx?: Transaction) => Promise<OpenedSession[]>>(() =>
+      Promise.resolve([{ ...SESSION, created: true }]),
+    ),
     getByIds: mock.fn(() =>
       Promise.resolve(
         new Map([
@@ -74,12 +83,21 @@ function makeService({ complete = true, existing = [] as Application[], stored =
     ),
   };
   const profilesService = { isComplete: mock.fn(() => Promise.resolve(complete)) };
+  const matchingService = {
+    scheduleRounds: mock.fn<(sessions: OpenedSession[], tx: Transaction) => Promise<void>>(() => Promise.resolve()),
+    matchOnApply: mock.fn<(application: Application) => Promise<boolean>>(() => Promise.resolve(false)),
+  };
+  const transactions = {
+    run: mock.fn((work: (tx: Transaction) => Promise<unknown>) => work(TX)),
+  };
   const service = new ApplicationsService(
     applicationsRepository as unknown as ApplicationsRepository,
     eventSessionsService as unknown as EventSessionsService,
     profilesService as unknown as ProfilesService,
+    matchingService as unknown as MatchingService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, applicationsRepository, eventSessionsService };
+  return { service, applicationsRepository, eventSessionsService, matchingService };
 }
 
 function isDomainError(code: string) {
@@ -91,11 +109,16 @@ describe('ApplicationsService.apply', () => {
 
   test('puts the user in the pool of the event for their days, with their answers and the next round', async () => {
     const { service, applicationsRepository, eventSessionsService } = makeService();
-    eventSessionsService.open.mock.mockImplementation(() => Promise.resolve([SESSION, LATER_SESSION]));
+    eventSessionsService.open.mock.mockImplementation(() =>
+      Promise.resolve([
+        { ...SESSION, created: true },
+        { ...LATER_SESSION, created: false },
+      ]),
+    );
 
     const application = await service.apply(ACCOUNT_ID, { ...INPUT, dates: ['2026-10-25', '2026-10-28'] });
 
-    assert.deepEqual(eventSessionsService.open.mock.calls[0]?.arguments, [EVENT_ID, ['2026-10-25', '2026-10-28']]);
+    assert.deepEqual(eventSessionsService.open.mock.calls[0]?.arguments, [EVENT_ID, ['2026-10-25', '2026-10-28'], TX]);
     assert.deepEqual(applicationsRepository.create.mock.calls[0]?.arguments[0], {
       userId: ACCOUNT_ID,
       eventId: EVENT_ID,
@@ -131,6 +154,37 @@ describe('ApplicationsService.apply', () => {
       assert.equal(eventSessionsService.open.mock.callCount(), 0, 'no empty session is created');
     });
   }
+
+  test('opens the sessions, saves the application and plans the rounds of new sessions in one transaction', async () => {
+    const { service, applicationsRepository, matchingService } = makeService();
+
+    await service.apply(ACCOUNT_ID, INPUT);
+
+    assert.equal(applicationsRepository.create.mock.calls[0]?.arguments[1], TX);
+    assert.deepEqual(matchingService.scheduleRounds.mock.calls[0]?.arguments, [[{ ...SESSION, created: true }], TX]);
+  });
+
+  // FR-017, matching.md rule 1
+  test('answers paired with no next round when the application is matched at once', async () => {
+    const { service, matchingService } = makeService();
+    matchingService.matchOnApply.mock.mockImplementation(() => Promise.resolve(true));
+
+    const application = await service.apply(ACCOUNT_ID, INPUT);
+
+    assert.equal(matchingService.matchOnApply.mock.calls[0]?.arguments[0]?.id, APPLICATION_ID);
+    assert.equal(application.status, 'paired');
+    assert.equal(application.nextRoundAt, null);
+  });
+
+  test('keeps the application in the pool when the instant match fails', async () => {
+    const { service, matchingService } = makeService();
+    matchingService.matchOnApply.mock.mockImplementation(() => Promise.reject(new Error('lock timeout')));
+
+    const application = await service.apply(ACCOUNT_ID, INPUT);
+
+    assert.equal(application.status, 'in_pool');
+    assert.equal(application.nextRoundAt, '2026-10-18T17:00:00.000Z');
+  });
 
   test('accepts a new application after a withdrawn one', async () => {
     const { service } = makeService({ existing: [anApplication({ status: 'withdrawn' })] });
