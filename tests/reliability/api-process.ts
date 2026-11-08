@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { after, before } from 'node:test';
 import { promisify } from 'node:util';
 
 export interface ApiProcess {
@@ -113,4 +114,30 @@ export async function assertStartRefused(env: NodeJS.ProcessEnv, variable: strin
     assert.ok(error.stderr.includes(`got "${value}"`), error.stderr);
     return true;
   });
+}
+
+/**
+ * For a test file that starts the API with settings of its own: registers the hooks that give it an environment
+ * with keys and a database nothing listens on, since the API needs no database to start. Returns the environment
+ * once the hooks have run.
+ */
+export function useApiEnvironment(): () => NodeJS.ProcessEnv {
+  let env: NodeJS.ProcessEnv | undefined;
+  let removeKeys: (() => void) | undefined;
+
+  before(async () => {
+    // Nothing listens on a port freePort has just given back.
+    const result = apiEnvironment(`postgresql://nearby_main:password@127.0.0.1:${await freePort()}/nearby`);
+    env = result.env;
+    removeKeys = result.cleanup;
+  });
+
+  after(() => {
+    removeKeys?.();
+  });
+
+  return () => {
+    assert.ok(env, 'The environment is ready only inside a test');
+    return env;
+  };
 }

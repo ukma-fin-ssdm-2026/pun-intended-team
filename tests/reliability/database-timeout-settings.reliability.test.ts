@@ -4,8 +4,8 @@
 // names the variable. Before the one-day limit, a value too long for Node's timers or Postgres started an API
 // whose every database call failed. Needs no database. Run with `npm run test:reliability`, which builds first.
 import assert from 'node:assert/strict';
-import { after, before, describe, test } from 'node:test';
-import { apiEnvironment, assertStartRefused, freePort, startApi, stopApi } from './api-process.ts';
+import { describe, test } from 'node:test';
+import { assertStartRefused, startApi, stopApi, useApiEnvironment } from './api-process.ts';
 
 const VARIABLE = 'DATABASE_STATEMENT_TIMEOUT_MS';
 
@@ -22,25 +22,13 @@ const REFUSED = [
   { title: 'too long for any timer', value: '99999999999999999999' },
 ];
 
-let env: NodeJS.ProcessEnv;
-let removeKeys: () => void;
-
-before(async () => {
-  // Nothing listens on a port freePort has just given back; the API needs no database to start.
-  const result = apiEnvironment(`postgresql://nearby_main:password@127.0.0.1:${await freePort()}/nearby`);
-  env = result.env;
-  removeKeys = result.cleanup;
-});
-
-after(() => {
-  removeKeys();
-});
+const environment = useApiEnvironment();
 
 // REL-01
 describe(VARIABLE, () => {
   for (const { title, value } of ACCEPTED) {
     test(`starts the API with a value that is ${title}`, async () => {
-      const api = await startApi({ ...env, [VARIABLE]: value });
+      const api = await startApi({ ...environment(), [VARIABLE]: value });
 
       try {
         // startApi resolves once /health answers, so the API is up and still running.
@@ -53,7 +41,7 @@ describe(VARIABLE, () => {
 
   for (const { title, value } of REFUSED) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      await assertStartRefused(env, VARIABLE, value);
+      await assertStartRefused(environment(), VARIABLE, value);
     });
   }
 });

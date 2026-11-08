@@ -5,8 +5,8 @@
 // the limit refused every sign-in, and a bad PORT either gave Node's own error or a random port.
 // Needs no database. Run with `npm run test:reliability`, which builds first.
 import assert from 'node:assert/strict';
-import { after, before, describe, test } from 'node:test';
-import { apiEnvironment, assertStartRefused, freePort, startApi, stopApi } from './api-process.ts';
+import { describe, test } from 'node:test';
+import { assertStartRefused, startApi, stopApi, useApiEnvironment } from './api-process.ts';
 
 const PORT = 'PORT';
 const RATE_LIMIT = 'AUTH_RATE_LIMIT_PER_MINUTE';
@@ -26,25 +26,13 @@ const REFUSED_LIMITS = [
   { title: 'not a whole number', value: '1.5' },
 ];
 
-let env: NodeJS.ProcessEnv;
-let removeKeys: () => void;
-
-before(async () => {
-  // Nothing listens on a port freePort has just given back; the API needs no database to start.
-  const result = apiEnvironment(`postgresql://nearby_main:password@127.0.0.1:${await freePort()}/nearby`);
-  env = result.env;
-  removeKeys = result.cleanup;
-});
-
-after(() => {
-  removeKeys();
-});
+const environment = useApiEnvironment();
 
 // REL-05
 describe(PORT, () => {
   for (const { title, value } of REFUSED_PORTS) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      await assertStartRefused(env, PORT, value);
+      await assertStartRefused(environment(), PORT, value);
     });
   }
 });
@@ -53,12 +41,12 @@ describe(PORT, () => {
 describe(RATE_LIMIT, () => {
   for (const { title, value } of REFUSED_LIMITS) {
     test(`stops the start with a value that is ${title}, naming the variable`, async () => {
-      await assertStartRefused(env, RATE_LIMIT, value);
+      await assertStartRefused(environment(), RATE_LIMIT, value);
     });
   }
 
   test('takes the default of 20 for an empty value, so the first sign-in request is not refused', async () => {
-    const api = await startApi({ ...env, [RATE_LIMIT]: '' });
+    const api = await startApi({ ...environment(), [RATE_LIMIT]: '' });
 
     try {
       const response = await fetch(`${api.url}/api/v1/auth/google/register`, {
@@ -75,7 +63,7 @@ describe(RATE_LIMIT, () => {
   });
 
   test('starts the API with a value of 1, the smallest limit', async () => {
-    const api = await startApi({ ...env, [RATE_LIMIT]: '1' });
+    const api = await startApi({ ...environment(), [RATE_LIMIT]: '1' });
 
     try {
       // startApi resolves once /health answers, so the API is up and still running.
