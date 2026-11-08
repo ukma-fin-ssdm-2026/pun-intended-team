@@ -5,8 +5,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import fc from 'fast-check';
-import { interestOverlap } from '../../dist/core/matching/services/interest-overlap.js';
 import { match } from '../../dist/core/matching/services/match.js';
+import { canPair, pairScore } from '../../dist/core/matching/services/pair-score.js';
 import type { Exclusion, Pairing, PoolMember } from '../../dist/core/matching/types/matching.js';
 
 const SEED = 42;
@@ -14,9 +14,30 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const CONSECUTIVE_RUNS = 10; // FUNC-001
 const USER_IDS = ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7', 'u8'];
 const INTERESTS = ['hiking', 'jazz', 'chess', 'cinema', 'yoga'];
+// Two interests share a heading, so the property tests also score shared headings.
+const GROUPS = new Map([
+  ['hiking', 'sport'],
+  ['yoga', 'sport'],
+  ['jazz', 'music'],
+  ['chess', 'games'],
+  ['cinema', 'film'],
+]);
+const COMPANIES = ['friends', 'company', 'dating'] as const;
+const PLANS = ['walk', 'coffee', 'dinner'] as const;
+const SESSION_IDS = ['day-1', 'day-2'];
 
-function aMember(overrides: Partial<PoolMember> = {}): PoolMember {
-  return { userId: 'u1', interests: ['hiking', 'jazz'], ...overrides };
+type MemberOverrides = Partial<Omit<PoolMember, 'interests'>> & { interests?: string[] };
+
+/** Same company, no plans and the same day by default, so only the interests set the order of the pairs. */
+function aMember({ interests = ['hiking', 'jazz'], ...overrides }: MemberOverrides = {}): PoolMember {
+  return {
+    userId: 'u1',
+    interests: interests.map((id) => ({ id, group: GROUPS.get(id) ?? id })),
+    desiredCompany: 'company',
+    afterEventPlans: [],
+    sessionIds: ['day-1'],
+    ...overrides,
+  };
 }
 
 /** Pairs as `a+b` with the two ids sorted, since the order inside a pair carries no meaning. */
@@ -32,7 +53,7 @@ function isExcluded(exclusions: Exclusion[], x: string, y: string): boolean {
   return exclusions.some(([e1, e2]) => (e1 === x && e2 === y) || (e1 === y && e2 === x));
 }
 
-// US-009 AC1: A and B score 0.75, A and C score 0.2, B and C score 1/6.
+// US-009 AC1: the interests of A and B overlap by 0.75, of A and C by 0.2, of B and C by 1/6.
 const A = aMember({ userId: 'A', interests: ['hiking', 'jazz', 'chess'] });
 const B = aMember({ userId: 'B', interests: ['hiking', 'jazz', 'chess', 'cinema'] });
 const C = aMember({ userId: 'C', interests: ['hiking', 'yoga', 'theatre'] });
@@ -41,7 +62,15 @@ const C = aMember({ userId: 'C', interests: ['hiking', 'yoga', 'theatre'] });
 const TIED_POOL = USER_IDS.slice(0, 6).map((userId) => aMember({ userId }));
 
 const poolArbitrary = fc.uniqueArray(
-  fc.record({ userId: fc.constantFrom(...USER_IDS), interests: fc.subarray(INTERESTS) }),
+  fc
+    .record({
+      userId: fc.constantFrom(...USER_IDS),
+      interests: fc.subarray(INTERESTS),
+      desiredCompany: fc.constantFrom(...COMPANIES),
+      afterEventPlans: fc.subarray([...PLANS]),
+      sessionIds: fc.subarray(SESSION_IDS, { minLength: 1 }),
+    })
+    .map((member) => aMember(member)),
   { selector: (member) => member.userId, maxLength: USER_IDS.length },
 );
 const exclusionsArbitrary = fc.array(
@@ -55,12 +84,12 @@ describe('match', () => {
     const pairings = match([A, B, C], [], SEED);
 
     assert.deepEqual(pairKeys(pairings), ['A+B']);
-    assert.equal(pairings[0]?.score, interestOverlap(A.interests, B.interests));
+    assert.equal(pairings[0]?.score, pairScore(A, B));
   });
 
   // FR-017: greedy from the highest score down, not the highest total.
   test('pairs a user with a lower-scoring candidate only when the better one is taken', () => {
-    // P+Q 0.6 is the best pair. R's best candidate is P (0.4) and S's is Q (0.4), both taken,
+    // By interest overlap, P+Q 0.6 is the best pair. R's best candidate is P (0.4) and S's is Q (0.4), both taken,
     // so R and S are paired at 0. P+R and Q+S would total 0.8 against 0.6, but greedy does not look for it.
     const p = aMember({ userId: 'P', interests: ['hiking', 'jazz', 'chess', 'cinema'] });
     const q = aMember({ userId: 'Q', interests: ['hiking', 'jazz', 'chess', 'yoga'] });
@@ -85,7 +114,7 @@ describe('match', () => {
     { order: 'in the reverse order', exclusion: ['Y', 'X'] as const },
   ]) {
     test(`never pairs an excluded pair ${order}, even when it scores highest`, () => {
-      // X and Y score 1 together and 0.5 with V and W; V and W score 0.2.
+      // The interests of X and Y overlap by 1, with V and W by 0.5; of V and W by 0.2.
       const x = aMember({ userId: 'X', interests: ['hiking', 'jazz', 'chess'] });
       const y = aMember({ userId: 'Y', interests: ['hiking', 'jazz', 'chess'] });
       const v = aMember({ userId: 'V', interests: ['hiking', 'jazz', 'cinema'] });
@@ -95,6 +124,25 @@ describe('match', () => {
 
       assert.ok(!pairKeys(pairings).includes('X+Y'));
       assert.deepEqual(pairedUsers(pairings).sort(), ['V', 'W', 'X', 'Y']);
+    });
+  }
+
+  for (const { title, x, y } of [
+    {
+      title: 'dating with another kind of company',
+      x: aMember({ userId: 'X', desiredCompany: 'dating' }),
+      y: aMember({ userId: 'Y', desiredCompany: 'friends' }),
+    },
+    {
+      title: 'users with no day in common',
+      x: aMember({ userId: 'X', sessionIds: ['day-1'] }),
+      y: aMember({ userId: 'Y', sessionIds: ['day-2'] }),
+    },
+  ]) {
+    test(`never pairs ${title}, even with the same interests`, () => {
+      const pairings = match([x, y], [], SEED);
+
+      assert.deepEqual(pairings, []);
     });
   }
 
@@ -112,32 +160,36 @@ describe('match', () => {
 
   // Property-based: fast-check makes up the pools, so these hold for any pool, not only the ones above.
   // FUNC-002, TC-14
-  test('never pairs a user twice, with themselves, from outside the pool or with an excluded user', () => {
+  test('never pairs a user twice, with themselves, from outside the pool, with an excluded user or a misfit', () => {
     fc.assert(
       fc.property(poolArbitrary, exclusionsArbitrary, fc.integer(), (pool, exclusions, seed) => {
+        const members = new Map(pool.map((member) => [member.userId, member]));
+
         const pairings = match(pool, exclusions, seed);
 
         const users = pairedUsers(pairings);
-        const poolIds = new Set(pool.map((member) => member.userId));
         assert.equal(new Set(users).size, users.length);
         for (const { a, b } of pairings) {
+          const memberA = members.get(a);
+          const memberB = members.get(b);
           assert.notEqual(a, b);
-          assert.ok(poolIds.has(a) && poolIds.has(b));
+          assert.ok(memberA && memberB);
           assert.ok(!isExcluded(exclusions, a, b));
+          assert.ok(canPair(memberA, memberB));
         }
       }),
     );
   });
 
-  test('scores each pair with the interest overlap of its two users', () => {
+  test('scores each pair with the pair score of its two users', () => {
     fc.assert(
       fc.property(poolArbitrary, exclusionsArbitrary, fc.integer(), (pool, exclusions, seed) => {
-        const interestsOf = new Map(pool.map((member) => [member.userId, member.interests]));
+        const members = new Map(pool.map((member) => [member.userId, member]));
 
         const pairings = match(pool, exclusions, seed);
 
         for (const { a, b, score } of pairings) {
-          assert.equal(score, interestOverlap(interestsOf.get(a) ?? [], interestsOf.get(b) ?? []));
+          assert.equal(score, pairScore(members.get(a) ?? aMember(), members.get(b) ?? aMember()));
         }
       }),
     );
@@ -149,10 +201,12 @@ describe('match', () => {
         const pairings = match(pool, exclusions, seed);
 
         const paired = new Set(pairedUsers(pairings));
-        const unmatched = pool.map((member) => member.userId).filter((id) => !paired.has(id));
+        const unmatched = pool.filter((member) => !paired.has(member.userId));
         for (const x of unmatched) {
           for (const y of unmatched) {
-            if (x !== y) assert.ok(isExcluded(exclusions, x, y), `${x} and ${y} are both unmatched`);
+            if (x === y) continue;
+            const apart = isExcluded(exclusions, x.userId, y.userId) || !canPair(x, y);
+            assert.ok(apart, `${x.userId} and ${y.userId} are both unmatched`);
           }
         }
       }),

@@ -1,15 +1,15 @@
 // Written with the help of Claude
 import type { Exclusion, Pairing, PoolMember } from '../types/matching.ts';
-import { interestOverlap } from './interest-overlap.ts';
+import { canPair, pairScore } from './pair-score.ts';
 
-/** Pairs one round's pool greedily, from the highest interest overlap down (matching.md, rule 8). */
+/** Pairs one round's pool greedily, from the highest score down (matching.md, rule 8). */
 export function match(pool: PoolMember[], exclusions: Exclusion[], seed: number): Pairing[] {
   const excluded = new Set(exclusions.flatMap(([x, y]) => [pairKey(x, y), pairKey(y, x)]));
   const candidates: Pairing[] = [];
   pool.forEach((a, i) => {
     for (const b of pool.slice(i + 1)) {
-      if (a.userId === b.userId || excluded.has(pairKey(a.userId, b.userId))) continue;
-      candidates.push({ a: a.userId, b: b.userId, score: interestOverlap(a.interests, b.interests) });
+      if (a.userId === b.userId || excluded.has(pairKey(a.userId, b.userId)) || !canPair(a, b)) continue;
+      candidates.push({ a: a.userId, b: b.userId, score: pairScore(a, b) });
     }
   });
 

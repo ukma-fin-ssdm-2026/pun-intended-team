@@ -25,7 +25,8 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 | Parameter | Draft value |
 |---|---|
 | Round offsets | T-7d, T-3d, T-24h, T-6h |
-| Instant-match threshold | 0.8 interest overlap |
+| Pair score | 0.7 × interests + 0.2 × the same kind of company + 0.1 × after-event plans, 0–1. Interests: shared interests count 1 and a heading both have without a shared interest under it counts 0.5, over all distinct interests of the two. Plans: shared plans over all distinct plans; neither wanting any counts as 1. Dating is paired only with dating, and only users with a day in common are paired |
+| Instant-match threshold | 0.8 pair score |
 | Open-mode cutoff | T-1h; for a long session, 2 h before it ends |
 | Proposal lifetime cap | 24 h (team vote) |
 | Strikes before removal | 2 |
