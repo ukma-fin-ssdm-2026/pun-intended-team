@@ -12,6 +12,7 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
 - `slug` on categories ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)): made by the server from the name in Latin when a category is added and never changed, shown to administrators. The import maps providers' genres to slugs, so renaming a category no longer breaks it, and a skipped record names the slug: `Unknown category "concerts"`.
 - Reporting a listing ([#382](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/382)): `POST /reports` takes `listingId` instead of `username`, and the report sheet on someone else's post reports the listing. Administrators see listing cases with the listing and its author, and `POST /admin/report-cases/{id}/remove-listing` removes the listing and resolves the case.
+- Organization verification ([#383](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/383)): an account requests organization status with a name, a description and an official link (`PUT /me/organization`) and sees its status on the organization settings screen. Administrators verify or reject requests on the new Організації page of the admin panel (`/admin/organizations`); only a verified organization publishes events, and every decision is audited.
 
 ### Changed
 

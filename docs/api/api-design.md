@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes four main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile** and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes five main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status) and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -110,6 +110,23 @@ A lookup, not a resource users work with: it exists to filter the catalog and to
 
 Related to: Event, Listing.
 
+### Organization
+
+**Base paths:** `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
+
+A regular account asks to become an organization; only a verified organization publishes events (FR-003, FR-009). The request waits as `pending` until an administrator verifies or rejects it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | 1–100 characters |
+| `description` | string or `null` | 1–1000 characters in a request; `null` only for organizations added in the database |
+| `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
+| `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
+| `verifiedAt` | date-time or `null` | Set when verified |
+| `accountId`, `account` | UUID, `{ id, username, displayName }` | Admin responses only: the account that sent the request |
+
+Related to: Account (the organization's account, the administrator who verified it), Event, Venue.
+
 ### Report Case
 
 **Base paths:** `/api/v1/reports` (a user reports), `/api/v1/admin/report-cases` (administrators resolve)
@@ -176,6 +193,18 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 | `limit`, `offset` | integer | see [pagination](#pagination) | `limit` above 20: `400` |
 
 Dates are clamped because a user scrolling the date picker too far should just see the events that exist. `limit` is rejected because only a script asks for more than a page, and it should learn the cap rather than be silently short-changed.
+
+### Organizations
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
+| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
+| `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
+| `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/admin/organizations/{accountId}/reject` | Administrator | `200` the organization, now `rejected` | `400`, `401`, `404`, `409` |
+
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
 
 ### Listings
 
@@ -345,6 +374,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 | `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |
+| `CANNOT_DECIDE_OWN_REQUEST` | `POST /admin/organizations/{accountId}/approve`, `…/reject` | The request is the calling administrator's own; another administrator decides it |
 
 ### Trying It Out
 

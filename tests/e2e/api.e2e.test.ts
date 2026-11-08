@@ -2011,6 +2011,153 @@ describe('Listing report cases', () => {
   });
 });
 
+// FR-003
+describe('Organization verification', () => {
+  const request = {
+    name: 'Riverside Stage',
+    description: 'Open-air concerts by the Dnipro.',
+    officialLink: 'https://riverside.example.org',
+  };
+
+  /** A new account with a pending organization request; its token and account id. */
+  async function newRequest(): Promise<{ token: string; accountId: string }> {
+    const { token } = await newAccount();
+    const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return { token, accountId: accountIdOf(token) };
+  }
+
+  async function decide(accountId: string, decision: 'approve' | 'reject', token = tokens.admin): Promise<Response> {
+    return call('POST', `/api/v1/admin/organizations/${accountId}/${decision}`, { token });
+  }
+
+  async function auditOf(accountId: string): Promise<{ action: string; result: string }[]> {
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT action, result FROM audit_logs WHERE target_id = $1 ORDER BY id`, [accountId]),
+    );
+    return rows;
+  }
+
+  test('saves a request as pending, shows it to the account, and keeps it from publishing events', async () => {
+    const { token } = await newAccount();
+    assertRejected(await call('GET', '/api/v1/me/organization', { token }), 404, 'NOT_FOUND');
+
+    const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
+
+    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null };
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, pending);
+    assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);
+    assertRejected(await call('POST', '/api/v1/events', { token, body: newEvent }), 422, 'ORGANIZATION_NOT_VERIFIED');
+  });
+
+  test('lists the requests for administrators, pending ones first', async () => {
+    const { accountId } = await newRequest();
+
+    let items: { accountId: string; verificationStatus: string; account: unknown }[] = [];
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/admin/organizations?offset=${offset}`, { token: tokens.admin });
+      assert.equal(page.status, 200, JSON.stringify(page.body));
+      items = [...items, ...page.body.items];
+      hasMore = page.body.page.hasMore;
+    }
+
+    const statuses = items.map((item) => item.verificationStatus);
+    assert.ok(statuses.lastIndexOf('pending') < statuses.indexOf('verified'), JSON.stringify(statuses));
+    const listed = items.find((item) => item.accountId === accountId);
+    assert.equal(listed?.verificationStatus, 'pending');
+    assert.deepEqual(listed.account, { id: accountId, username: null, displayName: null });
+  });
+
+  test('verifies a request: the organization can publish, and who verified it and when is recorded and audited', async () => {
+    const { token, accountId } = await newRequest();
+
+    const res = await decide(accountId, 'approve');
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.verificationStatus, 'verified');
+    assert.ok(res.body.verifiedAt);
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT verified_by, verified_at FROM organizations WHERE account_id = $1`, [accountId]),
+    );
+    assert.equal(rows[0].verified_by, stubAccounts.admin.id);
+    assert.equal(rows[0].verified_at.toISOString(), res.body.verifiedAt);
+    assert.deepEqual(await auditOf(accountId), [{ action: 'organization.approve', result: 'verified' }]);
+    const venueId = randomUUID();
+    await withDatabase((client) =>
+      client.query(
+        `INSERT INTO venues (id, name, address, latitude, longitude, source, organization_id)
+         VALUES ($1, 'Riverside lawn', 'Naberezhna St, Kyiv', 50.45, 30.53, 'organization', $2)`,
+        [venueId, accountId],
+      ),
+    );
+    const event = await call('POST', '/api/v1/events', { token, body: { ...newEvent, venueId } });
+    assert.equal(event.status, 201, JSON.stringify(event.body));
+  });
+
+  test('rejects a request, which the account can then send again', async () => {
+    const { token, accountId } = await newRequest();
+
+    const res = await decide(accountId, 'reject');
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.verificationStatus, 'rejected');
+    assert.equal((await call('GET', '/api/v1/me/organization', { token })).body.verificationStatus, 'rejected');
+    assert.deepEqual(await auditOf(accountId), [{ action: 'organization.reject', result: 'rejected' }]);
+    const again = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, name: 'Riverside' } });
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.verificationStatus, 'pending');
+    assert.equal(again.body.name, 'Riverside');
+  });
+
+  test('refuses decisions on a request that is not pending, and a new request of a verified organization, with 409', async () => {
+    const { token, accountId } = await newRequest();
+    await decide(accountId, 'approve');
+
+    assertRejected(await decide(accountId, 'approve'), 409, 'CONFLICT');
+    assertRejected(await decide(accountId, 'reject'), 409, 'CONFLICT');
+    assertRejected(await call('PUT', '/api/v1/me/organization', { token, body: request }), 409, 'CONFLICT');
+    assert.deepEqual((await auditOf(accountId)).slice(1), [
+      { action: 'organization.approve', result: 'refused: not pending' },
+      { action: 'organization.reject', result: 'refused: not pending' },
+    ]);
+  });
+
+  test('refuses an administrator’s decision on their own request with 409 CANNOT_DECIDE_OWN_REQUEST', async () => {
+    const admin = await call('PUT', '/api/v1/me/organization', { token: tokens.admin, body: request });
+    assert.equal(admin.status, 200, JSON.stringify(admin.body));
+
+    assertRejected(await decide(stubAccounts.admin.id, 'approve'), 409, 'CANNOT_DECIDE_OWN_REQUEST');
+    assert.equal(
+      (await call('GET', '/api/v1/me/organization', { token: tokens.admin })).body.verificationStatus,
+      'pending',
+    );
+  });
+
+  test('answers 404 to an account without a request', async () => {
+    assertRejected(await decide(randomUUID(), 'approve'), 404, 'NOT_FOUND');
+  });
+
+  test('rejects an official link that is not an http or https address with 400', async () => {
+    for (const officialLink of ['ftp://riverside.example.org', 'riverside']) {
+      const res = await call('PUT', '/api/v1/me/organization', {
+        token: tokens.user,
+        body: { ...request, officialLink },
+      });
+      assertInvalid(res, 'body', 'officialLink');
+    }
+  });
+
+  // SEC-001
+  test('answers a user who is not an administrator with 404, and a guest with 401', async () => {
+    const { accountId } = await newRequest();
+
+    assertRejected(await call('GET', '/api/v1/admin/organizations', { token: tokens.user }), 404, 'NOT_FOUND');
+    assertRejected(await decide(accountId, 'approve', tokens.user), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', '/api/v1/me/organization', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
 // FR-030
 describe('GET /api/v1/admin/stats', () => {
   test('counts active users, upcoming events, matches and open report cases', async () => {

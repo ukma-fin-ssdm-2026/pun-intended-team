@@ -22,6 +22,9 @@ export const Routes = {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
   },
+  organizations: {
+    me: '/api/v1/me/organization',
+  },
   profiles: {
     me: '/api/v1/me/profile',
     interests: '/api/v1/me/profile/interests',
@@ -44,6 +47,9 @@ export const Routes = {
     banReportCase: '/api/v1/admin/report-cases/{id}/ban',
     dismissReportCase: '/api/v1/admin/report-cases/{id}/dismiss',
     removeReportedListing: '/api/v1/admin/report-cases/{id}/remove-listing',
+    organizations: '/api/v1/admin/organizations',
+    approveOrganization: '/api/v1/admin/organizations/{accountId}/approve',
+    rejectOrganization: '/api/v1/admin/organizations/{accountId}/reject',
     stats: '/api/v1/admin/stats',
     backups: '/api/v1/admin/backups',
   },

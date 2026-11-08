@@ -10,6 +10,7 @@ export type ReportCasesPage = components['schemas']['ReportCasesPage'];
 export type CaseStatus = ReportCase['status'];
 export type AdminCategory = components['schemas']['AdminCategory'];
 export type BackupRun = components['schemas']['BackupRun'];
+export type AdminOrganization = components['schemas']['AdminOrganization'];
 
 export const CASES_PAGE_SIZE = 20;
 
@@ -41,6 +42,24 @@ export function removeReportedListing(id: string) {
 
 export function dismissReportCase(id: string) {
   return call(() => apiClient.POST('/api/v1/admin/report-cases/{id}/dismiss', { params: { path: { id } } }));
+}
+
+export function listOrganizations(offset: number) {
+  return call(() =>
+    apiClient.GET('/api/v1/admin/organizations', { params: { query: { limit: CASES_PAGE_SIZE, offset } } }),
+  );
+}
+
+export function approveOrganization(accountId: string) {
+  return call(() =>
+    apiClient.POST('/api/v1/admin/organizations/{accountId}/approve', { params: { path: { accountId } } }),
+  );
+}
+
+export function rejectOrganization(accountId: string) {
+  return call(() =>
+    apiClient.POST('/api/v1/admin/organizations/{accountId}/reject', { params: { path: { accountId } } }),
+  );
 }
 
 export function listAdminCategories() {
