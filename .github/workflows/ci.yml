@@ -198,6 +198,7 @@ jobs:
           DATABASE_URL: postgresql://nearby:nearby_dev_password@localhost:5432/nearby
           MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
           IMPORT_DATABASE_URL: postgresql://nearby_import:nearby_import_dev_password@localhost:5432/nearby
+          BACKUP_DATABASE_URL: postgresql://nearby_backup:nearby_backup_dev_password@localhost:5432/nearby
         run: npm run db:set-passwords
 
       # Unit tests need no database and fail within seconds, so a break shows up before the long run below.
