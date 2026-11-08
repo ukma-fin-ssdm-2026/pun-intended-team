@@ -145,7 +145,10 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
   async #attach(boss: PgBoss, name: string): Promise<void> {
     const handler = this.#handlers.get(name)!;
     await this.#ensureQueue(boss, name);
-    await boss.work<object>(name, { pollingIntervalSeconds: this.options.pollingIntervalSeconds }, async (jobs) => {
+    // pg-boss refuses an interval given as undefined, so pg-boss's default applies only when the key is left out.
+    const { pollingIntervalSeconds } = this.options;
+    const workOptions = pollingIntervalSeconds === undefined ? {} : { pollingIntervalSeconds };
+    await boss.work<object>(name, workOptions, async (jobs) => {
       for (const { id, data } of jobs) {
         await handler({ id, name, payload: data });
       }
