@@ -478,31 +478,8 @@ Automatic the next night: a good night removes the marker and the health check p
 ```ts
 // app/src/hooks/use-interests.ts: one load when the screen mounts; an error message, but no way to load again
 export function useInterests() {
-  const [data, setData] = useState<Interest[]>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>();
-
   useEffect(() => {
-    let cancelled = false;
-    apiClient
-      .GET('/api/v1/interests')
-      .then((response) => {
-        if (cancelled) return;
-        if (response.data) {
-          setData(response.data.items);
-        } else {
-          setError('Could not load interests.');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError('Could not reach the server.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    // ... loads once, sets data or error
   }, []);
 
   return { data, loading, error };
@@ -534,7 +511,7 @@ With `onRetry` set, the interest picker in `app/src/components/profile/profile-f
 
 ### Patterns Applied
 
-- **An explicit error state** (`failed`) instead of a silent `undefined`.
+- **An explicit error state that the screens use** (`failed`, with `reload`): before, `useInterests` returned an `error` that profile edit never read.
 - **A retry the user starts**, through the `reload()` of `useApiQuery`, as the catalog already does.
 
 ### Fail Fast or Fail Safe
