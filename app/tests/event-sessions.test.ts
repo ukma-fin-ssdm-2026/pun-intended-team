@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { describe, expect, test } from '@jest/globals';
 
-import { eventSessions, sessionCutoff, formatUntil } from '@/dates';
+import { eventSessions, sessionCutoff, formatTimeRange, formatUntil } from '@/dates';
 
 // Kyiv is UTC+3 until the clocks go back on 25 October 2026 at 04:00, UTC+2 after.
 describe('eventSessions', () => {
@@ -101,5 +101,21 @@ describe('sessionCutoff', () => {
   ])('closes %s', (_title, startsAt, endsAt, index, closes) => {
     const session = eventSessions(startsAt, endsAt)[index];
     expect(new Date(sessionCutoff(startsAt, endsAt, session)).toISOString()).toBe(closes);
+  });
+});
+
+describe('formatTimeRange', () => {
+  test.each([
+    ['gives the start and the end', '2026-10-20T19:00:00+03:00', '2026-10-20T21:30:00+03:00', '19:00 – 21:30'],
+    [
+      'gives only the start when the import did not know the end',
+      '2026-11-08T10:00:00+02:00',
+      '2026-11-08T21:59:59.999Z',
+      'з 10:00',
+    ],
+    ['keeps an end at midnight', '2026-11-08T20:00:00+02:00', '2026-11-08T22:00:00.000Z', '20:00 – 00:00'],
+    ['keeps an end at 23:59', '2026-11-08T20:00:00+02:00', '2026-11-08T21:59:00.000Z', '20:00 – 23:59'],
+  ])('%s', (_title, start, end, label) => {
+    expect(formatTimeRange(start, end)).toBe(label);
   });
 });

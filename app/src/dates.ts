@@ -72,9 +72,16 @@ export function formatTime(iso: string): string {
   return kyivTime(new Date(iso)).time;
 }
 
-// "19:00 – 21:30".
+// "19:00 – 21:30", or "з 10:00" when the end is unknown.
 export function formatTimeRange(startIso: string, endIso: string): string {
-  return `${kyivTime(new Date(startIso)).time} – ${kyivTime(new Date(endIso)).time}`;
+  const start = kyivTime(new Date(startIso)).time;
+  return endsUnknown(endIso) ? `з ${start}` : `${start} – ${kyivTime(new Date(endIso)).time}`;
+}
+
+// The import ends an event at the last millisecond of its Kyiv day when the provider gives no end time.
+function endsUnknown(endIso: string): boolean {
+  const next = Date.parse(endIso) + 1;
+  return next % 60_000 === 0 && kyivTime(new Date(next)).time === '00:00';
 }
 
 // Kyiv's offset from UTC at an instant, in minutes: 120 in winter, 180 in summer.
