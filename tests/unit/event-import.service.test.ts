@@ -391,6 +391,7 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
   });
 
   test('skips the event when the geocoder fails, and imports the rest', async () => {
+    const error = mock.method(Logger.prototype, 'error', () => {});
     const { run, geocoder } = makeService(
       [{}, {}],
       [{ event: withoutCoordinates }, { event: anImportedEvent({ externalId: 'ext-2' }) }],
@@ -398,9 +399,101 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
     geocoder.locate.mock.mockImplementation(() => Promise.reject(new Error('Nominatim answered 503')));
 
     const report = await run();
+    error.mock.restore();
 
-    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder failed: Nominatim answered 503' }]);
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder is unavailable in this run' }]);
     assert.equal(report.created, 1);
+  });
+});
+
+// A first Karabas run asks the geocoder about every new venue; one that cannot be reached must not be asked again.
+describe('EventImportService.importFrom, with the geocoder unavailable', () => {
+  const UNAVAILABLE = 'The geocoder is unavailable in this run';
+  const atNewVenue = (externalId: string) =>
+    anImportedEvent({
+      externalId,
+      venue: { name: `Club ${externalId}`, address: `Street ${externalId}`, location: null },
+    });
+  const atKnownVenue = (externalId: string) =>
+    anImportedEvent({
+      externalId,
+      venue: { name: 'Docker-G pub', address: 'вул. Ігорівська, 13/5, Київ', location: null },
+    });
+  const knownVenue = anImportedVenue({
+    id: 'known-venue',
+    name: 'Docker-G pub',
+    address: 'вул. Ігорівська, 13/5, Київ',
+  });
+  let error: ReturnType<typeof mock.method>;
+  let warn: ReturnType<typeof mock.method>;
+  beforeEach(() => {
+    error = mock.method(Logger.prototype, 'error', () => {});
+    warn = mock.method(Logger.prototype, 'warn', () => {});
+  });
+  afterEach(() => {
+    error.mock.restore();
+    warn.mock.restore();
+  });
+
+  /** Three events at three new venues, with the known venue's event between them; the geocoder cannot be reached. */
+  function aRunWithTheGeocoderDown() {
+    const service = makeService(
+      [{}, {}, {}, {}],
+      [
+        { event: atNewVenue('new-1') },
+        { event: atKnownVenue('known-1') },
+        { event: atNewVenue('new-2') },
+        { event: atNewVenue('new-3') },
+      ],
+    );
+    service.repository.findVenues.mock.mockImplementation(() => Promise.resolve([knownVenue]));
+    service.geocoder.locate.mock.mockImplementation(() => Promise.reject(new Error('fetch failed')));
+    return service;
+  }
+
+  test('asks the geocoder once per run after it fails, and logs one error', async () => {
+    const { run, geocoder } = aRunWithTheGeocoderDown();
+
+    await run();
+
+    assert.equal(geocoder.locate.mock.callCount(), 1);
+    const geocoderErrors = error.mock.calls.filter((call) => String(call.arguments[0]).includes('geocoder'));
+    assert.equal(geocoderErrors.length, 1);
+    assert.match(String(geocoderErrors[0]?.arguments[0]), /fetch failed/);
+  });
+
+  test('imports the events at saved venues and skips the rest with the reason', async () => {
+    const { run, repository } = aRunWithTheGeocoderDown();
+
+    const report = await run();
+
+    assert.deepEqual(
+      repository.createEvent.mock.calls.map((call) => [call.arguments[0].externalId, call.arguments[0].venueId]),
+      [['known-1', 'known-venue']],
+    );
+    assert.deepEqual(report.skipped, [
+      { externalId: 'new-1', reason: UNAVAILABLE },
+      { externalId: 'new-2', reason: UNAVAILABLE },
+      { externalId: 'new-3', reason: UNAVAILABLE },
+    ]);
+    assert.deepEqual(
+      repository.saveSkipped.mock.calls.map((call) => call.arguments[2]),
+      [UNAVAILABLE, UNAVAILABLE, UNAVAILABLE],
+    );
+    assert.equal(repository.createVenue.mock.callCount(), 0);
+  });
+
+  test('counts the skipped events as seen, so cancelUnseen does not cancel them', async () => {
+    const { run, repository } = aRunWithTheGeocoderDown();
+
+    const report = await run();
+
+    assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments, [
+      PROVIDER_ID,
+      ['new-1', 'known-1', 'new-2', 'new-3'],
+      COVERS,
+    ]);
+    assert.equal(report.complete, true);
   });
 });
 
