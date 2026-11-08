@@ -23,9 +23,7 @@ import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import {
   setAnnouncementsEmpty,
   setGuest,
-  setInPool,
   setJoinRequest,
-  setMatchesEmpty,
   setOrganizationEmpty,
   setSimulateLoading,
   useSession,
@@ -88,8 +86,6 @@ export default function ComponentsGallery() {
       <Section title="Режим (лише для розробки)">
         <SwitchRow label="Гість" value={session.isGuest} onValueChange={setGuest} />
         <SwitchRow label="Завантаження каталогу" value={session.simulateLoading} onValueChange={setSimulateLoading} />
-        <SwitchRow label="У підборі (02.1 на сторінці події)" value={session.inPool} onValueChange={setInPool} />
-        <SwitchRow label="Метчі порожні (Т2.1)" value={session.matchesEmpty} onValueChange={setMatchesEmpty} />
         <SwitchRow
           label="Оголошення порожні (Т3.1)"
           value={session.announcementsEmpty}

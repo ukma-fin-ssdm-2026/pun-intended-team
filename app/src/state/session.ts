@@ -14,11 +14,6 @@ type Session = {
   // The catalog shows its skeleton (01.1) before the events, as the prototype does with mock data.
   simulateLoading: boolean;
   catalogLoading: boolean;
-  // The event page as for an event the user already asked company for (02.1 "Ти вже в пошуку"); the catalog cards
-  // keep the default button.
-  inPool: boolean;
-  // The Метчі tab as Т2.1 "Поки без метчів".
-  matchesEmpty: boolean;
   // The Оголошення tab as Т3.1 "Поки тут тихо".
   announcementsEmpty: boolean;
   // Т5 as Т5.1: "Олена хоче піти з тобою" answers the user's post.
@@ -35,8 +30,6 @@ const store = createStore<Session>({
   isGuest: false,
   simulateLoading: true,
   catalogLoading: true,
-  inPool: false,
-  matchesEmpty: false,
   announcementsEmpty: false,
   joinRequest: false,
   organizationEmpty: false,
@@ -66,14 +59,6 @@ export function signIn() {
 
 export function setSimulateLoading(simulateLoading: boolean) {
   store.set({ simulateLoading, catalogLoading: simulateLoading });
-}
-
-export function setInPool(inPool: boolean) {
-  store.set({ inPool });
-}
-
-export function setMatchesEmpty(matchesEmpty: boolean) {
-  store.set({ matchesEmpty });
 }
 
 export function setAnnouncementsEmpty(announcementsEmpty: boolean) {
