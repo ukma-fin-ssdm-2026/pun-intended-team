@@ -9,14 +9,21 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { applyToEvent, changeAnswers, type ApplicationAnswers } from '@/api/applications';
+import { failureSnackbar } from '@/auth/messages';
 import { GuestDialog } from '@/components/guest-dialog';
 import { CompanyRequestSheet } from '@/components/matching/company-request-sheet';
+import { DayPickerSheet } from '@/components/matching/day-picker-sheet';
+import { ProfileIncompleteDialog } from '@/components/matching/profile-incomplete-dialog';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
-import { formatEventDay, formatShortDay, formatTimeRange } from '@/dates';
+import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
+import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, sessionCutoff } from '@/dates';
+import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
+import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
@@ -36,6 +43,27 @@ const BUTTON_HEIGHT = 52;
 // Longer descriptions are cut at the last word within 105 characters and end with "… Читати далі", which gives the
 // Figma text for the jazz evening.
 const DESCRIPTION_PREVIEW = 105;
+
+// Figma's first choice on 03: company for the evening, then a walk and coffee. The profile's format replaces the first.
+const FIGMA_ANSWERS: ApplicationAnswers = { desiredCompany: 'company', afterEventPlans: ['walk', 'coffee'] };
+
+// What the API refuses an application for, besides an incomplete profile and an application that already exists.
+const refusals: Record<string, SnackbarContent> = {
+  APPLICATIONS_CLOSED: {
+    tone: 'error',
+    title: 'Підбір на цю подію закрито',
+    note: 'Подія вже почалася або скоро завершиться',
+  },
+  EVENT_CANCELLED: { tone: 'error', title: 'Подію скасовано', note: 'Обери іншу подію в каталозі' },
+  INVALID_SESSION_DAY: { tone: 'error', title: 'Цього дня подія не проходить', note: 'Обери інший день' },
+  NOT_FOUND: { tone: 'error', title: 'Подію не знайдено', note: 'Можливо, її прибрали з каталогу' },
+};
+
+const CHANGE_FAILED: SnackbarContent = {
+  tone: 'error',
+  title: 'Не вдалося оновити побажання',
+  note: 'Спробуй ще раз за хвилину',
+};
 
 function preview(text: string): string | undefined {
   if (text.length <= DESCRIPTION_PREVIEW) return undefined;
@@ -133,11 +161,26 @@ export default function EventScreen() {
   const [dialogOpen, setDialogOpen] = useState(isGuest);
   const favorite = useFavorite(id);
   const [expanded, setExpanded] = useState(false);
-  const [requestShown, setRequestShown] = useState(false);
-  const requestOpen = requestShown || request === '1';
-  const setRequestOpen = (open: boolean) => {
-    setRequestShown(open);
-    if (!open && request) router.setParams({ request: undefined });
+  const profile = useProfile();
+  const { application, reload: reloadApplications } = useEventApplication(id);
+  // A multi-day event asks for the day first, then opens 03 for it.
+  const [step, setStep] = useState<'day' | 'request' | null>(null);
+  const [sessionStart, setSessionStart] = useState<string>();
+  // The days that still take applications, picked when the day step opens.
+  const [openSessions, setOpenSessions] = useState<string[]>([]);
+  // Each opening of 03 starts from fresh answers.
+  const [requestKey, setRequestKey] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const { snackbar, show } = useSnackbar();
+  const requestOpen = step === 'request' || request === '1';
+  const openRequest = () => {
+    setRequestKey((key) => key + 1);
+    setStep('request');
+  };
+  const closeRequest = () => {
+    setStep(null);
+    if (request) router.setParams({ request: undefined });
   };
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
@@ -169,8 +212,14 @@ export default function EventScreen() {
     );
   }
 
-  // 02.1 comes from the development switch; there are no company requests yet.
-  const inPool = !isGuest && session.inPool;
+  const inPool = !isGuest && application !== undefined;
+  const sessions = eventSessions(event.startsAt, event.endsAt);
+  const multiDay = sessions.length > 1;
+  const profileIncomplete = profile.missing || profile.data?.isComplete === false;
+  // With an application, 03 changes its answers; otherwise the format comes from the profile.
+  const initialAnswers: ApplicationAnswers = application
+    ? { desiredCompany: application.desiredCompany, afterEventPlans: application.afterEventPlans }
+    : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
   const short = expanded ? undefined : preview(event.description);
   const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
   // 130 px in Figma: the 102 px action bar and the 28 px overlap.
@@ -181,7 +230,39 @@ export default function EventScreen() {
   const onAction = () => {
     if (isGuest) setDialogOpen(true);
     else if (inPool) openSearch();
-    else setRequestOpen(true);
+    else if (profileIncomplete) setProfileDialogOpen(true);
+    else if (multiDay) {
+      setOpenSessions(sessions.filter((start) => sessionCutoff(event.startsAt, event.endsAt, start) > Date.now()));
+      setStep('day');
+    } else {
+      setSessionStart(undefined);
+      openRequest();
+    }
+  };
+
+  const completeProfile = () => {
+    setProfileDialogOpen(false);
+    router.push(profile.missing ? '/profile-setup' : '/profile-edit');
+  };
+
+  const submit = async (answers: ApplicationAnswers) => {
+    setSubmitting(true);
+    const result = application
+      ? await changeAnswers(application, answers)
+      : await applyToEvent(event.id, answers, sessionStart && kyivDay(new Date(sessionStart)));
+    setSubmitting(false);
+    closeRequest();
+    if (result.ok) {
+      openSearch();
+    } else if (result.code === 'PROFILE_INCOMPLETE') {
+      profile.reload();
+      setProfileDialogOpen(true);
+    } else if (result.code === 'ALREADY_APPLIED') {
+      reloadApplications();
+      openSearch();
+    } else {
+      show((result.code && refusals[result.code]) || (application ? CHANGE_FAILED : failureSnackbar(result)));
+    }
   };
 
   return (
@@ -295,14 +376,33 @@ export default function EventScreen() {
         <Button label={inPool ? 'Стежити за метчингом' : 'Знайти мені метч'} variant="dark" onPress={onAction} />
       </View>
 
-      <CompanyRequestSheet
-        visible={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        eventLabel={`${event.title} · ${formatShortDay(event.startsAt)}`}
-        onSubmit={() => {
-          setRequestOpen(false);
-          openSearch();
+      <DayPickerSheet
+        key={`days-${step === 'day'}`}
+        visible={step === 'day'}
+        onClose={() => setStep(null)}
+        eventTitle={event.title}
+        sessions={openSessions}
+        onPick={(start) => {
+          setSessionStart(start);
+          openRequest();
         }}
+      />
+
+      <CompanyRequestSheet
+        key={`request-${requestKey}-${application?.id ?? 'new'}-${profile.data ? 'profile' : 'none'}`}
+        visible={requestOpen}
+        onClose={closeRequest}
+        eventLabel={`${event.title} · ${formatShortDay(sessionStart ?? application?.sessionStartsAt ?? event.startsAt)}`}
+        initial={initialAnswers}
+        submitLabel={application ? 'Оновити побажання' : undefined}
+        submitting={submitting}
+        onSubmit={(answers) => void submit(answers)}
+      />
+
+      <ProfileIncompleteDialog
+        visible={profileDialogOpen}
+        onClose={() => setProfileDialogOpen(false)}
+        onComplete={completeProfile}
       />
 
       <GuestDialog
@@ -313,6 +413,8 @@ export default function EventScreen() {
         }}
         onLeave={() => setDialogOpen(false)}
       />
+
+      {snackbar && <Snackbar {...snackbar} />}
     </View>
   );
 }
