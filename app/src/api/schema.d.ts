@@ -731,7 +731,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "EVENT_STARTED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1183,6 +1183,7 @@ export interface components {
          *       "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
          *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
          *       "sessionStartsAt": "2026-10-24T16:00:00.000Z",
+         *       "cutoffAt": "2026-10-24T15:00:00.000Z",
          *       "desiredCompany": "company",
          *       "afterEventPlans": [
          *         "walk",
@@ -1203,6 +1204,11 @@ export interface components {
              * @description When the session starts: the event start, or the chosen day of a multi-day event at its time of day
              */
             sessionStartsAt: string;
+            /**
+             * Format: date-time
+             * @description When matching for the session stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode
+             */
+            cutoffAt: string;
             desiredCompany: components["schemas"]["CommunicationFormat"];
             /** @description What the user would do together after the event; empty: only the event */
             afterEventPlans: components["schemas"]["AfterEventPlan"][];
@@ -1259,6 +1265,7 @@ export interface components {
          *         "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
          *         "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
          *         "sessionStartsAt": "2026-10-24T16:00:00.000Z",
+         *         "cutoffAt": "2026-10-24T15:00:00.000Z",
          *         "desiredCompany": "company",
          *         "afterEventPlans": [
          *           "walk",
@@ -2786,7 +2793,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `EVENT_STARTED`: the session has already started. `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on several days and `date` is missing. */
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the session’s cutoff has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on several days and `date` is missing. */
             422: {
                 headers: {
                     [name: string]: unknown;
