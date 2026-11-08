@@ -114,21 +114,23 @@ Related to: Event, Listing.
 
 **Base paths:** `/api/v1/reports` (a user reports), `/api/v1/admin/report-cases` (administrators resolve)
 
-Every report on one user, grouped until an administrator resolves it (FR-025–FR-027). A user reports by username and learns nothing about the case; only administrators see cases.
+Every report on one user or on one listing, grouped until an administrator resolves it (FR-025–FR-028). A user reports another user by username, or someone else's listing by its id, and learns nothing about the case; only administrators see cases.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `account` | `{ id, username, displayName }` | The reported user; `username` and `displayName` are `null` without a profile |
+| `targetType` | `account` \| `listing` | What was reported: a user or a listing |
+| `account` | `{ id, username, displayName }` | The reported user, or the author of the reported listing; `username` and `displayName` are `null` without a profile |
+| `listing` | `{ id, title, description, date, status }` or `null` | The reported listing, also after it was removed (`status` is then `removed`); `null` in an account case |
 | `status` | `open` \| `resolved` | |
-| `resolution` | `banned` \| `removed` \| `dismissed` or `null` | `null` while open; `removed` is for listing cases, which come with listings in the database |
+| `resolution` | `banned` \| `removed` \| `dismissed` or `null` | `null` while open; `banned` only in an account case, `removed` only in a listing case |
 | `reportCount` | integer | Repeated reports by one user count each time (FR-026) |
 | `firstReportedAt`, `lastReportedAt`, `resolvedAt` | date-time | `resolvedAt` is `null` while open |
 | `reports` | `{ id, reporter, reason, comment, reportedAt }[]` | Only by id, oldest first; `reporter` has the same shape as `account` |
 
 `reason` is one of `offensive_messages`, `no_show`, `fake_profile`, `unsafe_behaviour` and `other`, the options of the report sheet in the app; `comment` is optional, up to 1000 characters.
 
-Related to: Account (reported user, reporters, the administrator who resolved it).
+Related to: Account (reported user or listing author, reporters, the administrator who resolved it), Listing (reported listing).
 
 ## 3. Endpoints
 
@@ -220,9 +222,10 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 | `GET` | `/api/v1/admin/report-cases` | Administrator | `200` a page of cases | `400`, `401`, `404` |
 | `GET` | `/api/v1/admin/report-cases/{id}` | Administrator | `200` the case with its reports | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/report-cases/{id}/ban` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/admin/report-cases/{id}/remove-listing` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
 | `POST` | `/api/v1/admin/report-cases/{id}/dismiss` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
 
-`POST /reports` takes `{ username, reason, comment? }`; the username is matched in any letter case. A report joins the reported user's open case, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; dismiss closes the case without action. Ban on a case already resolved as banned applies the ban again, so a ban that failed halfway can be retried; this also bans again a user who was unbanned in the database since, so after an unban the old case is left alone. Otherwise both answer `409 CONFLICT` for a resolved case. Both answer `409 CANNOT_RESOLVE_OWN_CASE` for a case about the calling administrator, and ban answers `409 CANNOT_BAN_ADMIN` for a reported administrator, whose role is removed in the database first. A report on a banned user is answered `204` like any other but not stored, so the reporter does not learn about the ban. Filed reports, bans, dismissals and refused attempts each write a row to the audit log (SEC-004); the IP address is not recorded yet. There is no limit on reports yet: since every report counts (FR-026), one user can raise a case's `reportCount` by reporting again; a per-reporter limit is a known gap.
+`POST /reports` takes `{ username, reason, comment? }` to report a user, matched in any letter case, or `{ listingId, reason, comment? }` to report someone else's active listing; a body with both or neither is a `400`. A report joins the open case of the reported user or listing, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; remove-listing marks the listing `removed`, so it leaves the feed and `GET /listings/{id}` answers `404`, as after the author deletes it; dismiss closes the case without action. Ban works only on account cases and remove-listing only on listing cases; the other kind of case gets `409 CONFLICT`. Ban on a case already resolved as banned applies the ban again, so a ban that failed halfway can be retried; this also bans again a user who was unbanned in the database since, so after an unban the old case is left alone. Remove-listing on a case already resolved as removed removes the listing again in the same way. Otherwise all three answer `409 CONFLICT` for a resolved case. All three answer `409 CANNOT_RESOLVE_OWN_CASE` for a case about the calling administrator or their listing, and ban answers `409 CANNOT_BAN_ADMIN` for a reported administrator, whose role is removed in the database first. A report on a banned user is answered `204` like any other but not stored, so the reporter does not learn about the ban. Filed reports, bans, listing removals, dismissals and refused attempts each write a row to the audit log (SEC-004); the IP address is not recorded yet. There is no limit on reports yet: since every report counts (FR-026), one user can raise a case's `reportCount` by reporting again; a per-reporter limit is a known gap.
 
 ### Admin
 
@@ -241,7 +244,7 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 
 `400` on an endpoint with an `{id}` covers an id that is not a UUID. The `422` codes of each endpoint are listed under [business-rule codes](#business-rule-codes-422).
 
-The listing feed shows active listings dated today or later. A listing cannot be posted for a past date; once its date has passed, it is kept and can still be read by id. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing.
+The listing feed shows active listings dated today or later. A listing cannot be posted for a past date; once its date has passed, it is kept and can still be read by id. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing. An administrator's removal of a reported listing does the same (FR-028).
 
 ## 4. Design Decisions
 
@@ -321,7 +324,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `code` | Endpoint | When |
 |---|---|---|
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
-| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, or no user has the reported username. The message names which |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, no user has the reported username, or no active listing has the reported id. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
@@ -329,7 +332,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
-| `CANNOT_REPORT_SELF` | `POST /reports` | The username is the caller's own |
+| `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 
@@ -340,7 +343,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
-| `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/dismiss` | The case is about the calling administrator; another administrator resolves it |
+| `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |
 
 ### Trying It Out

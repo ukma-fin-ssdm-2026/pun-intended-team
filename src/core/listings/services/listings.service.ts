@@ -78,6 +78,16 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
+  /** Listings by id in any status, removed ones included: what moderation shows of reported listings. */
+  async findByIds(ids: string[]): Promise<Listing[]> {
+    return ids.length > 0 ? this.listingsRepository.findByIds(ids) : [];
+  }
+
+  /** An administrator removes a reported listing (FR-028); as with the author's removal, the row stays as `removed`. */
+  async removeReported(id: string): Promise<void> {
+    await this.listingsRepository.markRemoved(id);
+  }
+
   /**
    * Loads the authors and categories of these listings, then adds them to each listing. A listing whose author has no
    * profile gives undefined: the account may never have finished onboarding, or its profile is gone.

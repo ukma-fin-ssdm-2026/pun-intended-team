@@ -11,9 +11,11 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 - Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
 - `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
 - `slug` on categories ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)): made by the server from the name in Latin when a category is added and never changed, shown to administrators. The import maps providers' genres to slugs, so renaming a category no longer breaks it, and a skipped record names the slug: `Unknown category "concerts"`.
+- Reporting a listing ([#382](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/382)): `POST /reports` takes `listingId` instead of `username`, and the report sheet on someone else's post reports the listing. Administrators see listing cases with the listing and its author, and `POST /admin/report-cases/{id}/remove-listing` removes the listing and resolves the case.
 
 ### Changed
 
+- The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
 - The import's requests to the event providers and Nominatim wait a random time before each retry, at most 8 s, and log a request that failed after its last attempt.
 - `/health` checks the database. A deploy whose API cannot reach the database is now rolled back.
 - Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).

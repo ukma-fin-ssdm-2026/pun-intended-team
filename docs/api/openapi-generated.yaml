@@ -799,10 +799,12 @@ components:
       example:
         items:
           - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+            targetType: account
             account:
               id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
               username: olena_k
               displayName: Olena
+            listing: null
             status: open
             resolution: null
             reportCount: 2
@@ -819,6 +821,12 @@ components:
         id:
           type: string
           format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
         account:
           type: object
           properties:
@@ -836,7 +844,35 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -866,7 +902,9 @@ components:
           format: date-time
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -875,10 +913,12 @@ components:
         - resolvedAt
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -891,6 +931,12 @@ components:
         id:
           type: string
           format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
         account:
           type: object
           properties:
@@ -908,7 +954,35 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -972,7 +1046,9 @@ components:
           description: Every report in the case, oldest first
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -982,10 +1058,12 @@ components:
         - reports
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -1028,7 +1106,13 @@ components:
           type: string
           minLength: 1
           maxLength: 50
-          description: Username of the user being reported, as their profile shows it
+          description: >-
+            Username of the user being reported, as their profile shows it; send
+            this or listingId
+        listingId:
+          type: string
+          format: uuid
+          description: Id of the listing being reported; send this or username
         reason:
           type: string
           enum:
@@ -1045,9 +1129,9 @@ components:
           maxLength: 1000
           description: What happened, in the reporter’s words
       required:
-        - username
         - reason
       additionalProperties: false
+      description: A report on a user (username) or on a listing (listingId), never both
       example:
         username: olena_k
         reason: no_show
@@ -2344,9 +2428,10 @@ paths:
       operationId: adminListReportCases
       summary: List report cases
       description: >-
-        List report cases, oldest first: one case per reported user, with the
-        number of reports. Open cases by default; `status=resolved` lists the
-        resolved ones. Needs an administrator account; other accounts get 404.
+        List report cases, oldest first: one case per reported user or listing,
+        with the number of reports. Open cases by default; `status=resolved`
+        lists the resolved ones. Needs an administrator account; other accounts
+        get 404.
       tags:
         - Moderation
       security:
@@ -2414,7 +2499,8 @@ paths:
       summary: Get a report case
       description: >-
         Get a report case with every report in it: who reported, the reason and
-        the comment. Needs an administrator account; other accounts get 404.
+        the comment. A listing case shows the listing, also after it was
+        removed. Needs an administrator account; other accounts get 404.
       tags:
         - Moderation
       security:
@@ -2503,9 +2589,67 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: >-
-            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
-            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
-            about the caller, whom another administrator must judge
+            `CONFLICT`: the case was dismissed, or it is about a listing.
+            `CANNOT_BAN_ADMIN`: the reported user is an administrator.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/remove-listing:
+    post:
+      operationId: adminRemoveReportedListing
+      summary: Remove the reported listing
+      description: >-
+        Remove the listing a listing case is about and resolve the case as
+        `removed`. The listing leaves the feed and its page answers 404, as
+        after the author deletes it. On a case already resolved as removed, the
+        removal is applied again, so a removal that failed halfway can be
+        retried. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case was banned or dismissed, or it is about a user.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
           content:
             application/json:
               schema:
@@ -2558,21 +2702,23 @@ paths:
         '409':
           description: >-
             `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
-            the case is about the caller, whom another administrator must judge
+            the case is about the caller or their listing, which another
+            administrator must judge
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/reports:
     post:
-      operationId: reportUser
-      summary: Report a user
+      operationId: createReport
+      summary: Report a user or a listing
       description: >-
-        Report a user by username, with a reason and an optional comment.
-        Administrators review it; repeated reports on one user are grouped into
-        one case. The reporter gets no details about the case, and a report on a
-        banned user is accepted the same way but not stored. Needs a signed-in
-        account; a guest token gets 401.
+        Report a user by username, or someone else’s listing by its id, with a
+        reason and an optional comment. Administrators review it; repeated
+        reports on one user or one listing are grouped into one case. The
+        reporter gets no details about the case, and a report on a banned user
+        is accepted the same way but not stored. Needs a signed-in account; a
+        guest token gets 401.
       tags:
         - Moderation
       security:
@@ -2599,8 +2745,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: >-
-            `REFERENCE_NOT_FOUND`: no user has this username.
-            `CANNOT_REPORT_SELF`: it is your own username.
+            `REFERENCE_NOT_FOUND`: no user has this username, or no active
+            listing has this id. `CANNOT_REPORT_SELF`: it is your own username
+            or your own listing.
           content:
             application/json:
               schema:

@@ -14,7 +14,7 @@ const statusTabs: { value: CaseStatus; label: string }[] = [
 ];
 
 const columns = [
-  { label: 'Користувач', className: 'flex-[2]' },
+  { label: 'Скарга на', className: 'flex-[2]' },
   { label: 'Скарг', className: 'w-20' },
   { label: 'Перша скарга', className: 'flex-1' },
   { label: 'Остання скарга', className: 'flex-1' },
@@ -30,9 +30,10 @@ function CaseRow({ item, onOpen }: { item: ReportCase; onOpen: () => void }) {
     >
       <View className="flex-[2] gap-0.5">
         <Text numberOfLines={1} className="font-inter-medium text-body text-text-primary">
-          {item.account.displayName ?? 'Без профілю'}
+          {item.listing ? `Оголошення «${item.listing.title}»` : (item.account.displayName ?? 'Без профілю')}
         </Text>
         <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
+          {item.listing && 'Автор '}
           {item.account.username ? `@${item.account.username}` : item.account.id}
         </Text>
       </View>
@@ -59,7 +60,7 @@ export default function AdminReports() {
 
   return (
     <>
-      <PageHeader title="Скарги" note="Скарги на одного користувача збираються в одну справу." />
+      <PageHeader title="Скарги" note="Скарги на одного користувача чи одне оголошення збираються в одну справу." />
 
       <View accessibilityRole="tablist" className="flex-row gap-2">
         {statusTabs.map((tab) => (

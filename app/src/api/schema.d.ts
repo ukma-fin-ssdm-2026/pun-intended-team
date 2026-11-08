@@ -361,7 +361,7 @@ export interface paths {
         };
         /**
          * List report cases
-         * @description List report cases, oldest first: one case per reported user, with the number of reports. Open cases by default; `status=resolved` lists the resolved ones. Needs an administrator account; other accounts get 404.
+         * @description List report cases, oldest first: one case per reported user or listing, with the number of reports. Open cases by default; `status=resolved` lists the resolved ones. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminListReportCases"];
         put?: never;
@@ -381,7 +381,7 @@ export interface paths {
         };
         /**
          * Get a report case
-         * @description Get a report case with every report in it: who reported, the reason and the comment. Needs an administrator account; other accounts get 404.
+         * @description Get a report case with every report in it: who reported, the reason and the comment. A listing case shows the listing, also after it was removed. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminGetReportCase"];
         put?: never;
@@ -406,6 +406,26 @@ export interface paths {
          * @description Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban is applied again, so a ban that failed halfway can be retried. Needs an administrator account; other accounts get 404.
          */
         post: operations["adminBanReportedUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/report-cases/{id}/remove-listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove the reported listing
+         * @description Remove the listing a listing case is about and resolve the case as `removed`. The listing leaves the feed and its page answers 404, as after the author deletes it. On a case already resolved as removed, the removal is applied again, so a removal that failed halfway can be retried. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminRemoveReportedListing"];
         delete?: never;
         options?: never;
         head?: never;
@@ -442,10 +462,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Report a user
-         * @description Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
+         * Report a user or a listing
+         * @description Report a user by username, or someone else’s listing by its id, with a reason and an optional comment. Administrators review it; repeated reports on one user or one listing are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
          */
-        post: operations["reportUser"];
+        post: operations["createReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1102,11 +1122,13 @@ export interface components {
          *       "items": [
          *         {
          *           "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *           "targetType": "account",
          *           "account": {
          *             "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *             "username": "olena_k",
          *             "displayName": "Olena"
          *           },
+         *           "listing": null,
          *           "status": "open",
          *           "resolution": null,
          *           "reportCount": 2,
@@ -1129,11 +1151,13 @@ export interface components {
         /**
          * @example {
          *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "targetType": "account",
          *       "account": {
          *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *         "username": "olena_k",
          *         "displayName": "Olena"
          *       },
+         *       "listing": null,
          *       "status": "open",
          *       "resolution": null,
          *       "reportCount": 2,
@@ -1145,7 +1169,12 @@ export interface components {
         ReportCase: {
             /** Format: uuid */
             id: string;
-            /** @description The reported user */
+            /**
+             * @description account: a user was reported; listing: a listing was
+             * @enum {string}
+             */
+            targetType: "account" | "listing";
+            /** @description The reported user, or the author of the reported listing */
             account: {
                 /** Format: uuid */
                 id: string;
@@ -1153,6 +1182,23 @@ export interface components {
                 username: string | null;
                 displayName: string | null;
             };
+            /** @description The reported listing; null in an account case */
+            listing: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                description: string;
+                /**
+                 * Format: date
+                 * @description Kyiv date
+                 */
+                date: string;
+                /**
+                 * @description removed once an administrator or the author removed it
+                 * @enum {string}
+                 */
+                status: "active" | "removed";
+            } | null;
             /** @enum {string} */
             status: "open" | "resolved";
             /**
@@ -1172,11 +1218,13 @@ export interface components {
         /**
          * @example {
          *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "targetType": "account",
          *       "account": {
          *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *         "username": "olena_k",
          *         "displayName": "Olena"
          *       },
+         *       "listing": null,
          *       "status": "open",
          *       "resolution": null,
          *       "reportCount": 2,
@@ -1201,7 +1249,12 @@ export interface components {
         ReportCaseDetails: {
             /** Format: uuid */
             id: string;
-            /** @description The reported user */
+            /**
+             * @description account: a user was reported; listing: a listing was
+             * @enum {string}
+             */
+            targetType: "account" | "listing";
+            /** @description The reported user, or the author of the reported listing */
             account: {
                 /** Format: uuid */
                 id: string;
@@ -1209,6 +1262,23 @@ export interface components {
                 username: string | null;
                 displayName: string | null;
             };
+            /** @description The reported listing; null in an account case */
+            listing: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                description: string;
+                /**
+                 * Format: date
+                 * @description Kyiv date
+                 */
+                date: string;
+                /**
+                 * @description removed once an administrator or the author removed it
+                 * @enum {string}
+                 */
+                status: "active" | "removed";
+            } | null;
             /** @enum {string} */
             status: "open" | "resolved";
             /**
@@ -1248,6 +1318,7 @@ export interface components {
             displayName: string | null;
         };
         /**
+         * @description A report on a user (username) or on a listing (listingId), never both
          * @example {
          *       "username": "olena_k",
          *       "reason": "no_show",
@@ -1255,8 +1326,13 @@ export interface components {
          *     }
          */
         CreateReportBody: {
-            /** @description Username of the user being reported, as their profile shows it */
-            username: string;
+            /** @description Username of the user being reported, as their profile shows it; send this or listingId */
+            username?: string;
+            /**
+             * Format: uuid
+             * @description Id of the listing being reported; send this or username
+             */
+            listingId?: string;
             /**
              * @description offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other
              * @enum {string}
@@ -2706,7 +2782,66 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            /** @description `CONFLICT`: the case was dismissed, or it is about a listing. `CANNOT_BAN_ADMIN`: the reported user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminRemoveReportedListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report case id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCaseDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No report case with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the case was banned or dismissed, or it is about a user. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2765,7 +2900,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            /** @description `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2776,7 +2911,7 @@ export interface operations {
             };
         };
     };
-    reportUser: {
+    createReport: {
         parameters: {
             query?: never;
             header?: never;
@@ -2814,7 +2949,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `REFERENCE_NOT_FOUND`: no user has this username. `CANNOT_REPORT_SELF`: it is your own username. */
+            /** @description `REFERENCE_NOT_FOUND`: no user has this username, or no active listing has this id. `CANNOT_REPORT_SELF`: it is your own username or your own listing. */
             422: {
                 headers: {
                     [name: string]: unknown;

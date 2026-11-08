@@ -366,6 +366,31 @@ async function openCaseOf(accountId: string): Promise<string | undefined> {
   return rows[0]?.id;
 }
 
+/** The id of the listing's open report case; undefined when it has none. */
+async function openListingCaseOf(listingId: string): Promise<string | undefined> {
+  const { rows } = await withDatabase((client) =>
+    client.query(`SELECT id FROM report_cases WHERE target_listing_id = $1 AND status = 'open'`, [listingId]),
+  );
+  return rows[0]?.id;
+}
+
+/** A new user with a profile and one listing, reported once by the stub user; the author, listing id and case id. */
+async function newReportedListing(): Promise<{
+  author: Awaited<ReturnType<typeof newProfile>>;
+  listingId: string;
+  caseId: string;
+}> {
+  const author = await newProfile();
+  const listing = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+  assert.equal(listing.status, 201, JSON.stringify(listing.body));
+  const report = await call('POST', '/api/v1/reports', {
+    token: tokens.user,
+    body: { listingId: listing.body.id, reason: 'other' },
+  });
+  assert.equal(report.status, 204, JSON.stringify(report.body));
+  return { author, listingId: listing.body.id, caseId: (await openListingCaseOf(listing.body.id)) ?? '' };
+}
+
 /** Active accounts with the stubs' ids and a Google sign-in, the date of birth encrypted with the run's key, and the
  * profiles of the stub listings' authors. */
 async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
@@ -1821,6 +1846,168 @@ describe('Report cases', () => {
   // SEC-001: an endpoint the caller may not use answers as if it did not exist.
   test('answers a signed-in user who is not an administrator with 404', async () => {
     assertRejected(await call('GET', '/api/v1/admin/report-cases', { token: tokens.user }), 404, 'NOT_FOUND');
+  });
+});
+
+// FR-026, FR-028
+describe('Listing report cases', () => {
+  test('groups reports on someone else’s listing into one case that shows the listing and its author', async () => {
+    const author = await newProfile();
+    const listing = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+    const other = await newAccount();
+    for (const token of [tokens.user, tokens.user, other.token]) {
+      const res = await call('POST', '/api/v1/reports', {
+        token,
+        body: { listingId: listing.body.id, reason: 'offensive_messages', comment: 'Rude text.' },
+      });
+      assert.equal(res.status, 204, JSON.stringify(res.body));
+    }
+    const caseId = await openListingCaseOf(listing.body.id);
+
+    let listed;
+    for (let offset = 0, hasMore = true; !listed && hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/admin/report-cases?offset=${offset}`, { token: tokens.admin });
+      listed = page.body.items.find((item: { id: string }) => item.id === caseId);
+      hasMore = page.body.page.hasMore;
+    }
+    const details = await call('GET', `/api/v1/admin/report-cases/${caseId}`, { token: tokens.admin });
+    const { reports: _reports, ...summary } = details.body;
+    assert.deepEqual(listed, summary);
+    assert.equal(details.body.targetType, 'listing');
+    assert.equal(details.body.reportCount, 3);
+    assert.equal(details.body.reports.length, 3);
+    assert.deepEqual(details.body.account, {
+      id: author.accountId,
+      username: author.username,
+      displayName: 'Reported',
+    });
+    assert.deepEqual(details.body.listing, {
+      id: listing.body.id,
+      title: newListing.title,
+      description: newListing.description,
+      date: newListing.date,
+      status: 'active',
+    });
+  });
+
+  test('shows no listing in a user case', async () => {
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+
+    const details = await call('GET', `/api/v1/admin/report-cases/${await openCaseOf(target.accountId)}`, {
+      token: tokens.admin,
+    });
+
+    assert.equal(details.body.targetType, 'account');
+    assert.equal(details.body.listing, null);
+  });
+
+  test('rejects your own listing with 422 CANNOT_REPORT_SELF', async () => {
+    const res = await call('POST', '/api/v1/reports', {
+      token: tokens.user,
+      body: { listingId: olenasListing, reason: 'other' },
+    });
+    assertRejected(res, 422, 'CANNOT_REPORT_SELF');
+  });
+
+  test('rejects an unknown or removed listing with 422 REFERENCE_NOT_FOUND', async () => {
+    const author = await newProfile();
+    const removed = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+    await call('DELETE', `/api/v1/listings/${removed.body.id}`, { token: author.token });
+
+    for (const listingId of [randomUUID(), removed.body.id]) {
+      const res = await call('POST', '/api/v1/reports', { token: tokens.user, body: { listingId, reason: 'other' } });
+      assertRejected(res, 422, 'REFERENCE_NOT_FOUND');
+    }
+  });
+
+  test('rejects a report with both a username and a listing, or with neither, with 400', async () => {
+    for (const body of [{ username: 'taras.m', listingId: tarasListing, reason: 'other' }, { reason: 'other' }]) {
+      assertInvalid(await call('POST', '/api/v1/reports', { token: tokens.user, body }), 'body', '');
+    }
+  });
+
+  test('removes the reported listing: it leaves the feed, its page answers 404, and it is audited', async () => {
+    const { listingId, caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.resolution, 'removed');
+    assert.equal(res.body.listing.status, 'removed');
+    assertRejected(await call('GET', `/api/v1/listings/${listingId}`, { token: tokens.user }), 404, 'NOT_FOUND');
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const page = await call('GET', `/api/v1/listings?offset=${offset}`, { token: tokens.user });
+      assert.ok(!page.body.items.some((item: { id: string }) => item.id === listingId));
+      hasMore = page.body.page.hasMore;
+    }
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT actor_id, action, result FROM audit_logs WHERE target_id = $1 ORDER BY id`, [listingId]),
+    );
+    assert.deepEqual(rows, [
+      { actor_id: stubAccounts.user.id, action: 'report.create', result: 'created' },
+      { actor_id: stubAccounts.admin.id, action: 'listing.remove', result: 'removed' },
+    ]);
+  });
+
+  test('removes again on a case already removed, so a removal that failed halfway can be retried', async () => {
+    const { caseId } = await newReportedListing();
+    await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    const again = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin });
+
+    assert.equal(again.status, 200, JSON.stringify(again.body));
+    assert.equal(again.body.resolution, 'removed');
+  });
+
+  test('dismisses a listing case and leaves the listing in the feed', async () => {
+    const { listingId, caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/dismiss`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.resolution, 'dismissed');
+    assert.equal((await call('GET', `/api/v1/listings/${listingId}`, { token: tokens.user })).status, 200);
+    assertRejected(
+      await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.admin }),
+      409,
+      'CONFLICT',
+    );
+  });
+
+  test('refuses a ban on a listing case and a removal on a user case with 409, and audits both', async () => {
+    const { author, caseId: listingCaseId } = await newReportedListing();
+    const target = await newProfile();
+    await call('POST', '/api/v1/reports', { token: tokens.user, body: { username: target.username, reason: 'other' } });
+    const userCaseId = await openCaseOf(target.accountId);
+
+    const ban = await call('POST', `/api/v1/admin/report-cases/${listingCaseId}/ban`, { token: tokens.admin });
+    const removal = await call('POST', `/api/v1/admin/report-cases/${userCaseId}/remove-listing`, {
+      token: tokens.admin,
+    });
+
+    assertRejected(ban, 409, 'CONFLICT');
+    assertRejected(removal, 409, 'CONFLICT');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token: author.token })).status, 200);
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT action, result FROM audit_logs WHERE target_id IN ($1, $2) AND result LIKE 'refused%' ORDER BY action`,
+        [listingCaseId, userCaseId],
+      ),
+    );
+    assert.deepEqual(rows, [
+      { action: 'account.ban', result: 'refused: listing case' },
+      { action: 'listing.remove', result: 'refused: account case' },
+    ]);
+  });
+
+  // SEC-001
+  test('answers a signed-in user who is not an administrator with 404', async () => {
+    const { caseId } = await newReportedListing();
+
+    const res = await call('POST', `/api/v1/admin/report-cases/${caseId}/remove-listing`, { token: tokens.user });
+
+    assertRejected(res, 404, 'NOT_FOUND');
   });
 });
 

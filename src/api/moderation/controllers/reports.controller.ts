@@ -17,27 +17,35 @@ export class ReportsController {
   @Endpoint({
     method: 'post',
     path: Routes.reports.create,
-    operationId: 'reportUser',
-    summary: 'Report a user',
+    operationId: 'createReport',
+    summary: 'Report a user or a listing',
     description:
-      'Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports ' +
-      'on one user are grouped into one case. The reporter gets no details about the case, and a report on a ' +
-      'banned user is accepted the same way but not stored.',
+      'Report a user by username, or someone else’s listing by its id, with a reason and an optional comment. ' +
+      'Administrators review it; repeated reports on one user or one listing are grouped into one case. The ' +
+      'reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored.',
     tags: ['Moderation'],
     access: 'user',
     request: CreateReportRequest,
     responses: {
       204: { description: 'The report was received' },
       422: {
-        description: '`REFERENCE_NOT_FOUND`: no user has this username. `CANNOT_REPORT_SELF`: it is your own username.',
+        description:
+          '`REFERENCE_NOT_FOUND`: no user has this username, or no active listing has this id. ' +
+          '`CANNOT_REPORT_SELF`: it is your own username or your own listing.',
         schema: ErrorResponse,
       },
     },
   })
-  async reportUser(
+  async createReport(
     @Input() { body }: RouteInput<typeof CreateReportRequest>,
     @CurrentAccount() account: AccountCaller,
   ): Promise<void> {
-    await this.moderationService.report(account.accountId, body);
+    const { username, listingId, ...report } = body;
+    // The schema lets exactly one of the two through.
+    if (listingId !== undefined) {
+      await this.moderationService.reportListing(account.accountId, { listingId, ...report });
+    } else if (username !== undefined) {
+      await this.moderationService.report(account.accountId, { username, ...report });
+    }
   }
 }
