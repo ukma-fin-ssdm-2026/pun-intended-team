@@ -800,4 +800,4 @@ The `Reliability tests` job in [`.github/workflows/ci.yml`](../../.github/workfl
 
 ## AI Usage Note
 
-The fix, its tests and this report were generated with Claude Code from the scavenger-hunt finding. Verified by running the unit and fault-injection tests, by checking that the fault-injection tests hang without the fix, and by checking the errors pg and Prisma throw against a fake Postgres. To be reviewed by the team.
+Drafted with Claude Code from the team's findings, fixes and pull requests. Every code snippet and claim was checked against the code, and the reliability tests were run against the code before the fixes where stated. Reviewed by Daryna Halytska.
