@@ -47,6 +47,7 @@ A error handling, B external dependencies, C input validation, D silent failures
 **Fault:** `getHealth` returns `{ status: 'ok' }` without touching the database, and `PrismaService` connects lazily, on the first query, so nothing fails at startup.
 **Error:** an API with no working database connection, for example with a wrong `MAIN_DATABASE_URL`, starts and reports "ok".
 **Failure:** three consumers trust `/health`: the `HEALTHCHECK` in the `Dockerfile`, whose result decides the rollback in `deploy-staging.sh`, so a deploy that cannot reach the database is not rolled back; the `service_healthy` condition on the API in `docker-compose.staging.yml`, which Caddy waits for; and the external uptime monitor of NFR REL-001, which counts 100% uptime while the database is dead. Users get errors on every request that needs the database.
+**Status:** fixed in #388: `/health` runs `SELECT 1` with a 2 s limit and answers `503` `unhealthy` with `database: down` when it fails, so all three consumers see a dead database ([report](reliability-report.md#health-check-rel-04)).
 
 ### REL-05: `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked
 

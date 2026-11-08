@@ -6,15 +6,12 @@ All notable changes to Nearby, the API and the app, are recorded here. The forma
 
 ### Added
 
-- Event import from ArtWizard and Karabas: Kyiv events of the 28-day catalog window are read from ArtWizard's events API, with ArtWizard's permission for the study project, and from the schema.org data of the Karabas pages, within its robots.txt; requests go at least 1 s apart, and venues without coordinates are found with Nominatim ([#364](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/364), [ADR-006](docs/architecture/decisions/ADR-006.md)). ArtWizard events and exhibitions without a start time in the window are skipped.
-- `ARTWIZARD_API_KEY`, the import's key for the ArtWizard API, in `.env.example` and the staging settings.
-- Categories Talks, Workshops, Cinema, Theatre, Stand-up, Sports, Festivals and Parties; Toloka is renamed Volunteering.
-- `imageUrl` and `sourceUrl` on events in the API: the provider's image and event page for imported events, null for organization events.
-- `slug` on categories ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)): made by the server from the name in Latin when a category is added and never changed, shown to administrators. The import maps providers' genres to slugs, so renaming a category no longer breaks it, and a skipped record names the slug: `Unknown category "concerts"`.
+- Event import from ArtWizard and Karabas: Kyiv events of the 28-day catalog window are read from ArtWizard's events API, with ArtWizard's permission for the study project, and from the schema.org data of the Karabas pages, within its robots.txt.
 
 ### Changed
 
 - The import's requests to the event providers and Nominatim wait a random time before each retry, at most 8 s, and log a request that failed after its last attempt.
+- `/health` checks the database. A deploy whose API cannot reach the database is now rolled back.
 - Category names are in Ukrainian, and unique regardless of case, spaces and apostrophe; a name is saved with single spaces and ʼ as its apostrophe ([#395](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/395)).
 
 ### Removed

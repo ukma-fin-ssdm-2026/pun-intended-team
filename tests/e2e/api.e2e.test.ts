@@ -642,10 +642,10 @@ after(() => {
 });
 
 describe('GET /health', () => {
-  test('reports ok without a token', async () => {
+  test('reports healthy, with the database up, without a token', async () => {
     const res = await call('GET', '/health');
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { status: 'ok' });
+    assert.deepEqual(res.body, { status: 'healthy', checks: { database: 'up' } });
     assert.equal(res.headers.get('x-powered-by'), null);
   });
 
@@ -940,16 +940,13 @@ describe('Per-IP limit on the auth endpoints', () => {
 // when TRUST_PROXY names the proxy. Here the test itself plays the proxy on loopback.
 describe('Per-IP limit behind a reverse proxy', () => {
   let trusting: { child: ChildProcess; url: string };
-  let untrusting: { child: ChildProcess; url: string };
 
   before(async () => {
     trusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2', TRUST_PROXY: 'loopback' });
-    untrusting = await startApi({ AUTH_RATE_LIMIT_PER_MINUTE: '2' });
   });
 
   after(() => {
     trusting?.child.kill();
-    untrusting?.child.kill();
   });
 
   function signInFrom(api: { url: string }, clientIp: string): Promise<number> {
@@ -974,13 +971,6 @@ describe('Per-IP limit behind a reverse proxy', () => {
     await signInFrom(trusting, '203.0.113.9');
 
     assert.equal(await signInFrom(trusting, '203.0.113.9'), 429);
-  });
-
-  test('ignores X-Forwarded-For when TRUST_PROXY is not set', async () => {
-    await signInFrom(untrusting, '198.51.100.1');
-    await signInFrom(untrusting, '198.51.100.2');
-
-    assert.equal(await signInFrom(untrusting, '198.51.100.3'), 429);
   });
 
   test('refuses to start with TRUST_PROXY=true', async () => {

@@ -237,7 +237,7 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
-| `GET` | `/health` | Anyone, no token | `200` `{ "status": "ok" }` | — |
+| `GET` | `/health` | Anyone, no token | `200` `{ "status": "healthy", "checks": { "database": "up" } }` | `503` with the same body, `"status": "unhealthy"` and the dependency that is down (`"database": "down"`), not an `ErrorResponse`; the database must answer within 2 s, and the cause is only logged |
 
 `400` on an endpoint with an `{id}` covers an id that is not a UUID. The `422` codes of each endpoint are listed under [business-rule codes](#business-rule-codes-422).
 
