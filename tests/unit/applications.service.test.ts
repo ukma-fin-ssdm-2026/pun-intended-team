@@ -122,10 +122,13 @@ describe('ApplicationsService.apply', () => {
 
   for (const status of ['in_pool', 'paused', 'paired'] as const) {
     test(`refuses a second application while one is ${status}`, async () => {
-      const { service, applicationsRepository } = makeService({ existing: [anApplication({ status })] });
+      const { service, applicationsRepository, eventSessionsService } = makeService({
+        existing: [anApplication({ status })],
+      });
 
       await assert.rejects(service.apply(ACCOUNT_ID, INPUT), isDomainError('ALREADY_APPLIED'));
       assert.equal(applicationsRepository.create.mock.callCount(), 0);
+      assert.equal(eventSessionsService.open.mock.callCount(), 0, 'no empty session is created');
     });
   }
 

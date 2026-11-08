@@ -284,8 +284,8 @@ model VerificationCode {
 }
 
 model RefreshToken {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId         String    @map("account_id") @db.Uuid
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId String    @map("account_id") @db.Uuid
   tokenHash         String    @map("token_hash")
   previousTokenHash String?   @map("previous_token_hash")
   rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)

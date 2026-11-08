@@ -27,11 +27,12 @@ export class ApplicationsService {
     if (!(await this.profilesService.isComplete(userId))) {
       throw new DomainError('PROFILE_INCOMPLETE', 'Complete the profile before asking for a match');
     }
-    const sessions = await this.eventSessionsService.open(input.eventId, input.dates);
+    // Checked before the sessions are opened too, so a refused second application leaves no empty session.
     const existing = await this.applicationsRepository.findByUserAndEvent(userId, input.eventId);
     if (!canApply(existing.map((application) => application.status))) {
       throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this event');
     }
+    const sessions = await this.eventSessionsService.open(input.eventId, input.dates);
     const application = await this.applicationsRepository.create({
       userId,
       eventId: input.eventId,

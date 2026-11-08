@@ -138,7 +138,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | A category keeps its slug | the API accepts no slug and the service never passes one on an update |
 | One linked account per app | UK (`profile_id`, `app`) |
 | One password and one Google account per account, and a Google account linked to one account only | UK (`account_id`, `type`) and UK (`type`, `secret`) on AuthMethod |
-| One active application per user and event | partial unique index on (`user_id`, `event_id`) where `status` in (in_pool, paired, paused) — a paused user cannot skip the "continue?" step by applying again; `removed` stays outside, so a removed user may apply again |
+| One active application per user and event | partial unique index on (`user_id`, `event_id`) where `status` in (in_pool, paired, paused) — a paused user cannot apply again alongside the paused application; `removed` and `withdrawn` stay outside, so a removed user may apply again, and so may a paused user who withdraws, skipping the "continue?" step with no strikes, like a removed user (rule 6) |
 | One open case per report target | partial unique index on the target where `status = open` |
 | Exactly one target in a ReportCase | CHECK |
 | A Match joins two different applications | CHECK (`application_a_id <> application_b_id`) |

@@ -89,8 +89,8 @@ export const ApplicationIdParams = z.object({
   id: Id.describe('Application id'),
 });
 
-// A month of an exhibition's days; more would rarely be meant.
-const MAX_DAYS = 31;
+// A year of days: the most sessions the app lists for one event.
+const MAX_DAYS = 366;
 
 const CreateApplicationFields = z.strictObject({
   dates: z
