@@ -53,4 +53,7 @@ export abstract class AccountsRepository {
   abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
 
   abstract countByStatus(status: AccountStatus): Promise<number>;
+
+  /** The ones of `accountIds` that have the status. */
+  abstract findIdsWithStatus(accountIds: string[], status: AccountStatus): Promise<string[]>;
 }

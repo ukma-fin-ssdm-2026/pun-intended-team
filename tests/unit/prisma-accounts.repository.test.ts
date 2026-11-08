@@ -80,3 +80,20 @@ describe('PrismaAccountsRepository.createWithGoogle', () => {
     });
   }
 });
+
+describe('PrismaAccountsRepository.findIdsWithStatus', () => {
+  test('gives the ids of the accounts with the status', async () => {
+    const findMany = mock.fn(() => Promise.resolve([{ id: OTHER_ACCOUNT_ID }]));
+    const repository = new PrismaAccountsRepository(
+      { account: { findMany } } as unknown as PrismaService,
+      {} as unknown as PersonalDataCipher,
+    );
+
+    const ids = await repository.findIdsWithStatus([ACCOUNT_ID, OTHER_ACCOUNT_ID], 'banned');
+
+    assert.deepEqual(ids, [OTHER_ACCOUNT_ID]);
+    assert.deepEqual(findMany.mock.calls[0]?.arguments, [
+      { where: { id: { in: [ACCOUNT_ID, OTHER_ACCOUNT_ID] }, status: 'banned' }, select: { id: true } },
+    ]);
+  });
+});

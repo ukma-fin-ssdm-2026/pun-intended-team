@@ -28,6 +28,11 @@ export class AccountsService {
     await this.sessionsService.endAll(accountId);
   }
 
+  /** The banned ones of `accountIds`. */
+  async findBanned(accountIds: string[]): Promise<string[]> {
+    return this.accountsRepository.findIdsWithStatus(accountIds, 'banned');
+  }
+
   async stats(): Promise<{ users: number }> {
     return { users: await this.accountsRepository.countByStatus('active') };
   }

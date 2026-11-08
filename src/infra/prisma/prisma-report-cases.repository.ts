@@ -85,6 +85,20 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
     return this.prisma.reportCase.count({ where: { status: 'open' } });
   }
 
+  async findReportedPairs(accountIds: string[]): Promise<[string, string][]> {
+    const rows = await this.prisma.report.findMany({
+      where: { reporterId: { in: accountIds }, case: { targetAccountId: { in: accountIds } } },
+      select: { reporterId: true, case: { select: { targetAccountId: true } } },
+    });
+    const pairs = new Map<string, [string, string]>();
+    for (const { reporterId, case: reportCase } of rows) {
+      if (reportCase.targetAccountId) {
+        pairs.set(`${reporterId} ${reportCase.targetAccountId}`, [reporterId, reportCase.targetAccountId]);
+      }
+    }
+    return [...pairs.values()];
+  }
+
   private async addReport(target: CaseTarget, report: NewReportRow): Promise<string> {
     // A case can be resolved, or opened by a parallel first report, between the lookup and the write; try again then.
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {

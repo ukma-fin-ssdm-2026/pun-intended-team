@@ -72,6 +72,7 @@ function makeService() {
     findById: mock.fn((): Promise<ReturnType<typeof aCase> | undefined> => Promise.resolve(aCase())),
     resolve: mock.fn(() => Promise.resolve(true)),
     countOpen: mock.fn(() => Promise.resolve(2)),
+    findReportedPairs: mock.fn((): Promise<[string, string][]> => Promise.resolve([])),
   };
   const auditLogRepository = { record: mock.fn(() => Promise.resolve()) };
   const profilesService = {
@@ -85,6 +86,7 @@ function makeService() {
   const accountsService = {
     ban: mock.fn(() => Promise.resolve()),
     findStanding: mock.fn(() => Promise.resolve({ role: 'user', status: 'active' })),
+    findBanned: mock.fn((): Promise<string[]> => Promise.resolve([])),
   };
   const listingsService = {
     findByIds: mock.fn((ids: string[]): Promise<Listing[]> => Promise.resolve(ids.length > 0 ? [aListing()] : [])),
@@ -394,5 +396,33 @@ describe('ModerationService.removeListing', () => {
     await assert.rejects(service.removeListing(CASE_ID, OTHER_ACCOUNT_ID), isDomainError('CANNOT_RESOLVE_OWN_CASE'));
     assert.equal(reportCasesRepository.resolve.mock.callCount(), 0);
     assert.equal(listingsService.removeReported.mock.callCount(), 0);
+  });
+});
+
+describe('ModerationService.exclusionsFor', () => {
+  const BANNED_ID = 'a0000000-0000-4000-8000-000000000003';
+
+  // FR-020
+  test('gives the pairs where one user reported the other and the banned users', async () => {
+    const { service, reportCasesRepository, accountsService } = makeService();
+    reportCasesRepository.findReportedPairs.mock.mockImplementation(() =>
+      Promise.resolve([[ACCOUNT_ID, OTHER_ACCOUNT_ID]]),
+    );
+    accountsService.findBanned.mock.mockImplementation(() => Promise.resolve([BANNED_ID]));
+
+    const exclusions = await service.exclusionsFor([ACCOUNT_ID, OTHER_ACCOUNT_ID, BANNED_ID]);
+
+    assert.deepEqual(exclusions, { reported: [[ACCOUNT_ID, OTHER_ACCOUNT_ID]], banned: [BANNED_ID] });
+  });
+
+  test('asks about each user once when the pool lists one twice', async () => {
+    const { service, reportCasesRepository, accountsService } = makeService();
+
+    await service.exclusionsFor([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID]);
+
+    assert.deepEqual(reportCasesRepository.findReportedPairs.mock.calls[0]?.arguments, [
+      [ACCOUNT_ID, OTHER_ACCOUNT_ID],
+    ]);
+    assert.deepEqual(accountsService.findBanned.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID]]);
   });
 });

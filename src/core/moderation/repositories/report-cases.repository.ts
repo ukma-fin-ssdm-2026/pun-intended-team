@@ -31,4 +31,7 @@ export abstract class ReportCasesRepository {
   abstract resolve(id: string, resolution: ReportResolution, resolvedById: string, resolvedAt: Date): Promise<boolean>;
 
   abstract countOpen(): Promise<number>;
+
+  /** `[reporter, reported]` for every account of `accountIds` that reported another of them, each pair once. */
+  abstract findReportedPairs(accountIds: string[]): Promise<[string, string][]>;
 }
