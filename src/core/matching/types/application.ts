@@ -34,6 +34,8 @@ export type ApplicationRecord = Pick<Application, 'userId' | 'sessionId' | 'desi
 export interface ApplicationDetails extends Application {
   eventId: string;
   sessionStartsAt: EventSession['startsAt'];
+  /** When matching for the session stops; after the last round and before it, the pool is in open mode. */
+  cutoffAt: EventSession['cutoffAt'];
   /** Null when the application is not waiting in the pool or no round is left. */
   nextRoundAt: string | null;
 }

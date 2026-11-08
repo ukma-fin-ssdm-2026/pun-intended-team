@@ -30,6 +30,11 @@ const ApplicationFields = z.object({
   sessionStartsAt: z.iso
     .datetime({ offset: true })
     .describe('When the session starts: the event start, or the chosen day of a multi-day event at its time of day'),
+  cutoffAt: z.iso
+    .datetime({ offset: true })
+    .describe(
+      'When matching for the session stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode',
+    ),
   desiredCompany: CommunicationFormat,
   afterEventPlans: z
     .array(AfterEventPlan)
@@ -48,6 +53,7 @@ export const applicationExample: Application = {
   id: '4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11',
   eventId: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
   sessionStartsAt: '2026-10-24T16:00:00.000Z',
+  cutoffAt: '2026-10-24T15:00:00.000Z',
   desiredCompany: 'company',
   afterEventPlans: ['walk', 'coffee'],
   status: 'in_pool',

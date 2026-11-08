@@ -1,9 +1,9 @@
 // Written with the help of Claude
-import type { EventSession } from '../types/event-session.ts';
+import type { EventSessionRecord } from '../types/event-session.ts';
 
 export abstract class EventSessionsRepository {
   /** The session of the event at that start, created if it does not exist yet; safe to call concurrently. */
-  abstract findOrCreate(eventId: string, startsAt: Date): Promise<EventSession>;
+  abstract findOrCreate(eventId: string, startsAt: Date): Promise<EventSessionRecord>;
 
-  abstract findByIds(ids: string[]): Promise<EventSession[]>;
+  abstract findByIds(ids: string[]): Promise<EventSessionRecord[]>;
 }

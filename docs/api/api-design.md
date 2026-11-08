@@ -73,7 +73,8 @@ A user's request to be matched in one session of an event: the event's only sess
 | `desiredCompany` | `friends` \| `dating` \| `company` | The kind of company the user is looking for at this event; the app pre-fills it from the profile's `communicationFormat` |
 | `afterEventPlans` | array of `walk` \| `coffee` \| `dinner` | What the user would do together after the event; empty means only the event |
 | `status` | `in_pool` \| `paired` \| `paused` \| `removed` \| `withdrawn` \| `no_match` \| `cancelled` | `in_pool` until matching proposes a pair |
-| `nextRoundAt` | date-time or `null` | When the next matching round pairs the pool; `null` when the application is not waiting in the pool or no round is left |
+| `cutoffAt` | date-time | When matching for the session stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends |
+| `nextRoundAt` | date-time or `null` | When the next matching round pairs the pool; `null` when the application is not waiting in the pool or no round is left. Waiting in the pool with no round left and before `cutoffAt` means open mode ([matching](../architecture/mechanisms/matching.md), rule 3) |
 | `createdAt` | date-time | |
 
 Related to: Account (applicant), EventSession, Event.
@@ -212,7 +213,7 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
 | `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
 
-`POST` takes `{ date?, desiredCompany, afterEventPlans }` and puts the caller in the session's pool. A single-day event has one session and needs no `date`; an event that runs on several days has one session per day, and `date` picks it. The first application to a session creates it. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A session that has started takes no applications, and a caller already in its pool (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+`POST` takes `{ date?, desiredCompany, afterEventPlans }` and puts the caller in the session's pool. A single-day event has one session and needs no `date`; an event that runs on several days has one session per day, and `date` picks it. The first application to a session creates it. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A session takes applications until its cutoff: an hour before it starts, or for one that lasts 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller already in its pool (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
 
 `GET /me/applications` lists the active applications, soonest session first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it (FR-031); withdrawing it again changes nothing, and the caller may apply to the same session again. Another status answers `409 CONFLICT`. Someone else's application is a `404`.
 
@@ -363,7 +364,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
-| `EVENT_STARTED` | `POST /events/{id}/applications` | The session has already started |
+| `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The session's cutoff has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on `date`, or it runs on several days and `date` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.

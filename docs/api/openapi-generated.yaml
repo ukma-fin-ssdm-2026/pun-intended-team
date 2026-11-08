@@ -173,7 +173,7 @@ components:
         - ORGANIZATION_NOT_VERIFIED
         - EVENT_CANCELLED
         - EVENT_ENDS_BEFORE_START
-        - EVENT_STARTED
+        - APPLICATIONS_CLOSED
         - INVALID_SESSION_DAY
         - LISTING_DATE_IN_PAST
         - USERNAME_TAKEN
@@ -805,6 +805,13 @@ components:
           description: >-
             When the session starts: the event start, or the chosen day of a
             multi-day event at its time of day
+        cutoffAt:
+          type: string
+          format: date-time
+          description: >-
+            When matching for the session stops: an hour before it starts, or
+            for a session of 3 hours or more 2 hours before it ends. After the
+            last round and before this, the pool is in open mode
         desiredCompany:
           $ref: '#/components/schemas/CommunicationFormat'
         afterEventPlans:
@@ -830,6 +837,7 @@ components:
         - id
         - eventId
         - sessionStartsAt
+        - cutoffAt
         - desiredCompany
         - afterEventPlans
         - status
@@ -840,6 +848,7 @@ components:
         id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
         eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
         sessionStartsAt: '2026-10-24T16:00:00.000Z'
+        cutoffAt: '2026-10-24T15:00:00.000Z'
         desiredCompany: company
         afterEventPlans:
           - walk
@@ -918,6 +927,7 @@ components:
         - id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
           eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
           sessionStartsAt: '2026-10-24T16:00:00.000Z'
+          cutoffAt: '2026-10-24T15:00:00.000Z'
           desiredCompany: company
           afterEventPlans:
             - walk
@@ -2543,9 +2553,11 @@ paths:
           description: >-
             `PROFILE_INCOMPLETE`: the profile lacks a communication format, an
             interest or a linked account; the app sends the user to complete it.
-            `EVENT_CANCELLED`: the event is cancelled. `EVENT_STARTED`: the
-            session has already started. `INVALID_SESSION_DAY`: the event does
-            not run on `date`, or runs on several days and `date` is missing.
+            `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`:
+            the session’s cutoff has passed: an hour before it starts, or for a
+            session of 3 hours or more, 2 hours before it ends.
+            `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on
+            several days and `date` is missing.
           content:
             application/json:
               schema:

@@ -88,6 +88,7 @@ function withSession(application: Application, session: EventSession): Applicati
     ...application,
     eventId: session.eventId,
     sessionStartsAt: session.startsAt,
+    cutoffAt: session.cutoffAt,
     nextRoundAt: round?.toISOString() ?? null,
   };
 }

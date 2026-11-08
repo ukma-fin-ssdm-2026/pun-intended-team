@@ -40,8 +40,9 @@ export class ApplicationsController {
         description:
           '`PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; ' +
           'the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. ' +
-          '`EVENT_STARTED`: the session has already started. `INVALID_SESSION_DAY`: the event does not run on ' +
-          '`date`, or runs on several days and `date` is missing.',
+          '`APPLICATIONS_CLOSED`: the session’s cutoff has passed: an hour before it starts, or for a session of 3 ' +
+          'hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on `date`, or ' +
+          'runs on several days and `date` is missing.',
         schema: ErrorResponse,
       },
     },

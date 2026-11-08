@@ -6,7 +6,7 @@ import { EventSessionsService } from '../../dist/core/catalog/services/event-ses
 import type { EventSessionsRepository } from '../../dist/core/catalog/repositories/event-sessions.repository.js';
 import type { EventsRepository } from '../../dist/core/catalog/repositories/events.repository.js';
 import type { Event } from '../../dist/core/catalog/types/event.js';
-import type { EventSession } from '../../dist/core/catalog/types/event-session.js';
+import type { EventSession, EventSessionRecord } from '../../dist/core/catalog/types/event-session.js';
 import { anEvent, EVENT_ID } from './fixtures/catalog.ts';
 import { useFixedClock } from './fixtures/clock.ts';
 
@@ -18,12 +18,15 @@ const EXHIBITION = { startsAt: '2026-10-20T19:00:00+03:00', endsAt: '2026-10-30T
 /** `null` stands for an event that does not exist. */
 function makeService(event: Event | null = anEvent(), status: EventSession['status'] = 'scheduled') {
   const eventsRepository = { findById: mock.fn(() => Promise.resolve(event ?? undefined)) };
+  const times = { startsAt: event?.startsAt ?? '', endsAt: event?.endsAt ?? '' };
   const eventSessionsRepository = {
     findByIds: mock.fn((ids: string[]) =>
-      Promise.resolve(ids.map((id) => ({ id, eventId: EVENT_ID, startsAt: '2026-10-22T16:00:00.000Z', status }))),
+      Promise.resolve(
+        ids.map((id) => ({ id, eventId: EVENT_ID, startsAt: '2026-10-22T16:00:00.000Z', status, event: times })),
+      ),
     ),
-    findOrCreate: mock.fn((eventId: string, startsAt: Date): Promise<EventSession> =>
-      Promise.resolve({ id: SESSION_ID, eventId, startsAt: startsAt.toISOString(), status }),
+    findOrCreate: mock.fn((eventId: string, startsAt: Date): Promise<EventSessionRecord> =>
+      Promise.resolve({ id: SESSION_ID, eventId, startsAt: startsAt.toISOString(), status, event: times }),
     ),
   };
   const service = new EventSessionsService(
@@ -40,7 +43,7 @@ function rejectsWith(code: string) {
 describe('EventSessionsService.open', () => {
   useFixedClock();
 
-  test('opens the session of a single-day event at its start', async () => {
+  test('opens the session of a single-day event at its start, with its cutoff an hour before', async () => {
     const { service, eventSessionsRepository } = makeService();
 
     const session = await service.open(EVENT_ID);
@@ -49,6 +52,7 @@ describe('EventSessionsService.open', () => {
       id: SESSION_ID,
       eventId: EVENT_ID,
       startsAt: '2026-10-22T16:00:00.000Z',
+      cutoffAt: '2026-10-22T15:00:00.000Z',
       status: 'scheduled',
     });
     assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 1);
@@ -60,6 +64,28 @@ describe('EventSessionsService.open', () => {
     const session = await service.open(EVENT_ID, '2026-10-26');
 
     assert.equal(session.startsAt, '2026-10-26T17:00:00.000Z');
+  });
+
+  test('opens a long event that has started until 2 hours before its end', async () => {
+    // NOW is 12:00 in Kyiv: the museum day opened at 10:00 and closes at 18:00.
+    const { service } = makeService(
+      anEvent({ startsAt: '2026-10-15T10:00:00+03:00', endsAt: '2026-10-15T18:00:00+03:00' }),
+    );
+
+    const session = await service.open(EVENT_ID);
+
+    assert.equal(session.startsAt, '2026-10-15T07:00:00.000Z');
+    assert.equal(session.cutoffAt, '2026-10-15T13:00:00.000Z');
+  });
+
+  test("opens today's long session of a multi-day event that has started", async () => {
+    const { service } = makeService(
+      anEvent({ startsAt: '2026-10-10T10:00:00+03:00', endsAt: '2026-10-30T18:00:00+02:00' }),
+    );
+
+    const session = await service.open(EVENT_ID, '2026-10-15');
+
+    assert.equal(session.startsAt, '2026-10-15T07:00:00.000Z');
   });
 
   test('opens a later day of a multi-day event that has already started', async () => {
@@ -91,16 +117,28 @@ describe('EventSessionsService.open', () => {
       code: 'INVALID_SESSION_DAY',
     },
     {
-      title: 'refuses an event that has started',
-      event: anEvent({ startsAt: '2026-10-15T11:00:00+03:00', endsAt: '2026-10-15T14:00:00+03:00' }),
+      title: 'refuses a short event within an hour of its start',
+      event: anEvent({ startsAt: '2026-10-15T12:30:00+03:00', endsAt: '2026-10-15T14:30:00+03:00' }),
       day: undefined,
-      code: 'EVENT_STARTED',
+      code: 'APPLICATIONS_CLOSED',
     },
     {
-      title: "refuses today's session of a multi-day event once it has started",
-      event: anEvent({ startsAt: '2026-10-10T11:00:00+03:00', endsAt: '2026-10-30T18:00:00+02:00' }),
+      title: 'refuses a short event that has started',
+      event: anEvent({ startsAt: '2026-10-15T11:00:00+03:00', endsAt: '2026-10-15T13:30:00+03:00' }),
+      day: undefined,
+      code: 'APPLICATIONS_CLOSED',
+    },
+    {
+      title: 'refuses a long event that ends within 2 hours',
+      event: anEvent({ startsAt: '2026-10-15T08:00:00+03:00', endsAt: '2026-10-15T13:30:00+03:00' }),
+      day: undefined,
+      code: 'APPLICATIONS_CLOSED',
+    },
+    {
+      title: "refuses today's short session of a multi-day event once it has started",
+      event: anEvent({ startsAt: '2026-10-10T11:00:00+03:00', endsAt: '2026-10-30T12:00:00+02:00' }),
       day: '2026-10-15',
-      code: 'EVENT_STARTED',
+      code: 'APPLICATIONS_CLOSED',
     },
   ];
 
@@ -128,5 +166,6 @@ describe('EventSessionsService.getByIds', () => {
 
     assert.deepEqual([...sessions.keys()], [SESSION_ID]);
     assert.equal(sessions.get(SESSION_ID)?.eventId, EVENT_ID);
+    assert.equal(sessions.get(SESSION_ID)?.cutoffAt, '2026-10-22T15:00:00.000Z');
   });
 });

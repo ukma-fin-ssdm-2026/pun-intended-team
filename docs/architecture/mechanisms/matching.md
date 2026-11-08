@@ -8,7 +8,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 
 1. **Instant match on apply** — only if the top candidate scores above the threshold **and** the two are each other's best option in the current pool. Otherwise the user waits for the next round.
 2. **Scheduled rounds** — the whole pool of a session is paired at once, at fixed offsets before the start. Offsets that fall in the past are skipped.
-3. **Open mode** — after the last round, newcomers and declined users are matched instantly against the leftovers, until a cutoff before the start.
+3. **Open mode** — after the last round, newcomers and declined users are matched instantly against the leftovers, until the session's cutoff. The cutoff also closes the session to new applications.
 4. **Proposal lifetime** — valid for **24 h or until the next round starts, whichever comes first** (after the last round: until the cutoff). Nobody is left in a pending proposal while a round runs without them. A job expires the proposal at `valid_until`.
 5. **Decline** — both users return to the pool; the decliner excludes the candidate (FR-020).
 6. **Expiry (no response)** — an expired pair is never proposed to each other again for this event.
@@ -18,7 +18,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
    - A removed user may apply again; the new application starts with no strikes, but pair exclusions remain.
 7. **Exclusivity** — the instant path and the round job take the same per-session lock before reading the pool, so a candidate is never claimed twice (FUNC-002).
 8. **Algorithm** — a pure function `match(pool, exclusions, seed) → pairings`, with no I/O (FUNC-001, MAIN-001).
-9. **Sessions** — a single-day event has one session at its start time. A multi-day event (e.g. a month-long exhibition) gets one session per day, created when the first user applies for that day, at the time of day of the event start, computed in Europe/Kyiv. Rounds, pools and proposals work the same for both ([data model](../data-model.md), EventSession).
+9. **Sessions** — a single-day event has one session at its start time. A multi-day event (e.g. a month-long exhibition) gets one session per day, created when the first user applies for that day, at the time of day of the event start, computed in Europe/Kyiv. Rounds, pools and proposals work the same for both ([data model](../data-model.md), EventSession). A long session, such as a museum day, has its cutoff shortly before it ends instead of before it starts, so it takes applications after it starts; they arrive after the last round and are matched in open mode. The last session ends with the event; an earlier day's session ends at the event's end time on its day, or at the end of that day when the end time comes earlier in the day.
 
 ## Policy (tunable, not architecture)
 
@@ -26,9 +26,10 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 |---|---|
 | Round offsets | T-7d, T-3d, T-24h, T-6h |
 | Instant-match threshold | 0.8 interest overlap |
-| Open-mode cutoff | T-1h |
+| Open-mode cutoff | T-1h; for a long session, 2 h before it ends |
 | Proposal lifetime cap | 24 h (team vote) |
 | Strikes before removal | 2 |
+| A long session | 3 h or more |
 
 Every score is logged so the threshold can be tuned on real data.
 

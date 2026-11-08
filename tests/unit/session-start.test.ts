@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { sessionStart } from '../../dist/core/catalog/services/session-start.js';
+import { sessionCutoff, sessionStart } from '../../dist/core/catalog/services/session-start.js';
 
 // Kyiv is UTC+3 until the clocks go back on 25 October 2026 at 04:00, UTC+2 after.
 describe('sessionStart', () => {
@@ -76,4 +76,67 @@ describe('sessionStart', () => {
       assert.equal(sessionStart(twoDays, '2026-10-21')?.toISOString(), '2026-10-21T16:00:00.000Z');
     });
   });
+});
+
+// matching.md, policy: the cutoff is an hour before a session starts, or 2 hours before a session of 3 hours or more ends.
+describe('sessionCutoff', () => {
+  const cases = [
+    {
+      title: 'is an hour before a short event starts',
+      event: { startsAt: '2026-10-20T16:00:00.000Z', endsAt: '2026-10-20T18:30:00.000Z' },
+      start: '2026-10-20T16:00:00.000Z',
+      closes: '2026-10-20T15:00:00.000Z',
+    },
+    {
+      title: 'is 2 hours before an event of exactly 3 hours ends',
+      event: { startsAt: '2026-10-20T16:00:00.000Z', endsAt: '2026-10-20T19:00:00.000Z' },
+      start: '2026-10-20T16:00:00.000Z',
+      closes: '2026-10-20T17:00:00.000Z',
+    },
+    {
+      title: 'is 2 hours before midnight for a museum day without an end time',
+      event: { startsAt: '2026-11-08T08:00:00.000Z', endsAt: '2026-11-08T21:59:59.999Z' },
+      start: '2026-11-08T08:00:00.000Z',
+      closes: '2026-11-08T19:59:59.999Z',
+    },
+    {
+      title: 'counts a one-session event past midnight to its end',
+      event: { startsAt: '2026-10-20T19:00:00.000Z', endsAt: '2026-10-21T01:00:00.000Z' },
+      start: '2026-10-20T19:00:00.000Z',
+      closes: '2026-10-20T23:00:00.000Z',
+    },
+    {
+      title: "ends an earlier day of a multi-day event at the event's end time on that day",
+      // 10:00 to 18:00 Kyiv every day.
+      event: { startsAt: '2026-10-20T07:00:00.000Z', endsAt: '2026-10-30T16:00:00.000Z' },
+      start: '2026-10-24T07:00:00.000Z',
+      closes: '2026-10-24T13:00:00.000Z',
+    },
+    {
+      title: 'ends an earlier day at midnight when the end time comes earlier in the day',
+      // From 19:00 Kyiv every day to 01:00 after the last one.
+      event: { startsAt: '2026-10-20T16:00:00.000Z', endsAt: '2026-10-22T22:00:00.000Z' },
+      start: '2026-10-21T16:00:00.000Z',
+      closes: '2026-10-21T18:59:59.999Z',
+    },
+    {
+      title: 'ends the last day of a multi-day event with the event',
+      event: { startsAt: '2026-10-20T16:00:00.000Z', endsAt: '2026-10-22T22:00:00.000Z' },
+      start: '2026-10-22T16:00:00.000Z',
+      closes: '2026-10-22T20:00:00.000Z',
+    },
+    {
+      title: 'is an hour before a short daily session of a multi-day event starts',
+      // A one-hour tour at 10:00 Kyiv every day.
+      event: { startsAt: '2026-10-20T07:00:00.000Z', endsAt: '2026-10-24T08:00:00.000Z' },
+      start: '2026-10-22T07:00:00.000Z',
+      closes: '2026-10-22T06:00:00.000Z',
+    },
+  ];
+
+  for (const { title, event, start, closes } of cases) {
+    test(title, () => {
+      assert.equal(sessionCutoff(event, new Date(start)).toISOString(), closes);
+    });
+  }
 });

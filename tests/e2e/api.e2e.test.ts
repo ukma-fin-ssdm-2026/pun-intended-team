@@ -1447,6 +1447,7 @@ describe('Applications', () => {
     assert.equal(res.body.status, 'in_pool');
     assert.equal(res.body.desiredCompany, 'company');
     assert.deepEqual(res.body.afterEventPlans, ['walk', 'coffee']);
+    assert.equal(res.body.cutoffAt, new Date(start - 60 * 60 * 1000).toISOString());
     // 13 days ahead, so the first round, a week before the event, is still to come.
     assert.equal(res.body.nextRoundAt, new Date(start - 7 * 24 * 60 * 60 * 1000).toISOString());
   });
@@ -1495,7 +1496,40 @@ describe('Applications', () => {
     assertRejected(await apply(token, cancelledFilmEvent), 422, 'EVENT_CANCELLED');
   });
 
-  test('rejects an event that has started with 422', async () => {
+  test('takes applications to a long event that has started until 2 hours before its end', async () => {
+    const { token } = await newCompleteProfile();
+    const hour = 60 * 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() - hour).toISOString(),
+      new Date(Date.now() + 3 * hour).toISOString(),
+    );
+
+    assert.equal((await apply(token, eventId)).status, 201);
+  });
+
+  test('rejects a long event that ends within 2 hours with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const hour = 60 * 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() - 3 * hour).toISOString(),
+      new Date(Date.now() + hour).toISOString(),
+    );
+
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
+  });
+
+  test('rejects a short event within an hour of its start with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const minute = 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() + 30 * minute).toISOString(),
+      new Date(Date.now() + 150 * minute).toISOString(),
+    );
+
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
+  });
+
+  test('rejects a short event that has started with 422', async () => {
     const { token } = await newCompleteProfile();
     const hour = 60 * 60 * 1000;
     const eventId = await newEventAt(
@@ -1503,7 +1537,7 @@ describe('Applications', () => {
       new Date(Date.now() + hour).toISOString(),
     );
 
-    assertRejected(await apply(token, eventId), 422, 'EVENT_STARTED');
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
   });
 
   test('rejects an event that does not exist with 404', async () => {

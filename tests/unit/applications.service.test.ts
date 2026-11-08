@@ -26,9 +26,15 @@ const SESSION: EventSession = {
   id: SESSION_ID,
   eventId: EVENT_ID,
   startsAt: '2026-10-25T17:00:00.000Z',
+  cutoffAt: '2026-10-25T16:00:00.000Z',
   status: 'scheduled',
 };
-const LATER_SESSION: EventSession = { ...SESSION, id: LATER_SESSION_ID, startsAt: '2026-10-28T17:00:00.000Z' };
+const LATER_SESSION: EventSession = {
+  ...SESSION,
+  id: LATER_SESSION_ID,
+  startsAt: '2026-10-28T17:00:00.000Z',
+  cutoffAt: '2026-10-28T16:00:00.000Z',
+};
 
 const INPUT: NewApplication = { eventId: EVENT_ID, desiredCompany: 'company', afterEventPlans: ['walk'] };
 
@@ -96,6 +102,7 @@ describe('ApplicationsService.apply', () => {
     });
     assert.equal(application.eventId, EVENT_ID);
     assert.equal(application.sessionStartsAt, SESSION.startsAt);
+    assert.equal(application.cutoffAt, SESSION.cutoffAt);
     assert.equal(application.nextRoundAt, '2026-10-18T17:00:00.000Z');
   });
 
