@@ -675,7 +675,13 @@ A deploy of an earlier commit by hand, which also runs old code on a newer schem
 
 The chosen reaction is to **fail safe**, but no longer silently.
 
-- Here **no answer is worse**: without the rollback no API answers at all, while the previous version keeps answering on every endpoint whose tables the migrations did not touch.
+- Here **no answer is worse**: without the rollback no API answers at all.
+- How the previous version behaves on the newer schema depends on the migrations, so the job names them. They were checked for the case at hand on 2026-11-08: the 7 migrations `main` has and `staging` (`e56f92b`) does not, read against the code of `staging`.
+  - **Reads keep working.** Prisma selects only the columns its client knows, and the old code does not read the new columns (`events.image_url`, `events.source_url`, `categories.slug`, `refresh_tokens.previous_token_hash`, `refresh_tokens.rotated_at`) or the new `backup_runs` table and `pgboss` schema.
+  - **One write fails.** Creating a category: `categories.slug` is `NOT NULL` with no default, and the old code does not set it, so the insert is refused and the API answers `500`.
+  - **The old import imports nothing.** It looks categories up by their English names, which a migration renamed into Ukrainian, so every record is skipped as `Unknown category` and reported as skipped.
+  - **No write was found that stores wrong data.** The other new columns allow `NULL`, so rows the old code writes leave them empty, and its session rotation leaves the new `refresh_tokens` columns as they were.
+  This holds for these migrations only; any later rollback needs the same check of the migrations the `::error::` names.
 - Undoing the migrations is not an option: Prisma has no down migrations, and its documentation advises against automating them.
 - What was a wrong answer, "rolled back" with nothing more, is now an error that names the migrations, so an operator knows the rollback is only partial.
 
