@@ -39,6 +39,7 @@ super({ adapter: new PrismaPg({ connectionString }) });
 **Error:** a call to a locked or silent database never ended, and the stuck calls held the pool's connections.
 **Failure:** requests hung with no answer and, once the pool was exhausted, the whole API stopped answering, sign-in included.
 **Severity:** High
+**Status:** fixed in #367: every pool checkout, statement and lock wait has a time limit, and a timeout answers `503` ([report](reliability-report.md#rel-01-database-calls-without-timeouts)).
 
 ### REL-02: App requests without a timeout
 
@@ -53,6 +54,7 @@ export const apiClient = createClient<paths>({ baseUrl: config.apiUrl });
 **Error:** a request to a server that does not answer never settled, so the screen's loading state never ended.
 **Failure:** the user sees an endless spinner with no error and no way out.
 **Severity:** Medium
+**Status:** fixed in #367: both clients abort a request after 15 s ([report](reliability-report.md#rel-02-app-requests-without-a-timeout)).
 
 ### REL-03: Sign-out dispatches an unhandled navigation action
 
@@ -75,14 +77,14 @@ router.replace('/onboarding');
 ### REL-04: `/health` does not check the database
 
 ```ts
-// src/api/system/controllers/system.controller.ts
+// src/api/system/controllers/system.controller.ts, before the fix in #399
 getHealth(): HealthResponse {
   return { status: 'ok' };
 }
 ```
 
 ```dockerfile
-# Dockerfile
+# Dockerfile, unchanged by the fix
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD ["node", "-e", "fetch(`http://localhost:${process.env.PORT ?? 4100}/health`).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 ```
@@ -118,7 +120,7 @@ ThrottlerModule.forRoot([{ ttl: MINUTE_MS, limit: authRateLimitPerMinute }]),
 ### REL-06: A failed nightly backup skips the day
 
 ```sh
-# deploy/backup-db.sh
+# deploy/backup-db.sh, before the fix in #398
 set -eu
 
 dump() {
@@ -142,11 +144,12 @@ while true; do
 **Error:** the container restarts (`restart: unless-stopped` in `docker-compose.staging.yml`), the script takes the next 01:00 as tomorrow's in its `while true` loop, and the `.partial` file stays on disk.
 **Failure:** no backup exists for that day and nobody is told; a copy that cannot be restored is discovered only when it is needed.
 **Severity:** Medium
+**Status:** fixed in #398: a failed night is retried, a copy is kept only if `pg_restore` can read it, and administrators and operators are warned ([report](reliability-report.md#rel-06-a-failed-nightly-backup-skips-the-day)).
 
 ### REL-07: Profile edit hides the "more" button when interests fail to load
 
 ```tsx
-// app/src/app/profile-edit.tsx
+// app/src/app/profile-edit.tsx, before the fix in #398
 const interests = useInterests();
 // ...
 onMore={interests.data ? () => setSheetOpen(true) : undefined}
@@ -158,11 +161,12 @@ onMore={interests.data ? () => setSheetOpen(true) : undefined}
 **Error:** `useInterests` ends with an error and no data, and the screen treats that as "nothing to show".
 **Failure:** the user cannot open the full list of interests and sees no error or retry.
 **Severity:** Low
+**Status:** fixed in #398: after a failed load, "+ ще" becomes "Повторити", which loads the list again ([report](reliability-report.md#rel-07-profile-edit-hides-the-more-button-when-interests-fail-to-load)).
 
 ### REL-08: A lost refresh response ends the session
 
 ```ts
-// app/src/api/session.ts: the new refresh token is saved only when the response arrives
+// app/src/api/session.ts, before the fix in #398: the new refresh token is saved only when the response arrives
 renewal ??= publicClient
   .POST('/api/v1/auth/refresh', { body: { refreshToken } })
   .then(async ({ data, response }) => {
@@ -171,7 +175,7 @@ renewal ??= publicClient
 ```
 
 ```ts
-// src/core/identity/services/sessions.service.ts: a reused token ends the session
+// src/core/identity/services/sessions.service.ts, before the fix in #398: a reused token ends the session
 if (!sameHash(session.tokenHash, hashSecret(secret)) || account?.status !== 'active') {
   await this.sessionsRepository.revoke(session.id, now);
   throw invalidRefreshToken();
@@ -184,6 +188,7 @@ if (!sameHash(session.tokenHash, hashSecret(secret)) || account?.status !== 'act
 **Error:** the server holds the new token and the app still holds the old one after a response lost to a timeout or a dropped connection.
 **Failure:** the next refresh sends the old token, the server treats it as stolen and ends the session, and the user is signed out of the account.
 **Severity:** Medium
+**Status:** mitigated in #398: the replaced token is accepted for 60 s, and the app retries a refresh that got no answer; an outage longer than about 32 s still ends the session ([report](reliability-report.md#rel-08-a-lost-refresh-response-ends-the-session)).
 
 ### REL-09: A Google key fetch failure answers 500
 
@@ -214,7 +219,7 @@ useFactory: (adapterHost: HttpAdapterHost) => new ApiExceptionFilter(adapterHost
 ### REL-10: The rollback runs old code on a migrated database
 
 ```bash
-# deploy/deploy-staging.sh
+# deploy/deploy-staging.sh, before the fix in #398
 echo "$version is not healthy: ${compose[*]} logs api migrate" >&2
 if [[ -n "$previous" && "$previous" != "$version" ]]; then
   git checkout --quiet --detach "$previous"
@@ -230,6 +235,7 @@ if [[ -n "$previous" && "$previous" != "$version" ]]; then
 **Error:** the previous API version runs against a schema that is newer than it expects.
 **Failure:** `deploy.log` and the job report "rolled back", while the API can fail on queries that the new schema changed.
 **Severity:** High
+**Status:** mitigated in #398: the rollback still runs the previous image on the newer schema, but the job and `deploy.log` now name the migrations it does not know ([report](reliability-report.md#rel-10-the-rollback-runs-old-code-on-a-migrated-database)).
 
 ### REL-11: `importFrom()` loses the cause when `finishRun` throws
 
