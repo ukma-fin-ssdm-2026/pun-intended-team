@@ -152,6 +152,10 @@ No manual action is needed. When Postgres cancels a statement, the connection go
 
 `GET /health` now checks the database with `SELECT 1` and answers `200` `{ "status": "healthy", "checks": { "database": "up" } }`, or `503` `{ "status": "unhealthy", "checks": { "database": "down" } }` when the database does not answer within 2 s; the cause goes only to the log. Because the Dockerfile's `HEALTHCHECK` fails on the `503`, a deploy that cannot reach the database is now rolled back. The fault-injection test [`tests/reliability/health-check.reliability.test.ts`](../../tests/reliability/health-check.reliability.test.ts) starts the API with a database that refuses the connection and with one that never answers, and checks that `/health` reports "unhealthy" and the `HEALTHCHECK` command fails in both cases.
 
+### Retries With Backoff and Jitter
+
+The import's GET requests to ArtWizard, Karabas and Nominatim (`PoliteHttpClient`) are idempotent, so a network error, timeout, `429` or `5xx` is retried: at most 4 attempts, each limited to 20 s, with a random wait before each retry of up to 1, 2, then 4 s (full jitter, never above 8 s). After the last attempt the client logs the failure and passes it on, so that provider's run fails and the catalog keeps the events of the last good run. The unit tests in [`tests/unit/polite-http-client.test.ts`](../../tests/unit/polite-http-client.test.ts) check that a server that keeps failing gets exactly the allowed attempts followed by the logged failure, and that each wait is a random part of the doubled backoff, never above the cap.
+
 ## AI Usage Note
 
 The fix, its tests and this report were generated with Claude Code from the scavenger-hunt finding. Verified by running the unit and fault-injection tests, by checking that the fault-injection tests hang without the fix, and by checking the errors pg and Prisma throw against a fake Postgres. To be reviewed by the team.
