@@ -21,7 +21,14 @@ const variables = {
 // for a server that has stopped answering at all.
 const QUERY_TIMEOUT_MARGIN_MS = 1_000;
 
-/** Read at startup; an unset or empty variable takes its default, anything but a positive integer stops the start. */
+// Node's timers and Postgres take at most 2^31 - 1 ms; a larger value breaks every database call. One day stays
+// well below that, the query timeout's margin included.
+const MAX_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Read at startup; an unset or empty variable takes its default, anything but a positive integer up to one day
+ * stops the start.
+ */
 export function loadDatabaseTimeouts(env: NodeJS.ProcessEnv = process.env): DatabaseTimeouts {
   const read = ({ name, fallback }: { name: string; fallback: number }): number => {
     const value = env[name];
@@ -30,6 +37,9 @@ export function loadDatabaseTimeouts(env: NodeJS.ProcessEnv = process.env): Data
     }
     if (!/^[1-9]\d*$/.test(value)) {
       throw new Error(`${name} must be a positive number of milliseconds, got "${value}"`);
+    }
+    if (Number(value) > MAX_TIMEOUT_MS) {
+      throw new Error(`${name} must be at most ${MAX_TIMEOUT_MS} milliseconds (one day), got "${value}"`);
     }
     return Number(value);
   };

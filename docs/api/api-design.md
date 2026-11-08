@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes four main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile** and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes five main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status) and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -130,25 +130,44 @@ A lookup, not a resource users work with: it exists to filter the catalog and to
 
 Related to: Event, Listing.
 
+### Organization
+
+**Base paths:** `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
+
+A regular account asks to become an organization; only a verified organization publishes events (FR-003, FR-009). The request waits as `pending` until an administrator verifies or rejects it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | 1–100 characters |
+| `description` | string or `null` | 1–1000 characters in a request; `null` only for organizations added in the database |
+| `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
+| `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
+| `verifiedAt` | date-time or `null` | Set when verified |
+| `accountId`, `account` | UUID, `{ id, username, displayName }` | Admin responses only: the account that sent the request |
+
+Related to: Account (the organization's account, the administrator who verified it), Event, Venue.
+
 ### Report Case
 
 **Base paths:** `/api/v1/reports` (a user reports), `/api/v1/admin/report-cases` (administrators resolve)
 
-Every report on one user, grouped until an administrator resolves it (FR-025–FR-027). A user reports by username and learns nothing about the case; only administrators see cases.
+Every report on one user or on one listing, grouped until an administrator resolves it (FR-025–FR-028). A user reports another user by username, or someone else's listing by its id, and learns nothing about the case; only administrators see cases.
 
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `account` | `{ id, username, displayName }` | The reported user; `username` and `displayName` are `null` without a profile |
+| `targetType` | `account` \| `listing` | What was reported: a user or a listing |
+| `account` | `{ id, username, displayName }` | The reported user, or the author of the reported listing; `username` and `displayName` are `null` without a profile |
+| `listing` | `{ id, title, description, date, status }` or `null` | The reported listing, also after it was removed (`status` is then `removed`); `null` in an account case |
 | `status` | `open` \| `resolved` | |
-| `resolution` | `banned` \| `removed` \| `dismissed` or `null` | `null` while open; `removed` is for listing cases, which come with listings in the database |
+| `resolution` | `banned` \| `removed` \| `dismissed` or `null` | `null` while open; `banned` only in an account case, `removed` only in a listing case |
 | `reportCount` | integer | Repeated reports by one user count each time (FR-026) |
 | `firstReportedAt`, `lastReportedAt`, `resolvedAt` | date-time | `resolvedAt` is `null` while open |
 | `reports` | `{ id, reporter, reason, comment, reportedAt }[]` | Only by id, oldest first; `reporter` has the same shape as `account` |
 
 `reason` is one of `offensive_messages`, `no_show`, `fake_profile`, `unsafe_behaviour` and `other`, the options of the report sheet in the app; `comment` is optional, up to 1000 characters.
 
-Related to: Account (reported user, reporters, the administrator who resolved it).
+Related to: Account (reported user or listing author, reporters, the administrator who resolved it), Listing (reported listing).
 
 ## 3. Endpoints
 
@@ -194,6 +213,18 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 | `limit`, `offset` | integer | see [pagination](#pagination) | `limit` above 20: `400` |
 
 Dates are clamped because a user scrolling the date picker too far should just see the events that exist. `limit` is rejected because only a script asks for more than a page, and it should learn the cap rather than be silently short-changed.
+
+### Organizations
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
+| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
+| `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
+| `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/admin/organizations/{accountId}/reject` | Administrator | `200` the organization, now `rejected` | `400`, `401`, `404`, `409` |
+
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
 
 ### Listings
 
@@ -253,9 +284,10 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 | `GET` | `/api/v1/admin/report-cases` | Administrator | `200` a page of cases | `400`, `401`, `404` |
 | `GET` | `/api/v1/admin/report-cases/{id}` | Administrator | `200` the case with its reports | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/report-cases/{id}/ban` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/admin/report-cases/{id}/remove-listing` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
 | `POST` | `/api/v1/admin/report-cases/{id}/dismiss` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
 
-`POST /reports` takes `{ username, reason, comment? }`; the username is matched in any letter case. A report joins the reported user's open case, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; dismiss closes the case without action. Ban on a case already resolved as banned applies the ban again, so a ban that failed halfway can be retried; this also bans again a user who was unbanned in the database since, so after an unban the old case is left alone. Otherwise both answer `409 CONFLICT` for a resolved case. Both answer `409 CANNOT_RESOLVE_OWN_CASE` for a case about the calling administrator, and ban answers `409 CANNOT_BAN_ADMIN` for a reported administrator, whose role is removed in the database first. A report on a banned user is answered `204` like any other but not stored, so the reporter does not learn about the ban. Filed reports, bans, dismissals and refused attempts each write a row to the audit log (SEC-004); the IP address is not recorded yet. There is no limit on reports yet: since every report counts (FR-026), one user can raise a case's `reportCount` by reporting again; a per-reporter limit is a known gap.
+`POST /reports` takes `{ username, reason, comment? }` to report a user, matched in any letter case, or `{ listingId, reason, comment? }` to report someone else's active listing; a body with both or neither is a `400`. A report joins the open case of the reported user or listing, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; remove-listing marks the listing `removed`, so it leaves the feed and `GET /listings/{id}` answers `404`, as after the author deletes it; dismiss closes the case without action. Ban works only on account cases and remove-listing only on listing cases; the other kind of case gets `409 CONFLICT`. Ban on a case already resolved as banned applies the ban again, so a ban that failed halfway can be retried; this also bans again a user who was unbanned in the database since, so after an unban the old case is left alone. Remove-listing on a case already resolved as removed removes the listing again in the same way. Otherwise all three answer `409 CONFLICT` for a resolved case. All three answer `409 CANNOT_RESOLVE_OWN_CASE` for a case about the calling administrator or their listing, and ban answers `409 CANNOT_BAN_ADMIN` for a reported administrator, whose role is removed in the database first. A report on a banned user is answered `204` like any other but not stored, so the reporter does not learn about the ban. Filed reports, bans, listing removals, dismissals and refused attempts each write a row to the audit log (SEC-004); the IP address is not recorded yet. There is no limit on reports yet: since every report counts (FR-026), one user can raise a case's `reportCount` by reporting again; a per-reporter limit is a known gap.
 
 ### Admin
 
@@ -274,7 +306,7 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 
 `400` on an endpoint with an `{id}` covers an id that is not a UUID. The `422` codes of each endpoint are listed under [business-rule codes](#business-rule-codes-422).
 
-The listing feed shows active listings dated today or later. A listing cannot be posted for a past date; once its date has passed, it is kept and can still be read by id. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing.
+The listing feed shows active listings dated today or later. A listing cannot be posted for a past date; once its date has passed, it is kept and can still be read by id. Deleting a listing marks it `removed` rather than erasing the row, since a report case may point at it; from then on it is a `404` like any missing listing. An administrator's removal of a reported listing does the same (FR-028).
 
 ## 4. Design Decisions
 
@@ -354,7 +386,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `code` | Endpoint | When |
 |---|---|---|
 | `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
-| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, or no user has the reported username. The message names which |
+| `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, no user has the reported username, or no active listing has the reported id. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
@@ -362,7 +394,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
-| `CANNOT_REPORT_SELF` | `POST /reports` | The username is the caller's own |
+| `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The session's cutoff has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on `date`, or it runs on several days and `date` is missing |
@@ -377,8 +409,9 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
 | `ALREADY_APPLIED` | `POST /events/{id}/applications` | The caller is already in the pool of this session |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
-| `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/dismiss` | The case is about the calling administrator; another administrator resolves it |
+| `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |
+| `CANNOT_DECIDE_OWN_REQUEST` | `POST /admin/organizations/{accountId}/approve`, `…/reject` | The request is the calling administrator's own; another administrator decides it |
 
 ### Trying It Out
 

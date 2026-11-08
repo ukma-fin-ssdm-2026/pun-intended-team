@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } fro
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { reportUser, type ReportReason } from '@/api/reports';
+import { reportListing, reportUser, type ReportReason } from '@/api/reports';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
@@ -21,9 +21,16 @@ export const reportReasons: { value: ReportReason; label: string }[] = [
   { value: 'other', label: 'Інше' },
 ];
 
-// Who is reported, in the forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою". Without a username, as for the
-// mock matches, the sheet is not sent to the API.
-export type ReportedPerson = { name: string; accusative: string; instrumental: string; username?: string };
+// Who is reported, in the forms the copy needs: "Поскаржитися на Олену", "Ви з Оленою". With `listingId`, as from a post,
+// the listing is reported; otherwise the person by `username`. Without either, as for the mock matches, the sheet is not
+// sent to the API.
+export type ReportedPerson = {
+  name: string;
+  accusative: string;
+  instrumental: string;
+  username?: string;
+  listingId?: string;
+};
 
 const nextSteps = (person: ReportedPerson): { icon: IconName; text: string }[] => [
   { icon: 'report-shield', text: 'Модератор розгляне скаргу протягом доби' },
@@ -70,22 +77,24 @@ function ReportSheet({ person, onSent }: { person: ReportedPerson; onSent: () =>
 
   const submit = async () => {
     if (!reason) return;
-    if (!person.username) {
+    const { listingId, username } = person;
+    if (!listingId && !username) {
       onSent();
       return;
     }
     setSending(true);
     setError(undefined);
-    const result = await reportUser({
-      username: person.username,
-      reason,
-      ...(comment.trim() ? { comment: comment.trim() } : {}),
-    });
+    const details = { reason, ...(comment.trim() ? { comment: comment.trim() } : {}) };
+    const result = listingId
+      ? await reportListing({ listingId, ...details })
+      : await reportUser({ username: username ?? '', ...details });
     setSending(false);
     if (result.ok) onSent();
     else if (result.status === 0) setError('Немає зʼєднання. Спробуй ще раз.');
-    else if (result.code === 'REFERENCE_NOT_FOUND') setError(`${person.name} більше немає в Nearby.`);
-    else if (result.code === 'CANNOT_REPORT_SELF') setError('Не можна поскаржитися на себе.');
+    else if (result.code === 'REFERENCE_NOT_FOUND')
+      setError(listingId ? 'Цього оголошення вже немає.' : `${person.name} більше немає в Nearby.`);
+    else if (result.code === 'CANNOT_REPORT_SELF')
+      setError(listingId ? 'Не можна поскаржитися на своє оголошення.' : 'Не можна поскаржитися на себе.');
     else setError('Не вдалося надіслати скаргу. Спробуй ще раз.');
   };
 

@@ -16,7 +16,8 @@ const CASE_NOT_FOUND = {
   schema: ErrorResponse,
 };
 
-const OWN_CASE = '`CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge';
+const OWN_CASE =
+  '`CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge';
 
 @Controller()
 export class AdminReportCasesController {
@@ -28,7 +29,7 @@ export class AdminReportCasesController {
     operationId: 'adminListReportCases',
     summary: 'List report cases',
     description:
-      'List report cases, oldest first: one case per reported user, with the number of reports. ' +
+      'List report cases, oldest first: one case per reported user or listing, with the number of reports. ' +
       'Open cases by default; `status=resolved` lists the resolved ones.',
     tags: ['Moderation'],
     access: 'admin',
@@ -48,7 +49,9 @@ export class AdminReportCasesController {
     path: Routes.admin.reportCaseById,
     operationId: 'adminGetReportCase',
     summary: 'Get a report case',
-    description: 'Get a report case with every report in it: who reported, the reason and the comment.',
+    description:
+      'Get a report case with every report in it: who reported, the reason and the comment. A listing case ' +
+      'shows the listing, also after it was removed.',
     tags: ['Moderation'],
     access: 'admin',
     request: ReportCaseRequest,
@@ -77,7 +80,7 @@ export class AdminReportCasesController {
       200: { description: 'The resolved case', schema: ReportCaseDetails },
       404: CASE_NOT_FOUND,
       409: {
-        description: `\`CONFLICT\`: the case was dismissed. \`CANNOT_BAN_ADMIN\`: the reported user is an administrator. ${OWN_CASE}`,
+        description: `\`CONFLICT\`: the case was dismissed, or it is about a listing. \`CANNOT_BAN_ADMIN\`: the reported user is an administrator. ${OWN_CASE}`,
         schema: ErrorResponse,
       },
     },
@@ -87,6 +90,34 @@ export class AdminReportCasesController {
     @CurrentAccount() admin: AccountCaller,
   ): Promise<ReportCaseDetails> {
     return this.moderationService.ban(params.id, admin.accountId);
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.admin.removeReportedListing,
+    operationId: 'adminRemoveReportedListing',
+    summary: 'Remove the reported listing',
+    description:
+      'Remove the listing a listing case is about and resolve the case as `removed`. The listing leaves the feed ' +
+      'and its page answers 404, as after the author deletes it. On a case already resolved as removed, the ' +
+      'removal is applied again, so a removal that failed halfway can be retried.',
+    tags: ['Moderation'],
+    access: 'admin',
+    request: ReportCaseRequest,
+    responses: {
+      200: { description: 'The resolved case', schema: ReportCaseDetails },
+      404: CASE_NOT_FOUND,
+      409: {
+        description: `\`CONFLICT\`: the case was banned or dismissed, or it is about a user. ${OWN_CASE}`,
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async removeReportedListing(
+    @Input() { params }: RouteInput<typeof ReportCaseRequest>,
+    @CurrentAccount() admin: AccountCaller,
+  ): Promise<ReportCaseDetails> {
+    return this.moderationService.removeListing(params.id, admin.accountId);
   }
 
   @Endpoint({

@@ -23,8 +23,10 @@ tags:
     description: The fixed list of interests users pick from
   - name: Categories
     description: The event category directory
+  - name: Organizations
+    description: 'Organization status: an account requests it, administrators verify it'
   - name: Moderation
-    description: Reports on users and how administrators resolve them
+    description: Reports on users and listings, and how administrators resolve them
   - name: Admin
     description: Platform statistics and database backups for administrators
   - name: System
@@ -194,6 +196,7 @@ components:
         - CANNOT_REPORT_SELF
         - CANNOT_RESOLVE_OWN_CASE
         - CANNOT_BAN_ADMIN
+        - CANNOT_DECIDE_OWN_REQUEST
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -574,6 +577,74 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
+    Organization:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        officialLink:
+          type: string
+          nullable: true
+        verificationStatus:
+          type: string
+          enum:
+            - pending
+            - verified
+            - rejected
+            - revoked
+          description: >-
+            pending: waits for an administrator; only a verified organization
+            publishes events
+        verifiedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When an administrator verified it; null otherwise
+      required:
+        - name
+        - description
+        - officialLink
+        - verificationStatus
+        - verifiedAt
+      description: The caller’s organization request and its status
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
+        verificationStatus: pending
+        verifiedAt: null
+    OrganizationRequestBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: The organization’s name, as users will see it
+        description:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: What the organization does
+        officialLink:
+          type: string
+          maxLength: 500
+          format: uri
+          description: >-
+            The organization’s official site or page, where an administrator can
+            check it
+      required:
+        - name
+        - description
+        - officialLink
+      additionalProperties: false
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
     AccessTokenResponse:
       type: object
       properties:
@@ -935,13 +1006,13 @@ components:
           status: in_pool
           nextRoundAt: '2026-10-21T16:00:00.000Z'
           createdAt: '2026-10-15T09:00:00.000Z'
-    ReportCasesPage:
+    AdminOrganizationsPage:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/ReportCase'
+            $ref: '#/components/schemas/AdminOrganization'
         page:
           $ref: '#/components/schemas/PageInfo'
       required:
@@ -949,27 +1020,52 @@ components:
         - page
       example:
         items:
-          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+          - name: Мистецький Арсенал
+            description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+            officialLink: https://artarsenal.in.ua
+            verificationStatus: pending
+            verifiedAt: null
+            accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
             account:
-              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
-              username: olena_k
-              displayName: Olena
-            status: open
-            resolution: null
-            reportCount: 2
-            firstReportedAt: '2026-10-30T19:12:00.000Z'
-            lastReportedAt: '2026-10-31T08:40:00.000Z'
-            resolvedAt: null
+              id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+              username: arsenal
+              displayName: Арсенал
         page:
           limit: 20
           offset: 0
           hasMore: false
-    ReportCase:
+    AdminOrganization:
       type: object
       properties:
-        id:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        officialLink:
+          type: string
+          nullable: true
+        verificationStatus:
+          type: string
+          enum:
+            - pending
+            - verified
+            - rejected
+            - revoked
+          description: >-
+            pending: waits for an administrator; only a verified organization
+            publishes events
+        verifiedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When an administrator verified it; null otherwise
+        accountId:
           type: string
           format: uuid
+          description: >-
+            The account that sent the request; the id in the approve and reject
+            paths
         account:
           type: object
           properties:
@@ -987,7 +1083,116 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The account that sent the request
+      required:
+        - name
+        - description
+        - officialLink
+        - verificationStatus
+        - verifiedAt
+        - accountId
+        - account
+      description: An organization request as an administrator reviews it
+      example:
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
+        verificationStatus: pending
+        verifiedAt: null
+        accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+        account:
+          id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+          username: arsenal
+          displayName: Арсенал
+    ReportCasesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportCase'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+            targetType: account
+            account:
+              id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+              username: olena_k
+              displayName: Olena
+            listing: null
+            status: open
+            resolution: null
+            reportCount: 2
+            firstReportedAt: '2026-10-30T19:12:00.000Z'
+            lastReportedAt: '2026-10-31T08:40:00.000Z'
+            resolvedAt: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    ReportCase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
+        account:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+              nullable: true
+              description: Null when the account has no profile
+            displayName:
+              type: string
+              nullable: true
+          required:
+            - id
+            - username
+            - displayName
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -1017,7 +1222,9 @@ components:
           format: date-time
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -1026,10 +1233,12 @@ components:
         - resolvedAt
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -1042,6 +1251,12 @@ components:
         id:
           type: string
           format: uuid
+        targetType:
+          type: string
+          enum:
+            - account
+            - listing
+          description: 'account: a user was reported; listing: a listing was'
         account:
           type: object
           properties:
@@ -1059,7 +1274,35 @@ components:
             - id
             - username
             - displayName
-          description: The reported user
+          description: The reported user, or the author of the reported listing
+        listing:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            description:
+              type: string
+            date:
+              type: string
+              format: date
+              description: Kyiv date
+            status:
+              type: string
+              enum:
+                - active
+                - removed
+              description: removed once an administrator or the author removed it
+          required:
+            - id
+            - title
+            - description
+            - date
+            - status
+          description: The reported listing; null in an account case
         status:
           type: string
           enum:
@@ -1123,7 +1366,9 @@ components:
           description: Every report in the case, oldest first
       required:
         - id
+        - targetType
         - account
+        - listing
         - status
         - resolution
         - reportCount
@@ -1133,10 +1378,12 @@ components:
         - reports
       example:
         id: 5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30
+        targetType: account
         account:
           id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
           username: olena_k
           displayName: Olena
+        listing: null
         status: open
         resolution: null
         reportCount: 2
@@ -1179,7 +1426,13 @@ components:
           type: string
           minLength: 1
           maxLength: 50
-          description: Username of the user being reported, as their profile shows it
+          description: >-
+            Username of the user being reported, as their profile shows it; send
+            this or listingId
+        listingId:
+          type: string
+          format: uuid
+          description: Id of the listing being reported; send this or username
         reason:
           type: string
           enum:
@@ -1196,9 +1449,9 @@ components:
           maxLength: 1000
           description: What happened, in the reporter’s words
       required:
-        - username
         - reason
       additionalProperties: false
+      description: A report on a user (username) or on a listing (listingId), never both
       example:
         username: olena_k
         reason: no_show
@@ -2082,6 +2335,82 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/organization:
+    get:
+      operationId: getMyOrganization
+      summary: Get your organization request
+      description: >-
+        Get the caller’s organization request with its verification status:
+        pending, verified or rejected. Only a verified organization can publish
+        events. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The request and its status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The caller has not requested organization status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      operationId: requestOrganizationStatus
+      summary: Request organization status
+      description: >-
+        Ask to become a verified organization with a name, a description and an
+        official link. The request waits as pending until an administrator
+        decides it. A pending request is replaced, and after a rejection the
+        request can be sent again. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationRequestBody'
+      responses:
+        '200':
+          description: The request, now pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the organization is already verified, or its
+            verification was revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/google/register:
     post:
       operationId: registerWithGoogle
@@ -2684,14 +3013,184 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations:
+    get:
+      operationId: adminListOrganizations
+      summary: List organization requests
+      description: >-
+        List organization requests: pending ones first, oldest first, then the
+        verified, rejected and revoked ones. Needs an administrator account;
+        other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganizationsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations/{accountId}/approve:
+    post:
+      operationId: adminApproveOrganization
+      summary: Verify an organization
+      description: >-
+        Approve a pending request: the organization becomes verified and can
+        publish events. The administrator and the time are recorded. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id of the organization
+          required: true
+          description: Account id of the organization
+          name: accountId
+          in: path
+      responses:
+        '200':
+          description: The organization, now verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            The account has not requested organization status, or the caller is
+            not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`:
+            it is the caller’s own request, which another administrator decides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations/{accountId}/reject:
+    post:
+      operationId: adminRejectOrganization
+      summary: Reject an organization request
+      description: >-
+        Reject a pending request. The account can send the request again. Needs
+        an administrator account; other accounts get 404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id of the organization
+          required: true
+          description: Account id of the organization
+          name: accountId
+          in: path
+      responses:
+        '200':
+          description: The organization, now rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            The account has not requested organization status, or the caller is
+            not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`:
+            it is the caller’s own request, which another administrator decides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/report-cases:
     get:
       operationId: adminListReportCases
       summary: List report cases
       description: >-
-        List report cases, oldest first: one case per reported user, with the
-        number of reports. Open cases by default; `status=resolved` lists the
-        resolved ones. Needs an administrator account; other accounts get 404.
+        List report cases, oldest first: one case per reported user or listing,
+        with the number of reports. Open cases by default; `status=resolved`
+        lists the resolved ones. Needs an administrator account; other accounts
+        get 404.
       tags:
         - Moderation
       security:
@@ -2759,7 +3258,8 @@ paths:
       summary: Get a report case
       description: >-
         Get a report case with every report in it: who reported, the reason and
-        the comment. Needs an administrator account; other accounts get 404.
+        the comment. A listing case shows the listing, also after it was
+        removed. Needs an administrator account; other accounts get 404.
       tags:
         - Moderation
       security:
@@ -2848,9 +3348,67 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: >-
-            `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported
-            user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is
-            about the caller, whom another administrator must judge
+            `CONFLICT`: the case was dismissed, or it is about a listing.
+            `CANNOT_BAN_ADMIN`: the reported user is an administrator.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/report-cases/{id}/remove-listing:
+    post:
+      operationId: adminRemoveReportedListing
+      summary: Remove the reported listing
+      description: >-
+        Remove the listing a listing case is about and resolve the case as
+        `removed`. The listing leaves the feed and its page answers 404, as
+        after the author deletes it. On a case already resolved as removed, the
+        removal is applied again, so a removal that failed halfway can be
+        retried. Needs an administrator account; other accounts get 404.
+      tags:
+        - Moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Report case id
+          required: true
+          description: Report case id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The resolved case
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportCaseDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No report case with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the case was banned or dismissed, or it is about a user.
+            `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their
+            listing, which another administrator must judge
           content:
             application/json:
               schema:
@@ -2903,21 +3461,23 @@ paths:
         '409':
           description: >-
             `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`:
-            the case is about the caller, whom another administrator must judge
+            the case is about the caller or their listing, which another
+            administrator must judge
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
   /api/v1/reports:
     post:
-      operationId: reportUser
-      summary: Report a user
+      operationId: createReport
+      summary: Report a user or a listing
       description: >-
-        Report a user by username, with a reason and an optional comment.
-        Administrators review it; repeated reports on one user are grouped into
-        one case. The reporter gets no details about the case, and a report on a
-        banned user is accepted the same way but not stored. Needs a signed-in
-        account; a guest token gets 401.
+        Report a user by username, or someone else’s listing by its id, with a
+        reason and an optional comment. Administrators review it; repeated
+        reports on one user or one listing are grouped into one case. The
+        reporter gets no details about the case, and a report on a banned user
+        is accepted the same way but not stored. Needs a signed-in account; a
+        guest token gets 401.
       tags:
         - Moderation
       security:
@@ -2944,8 +3504,9 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: >-
-            `REFERENCE_NOT_FOUND`: no user has this username.
-            `CANNOT_REPORT_SELF`: it is your own username.
+            `REFERENCE_NOT_FOUND`: no user has this username, or no active
+            listing has this id. `CANNOT_REPORT_SELF`: it is your own username
+            or your own listing.
           content:
             application/json:
               schema:

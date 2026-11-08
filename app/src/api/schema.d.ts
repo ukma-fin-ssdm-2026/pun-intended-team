@@ -184,6 +184,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get your organization request
+         * @description Get the caller’s organization request with its verification status: pending, verified or rejected. Only a verified organization can publish events. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getMyOrganization"];
+        /**
+         * Request organization status
+         * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["requestOrganizationStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/google/register": {
         parameters: {
             query?: never;
@@ -432,6 +456,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List organization requests
+         * @description List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/organizations/{accountId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an organization
+         * @description Approve a pending request: the organization becomes verified and can publish events. The administrator and the time are recorded. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminApproveOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/organizations/{accountId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject an organization request
+         * @description Reject a pending request. The account can send the request again. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminRejectOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/report-cases": {
         parameters: {
             query?: never;
@@ -441,7 +525,7 @@ export interface paths {
         };
         /**
          * List report cases
-         * @description List report cases, oldest first: one case per reported user, with the number of reports. Open cases by default; `status=resolved` lists the resolved ones. Needs an administrator account; other accounts get 404.
+         * @description List report cases, oldest first: one case per reported user or listing, with the number of reports. Open cases by default; `status=resolved` lists the resolved ones. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminListReportCases"];
         put?: never;
@@ -461,7 +545,7 @@ export interface paths {
         };
         /**
          * Get a report case
-         * @description Get a report case with every report in it: who reported, the reason and the comment. Needs an administrator account; other accounts get 404.
+         * @description Get a report case with every report in it: who reported, the reason and the comment. A listing case shows the listing, also after it was removed. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminGetReportCase"];
         put?: never;
@@ -486,6 +570,26 @@ export interface paths {
          * @description Ban the user the case is about and resolve the case. Every session of the user ends at once: their next request gets 401, and they cannot sign in again. On a case already resolved as banned, the ban is applied again, so a ban that failed halfway can be retried. Needs an administrator account; other accounts get 404.
          */
         post: operations["adminBanReportedUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/report-cases/{id}/remove-listing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove the reported listing
+         * @description Remove the listing a listing case is about and resolve the case as `removed`. The listing leaves the feed and its page answers 404, as after the author deletes it. On a case already resolved as removed, the removal is applied again, so a removal that failed halfway can be retried. Needs an administrator account; other accounts get 404.
+         */
+        post: operations["adminRemoveReportedListing"];
         delete?: never;
         options?: never;
         head?: never;
@@ -522,10 +626,10 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Report a user
-         * @description Report a user by username, with a reason and an optional comment. Administrators review it; repeated reports on one user are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
+         * Report a user or a listing
+         * @description Report a user by username, or someone else’s listing by its id, with a reason and an optional comment. Administrators review it; repeated reports on one user or one listing are grouped into one case. The reporter gets no details about the case, and a report on a banned user is accepted the same way but not stored. Needs a signed-in account; a guest token gets 401.
          */
-        post: operations["reportUser"];
+        post: operations["createReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -731,7 +835,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1012,6 +1116,49 @@ export interface components {
             endsAt: string;
         };
         /**
+         * @description The caller’s organization request and its status
+         * @example {
+         *       "name": "Мистецький Арсенал",
+         *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *       "officialLink": "https://artarsenal.in.ua",
+         *       "verificationStatus": "pending",
+         *       "verifiedAt": null
+         *     }
+         */
+        Organization: {
+            name: string;
+            description: string | null;
+            officialLink: string | null;
+            /**
+             * @description pending: waits for an administrator; only a verified organization publishes events
+             * @enum {string}
+             */
+            verificationStatus: "pending" | "verified" | "rejected" | "revoked";
+            /**
+             * Format: date-time
+             * @description When an administrator verified it; null otherwise
+             */
+            verifiedAt: string | null;
+        };
+        /**
+         * @example {
+         *       "name": "Мистецький Арсенал",
+         *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *       "officialLink": "https://artarsenal.in.ua"
+         *     }
+         */
+        OrganizationRequestBody: {
+            /** @description The organization’s name, as users will see it */
+            name: string;
+            /** @description What the organization does */
+            description: string;
+            /**
+             * Format: uri
+             * @description The organization’s official site or page, where an administrator can check it
+             */
+            officialLink: string;
+        };
+        /**
          * @example {
          *       "accessToken": "eyJhbGciOiJIUzI1NiIs…",
          *       "tokenType": "Bearer",
@@ -1282,12 +1429,86 @@ export interface components {
          * @example {
          *       "items": [
          *         {
+         *           "name": "Мистецький Арсенал",
+         *           "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *           "officialLink": "https://artarsenal.in.ua",
+         *           "verificationStatus": "pending",
+         *           "verifiedAt": null,
+         *           "accountId": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *           "account": {
+         *             "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *             "username": "arsenal",
+         *             "displayName": "Арсенал"
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        AdminOrganizationsPage: {
+            items: components["schemas"]["AdminOrganization"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description An organization request as an administrator reviews it
+         * @example {
+         *       "name": "Мистецький Арсенал",
+         *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *       "officialLink": "https://artarsenal.in.ua",
+         *       "verificationStatus": "pending",
+         *       "verifiedAt": null,
+         *       "accountId": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *       "account": {
+         *         "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *         "username": "arsenal",
+         *         "displayName": "Арсенал"
+         *       }
+         *     }
+         */
+        AdminOrganization: {
+            name: string;
+            description: string | null;
+            officialLink: string | null;
+            /**
+             * @description pending: waits for an administrator; only a verified organization publishes events
+             * @enum {string}
+             */
+            verificationStatus: "pending" | "verified" | "rejected" | "revoked";
+            /**
+             * Format: date-time
+             * @description When an administrator verified it; null otherwise
+             */
+            verifiedAt: string | null;
+            /**
+             * Format: uuid
+             * @description The account that sent the request; the id in the approve and reject paths
+             */
+            accountId: string;
+            /** @description The account that sent the request */
+            account: {
+                /** Format: uuid */
+                id: string;
+                /** @description Null when the account has no profile */
+                username: string | null;
+                displayName: string | null;
+            };
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
          *           "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *           "targetType": "account",
          *           "account": {
          *             "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *             "username": "olena_k",
          *             "displayName": "Olena"
          *           },
+         *           "listing": null,
          *           "status": "open",
          *           "resolution": null,
          *           "reportCount": 2,
@@ -1310,11 +1531,13 @@ export interface components {
         /**
          * @example {
          *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "targetType": "account",
          *       "account": {
          *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *         "username": "olena_k",
          *         "displayName": "Olena"
          *       },
+         *       "listing": null,
          *       "status": "open",
          *       "resolution": null,
          *       "reportCount": 2,
@@ -1326,7 +1549,12 @@ export interface components {
         ReportCase: {
             /** Format: uuid */
             id: string;
-            /** @description The reported user */
+            /**
+             * @description account: a user was reported; listing: a listing was
+             * @enum {string}
+             */
+            targetType: "account" | "listing";
+            /** @description The reported user, or the author of the reported listing */
             account: {
                 /** Format: uuid */
                 id: string;
@@ -1334,6 +1562,23 @@ export interface components {
                 username: string | null;
                 displayName: string | null;
             };
+            /** @description The reported listing; null in an account case */
+            listing: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                description: string;
+                /**
+                 * Format: date
+                 * @description Kyiv date
+                 */
+                date: string;
+                /**
+                 * @description removed once an administrator or the author removed it
+                 * @enum {string}
+                 */
+                status: "active" | "removed";
+            } | null;
             /** @enum {string} */
             status: "open" | "resolved";
             /**
@@ -1353,11 +1598,13 @@ export interface components {
         /**
          * @example {
          *       "id": "5d7f9b1c-3e5a-4c7e-9a1b-3d5f7a9c1e30",
+         *       "targetType": "account",
          *       "account": {
          *         "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
          *         "username": "olena_k",
          *         "displayName": "Olena"
          *       },
+         *       "listing": null,
          *       "status": "open",
          *       "resolution": null,
          *       "reportCount": 2,
@@ -1382,7 +1629,12 @@ export interface components {
         ReportCaseDetails: {
             /** Format: uuid */
             id: string;
-            /** @description The reported user */
+            /**
+             * @description account: a user was reported; listing: a listing was
+             * @enum {string}
+             */
+            targetType: "account" | "listing";
+            /** @description The reported user, or the author of the reported listing */
             account: {
                 /** Format: uuid */
                 id: string;
@@ -1390,6 +1642,23 @@ export interface components {
                 username: string | null;
                 displayName: string | null;
             };
+            /** @description The reported listing; null in an account case */
+            listing: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                description: string;
+                /**
+                 * Format: date
+                 * @description Kyiv date
+                 */
+                date: string;
+                /**
+                 * @description removed once an administrator or the author removed it
+                 * @enum {string}
+                 */
+                status: "active" | "removed";
+            } | null;
             /** @enum {string} */
             status: "open" | "resolved";
             /**
@@ -1429,6 +1698,7 @@ export interface components {
             displayName: string | null;
         };
         /**
+         * @description A report on a user (username) or on a listing (listingId), never both
          * @example {
          *       "username": "olena_k",
          *       "reason": "no_show",
@@ -1436,8 +1706,13 @@ export interface components {
          *     }
          */
         CreateReportBody: {
-            /** @description Username of the user being reported, as their profile shows it */
-            username: string;
+            /** @description Username of the user being reported, as their profile shows it; send this or listingId */
+            username?: string;
+            /**
+             * Format: uuid
+             * @description Id of the listing being reported; send this or username
+             */
+            listingId?: string;
             /**
              * @description offensive_messages, no_show (did not come and did not warn), fake_profile, unsafe_behaviour (dangerous behaviour) or other
              * @enum {string}
@@ -2276,6 +2551,95 @@ export interface operations {
             };
         };
     };
+    getMyOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request and its status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller has not requested organization status */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    requestOrganizationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrganizationRequestBody"];
+            };
+        };
+        responses: {
+            /** @description The request, now pending */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the organization is already verified, or its verification was revoked */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     registerWithGoogle: {
         parameters: {
             query?: never;
@@ -2942,6 +3306,176 @@ export interface operations {
             };
         };
     };
+    adminListOrganizations: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrganizationsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminApproveOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Account id of the organization */
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization, now verified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not requested organization status, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`: it is the caller’s own request, which another administrator decides */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminRejectOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Account id of the organization */
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization, now rejected */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not requested organization status, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the request is not pending. `CANNOT_DECIDE_OWN_REQUEST`: it is the caller’s own request, which another administrator decides */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     adminListReportCases: {
         parameters: {
             query?: {
@@ -3094,7 +3628,66 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the case was dismissed. `CANNOT_BAN_ADMIN`: the reported user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            /** @description `CONFLICT`: the case was dismissed, or it is about a listing. `CANNOT_BAN_ADMIN`: the reported user is an administrator. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminRemoveReportedListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Report case id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The resolved case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCaseDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No report case with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the case was banned or dismissed, or it is about a user. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3153,7 +3746,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller, whom another administrator must judge */
+            /** @description `CONFLICT`: the case is already resolved. `CANNOT_RESOLVE_OWN_CASE`: the case is about the caller or their listing, which another administrator must judge */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3164,7 +3757,7 @@ export interface operations {
             };
         };
     };
-    reportUser: {
+    createReport: {
         parameters: {
             query?: never;
             header?: never;
@@ -3202,7 +3795,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `REFERENCE_NOT_FOUND`: no user has this username. `CANNOT_REPORT_SELF`: it is your own username. */
+            /** @description `REFERENCE_NOT_FOUND`: no user has this username, or no active listing has this id. `CANNOT_REPORT_SELF`: it is your own username or your own listing. */
             422: {
                 headers: {
                     [name: string]: unknown;

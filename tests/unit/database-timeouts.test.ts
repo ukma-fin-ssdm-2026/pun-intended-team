@@ -49,6 +49,18 @@ describe('loadDatabaseTimeouts', () => {
     });
   }
 
+  for (const value of ['86400001', '99999999999999999999']) {
+    test(`refuses to start with DATABASE_STATEMENT_TIMEOUT_MS="${value}", more than one day`, () => {
+      assert.throws(() => loadDatabaseTimeouts({ DATABASE_STATEMENT_TIMEOUT_MS: value }), {
+        message: `DATABASE_STATEMENT_TIMEOUT_MS must be at most 86400000 milliseconds (one day), got "${value}"`,
+      });
+    });
+  }
+
+  test('accepts one day, the largest value', () => {
+    assert.equal(loadDatabaseTimeouts({ DATABASE_STATEMENT_TIMEOUT_MS: '86400000' }).statementMs, 86_400_000);
+  });
+
   test('refuses a lock timeout above the statement timeout, which would never fire', () => {
     assert.throws(
       () => loadDatabaseTimeouts({ DATABASE_STATEMENT_TIMEOUT_MS: '2000', DATABASE_LOCK_TIMEOUT_MS: '2001' }),

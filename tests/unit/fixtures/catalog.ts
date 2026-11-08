@@ -28,7 +28,15 @@ export function aVenue(overrides: Partial<Venue> = {}): Venue {
 
 /** The verified organization of the account ACCOUNT_ID. */
 export function anOrganization(overrides: Partial<Organization> = {}): Organization {
-  return { accountId: ACCOUNT_ID, name: 'Natalka Park', verificationStatus: 'verified', ...overrides };
+  return {
+    accountId: ACCOUNT_ID,
+    name: 'Natalka Park',
+    description: 'Open-air cinema and concerts by the Dnipro.',
+    officialLink: 'https://natalka.park',
+    verificationStatus: 'verified',
+    verifiedAt: '2026-10-01T10:00:00.000Z',
+    ...overrides,
+  };
 }
 
 /** A published event of ACCOUNT_ID, a week after NOW. */
