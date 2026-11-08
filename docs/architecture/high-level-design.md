@@ -67,7 +67,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 | `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token; Google registration and sign-in only for now ([ADR-004](decisions/ADR-004.md)) |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
 | `/events`, `/venues`, `/categories` | guest or user read; verified organization write (events, venues) | FR-006–FR-013 |
-| `/sessions/{id}/applications` | user | FR-016, FR-031 |
+| `/events/{id}/applications`, `/me/applications`, `/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |
 | `/reports` | user | FR-025 |
@@ -134,7 +134,7 @@ Each process connects with its own database role; the import role can write only
 ## 5. Architectural Invariants
 
 - CMP-02 holds no in-memory session or request state (FLEX-002)
-- The instant-match path and the round job take the same per-session advisory lock before reading the pool, so a candidate is never claimed twice (FUNC-002)
+- The instant-match path and the round job take the same per-event advisory lock before reading the pool, so a candidate is never claimed twice (FUNC-002); an application can wait on several days of one event
 - The round algorithm runs in a worker thread and never blocks request handling (PERF-001)
 - Authorization, age checks and contact reveals are enforced in CMP-02 only (SEC-001, SAFE-001, SAFE-002)
 - A module never reads another module's tables, and module dependencies never form a cycle (§2.2)

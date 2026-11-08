@@ -14,14 +14,16 @@ type Props = {
   note?: string;
   selected: boolean;
   onPress: () => void;
+  // One of several that can be picked together: a check box instead of a radio mark.
+  multiple?: boolean;
 };
 
-export function RadioOption({ icon, title, note, selected, onPress }: Props) {
+export function RadioOption({ icon, title, note, selected, onPress, multiple = false }: Props) {
   // Figma draws the 1.5 px selection stroke inside the row, so every row keeps the border (transparent when not
   // selected) and the padding is 1.5 px smaller than Figma's 12 / 16 to leave the content where it is.
   return (
     <Pressable
-      accessibilityRole="radio"
+      accessibilityRole={multiple ? 'checkbox' : 'radio'}
       accessibilityState={{ checked: selected }}
       onPress={onPress}
       className={`flex-row items-center gap-3.5 rounded-[18px] border-[1.5px] py-[10.5px] pl-[10.5px] pr-[14.5px] ${
@@ -41,7 +43,15 @@ export function RadioOption({ icon, title, note, selected, onPress }: Props) {
         <Text className="font-inter-medium text-body text-text-primary">{title}</Text>
         {note && <Text className="font-inter text-caption text-text-secondary">{note}</Text>}
       </View>
-      {selected ? (
+      {multiple ? (
+        <View
+          className={`size-5 items-center justify-center rounded-md ${
+            selected ? 'bg-brand-coral' : 'border-[1.5px] border-border-default'
+          }`}
+        >
+          {selected && <Icon name="check-bold" size={14} color={colors.text['on-dark']} />}
+        </View>
+      ) : selected ? (
         <View className="size-5 rounded-full border-[6px] border-brand-coral bg-surface-card" />
       ) : (
         <View className="size-5 rounded-full border-[1.5px] border-border-default" />

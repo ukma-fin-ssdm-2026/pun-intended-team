@@ -33,6 +33,12 @@ export function kyivEndOfDay(instant: Date | string): Date {
   return new Date(utcMidnight - kyivOffsetMs(utcMidnight) - 1);
 }
 
+/** The Kyiv wall-clock time of an instant, written as UTC digits: the reverse of `fromKyivWallClock`. */
+export function toKyivWallClock(instant: Date | string): Date {
+  const time = new Date(instant).getTime();
+  return new Date(time + kyivOffsetMs(time));
+}
+
 /**
  * The instant whose Kyiv wall-clock time has the UTC digits of `utcDigits`: for a source that writes Kyiv time as
  * if it were UTC, `2026-11-11T19:00:00Z` becomes 19:00 in Kyiv, i.e. 17:00Z in winter and 16:00Z in summer.

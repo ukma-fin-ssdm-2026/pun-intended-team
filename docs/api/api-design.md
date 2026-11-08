@@ -59,6 +59,26 @@ A user's post such as "looking for company for an exhibition on Saturday".
 
 Related to: Account (author), Category, Event.
 
+### Application
+
+**Base path:** `/api/v1/applications`, created at `/api/v1/events/{id}/applications`
+
+A user's request to be matched at one event. For an event that runs on several days it lists the days the user can go, any one of which suits them; a match picks one ([matching](../architecture/mechanisms/matching.md), rule 9).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `eventId` | UUID | |
+| `sessions` | `[{ startsAt, cutoffAt }]` | The days the user can go, soonest first: the event start, or each picked day at the event's time of day, Kyiv time. A day's `cutoffAt` is when matching for it stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends |
+| `desiredCompany` | `friends` \| `dating` \| `company` | The kind of company the user is looking for at this event; the app pre-fills it from the profile's `communicationFormat` |
+| `afterEventPlans` | array of `walk` \| `coffee` \| `dinner` | What the user would do together after the event; empty means only the event |
+| `status` | `in_pool` \| `paired` \| `paused` \| `removed` \| `withdrawn` \| `no_match` \| `cancelled` | `in_pool` until matching proposes a pair |
+| `cutoffAt` | date-time | The last day's cutoff: until then the application can be matched |
+| `nextRoundAt` | date-time or `null` | The earliest matching round still to come on any of the days; `null` when the application is not waiting in the pool or no round is left. Waiting in the pool with no round left and before `cutoffAt` means open mode ([matching](../architecture/mechanisms/matching.md), rule 3) |
+| `createdAt` | date-time | |
+
+Related to: Account (applicant), EventSession, Event.
+
 ### Profile
 
 **Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
@@ -215,6 +235,19 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401`, `422` |
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
 
+### Matching
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `POST` | `/api/v1/events/{id}/applications` | Signed-in user with a complete profile | `201` the application + `Location` header | `400`, `401`, `404`, `409`, `422` |
+| `GET` | `/api/v1/me/applications` | Signed-in user | `200` the caller's active applications | `401` |
+| `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
+| `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
+
+`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+
+`GET /me/applications` lists the active applications, soonest first day first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. Another status answers `409 CONFLICT`. Someone else's application is a `404`.
+
 ### Profile and Interests
 
 | Method | Path | Who | Success | Errors |
@@ -357,11 +390,14 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
-| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
+| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
+| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, or it runs on several days and `dates` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 
@@ -371,6 +407,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 |---|---|---|
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
+| `ALREADY_APPLIED` | `POST /events/{id}/applications` | The caller already has an active application for this event |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 | `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |

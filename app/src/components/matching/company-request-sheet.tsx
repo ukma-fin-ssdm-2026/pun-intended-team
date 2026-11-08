@@ -9,22 +9,26 @@ import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
 import { RadioOption } from '@/components/ui/radio-option';
+import type { ApplicationAnswers } from '@/api/applications';
 import { colors } from '@/styles/tokens';
 
-type CompanyType = 'evening' | 'friends' | 'date';
+type CompanyType = ApplicationAnswers['desiredCompany'];
+type Plan = ApplicationAnswers['afterEventPlans'][number];
 
 const companyTypes: { value: CompanyType; icon: IconName; title: string; note: string }[] = [
-  { value: 'evening', icon: 'ticket', title: 'Компанія на вечір', note: 'Сходити разом і поспілкуватися' },
+  { value: 'company', icon: 'ticket', title: 'Компанія на вечір', note: 'Сходити разом і поспілкуватися' },
   { value: 'friends', icon: 'matches', title: 'Нові друзі', note: 'Знайомство за інтересами' },
-  { value: 'date', icon: 'heart', title: 'Побачення', note: 'Романтичне знайомство' },
+  { value: 'dating', icon: 'heart', title: 'Побачення', note: 'Романтичне знайомство' },
 ];
 
-// "Лише подія" excludes the plans after the event, and any plan clears it.
+// "Лише подія" excludes the plans after the event, and any plan clears it; the API takes it as no plans.
 const EVENT_ONLY = 'Лише подія';
+const planLabels: Record<Plan, string> = { walk: 'Прогулянка', coffee: 'Кава', dinner: 'Вечеря' };
+const plans = Object.keys(planLabels) as Plan[];
 
 const afterEventRows = [
-  ['Прогулянка', 'Кава'],
-  ['Вечеря', EVENT_ONLY],
+  [planLabels.walk, planLabels.coffee],
+  [planLabels.dinner, EVENT_ONLY],
 ];
 
 const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
@@ -55,14 +59,27 @@ type Props = {
   onClose: () => void;
   // "Джаз-вечір у Мистецькому Арсеналі · Сб, 24 жовт".
   eventLabel: string;
-  onSubmit: () => void;
+  // The answers the sheet opens with; read when it is mounted.
+  initial: ApplicationAnswers;
+  submitLabel?: string;
+  submitting?: boolean;
+  onSubmit: (answers: ApplicationAnswers) => void;
 };
 
-export function CompanyRequestSheet({ visible, onClose, eventLabel, onSubmit }: Props) {
+export function CompanyRequestSheet({
+  visible,
+  onClose,
+  eventLabel,
+  initial,
+  submitLabel = 'Знайти мені метч',
+  submitting = false,
+  onSubmit,
+}: Props) {
   const insets = useSafeAreaInsets();
-  // Figma's initial choice: company for the evening, then a walk and coffee.
-  const [companyType, setCompanyType] = useState<CompanyType>('evening');
-  const [afterEvent, setAfterEvent] = useState(['Прогулянка', 'Кава']);
+  const [companyType, setCompanyType] = useState<CompanyType>(initial.desiredCompany);
+  const [afterEvent, setAfterEvent] = useState(
+    initial.afterEventPlans.length > 0 ? initial.afterEventPlans.map((plan) => planLabels[plan]) : [EVENT_ONLY],
+  );
   const toggleAfterEvent = (label: string) =>
     setAfterEvent((current) => {
       if (current.includes(label)) return current.filter((value) => value !== label);
@@ -131,7 +148,17 @@ export function CompanyRequestSheet({ visible, onClose, eventLabel, onSubmit }: 
             ))}
           </View>
 
-          <Button label="Знайти мені метч" variant="dark" onPress={onSubmit} />
+          <Button
+            label={submitLabel}
+            variant="dark"
+            loading={submitting}
+            onPress={() =>
+              onSubmit({
+                desiredCompany: companyType,
+                afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
+              })
+            }
+          />
         </View>
       </Animated.View>
     </Overlay>
