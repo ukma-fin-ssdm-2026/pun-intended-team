@@ -3191,6 +3191,48 @@ describe('Event import', () => {
     assert.deepEqual(events, [{ venue_id: rows[0]?.id }]);
   });
 
+  // ADR-006, decision 7: the venue pairs of the live runs are in the unit tests; these check the database side.
+  test('moves the events of a venue to an older saved one at the same address with a similar name, and keeps both rows', async () => {
+    await runImport();
+    // The venue as ArtWizard writes it, saved before the Karabas one, as if ArtWizard had listed it first.
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO venues (name, address, latitude, longitude, source, created_at)
+         VALUES ('Pepper''s Club', 'вулиця Князів Острозьких, 8, Київ', 50.440262, 30.544271, 'import',
+                 now() - interval '1 year')
+         RETURNING id`,
+      ),
+    );
+    const older = rows[0]?.id;
+
+    await runImport();
+
+    const { rows: venues } = await withDatabase((client) =>
+      client.query<{ id: string; events: number }>(
+        `SELECT v.id, (SELECT count(*)::int FROM events e WHERE e.venue_id = v.id) AS events
+           FROM venues v WHERE v.source = 'import' AND v.name LIKE '%Pepper''s Club%' ORDER BY v.created_at`,
+      ),
+    );
+    assert.equal(venues.length, 2);
+    assert.equal(venues[0]?.id, older);
+    assert.ok((venues[0]?.events ?? 0) > 0);
+    assert.equal(venues[1]?.events, 0);
+  });
+
+  test('keeps two venues of one building apart when their names differ', async () => {
+    await runImport();
+
+    const { rows } = await withDatabase((client) =>
+      client.query<{ name: string }>(
+        `SELECT name FROM venues WHERE source = 'import' AND name IN ('Реверб', 'Otel’') ORDER BY name`,
+      ),
+    );
+    assert.deepEqual(
+      rows.map(({ name }) => name),
+      ['Otel’', 'Реверб'],
+    );
+  });
+
   test('marks a run that never finished as failed before the next run of its provider', async () => {
     const { rows } = await withDatabase((client) =>
       client.query<{ id: string }>(

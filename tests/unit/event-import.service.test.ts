@@ -88,7 +88,10 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
-    findVenue: mock.fn<ImportedEventsRepository['findVenue']>(() => Promise.resolve(undefined)),
+    findVenues: mock.fn((): Promise<Venue[]> => Promise.resolve([])),
+    updateVenueLocation: mock.fn((id: string, location: Venue['location']): Promise<Venue> =>
+      Promise.resolve(anImportedVenue({ id, location })),
+    ),
     createVenue: mock.fn((venue: NewImportedVenue): Promise<Venue> => Promise.resolve(anImportedVenue({ ...venue }))),
     findEvent: mock.fn((): Promise<ImportedEventRow | undefined> => Promise.resolve(undefined)),
     createEvent: mock.fn((row: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow> =>
@@ -152,7 +155,10 @@ describe('EventImportService.importFrom', () => {
 
   test('reuses a venue an earlier import created', async () => {
     const { run, repository } = makeService();
-    repository.findVenue.mock.mockImplementation(() => Promise.resolve(anImportedVenue({ id: 'known-venue' })));
+    const { name, address, location } = anImportedEvent().venue;
+    repository.findVenues.mock.mockImplementation(() =>
+      Promise.resolve([anImportedVenue({ id: 'known-venue', name, address, location: location ?? undefined })]),
+    );
 
     await run();
 
@@ -344,52 +350,16 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
 
   test('reuses the venue an earlier import saved with that name and address, without asking the geocoder', async () => {
     const { run, repository, geocoder } = makeService([{}], [{ event: withoutCoordinates }]);
-    repository.findVenue.mock.mockImplementation(() => Promise.resolve(anImportedVenue({ id: 'known-venue' })));
+    repository.findVenues.mock.mockImplementation(() =>
+      Promise.resolve([
+        anImportedVenue({ id: 'known-venue', name: 'Docker-G pub', address: 'вул. Ігорівська, 13/5, Київ' }),
+      ]),
+    );
 
     await run();
 
-    assert.deepEqual(repository.findVenue.mock.calls[0]?.arguments, ['Docker-G pub', 'вул. Ігорівська, 13/5, Київ']);
     assert.equal(geocoder.locate.mock.callCount(), 0);
     assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'known-venue');
-  });
-
-  test('finds a venue saved under one of its former addresses, without saving it again', async () => {
-    const moved = anImportedEvent({
-      venue: {
-        name: 'Будинок Кіно',
-        address: 'вулиця Саксаганського, 6, Київ',
-        formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
-        location: { lat: 50.44, lng: 30.51 },
-      },
-    });
-    const { run, repository } = makeService([{}], [{ event: moved }]);
-    repository.findVenue.mock.mockImplementation((_name: string, address: string) =>
-      Promise.resolve(address.endsWith('Київ, Київ') ? anImportedVenue({ id: 'saved-before' }) : undefined),
-    );
-
-    await run();
-
-    assert.deepEqual(
-      repository.findVenue.mock.calls.map((call) => call.arguments),
-      [
-        ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ'],
-        ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ, Київ'],
-      ],
-    );
-    assert.equal(repository.createVenue.mock.callCount(), 0);
-    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].venueId, 'saved-before');
-  });
-
-  test('saves a new venue under its address, not a former one', async () => {
-    const venue = { name: 'Хора', address: 'Бульварно-Кудрявська, 22, Київ', location: { lat: 50.45, lng: 30.5 } };
-    const { run, repository } = makeService(
-      [{}],
-      [{ event: anImportedEvent({ venue: { ...venue, formerAddresses: ['x'] } }) }],
-    );
-
-    await run();
-
-    assert.deepEqual(repository.createVenue.mock.calls[0]?.arguments, [venue]);
   });
 
   test('saves a new venue with the coordinates the geocoder found', async () => {
@@ -432,6 +402,225 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
 
     assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder failed: Nominatim answered 503' }]);
     assert.equal(report.created, 1);
+  });
+});
+
+// ADR-006, decision 7: the venues of these tests are the pairs of the live runs of 2026-11-07 and 2026-11-08.
+describe('EventImportService.importFrom, venue reuse', () => {
+  const geocoded = { lat: 50.436352, lng: 30.519508 };
+  const saved = (id: string, name: string, address: string, location = geocoded) =>
+    anImportedVenue({ id, name, address, location });
+  const arriving = (name: string, address: string, location: Venue['location'] | null = null) =>
+    anImportedEvent({ venue: { name, address, location } });
+
+  async function venueOf(savedVenues: Venue[], event: ImportedEvent) {
+    const { run, repository, geocoder } = makeService([{}], [{ event }]);
+    repository.findVenues.mock.mockImplementation(() => Promise.resolve(savedVenues));
+    await run();
+    return { venueId: repository.createEvent.mock.calls[0]?.arguments[0].venueId, repository, geocoder };
+  }
+
+  const joined: [string, string, string, string][] = [
+    ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ', '«Будинок Кіно»', 'вул. Саксаганського, 6, Київ'],
+    ['Будинок Кіно', 'вулиця Саксаганського, 6, Київ', 'Будинок кіно', 'вул. Саксаганського, 6, Київ'],
+    ['Хора', 'Бульварно-Кудрявська, 22, Київ', 'Хора', 'вул. Бульварно-Кудрявська, 22, Київ'],
+    [
+      "Pepper's Club",
+      'вулиця Князів Острозьких, 8, Київ',
+      'Music Pub "Pepper\'s Club"',
+      'вул Князів Острозьких, 8, Київ',
+    ],
+    ['CARIBBEAN club', 'вул. С. Петлюри, 4, Київ', 'Caribbean Club', 'вул. С. Петлюри, 4, Київ'],
+    [
+      'Театр «Особистості»',
+      'вул. Січових Стрільців, 1-5, Центральний Будинок Художника, Київ',
+      '"Особистості"',
+      'вул. Січових Стрільців, 1-5, Центральний Будинок Художника, Київ',
+    ],
+    ['Будинок архітектора', 'вул. Бориса Грінченка, 7, Київ', 'Архітектора', 'вул. Бориса Грінченка, 7, Київ'],
+    ['Палац «Україна»', 'вул. В. Васильківська, 103, Київ', 'Палац Україна', 'вул. В. Васильківська, 103, Київ'],
+    [
+      'Національний палац мистецтв «Україна»',
+      'вул. В. Васильківська, 103, Київ',
+      'Палац Україна',
+      'вул. В. Васильківська, 103, Київ',
+    ],
+    ['МЦКМ', 'Алея Героїв Небесної Сотні, 1, Київ', 'МЦКМ (Жовтневий палац)', 'Алея Героїв Небесної Сотні, 1, Київ'],
+    [
+      'Місце проведення: МЦКМ',
+      'Алея Героїв Небесної Сотні, 1, Київ',
+      'МЦКМ (Жовтневий палац)',
+      'Алея Героїв Небесної Сотні, 1, Київ',
+    ],
+    [
+      'Театр "Браво"',
+      'вул. Олеся Гончара, 79, Київ',
+      'Київський драматичний театр Браво',
+      'вул. Олеся Гончара, 79, Київ',
+    ],
+  ];
+  for (const [savedName, savedAddress, name, address] of joined) {
+    test(`reuses "${savedName}" for "${name}"`, async () => {
+      const { venueId, repository } = await venueOf([saved('saved', savedName, savedAddress)], arriving(name, address));
+
+      assert.equal(venueId, 'saved');
+      assert.equal(repository.createVenue.mock.callCount(), 0);
+    });
+  }
+
+  const apart: [string, string, string, string][] = [
+    ['Реверб', 'Нижньоюрківська, 31, Київ', 'Otel’', 'вул. Нижньоюрківська 31, Київ'],
+    ['Закапелок', 'вулиця Верхній Вал, 62, Київ', 'Продюсерський центр Ізмайлової', 'вул. Верхній Вал, 66а, Київ'],
+    ['Закапелок', 'вул. Верхній Вал, 66а, Київ', 'Продюсерський центр Ізмайлової', 'вул. Верхній Вал, 66а, Київ'],
+  ];
+  for (const [savedName, savedAddress, name, address] of apart) {
+    test(`keeps "${savedName}" and "${name}" apart, whatever the address`, async () => {
+      const { venueId, repository } = await venueOf([saved('saved', savedName, savedAddress)], arriving(name, address));
+
+      assert.notEqual(venueId, 'saved');
+      assert.equal(repository.createVenue.mock.callCount(), 1);
+    });
+  }
+
+  test('reuses a similar name at another address never', async () => {
+    const { venueId } = await venueOf(
+      [saved('saved', 'Будинок Кіно', 'вулиця Саксаганського, 6, Київ')],
+      arriving('Будинок Кіно', 'вул. Саксаганського, 8, Київ'),
+    );
+
+    assert.notEqual(venueId, 'saved');
+  });
+
+  test('finds a venue saved with the city twice', async () => {
+    const { venueId } = await venueOf(
+      [saved('saved-before', 'Будинок Кіно', 'вулиця Саксаганського, 6, Київ, Київ')],
+      arriving('Будинок Кіно', 'вулиця Саксаганського, 6, Київ', { lat: 50.43626, lng: 30.5195 }),
+    );
+
+    assert.equal(venueId, 'saved-before');
+  });
+
+  test('matches an address without a house number only with the same name', async () => {
+    const kpi = 'Палац культури КПІ ім. Ігоря Сікорського';
+    const same = await venueOf([saved('saved', kpi, 'Київ')], arriving(kpi, 'Київ'));
+    const other = await venueOf([saved('saved', kpi, 'Київ')], arriving('Палац культури', 'Київ'));
+
+    assert.equal(same.venueId, 'saved');
+    assert.notEqual(other.venueId, 'saved');
+  });
+
+  test('takes the oldest of the saved duplicates, so their events end up at one venue', async () => {
+    const { venueId } = await venueOf(
+      [
+        saved('oldest', 'CARIBBEAN club', 'вул. С. Петлюри, 4, Київ'),
+        saved('newer', 'Caribbean Club', 'вул. С. Петлюри, 4, Київ'),
+      ],
+      arriving('Caribbean Club', 'вул. С. Петлюри, 4, Київ'),
+    );
+
+    assert.equal(venueId, 'oldest');
+  });
+
+  test('moves an event saved at a duplicate to the reused venue', async () => {
+    const event = arriving('Caribbean Club', 'вул. С. Петлюри, 4, Київ');
+    const { run, repository } = makeService([{}], [{ event }]);
+    repository.findVenues.mock.mockImplementation(() =>
+      Promise.resolve([
+        saved('oldest', 'CARIBBEAN club', 'вул. С. Петлюри, 4, Київ'),
+        saved('newer', 'Caribbean Club', 'вул. С. Петлюри, 4, Київ'),
+      ]),
+    );
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent({ venueId: 'newer' })));
+
+    const report = await run();
+
+    assert.equal(repository.updateEvent.mock.calls[0]?.arguments[1].venueId, 'oldest');
+    assert.equal(report.updated, 1);
+  });
+
+  test('gives the saved venue the provider coordinates, without asking the geocoder', async () => {
+    const artWizard = { lat: 50.4362609434499, lng: 30.5195041135087 };
+    const { venueId, repository, geocoder } = await venueOf(
+      [saved('karabas-venue', 'Будинок кіно', 'вул. Саксаганського, 6, Київ')],
+      arriving('Будинок Кіно', 'вулиця Саксаганського, 6, Київ', artWizard),
+    );
+
+    assert.equal(venueId, 'karabas-venue');
+    assert.deepEqual(repository.updateVenueLocation.mock.calls[0]?.arguments, ['karabas-venue', artWizard]);
+    assert.equal(geocoder.locate.mock.callCount(), 0);
+  });
+
+  test('leaves the coordinates alone when they are the same at the precision the database keeps', async () => {
+    const { repository } = await venueOf(
+      [saved('saved', 'Будинок Кіно', 'вулиця Саксаганського, 6, Київ', { lat: 50.436261, lng: 30.519504 })],
+      arriving('Будинок Кіно', 'вулиця Саксаганського, 6, Київ', { lat: 50.4362609434499, lng: 30.5195041135087 }),
+    );
+
+    assert.equal(repository.updateVenueLocation.mock.callCount(), 0);
+  });
+
+  test('keeps the saved coordinates when the provider puts the venue outside Kyiv', async () => {
+    // ArtWizard's "Печерськ Палац" on 2026-11-08, about 300 km west of Kyiv.
+    const { venueId, repository } = await venueOf(
+      [
+        saved(
+          'karabas-venue',
+          'Культурний центр "Печерськ Палац"',
+          'вул. Князів Острозьких 3 (метро Арсенальна), Київ',
+        ),
+      ],
+      arriving('Печерськ Палац', 'вул.Князів Острозьких,3, Київ', { lat: 50.328466, lng: 26.519548 }),
+    );
+
+    assert.equal(venueId, 'karabas-venue');
+    assert.equal(repository.updateVenueLocation.mock.callCount(), 0);
+  });
+
+  test('never gives a venue without coordinates a saved one placed outside Kyiv', async () => {
+    const { venueId, geocoder } = await venueOf(
+      [saved('outside', 'Печерськ Палац', 'вул.Князів Острозьких,3, Київ', { lat: 50.328466, lng: 26.519548 })],
+      arriving('Культурний центр "Печерськ Палац"', 'вул. Князів Острозьких 3 (метро Арсенальна), Київ'),
+    );
+
+    assert.notEqual(venueId, 'outside');
+    assert.equal(geocoder.locate.mock.callCount(), 1);
+  });
+
+  test('reuses a venue placed outside Kyiv for the provider that placed it there, so it is not saved again', async () => {
+    const outside = { lat: 50.328466, lng: 26.519548 };
+    const { venueId, repository } = await venueOf(
+      [saved('outside', 'Печерськ Палац', 'вул.Князів Острозьких,3, Київ', outside)],
+      arriving('Печерськ Палац', 'вул.Князів Острозьких,3, Київ', { lat: 50.328465652605175, lng: 26.519547728835764 }),
+    );
+
+    assert.equal(venueId, 'outside');
+    assert.equal(repository.createVenue.mock.callCount(), 0);
+  });
+
+  test('prefers a fitting venue in Kyiv to an older one placed outside it', async () => {
+    const { venueId } = await venueOf(
+      [
+        saved('outside', 'Печерськ Палац', 'вул.Князів Острозьких,3, Київ', { lat: 50.328466, lng: 26.519548 }),
+        saved('in-kyiv', 'Культурний центр "Печерськ Палац"', 'вул. Князів Острозьких 3 (метро Арсенальна), Київ'),
+      ],
+      arriving('Печерськ Палац', 'вул.Князів Острозьких,3, Київ', { lat: 50.328466, lng: 26.519548 }),
+    );
+
+    assert.equal(venueId, 'in-kyiv');
+  });
+
+  test('reuses a venue saved earlier in the same run', async () => {
+    const { run, repository } = makeService(
+      [{}, {}],
+      [
+        { event: arriving('CARIBBEAN club', 'вул. С. Петлюри, 4, Київ', geocoded) },
+        { event: { ...arriving('Caribbean Club', 'вул. С. Петлюри, 4, Київ'), externalId: 'ext-2' } },
+      ],
+    );
+
+    await run();
+
+    assert.equal(repository.createVenue.mock.callCount(), 1);
   });
 });
 

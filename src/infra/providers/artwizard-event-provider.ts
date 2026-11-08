@@ -227,7 +227,7 @@ export class ArtWizardEventProvider extends EventProvider {
         categorySlug,
         venue: {
           name: location.name_ua,
-          ...venueAddress(location.address_ua, location.city?.name),
+          address: venueAddress(location.address_ua, location.city?.name),
           location: coordinates,
         },
         startsAt: start.toISOString(),
@@ -242,20 +242,14 @@ export class ArtWizardEventProvider extends EventProvider {
 }
 
 /**
- * The venue's address with its city once. Our venues are matched by name and address, and the import has always
- * added the city, which some ArtWizard addresses already end with ("вулиця Саксаганського, 6, Київ"). Such a
- * venue was saved before with the city twice, which is kept as a former address so the venue is found again.
+ * The venue's address with its city once: the import has always added the city, which some ArtWizard addresses
+ * already end with ("вулиця Саксаганського, 6, Київ"). Venues saved before with the city twice are still found,
+ * since the import compares addresses without the city (ADR-006, decision 7).
  */
-export function venueAddress(
-  address: string | null | undefined,
-  city: string | null | undefined,
-): { address: string; formerAddresses?: string[] } {
+export function venueAddress(address: string | null | undefined, city: string | null | undefined): string {
   const street = address?.trim() ?? '';
   const lastPart = street.split(',').at(-1)?.trim().toLowerCase();
-  if (!city || !street || lastPart !== city.trim().toLowerCase()) {
-    return { address: [street, city].filter(Boolean).join(', ') };
-  }
-  return { address: street, formerAddresses: [`${street}, ${city}`] };
+  return city && street && lastPart === city.trim().toLowerCase() ? street : [street, city].filter(Boolean).join(', ');
 }
 
 /** The record's slug, its external id; undefined when it has none. */

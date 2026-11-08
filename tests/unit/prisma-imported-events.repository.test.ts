@@ -4,6 +4,7 @@ import { describe, mock, test } from 'node:test';
 import { Prisma } from '../../dist/infra/prisma/generated/client.js';
 import { ImportPrismaService } from '../../dist/infra/prisma/import-prisma.service.js';
 import { PrismaImportedEventsRepository } from '../../dist/infra/prisma/prisma-imported-events.repository.js';
+import { aVenueRow } from './fixtures/catalog-rows.ts';
 
 const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
 
@@ -19,6 +20,10 @@ function makeRepository() {
       findFirst: mock.fn((): Promise<unknown> => Promise.resolve(null)),
     },
     skippedRecord: { create: mock.fn(() => Promise.resolve({ id: 'skipped' })) },
+    venue: {
+      findMany: mock.fn((): Promise<unknown[]> => Promise.resolve([])),
+      update: mock.fn((): Promise<unknown> => Promise.resolve(aVenueRow())),
+    },
   };
   return { repository: new PrismaImportedEventsRepository(prisma as unknown as ImportPrismaService), prisma };
 }
@@ -43,6 +48,33 @@ describe('PrismaImportedEventsRepository.updateEvent', () => {
       {
         where: { id: 'e0000000-0000-4000-8000-000000000001', source: 'import' },
         data: { ...fields, startsAt: new Date(fields.startsAt), endsAt: new Date(fields.endsAt), status: 'published' },
+      },
+    ]);
+  });
+});
+
+describe('PrismaImportedEventsRepository venues', () => {
+  test('finds only imported venues, oldest first, so the import reuses the first one it saved', async () => {
+    const { repository, prisma } = makeRepository();
+    prisma.venue.findMany.mock.mockImplementation(() => Promise.resolve([aVenueRow()]));
+
+    const venues = await repository.findVenues();
+
+    assert.deepEqual(prisma.venue.findMany.mock.calls[0]?.arguments, [
+      { where: { source: 'import' }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+    ]);
+    assert.deepEqual(venues[0]?.location, { lat: 50.4825, lng: 30.5181 });
+  });
+
+  test('moves only an imported venue, so an organization venue keeps its place', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.updateVenueLocation('b0000000-0000-4000-8000-000000000001', { lat: 50.436261, lng: 30.519504 });
+
+    assert.deepEqual(prisma.venue.update.mock.calls[0]?.arguments, [
+      {
+        where: { id: 'b0000000-0000-4000-8000-000000000001', source: 'import' },
+        data: { latitude: 50.436261, longitude: 30.519504 },
       },
     ]);
   });

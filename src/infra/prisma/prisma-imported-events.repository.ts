@@ -69,9 +69,18 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     });
   }
 
-  async findVenue(name: string, address: string): Promise<Venue | undefined> {
-    const row = await this.prisma.venue.findFirst({ where: { source: 'import', name, address } });
-    return row ? toVenue(row) : undefined;
+  async findVenues(): Promise<Venue[]> {
+    const rows = await this.prisma.venue.findMany({
+      where: { source: 'import' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toVenue);
+  }
+
+  async updateVenueLocation(id: string, location: Venue['location']): Promise<Venue> {
+    return toVenue(
+      await this.prisma.venue.update({ where: { id, source: 'import' }, data: locationColumns(location) }),
+    );
   }
 
   async createVenue({ name, address, location }: NewImportedVenue): Promise<Venue> {

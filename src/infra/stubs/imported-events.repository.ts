@@ -40,8 +40,17 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
 
   async saveSkipped(): Promise<void> {}
 
-  async findVenue(name: string, address: string): Promise<Venue | undefined> {
-    return venues.find((venue) => venue.source === 'import' && venue.name === name && venue.address === address);
+  async findVenues(): Promise<Venue[]> {
+    return venues.filter((venue) => venue.source === 'import');
+  }
+
+  async updateVenueLocation(id: string, location: Venue['location']): Promise<Venue> {
+    const venue = venues.find((saved) => saved.id === id);
+    if (!venue) {
+      throw new Error(`No venue ${id}`);
+    }
+    venue.location = location;
+    return venue;
   }
 
   async createVenue(input: NewImportedVenue): Promise<Venue> {

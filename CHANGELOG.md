@@ -30,6 +30,7 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Karabas events are imported for the whole four weeks, not only the first page of each section, about four days ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Talks, board-game nights and wine tastings from the Karabas clubs page are no longer shown as Вечірки ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - An ArtWizard event listed twice by its API is imported once, and its venue address names the city once ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+- A place that ArtWizard and Karabas both list, or that Karabas lists under two names, is one venue on the map, with its events together, and ArtWizard's coordinates are used where they are in Kyiv ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - A failed import run is always recorded as failed, with the error that stopped it, and never counts as succeeded ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 
 ### Refactoring

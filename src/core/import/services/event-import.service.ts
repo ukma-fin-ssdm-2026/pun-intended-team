@@ -3,7 +3,9 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Venue } from '../../catalog/types/venue.ts';
 import { EVENT_PROVIDERS, EventProvider } from '../adapters/event-provider.ts';
 import { Geocoder } from '../adapters/geocoder.ts';
+import { inKyiv } from '../../common/kyiv-area.ts';
 import { ImportedEventsRepository } from '../repositories/imported-events.repository.ts';
+import { SavedVenues } from './venue-match.ts';
 import type {
   CompleteRun,
   FetchResult,
@@ -12,6 +14,7 @@ import type {
   ImportedEventRow,
   ImportReport,
   ImportRunSummary,
+  NewImportedVenue,
   RunDetails,
   SkippedRecord,
 } from '../types/import.ts';
@@ -108,6 +111,7 @@ export class EventImportService {
     };
     // Addresses the geocoder could not find in this run, so a venue with many events is asked about once.
     const notFound = new Set<string>();
+    const venues = new SavedVenues(await this.importedEventsRepository.findVenues());
     // The provider's events this run saw: saved, or skipped only because the geocoder failed or found nothing,
     // which says nothing about whether the event still exists.
     const seen = new Set<string>();
@@ -133,7 +137,7 @@ export class EventImportService {
         await skip('The event does not end after it starts');
         continue;
       }
-      const venue = await this.venueFor(imported, notFound);
+      const venue = await this.venueFor(imported, venues, notFound);
       seen.add(imported.externalId);
       if (typeof venue === 'string') {
         await skip(venue);
@@ -161,35 +165,58 @@ export class EventImportService {
   }
 
   /**
-   * The saved venue with the event's name and address, which keeps the coordinates found before; otherwise a new
-   * one, with the provider's coordinates or the geocoder's. A string is the reason the event has no venue.
+   * The saved venue at the same address with a similar name (ADR-006, decision 7), which keeps the coordinates found
+   * before; a provider's coordinates in Kyiv replace them. Otherwise a new venue, with the provider's coordinates or
+   * the geocoder's. A string is the reason the event has no venue.
    */
-  private async venueFor({ venue }: ImportedEvent, notFound: Set<string>): Promise<Venue | string> {
-    for (const address of [venue.address, ...(venue.formerAddresses ?? [])]) {
-      const known = await this.importedEventsRepository.findVenue(venue.name, address);
-      if (known) {
-        return known;
+  private async venueFor(
+    { venue }: ImportedEvent,
+    venues: SavedVenues,
+    notFound: Set<string>,
+  ): Promise<Venue | string> {
+    const { name, address, location } = venue;
+    const saved = venues.find(venue);
+    if (saved) {
+      if (saved.name !== name) {
+        this.logger.debug(`Venue "${name}" at ${address}: the saved "${saved.name}"`);
       }
+      if (!location || sameLocation(saved.location, location)) {
+        return saved;
+      }
+      if (!inKyiv(location)) {
+        this.logger.warn(
+          `Venue "${name}" at ${address}: coordinates ${location.lat}, ${location.lng} are not in Kyiv; kept`,
+        );
+        return saved;
+      }
+      const moved = await this.importedEventsRepository.updateVenueLocation(saved.id, location);
+      venues.replace(moved);
+      return moved;
     }
-    const { name, address } = venue;
-    if (venue.location) {
-      return this.importedEventsRepository.createVenue({ name, address, location: venue.location });
+    if (location) {
+      return this.created(venues, { name, address, location });
     }
-    const key = `${venue.name}\n${venue.address}`;
+    const key = `${name}\n${address}`;
     if (notFound.has(key)) {
       return 'The geocoder found no coordinates for the venue';
     }
-    let location: Venue['location'] | undefined;
+    let found: Venue['location'] | undefined;
     try {
-      location = await this.geocoder.locate(venue);
+      found = await this.geocoder.locate(venue);
     } catch (error) {
       return `The geocoder failed: ${error instanceof Error ? error.message : String(error)}`;
     }
-    if (!location) {
+    if (!found) {
       notFound.add(key);
       return 'The geocoder found no coordinates for the venue';
     }
-    return this.importedEventsRepository.createVenue({ name, address, location });
+    return this.created(venues, { name, address, location: found });
+  }
+
+  private async created(venues: SavedVenues, venue: NewImportedVenue): Promise<Venue> {
+    const saved = await this.importedEventsRepository.createVenue(venue);
+    venues.add(saved);
+    return saved;
   }
 
   private async save(provider: string, imported: ImportedEvent, categoryId: string, venueId: string): Promise<Saved> {
@@ -257,6 +284,11 @@ function count(report: ImportReport, saved: Saved): void {
       report.republished++;
     }
   }
+}
+
+/** The same point at the precision the database keeps, `decimal(9, 6)`. */
+function sameLocation(a: Venue['location'], b: Venue['location']): boolean {
+  return a.lat.toFixed(6) === b.lat.toFixed(6) && a.lng.toFixed(6) === b.lng.toFixed(6);
 }
 
 function isSame(event: ImportedEventRow, fields: ImportedEventFields): boolean {

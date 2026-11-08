@@ -263,7 +263,6 @@ describe('ArtWizardEventProvider.normalize', () => {
         venue: {
           name: 'Будинок Кіно',
           address: 'вулиця Саксаганського, 6, Київ',
-          formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
           location: event.venue.location,
         },
         startsAt: '2026-11-03T16:00:00.000Z',
@@ -434,35 +433,32 @@ describe('venueAddress', () => {
       title: 'adds the city',
       address: 'вул. Лаврська, 19',
       city: 'Київ',
-      result: { address: 'вул. Лаврська, 19, Київ' },
+      result: 'вул. Лаврська, 19, Київ',
     },
     {
-      title: 'does not add a city the address ends with, and keeps the doubled one as the former address',
+      title: 'does not add a city the address ends with',
       address: 'вулиця Саксаганського, 6, Київ',
       city: 'Київ',
-      result: {
-        address: 'вулиця Саксаганського, 6, Київ',
-        formerAddresses: ['вулиця Саксаганського, 6, Київ, Київ'],
-      },
+      result: 'вулиця Саксаганського, 6, Київ',
     },
     {
       title: 'compares the city without regard to case and spaces',
       address: 'Нижньоюрківська, 31,  київ ',
       city: 'Київ',
-      result: { address: 'Нижньоюрківська, 31,  київ', formerAddresses: ['Нижньоюрківська, 31,  київ, Київ'] },
+      result: 'Нижньоюрківська, 31,  київ',
     },
     {
       title: 'adds the city to a street that only contains it',
       address: 'вул. Київська, 5',
       city: 'Київ',
-      result: { address: 'вул. Київська, 5, Київ' },
+      result: 'вул. Київська, 5, Київ',
     },
-    { title: 'is the city alone without an address', address: null, city: 'Київ', result: { address: 'Київ' } },
+    { title: 'is the city alone without an address', address: null, city: 'Київ', result: 'Київ' },
     {
       title: 'is the address alone without a city',
       address: 'вул. Лаврська, 19',
       city: null,
-      result: { address: 'вул. Лаврська, 19' },
+      result: 'вул. Лаврська, 19',
     },
   ];
   for (const { title, address, city, result } of cases) {

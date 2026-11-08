@@ -40,8 +40,11 @@ export abstract class ImportedEventsRepository {
   /** Keeps a record the run could not use, as received, with the reason (FR-015). */
   abstract saveSkipped(runId: string, raw: unknown, reason: string): Promise<void>;
 
-  /** A venue an earlier import created (`source` import), found by its name and address. */
-  abstract findVenue(name: string, address: string): Promise<Venue | undefined>;
+  /** Every venue an earlier import created (`source` import), oldest first; the import picks the one to reuse. */
+  abstract findVenues(): Promise<Venue[]>;
+
+  /** Moves an imported venue to the coordinates a provider gives for it. */
+  abstract updateVenueLocation(id: string, location: Venue['location']): Promise<Venue>;
 
   /** Saves a venue with `source` import and no organization. */
   abstract createVenue(venue: NewImportedVenue): Promise<Venue>;

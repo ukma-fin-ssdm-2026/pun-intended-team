@@ -1,13 +1,14 @@
 // Written with the help of Claude
 import { z } from 'zod';
 import type { Venue } from '../../core/catalog/types/venue.ts';
+import { KYIV_AREA } from '../../core/common/kyiv-area.ts';
 import { Geocoder } from '../../core/import/adapters/geocoder.ts';
 import type { HttpClient } from '../providers/http-client.ts';
 
 export const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 /** Kyiv's bounding box (west, north, east, south): a result outside it is not our venue. */
-const KYIV_VIEWBOX = '30.2394,50.5909,30.8259,50.2133';
+const KYIV_VIEWBOX = [KYIV_AREA.west, KYIV_AREA.north, KYIV_AREA.east, KYIV_AREA.south].join(',');
 
 const SearchResults = z.array(z.object({ lat: z.coerce.number(), lon: z.coerce.number() }));
 
