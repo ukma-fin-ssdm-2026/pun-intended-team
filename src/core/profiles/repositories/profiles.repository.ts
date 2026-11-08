@@ -6,6 +6,9 @@ export abstract class ProfilesRepository {
 
   abstract findByAccountId(accountId: string): Promise<Profile | undefined>;
 
+  /** Accounts without a profile are left out. */
+  abstract findByAccountIds(accountIds: string[]): Promise<Profile[]>;
+
   /** Case-insensitive, like the unique index. */
   abstract findAccountIdByUsername(username: string): Promise<string | undefined>;
 

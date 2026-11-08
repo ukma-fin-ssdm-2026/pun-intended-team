@@ -16,6 +16,11 @@ export class AccountsService {
     return this.accountsRepository.findDateOfBirth(accountId);
   }
 
+  /** The account's verified phone number; null without one, as with Google sign-in, or for an unknown account. */
+  async getPhone(accountId: string): Promise<string | null> {
+    return (await this.accountsRepository.findById(accountId))?.phone ?? null;
+  }
+
   /** The account's role and status; undefined for an unknown account. */
   async findStanding(accountId: string): Promise<Pick<Account, 'role' | 'status'> | undefined> {
     const account = await this.accountsRepository.findById(accountId);

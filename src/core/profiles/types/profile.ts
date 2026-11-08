@@ -57,6 +57,20 @@ export interface ProfileDetails {
   isComplete: boolean;
 }
 
+/** What a proposed match sees of the other user: no contacts (FR-019). */
+export interface PublicProfile extends ProfileSummary {
+  description: string;
+  occupation: string;
+  age: number;
+  interests: Interest[];
+}
+
+/** What a mutual match sees of the other user (FR-019): the phone only if they share it. */
+export interface Contacts {
+  phone: string | null;
+  linkedAccounts: LinkedAccountDetails[];
+}
+
 /** The first onboarding step. */
 export interface NewProfile {
   username: string;
