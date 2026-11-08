@@ -33,7 +33,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # Before every API start: migrations as the owner, then the passwords of the two runtime roles.
+  # Before every API start: migrations as the owner, then the passwords of the roles.
   migrate:
     logging: *logging
     image: *image
@@ -42,6 +42,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       MAIN_DATABASE_URL: ${MAIN_DATABASE_URL:?Set MAIN_DATABASE_URL in .env}
       IMPORT_DATABASE_URL: ${IMPORT_DATABASE_URL:?Set IMPORT_DATABASE_URL in .env}
+      BACKUP_DATABASE_URL: ${BACKUP_DATABASE_URL:?Set BACKUP_DATABASE_URL in .env}
     depends_on:
       db:
         condition: service_healthy
@@ -129,15 +130,18 @@ services:
       start_period: 26h
     environment:
       PGHOST: db
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGUSER: nearby_backup
+      PGPASSWORD: ${NEARBY_BACKUP_PASSWORD:?Set NEARBY_BACKUP_PASSWORD in .env}
       PGDATABASE: ${POSTGRES_DB}
     volumes:
       - ./deploy/backup-db.sh:/backup-db.sh:ro
       - ${BACKUP_DIR:-./backups}:/backups
+    # The role and its password come from migrate.
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   db-data:

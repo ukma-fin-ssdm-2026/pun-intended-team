@@ -8,8 +8,8 @@ Staging runs the `staging` branch on one Linux server: the API at `https://api.n
 | `api` | The API, `NODE_ENV=production`, as the `nearby_main` role | `caddy` only |
 | `web` | The web app: the static export of `app/`, served by its own Caddy ([`app/Caddyfile`](../../app/Caddyfile)) | `caddy` only |
 | `db` | PostgreSQL 18, data in the `nearby-staging-db` volume | The server itself (`127.0.0.1:5432`) |
-| `migrate` | Before every API start, from the same image: `prisma migrate deploy` as the owner, then the passwords of `nearby_main` and `nearby_import`; then exits | — |
-| `backup` | Nightly `pg_dump` at 01:00 UTC, 7 daily and 4 weekly copies ([`deploy/backup-db.sh`](../../deploy/backup-db.sh)) | — |
+| `migrate` | Before every API start, from the same image: `prisma migrate deploy` as the owner, then the passwords of `nearby_main`, `nearby_import` and `nearby_backup`; then exits | — |
+| `backup` | Nightly `pg_dump` at 01:00 UTC, 7 daily and 4 weekly copies ([`deploy/backup-db.sh`](../../deploy/backup-db.sh)), as the read-only role `nearby_backup`; starts after `migrate` | — |
 | `import` | One event import run, started by hand | — |
 
 ## Settings and secrets
@@ -21,7 +21,7 @@ The server's `.env` is rendered on every deploy from [`deploy/staging.env`](../.
 | `SSH_HOST`, `SSH_USER` | variable | The server's IP and the `deploy` user |
 | `SSH_KNOWN_HOSTS` | variable | The server's host key: `ssh-keyscan <SSH_HOST>` |
 | `SSH_KEY` | secret | The private half of the deploy key |
-| `POSTGRES_PASSWORD`, `NEARBY_MAIN_PASSWORD`, `NEARBY_IMPORT_PASSWORD` | secret | Each from `openssl rand -hex 24` |
+| `POSTGRES_PASSWORD`, `NEARBY_MAIN_PASSWORD`, `NEARBY_IMPORT_PASSWORD`, `NEARBY_BACKUP_PASSWORD` | secret | Each from `openssl rand -hex 24` |
 | `GOOGLE_CLIENT_IDS` | variable | As in the local `.env` |
 | `TURBOSMS_SENDER` | variable | Optional |
 | `TELEGRAM_GATEWAY_TOKEN`, `TURBOSMS_TOKEN` | secret | Optional; codes are switched off ([ADR-004](../architecture/decisions/ADR-004.md)) |
@@ -128,13 +128,15 @@ Each night is a row in `backup_runs`, shown on the **Резервні копії
 docker compose -f docker-compose.staging.yml exec backup sh /backup-db.sh nightly
 ```
 
-A restore replaces the current data:
+A restore replaces the current data. The `backup` service only reads, so the owner does it, from the `db` container: its local socket needs no password, so the owner's password is never typed or passed. The dump is piped in from the host:
 
 ```bash
 docker compose -f docker-compose.staging.yml stop api
-docker compose -f docker-compose.staging.yml exec backup pg_restore --clean --if-exists -d nearby /backups/daily/<file>.dump
+docker compose -f docker-compose.staging.yml exec -T db pg_restore -U nearby --clean --if-exists -d nearby < /var/backups/nearby/daily/<file>.dump
 docker compose -f docker-compose.staging.yml start api
 ```
+
+`pg_restore` may print three `cannot drop inherited constraint` errors for the `pgboss` partitions and end with `errors ignored on restore: 3`; the data is restored.
 
 `docker compose down -v` does not delete the data: both volumes are external. Only `docker volume rm nearby-staging-db` does.
 
