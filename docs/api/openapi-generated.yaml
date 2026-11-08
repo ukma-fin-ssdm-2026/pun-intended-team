@@ -988,7 +988,7 @@ components:
             type: string
             format: date
           minItems: 1
-          maxItems: 31
+          maxItems: 366
           description: >-
             The Kyiv days the user can go on, any one of which suits them;
             needed only for an event that runs on several days
