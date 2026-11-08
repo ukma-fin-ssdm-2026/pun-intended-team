@@ -38,4 +38,9 @@ export class EventSessionsService {
     }
     return session;
   }
+
+  async getByIds(ids: string[]): Promise<Map<string, EventSession>> {
+    const sessions = await this.eventSessionsRepository.findByIds(ids);
+    return new Map(sessions.map((session) => [session.id, session]));
+  }
 }

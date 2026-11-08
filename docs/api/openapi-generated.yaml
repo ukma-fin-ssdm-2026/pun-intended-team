@@ -15,6 +15,8 @@ tags:
     description: Events users can go to together
   - name: Listings
     description: '"Looking for company" posts'
+  - name: Matching
+    description: Asking for a match at an event and leaving the pool
   - name: Profiles
     description: The signed-in user’s profile, filled in step by step during onboarding
   - name: Interests
@@ -176,6 +178,8 @@ components:
         - LISTING_DATE_IN_PAST
         - USERNAME_TAKEN
         - PROFILE_EXISTS
+        - PROFILE_INCOMPLETE
+        - ALREADY_APPLIED
         - CONTACT_REQUIRED
         - INVALID_SOCIAL_HANDLE
         - INVALID_CREDENTIALS
@@ -786,6 +790,141 @@ components:
         title: Looking for company for the Arsenal exhibition
         description: Planning to go in the evening, happy to grab a coffee after.
         date: '2026-10-20'
+    Application:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        sessionStartsAt:
+          type: string
+          format: date-time
+          description: >-
+            When the session starts: the event start, or the chosen day of a
+            multi-day event at its time of day
+        desiredCompany:
+          $ref: '#/components/schemas/CommunicationFormat'
+        afterEventPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfterEventPlan'
+          description: >-
+            What the user would do together after the event; empty: only the
+            event
+        status:
+          $ref: '#/components/schemas/ApplicationStatus'
+        nextRoundAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: >-
+            When the next matching round pairs the pool; null when the
+            application is not waiting in the pool or no round is left
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventId
+        - sessionStartsAt
+        - desiredCompany
+        - afterEventPlans
+        - status
+        - nextRoundAt
+        - createdAt
+      description: The caller’s request to be matched in one session of an event
+      example:
+        id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+        eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+        sessionStartsAt: '2026-10-24T16:00:00.000Z'
+        desiredCompany: company
+        afterEventPlans:
+          - walk
+          - coffee
+        status: in_pool
+        nextRoundAt: '2026-10-21T16:00:00.000Z'
+        createdAt: '2026-10-15T09:00:00.000Z'
+    CommunicationFormat:
+      type: string
+      enum:
+        - friends
+        - dating
+        - company
+      description: What the user is looking for when they go to an event
+    AfterEventPlan:
+      type: string
+      enum:
+        - walk
+        - coffee
+        - dinner
+      description: Something to do together after the event
+    ApplicationStatus:
+      type: string
+      enum:
+        - in_pool
+        - paired
+        - paused
+        - removed
+        - withdrawn
+        - no_match
+        - cancelled
+      description: >-
+        `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`:
+        a proposal went unanswered, waiting for the user to continue. `removed`:
+        a second proposal went unanswered. `withdrawn`: the user left the pool.
+        `no_match`: no match was found before the event. `cancelled`: the event
+        was cancelled or the user banned
+    CreateApplicationBody:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          description: >-
+            The Kyiv day to go on; needed only for an event that runs on several
+            days
+        desiredCompany:
+          type: string
+          enum:
+            - friends
+            - dating
+            - company
+          description: What kind of company the user is looking for at this event
+        afterEventPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/AfterEventPlan'
+          maxItems: 3
+          description: >-
+            What the user would do together after the event; an empty list means
+            only the event
+      required:
+        - desiredCompany
+        - afterEventPlans
+      additionalProperties: false
+      example:
+        desiredCompany: company
+        afterEventPlans:
+          - walk
+          - coffee
+    ApplicationList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Application'
+      example:
+        - id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+          eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+          sessionStartsAt: '2026-10-24T16:00:00.000Z'
+          desiredCompany: company
+          afterEventPlans:
+            - walk
+            - coffee
+          status: in_pool
+          nextRoundAt: '2026-10-21T16:00:00.000Z'
+          createdAt: '2026-10-15T09:00:00.000Z'
     ReportCasesPage:
       type: object
       properties:
@@ -1244,13 +1383,6 @@ components:
       description: Only the fields to change; at least one
       example:
         communicationFormat: friends
-    CommunicationFormat:
-      type: string
-      enum:
-        - friends
-        - dating
-        - company
-      description: What the user is looking for when they go to an event
     ReplaceInterestsBody:
       type: object
       properties:
@@ -2337,6 +2469,205 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No active listing with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/applications:
+    post:
+      operationId: applyToEvent
+      summary: Ask for a match at an event
+      description: >-
+        Join the matching pool of the event with the answers to the matching
+        questions. A single-day event has one session; for an event that runs on
+        several days, `date` picks the day. The answer says when the next
+        matching round pairs the pool. Needs a signed-in account; a guest token
+        gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApplicationBody'
+      responses:
+        '201':
+          description: The application, waiting in the pool
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `ALREADY_APPLIED`: the caller is already in the pool of this
+            session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `PROFILE_INCOMPLETE`: the profile lacks a communication format, an
+            interest or a linked account; the app sends the user to complete it.
+            `EVENT_CANCELLED`: the event is cancelled. `EVENT_STARTED`: the
+            session has already started. `INVALID_SESSION_DAY`: the event does
+            not run on `date`, or runs on several days and `date` is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/applications:
+    get:
+      operationId: listMyApplications
+      summary: List your applications
+      description: >-
+        The caller’s active applications (in the pool, paired or paused),
+        soonest session first. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The active applications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/applications/{id}:
+    get:
+      operationId: getApplication
+      summary: Get one of your applications
+      description: >-
+        Get one of the caller’s applications, whatever its status. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Application id
+          required: true
+          description: Application id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No application with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/applications/{id}/withdraw:
+    post:
+      operationId: withdrawApplication
+      summary: Leave the matching pool
+      description: >-
+        Withdraw one of the caller’s applications; withdrawing it again changes
+        nothing. The caller can apply to the same event again later. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Application id
+          required: true
+          description: Application id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The withdrawn application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No application with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`CONFLICT`: the application is no longer waiting in the pool.'
           content:
             application/json:
               schema:

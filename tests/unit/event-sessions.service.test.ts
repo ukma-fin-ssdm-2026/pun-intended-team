@@ -19,6 +19,9 @@ const EXHIBITION = { startsAt: '2026-10-20T19:00:00+03:00', endsAt: '2026-10-30T
 function makeService(event: Event | null = anEvent(), status: EventSession['status'] = 'scheduled') {
   const eventsRepository = { findById: mock.fn(() => Promise.resolve(event ?? undefined)) };
   const eventSessionsRepository = {
+    findByIds: mock.fn((ids: string[]) =>
+      Promise.resolve(ids.map((id) => ({ id, eventId: EVENT_ID, startsAt: '2026-10-22T16:00:00.000Z', status }))),
+    ),
     findOrCreate: mock.fn((eventId: string, startsAt: Date): Promise<EventSession> =>
       Promise.resolve({ id: SESSION_ID, eventId, startsAt: startsAt.toISOString(), status }),
     ),
@@ -114,5 +117,16 @@ describe('EventSessionsService.open', () => {
     const { service } = makeService(anEvent(), 'cancelled');
 
     await assert.rejects(service.open(EVENT_ID), rejectsWith('EVENT_CANCELLED'));
+  });
+});
+
+describe('EventSessionsService.getByIds', () => {
+  test('keys the sessions by id', async () => {
+    const { service } = makeService();
+
+    const sessions = await service.getByIds([SESSION_ID]);
+
+    assert.deepEqual([...sessions.keys()], [SESSION_ID]);
+    assert.equal(sessions.get(SESSION_ID)?.eventId, EVENT_ID);
   });
 });

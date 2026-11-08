@@ -20,10 +20,10 @@ actor "Candidate" as C
 
 == Apply ==
 
-U -> APP : apply to event session
-APP -> SRV : POST /sessions/{id}/applications
-SRV -> DB : insert application (in_pool)
-SRV --> APP : 202 Accepted — in pool, next round at …
+U -> APP : apply to an event (day of a multi-day event)
+APP -> SRV : POST /events/{id}/applications
+SRV -> DB : session of that day (created on the first application);\ninsert application (in_pool)
+SRV --> APP : 201 Created — in pool, next round at …
 
 == Scheduled round ==
 

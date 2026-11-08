@@ -59,6 +59,25 @@ A user's post such as "looking for company for an exhibition on Saturday".
 
 Related to: Account (author), Category, Event.
 
+### Application
+
+**Base path:** `/api/v1/applications`, created at `/api/v1/events/{id}/applications`
+
+A user's request to be matched in one session of an event: the event's only session, or one day of an event that runs on several days ([matching](../architecture/mechanisms/matching.md), rule 9).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `eventId` | UUID | |
+| `sessionStartsAt` | date-time | The event start, or the chosen day at the event's time of day, Kyiv time |
+| `desiredCompany` | `friends` \| `dating` \| `company` | The kind of company the user is looking for at this event; the app pre-fills it from the profile's `communicationFormat` |
+| `afterEventPlans` | array of `walk` \| `coffee` \| `dinner` | What the user would do together after the event; empty means only the event |
+| `status` | `in_pool` \| `paired` \| `paused` \| `removed` \| `withdrawn` \| `no_match` \| `cancelled` | `in_pool` until matching proposes a pair |
+| `nextRoundAt` | date-time or `null` | When the next matching round pairs the pool; `null` when the application is not waiting in the pool or no round is left |
+| `createdAt` | date-time | |
+
+Related to: Account (applicant), EventSession, Event.
+
 ### Profile
 
 **Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
@@ -183,6 +202,19 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/listings/{id}` | Signed-in user | `200` the listing | `400`, `401`, `404` |
 | `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401`, `422` |
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
+
+### Matching
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `POST` | `/api/v1/events/{id}/applications` | Signed-in user with a complete profile | `201` the application + `Location` header | `400`, `401`, `404`, `409`, `422` |
+| `GET` | `/api/v1/me/applications` | Signed-in user | `200` the caller's active applications | `401` |
+| `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
+| `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
+
+`POST` takes `{ date?, desiredCompany, afterEventPlans }` and puts the caller in the session's pool. A single-day event has one session and needs no `date`; an event that runs on several days has one session per day, and `date` picks it. The first application to a session creates it. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A session that has started takes no applications, and a caller already in its pool (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+
+`GET /me/applications` lists the active applications, soonest session first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it (FR-031); withdrawing it again changes nothing, and the caller may apply to the same session again. Another status answers `409 CONFLICT`. Someone else's application is a `404`.
 
 ### Profile and Interests
 
@@ -325,11 +357,14 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
-| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings` | The event is cancelled, so it can no longer be edited or have listings posted for it |
+| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username is the caller's own |
+| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `EVENT_STARTED` | `POST /events/{id}/applications` | The session has already started |
+| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on `date`, or it runs on several days and `date` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 
@@ -339,6 +374,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 |---|---|---|
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
+| `ALREADY_APPLIED` | `POST /events/{id}/applications` | The caller is already in the pool of this session |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 | `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/dismiss` | The case is about the calling administrator; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |

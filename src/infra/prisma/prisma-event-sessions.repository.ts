@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventSessionsRepository } from '../../core/catalog/repositories/event-sessions.repository.ts';
 import type { EventSession } from '../../core/catalog/types/event-session.ts';
+import type { EventSession as EventSessionRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 
 @Injectable()
@@ -14,6 +15,15 @@ export class PrismaEventSessionsRepository implements EventSessionsRepository {
     const row = await this.prisma.eventSession.findUniqueOrThrow({
       where: { eventId_startsAt: { eventId, startsAt } },
     });
-    return { id: row.id, eventId: row.eventId, startsAt: row.startsAt.toISOString(), status: row.status };
+    return toEventSession(row);
   }
+
+  async findByIds(ids: string[]): Promise<EventSession[]> {
+    const rows = await this.prisma.eventSession.findMany({ where: { id: { in: ids } } });
+    return rows.map(toEventSession);
+  }
+}
+
+function toEventSession(row: EventSessionRow): EventSession {
+  return { id: row.id, eventId: row.eventId, startsAt: row.startsAt.toISOString(), status: row.status };
 }

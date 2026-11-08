@@ -67,7 +67,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 | `/auth` | public, rate-limited | register, verify code, sign in, refresh, reset, guest token; Google registration and sign-in only for now ([ADR-004](decisions/ADR-004.md)) |
 | `/me`, `/profiles` | user | FR-002, FR-004, FR-032 |
 | `/events`, `/venues`, `/categories` | guest or user read; verified organization write (events, venues) | FR-006–FR-013 |
-| `/sessions/{id}/applications` | user | FR-016, FR-031 |
+| `/events/{id}/applications`, `/me/applications`, `/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |
 | `/reports` | user | FR-025 |

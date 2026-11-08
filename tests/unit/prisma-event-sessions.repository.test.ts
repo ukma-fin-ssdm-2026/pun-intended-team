@@ -11,6 +11,9 @@ const STARTS_AT = new Date('2026-10-22T16:00:00.000Z');
 function makeRepository() {
   const eventSession = {
     createMany: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve({ count: 0 })),
+    findMany: mock.fn<(args: unknown) => Promise<unknown>>(() =>
+      Promise.resolve([{ id: SESSION_ID, eventId: EVENT_ID, startsAt: STARTS_AT, status: 'scheduled' }]),
+    ),
     findUniqueOrThrow: mock.fn<(args: unknown) => Promise<unknown>>(() =>
       Promise.resolve({ id: SESSION_ID, eventId: EVENT_ID, startsAt: STARTS_AT, status: 'scheduled' }),
     ),
@@ -40,5 +43,16 @@ describe('PrismaEventSessionsRepository.findOrCreate', () => {
       startsAt: '2026-10-22T16:00:00.000Z',
       status: 'scheduled',
     });
+  });
+});
+
+describe('PrismaEventSessionsRepository.findByIds', () => {
+  test('reads the sessions with these ids', async () => {
+    const { repository, eventSession } = makeRepository();
+
+    const sessions = await repository.findByIds([SESSION_ID]);
+
+    assert.deepEqual(eventSession.findMany.mock.calls[0]?.arguments[0], { where: { id: { in: [SESSION_ID] } } });
+    assert.equal(sessions[0]?.startsAt, '2026-10-22T16:00:00.000Z');
   });
 });

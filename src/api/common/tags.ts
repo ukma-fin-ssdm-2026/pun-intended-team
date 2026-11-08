@@ -4,6 +4,7 @@ export const tags = [
   { name: 'Auth', description: 'Registration, sign-in methods and guest tokens' },
   { name: 'Events', description: 'Events users can go to together' },
   { name: 'Listings', description: '"Looking for company" posts' },
+  { name: 'Matching', description: 'Asking for a match at an event and leaving the pool' },
   { name: 'Profiles', description: 'The signed-in user’s profile, filled in step by step during onboarding' },
   { name: 'Interests', description: 'The fixed list of interests users pick from' },
   { name: 'Categories', description: 'The event category directory' },

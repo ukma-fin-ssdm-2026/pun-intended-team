@@ -17,6 +17,12 @@ export const Routes = {
     list: '/api/v1/events',
     byId: '/api/v1/events/{id}',
     cancel: '/api/v1/events/{id}/cancel',
+    applications: '/api/v1/events/{id}/applications',
+  },
+  applications: {
+    mine: '/api/v1/me/applications',
+    byId: '/api/v1/applications/{id}',
+    withdraw: '/api/v1/applications/{id}/withdraw',
   },
   listings: {
     list: '/api/v1/listings',
