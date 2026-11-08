@@ -9,11 +9,15 @@ export type AfterEventPlan = (typeof afterEventPlans)[number];
 
 export type ApplicationStatus = 'in_pool' | 'paired' | 'paused' | 'removed' | 'withdrawn' | 'no_match' | 'cancelled';
 
-/** A user's request to be matched in one event session, with their answers to the matching questions. */
+/**
+ * A user's request to be matched at one event, with their answers to the matching questions. `sessionIds` are the
+ * days the user can go: one for a single-day event, any of those picked for a multi-day one (matching.md, rule 9).
+ */
 export interface Application {
   id: string;
   userId: string;
-  sessionId: string;
+  eventId: string;
+  sessionIds: string[];
   desiredCompany: CommunicationFormat;
   afterEventPlans: AfterEventPlan[];
   status: ApplicationStatus;
@@ -22,20 +26,22 @@ export interface Application {
 
 export interface NewApplication {
   eventId: string;
-  /** The Kyiv day of a multi-day event; a single-day event needs none. */
-  date?: string;
+  /** The Kyiv days of a multi-day event the user can go on; a single-day event needs none. */
+  dates?: string[];
   desiredCompany: CommunicationFormat;
   afterEventPlans: AfterEventPlan[];
 }
 
-export type ApplicationRecord = Pick<Application, 'userId' | 'sessionId' | 'desiredCompany' | 'afterEventPlans'>;
+export type ApplicationRecord = Pick<
+  Application,
+  'userId' | 'eventId' | 'sessionIds' | 'desiredCompany' | 'afterEventPlans'
+>;
 
-/** What the owner sees: the session it is in, and when the next round pairs its pool. */
-export interface ApplicationDetails extends Application {
-  eventId: string;
-  sessionStartsAt: EventSession['startsAt'];
-  /** When matching for the session stops; after the last round and before it, the pool is in open mode. */
+/** What the owner sees: the days with their cutoffs, and when matching next and last runs for them. */
+export interface ApplicationDetails extends Omit<Application, 'sessionIds'> {
+  sessions: Pick<EventSession, 'startsAt' | 'cutoffAt'>[];
+  /** The last day's cutoff: until then the application can be matched. */
   cutoffAt: EventSession['cutoffAt'];
-  /** Null when the application is not waiting in the pool or no round is left. */
+  /** The earliest round still to come on any of the days; null when not waiting in the pool or none is left. */
   nextRoundAt: string | null;
 }

@@ -13,9 +13,15 @@ import type { AfterEventPlan, Application as ApplicationRow } from './generated/
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
 
-const withPlans = { afterEventPlans: { select: { plan: true } } } as const;
+const withDaysAndPlans = {
+  sessions: { select: { sessionId: true } },
+  afterEventPlans: { select: { plan: true } },
+} as const;
 
-type ApplicationWithPlans = ApplicationRow & { afterEventPlans: { plan: AfterEventPlan }[] };
+type ApplicationWithDaysAndPlans = ApplicationRow & {
+  sessions: { sessionId: string }[];
+  afterEventPlans: { plan: AfterEventPlan }[];
+};
 
 @Injectable()
 export class PrismaApplicationsRepository implements ApplicationsRepository {
@@ -26,36 +32,37 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       const row = await this.prisma.application.create({
         data: {
           userId: application.userId,
-          sessionId: application.sessionId,
+          eventId: application.eventId,
           desiredCompany: toDesiredCompany[application.desiredCompany],
+          sessions: { create: application.sessionIds.map((sessionId) => ({ sessionId })) },
           afterEventPlans: { create: application.afterEventPlans.map((plan) => ({ plan })) },
         },
-        include: withPlans,
+        include: withDaysAndPlans,
       });
       return toApplication(row);
     } catch (error) {
       // The service checks first; of two applications at once, the index stops the second.
-      if (violatedIndex(error) === 'applications_user_id_session_id_active_key') {
-        throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this session');
+      if (violatedIndex(error) === 'applications_user_id_event_id_active_key') {
+        throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this event');
       }
       throw error;
     }
   }
 
   async findById(id: string): Promise<Application | undefined> {
-    const row = await this.prisma.application.findUnique({ where: { id }, include: withPlans });
+    const row = await this.prisma.application.findUnique({ where: { id }, include: withDaysAndPlans });
     return row ? toApplication(row) : undefined;
   }
 
-  async findByUserAndSession(userId: string, sessionId: string): Promise<Application[]> {
-    const rows = await this.prisma.application.findMany({ where: { userId, sessionId }, include: withPlans });
+  async findByUserAndEvent(userId: string, eventId: string): Promise<Application[]> {
+    const rows = await this.prisma.application.findMany({ where: { userId, eventId }, include: withDaysAndPlans });
     return rows.map(toApplication);
   }
 
   async findByUserWithStatus(userId: string, statuses: ApplicationStatus[]): Promise<Application[]> {
     const rows = await this.prisma.application.findMany({
       where: { userId, status: { in: statuses } },
-      include: withPlans,
+      include: withDaysAndPlans,
     });
     return rows.map(toApplication);
   }
@@ -69,11 +76,12 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 }
 
-function toApplication(row: ApplicationWithPlans): Application {
+function toApplication(row: ApplicationWithDaysAndPlans): Application {
   return {
     id: row.id,
     userId: row.userId,
-    sessionId: row.sessionId,
+    eventId: row.eventId,
+    sessionIds: row.sessions.map(({ sessionId }) => sessionId),
     desiredCompany: toCommunicationFormat[row.desiredCompany],
     afterEventPlans: row.afterEventPlans
       .map(({ plan }) => plan)

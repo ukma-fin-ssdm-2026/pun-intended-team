@@ -24,17 +24,30 @@ const AfterEventPlans = z
   .refine((plans) => new Set(plans).size === plans.length, { message: 'Each plan may appear once' })
   .describe('What the user would do together after the event; an empty list means only the event');
 
+const ApplicationSession = z
+  .object({
+    startsAt: z.iso
+      .datetime({ offset: true })
+      .describe('The event start, or a picked day of a multi-day event at its time of day'),
+    cutoffAt: z.iso
+      .datetime({ offset: true })
+      .describe(
+        'When matching for this day stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode',
+      ),
+  })
+  .meta({ id: 'ApplicationSession', description: 'A day the user can go' });
+
 const ApplicationFields = z.object({
   id: Id,
   eventId: Id,
-  sessionStartsAt: z.iso
-    .datetime({ offset: true })
-    .describe('When the session starts: the event start, or the chosen day of a multi-day event at its time of day'),
+  sessions: z
+    .array(ApplicationSession)
+    .describe(
+      "The days the user can go, soonest first: the event's only session, or the picked days of a multi-day event",
+    ),
   cutoffAt: z.iso
     .datetime({ offset: true })
-    .describe(
-      'When matching for the session stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends. After the last round and before this, the pool is in open mode',
-    ),
+    .describe("The last day's cutoff: until then the application can be matched"),
   desiredCompany: CommunicationFormat,
   afterEventPlans: z
     .array(AfterEventPlan)
@@ -44,7 +57,7 @@ const ApplicationFields = z.object({
     .datetime({ offset: true })
     .nullable()
     .describe(
-      'When the next matching round pairs the pool; null when the application is not waiting in the pool or no round is left',
+      'The earliest matching round still to come on any of the days; null when the application is not waiting in the pool or no round is left',
     ),
   createdAt: z.iso.datetime({ offset: true }),
 });
@@ -52,8 +65,11 @@ const ApplicationFields = z.object({
 export const applicationExample: Application = {
   id: '4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11',
   eventId: 'a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e',
-  sessionStartsAt: '2026-10-24T16:00:00.000Z',
-  cutoffAt: '2026-10-24T15:00:00.000Z',
+  sessions: [
+    { startsAt: '2026-10-24T16:00:00.000Z', cutoffAt: '2026-10-24T15:00:00.000Z' },
+    { startsAt: '2026-10-25T17:00:00.000Z', cutoffAt: '2026-10-25T16:00:00.000Z' },
+  ],
+  cutoffAt: '2026-10-25T16:00:00.000Z',
   desiredCompany: 'company',
   afterEventPlans: ['walk', 'coffee'],
   status: 'in_pool',
@@ -73,8 +89,19 @@ export const ApplicationIdParams = z.object({
   id: Id.describe('Application id'),
 });
 
+// A month of an exhibition's days; more would rarely be meant.
+const MAX_DAYS = 31;
+
 const CreateApplicationFields = z.strictObject({
-  date: CalendarDate.optional().describe('The Kyiv day to go on; needed only for an event that runs on several days'),
+  dates: z
+    .array(CalendarDate)
+    .min(1)
+    .max(MAX_DAYS)
+    .refine((dates) => new Set(dates).size === dates.length, { message: 'Each day may appear once' })
+    .optional()
+    .describe(
+      'The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days',
+    ),
   desiredCompany: CommunicationFormat.describe('What kind of company the user is looking for at this event'),
   afterEventPlans: AfterEventPlans,
 });

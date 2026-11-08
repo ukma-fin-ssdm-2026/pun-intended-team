@@ -21,33 +21,34 @@ export class ApplicationsService {
     private readonly profilesService: ProfilesService,
   ) {}
 
-  /** Puts the user in the pool of the event's session (UC-001 steps 2–5). */
+  /** Puts the user in the pool of the event for the days they can go (UC-001 steps 2–5). */
   async apply(userId: string, input: NewApplication): Promise<ApplicationDetails> {
-    // Checked before the session is opened, so an incomplete profile never creates one.
+    // Checked before the sessions are opened, so an incomplete profile never creates one.
     if (!(await this.profilesService.isComplete(userId))) {
       throw new DomainError('PROFILE_INCOMPLETE', 'Complete the profile before asking for a match');
     }
-    const session = await this.eventSessionsService.open(input.eventId, input.date);
-    const existing = await this.applicationsRepository.findByUserAndSession(userId, session.id);
+    const sessions = await this.eventSessionsService.open(input.eventId, input.dates);
+    const existing = await this.applicationsRepository.findByUserAndEvent(userId, input.eventId);
     if (!canApply(existing.map((application) => application.status))) {
-      throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this session');
+      throw new DomainError('ALREADY_APPLIED', 'The user is already in the pool of this event');
     }
     const application = await this.applicationsRepository.create({
       userId,
-      sessionId: session.id,
+      eventId: input.eventId,
+      sessionIds: sessions.map(({ id }) => id),
       desiredCompany: input.desiredCompany,
       afterEventPlans: input.afterEventPlans,
     });
-    return withSession(application, session);
+    return withSessions(application, new Map(sessions.map((session) => [session.id, session])));
   }
 
-  /** The user's active applications, soonest session first. */
+  /** The user's active applications, soonest first day first. */
   async listMine(userId: string): Promise<ApplicationDetails[]> {
     const applications = await this.applicationsRepository.findByUserWithStatus(userId, ACTIVE);
-    const sessions = await this.eventSessionsService.getByIds(applications.map(({ sessionId }) => sessionId));
+    const sessions = await this.eventSessionsService.getByIds(applications.flatMap(({ sessionIds }) => sessionIds));
     return applications
-      .map((application) => withSession(application, required(sessions.get(application.sessionId))))
-      .sort((a, b) => a.sessionStartsAt.localeCompare(b.sessionStartsAt));
+      .map((application) => withSessions(application, sessions))
+      .sort((a, b) => firstStart(a).localeCompare(firstStart(b)));
   }
 
   async getOwn(userId: string, id: string): Promise<ApplicationDetails> {
@@ -77,23 +78,40 @@ export class ApplicationsService {
   }
 
   private async withSessionOf(application: Application): Promise<ApplicationDetails> {
-    const sessions = await this.eventSessionsService.getByIds([application.sessionId]);
-    return withSession(application, required(sessions.get(application.sessionId)));
+    return withSessions(application, await this.eventSessionsService.getByIds(application.sessionIds));
   }
 }
 
-function withSession(application: Application, session: EventSession): ApplicationDetails {
-  const round = application.status === 'in_pool' ? nextRoundAt(session.startsAt) : undefined;
+function withSessions(
+  { sessionIds, ...application }: Application,
+  allSessions: Map<string, EventSession>,
+): ApplicationDetails {
+  const sessions = sessionIds.map((id) => required(allSessions.get(id))).sort(byStart);
+  const rounds =
+    application.status === 'in_pool'
+      ? sessions.flatMap(({ startsAt }) => nextRoundAt(startsAt) ?? []).sort((a, b) => a.getTime() - b.getTime())
+      : [];
   return {
     ...application,
-    eventId: session.eventId,
-    sessionStartsAt: session.startsAt,
-    cutoffAt: session.cutoffAt,
-    nextRoundAt: round?.toISOString() ?? null,
+    sessions: sessions.map(({ startsAt, cutoffAt }) => ({ startsAt, cutoffAt })),
+    cutoffAt:
+      sessions
+        .map(({ cutoffAt }) => cutoffAt)
+        .sort()
+        .at(-1) ?? '',
+    nextRoundAt: rounds[0]?.toISOString() ?? null,
   };
 }
 
-/** An application always has a session; a missing one is a data bug, so a 500. */
+function byStart(a: EventSession, b: EventSession): number {
+  return a.startsAt.localeCompare(b.startsAt);
+}
+
+function firstStart(application: ApplicationDetails): string {
+  return application.sessions[0]?.startsAt ?? '';
+}
+
+/** An application always has its sessions; a missing one is a data bug, so a 500. */
 function required(session: EventSession | undefined): EventSession {
   if (!session) {
     throw new Error('Application refers to a missing event session');

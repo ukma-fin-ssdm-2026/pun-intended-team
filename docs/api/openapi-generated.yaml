@@ -870,19 +870,17 @@ components:
         eventId:
           type: string
           format: uuid
-        sessionStartsAt:
-          type: string
-          format: date-time
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationSession'
           description: >-
-            When the session starts: the event start, or the chosen day of a
-            multi-day event at its time of day
+            The days the user can go, soonest first: the event's only session,
+            or the picked days of a multi-day event
         cutoffAt:
           type: string
           format: date-time
-          description: >-
-            When matching for the session stops: an hour before it starts, or
-            for a session of 3 hours or more 2 hours before it ends. After the
-            last round and before this, the pool is in open mode
+          description: 'The last day''s cutoff: until then the application can be matched'
         desiredCompany:
           $ref: '#/components/schemas/CommunicationFormat'
         afterEventPlans:
@@ -899,15 +897,15 @@ components:
           nullable: true
           format: date-time
           description: >-
-            When the next matching round pairs the pool; null when the
-            application is not waiting in the pool or no round is left
+            The earliest matching round still to come on any of the days; null
+            when the application is not waiting in the pool or no round is left
         createdAt:
           type: string
           format: date-time
       required:
         - id
         - eventId
-        - sessionStartsAt
+        - sessions
         - cutoffAt
         - desiredCompany
         - afterEventPlans
@@ -918,8 +916,12 @@ components:
       example:
         id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
         eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
-        sessionStartsAt: '2026-10-24T16:00:00.000Z'
-        cutoffAt: '2026-10-24T15:00:00.000Z'
+        sessions:
+          - startsAt: '2026-10-24T16:00:00.000Z'
+            cutoffAt: '2026-10-24T15:00:00.000Z'
+          - startsAt: '2026-10-25T17:00:00.000Z'
+            cutoffAt: '2026-10-25T16:00:00.000Z'
+        cutoffAt: '2026-10-25T16:00:00.000Z'
         desiredCompany: company
         afterEventPlans:
           - walk
@@ -927,6 +929,26 @@ components:
         status: in_pool
         nextRoundAt: '2026-10-21T16:00:00.000Z'
         createdAt: '2026-10-15T09:00:00.000Z'
+    ApplicationSession:
+      type: object
+      properties:
+        startsAt:
+          type: string
+          format: date-time
+          description: >-
+            The event start, or a picked day of a multi-day event at its time of
+            day
+        cutoffAt:
+          type: string
+          format: date-time
+          description: >-
+            When matching for this day stops: an hour before it starts, or for a
+            session of 3 hours or more 2 hours before it ends. After the last
+            round and before this, the pool is in open mode
+      required:
+        - startsAt
+        - cutoffAt
+      description: A day the user can go
     CommunicationFormat:
       type: string
       enum:
@@ -960,12 +982,16 @@ components:
     CreateApplicationBody:
       type: object
       properties:
-        date:
-          type: string
-          format: date
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+          minItems: 1
+          maxItems: 31
           description: >-
-            The Kyiv day to go on; needed only for an event that runs on several
-            days
+            The Kyiv days the user can go on, any one of which suits them;
+            needed only for an event that runs on several days
         desiredCompany:
           type: string
           enum:
@@ -997,8 +1023,12 @@ components:
       example:
         - id: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
           eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
-          sessionStartsAt: '2026-10-24T16:00:00.000Z'
-          cutoffAt: '2026-10-24T15:00:00.000Z'
+          sessions:
+            - startsAt: '2026-10-24T16:00:00.000Z'
+              cutoffAt: '2026-10-24T15:00:00.000Z'
+            - startsAt: '2026-10-25T17:00:00.000Z'
+              cutoffAt: '2026-10-25T16:00:00.000Z'
+          cutoffAt: '2026-10-25T16:00:00.000Z'
           desiredCompany: company
           afterEventPlans:
             - walk
@@ -2819,9 +2849,9 @@ paths:
       description: >-
         Join the matching pool of the event with the answers to the matching
         questions. A single-day event has one session; for an event that runs on
-        several days, `date` picks the day. The answer says when the next
-        matching round pairs the pool. Needs a signed-in account; a guest token
-        gets 401.
+        several days, `dates` lists the days the user can go, and a match picks
+        one of them. The answer says when the next matching round runs. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Matching
       security:
@@ -2871,9 +2901,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: >-
-            `ALREADY_APPLIED`: the caller is already in the pool of this
-            session.
+          description: '`ALREADY_APPLIED`: the caller is already in the pool of this event.'
           content:
             application/json:
               schema:
@@ -2883,10 +2911,10 @@ paths:
             `PROFILE_INCOMPLETE`: the profile lacks a communication format, an
             interest or a linked account; the app sends the user to complete it.
             `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`:
-            the session’s cutoff has passed: an hour before it starts, or for a
-            session of 3 hours or more, 2 hours before it ends.
-            `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on
-            several days and `date` is missing.
+            the cutoff of a picked day has passed: an hour before it starts, or
+            for a session of 3 hours or more, 2 hours before it ends.
+            `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or
+            runs on several days and `dates` is missing.
           content:
             application/json:
               schema:
@@ -2897,7 +2925,7 @@ paths:
       summary: List your applications
       description: >-
         The caller’s active applications (in the pool, paired or paused),
-        soonest session first. Needs a signed-in account; a guest token gets
+        soonest first day first. Needs a signed-in account; a guest token gets
         401.
       tags:
         - Matching

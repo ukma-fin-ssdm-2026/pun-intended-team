@@ -1468,7 +1468,9 @@ describe('Applications', () => {
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal(res.headers.get('location'), `/api/v1/applications/${res.body.id}`);
     assert.equal(res.body.eventId, soonEvent);
-    assert.equal(res.body.sessionStartsAt, new Date(start).toISOString());
+    assert.deepEqual(res.body.sessions, [
+      { startsAt: new Date(start).toISOString(), cutoffAt: new Date(start - 60 * 60 * 1000).toISOString() },
+    ]);
     assert.equal(res.body.status, 'in_pool');
     assert.equal(res.body.desiredCompany, 'company');
     assert.deepEqual(res.body.afterEventPlans, ['walk', 'coffee']);
@@ -1486,15 +1488,28 @@ describe('Applications', () => {
     assert.deepEqual(res.body.afterEventPlans, []);
   });
 
-  test('puts the caller in the session of the chosen day of a multi-day event', async () => {
+  test('puts the caller in the pool of a multi-day event for the picked days', async () => {
     const { token } = await newCompleteProfile();
     const { startsAt, endsAt } = multiDay();
     const eventId = await newEventAt(startsAt, endsAt);
 
-    const res = await apply(token, eventId, { ...answers, date: inDays(4) });
+    const res = await apply(token, eventId, { ...answers, dates: [inDays(4), inDays(3)] });
 
     assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.equal(res.body.sessionStartsAt, at19(inDays(4)));
+    assert.deepEqual(
+      res.body.sessions.map(({ startsAt }: { startsAt: string }) => startsAt),
+      [at19(inDays(3)), at19(inDays(4))],
+    );
+    assert.equal(res.body.cutoffAt, res.body.sessions[1].cutoffAt);
+  });
+
+  test('rejects a second application to another day of the same event with 409', async () => {
+    const { token } = await newCompleteProfile();
+    const { startsAt, endsAt } = multiDay();
+    const eventId = await newEventAt(startsAt, endsAt);
+    assert.equal((await apply(token, eventId, { ...answers, dates: [inDays(3)] })).status, 201);
+
+    assertRejected(await apply(token, eventId, { ...answers, dates: [inDays(4)] }), 409, 'ALREADY_APPLIED');
   });
 
   test('rejects a multi-day event without a day, or with a day it does not run on, with 422', async () => {
@@ -1503,7 +1518,13 @@ describe('Applications', () => {
     const eventId = await newEventAt(startsAt, endsAt);
 
     assertRejected(await apply(token, eventId), 422, 'INVALID_SESSION_DAY');
-    assertRejected(await apply(token, eventId, { ...answers, date: inDays(6) }), 422, 'INVALID_SESSION_DAY');
+    assertRejected(await apply(token, eventId, { ...answers, dates: [inDays(6)] }), 422, 'INVALID_SESSION_DAY');
+    assertRejected(
+      await apply(token, eventId, { ...answers, dates: [inDays(3), inDays(6)] }),
+      422,
+      'INVALID_SESSION_DAY',
+    );
+    assert.deepEqual((await call('GET', '/api/v1/me/applications', { token })).body, []);
   });
 
   test('rejects a profile that matching cannot use yet with 422', async () => {
@@ -1587,8 +1608,10 @@ describe('Applications', () => {
     assert.deepEqual(statuses, [201, 409]);
   });
 
-  test('rejects a plan given twice or unknown, and missing answers, with 400', async () => {
+  test('rejects a plan or a day given twice, an unknown plan, and missing answers, with 400', async () => {
     const { token } = await newCompleteProfile();
+
+    assertInvalid(await apply(token, soonEvent, { ...answers, dates: [inDays(13), inDays(13)] }), 'body', 'dates');
 
     assertInvalid(
       await apply(token, soonEvent, { ...answers, afterEventPlans: ['walk', 'walk'] }),

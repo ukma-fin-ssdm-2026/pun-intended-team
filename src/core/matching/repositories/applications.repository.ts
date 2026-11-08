@@ -2,12 +2,12 @@
 import type { Application, ApplicationRecord, ApplicationStatus } from '../types/application.ts';
 
 export abstract class ApplicationsRepository {
-  /** Throws ALREADY_APPLIED when the user already has an active application for the session. */
+  /** Throws ALREADY_APPLIED when the user already has an active application for the event. */
   abstract create(application: ApplicationRecord): Promise<Application>;
 
   abstract findById(id: string): Promise<Application | undefined>;
 
-  abstract findByUserAndSession(userId: string, sessionId: string): Promise<Application[]>;
+  abstract findByUserAndEvent(userId: string, eventId: string): Promise<Application[]>;
 
   abstract findByUserWithStatus(userId: string, statuses: ApplicationStatus[]): Promise<Application[]>;
 

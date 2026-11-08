@@ -42,7 +42,8 @@ function anApplication(overrides: Partial<Application> = {}): Application {
   return {
     id: APPLICATION_ID,
     userId: ACCOUNT_ID,
-    sessionId: SESSION_ID,
+    eventId: EVENT_ID,
+    sessionIds: [SESSION_ID],
     desiredCompany: 'company',
     afterEventPlans: ['walk'],
     status: 'in_pool',
@@ -55,14 +56,14 @@ function makeService({ complete = true, existing = [] as Application[], stored =
   const applicationsRepository = {
     create: mock.fn((record: ApplicationRecord) => Promise.resolve(anApplication(record))),
     findById: mock.fn((): Promise<Application | undefined> => Promise.resolve(stored)),
-    findByUserAndSession: mock.fn(() => Promise.resolve(existing)),
+    findByUserAndEvent: mock.fn(() => Promise.resolve(existing)),
     findByUserWithStatus: mock.fn<(userId: string, statuses: ApplicationStatus[]) => Promise<Application[]>>(() =>
       Promise.resolve(existing),
     ),
     withdraw: mock.fn((): Promise<Application | undefined> => Promise.resolve(anApplication({ status: 'withdrawn' }))),
   };
   const eventSessionsService = {
-    open: mock.fn<(eventId: string, day?: string) => Promise<EventSession>>(() => Promise.resolve(SESSION)),
+    open: mock.fn<(eventId: string, days?: string[]) => Promise<EventSession[]>>(() => Promise.resolve([SESSION])),
     getByIds: mock.fn(() =>
       Promise.resolve(
         new Map([
@@ -88,21 +89,27 @@ function isDomainError(code: string) {
 describe('ApplicationsService.apply', () => {
   useFixedClock();
 
-  test('puts the user in the pool of the session with their answers and the next round', async () => {
+  test('puts the user in the pool of the event for their days, with their answers and the next round', async () => {
     const { service, applicationsRepository, eventSessionsService } = makeService();
+    eventSessionsService.open.mock.mockImplementation(() => Promise.resolve([SESSION, LATER_SESSION]));
 
-    const application = await service.apply(ACCOUNT_ID, { ...INPUT, date: '2026-10-25' });
+    const application = await service.apply(ACCOUNT_ID, { ...INPUT, dates: ['2026-10-25', '2026-10-28'] });
 
-    assert.deepEqual(eventSessionsService.open.mock.calls[0]?.arguments, [EVENT_ID, '2026-10-25']);
+    assert.deepEqual(eventSessionsService.open.mock.calls[0]?.arguments, [EVENT_ID, ['2026-10-25', '2026-10-28']]);
     assert.deepEqual(applicationsRepository.create.mock.calls[0]?.arguments[0], {
       userId: ACCOUNT_ID,
-      sessionId: SESSION_ID,
+      eventId: EVENT_ID,
+      sessionIds: [SESSION_ID, LATER_SESSION_ID],
       desiredCompany: 'company',
       afterEventPlans: ['walk'],
     });
     assert.equal(application.eventId, EVENT_ID);
-    assert.equal(application.sessionStartsAt, SESSION.startsAt);
-    assert.equal(application.cutoffAt, SESSION.cutoffAt);
+    assert.deepEqual(application.sessions, [
+      { startsAt: SESSION.startsAt, cutoffAt: SESSION.cutoffAt },
+      { startsAt: LATER_SESSION.startsAt, cutoffAt: LATER_SESSION.cutoffAt },
+    ]);
+    // The application can be matched until the last day's cutoff; the next round is the soonest of either day.
+    assert.equal(application.cutoffAt, LATER_SESSION.cutoffAt);
     assert.equal(application.nextRoundAt, '2026-10-18T17:00:00.000Z');
   });
 
@@ -135,7 +142,7 @@ describe('ApplicationsService.listMine', () => {
   useFixedClock();
 
   test('asks for the active applications and puts the soonest session first', async () => {
-    const later = anApplication({ id: 'later', sessionId: LATER_SESSION_ID });
+    const later = anApplication({ id: 'later', sessionIds: [LATER_SESSION_ID] });
     const sooner = anApplication({ id: 'sooner', status: 'paused' });
     const { service, applicationsRepository } = makeService({ existing: [later, sooner] });
 
@@ -154,7 +161,7 @@ describe('ApplicationsService.listMine', () => {
   });
 
   test('fails as a data error when a session is missing', async () => {
-    const { service } = makeService({ existing: [anApplication({ sessionId: 'gone' })] });
+    const { service } = makeService({ existing: [anApplication({ sessionIds: ['gone'] })] });
 
     await assert.rejects(
       service.listMine(ACCOUNT_ID),
@@ -221,7 +228,7 @@ describe('ApplicationsService.getOwn', () => {
 
     const application = await service.getOwn(ACCOUNT_ID, APPLICATION_ID);
 
-    assert.equal(application.sessionStartsAt, SESSION.startsAt);
+    assert.equal(application.sessions[0]?.startsAt, SESSION.startsAt);
   });
 
   test('reports an application that does not exist as missing', async () => {

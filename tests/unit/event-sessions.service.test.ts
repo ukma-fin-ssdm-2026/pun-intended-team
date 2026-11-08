@@ -46,7 +46,7 @@ describe('EventSessionsService.open', () => {
   test('opens the session of a single-day event at its start, with its cutoff an hour before', async () => {
     const { service, eventSessionsRepository } = makeService();
 
-    const session = await service.open(EVENT_ID);
+    const [session] = await service.open(EVENT_ID);
 
     assert.deepEqual(session, {
       id: SESSION_ID,
@@ -61,7 +61,7 @@ describe('EventSessionsService.open', () => {
   test('opens the session on the chosen day of a multi-day event', async () => {
     const { service } = makeService(anEvent(EXHIBITION));
 
-    const session = await service.open(EVENT_ID, '2026-10-26');
+    const [session] = await service.open(EVENT_ID, ['2026-10-26']);
 
     assert.equal(session.startsAt, '2026-10-26T17:00:00.000Z');
   });
@@ -72,7 +72,7 @@ describe('EventSessionsService.open', () => {
       anEvent({ startsAt: '2026-10-15T10:00:00+03:00', endsAt: '2026-10-15T18:00:00+03:00' }),
     );
 
-    const session = await service.open(EVENT_ID);
+    const [session] = await service.open(EVENT_ID);
 
     assert.equal(session.startsAt, '2026-10-15T07:00:00.000Z');
     assert.equal(session.cutoffAt, '2026-10-15T13:00:00.000Z');
@@ -83,7 +83,7 @@ describe('EventSessionsService.open', () => {
       anEvent({ startsAt: '2026-10-10T10:00:00+03:00', endsAt: '2026-10-30T18:00:00+02:00' }),
     );
 
-    const session = await service.open(EVENT_ID, '2026-10-15');
+    const [session] = await service.open(EVENT_ID, ['2026-10-15']);
 
     assert.equal(session.startsAt, '2026-10-15T07:00:00.000Z');
   });
@@ -91,9 +91,36 @@ describe('EventSessionsService.open', () => {
   test('opens a later day of a multi-day event that has already started', async () => {
     const { service } = makeService(anEvent({ ...EXHIBITION, startsAt: '2026-10-10T19:00:00+03:00' }));
 
-    const session = await service.open(EVENT_ID, '2026-10-16');
+    const [session] = await service.open(EVENT_ID, ['2026-10-16']);
 
     assert.equal(session.startsAt, '2026-10-16T16:00:00.000Z');
+  });
+
+  test('opens a session for each picked day, soonest first, once per day', async () => {
+    const { service, eventSessionsRepository } = makeService(anEvent(EXHIBITION));
+
+    const sessions = await service.open(EVENT_ID, ['2026-10-26', '2026-10-24', '2026-10-26']);
+
+    assert.deepEqual(
+      sessions.map(({ startsAt }) => startsAt),
+      ['2026-10-24T16:00:00.000Z', '2026-10-26T17:00:00.000Z'],
+    );
+    assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 2);
+  });
+
+  test('opens no session when one of the picked days is wrong', async () => {
+    const { service, eventSessionsRepository } = makeService(anEvent(EXHIBITION));
+
+    await assert.rejects(service.open(EVENT_ID, ['2026-10-24', '2026-10-31']), rejectsWith('INVALID_SESSION_DAY'));
+    assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 0);
+  });
+
+  test('takes an empty list of days as none', async () => {
+    const { service } = makeService();
+
+    const [session] = await service.open(EVENT_ID, []);
+
+    assert.equal(session?.startsAt, '2026-10-22T16:00:00.000Z');
   });
 
   const refusals = [
@@ -146,7 +173,7 @@ describe('EventSessionsService.open', () => {
     test(title, async () => {
       const { service, eventSessionsRepository } = makeService(event);
 
-      await assert.rejects(service.open(EVENT_ID, day), rejectsWith(code));
+      await assert.rejects(service.open(EVENT_ID, day && [day]), rejectsWith(code));
       assert.equal(eventSessionsRepository.findOrCreate.mock.callCount(), 0);
     });
   }

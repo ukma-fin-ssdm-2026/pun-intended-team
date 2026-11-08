@@ -79,30 +79,27 @@ function aCategory(db: pg.PoolClient): Promise<string> {
   ]);
 }
 
-async function aSession(db: pg.PoolClient): Promise<string> {
+async function anEvent(db: pg.PoolClient): Promise<string> {
   const categoryId = await aCategory(db);
   const venueId = await insertId(
     db,
     `INSERT INTO venues (name, address, latitude, longitude, source) VALUES ('Hall', 'Khreshchatyk 1', 50.45, 30.52, 'import')`,
     [],
   );
-  const eventId = await insertId(
+  return insertId(
     db,
     `INSERT INTO events (category_id, venue_id, source, title, description, starts_at, ends_at)
      VALUES ($1, $2, 'import', 'Concert', 'An evening concert.', '2026-11-20T19:00:00+02:00', '2026-11-20T21:00:00+02:00')`,
     [categoryId, venueId],
   );
-  return insertId(db, `INSERT INTO event_sessions (event_id, starts_at) VALUES ($1, '2026-11-20T19:00:00+02:00')`, [
-    eventId,
-  ]);
 }
 
-function anApplication(db: pg.PoolClient, userId: string, sessionId: string, status = 'in_pool'): Promise<string> {
+function anApplication(db: pg.PoolClient, userId: string, eventId: string, status = 'in_pool'): Promise<string> {
   return insertId(
     db,
-    `INSERT INTO applications (user_id, session_id, desired_company, status)
+    `INSERT INTO applications (user_id, event_id, desired_company, status)
      VALUES ($1, $2, 'friends', $3)`,
-    [userId, sessionId, status],
+    [userId, eventId, status],
   );
 }
 
@@ -275,28 +272,28 @@ describe('linked_accounts_profile_id_app_key', () => {
     }));
 });
 
-describe('applications_user_id_session_id_active_key', () => {
+describe('applications_user_id_event_id_active_key', () => {
   for (const status of ACTIVE_STATUSES) {
-    test(`rejects a second application to the session while one is ${status}`, () =>
+    test(`rejects a second application to the event while one is ${status}`, () =>
       inTransaction(async (db) => {
         const userId = await anAccount(db);
-        const sessionId = await aSession(db);
-        await anApplication(db, userId, sessionId, status);
+        const eventId = await anEvent(db);
+        await anApplication(db, userId, eventId, status);
 
-        const insert = anApplication(db, userId, sessionId);
+        const insert = anApplication(db, userId, eventId);
 
-        await assertViolates(insert, UNIQUE_VIOLATION, 'applications_user_id_session_id_active_key');
+        await assertViolates(insert, UNIQUE_VIOLATION, 'applications_user_id_event_id_active_key');
       }));
   }
 
   test('accepts a new application after the earlier one was removed', () =>
     inTransaction(async (db) => {
       const userId = await anAccount(db);
-      const sessionId = await aSession(db);
-      const earlier = await anApplication(db, userId, sessionId);
+      const eventId = await anEvent(db);
+      const earlier = await anApplication(db, userId, eventId);
       await db.query(`UPDATE applications SET status = 'removed' WHERE id = $1`, [earlier]);
 
-      await anApplication(db, userId, sessionId);
+      await anApplication(db, userId, eventId);
     }));
 });
 
@@ -362,7 +359,7 @@ describe('report_cases_one_target_check', () => {
 describe('matches_different_applications_check', () => {
   test('rejects a match of an application with itself', () =>
     inTransaction(async (db) => {
-      const applicationId = await anApplication(db, await anAccount(db), await aSession(db));
+      const applicationId = await anApplication(db, await anAccount(db), await anEvent(db));
 
       const insert = db.query(
         `INSERT INTO matches (application_a_id, application_b_id, source, score, seed, valid_until)

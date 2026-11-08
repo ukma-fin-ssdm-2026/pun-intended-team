@@ -20,9 +20,9 @@ actor "Candidate" as C
 
 == Apply ==
 
-U -> APP : apply to an event (day of a multi-day event)
+U -> APP : apply to an event (days of a multi-day event)
 APP -> SRV : POST /events/{id}/applications
-SRV -> DB : session of that day (created on the first application);\ninsert application (in_pool)
+SRV -> DB : sessions of the picked days (created on the first application);\ninsert application (in_pool) with its days
 SRV --> APP : 201 Created — in pool, next round at …
 
 == Scheduled round ==
@@ -49,7 +49,7 @@ SRV -> DB : check mutual + safety notice acknowledged
 SRV --> APP : contact details (FR-019)
 
 note over SRV
-  Server-side checks: per-session lock (FUNC-002),
+  Server-side checks: per-event lock (FUNC-002),
   404 unless mutual (SEC-001), contacts only after
   the safety notice (SAFE-002).
 end note

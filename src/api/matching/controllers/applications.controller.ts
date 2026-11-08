@@ -24,8 +24,8 @@ export class ApplicationsController {
     summary: 'Ask for a match at an event',
     description:
       'Join the matching pool of the event with the answers to the matching questions. A single-day event has one ' +
-      'session; for an event that runs on several days, `date` picks the day. The answer says when the next ' +
-      'matching round pairs the pool.',
+      'session; for an event that runs on several days, `dates` lists the days the user can go, and a match picks ' +
+      'one of them. The answer says when the next matching round runs.',
     tags: ['Matching'],
     access: 'user',
     request: ApplyRequest,
@@ -33,16 +33,16 @@ export class ApplicationsController {
       201: { description: 'The application, waiting in the pool', schema: Application },
       404: { description: 'No event with this id', schema: ErrorResponse },
       409: {
-        description: '`ALREADY_APPLIED`: the caller is already in the pool of this session.',
+        description: '`ALREADY_APPLIED`: the caller is already in the pool of this event.',
         schema: ErrorResponse,
       },
       422: {
         description:
           '`PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; ' +
           'the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. ' +
-          '`APPLICATIONS_CLOSED`: the session’s cutoff has passed: an hour before it starts, or for a session of 3 ' +
-          'hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on `date`, or ' +
-          'runs on several days and `date` is missing.',
+          '`APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a ' +
+          'session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on ' +
+          'one of `dates`, or runs on several days and `dates` is missing.',
         schema: ErrorResponse,
       },
     },
@@ -60,7 +60,7 @@ export class ApplicationsController {
     path: Routes.applications.mine,
     operationId: 'listMyApplications',
     summary: 'List your applications',
-    description: 'The caller’s active applications (in the pool, paired or paused), soonest session first.',
+    description: 'The caller’s active applications (in the pool, paired or paused), soonest first day first.',
     tags: ['Matching'],
     access: 'user',
     responses: {

@@ -134,7 +134,7 @@ Each process connects with its own database role; the import role can write only
 ## 5. Architectural Invariants
 
 - CMP-02 holds no in-memory session or request state (FLEX-002)
-- The instant-match path and the round job take the same per-session advisory lock before reading the pool, so a candidate is never claimed twice (FUNC-002)
+- The instant-match path and the round job take the same per-event advisory lock before reading the pool, so a candidate is never claimed twice (FUNC-002); an application can wait on several days of one event
 - The round algorithm runs in a worker thread and never blocks request handling (PERF-001)
 - Authorization, age checks and contact reveals are enforced in CMP-02 only (SEC-001, SAFE-001, SAFE-002)
 - A module never reads another module's tables, and module dependencies never form a cycle (§2.2)
