@@ -7,7 +7,6 @@ import type { Page, PageRequest } from '../../core/common/page.ts';
 import { eventInclude, toEvent } from './catalog-rows.ts';
 import { PrismaService } from './prisma.service.ts';
 
-// Event sessions are not created here: data-model.md creates them when the first user applies.
 @Injectable()
 export class PrismaEventsRepository implements EventsRepository {
   constructor(private readonly prisma: PrismaService) {}

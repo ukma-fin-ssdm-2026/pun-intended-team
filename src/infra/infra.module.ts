@@ -4,6 +4,7 @@ import { createRemoteJWKSet } from 'jose';
 import { BackupRunsRepository } from '../core/admin/repositories/backup-runs.repository.ts';
 import { TransactionRunner } from '../core/common/transaction-runner.ts';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
+import { EventSessionsRepository } from '../core/catalog/repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
@@ -17,6 +18,7 @@ import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
+import { ApplicationsRepository } from '../core/matching/repositories/applications.repository.ts';
 import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
 import { AuditLogRepository } from '../core/moderation/repositories/audit-log.repository.ts';
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
@@ -38,10 +40,12 @@ import { TelegramGatewaySender } from './messaging/telegram-gateway-sender.ts';
 import { TurboSmsSender } from './messaging/turbosms-sender.ts';
 import { PersonalDataCipher } from './prisma/personal-data-cipher.ts';
 import { PrismaAccountsRepository } from './prisma/prisma-accounts.repository.ts';
+import { PrismaApplicationsRepository } from './prisma/prisma-applications.repository.ts';
 import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.ts';
 import { PrismaBackupRunsRepository } from './prisma/prisma-backup-runs.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaDatabaseProbe } from './prisma/prisma-database-probe.ts';
+import { PrismaEventSessionsRepository } from './prisma/prisma-event-sessions.repository.ts';
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
@@ -57,6 +61,7 @@ import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: PrismaEventsRepository },
+  { provide: EventSessionsRepository, useClass: PrismaEventSessionsRepository },
   { provide: CategoriesRepository, useClass: PrismaCategoriesRepository },
   { provide: VenuesRepository, useClass: PrismaVenuesRepository },
   { provide: OrganizationsRepository, useClass: PrismaOrganizationsRepository },
@@ -67,6 +72,7 @@ const repositories = [
   { provide: ListingsRepository, useClass: PrismaListingsRepository },
   { provide: InterestsRepository, useClass: PrismaInterestsRepository },
   { provide: MatchesRepository, useClass: PrismaMatchesRepository },
+  { provide: ApplicationsRepository, useClass: PrismaApplicationsRepository },
   { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
   { provide: BackupRunsRepository, useClass: PrismaBackupRunsRepository },

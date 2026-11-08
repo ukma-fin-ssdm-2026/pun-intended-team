@@ -1,5 +1,6 @@
 // Written with the help of Claude
 // AI Usage: Ukrainian date labels and Kyiv calendar days for the catalog and event page; reviewed by Daryna Halytska.
+import { plural } from '@/plural';
 
 const kyivParts = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Europe/Kyiv',
@@ -71,9 +72,16 @@ export function formatTime(iso: string): string {
   return kyivTime(new Date(iso)).time;
 }
 
-// "19:00 – 21:30".
+// "19:00 – 21:30", or "з 10:00" when the end is unknown.
 export function formatTimeRange(startIso: string, endIso: string): string {
-  return `${kyivTime(new Date(startIso)).time} – ${kyivTime(new Date(endIso)).time}`;
+  const start = kyivTime(new Date(startIso)).time;
+  return endsUnknown(endIso) ? `з ${start}` : `${start} – ${kyivTime(new Date(endIso)).time}`;
+}
+
+// The import ends an event at the last millisecond of its Kyiv day when the provider gives no end time.
+function endsUnknown(endIso: string): boolean {
+  const next = Date.parse(endIso) + 1;
+  return next % 60_000 === 0 && kyivTime(new Date(next)).time === '00:00';
 }
 
 // Kyiv's offset from UTC at an instant, in minutes: 120 in winter, 180 in summer.
@@ -107,6 +115,58 @@ export function kyivDay(date: Date): KyivDay {
 function addDays(day: KyivDay, days: number): KyivDay {
   const [year, month, date] = day.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
+}
+
+// A month-long exhibition has about 30; the cap only stops a bad end date from looping for long.
+const MAX_SESSIONS = 366;
+
+// The starts of an event's sessions, as the API sets them (matching.md, rule 9): one on each Kyiv day from the start
+// date, at the event's Kyiv time of day, while that is before the end. More than one makes it a multi-day event.
+export function eventSessions(startsAt: string, endsAt: string): string[] {
+  const firstDay = kyivDay(new Date(startsAt));
+  const time = formatTime(startsAt);
+  const end = Date.parse(endsAt);
+  const sessions = [startsAt];
+  for (let day = addDays(firstDay, 1); sessions.length < MAX_SESSIONS; day = addDays(day, 1)) {
+    const start = kyivIso(day, time);
+    if (Date.parse(start) >= end) break;
+    sessions.push(start);
+  }
+  return sessions;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+// matching.md, policy: the cutoff is an hour before a session starts, or 2 hours before a session of 3 hours or more
+// ends.
+const CUTOFF_BEFORE_START_MS = HOUR_MS;
+const LONG_SESSION_MS = 3 * HOUR_MS;
+const CUTOFF_BEFORE_END_MS = 2 * HOUR_MS;
+
+// The cutoff of a session of eventSessions, as the API sets it: when matching stops and with it new applications. The
+// last session ends with the event; an earlier one at the event's end time on its day, or at midnight when that time
+// comes earlier in the day.
+export function sessionCutoff(startsAt: string, endsAt: string, sessionStart: string): number {
+  const sessions = eventSessions(startsAt, endsAt);
+  const start = Date.parse(sessionStart);
+  let end = Date.parse(endsAt);
+  if (sessions[sessions.length - 1] !== sessionStart) {
+    const day = kyivDay(new Date(sessionStart));
+    const onItsDay = Date.parse(kyivIso(day, formatTime(endsAt)));
+    end = onItsDay > start ? onItsDay : Date.parse(kyivIso(addDays(day, 1), '00:00')) - 1;
+  }
+  return end - start >= LONG_SESSION_MS ? end - CUTOFF_BEFORE_END_MS : start - CUTOFF_BEFORE_START_MS;
+}
+
+// "через 3 год", "завтра", "через 2 дні": how far away an instant is, for the next matching round.
+export function formatUntil(iso: string, now = new Date()): string {
+  const hours = Math.floor((Date.parse(iso) - now.getTime()) / HOUR_MS);
+  if (hours < 1) return 'менш ніж за годину';
+  if (hours < 24) return `через ${hours} год`;
+  const [year, month, date] = kyivDay(now).split('-').map(Number);
+  const [toYear, toMonth, toDate] = kyivDay(new Date(iso)).split('-').map(Number);
+  const days = (Date.UTC(toYear, toMonth - 1, toDate) - Date.UTC(year, month - 1, date)) / (24 * HOUR_MS);
+  if (days === 1) return 'завтра';
+  return `через ${days} ${plural(days, ['день', 'дні', 'днів'])}`;
 }
 
 export function tomorrow(today: KyivDay): KyivDay {
