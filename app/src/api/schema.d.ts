@@ -352,6 +352,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/{id}/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a match at an event
+         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `date` picks the day. The answer says when the next matching round pairs the pool. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["applyToEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your applications
+         * @description The caller’s active applications (in the pool, paired or paused), soonest session first. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyApplications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one of your applications
+         * @description Get one of the caller’s applications, whatever its status. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Leave the matching pool
+         * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/report-cases": {
         parameters: {
             query?: never;
@@ -651,7 +731,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "EVENT_STARTED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1098,6 +1178,100 @@ export interface components {
             date: string;
         };
         /**
+         * @description The caller’s request to be matched in one session of an event
+         * @example {
+         *       "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
+         *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
+         *       "sessionStartsAt": "2026-10-24T16:00:00.000Z",
+         *       "desiredCompany": "company",
+         *       "afterEventPlans": [
+         *         "walk",
+         *         "coffee"
+         *       ],
+         *       "status": "in_pool",
+         *       "nextRoundAt": "2026-10-21T16:00:00.000Z",
+         *       "createdAt": "2026-10-15T09:00:00.000Z"
+         *     }
+         */
+        Application: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            eventId: string;
+            /**
+             * Format: date-time
+             * @description When the session starts: the event start, or the chosen day of a multi-day event at its time of day
+             */
+            sessionStartsAt: string;
+            desiredCompany: components["schemas"]["CommunicationFormat"];
+            /** @description What the user would do together after the event; empty: only the event */
+            afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            status: components["schemas"]["ApplicationStatus"];
+            /**
+             * Format: date-time
+             * @description When the next matching round pairs the pool; null when the application is not waiting in the pool or no round is left
+             */
+            nextRoundAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /**
+         * @description What the user is looking for when they go to an event
+         * @enum {string}
+         */
+        CommunicationFormat: "friends" | "dating" | "company";
+        /**
+         * @description Something to do together after the event
+         * @enum {string}
+         */
+        AfterEventPlan: "walk" | "coffee" | "dinner";
+        /**
+         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned
+         * @enum {string}
+         */
+        ApplicationStatus: "in_pool" | "paired" | "paused" | "removed" | "withdrawn" | "no_match" | "cancelled";
+        /**
+         * @example {
+         *       "desiredCompany": "company",
+         *       "afterEventPlans": [
+         *         "walk",
+         *         "coffee"
+         *       ]
+         *     }
+         */
+        CreateApplicationBody: {
+            /**
+             * Format: date
+             * @description The Kyiv day to go on; needed only for an event that runs on several days
+             */
+            date?: string;
+            /**
+             * @description What kind of company the user is looking for at this event
+             * @enum {string}
+             */
+            desiredCompany: "friends" | "dating" | "company";
+            /** @description What the user would do together after the event; an empty list means only the event */
+            afterEventPlans: components["schemas"]["AfterEventPlan"][];
+        };
+        /**
+         * @example [
+         *       {
+         *         "id": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
+         *         "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
+         *         "sessionStartsAt": "2026-10-24T16:00:00.000Z",
+         *         "desiredCompany": "company",
+         *         "afterEventPlans": [
+         *           "walk",
+         *           "coffee"
+         *         ],
+         *         "status": "in_pool",
+         *         "nextRoundAt": "2026-10-21T16:00:00.000Z",
+         *         "createdAt": "2026-10-15T09:00:00.000Z"
+         *       }
+         *     ]
+         */
+        ApplicationList: components["schemas"]["Application"][];
+        /**
          * @example {
          *       "items": [
          *         {
@@ -1394,11 +1568,6 @@ export interface components {
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone?: boolean;
         };
-        /**
-         * @description What the user is looking for when they go to an event
-         * @enum {string}
-         */
-        CommunicationFormat: "friends" | "dating" | "company";
         /**
          * @example {
          *       "interestIds": [
@@ -2545,6 +2714,218 @@ export interface operations {
             };
             /** @description No active listing with this id, or it is not the caller’s own */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    applyToEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateApplicationBody"];
+            };
+        };
+        responses: {
+            /** @description The application, waiting in the pool */
+            201: {
+                headers: {
+                    /** @description URL of the created object */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No event with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `ALREADY_APPLIED`: the caller is already in the pool of this session. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `EVENT_STARTED`: the session has already started. `INVALID_SESSION_DAY`: the event does not run on `date`, or runs on several days and `date` is missing. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyApplications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active applications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationList"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Application id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No application with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    withdrawApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Application id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The withdrawn application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No application with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the application is no longer waiting in the pool. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

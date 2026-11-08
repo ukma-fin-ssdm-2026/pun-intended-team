@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-07T17:00:15.419Z
+ * Generated on: 2026-11-08T10:17:23.648Z
  */
 
 import { existsSync } from 'node:fs';
@@ -312,6 +312,66 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Listings"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["applyToEvent", {
+    name: "applyToEvent",
+    title: "Ask for a match at an event",
+    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`date\` picks the day. The answer says when the next matching round pairs the pool. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"date":{"type":"string","format":"date","description":"The Kyiv day to go on; needed only for an event that runs on several days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/events/{id}/applications",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyApplications", {
+    name: "listMyApplications",
+    title: "List your applications",
+    description: `The caller’s active applications (in the pool, paired or paused), soonest session first. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/applications",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["getApplication", {
+    name: "getApplication",
+    title: "Get one of your applications",
+    description: `Get one of the caller’s applications, whatever its status. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/applications/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["withdrawApplication", {
+    name: "withdrawApplication",
+    title: "Leave the matching pool",
+    description: `Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/applications/{id}/withdraw",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
   ["adminListReportCases", {
     name: "adminListReportCases",
