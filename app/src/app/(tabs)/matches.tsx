@@ -1,23 +1,23 @@
 // Written with the help of Claude
-// AI Usage: Метчі tab from the Figma "Т2 Метчі", "Т2.1 · порожньо" and "Т2.2 · після прийняття" frames, on mock data;
-// reviewed by Daryna Halytska.
-import { Image } from 'expo-image';
+// AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications; reviewed by
+// Daryna Halytska.
+import { Image, type ImageSource } from 'expo-image';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
-import { Snackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
-import { formatEventDate } from '@/dates';
+import { formatEventDate, formatShortDay } from '@/dates';
+import { useMyApplications } from '@/hooks/use-applications';
+import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent, type MockEvent } from '@/mocks/events';
-import { mockMatchesTab, mockPeople, mockPerson, mockProposal, mockSearch } from '@/mocks/matching';
-import { useMatches } from '@/state/matches';
-import { useSession } from '@/state/session';
+import { findMockEvent } from '@/mocks/events';
+import { plural } from '@/plural';
+import { matchingPhase, openSessions, type Application } from '@/state/applications';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 64 in the iPhone 14 frame (17 px below its status bar), 52 at the bottom, of which the list
@@ -32,7 +32,7 @@ function MatchCard({
   status,
   onPress,
 }: {
-  event: MockEvent;
+  event: { title: string; dateLabel: string; cover?: ImageSource | number };
   status: ReactNode;
   // Without a link (Т2.2's first card) the card is not pressable.
   onPress?: () => void;
@@ -51,7 +51,7 @@ function MatchCard({
           <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
             {event.title}
           </Text>
-          <Text className="font-inter text-caption text-text-secondary">{formatEventDate(event.startsAt)}</Text>
+          <Text className="font-inter text-caption text-text-secondary">{event.dateLabel}</Text>
         </View>
       </View>
       <View className="flex-row items-center gap-3 rounded-[18px] bg-surface-background py-2.5 pl-2.5 pr-3">
@@ -81,11 +81,46 @@ function StatusText({ title, note, coral = false }: { title: string; note: strin
   );
 }
 
-function Initial({ letter }: { letter: string }) {
+function statusNote(application: Application): string {
+  if (application.status === 'paused') return 'Підбір на паузі';
+  if (application.status === 'paired') return 'Є пропозиція';
+  const phase = matchingPhase(application);
+  if (phase === 'rounds' && application.nextRoundAt) {
+    return `Наступний підбір: ${formatShortDay(application.nextRoundAt)}`;
+  }
+  return phase === 'open' ? `Відкритий підбір до ${formatEventDate(application.cutoffAt)}` : 'Підбір завершено';
+}
+
+// "Сб, 24 жовт · 19:00", or the first picked day of a multi-day event and how many more.
+function daysLabel(sessions: Application['sessions']): string {
+  const first = sessions[0]?.startsAt ?? '';
+  const more = sessions.length - 1;
+  return more > 0
+    ? `${formatShortDay(first)} і ще ${more} ${plural(more, ['день', 'дні', 'днів'])}`
+    : formatEventDate(first);
+}
+
+// The card of one application, with the days it waits on.
+function SearchCard({ application }: { application: Application }) {
+  const router = useRouter();
+  const { data: event } = useEvent(application.eventId);
   return (
-    <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
-      <Text className="font-inter-semibold text-title text-text-secondary">{letter}</Text>
-    </View>
+    <MatchCard
+      event={{
+        title: event?.title ?? ' ',
+        dateLabel: daysLabel(openSessions(application)),
+        cover: findMockEvent(application.eventId)?.cover,
+      }}
+      onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}
+      status={
+        <>
+          <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
+            <Icon name="clock" size={20} />
+          </View>
+          <StatusText title="Шукаємо компанію" note={statusNote(application)} />
+        </>
+      }
+    />
   );
 }
 
@@ -117,24 +152,13 @@ function EmptyState({ onPick }: { onPick: () => void }) {
 export default function MatchesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { matchesEmpty } = useSession();
-  const { answer } = useMatches();
-  const answered = answer !== undefined;
+  const { applications, loading, error, reload } = useMyApplications();
   useStatusBarStyle('light');
 
-  const proposalEvent = findMockEvent(mockSearch.eventId);
-  const mutual = mockPeople.maksym;
-  const mutualEvent = findMockEvent(mutual.eventId);
-  const searchEvent = findMockEvent(mockMatchesTab.search.eventId);
-  // The mutual card and "Написати" open 07; on Т2.2 the safety reminder (06) comes first, and "Зрозуміло" shows 07.
-  const openMutual = () =>
-    router.push({ pathname: '/mutual', params: answered ? { person: mutual.id, safety: '1' } : { person: mutual.id } });
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
-  const subtitle = matchesEmpty
-    ? 'Тут з’являтимуться твої пропозиції'
-    : answered
-      ? mockMatchesTab.answeredSubtitle
-      : mockMatchesTab.subtitle;
+  const count = applications.length;
+  const subtitle =
+    count > 0 ? `${count} ${plural(count, ['подія', 'події', 'подій'])}` : 'Тут з’являтимуться твої пропозиції';
 
   const header = (
     <View
@@ -151,7 +175,27 @@ export default function MatchesScreen() {
     </View>
   );
 
-  if (matchesEmpty) {
+  if (count === 0 && (loading || error)) {
+    return (
+      <View className="flex-1 bg-surface-background">
+        {header}
+        <View className="flex-1 items-center justify-center gap-4 px-5" style={{ paddingBottom: tabBarSpace }}>
+          {loading ? (
+            <ActivityIndicator size="large" color={colors.brand.coral} />
+          ) : (
+            <>
+              <Text className="text-center font-inter-semibold text-title text-text-primary">
+                Не вдалося завантажити метчі
+              </Text>
+              <Button label="Спробувати ще раз" variant="dark" onPress={reload} />
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  if (count === 0) {
     return (
       <View className="flex-1 bg-surface-background">
         {header}
@@ -165,69 +209,11 @@ export default function MatchesScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: tabBarSpace + LIST_BOTTOM_GAP }}>
         {header}
         <View className="gap-3.5 px-5">
-          {proposalEvent && (
-            <MatchCard
-              event={proposalEvent}
-              onPress={answered ? undefined : () => router.push('/proposal')}
-              status={
-                <>
-                  <Initial letter={mockProposal.initial} />
-                  <StatusText
-                    title={mockProposal.nameAge}
-                    note={answered ? `Чекаємо на ${mockPerson.accusative} і Марка` : 'Нова пропозиція · 3 спільні'}
-                    coral
-                  />
-                  {answered ? (
-                    <View className="size-9 items-center justify-center rounded-[18px] bg-text-secondary">
-                      <Icon name="waiting-clock" size={18} color={colors.text['on-dark']} />
-                    </View>
-                  ) : (
-                    <View className="size-9 items-center justify-center rounded-[18px] bg-brand-ink">
-                      <Icon name="arrow-long" size={18} color={colors.text['on-dark']} />
-                    </View>
-                  )}
-                </>
-              }
-            />
-          )}
-          {mutualEvent && (
-            <MatchCard
-              event={mutualEvent}
-              onPress={openMutual}
-              status={
-                <>
-                  <Initial letter={mutual.initial} />
-                  <StatusText title={mutual.nameAge} note="Це взаємно · контакти відкрито" />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Написати"
-                    onPress={openMutual}
-                    className="size-9 items-center justify-center rounded-[18px] bg-surface-card"
-                  >
-                    <Icon name="send" size={18} color={colors.brand.coral} />
-                  </Pressable>
-                </>
-              }
-            />
-          )}
-          {searchEvent && (
-            <MatchCard
-              event={searchEvent}
-              onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: searchEvent.id } })}
-              status={
-                <>
-                  <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
-                    <Icon name="clock" size={20} />
-                  </View>
-                  <StatusText title="Шукаємо компанію" note={mockMatchesTab.search.nextPick} />
-                </>
-              }
-            />
-          )}
+          {applications.map((application) => (
+            <SearchCard key={application.id} application={application} />
+          ))}
         </View>
       </ScrollView>
-
-      {answer && <Snackbar title={mockMatchesTab.toast[answer].title} note={mockMatchesTab.toast[answer].note} />}
     </View>
   );
 }

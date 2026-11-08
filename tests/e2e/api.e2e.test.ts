@@ -13,7 +13,7 @@ import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
-import { addDays, kyivDate } from '../../dist/core/common/kyiv-time.js';
+import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
 import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
@@ -1411,6 +1411,284 @@ describe('DELETE /api/v1/listings/{id}', () => {
 
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('DELETE', '/api/v1/listings/not-a-uuid', { token: tokens.user }), 'params', 'id');
+  });
+});
+
+describe('Applications', () => {
+  const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
+
+  /** A new account whose profile has everything matching needs. */
+  async function newCompleteProfile(): Promise<{ token: string; accountId: string }> {
+    const { token, accountId } = await newProfile();
+    for (const [method, path, body] of [
+      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends' }],
+      ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
+      [
+        'PUT',
+        '/api/v1/me/profile/linked-accounts',
+        { linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e' }] },
+      ],
+    ] as const) {
+      const res = await call(method, path, { token, body });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+    }
+    return { token, accountId };
+  }
+
+  async function newEventAt(startsAt: string, endsAt: string): Promise<string> {
+    const res = await call('POST', '/api/v1/events', { token: tokens.org, body: { ...newEvent, startsAt, endsAt } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body.id;
+  }
+
+  function apply(token: string, eventId: string, body: object = answers): Promise<Response> {
+    return call('POST', `/api/v1/events/${eventId}/applications`, { token, body });
+  }
+
+  const at19 = (day: string) => fromKyivWallClock(`${day}T19:00:00Z`).toISOString();
+  const at21 = (day: string) => fromKyivWallClock(`${day}T21:00:00Z`).toISOString();
+  // From the day after tomorrow to three days later, at 19:00 Kyiv time.
+  const multiDay = () => ({ startsAt: at19(inDays(2)), endsAt: at19(inDays(5)) });
+
+  // Events of their own: other tests edit the stub events.
+  let soonEvent = '';
+  let laterEvent = '';
+
+  before(async () => {
+    soonEvent = await newEventAt(at19(inDays(13)), at21(inDays(13)));
+    laterEvent = await newEventAt(at19(inDays(16)), at21(inDays(16)));
+  });
+
+  test('puts the caller in the pool of a single-day event and says when the next round runs', async () => {
+    const { token } = await newCompleteProfile();
+    const start = Date.parse(at19(inDays(13)));
+
+    const res = await apply(token, soonEvent);
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.headers.get('location'), `/api/v1/applications/${res.body.id}`);
+    assert.equal(res.body.eventId, soonEvent);
+    assert.deepEqual(res.body.sessions, [
+      { startsAt: new Date(start).toISOString(), cutoffAt: new Date(start - 60 * 60 * 1000).toISOString() },
+    ]);
+    assert.equal(res.body.status, 'in_pool');
+    assert.equal(res.body.desiredCompany, 'company');
+    assert.deepEqual(res.body.afterEventPlans, ['walk', 'coffee']);
+    assert.equal(res.body.cutoffAt, new Date(start - 60 * 60 * 1000).toISOString());
+    // 13 days ahead, so the first round, a week before the event, is still to come.
+    assert.equal(res.body.nextRoundAt, new Date(start - 7 * 24 * 60 * 60 * 1000).toISOString());
+  });
+
+  test('takes an empty list of plans as only the event', async () => {
+    const { token } = await newCompleteProfile();
+
+    const res = await apply(token, soonEvent, { desiredCompany: 'dating', afterEventPlans: [] });
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual(res.body.afterEventPlans, []);
+  });
+
+  test('puts the caller in the pool of a multi-day event for the picked days', async () => {
+    const { token } = await newCompleteProfile();
+    const { startsAt, endsAt } = multiDay();
+    const eventId = await newEventAt(startsAt, endsAt);
+
+    const res = await apply(token, eventId, { ...answers, dates: [inDays(4), inDays(3)] });
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual(
+      res.body.sessions.map(({ startsAt }: { startsAt: string }) => startsAt),
+      [at19(inDays(3)), at19(inDays(4))],
+    );
+    assert.equal(res.body.cutoffAt, res.body.sessions[1].cutoffAt);
+  });
+
+  test('rejects a second application to another day of the same event with 409', async () => {
+    const { token } = await newCompleteProfile();
+    const { startsAt, endsAt } = multiDay();
+    const eventId = await newEventAt(startsAt, endsAt);
+    assert.equal((await apply(token, eventId, { ...answers, dates: [inDays(3)] })).status, 201);
+
+    assertRejected(await apply(token, eventId, { ...answers, dates: [inDays(4)] }), 409, 'ALREADY_APPLIED');
+  });
+
+  test('rejects a multi-day event without a day, or with a day it does not run on, with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const { startsAt, endsAt } = multiDay();
+    const eventId = await newEventAt(startsAt, endsAt);
+
+    assertRejected(await apply(token, eventId), 422, 'INVALID_SESSION_DAY');
+    assertRejected(await apply(token, eventId, { ...answers, dates: [inDays(6)] }), 422, 'INVALID_SESSION_DAY');
+    assertRejected(
+      await apply(token, eventId, { ...answers, dates: [inDays(3), inDays(6)] }),
+      422,
+      'INVALID_SESSION_DAY',
+    );
+    assert.deepEqual((await call('GET', '/api/v1/me/applications', { token })).body, []);
+  });
+
+  test('rejects a profile that matching cannot use yet with 422', async () => {
+    const { token } = await newProfile();
+    assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  test('rejects an account without a profile with 422', async () => {
+    const { token } = await newAccount();
+    assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  test('rejects a cancelled event with 422', async () => {
+    const { token } = await newCompleteProfile();
+    assertRejected(await apply(token, cancelledFilmEvent), 422, 'EVENT_CANCELLED');
+  });
+
+  test('takes applications to a long event that has started until 2 hours before its end', async () => {
+    const { token } = await newCompleteProfile();
+    const hour = 60 * 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() - hour).toISOString(),
+      new Date(Date.now() + 3 * hour).toISOString(),
+    );
+
+    assert.equal((await apply(token, eventId)).status, 201);
+  });
+
+  test('rejects a long event that ends within 2 hours with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const hour = 60 * 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() - 3 * hour).toISOString(),
+      new Date(Date.now() + hour).toISOString(),
+    );
+
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
+  });
+
+  test('rejects a short event within an hour of its start with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const minute = 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() + 30 * minute).toISOString(),
+      new Date(Date.now() + 150 * minute).toISOString(),
+    );
+
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
+  });
+
+  test('rejects a short event that has started with 422', async () => {
+    const { token } = await newCompleteProfile();
+    const hour = 60 * 60 * 1000;
+    const eventId = await newEventAt(
+      new Date(Date.now() - hour).toISOString(),
+      new Date(Date.now() + hour).toISOString(),
+    );
+
+    assertRejected(await apply(token, eventId), 422, 'APPLICATIONS_CLOSED');
+  });
+
+  test('rejects an event that does not exist with 404', async () => {
+    const { token } = await newCompleteProfile();
+    assertRejected(await apply(token, randomUUID()), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a second application for the same session with 409', async () => {
+    const { token } = await newCompleteProfile();
+    assert.equal((await apply(token, soonEvent)).status, 201);
+
+    assertRejected(await apply(token, soonEvent), 409, 'ALREADY_APPLIED');
+  });
+
+  test('accepts only one of two applications sent at once', async () => {
+    const { token } = await newCompleteProfile();
+
+    const statuses = (await Promise.all([apply(token, laterEvent), apply(token, laterEvent)]))
+      .map((res) => res.status)
+      .sort();
+
+    assert.deepEqual(statuses, [201, 409]);
+  });
+
+  test('rejects a plan or a day given twice, an unknown plan, and missing answers, with 400', async () => {
+    const { token } = await newCompleteProfile();
+
+    assertInvalid(await apply(token, soonEvent, { ...answers, dates: [inDays(13), inDays(13)] }), 'body', 'dates');
+
+    assertInvalid(
+      await apply(token, soonEvent, { ...answers, afterEventPlans: ['walk', 'walk'] }),
+      'body',
+      'afterEventPlans',
+    );
+    assertInvalid(
+      await apply(token, soonEvent, { ...answers, afterEventPlans: ['cinema'] }),
+      'body',
+      'afterEventPlans.0',
+    );
+    assertInvalid(await apply(token, soonEvent, { afterEventPlans: [] }), 'body', 'desiredCompany');
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(await apply(tokens.guest, soonEvent), 401, 'UNAUTHENTICATED');
+  });
+
+  test('lists the caller’s active applications, soonest session first', async () => {
+    const { token } = await newCompleteProfile();
+    const later = await apply(token, laterEvent);
+    const sooner = await apply(token, soonEvent);
+
+    const res = await call('GET', '/api/v1/me/applications', { token });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, [sooner.body, later.body]);
+  });
+
+  test('withdraws an application, leaves it out of the list and lets the caller apply again', async () => {
+    const { token } = await newCompleteProfile();
+    const applied = await apply(token, soonEvent);
+
+    const res = await call('POST', `/api/v1/applications/${applied.body.id}/withdraw`, { token });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'withdrawn');
+    assert.equal(res.body.nextRoundAt, null);
+    assert.deepEqual((await call('GET', '/api/v1/me/applications', { token })).body, []);
+    assert.equal((await apply(token, soonEvent)).status, 201);
+  });
+
+  test('changes nothing when withdrawing again', async () => {
+    const { token } = await newCompleteProfile();
+    const applied = await apply(token, soonEvent);
+    const withdraw = () => call('POST', `/api/v1/applications/${applied.body.id}/withdraw`, { token });
+    const first = await withdraw();
+
+    const again = await withdraw();
+
+    assert.equal(again.status, 200);
+    assert.deepEqual(again.body, first.body);
+  });
+
+  test('gets one of the caller’s applications, and not someone else’s', async () => {
+    const owner = await newCompleteProfile();
+    const other = await newCompleteProfile();
+    const applied = await apply(owner.token, soonEvent);
+    const path = `/api/v1/applications/${applied.body.id}`;
+
+    const res = await call('GET', path, { token: owner.token });
+
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body, applied.body);
+    assertRejected(await call('GET', path, { token: other.token }), 404, 'NOT_FOUND');
+  });
+
+  test('rejects withdrawing someone else’s application with 404', async () => {
+    const owner = await newCompleteProfile();
+    const other = await newCompleteProfile();
+    const applied = await apply(owner.token, soonEvent);
+
+    assertRejected(
+      await call('POST', `/api/v1/applications/${applied.body.id}/withdraw`, { token: other.token }),
+      404,
+      'NOT_FOUND',
+    );
   });
 });
 

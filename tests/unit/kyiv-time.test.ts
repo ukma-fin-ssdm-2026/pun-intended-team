@@ -1,7 +1,13 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../dist/core/common/kyiv-time.js';
+import {
+  addDays,
+  fromKyivWallClock,
+  kyivDate,
+  kyivEndOfDay,
+  toKyivWallClock,
+} from '../../dist/core/common/kyiv-time.js';
 import { TODAY, useFixedClock } from './fixtures/clock.ts';
 
 // Kyiv is UTC+3 in summer and UTC+2 in winter; 25 October 2026 is the day the clocks go back.
@@ -119,4 +125,33 @@ describe('fromKyivWallClock', () => {
       assert.equal(fromKyivWallClock(digits).toISOString(), instant);
     });
   }
+});
+
+describe('toKyivWallClock', () => {
+  const cases = [
+    { instant: '2026-11-11T17:00:00.000Z', digits: '2026-11-11T19:00:00.000Z', title: 'writes winter time at UTC+2' },
+    { instant: '2026-07-11T16:00:00.000Z', digits: '2026-07-11T19:00:00.000Z', title: 'writes summer time at UTC+3' },
+    {
+      instant: '2026-10-25T00:30:00.000Z',
+      digits: '2026-10-25T03:30:00.000Z',
+      title: 'writes the last summer hour the clocks go back',
+    },
+    {
+      instant: '2026-10-25T01:30:00.000Z',
+      digits: '2026-10-25T03:30:00.000Z',
+      title: 'writes the repeated hour after it at UTC+2',
+    },
+    { instant: '2026-10-14T22:30:00.000Z', digits: '2026-10-15T01:30:00.000Z', title: 'moves to the Kyiv date' },
+  ];
+
+  for (const { instant, digits, title } of cases) {
+    test(title, () => {
+      assert.equal(toKyivWallClock(instant).toISOString(), digits);
+    });
+  }
+
+  test('is undone by fromKyivWallClock', () => {
+    const instant = '2026-10-26T17:00:00.000Z';
+    assert.equal(fromKyivWallClock(toKyivWallClock(instant)).toISOString(), instant);
+  });
 });

@@ -4,7 +4,6 @@ import { DomainError } from '../../core/common/domain-error.ts';
 import { ProfilesRepository } from '../../core/profiles/repositories/profiles.repository.ts';
 import {
   socialNetworks,
-  type CommunicationFormat,
   type LinkedAccount,
   type SocialNetwork,
   type NewProfile,
@@ -12,7 +11,8 @@ import {
   type ProfileChanges,
   type ProfileSummary,
 } from '../../core/profiles/types/profile.ts';
-import type { DesiredCompany, Profile as ProfileRow } from './generated/client.ts';
+import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
+import type { Profile as ProfileRow } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
@@ -25,18 +25,6 @@ const withRelations = {
 type ProfileWithRelations = ProfileRow & {
   profileInterests: { interestId: string }[];
   linkedAccounts: { app: string; username: Uint8Array }[];
-};
-
-// The database calls the API's `company` `casual`; the type is shared with applications.desired_company.
-const toDesiredCompany: Record<CommunicationFormat, DesiredCompany> = {
-  friends: 'friends',
-  dating: 'dating',
-  company: 'casual',
-};
-const toCommunicationFormat: Record<DesiredCompany, CommunicationFormat> = {
-  friends: 'friends',
-  dating: 'dating',
-  casual: 'company',
 };
 
 @Injectable()
