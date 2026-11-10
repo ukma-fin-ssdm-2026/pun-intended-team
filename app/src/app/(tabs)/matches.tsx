@@ -21,11 +21,11 @@ import { matchingPhase, openSessions, type Application } from '@/state/applicati
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 64 in the iPhone 14 frame (17 px below its status bar), 52 at the bottom, of which the list
-// covers 28. The list keeps 120 px under it for the tab bar (72 + 22 + 26).
+// covers 28. The list keeps 120 px under it for the tab bar (72 + 12 + 36).
 const HEADER_TOP = 64;
 const GAP_BELOW_STATUS_BAR = 17;
 const LIST_OVERLAP = 28;
-const LIST_BOTTOM_GAP = 26;
+const LIST_BOTTOM_GAP = 36;
 
 function MatchCard({
   event,

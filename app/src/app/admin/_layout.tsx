@@ -41,7 +41,7 @@ function Sidebar() {
     <View className="w-60 justify-between bg-brand-ink px-4 py-8">
       <View className="gap-8">
         <View className="gap-0.5 px-3">
-          <Text className="font-alice text-logo text-text-on-dark">Nearby</Text>
+          <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
           <Text className="font-inter text-caption text-text-on-dark-muted">Адмін-панель</Text>
         </View>
         <View className="gap-1">
