@@ -3,7 +3,7 @@ import { Logger, type OnApplicationBootstrap, type OnModuleDestroy } from '@nest
 import { fromPrisma, PgBoss, type PrismaTransactionLike } from 'pg-boss';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { JobQueue } from '../../core/jobs/adapters/job-queue.ts';
-import type { EnqueueOptions, JobHandler } from '../../core/jobs/types/job.ts';
+import type { EnqueueOptions, JobHandler, QueueOptions } from '../../core/jobs/types/job.ts';
 
 /** Every queue gets these: a failed job is retried three times, each wait longer than the last. */
 const DEFAULT_RETRY = { retryLimit: 3, retryBackoff: true } as const;
@@ -27,7 +27,9 @@ export interface PgBossJobQueueOptions {
 export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, OnModuleDestroy {
   readonly #logger = new Logger(PgBossJobQueue.name);
   readonly #handlers = new Map<string, JobHandler<object>>();
-  readonly #schedules = new Map<string, { cron: string; payload?: object }>();
+  readonly #queueOptions = new Map<string, QueueOptions>();
+  /** By name and key, so a name can have several schedules. */
+  readonly #schedules = new Map<string, { name: string; cron: string; payload?: object; key?: string }>();
   readonly #queues = new Set<string>();
   readonly #started = Promise.withResolvers<PgBoss>();
   #boss?: PgBoss;
@@ -59,20 +61,26 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
     await this.#started.promise;
   }
 
-  register<Payload extends object>(name: string, handler: JobHandler<Payload>): void {
+  register<Payload extends object>(name: string, handler: JobHandler<Payload>, options?: QueueOptions): void {
     if (this.#handlers.has(name)) {
       throw new Error(`The job "${name}" already has a handler`);
     }
     this.#handlers.set(name, handler as JobHandler<object>);
+    if (options) {
+      this.#queueOptions.set(name, options);
+      // A queue that already exists keeps its options; they are set on it once more.
+      this.#queues.delete(name);
+    }
     if (this.#boss) {
       void this.#attach(this.#boss, name).catch((error: unknown) => this.#logger.error(error));
     }
   }
 
-  schedule(name: string, cron: string, payload?: object): void {
-    this.#schedules.set(name, { cron, payload });
+  schedule(name: string, cron: string, payload?: object, key?: string): void {
+    const id = scheduleId(name, key);
+    this.#schedules.set(id, { name, cron, payload, key });
     if (this.#boss) {
-      void this.#applySchedule(this.#boss, name).catch((error: unknown) => this.#logger.error(error));
+      void this.#applySchedule(this.#boss, id).catch((error: unknown) => this.#logger.error(error));
     }
   }
 
@@ -112,14 +120,15 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
     boss.on('error', (error) => this.#logger.error(error));
     try {
       await boss.start();
-      for (const name of new Set([...this.#handlers.keys(), ...this.#schedules.keys()])) {
+      const scheduled = [...this.#schedules.values()].map(({ name }) => name);
+      for (const name of new Set([...this.#handlers.keys(), ...scheduled])) {
         await this.#ensureQueue(boss, name);
       }
       for (const name of this.#handlers.keys()) {
         await this.#attach(boss, name);
       }
-      for (const name of this.#schedules.keys()) {
-        await this.#applySchedule(boss, name);
+      for (const id of this.#schedules.keys()) {
+        await this.#applySchedule(boss, id);
       }
     } catch (error) {
       this.#logger.error(`The job queue did not start, trying again in ${retryInMs / 1000} s`, error);
@@ -134,12 +143,25 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
     this.#started.resolve(boss);
   }
 
-  /** Idempotent: a queue that exists is left as it is. Creates a row in pgboss.queue, no table. */
+  /**
+   * Idempotent: a queue that exists is left as it is, except that the options its handler was registered with are
+   * set on it. Creates a row in pgboss.queue, no table.
+   */
   async #ensureQueue(boss: PgBoss, name: string): Promise<void> {
-    if (!this.#queues.has(name)) {
-      await boss.createQueue(name, DEFAULT_RETRY);
-      this.#queues.add(name);
+    if (this.#queues.has(name)) {
+      return;
     }
+    const options = this.#queueOptions.get(name);
+    const settings = {
+      ...DEFAULT_RETRY,
+      ...(options?.retryLimit !== undefined && { retryLimit: options.retryLimit }),
+      ...(options?.timeoutSeconds !== undefined && { expireInSeconds: options.timeoutSeconds }),
+    };
+    await boss.createQueue(name, settings);
+    if (options) {
+      await boss.updateQueue(name, settings);
+    }
+    this.#queues.add(name);
   }
 
   async #attach(boss: PgBoss, name: string): Promise<void> {
@@ -152,9 +174,13 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
     });
   }
 
-  async #applySchedule(boss: PgBoss, name: string): Promise<void> {
-    const { cron, payload } = this.#schedules.get(name)!;
+  async #applySchedule(boss: PgBoss, id: string): Promise<void> {
+    const { name, cron, payload, key } = this.#schedules.get(id)!;
     await this.#ensureQueue(boss, name);
-    await boss.schedule(name, cron, payload);
+    await boss.schedule(name, cron, payload, key === undefined ? undefined : { key });
   }
+}
+
+function scheduleId(name: string, key?: string): string {
+  return key === undefined ? name : `${name}\n${key}`;
 }
