@@ -35,6 +35,9 @@ export default function PostPlaceScreen() {
   const [query, setQuery] = useState('');
   useStatusBarStyle('dark');
 
+  // Opened straight from a link, the screen has no history; it goes to the post editor on Т3, where Д2.1 comes from.
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/announcements'));
+
   // "Перетягни мапу, щоб уточнити точку": the map moves under the pin, which stays where it is.
   const offsetX = useSharedValue(0);
   const offsetY = useSharedValue(0);
@@ -76,7 +79,7 @@ export default function PostPlaceScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          onPress={goBack}
           className="size-[50px] items-center justify-center rounded-[25px] bg-surface-card"
         >
           <Icon name="arrow-left" size={20} />

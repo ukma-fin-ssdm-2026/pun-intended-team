@@ -39,8 +39,8 @@ import { colors } from '@/styles/tokens';
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
 // the arrow after them opens the full list in the filters.
 const visibleCategories = (screenWidth: number) => (screenWidth >= 375 ? 2 : 1);
-// "03 Список подій" has a 120 px bottom padding: the 72 px bar, its 22 px safe area and 26 px above the bar.
-const LIST_BOTTOM_GAP = 26;
+// "03 Список подій" has a 120 px bottom padding: the 72 px bar, its 12 px safe area and 36 px above the bar.
+const LIST_BOTTOM_GAP = 36;
 // The prototype moves from the skeleton (01.1) to the catalog after 1.5 s, with a 0.25 s dissolve.
 const LOADING_MS = 1500;
 const DISSOLVE_MS = 250;
