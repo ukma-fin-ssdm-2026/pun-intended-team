@@ -1,0 +1,187 @@
+{
+  "description": "Manual part of metrics-raw.md: the Note column, status overrides and evidence files, keyed by \"<run id>/<attempt>\". Read by scripts/ci-metrics/collect.mjs --notes.",
+  "attempts": {
+    "39022147032/1": {
+      "note": "`CI passed` not started: GitHub Actions refused the job because the account's payments failed or its spending limit was reached; no log",
+      "evidence": "run-379-attempt-1.log"
+    },
+    "39022892689/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-381-attempt-1.log"
+    },
+    "39023357877/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-384-attempt-1.log"
+    },
+    "39023516011/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-386-attempt-1.log"
+    },
+    "39029791611/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-388-attempt-1.log"
+    },
+    "39033650017/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-391-attempt-1.log"
+    },
+    "39036864480/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-396-attempt-1.log"
+    },
+    "39037037957/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-399-attempt-1.log"
+    },
+    "39037217997/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-401-attempt-1.log"
+    },
+    "39041683786/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-407-attempt-1.log"
+    },
+    "39041873019/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-408-attempt-1.log"
+    },
+    "39043932769/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-410-attempt-1.log"
+    },
+    "39045018474/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-412-attempt-1.log"
+    },
+    "39046437079/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-414-attempt-1.log"
+    },
+    "39047145210/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-417-attempt-1.log"
+    },
+    "39051902685/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-421-attempt-1.log"
+    },
+    "39053053743/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-425-attempt-1.log"
+    },
+    "39064751511/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-427-attempt-1.log"
+    },
+    "39163070199/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-437-attempt-1.log"
+    },
+    "39163149849/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-438-attempt-1.log"
+    },
+    "39163189868/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-439-attempt-1.log"
+    },
+    "39163268145/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-440-attempt-1.log"
+    },
+    "39163361529/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-441-attempt-1.log"
+    },
+    "39163897868/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-443-attempt-1.log"
+    },
+    "39164431222/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-445-attempt-1.log"
+    },
+    "39220085276/1": {
+      "note": "`CI passed` not started: spending limit, as №89",
+      "evidence": "run-451-attempt-1.log"
+    },
+    "39299955345/1": {
+      "note": "Recovery after №89–114: PR #243 moved the jobs to the course's self-hosted runners"
+    },
+    "40016942452/1": {
+      "note": "Cancelled before start: the next push to main replaced it in the `ci-refs/heads/main` concurrency group"
+    },
+    "40017003998/1": {
+      "note": "Cancelled before start: the next push to main replaced it in the concurrency group"
+    },
+    "40266269576/1": {
+      "note": "Cancelled before start: the next push to main replaced it in the concurrency group"
+    },
+    "41229574183/1": {
+      "note": "`Publish API image`: GHCR refused the push (`denied`)",
+      "evidence": "run-579-attempt-1.log"
+    },
+    "41229574183/2": {
+      "note": "Re-run of the failed job, attempt 2, no code change; recovery after №157"
+    },
+    "41291705270/1": {
+      "note": "`Publish images`: the web image build failed, `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_GOOGLE_CLIENT_ID` were empty",
+      "evidence": "run-585-attempt-1.log"
+    },
+    "41291705270/2": {
+      "note": "Re-run, attempt 2: GHCR refused the web image push (`denied`)",
+      "evidence": "run-585-attempt-2.log"
+    },
+    "41293144993/1": {
+      "note": "Manual run: `Deploy staging` rejected, the environment protection rules did not allow `main` to deploy to staging",
+      "evidence": "run-586-attempt-1.log"
+    },
+    "41293144993/2": {
+      "note": "Re-run of the manual run, attempt 2, no code change; recovery after №161"
+    },
+    "41321500508/1": {
+      "note": "Long runner queue"
+    },
+    "41330423885/1": {
+      "note": "Long runner queue"
+    },
+    "41332755073/1": {
+      "note": "Long runner queue"
+    },
+    "41339322235/1": {
+      "note": "Cancelled by hand after 73 min in the runner queue",
+      "evidence": "run-614-attempt-1.log"
+    },
+    "41346356267/1": {
+      "note": "`CI passed` green after 65 min in the runner queue; cancelled by hand while `Deploy API docs` waited",
+      "evidence": "run-618-attempt-1.log"
+    },
+    "41349836413/1": {
+      "note": "Cancelled before start: the next push to main replaced it in the concurrency group"
+    },
+    "41349907626/1": {
+      "note": "Cancelled before start: the next push to main replaced it in the concurrency group"
+    },
+    "41599734839/1": {
+      "note": "Queued behind the run of №183, pushed a second earlier"
+    },
+    "41625474561/1": {
+      "note": "Manual run on a commit that was already green (№184)"
+    },
+    "42475724874/1": {
+      "note": "`Reliability tests` hit the 10-minute job timeout; GitHub shows the run as cancelled",
+      "status": "failure",
+      "evidence": "run-707-attempt-1.log"
+    },
+    "42476676384/1": {
+      "note": "Recovery after №202"
+    },
+    "42494845238/1": {
+      "note": "e2e: the per-IP auth rate limit tests got 401 and 400 instead of 429 (`tests/e2e/api.e2e.test.ts:922`, `:938`); the PR changed only `CHANGELOG.md`",
+      "evidence": "run-725-attempt-1.log"
+    },
+    "42568712421/1": {
+      "note": "Recovery after №207; the PR changed only a video link, so the red run was a flaky test"
+    }
+  }
+}
