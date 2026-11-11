@@ -6,7 +6,7 @@
     "from": null,
     "to": null
   },
-  "collected_at": "2026-11-11T10:33:40.752Z",
+  "collected_at": "2026-11-11T10:57:41.894Z",
   "rows": [
     {
       "number": 1,
@@ -3025,7 +3025,7 @@
       "conclusion": "failure",
       "status": "failure",
       "status_overridden": false,
-      "note": "`Publish images`: the web image build failed, `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_GOOGLE_CLIENT_ID` were empty",
+      "note": "`Publish images`: the web image build failed, `EXPO_PUBLIC_GOOGLE_CLIENT_ID` was empty (`EXPO_PUBLIC_API_URL` was set)",
       "evidence": "run-585-attempt-1.log",
       "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270"
     },
@@ -19747,25 +19747,25 @@
     }
   ],
   "commits": {
-    "acc772e3c13178935cdd49e9f05deecfde168e6e": {
-      "message": "Merge pull request #10 from ukma-fin-ssdm-2026/feature/5-add-ci-badge-to-readme",
+    "3536668f5b3b71b61b11a9129a2a1edbd20b0396": {
+      "message": "Merge pull request #9 from ukma-fin-ssdm-2026/feature/4-configure-ci-pipeline",
       "parents": [
-        "3536668f5b3b71b61b11a9129a2a1edbd20b0396",
-        "62fc7baa4eaac39265cb207a7df74043f8abc79a"
+        "4dbb6ac7bf26931056222dff74bc250d827d8d2e",
+        "0b3bc5844eec912be7f5b9ee618d2f034c59c9cd"
       ],
-      "author_date": "2026-09-12T12:05:45Z",
-      "committer_date": "2026-09-12T12:05:45Z",
+      "author_date": "2026-09-12T12:02:36Z",
+      "committer_date": "2026-09-12T12:02:36Z",
       "associated_pulls": [
         {
-          "number": 10,
-          "title": "(#5) Add status badge",
+          "number": 9,
+          "title": "Add yaml for CI (#4)",
           "base": "main",
-          "head": "feature/5-add-ci-badge-to-readme",
-          "merged_at": "2026-09-12T12:05:45Z",
-          "merge_commit_sha": "acc772e3c13178935cdd49e9f05deecfde168e6e"
+          "head": "feature/4-configure-ci-pipeline",
+          "merged_at": "2026-09-12T12:02:36Z",
+          "merge_commit_sha": "3536668f5b3b71b61b11a9129a2a1edbd20b0396"
         }
       ],
-      "pull": 10,
+      "pull": 9,
       "pull_source": "commits/{sha}/pulls"
     },
     "75bde488f17df981f9071c23aeea23d8009111fe": {
@@ -19787,6 +19787,48 @@
         }
       ],
       "pull": 14,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "acc772e3c13178935cdd49e9f05deecfde168e6e": {
+      "message": "Merge pull request #10 from ukma-fin-ssdm-2026/feature/5-add-ci-badge-to-readme",
+      "parents": [
+        "3536668f5b3b71b61b11a9129a2a1edbd20b0396",
+        "62fc7baa4eaac39265cb207a7df74043f8abc79a"
+      ],
+      "author_date": "2026-09-12T12:05:45Z",
+      "committer_date": "2026-09-12T12:05:45Z",
+      "associated_pulls": [
+        {
+          "number": 10,
+          "title": "(#5) Add status badge",
+          "base": "main",
+          "head": "feature/5-add-ci-badge-to-readme",
+          "merged_at": "2026-09-12T12:05:45Z",
+          "merge_commit_sha": "acc772e3c13178935cdd49e9f05deecfde168e6e"
+        }
+      ],
+      "pull": 10,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "3a798c3cbe204a7298671f0c2d5394f89473d327": {
+      "message": "Merge pull request #15 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
+      "parents": [
+        "75bde488f17df981f9071c23aeea23d8009111fe",
+        "00bd8e8ca4c34c040be740bc60fff149f250fe09"
+      ],
+      "author_date": "2026-09-13T11:26:50Z",
+      "committer_date": "2026-09-13T11:26:50Z",
+      "associated_pulls": [
+        {
+          "number": 15,
+          "title": "(8) Add loom video",
+          "base": "main",
+          "head": "feature/8-loom-viktoriia",
+          "merged_at": "2026-09-13T11:26:50Z",
+          "merge_commit_sha": "3a798c3cbe204a7298671f0c2d5394f89473d327"
+        }
+      ],
+      "pull": 15,
       "pull_source": "commits/{sha}/pulls"
     },
     "3d79817e5ef35f4ddde3e8001605c988454809f5": {
@@ -19831,48 +19873,6 @@
       "pull": 11,
       "pull_source": "commits/{sha}/pulls"
     },
-    "3536668f5b3b71b61b11a9129a2a1edbd20b0396": {
-      "message": "Merge pull request #9 from ukma-fin-ssdm-2026/feature/4-configure-ci-pipeline",
-      "parents": [
-        "4dbb6ac7bf26931056222dff74bc250d827d8d2e",
-        "0b3bc5844eec912be7f5b9ee618d2f034c59c9cd"
-      ],
-      "author_date": "2026-09-12T12:02:36Z",
-      "committer_date": "2026-09-12T12:02:36Z",
-      "associated_pulls": [
-        {
-          "number": 9,
-          "title": "Add yaml for CI (#4)",
-          "base": "main",
-          "head": "feature/4-configure-ci-pipeline",
-          "merged_at": "2026-09-12T12:02:36Z",
-          "merge_commit_sha": "3536668f5b3b71b61b11a9129a2a1edbd20b0396"
-        }
-      ],
-      "pull": 9,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "3a798c3cbe204a7298671f0c2d5394f89473d327": {
-      "message": "Merge pull request #15 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
-      "parents": [
-        "75bde488f17df981f9071c23aeea23d8009111fe",
-        "00bd8e8ca4c34c040be740bc60fff149f250fe09"
-      ],
-      "author_date": "2026-09-13T11:26:50Z",
-      "committer_date": "2026-09-13T11:26:50Z",
-      "associated_pulls": [
-        {
-          "number": 15,
-          "title": "(8) Add loom video",
-          "base": "main",
-          "head": "feature/8-loom-viktoriia",
-          "merged_at": "2026-09-13T11:26:50Z",
-          "merge_commit_sha": "3a798c3cbe204a7298671f0c2d5394f89473d327"
-        }
-      ],
-      "pull": 15,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "10c83d23a9d256aeae244a52240bc7e6e8c65b0e": {
       "message": "Merge pull request #13 from ukma-fin-ssdm-2026/feature/1-project-description",
       "parents": [
@@ -19892,27 +19892,6 @@
         }
       ],
       "pull": 13,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "8afa5a1996db319bde2c29bcbdee2a463e23baa0": {
-      "message": "Merge pull request #18 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
-      "parents": [
-        "7c2056f0e130580c307516b5d49c56db340c971e",
-        "66f3b0e79d912eea1e30d6581a85218f5923c81a"
-      ],
-      "author_date": "2026-09-13T19:49:22Z",
-      "committer_date": "2026-09-13T19:49:22Z",
-      "associated_pulls": [
-        {
-          "number": 18,
-          "title": "(#8) Add loom video link",
-          "base": "main",
-          "head": "feature/8-loom-daryna",
-          "merged_at": "2026-09-13T19:49:22Z",
-          "merge_commit_sha": "8afa5a1996db319bde2c29bcbdee2a463e23baa0"
-        }
-      ],
-      "pull": 18,
       "pull_source": "commits/{sha}/pulls"
     },
     "7c2056f0e130580c307516b5d49c56db340c971e": {
@@ -19936,6 +19915,27 @@
       "pull": 16,
       "pull_source": "commits/{sha}/pulls"
     },
+    "922ccd3611045e408f2585c51ba8ccf22efe4b82": {
+      "message": "Merge pull request #20 from ukma-fin-ssdm-2026/feature/19-user-stories-nfr-rtm",
+      "parents": [
+        "8afa5a1996db319bde2c29bcbdee2a463e23baa0",
+        "a70797397d6453a00a7ce9d41eb386f56e89af76"
+      ],
+      "author_date": "2026-09-15T20:30:11Z",
+      "committer_date": "2026-09-15T20:30:11Z",
+      "associated_pulls": [
+        {
+          "number": 20,
+          "title": "(#19) Complete Lab02 user stories and RTM",
+          "base": "main",
+          "head": "feature/19-user-stories-nfr-rtm",
+          "merged_at": "2026-09-15T20:30:11Z",
+          "merge_commit_sha": "922ccd3611045e408f2585c51ba8ccf22efe4b82"
+        }
+      ],
+      "pull": 20,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "a7b42c42d2e969fba2a5da5b9faef5b65113ce8e": {
       "message": "Merge pull request #17 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
       "parents": [
@@ -19957,25 +19957,25 @@
       "pull": 17,
       "pull_source": "commits/{sha}/pulls"
     },
-    "922ccd3611045e408f2585c51ba8ccf22efe4b82": {
-      "message": "Merge pull request #20 from ukma-fin-ssdm-2026/feature/19-user-stories-nfr-rtm",
+    "8afa5a1996db319bde2c29bcbdee2a463e23baa0": {
+      "message": "Merge pull request #18 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
       "parents": [
-        "8afa5a1996db319bde2c29bcbdee2a463e23baa0",
-        "a70797397d6453a00a7ce9d41eb386f56e89af76"
+        "7c2056f0e130580c307516b5d49c56db340c971e",
+        "66f3b0e79d912eea1e30d6581a85218f5923c81a"
       ],
-      "author_date": "2026-09-15T20:30:11Z",
-      "committer_date": "2026-09-15T20:30:11Z",
+      "author_date": "2026-09-13T19:49:22Z",
+      "committer_date": "2026-09-13T19:49:22Z",
       "associated_pulls": [
         {
-          "number": 20,
-          "title": "(#19) Complete Lab02 user stories and RTM",
+          "number": 18,
+          "title": "(#8) Add loom video link",
           "base": "main",
-          "head": "feature/19-user-stories-nfr-rtm",
-          "merged_at": "2026-09-15T20:30:11Z",
-          "merge_commit_sha": "922ccd3611045e408f2585c51ba8ccf22efe4b82"
+          "head": "feature/8-loom-daryna",
+          "merged_at": "2026-09-13T19:49:22Z",
+          "merge_commit_sha": "8afa5a1996db319bde2c29bcbdee2a463e23baa0"
         }
       ],
-      "pull": 20,
+      "pull": 18,
       "pull_source": "commits/{sha}/pulls"
     },
     "f643e57086b4648eb16ec082c08aa3e547f47aef": {
@@ -20083,27 +20083,6 @@
       "pull": 34,
       "pull_source": "commits/{sha}/pulls"
     },
-    "f97a1643e6ee9f47c50d03e37b57217825ff420c": {
-      "message": "Merge pull request #38 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
-      "parents": [
-        "68d28b9739d9eb25f44faa53a0e849532507f20f",
-        "7e68c79c737ed1c5a9a85f9e34734468f643c81f"
-      ],
-      "author_date": "2026-09-20T18:34:11Z",
-      "committer_date": "2026-09-20T18:34:11Z",
-      "associated_pulls": [
-        {
-          "number": 38,
-          "title": "(#8) Add Loom video link on week 2 for Vlad Redchuk",
-          "base": "main",
-          "head": "feature/8-loom-vlad",
-          "merged_at": "2026-09-20T18:34:12Z",
-          "merge_commit_sha": "f97a1643e6ee9f47c50d03e37b57217825ff420c"
-        }
-      ],
-      "pull": 38,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "422a3cabb028db39c518d3081e7317ccac937d3d": {
       "message": "Merge pull request #37 from ukma-fin-ssdm-2026/feature/32-edit-teamcharter",
       "parents": [
@@ -20123,6 +20102,27 @@
         }
       ],
       "pull": 37,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "f97a1643e6ee9f47c50d03e37b57217825ff420c": {
+      "message": "Merge pull request #38 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
+      "parents": [
+        "68d28b9739d9eb25f44faa53a0e849532507f20f",
+        "7e68c79c737ed1c5a9a85f9e34734468f643c81f"
+      ],
+      "author_date": "2026-09-20T18:34:11Z",
+      "committer_date": "2026-09-20T18:34:11Z",
+      "associated_pulls": [
+        {
+          "number": 38,
+          "title": "(#8) Add Loom video link on week 2 for Vlad Redchuk",
+          "base": "main",
+          "head": "feature/8-loom-vlad",
+          "merged_at": "2026-09-20T18:34:12Z",
+          "merge_commit_sha": "f97a1643e6ee9f47c50d03e37b57217825ff420c"
+        }
+      ],
+      "pull": 38,
       "pull_source": "commits/{sha}/pulls"
     },
     "b69e019be9984605d1032d3340df4f9be15d2af9": {
@@ -20146,27 +20146,6 @@
       "pull": 40,
       "pull_source": "commits/{sha}/pulls"
     },
-    "bc3109234d59d4beb7160a66f07a7cdb60dea2b4": {
-      "message": "Merge pull request #41 from ukma-fin-ssdm-2026/feature/27-organize-requirements-artifacts-update-readme",
-      "parents": [
-        "b69e019be9984605d1032d3340df4f9be15d2af9",
-        "7d715105bdcbdee36069b883edc824339cba393a"
-      ],
-      "author_date": "2026-09-20T19:42:12Z",
-      "committer_date": "2026-09-20T19:42:12Z",
-      "associated_pulls": [
-        {
-          "number": 41,
-          "title": "(#27) Add AI usage note to readme",
-          "base": "main",
-          "head": "feature/27-organize-requirements-artifacts-update-readme",
-          "merged_at": "2026-09-20T19:42:13Z",
-          "merge_commit_sha": "bc3109234d59d4beb7160a66f07a7cdb60dea2b4"
-        }
-      ],
-      "pull": 41,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "eaf832729cc82d2e63bf1cab76516cf026537e95": {
       "message": "Merge pull request #43 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
       "parents": [
@@ -20186,6 +20165,27 @@
         }
       ],
       "pull": 43,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "bc3109234d59d4beb7160a66f07a7cdb60dea2b4": {
+      "message": "Merge pull request #41 from ukma-fin-ssdm-2026/feature/27-organize-requirements-artifacts-update-readme",
+      "parents": [
+        "b69e019be9984605d1032d3340df4f9be15d2af9",
+        "7d715105bdcbdee36069b883edc824339cba393a"
+      ],
+      "author_date": "2026-09-20T19:42:12Z",
+      "committer_date": "2026-09-20T19:42:12Z",
+      "associated_pulls": [
+        {
+          "number": 41,
+          "title": "(#27) Add AI usage note to readme",
+          "base": "main",
+          "head": "feature/27-organize-requirements-artifacts-update-readme",
+          "merged_at": "2026-09-20T19:42:13Z",
+          "merge_commit_sha": "bc3109234d59d4beb7160a66f07a7cdb60dea2b4"
+        }
+      ],
+      "pull": 41,
       "pull_source": "commits/{sha}/pulls"
     },
     "5cfd546d995d6a2115a4eb421d187354442050c7": {
@@ -20377,27 +20377,6 @@
       "pull": 67,
       "pull_source": "commits/{sha}/pulls"
     },
-    "50f164629197072c74cb85b6b136e160cdc0d521": {
-      "message": "Merge pull request #68 from ukma-fin-ssdm-2026/feature/55-data-model-er-diagram-plantuml",
-      "parents": [
-        "e697622c1fdb182bfbab402197c1186eea85b39d",
-        "3d077ab6a2612c2dadca9691488eb06c1eeb5e0c"
-      ],
-      "author_date": "2026-09-27T15:55:43Z",
-      "committer_date": "2026-09-27T15:55:43Z",
-      "associated_pulls": [
-        {
-          "number": 68,
-          "title": "(#55) Add data model er diagram plantuml",
-          "base": "main",
-          "head": "feature/55-data-model-er-diagram-plantuml",
-          "merged_at": "2026-09-27T15:55:44Z",
-          "merge_commit_sha": "50f164629197072c74cb85b6b136e160cdc0d521"
-        }
-      ],
-      "pull": 68,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "cf8e1cc64c9a3dd97b05e3a97882523b7141086e": {
       "message": "Merge pull request #69 from ukma-fin-ssdm-2026/feature/60-docs-cleanup",
       "parents": [
@@ -20440,25 +20419,25 @@
       "pull": 70,
       "pull_source": "commits/{sha}/pulls"
     },
-    "f89b8df810cc0bf93a4d493f65b56b8239ade27f": {
-      "message": "Merge pull request #71 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
+    "50f164629197072c74cb85b6b136e160cdc0d521": {
+      "message": "Merge pull request #68 from ukma-fin-ssdm-2026/feature/55-data-model-er-diagram-plantuml",
       "parents": [
-        "00ef882f363f8bb6765a11fad9a23c1abff3afd5",
-        "c6d839483dddf1581d8fd91d51ae8652c9053585"
+        "e697622c1fdb182bfbab402197c1186eea85b39d",
+        "3d077ab6a2612c2dadca9691488eb06c1eeb5e0c"
       ],
-      "author_date": "2026-09-27T17:40:38Z",
-      "committer_date": "2026-09-27T17:40:38Z",
+      "author_date": "2026-09-27T15:55:43Z",
+      "committer_date": "2026-09-27T15:55:43Z",
       "associated_pulls": [
         {
-          "number": 71,
-          "title": "(#62) Add Lab 3 video link",
+          "number": 68,
+          "title": "(#55) Add data model er diagram plantuml",
           "base": "main",
-          "head": "feature/8-loom-daryna",
-          "merged_at": "2026-09-27T17:40:38Z",
-          "merge_commit_sha": "f89b8df810cc0bf93a4d493f65b56b8239ade27f"
+          "head": "feature/55-data-model-er-diagram-plantuml",
+          "merged_at": "2026-09-27T15:55:44Z",
+          "merge_commit_sha": "50f164629197072c74cb85b6b136e160cdc0d521"
         }
       ],
-      "pull": 71,
+      "pull": 68,
       "pull_source": "commits/{sha}/pulls"
     },
     "81277dbe4cf5e30b95792966b005de9af458828b": {
@@ -20480,6 +20459,27 @@
         }
       ],
       "pull": 74,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "f89b8df810cc0bf93a4d493f65b56b8239ade27f": {
+      "message": "Merge pull request #71 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
+      "parents": [
+        "00ef882f363f8bb6765a11fad9a23c1abff3afd5",
+        "c6d839483dddf1581d8fd91d51ae8652c9053585"
+      ],
+      "author_date": "2026-09-27T17:40:38Z",
+      "committer_date": "2026-09-27T17:40:38Z",
+      "associated_pulls": [
+        {
+          "number": 71,
+          "title": "(#62) Add Lab 3 video link",
+          "base": "main",
+          "head": "feature/8-loom-daryna",
+          "merged_at": "2026-09-27T17:40:38Z",
+          "merge_commit_sha": "f89b8df810cc0bf93a4d493f65b56b8239ade27f"
+        }
+      ],
+      "pull": 71,
       "pull_source": "commits/{sha}/pulls"
     },
     "d46de0b974f8c2443f6aa8b53dd4714163e234b9": {
@@ -20524,27 +20524,6 @@
       "pull": 73,
       "pull_source": "commits/{sha}/pulls"
     },
-    "a624c538f746cce69703ddb3f13b971b3cc61c3e": {
-      "message": "Merge pull request #76 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
-      "parents": [
-        "26b9ceb377c0a7b3f9c02536ab2f638ac3b79eb6",
-        "09e267cb748924a3f502552bdd96dbf975f0e481"
-      ],
-      "author_date": "2026-09-27T21:42:29Z",
-      "committer_date": "2026-09-27T21:42:29Z",
-      "associated_pulls": [
-        {
-          "number": 76,
-          "title": "Feature/8 loom vlad",
-          "base": "main",
-          "head": "feature/8-loom-vlad",
-          "merged_at": "2026-09-27T21:42:29Z",
-          "merge_commit_sha": "a624c538f746cce69703ddb3f13b971b3cc61c3e"
-        }
-      ],
-      "pull": 76,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "26b9ceb377c0a7b3f9c02536ab2f638ac3b79eb6": {
       "message": "Merge pull request #75 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
       "parents": [
@@ -20566,25 +20545,25 @@
       "pull": 75,
       "pull_source": "commits/{sha}/pulls"
     },
-    "87395d5484bc23df2424bbd34e90213ff0892dcb": {
-      "message": "Merge pull request #77 from ukma-fin-ssdm-2026/feature/60-docs-cleanup",
+    "a624c538f746cce69703ddb3f13b971b3cc61c3e": {
+      "message": "Merge pull request #76 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
       "parents": [
-        "a624c538f746cce69703ddb3f13b971b3cc61c3e",
-        "e400d6fe8ed11b88a32cb6bf34f815f5514bfdae"
+        "26b9ceb377c0a7b3f9c02536ab2f638ac3b79eb6",
+        "09e267cb748924a3f502552bdd96dbf975f0e481"
       ],
-      "author_date": "2026-09-27T21:43:16Z",
-      "committer_date": "2026-09-27T21:43:16Z",
+      "author_date": "2026-09-27T21:42:29Z",
+      "committer_date": "2026-09-27T21:42:29Z",
       "associated_pulls": [
         {
-          "number": 77,
-          "title": "Feature/60 docs cleanup",
+          "number": 76,
+          "title": "Feature/8 loom vlad",
           "base": "main",
-          "head": "feature/60-docs-cleanup",
-          "merged_at": "2026-09-27T21:43:17Z",
-          "merge_commit_sha": "87395d5484bc23df2424bbd34e90213ff0892dcb"
+          "head": "feature/8-loom-vlad",
+          "merged_at": "2026-09-27T21:42:29Z",
+          "merge_commit_sha": "a624c538f746cce69703ddb3f13b971b3cc61c3e"
         }
       ],
-      "pull": 77,
+      "pull": 76,
       "pull_source": "commits/{sha}/pulls"
     },
     "2f0ddacd0bb5f4dc296293db4982435d504130df": {
@@ -20608,46 +20587,25 @@
       "pull": 82,
       "pull_source": "commits/{sha}/pulls"
     },
-    "f7c54260c02d0ef92465a31096d2563197b2ddd7": {
-      "message": "Merge pull request #93 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
+    "87395d5484bc23df2424bbd34e90213ff0892dcb": {
+      "message": "Merge pull request #77 from ukma-fin-ssdm-2026/feature/60-docs-cleanup",
       "parents": [
-        "2f0ddacd0bb5f4dc296293db4982435d504130df",
-        "5661e86d46b1d7f066017350d6cb39a899d40023"
+        "a624c538f746cce69703ddb3f13b971b3cc61c3e",
+        "e400d6fe8ed11b88a32cb6bf34f815f5514bfdae"
       ],
-      "author_date": "2026-10-03T07:44:12Z",
-      "committer_date": "2026-10-03T07:44:12Z",
+      "author_date": "2026-09-27T21:43:16Z",
+      "committer_date": "2026-09-27T21:43:16Z",
       "associated_pulls": [
         {
-          "number": 93,
-          "title": "(#84) Add Code-First API skeleton with Swagger UI",
+          "number": 77,
+          "title": "Feature/60 docs cleanup",
           "base": "main",
-          "head": "feature/84-api-skeleton",
-          "merged_at": "2026-10-03T07:44:13Z",
-          "merge_commit_sha": "f7c54260c02d0ef92465a31096d2563197b2ddd7"
+          "head": "feature/60-docs-cleanup",
+          "merged_at": "2026-09-27T21:43:17Z",
+          "merge_commit_sha": "87395d5484bc23df2424bbd34e90213ff0892dcb"
         }
       ],
-      "pull": 93,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "66a5fea2fc65615e123bfa7efa01eb1c55d33748": {
-      "message": "Merge pull request #102 from ukma-fin-ssdm-2026/feature/89-publish-docs-to-github-pages",
-      "parents": [
-        "4dcf23e4406c6e0128da77824d1b5bfeaf981321",
-        "b784ebef37047a9f68e4c8bef302d73f138a1ba0"
-      ],
-      "author_date": "2026-10-03T12:07:06Z",
-      "committer_date": "2026-10-03T12:07:06Z",
-      "associated_pulls": [
-        {
-          "number": 102,
-          "title": "(#89) publish docs to GitHub pages",
-          "base": "main",
-          "head": "feature/89-publish-docs-to-github-pages",
-          "merged_at": "2026-10-03T12:07:06Z",
-          "merge_commit_sha": "66a5fea2fc65615e123bfa7efa01eb1c55d33748"
-        }
-      ],
-      "pull": 102,
+      "pull": 77,
       "pull_source": "commits/{sha}/pulls"
     },
     "6aa2b4178503eba57461371f54667406279f621f": {
@@ -20671,6 +20629,27 @@
       "pull": 99,
       "pull_source": "commits/{sha}/pulls"
     },
+    "f7c54260c02d0ef92465a31096d2563197b2ddd7": {
+      "message": "Merge pull request #93 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
+      "parents": [
+        "2f0ddacd0bb5f4dc296293db4982435d504130df",
+        "5661e86d46b1d7f066017350d6cb39a899d40023"
+      ],
+      "author_date": "2026-10-03T07:44:12Z",
+      "committer_date": "2026-10-03T07:44:12Z",
+      "associated_pulls": [
+        {
+          "number": 93,
+          "title": "(#84) Add Code-First API skeleton with Swagger UI",
+          "base": "main",
+          "head": "feature/84-api-skeleton",
+          "merged_at": "2026-10-03T07:44:13Z",
+          "merge_commit_sha": "f7c54260c02d0ef92465a31096d2563197b2ddd7"
+        }
+      ],
+      "pull": 93,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "4dcf23e4406c6e0128da77824d1b5bfeaf981321": {
       "message": "Merge pull request #100 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
       "parents": [
@@ -20690,27 +20669,6 @@
         }
       ],
       "pull": 100,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "29306151515592eafd8bbacd557f85fc96b09f77": {
-      "message": "Merge pull request #101 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
-      "parents": [
-        "66a5fea2fc65615e123bfa7efa01eb1c55d33748",
-        "9293c1464821f23b4b20eb8c0984303814ef26ba"
-      ],
-      "author_date": "2026-10-03T12:07:37Z",
-      "committer_date": "2026-10-03T12:07:37Z",
-      "associated_pulls": [
-        {
-          "number": 101,
-          "title": "(#83) Design events and listings endpoints",
-          "base": "main",
-          "head": "feature/84-api-skeleton",
-          "merged_at": "2026-10-03T12:07:38Z",
-          "merge_commit_sha": "29306151515592eafd8bbacd557f85fc96b09f77"
-        }
-      ],
-      "pull": 101,
       "pull_source": "commits/{sha}/pulls"
     },
     "f83609e46c902dfd108ab080d08d1f39b0a49058": {
@@ -20734,6 +20692,48 @@
       "pull": 104,
       "pull_source": "commits/{sha}/pulls"
     },
+    "66a5fea2fc65615e123bfa7efa01eb1c55d33748": {
+      "message": "Merge pull request #102 from ukma-fin-ssdm-2026/feature/89-publish-docs-to-github-pages",
+      "parents": [
+        "4dcf23e4406c6e0128da77824d1b5bfeaf981321",
+        "b784ebef37047a9f68e4c8bef302d73f138a1ba0"
+      ],
+      "author_date": "2026-10-03T12:07:06Z",
+      "committer_date": "2026-10-03T12:07:06Z",
+      "associated_pulls": [
+        {
+          "number": 102,
+          "title": "(#89) publish docs to GitHub pages",
+          "base": "main",
+          "head": "feature/89-publish-docs-to-github-pages",
+          "merged_at": "2026-10-03T12:07:06Z",
+          "merge_commit_sha": "66a5fea2fc65615e123bfa7efa01eb1c55d33748"
+        }
+      ],
+      "pull": 102,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "29306151515592eafd8bbacd557f85fc96b09f77": {
+      "message": "Merge pull request #101 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
+      "parents": [
+        "66a5fea2fc65615e123bfa7efa01eb1c55d33748",
+        "9293c1464821f23b4b20eb8c0984303814ef26ba"
+      ],
+      "author_date": "2026-10-03T12:07:37Z",
+      "committer_date": "2026-10-03T12:07:37Z",
+      "associated_pulls": [
+        {
+          "number": 101,
+          "title": "(#83) Design events and listings endpoints",
+          "base": "main",
+          "head": "feature/84-api-skeleton",
+          "merged_at": "2026-10-03T12:07:38Z",
+          "merge_commit_sha": "29306151515592eafd8bbacd557f85fc96b09f77"
+        }
+      ],
+      "pull": 101,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "d274b3d078fd258d1a7e4d6a034f322517edd21b": {
       "message": "Merge pull request #105 from ukma-fin-ssdm-2026/feature/84-api-skeleton",
       "parents": [
@@ -20753,6 +20753,27 @@
         }
       ],
       "pull": 105,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "993237f01cf9a815333a3c4f29b9949ee0dd07c7": {
+      "message": "Merge pull request #107 from ukma-fin-ssdm-2026/feature/97-scaffold-project",
+      "parents": [
+        "50579e9e26f92115e64246b9e99c66151ca4aeb1",
+        "01c566b81e4b6aa0d9d2db87e0c5c4c0ed73f859"
+      ],
+      "author_date": "2026-10-03T14:36:57Z",
+      "committer_date": "2026-10-03T14:36:57Z",
+      "associated_pulls": [
+        {
+          "number": 107,
+          "title": "Feature/97 scaffold project",
+          "base": "main",
+          "head": "feature/97-scaffold-project",
+          "merged_at": "2026-10-03T14:36:57Z",
+          "merge_commit_sha": "993237f01cf9a815333a3c4f29b9949ee0dd07c7"
+        }
+      ],
+      "pull": 107,
       "pull_source": "commits/{sha}/pulls"
     },
     "50579e9e26f92115e64246b9e99c66151ca4aeb1": {
@@ -20797,25 +20818,25 @@
       "pull": 103,
       "pull_source": "commits/{sha}/pulls"
     },
-    "993237f01cf9a815333a3c4f29b9949ee0dd07c7": {
-      "message": "Merge pull request #107 from ukma-fin-ssdm-2026/feature/97-scaffold-project",
+    "be057c12ea3ef6bbcaf092e97e529c143d7a69a3": {
+      "message": "Merge pull request #109 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
       "parents": [
-        "50579e9e26f92115e64246b9e99c66151ca4aeb1",
-        "01c566b81e4b6aa0d9d2db87e0c5c4c0ed73f859"
+        "3a440ad501f9047d128d0ff489e10ee6d06f3d09",
+        "48908fa5d4a7e1bcf8a867962f6851ccac0d7600"
       ],
-      "author_date": "2026-10-03T14:36:57Z",
-      "committer_date": "2026-10-03T14:36:57Z",
+      "author_date": "2026-10-03T17:31:27Z",
+      "committer_date": "2026-10-03T17:31:27Z",
       "associated_pulls": [
         {
-          "number": 107,
-          "title": "Feature/97 scaffold project",
+          "number": 109,
+          "title": "(#92) Add loom video",
           "base": "main",
-          "head": "feature/97-scaffold-project",
-          "merged_at": "2026-10-03T14:36:57Z",
-          "merge_commit_sha": "993237f01cf9a815333a3c4f29b9949ee0dd07c7"
+          "head": "feature/8-loom-daryna",
+          "merged_at": "2026-10-03T17:31:28Z",
+          "merge_commit_sha": "be057c12ea3ef6bbcaf092e97e529c143d7a69a3"
         }
       ],
-      "pull": 107,
+      "pull": 109,
       "pull_source": "commits/{sha}/pulls"
     },
     "3a440ad501f9047d128d0ff489e10ee6d06f3d09": {
@@ -20837,27 +20858,6 @@
         }
       ],
       "pull": 108,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "be057c12ea3ef6bbcaf092e97e529c143d7a69a3": {
-      "message": "Merge pull request #109 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
-      "parents": [
-        "3a440ad501f9047d128d0ff489e10ee6d06f3d09",
-        "48908fa5d4a7e1bcf8a867962f6851ccac0d7600"
-      ],
-      "author_date": "2026-10-03T17:31:27Z",
-      "committer_date": "2026-10-03T17:31:27Z",
-      "associated_pulls": [
-        {
-          "number": 109,
-          "title": "(#92) Add loom video",
-          "base": "main",
-          "head": "feature/8-loom-daryna",
-          "merged_at": "2026-10-03T17:31:28Z",
-          "merge_commit_sha": "be057c12ea3ef6bbcaf092e97e529c143d7a69a3"
-        }
-      ],
-      "pull": 109,
       "pull_source": "commits/{sha}/pulls"
     },
     "3ca239d0660c0ab0f7a178a8dad734f809f2b72a": {
@@ -20944,27 +20944,6 @@
       "pull": 113,
       "pull_source": "commits/{sha}/pulls"
     },
-    "a266145c2d838735910830d9407fb2de5808534b": {
-      "message": "Merge pull request #116 from ukma-fin-ssdm-2026/feature/115-lab04-fixes",
-      "parents": [
-        "11641f7685e8f1df1a6f326ff46b56a36a125fd0",
-        "d5b4bdf1fb0aa32d02c35f3ace4b8b0360b5eaa5"
-      ],
-      "author_date": "2026-10-04T14:50:07Z",
-      "committer_date": "2026-10-04T14:50:07Z",
-      "associated_pulls": [
-        {
-          "number": 116,
-          "title": "Feature/115 lab04 fixes",
-          "base": "main",
-          "head": "feature/115-lab04-fixes",
-          "merged_at": "2026-10-04T14:50:07Z",
-          "merge_commit_sha": "a266145c2d838735910830d9407fb2de5808534b"
-        }
-      ],
-      "pull": 116,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "ba11bb0fb5a6a0f12c567cb9b7652bc7a0c62180": {
       "message": "Merge pull request #118 from ukma-fin-ssdm-2026/feature/87-write-quality-attributes.md",
       "parents": [
@@ -20986,25 +20965,25 @@
       "pull": 118,
       "pull_source": "commits/{sha}/pulls"
     },
-    "3489213fcb8e503fe86133a80be278ac5b5e3341": {
-      "message": "Merge pull request #120 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
+    "a266145c2d838735910830d9407fb2de5808534b": {
+      "message": "Merge pull request #116 from ukma-fin-ssdm-2026/feature/115-lab04-fixes",
       "parents": [
-        "ba11bb0fb5a6a0f12c567cb9b7652bc7a0c62180",
-        "faf7f83c41adcf552ac683c00fb3b4c05f97c978"
+        "11641f7685e8f1df1a6f326ff46b56a36a125fd0",
+        "d5b4bdf1fb0aa32d02c35f3ace4b8b0360b5eaa5"
       ],
-      "author_date": "2026-10-04T17:34:29Z",
-      "committer_date": "2026-10-04T17:34:29Z",
+      "author_date": "2026-10-04T14:50:07Z",
+      "committer_date": "2026-10-04T14:50:07Z",
       "associated_pulls": [
         {
-          "number": 120,
-          "title": "(#92) Add loom video for Vlad-Re",
+          "number": 116,
+          "title": "Feature/115 lab04 fixes",
           "base": "main",
-          "head": "feature/8-loom-vlad",
-          "merged_at": "2026-10-04T17:34:30Z",
-          "merge_commit_sha": "3489213fcb8e503fe86133a80be278ac5b5e3341"
+          "head": "feature/115-lab04-fixes",
+          "merged_at": "2026-10-04T14:50:07Z",
+          "merge_commit_sha": "a266145c2d838735910830d9407fb2de5808534b"
         }
       ],
-      "pull": 120,
+      "pull": 116,
       "pull_source": "commits/{sha}/pulls"
     },
     "70a4ab4260486716458148ffeab568b338590d08": {
@@ -21028,27 +21007,6 @@
       "pull": 117,
       "pull_source": "commits/{sha}/pulls"
     },
-    "99184a9a168c9bc21e502f711c33b07c42460048": {
-      "message": "Merge pull request #121 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
-      "parents": [
-        "70a4ab4260486716458148ffeab568b338590d08",
-        "3c55a682b3920a94e85178965fcca90b58af561d"
-      ],
-      "author_date": "2026-10-05T05:21:07Z",
-      "committer_date": "2026-10-05T05:21:07Z",
-      "associated_pulls": [
-        {
-          "number": 121,
-          "title": "(#92) Add video link for Lab04",
-          "base": "main",
-          "head": "feature/8-loom-oleg",
-          "merged_at": "2026-10-05T05:21:07Z",
-          "merge_commit_sha": "99184a9a168c9bc21e502f711c33b07c42460048"
-        }
-      ],
-      "pull": 121,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "55400b81648bd9cc0db588d06d1e4da44f118519": {
       "message": "Merge pull request #124 from ukma-fin-ssdm-2026/feature/122-lab5-docs",
       "parents": [
@@ -21068,6 +21026,27 @@
         }
       ],
       "pull": 124,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "99184a9a168c9bc21e502f711c33b07c42460048": {
+      "message": "Merge pull request #121 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
+      "parents": [
+        "70a4ab4260486716458148ffeab568b338590d08",
+        "3c55a682b3920a94e85178965fcca90b58af561d"
+      ],
+      "author_date": "2026-10-05T05:21:07Z",
+      "committer_date": "2026-10-05T05:21:07Z",
+      "associated_pulls": [
+        {
+          "number": 121,
+          "title": "(#92) Add video link for Lab04",
+          "base": "main",
+          "head": "feature/8-loom-oleg",
+          "merged_at": "2026-10-05T05:21:07Z",
+          "merge_commit_sha": "99184a9a168c9bc21e502f711c33b07c42460048"
+        }
+      ],
+      "pull": 121,
       "pull_source": "commits/{sha}/pulls"
     },
     "369e53fb2b6e34c91f22d3fb52c170ad70bcddfe": {
@@ -21091,6 +21070,27 @@
       "pull": 128,
       "pull_source": "commits/{sha}/pulls"
     },
+    "3489213fcb8e503fe86133a80be278ac5b5e3341": {
+      "message": "Merge pull request #120 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
+      "parents": [
+        "ba11bb0fb5a6a0f12c567cb9b7652bc7a0c62180",
+        "faf7f83c41adcf552ac683c00fb3b4c05f97c978"
+      ],
+      "author_date": "2026-10-04T17:34:29Z",
+      "committer_date": "2026-10-04T17:34:29Z",
+      "associated_pulls": [
+        {
+          "number": 120,
+          "title": "(#92) Add loom video for Vlad-Re",
+          "base": "main",
+          "head": "feature/8-loom-vlad",
+          "merged_at": "2026-10-04T17:34:30Z",
+          "merge_commit_sha": "3489213fcb8e503fe86133a80be278ac5b5e3341"
+        }
+      ],
+      "pull": 120,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "f0fbc371f0e134dd2279bfac9f53684d88b41a9b": {
       "message": "Merge pull request #136 from ukma-fin-ssdm-2026/feature/130-eslint-baseline",
       "parents": [
@@ -21112,27 +21112,6 @@
       "pull": 136,
       "pull_source": "commits/{sha}/pulls"
     },
-    "03e6caabd635516904041673593e28cce1bb43da": {
-      "message": "Merge pull request #139 from ukma-fin-ssdm-2026/feature/134-add-prettier-to-project",
-      "parents": [
-        "f0fbc371f0e134dd2279bfac9f53684d88b41a9b",
-        "517b5c012f8d09d61185e70ad1eed171197212f0"
-      ],
-      "author_date": "2026-10-09T19:51:03Z",
-      "committer_date": "2026-10-09T19:51:03Z",
-      "associated_pulls": [
-        {
-          "number": 139,
-          "title": "Feature/134 add prettier to project",
-          "base": "main",
-          "head": "feature/134-add-prettier-to-project",
-          "merged_at": "2026-10-09T19:51:03Z",
-          "merge_commit_sha": "03e6caabd635516904041673593e28cce1bb43da"
-        }
-      ],
-      "pull": 139,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "a5ee5a305bb3c775a1fd3c7c291c3508eba87bcb": {
       "message": "Merge pull request #135 from ukma-fin-ssdm-2026/feature/126-security-analysis",
       "parents": [
@@ -21152,6 +21131,27 @@
         }
       ],
       "pull": 135,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "03e6caabd635516904041673593e28cce1bb43da": {
+      "message": "Merge pull request #139 from ukma-fin-ssdm-2026/feature/134-add-prettier-to-project",
+      "parents": [
+        "f0fbc371f0e134dd2279bfac9f53684d88b41a9b",
+        "517b5c012f8d09d61185e70ad1eed171197212f0"
+      ],
+      "author_date": "2026-10-09T19:51:03Z",
+      "committer_date": "2026-10-09T19:51:03Z",
+      "associated_pulls": [
+        {
+          "number": 139,
+          "title": "Feature/134 add prettier to project",
+          "base": "main",
+          "head": "feature/134-add-prettier-to-project",
+          "merged_at": "2026-10-09T19:51:03Z",
+          "merge_commit_sha": "03e6caabd635516904041673593e28cce1bb43da"
+        }
+      ],
+      "pull": 139,
       "pull_source": "commits/{sha}/pulls"
     },
     "ff73b1af56e4a6b3bb9faa07488cd9b78d8d81df": {
@@ -21217,6 +21217,27 @@
       "pull": 164,
       "pull_source": "commits/{sha}/pulls"
     },
+    "aaaa2e345c0c2d48cce1b3425fe2f06f41fa182f": {
+      "message": "Merge pull request #158 from ukma-fin-ssdm-2026/feature/137-update-team-roles",
+      "parents": [
+        "5dbca60f3d23a462119f1e6053138a9029df9db8",
+        "6cc642fa6b393cf276d5fa574867b0fb4b3c54db"
+      ],
+      "author_date": "2026-10-10T15:39:23Z",
+      "committer_date": "2026-10-10T15:39:23Z",
+      "associated_pulls": [
+        {
+          "number": 158,
+          "title": "Feature/137 update team roles",
+          "base": "main",
+          "head": "feature/137-update-team-roles",
+          "merged_at": "2026-10-10T15:39:24Z",
+          "merge_commit_sha": "aaaa2e345c0c2d48cce1b3425fe2f06f41fa182f"
+        }
+      ],
+      "pull": 158,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "1eb10c5dd0f1f28f5017169ec4179f6ad8fa677b": {
       "message": "Merge pull request #161 from ukma-fin-ssdm-2026/feature/142-events-put",
       "parents": [
@@ -21238,25 +21259,25 @@
       "pull": 161,
       "pull_source": "commits/{sha}/pulls"
     },
-    "aaaa2e345c0c2d48cce1b3425fe2f06f41fa182f": {
-      "message": "Merge pull request #158 from ukma-fin-ssdm-2026/feature/137-update-team-roles",
+    "d7ac405c191eccfc2c623abb3c569b5ebd30b6da": {
+      "message": "Merge pull request #167 from ukma-fin-ssdm-2026/feature/146-ai-review",
       "parents": [
-        "5dbca60f3d23a462119f1e6053138a9029df9db8",
-        "6cc642fa6b393cf276d5fa574867b0fb4b3c54db"
+        "1eb10c5dd0f1f28f5017169ec4179f6ad8fa677b",
+        "03db7d5ed4f5f9488ba214c521acad661fb89cf2"
       ],
-      "author_date": "2026-10-10T15:39:23Z",
-      "committer_date": "2026-10-10T15:39:23Z",
+      "author_date": "2026-10-10T16:48:46Z",
+      "committer_date": "2026-10-10T16:48:46Z",
       "associated_pulls": [
         {
-          "number": 158,
-          "title": "Feature/137 update team roles",
+          "number": 167,
+          "title": "(#146) Feature/146 ai review",
           "base": "main",
-          "head": "feature/137-update-team-roles",
-          "merged_at": "2026-10-10T15:39:24Z",
-          "merge_commit_sha": "aaaa2e345c0c2d48cce1b3425fe2f06f41fa182f"
+          "head": "feature/146-ai-review",
+          "merged_at": "2026-10-10T16:48:47Z",
+          "merge_commit_sha": "d7ac405c191eccfc2c623abb3c569b5ebd30b6da"
         }
       ],
-      "pull": 158,
+      "pull": 167,
       "pull_source": "commits/{sha}/pulls"
     },
     "899ea6cfb4f8c75fd643bf0489bc6e07029e6589": {
@@ -21301,25 +21322,25 @@
       "pull": 169,
       "pull_source": "commits/{sha}/pulls"
     },
-    "d7ac405c191eccfc2c623abb3c569b5ebd30b6da": {
-      "message": "Merge pull request #167 from ukma-fin-ssdm-2026/feature/146-ai-review",
+    "992e28b13b751d4f98aed2a9a8f6bf6032131b10": {
+      "message": "Merge pull request #171 from ukma-fin-ssdm-2026/feature/140-jwt-tokens",
       "parents": [
-        "1eb10c5dd0f1f28f5017169ec4179f6ad8fa677b",
-        "03db7d5ed4f5f9488ba214c521acad661fb89cf2"
+        "3b27f5bd0741fb63cce63856ec035bb2fdd49b32",
+        "acc3eb1e59cf4520bbc9fa25b19645da0b5d50fb"
       ],
-      "author_date": "2026-10-10T16:48:46Z",
-      "committer_date": "2026-10-10T16:48:46Z",
+      "author_date": "2026-10-10T18:18:09Z",
+      "committer_date": "2026-10-10T18:18:09Z",
       "associated_pulls": [
         {
-          "number": 167,
-          "title": "(#146) Feature/146 ai review",
+          "number": 171,
+          "title": "Feature/140 jwt tokens",
           "base": "main",
-          "head": "feature/146-ai-review",
-          "merged_at": "2026-10-10T16:48:47Z",
-          "merge_commit_sha": "d7ac405c191eccfc2c623abb3c569b5ebd30b6da"
+          "head": "feature/140-jwt-tokens",
+          "merged_at": "2026-10-10T18:18:09Z",
+          "merge_commit_sha": "992e28b13b751d4f98aed2a9a8f6bf6032131b10"
         }
       ],
-      "pull": 167,
+      "pull": 171,
       "pull_source": "commits/{sha}/pulls"
     },
     "3b27f5bd0741fb63cce63856ec035bb2fdd49b32": {
@@ -21364,48 +21385,6 @@
       "pull": 170,
       "pull_source": "commits/{sha}/pulls"
     },
-    "992e28b13b751d4f98aed2a9a8f6bf6032131b10": {
-      "message": "Merge pull request #171 from ukma-fin-ssdm-2026/feature/140-jwt-tokens",
-      "parents": [
-        "3b27f5bd0741fb63cce63856ec035bb2fdd49b32",
-        "acc3eb1e59cf4520bbc9fa25b19645da0b5d50fb"
-      ],
-      "author_date": "2026-10-10T18:18:09Z",
-      "committer_date": "2026-10-10T18:18:09Z",
-      "associated_pulls": [
-        {
-          "number": 171,
-          "title": "Feature/140 jwt tokens",
-          "base": "main",
-          "head": "feature/140-jwt-tokens",
-          "merged_at": "2026-10-10T18:18:09Z",
-          "merge_commit_sha": "992e28b13b751d4f98aed2a9a8f6bf6032131b10"
-        }
-      ],
-      "pull": 171,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "07efd57b6031a67f210902e67b366f56b2d2e4ba": {
-      "message": "Merge pull request #175 from ukma-fin-ssdm-2026/feature/153-security-response-headers",
-      "parents": [
-        "82384781df88f13965dc4de9ef281ed85d127151",
-        "5a25f099c9f751391d318dd41a092084bc14c455"
-      ],
-      "author_date": "2026-10-10T18:32:54Z",
-      "committer_date": "2026-10-10T18:32:54Z",
-      "associated_pulls": [
-        {
-          "number": 175,
-          "title": "Feature/153 security response headers",
-          "base": "main",
-          "head": "feature/153-security-response-headers",
-          "merged_at": "2026-10-10T18:32:54Z",
-          "merge_commit_sha": "07efd57b6031a67f210902e67b366f56b2d2e4ba"
-        }
-      ],
-      "pull": 175,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "5b5ef97d90df342c78799f9ba334f50f79b4f259": {
       "message": "Merge pull request #176 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
       "parents": [
@@ -21446,6 +21425,27 @@
         }
       ],
       "pull": 177,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "07efd57b6031a67f210902e67b366f56b2d2e4ba": {
+      "message": "Merge pull request #175 from ukma-fin-ssdm-2026/feature/153-security-response-headers",
+      "parents": [
+        "82384781df88f13965dc4de9ef281ed85d127151",
+        "5a25f099c9f751391d318dd41a092084bc14c455"
+      ],
+      "author_date": "2026-10-10T18:32:54Z",
+      "committer_date": "2026-10-10T18:32:54Z",
+      "associated_pulls": [
+        {
+          "number": 175,
+          "title": "Feature/153 security response headers",
+          "base": "main",
+          "head": "feature/153-security-response-headers",
+          "merged_at": "2026-10-10T18:32:54Z",
+          "merge_commit_sha": "07efd57b6031a67f210902e67b366f56b2d2e4ba"
+        }
+      ],
+      "pull": 175,
       "pull_source": "commits/{sha}/pulls"
     },
     "0491d166c444330e4f493051f50c6beb8f37deb3": {
@@ -21574,27 +21574,6 @@
       "pull": 183,
       "pull_source": "commits/{sha}/pulls"
     },
-    "05e32a5fd14c838e7109f403874f543d2d100838": {
-      "message": "Merge pull request #184 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
-      "parents": [
-        "7bf586fc21e54bc4c0a68d307196948cd964aeb0",
-        "8465da2206008b57dc33b424d8ffadaf6ec2ebc4"
-      ],
-      "author_date": "2026-10-12T05:25:40Z",
-      "committer_date": "2026-10-12T05:25:40Z",
-      "associated_pulls": [
-        {
-          "number": 184,
-          "title": "(#155) Add video link for Lab05",
-          "base": "main",
-          "head": "feature/8-loom-oleg",
-          "merged_at": "2026-10-12T05:25:40Z",
-          "merge_commit_sha": "05e32a5fd14c838e7109f403874f543d2d100838"
-        }
-      ],
-      "pull": 184,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "699388c41e250434d668be09912577ece445fccc": {
       "message": "Merge pull request #194 from ukma-fin-ssdm-2026/feature/187-first-migration-replace-postgis-with-plain-postgresql-18",
       "parents": [
@@ -21614,6 +21593,27 @@
         }
       ],
       "pull": 194,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "05e32a5fd14c838e7109f403874f543d2d100838": {
+      "message": "Merge pull request #184 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
+      "parents": [
+        "7bf586fc21e54bc4c0a68d307196948cd964aeb0",
+        "8465da2206008b57dc33b424d8ffadaf6ec2ebc4"
+      ],
+      "author_date": "2026-10-12T05:25:40Z",
+      "committer_date": "2026-10-12T05:25:40Z",
+      "associated_pulls": [
+        {
+          "number": 184,
+          "title": "(#155) Add video link for Lab05",
+          "base": "main",
+          "head": "feature/8-loom-oleg",
+          "merged_at": "2026-10-12T05:25:40Z",
+          "merge_commit_sha": "05e32a5fd14c838e7109f403874f543d2d100838"
+        }
+      ],
+      "pull": 184,
       "pull_source": "commits/{sha}/pulls"
     },
     "5f5d98edca528878bd3c4cd3dc962cc95253bbb5": {
@@ -21658,27 +21658,6 @@
       "pull": 196,
       "pull_source": "commits/{sha}/pulls"
     },
-    "82fd3d4a5c1f7012cff6b8876c7ed45fa3609862": {
-      "message": "Merge pull request #198 from ukma-fin-ssdm-2026/feature/197-sync-data-model-docs-with-the-prisma-schema",
-      "parents": [
-        "35786b3fcf31fd673dc9dcefe50c676290cd2ab9",
-        "36ac7d94ea607239ae6d9ed68564aa9e6dd247e2"
-      ],
-      "author_date": "2026-10-17T10:04:30Z",
-      "committer_date": "2026-10-17T10:04:30Z",
-      "associated_pulls": [
-        {
-          "number": 198,
-          "title": "Feature/197 sync data model docs with the prisma schema",
-          "base": "main",
-          "head": "feature/197-sync-data-model-docs-with-the-prisma-schema",
-          "merged_at": "2026-10-17T10:04:31Z",
-          "merge_commit_sha": "82fd3d4a5c1f7012cff6b8876c7ed45fa3609862"
-        }
-      ],
-      "pull": 198,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "30b94a693a4461bd08905325132c8d2b3bf8dce9": {
       "message": "Merge pull request #213 from ukma-fin-ssdm-2026/feature/186-lab6",
       "parents": [
@@ -21698,6 +21677,27 @@
         }
       ],
       "pull": 213,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "82fd3d4a5c1f7012cff6b8876c7ed45fa3609862": {
+      "message": "Merge pull request #198 from ukma-fin-ssdm-2026/feature/197-sync-data-model-docs-with-the-prisma-schema",
+      "parents": [
+        "35786b3fcf31fd673dc9dcefe50c676290cd2ab9",
+        "36ac7d94ea607239ae6d9ed68564aa9e6dd247e2"
+      ],
+      "author_date": "2026-10-17T10:04:30Z",
+      "committer_date": "2026-10-17T10:04:30Z",
+      "associated_pulls": [
+        {
+          "number": 198,
+          "title": "Feature/197 sync data model docs with the prisma schema",
+          "base": "main",
+          "head": "feature/197-sync-data-model-docs-with-the-prisma-schema",
+          "merged_at": "2026-10-17T10:04:31Z",
+          "merge_commit_sha": "82fd3d4a5c1f7012cff6b8876c7ed45fa3609862"
+        }
+      ],
+      "pull": 198,
       "pull_source": "commits/{sha}/pulls"
     },
     "86e2a24b61d4e24d198c07b58cbbfd15898d1fb0": {
@@ -21721,27 +21721,6 @@
       "pull": 214,
       "pull_source": "commits/{sha}/pulls"
     },
-    "2c169d8c53170b009bc76e4d6fb72dce93045cb9": {
-      "message": "Merge pull request #216 from ukma-fin-ssdm-2026/feature/200-write-the-testing-strategy",
-      "parents": [
-        "a82c06afaedae0eca2fe95a74f75cdbcd003cc8b",
-        "9681ccb677b304012c70d6c77d8401dda6b943a5"
-      ],
-      "author_date": "2026-10-17T13:33:10Z",
-      "committer_date": "2026-10-17T13:33:10Z",
-      "associated_pulls": [
-        {
-          "number": 216,
-          "title": "(#200) Write the testing strategy",
-          "base": "main",
-          "head": "feature/200-write-the-testing-strategy",
-          "merged_at": "2026-10-17T13:33:11Z",
-          "merge_commit_sha": "2c169d8c53170b009bc76e4d6fb72dce93045cb9"
-        }
-      ],
-      "pull": 216,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "a82c06afaedae0eca2fe95a74f75cdbcd003cc8b": {
       "message": "Merge pull request #217 from ukma-fin-ssdm-2026/feature/208-tdd-interest-overlap",
       "parents": [
@@ -21761,6 +21740,27 @@
         }
       ],
       "pull": 217,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "2c169d8c53170b009bc76e4d6fb72dce93045cb9": {
+      "message": "Merge pull request #216 from ukma-fin-ssdm-2026/feature/200-write-the-testing-strategy",
+      "parents": [
+        "a82c06afaedae0eca2fe95a74f75cdbcd003cc8b",
+        "9681ccb677b304012c70d6c77d8401dda6b943a5"
+      ],
+      "author_date": "2026-10-17T13:33:10Z",
+      "committer_date": "2026-10-17T13:33:10Z",
+      "associated_pulls": [
+        {
+          "number": 216,
+          "title": "(#200) Write the testing strategy",
+          "base": "main",
+          "head": "feature/200-write-the-testing-strategy",
+          "merged_at": "2026-10-17T13:33:11Z",
+          "merge_commit_sha": "2c169d8c53170b009bc76e4d6fb72dce93045cb9"
+        }
+      ],
+      "pull": 216,
       "pull_source": "commits/{sha}/pulls"
     },
     "2b60a536e50ecd591aded16a715582a6e947f088": {
@@ -21889,27 +21889,6 @@
       "pull": 225,
       "pull_source": "commits/{sha}/pulls"
     },
-    "53b9f03b82c196131966922e36cffccbdf93462d": {
-      "message": "Merge pull request #228 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
-      "parents": [
-        "9716f4cec41028225c728c3331ae09b50464bf1f",
-        "bb046d1870fd769e275ce55f84c74bacd141e3f2"
-      ],
-      "author_date": "2026-10-17T17:00:57Z",
-      "committer_date": "2026-10-17T17:00:57Z",
-      "associated_pulls": [
-        {
-          "number": 228,
-          "title": "(#208) Add video links",
-          "base": "main",
-          "head": "feature/8-loom-viktoriia",
-          "merged_at": "2026-10-17T17:00:58Z",
-          "merge_commit_sha": "53b9f03b82c196131966922e36cffccbdf93462d"
-        }
-      ],
-      "pull": 228,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "9716f4cec41028225c728c3331ae09b50464bf1f": {
       "message": "Merge pull request #226 from ukma-fin-ssdm-2026/feature/223-update-team-roles",
       "parents": [
@@ -21929,6 +21908,27 @@
         }
       ],
       "pull": 226,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "53b9f03b82c196131966922e36cffccbdf93462d": {
+      "message": "Merge pull request #228 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
+      "parents": [
+        "9716f4cec41028225c728c3331ae09b50464bf1f",
+        "bb046d1870fd769e275ce55f84c74bacd141e3f2"
+      ],
+      "author_date": "2026-10-17T17:00:57Z",
+      "committer_date": "2026-10-17T17:00:57Z",
+      "associated_pulls": [
+        {
+          "number": 228,
+          "title": "(#208) Add video links",
+          "base": "main",
+          "head": "feature/8-loom-viktoriia",
+          "merged_at": "2026-10-17T17:00:58Z",
+          "merge_commit_sha": "53b9f03b82c196131966922e36cffccbdf93462d"
+        }
+      ],
+      "pull": 228,
       "pull_source": "commits/{sha}/pulls"
     },
     "9ab9e8a31f4c19d012071c0e32c7e5e851839cde": {
@@ -22015,27 +22015,6 @@
       "pull": 235,
       "pull_source": "commits/{sha}/pulls"
     },
-    "717c15cd06e7e060ac1d33e2eea2ed2bfcbb7e61": {
-      "message": "Merge pull request #237 from ukma-fin-ssdm-2026/feature/203-add-a-coverage-gate-to-ci-bonus",
-      "parents": [
-        "c60114435d6dc7710ca1026322c6d040afec8346",
-        "ee9e22006526551cde67aec4106d04acd7aaaf9c"
-      ],
-      "author_date": "2026-10-18T20:25:54Z",
-      "committer_date": "2026-10-18T20:25:54Z",
-      "associated_pulls": [
-        {
-          "number": 237,
-          "title": "(#203) Enforce coverage thresholds in CI",
-          "base": "main",
-          "head": "feature/203-add-a-coverage-gate-to-ci-bonus",
-          "merged_at": "2026-10-18T20:25:55Z",
-          "merge_commit_sha": "717c15cd06e7e060ac1d33e2eea2ed2bfcbb7e61"
-        }
-      ],
-      "pull": 237,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "c60114435d6dc7710ca1026322c6d040afec8346": {
       "message": "Merge pull request #236 from ukma-fin-ssdm-2026/feature/189-add-database-constraints-for-data-model-invariants",
       "parents": [
@@ -22055,6 +22034,27 @@
         }
       ],
       "pull": 236,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "717c15cd06e7e060ac1d33e2eea2ed2bfcbb7e61": {
+      "message": "Merge pull request #237 from ukma-fin-ssdm-2026/feature/203-add-a-coverage-gate-to-ci-bonus",
+      "parents": [
+        "c60114435d6dc7710ca1026322c6d040afec8346",
+        "ee9e22006526551cde67aec4106d04acd7aaaf9c"
+      ],
+      "author_date": "2026-10-18T20:25:54Z",
+      "committer_date": "2026-10-18T20:25:54Z",
+      "associated_pulls": [
+        {
+          "number": 237,
+          "title": "(#203) Enforce coverage thresholds in CI",
+          "base": "main",
+          "head": "feature/203-add-a-coverage-gate-to-ci-bonus",
+          "merged_at": "2026-10-18T20:25:55Z",
+          "merge_commit_sha": "717c15cd06e7e060ac1d33e2eea2ed2bfcbb7e61"
+        }
+      ],
+      "pull": 237,
       "pull_source": "commits/{sha}/pulls"
     },
     "5192c8d1edb6dc56e13fcbb927e96cdc03127ec1": {
@@ -22099,27 +22099,6 @@
       "pull": 240,
       "pull_source": "commits/{sha}/pulls"
     },
-    "ceaa3b39c1e3cc622c30b4be358ca84281be5bdb": {
-      "message": "Merge pull request #242 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
-      "parents": [
-        "6fda521200f48c5a27302b2f03ae1ad680f1bf23",
-        "73f8c46a2d28bc2c7064cdfcf0d69ec22b4eb3a6"
-      ],
-      "author_date": "2026-10-19T08:03:35Z",
-      "committer_date": "2026-10-19T08:03:35Z",
-      "associated_pulls": [
-        {
-          "number": 242,
-          "title": "(#209) Feature/8 loom oleg",
-          "base": "main",
-          "head": "feature/8-loom-oleg",
-          "merged_at": "2026-10-19T08:03:36Z",
-          "merge_commit_sha": "ceaa3b39c1e3cc622c30b4be358ca84281be5bdb"
-        }
-      ],
-      "pull": 242,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "6fda521200f48c5a27302b2f03ae1ad680f1bf23": {
       "message": "Merge pull request #227 from ukma-fin-ssdm-2026/feature/202-property-based-lockout",
       "parents": [
@@ -22139,6 +22118,27 @@
         }
       ],
       "pull": 227,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "ceaa3b39c1e3cc622c30b4be358ca84281be5bdb": {
+      "message": "Merge pull request #242 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
+      "parents": [
+        "6fda521200f48c5a27302b2f03ae1ad680f1bf23",
+        "73f8c46a2d28bc2c7064cdfcf0d69ec22b4eb3a6"
+      ],
+      "author_date": "2026-10-19T08:03:35Z",
+      "committer_date": "2026-10-19T08:03:35Z",
+      "associated_pulls": [
+        {
+          "number": 242,
+          "title": "(#209) Feature/8 loom oleg",
+          "base": "main",
+          "head": "feature/8-loom-oleg",
+          "merged_at": "2026-10-19T08:03:36Z",
+          "merge_commit_sha": "ceaa3b39c1e3cc622c30b4be358ca84281be5bdb"
+        }
+      ],
+      "pull": 242,
       "pull_source": "commits/{sha}/pulls"
     },
     "9192dffe3783f101f83989062bf0409658ac9c6c": {
@@ -22288,27 +22288,6 @@
       "pull": 247,
       "pull_source": "commits/{sha}/pulls"
     },
-    "41a1a336adfca3b5b2b9f8a5f435861671e165fb": {
-      "message": "Merge pull request #249 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/monocart-coverage-reports-3.0.0",
-      "parents": [
-        "8a5585875eca0bc2f3be3a61cd64ebb07f08b8ce",
-        "22f2abeb6dba23656a94b7c85abeb8af8708e2f0"
-      ],
-      "author_date": "2026-10-23T20:08:45Z",
-      "committer_date": "2026-10-23T20:08:45Z",
-      "associated_pulls": [
-        {
-          "number": 249,
-          "title": "Bump monocart-coverage-reports from 2.13.2 to 3.0.0",
-          "base": "main",
-          "head": "dependabot/npm_and_yarn/monocart-coverage-reports-3.0.0",
-          "merged_at": "2026-10-23T20:08:46Z",
-          "merge_commit_sha": "41a1a336adfca3b5b2b9f8a5f435861671e165fb"
-        }
-      ],
-      "pull": 249,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "8a5585875eca0bc2f3be3a61cd64ebb07f08b8ce": {
       "message": "Merge pull request #248 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/minor-and-patch-1c1488038c",
       "parents": [
@@ -22330,6 +22309,27 @@
       "pull": 248,
       "pull_source": "commits/{sha}/pulls"
     },
+    "41a1a336adfca3b5b2b9f8a5f435861671e165fb": {
+      "message": "Merge pull request #249 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/monocart-coverage-reports-3.0.0",
+      "parents": [
+        "8a5585875eca0bc2f3be3a61cd64ebb07f08b8ce",
+        "22f2abeb6dba23656a94b7c85abeb8af8708e2f0"
+      ],
+      "author_date": "2026-10-23T20:08:45Z",
+      "committer_date": "2026-10-23T20:08:45Z",
+      "associated_pulls": [
+        {
+          "number": 249,
+          "title": "Bump monocart-coverage-reports from 2.13.2 to 3.0.0",
+          "base": "main",
+          "head": "dependabot/npm_and_yarn/monocart-coverage-reports-3.0.0",
+          "merged_at": "2026-10-23T20:08:46Z",
+          "merge_commit_sha": "41a1a336adfca3b5b2b9f8a5f435861671e165fb"
+        }
+      ],
+      "pull": 249,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "8d0b61286abd68cc0ac504334f1ff2f7d9402c16": {
       "message": "Merge pull request #250 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/src/mcp/ip-address-10.7.4",
       "parents": [
@@ -22349,6 +22349,27 @@
         }
       ],
       "pull": 250,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "70b21428085887d848bd4fb23b0068b34da02a94": {
+      "message": "Merge pull request #262 from ukma-fin-ssdm-2026/feature/261-fix-npm-audit",
+      "parents": [
+        "b67506b2d52e7d7847337d526b17037bd3d6d564",
+        "e2dae10920dcdfd4215ec5cbe07fd1997782b04b"
+      ],
+      "author_date": "2026-10-24T10:35:03Z",
+      "committer_date": "2026-10-24T10:35:03Z",
+      "associated_pulls": [
+        {
+          "number": 262,
+          "title": "Feature/261 fix npm audit",
+          "base": "main",
+          "head": "feature/261-fix-npm-audit",
+          "merged_at": "2026-10-24T10:35:03Z",
+          "merge_commit_sha": "70b21428085887d848bd4fb23b0068b34da02a94"
+        }
+      ],
+      "pull": 262,
       "pull_source": "commits/{sha}/pulls"
     },
     "b67506b2d52e7d7847337d526b17037bd3d6d564": {
@@ -22393,25 +22414,25 @@
       "pull": 265,
       "pull_source": "commits/{sha}/pulls"
     },
-    "70b21428085887d848bd4fb23b0068b34da02a94": {
-      "message": "Merge pull request #262 from ukma-fin-ssdm-2026/feature/261-fix-npm-audit",
+    "f927ec623761427d8664a5f3704434503cfc280e": {
+      "message": "Merge pull request #256 from ukma-fin-ssdm-2026/feature/212-complete-auth-flow",
       "parents": [
-        "b67506b2d52e7d7847337d526b17037bd3d6d564",
-        "e2dae10920dcdfd4215ec5cbe07fd1997782b04b"
+        "70b21428085887d848bd4fb23b0068b34da02a94",
+        "43e1f551bb70f7b32d29e8c878c95ebe5a4ab31f"
       ],
-      "author_date": "2026-10-24T10:35:03Z",
-      "committer_date": "2026-10-24T10:35:03Z",
+      "author_date": "2026-10-24T11:00:25Z",
+      "committer_date": "2026-10-24T11:00:25Z",
       "associated_pulls": [
         {
-          "number": 262,
-          "title": "Feature/261 fix npm audit",
+          "number": 256,
+          "title": "Feature/212 complete auth flow",
           "base": "main",
-          "head": "feature/261-fix-npm-audit",
-          "merged_at": "2026-10-24T10:35:03Z",
-          "merge_commit_sha": "70b21428085887d848bd4fb23b0068b34da02a94"
+          "head": "feature/212-complete-auth-flow",
+          "merged_at": "2026-10-24T11:00:25Z",
+          "merge_commit_sha": "f927ec623761427d8664a5f3704434503cfc280e"
         }
       ],
-      "pull": 262,
+      "pull": 256,
       "pull_source": "commits/{sha}/pulls"
     },
     "5a2f5c083feba63e65f79880b752ae05835f80b5": {
@@ -22435,27 +22456,6 @@
       "pull": 270,
       "pull_source": "commits/{sha}/pulls"
     },
-    "f927ec623761427d8664a5f3704434503cfc280e": {
-      "message": "Merge pull request #256 from ukma-fin-ssdm-2026/feature/212-complete-auth-flow",
-      "parents": [
-        "70b21428085887d848bd4fb23b0068b34da02a94",
-        "43e1f551bb70f7b32d29e8c878c95ebe5a4ab31f"
-      ],
-      "author_date": "2026-10-24T11:00:25Z",
-      "committer_date": "2026-10-24T11:00:25Z",
-      "associated_pulls": [
-        {
-          "number": 256,
-          "title": "Feature/212 complete auth flow",
-          "base": "main",
-          "head": "feature/212-complete-auth-flow",
-          "merged_at": "2026-10-24T11:00:25Z",
-          "merge_commit_sha": "f927ec623761427d8664a5f3704434503cfc280e"
-        }
-      ],
-      "pull": 256,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "734033dfe145a53e952b888edccd3b996d37cbd1": {
       "message": "Merge pull request #268 from ukma-fin-ssdm-2026/feature/267-add-a-k6-load-test",
       "parents": [
@@ -22475,48 +22475,6 @@
         }
       ],
       "pull": 268,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "011662ab065b6d0ce029267886f15a8b759923be": {
-      "message": "Merge pull request #266 from ukma-fin-ssdm-2026/feature/264-lockout-state-transition-tests",
-      "parents": [
-        "068d4e00dbfec472722a363b18644401d929c25d",
-        "a5dcb0071f3743bd1ba8dc05ddab789a236e66a3"
-      ],
-      "author_date": "2026-10-25T07:38:23Z",
-      "committer_date": "2026-10-25T07:38:23Z",
-      "associated_pulls": [
-        {
-          "number": 266,
-          "title": "Feature/264 lockout state transition tests",
-          "base": "main",
-          "head": "feature/264-lockout-state-transition-tests",
-          "merged_at": "2026-10-25T07:38:24Z",
-          "merge_commit_sha": "011662ab065b6d0ce029267886f15a8b759923be"
-        }
-      ],
-      "pull": 266,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "068d4e00dbfec472722a363b18644401d929c25d": {
-      "message": "Merge pull request #273 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
-      "parents": [
-        "734033dfe145a53e952b888edccd3b996d37cbd1",
-        "e56f76e1c21b32257508e9f090b251c26828a85a"
-      ],
-      "author_date": "2026-10-24T16:10:28Z",
-      "committer_date": "2026-10-24T16:10:28Z",
-      "associated_pulls": [
-        {
-          "number": 273,
-          "title": "(#272) Add video link",
-          "base": "main",
-          "head": "feature/8-loom-daryna",
-          "merged_at": "2026-10-24T16:10:29Z",
-          "merge_commit_sha": "068d4e00dbfec472722a363b18644401d929c25d"
-        }
-      ],
-      "pull": 273,
       "pull_source": "commits/{sha}/pulls"
     },
     "3aa906fa6ff207aea921effa270b50e9c2d28a52": {
@@ -22559,6 +22517,48 @@
         }
       ],
       "pull": 259,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "068d4e00dbfec472722a363b18644401d929c25d": {
+      "message": "Merge pull request #273 from ukma-fin-ssdm-2026/feature/8-loom-daryna",
+      "parents": [
+        "734033dfe145a53e952b888edccd3b996d37cbd1",
+        "e56f76e1c21b32257508e9f090b251c26828a85a"
+      ],
+      "author_date": "2026-10-24T16:10:28Z",
+      "committer_date": "2026-10-24T16:10:28Z",
+      "associated_pulls": [
+        {
+          "number": 273,
+          "title": "(#272) Add video link",
+          "base": "main",
+          "head": "feature/8-loom-daryna",
+          "merged_at": "2026-10-24T16:10:29Z",
+          "merge_commit_sha": "068d4e00dbfec472722a363b18644401d929c25d"
+        }
+      ],
+      "pull": 273,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "011662ab065b6d0ce029267886f15a8b759923be": {
+      "message": "Merge pull request #266 from ukma-fin-ssdm-2026/feature/264-lockout-state-transition-tests",
+      "parents": [
+        "068d4e00dbfec472722a363b18644401d929c25d",
+        "a5dcb0071f3743bd1ba8dc05ddab789a236e66a3"
+      ],
+      "author_date": "2026-10-25T07:38:23Z",
+      "committer_date": "2026-10-25T07:38:23Z",
+      "associated_pulls": [
+        {
+          "number": 266,
+          "title": "Feature/264 lockout state transition tests",
+          "base": "main",
+          "head": "feature/264-lockout-state-transition-tests",
+          "merged_at": "2026-10-25T07:38:24Z",
+          "merge_commit_sha": "011662ab065b6d0ce029267886f15a8b759923be"
+        }
+      ],
+      "pull": 266,
       "pull_source": "commits/{sha}/pulls"
     },
     "9ac9e2330a2ec855d447c4fd5ab6159402c58687": {
@@ -22624,48 +22624,6 @@
       "pull": 282,
       "pull_source": "commits/{sha}/pulls"
     },
-    "6f913a794cc98332061fc3a9adcaae8e04e96c7e": {
-      "message": "Merge pull request #284 from ukma-fin-ssdm-2026/feature/281-create-review-log",
-      "parents": [
-        "543f94f9719d56c5620adc267829616041855f4d",
-        "66fe4d8049f0dfe3ce93745da1440ad1e61d1bd8"
-      ],
-      "author_date": "2026-10-25T16:29:31Z",
-      "committer_date": "2026-10-25T16:29:31Z",
-      "associated_pulls": [
-        {
-          "number": 284,
-          "title": "Feature/281 create review log",
-          "base": "main",
-          "head": "feature/281-create-review-log",
-          "merged_at": "2026-10-25T16:29:32Z",
-          "merge_commit_sha": "6f913a794cc98332061fc3a9adcaae8e04e96c7e"
-        }
-      ],
-      "pull": 284,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "4f6155eadbda68cc2a4dd23b9801f829a21061ea": {
-      "message": "Merge pull request #275 from ukma-fin-ssdm-2026/feature/191-create-database-roles-and-grants",
-      "parents": [
-        "7b6256693b53325351923586c7aee577497682fa",
-        "dedb44ba15ec7322763bfcd40d33a689fd0106dd"
-      ],
-      "author_date": "2026-10-25T20:42:32Z",
-      "committer_date": "2026-10-25T20:42:32Z",
-      "associated_pulls": [
-        {
-          "number": 275,
-          "title": "Feature/191 create database roles and grants",
-          "base": "main",
-          "head": "feature/191-create-database-roles-and-grants",
-          "merged_at": "2026-10-25T20:42:33Z",
-          "merge_commit_sha": "4f6155eadbda68cc2a4dd23b9801f829a21061ea"
-        }
-      ],
-      "pull": 275,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "7b6256693b53325351923586c7aee577497682fa": {
       "message": "Merge pull request #288 from ukma-fin-ssdm-2026/feature/278-review-an-ai-generated-pull-request-with-the-lab-7-checklist",
       "parents": [
@@ -22706,6 +22664,48 @@
         }
       ],
       "pull": 286,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "6f913a794cc98332061fc3a9adcaae8e04e96c7e": {
+      "message": "Merge pull request #284 from ukma-fin-ssdm-2026/feature/281-create-review-log",
+      "parents": [
+        "543f94f9719d56c5620adc267829616041855f4d",
+        "66fe4d8049f0dfe3ce93745da1440ad1e61d1bd8"
+      ],
+      "author_date": "2026-10-25T16:29:31Z",
+      "committer_date": "2026-10-25T16:29:31Z",
+      "associated_pulls": [
+        {
+          "number": 284,
+          "title": "Feature/281 create review log",
+          "base": "main",
+          "head": "feature/281-create-review-log",
+          "merged_at": "2026-10-25T16:29:32Z",
+          "merge_commit_sha": "6f913a794cc98332061fc3a9adcaae8e04e96c7e"
+        }
+      ],
+      "pull": 284,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "4f6155eadbda68cc2a4dd23b9801f829a21061ea": {
+      "message": "Merge pull request #275 from ukma-fin-ssdm-2026/feature/191-create-database-roles-and-grants",
+      "parents": [
+        "7b6256693b53325351923586c7aee577497682fa",
+        "dedb44ba15ec7322763bfcd40d33a689fd0106dd"
+      ],
+      "author_date": "2026-10-25T20:42:32Z",
+      "committer_date": "2026-10-25T20:42:32Z",
+      "associated_pulls": [
+        {
+          "number": 275,
+          "title": "Feature/191 create database roles and grants",
+          "base": "main",
+          "head": "feature/191-create-database-roles-and-grants",
+          "merged_at": "2026-10-25T20:42:33Z",
+          "merge_commit_sha": "4f6155eadbda68cc2a4dd23b9801f829a21061ea"
+        }
+      ],
+      "pull": 275,
       "pull_source": "commits/{sha}/pulls"
     },
     "54411438caa89dbf4c5b8a52cb07c9ca19e48439": {
@@ -22834,27 +22834,6 @@
       "pull": 297,
       "pull_source": "commits/{sha}/pulls"
     },
-    "bf84a4a507fa5acdf6dea1ba52135134561d6197": {
-      "message": "Merge pull request #287 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
-      "parents": [
-        "635c070e129a6f80e2342b9b0efa83a2d364a3ec",
-        "33dd3a154c697d37a16a275a15e3c5c4f3b5cc0f"
-      ],
-      "author_date": "2026-10-28T09:50:09Z",
-      "committer_date": "2026-10-28T09:50:09Z",
-      "associated_pulls": [
-        {
-          "number": 287,
-          "title": "(#272) Add video link for Lab07",
-          "base": "main",
-          "head": "feature/8-loom-oleg",
-          "merged_at": "2026-10-28T09:50:10Z",
-          "merge_commit_sha": "bf84a4a507fa5acdf6dea1ba52135134561d6197"
-        }
-      ],
-      "pull": 287,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "e952c30ad2c32cfaef0572074a26624719e7f65d": {
       "message": "Merge pull request #316 from ukma-fin-ssdm-2026/feature/309-add-the-lab-8-roles",
       "parents": [
@@ -22876,6 +22855,27 @@
       "pull": 316,
       "pull_source": "commits/{sha}/pulls"
     },
+    "bf84a4a507fa5acdf6dea1ba52135134561d6197": {
+      "message": "Merge pull request #287 from ukma-fin-ssdm-2026/feature/8-loom-oleg",
+      "parents": [
+        "635c070e129a6f80e2342b9b0efa83a2d364a3ec",
+        "33dd3a154c697d37a16a275a15e3c5c4f3b5cc0f"
+      ],
+      "author_date": "2026-10-28T09:50:09Z",
+      "committer_date": "2026-10-28T09:50:09Z",
+      "associated_pulls": [
+        {
+          "number": 287,
+          "title": "(#272) Add video link for Lab07",
+          "base": "main",
+          "head": "feature/8-loom-oleg",
+          "merged_at": "2026-10-28T09:50:10Z",
+          "merge_commit_sha": "bf84a4a507fa5acdf6dea1ba52135134561d6197"
+        }
+      ],
+      "pull": 287,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "d150e47941af77ed3a883f023d1f0bc6e0721197": {
       "message": "Merge pull request #318 from ukma-fin-ssdm-2026/feature/314-cover-the-untested-business-rules-with-unit-tests",
       "parents": [
@@ -22895,6 +22895,27 @@
         }
       ],
       "pull": 318,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "31665d0ea2785f5cece51cb29824be90d63cf9b8": {
+      "message": "Merge pull request #319 from ukma-fin-ssdm-2026/feature/315-add-unit-tests-for-the-validation-rules",
+      "parents": [
+        "aa4fbc6655925e1b2e88a2f834c3963b5b32a94e",
+        "a721d6a4a8733b3ea575602c3739b65af66df187"
+      ],
+      "author_date": "2026-10-28T15:58:05Z",
+      "committer_date": "2026-10-28T15:58:05Z",
+      "associated_pulls": [
+        {
+          "number": 319,
+          "title": "(#315) Add unit tests for the validation rules",
+          "base": "main",
+          "head": "feature/315-add-unit-tests-for-the-validation-rules",
+          "merged_at": "2026-10-28T15:58:06Z",
+          "merge_commit_sha": "31665d0ea2785f5cece51cb29824be90d63cf9b8"
+        }
+      ],
+      "pull": 319,
       "pull_source": "commits/{sha}/pulls"
     },
     "aa4fbc6655925e1b2e88a2f834c3963b5b32a94e": {
@@ -22939,25 +22960,25 @@
       "pull": 324,
       "pull_source": "commits/{sha}/pulls"
     },
-    "31665d0ea2785f5cece51cb29824be90d63cf9b8": {
-      "message": "Merge pull request #319 from ukma-fin-ssdm-2026/feature/315-add-unit-tests-for-the-validation-rules",
+    "32550cc4cf872cfa974a95938c778f27249d5959": {
+      "message": "Merge pull request #329 from ukma-fin-ssdm-2026/feature/327-google-sign-in",
       "parents": [
-        "aa4fbc6655925e1b2e88a2f834c3963b5b32a94e",
-        "a721d6a4a8733b3ea575602c3739b65af66df187"
+        "afca1c42437bd870f3e68ed4516605424f7e89e0",
+        "4ec7952ae983a0b5d1f39d9a5b74edd664c15ff9"
       ],
-      "author_date": "2026-10-28T15:58:05Z",
-      "committer_date": "2026-10-28T15:58:05Z",
+      "author_date": "2026-10-31T16:22:21Z",
+      "committer_date": "2026-10-31T16:22:21Z",
       "associated_pulls": [
         {
-          "number": 319,
-          "title": "(#315) Add unit tests for the validation rules",
+          "number": 329,
+          "title": "(#327) Native Google sign-in and one Google flow in the app",
           "base": "main",
-          "head": "feature/315-add-unit-tests-for-the-validation-rules",
-          "merged_at": "2026-10-28T15:58:06Z",
-          "merge_commit_sha": "31665d0ea2785f5cece51cb29824be90d63cf9b8"
+          "head": "feature/327-google-sign-in",
+          "merged_at": "2026-10-31T16:22:22Z",
+          "merge_commit_sha": "32550cc4cf872cfa974a95938c778f27249d5959"
         }
       ],
-      "pull": 319,
+      "pull": 329,
       "pull_source": "commits/{sha}/pulls"
     },
     "9e847c6172cc60c490972c80464135cc9902af4c": {
@@ -23002,25 +23023,25 @@
       "pull": 328,
       "pull_source": "commits/{sha}/pulls"
     },
-    "32550cc4cf872cfa974a95938c778f27249d5959": {
-      "message": "Merge pull request #329 from ukma-fin-ssdm-2026/feature/327-google-sign-in",
+    "2025c204981746e2e1a333f753f1f4bbf63b7196": {
+      "message": "Merge pull request #333 from ukma-fin-ssdm-2026/feature/332-staging-web",
       "parents": [
-        "afca1c42437bd870f3e68ed4516605424f7e89e0",
-        "4ec7952ae983a0b5d1f39d9a5b74edd664c15ff9"
+        "d444d276b14fd38631d608958f56f782c35a92b2",
+        "3a24ae7b141ce874e60181ceeff06665d036aa45"
       ],
-      "author_date": "2026-10-31T16:22:21Z",
-      "committer_date": "2026-10-31T16:22:21Z",
+      "author_date": "2026-11-01T09:07:15Z",
+      "committer_date": "2026-11-01T09:07:15Z",
       "associated_pulls": [
         {
-          "number": 329,
-          "title": "(#327) Native Google sign-in and one Google flow in the app",
+          "number": 333,
+          "title": "(#332) Deploy the web app to staging",
           "base": "main",
-          "head": "feature/327-google-sign-in",
-          "merged_at": "2026-10-31T16:22:22Z",
-          "merge_commit_sha": "32550cc4cf872cfa974a95938c778f27249d5959"
+          "head": "feature/332-staging-web",
+          "merged_at": "2026-11-01T09:07:15Z",
+          "merge_commit_sha": "2025c204981746e2e1a333f753f1f4bbf63b7196"
         }
       ],
-      "pull": 329,
+      "pull": 333,
       "pull_source": "commits/{sha}/pulls"
     },
     "d444d276b14fd38631d608958f56f782c35a92b2": {
@@ -23063,48 +23084,6 @@
         }
       ],
       "pull": 336,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "2025c204981746e2e1a333f753f1f4bbf63b7196": {
-      "message": "Merge pull request #333 from ukma-fin-ssdm-2026/feature/332-staging-web",
-      "parents": [
-        "d444d276b14fd38631d608958f56f782c35a92b2",
-        "3a24ae7b141ce874e60181ceeff06665d036aa45"
-      ],
-      "author_date": "2026-11-01T09:07:15Z",
-      "committer_date": "2026-11-01T09:07:15Z",
-      "associated_pulls": [
-        {
-          "number": 333,
-          "title": "(#332) Deploy the web app to staging",
-          "base": "main",
-          "head": "feature/332-staging-web",
-          "merged_at": "2026-11-01T09:07:15Z",
-          "merge_commit_sha": "2025c204981746e2e1a333f753f1f4bbf63b7196"
-        }
-      ],
-      "pull": 333,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "91fdcb03754e68f4cef9fedeb74c9ad9ed249955": {
-      "message": "Merge pull request #339 from ukma-fin-ssdm-2026/feature/337-connect-profile-api",
-      "parents": [
-        "79bb1f756c01e0d815053b829d331d084661b31d",
-        "9bed0f9c112bd0aee6353e1b050cc338748f21d0"
-      ],
-      "author_date": "2026-11-01T12:14:45Z",
-      "committer_date": "2026-11-01T12:14:45Z",
-      "associated_pulls": [
-        {
-          "number": 339,
-          "title": "(#337) Connect profiles to the app and the database",
-          "base": "main",
-          "head": "feature/337-connect-profile-api",
-          "merged_at": "2026-11-01T12:14:46Z",
-          "merge_commit_sha": "91fdcb03754e68f4cef9fedeb74c9ad9ed249955"
-        }
-      ],
-      "pull": 339,
       "pull_source": "commits/{sha}/pulls"
     },
     "67cd7769f9f574a005c64d59c0f5db2421e35f48": {
@@ -23170,6 +23149,27 @@
       "pull": 334,
       "pull_source": "commits/{sha}/pulls"
     },
+    "91fdcb03754e68f4cef9fedeb74c9ad9ed249955": {
+      "message": "Merge pull request #339 from ukma-fin-ssdm-2026/feature/337-connect-profile-api",
+      "parents": [
+        "79bb1f756c01e0d815053b829d331d084661b31d",
+        "9bed0f9c112bd0aee6353e1b050cc338748f21d0"
+      ],
+      "author_date": "2026-11-01T12:14:45Z",
+      "committer_date": "2026-11-01T12:14:45Z",
+      "associated_pulls": [
+        {
+          "number": 339,
+          "title": "(#337) Connect profiles to the app and the database",
+          "base": "main",
+          "head": "feature/337-connect-profile-api",
+          "merged_at": "2026-11-01T12:14:46Z",
+          "merge_commit_sha": "91fdcb03754e68f4cef9fedeb74c9ad9ed249955"
+        }
+      ],
+      "pull": 339,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "a332130f94c2a818e926049a8df4bae2c1d23398": {
       "message": "Merge pull request #342 from ukma-fin-ssdm-2026/feature/323-midterm-docs-fixes",
       "parents": [
@@ -23212,69 +23212,6 @@
       "pull": 345,
       "pull_source": "commits/{sha}/pulls"
     },
-    "26f0127196f90b6c825c6e342c83f89bc343c8bb": {
-      "message": "Merge pull request #346 from ukma-fin-ssdm-2026/feature/338-app-icon",
-      "parents": [
-        "637fb636a3dbada3feb0916ae5a920d8a41929f4",
-        "729b19dd28ad260dc2f8d1f9a3ea46455a9b525c"
-      ],
-      "author_date": "2026-11-01T18:58:23Z",
-      "committer_date": "2026-11-01T18:58:23Z",
-      "associated_pulls": [
-        {
-          "number": 346,
-          "title": "(#338) Replace the Expo app icon with the Two Tickets icon",
-          "base": "main",
-          "head": "feature/338-app-icon",
-          "merged_at": "2026-11-01T18:58:23Z",
-          "merge_commit_sha": "26f0127196f90b6c825c6e342c83f89bc343c8bb"
-        }
-      ],
-      "pull": 346,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "1a646c412fee145e5e3f80db22d65b6fe6205ed7": {
-      "message": "Merge pull request #320 from ukma-fin-ssdm-2026/feature/306-replace-time-arithmetic-with-shared-constants",
-      "parents": [
-        "26f0127196f90b6c825c6e342c83f89bc343c8bb",
-        "5362ae56cdbf97add7798b75e127cdd826ddbfda"
-      ],
-      "author_date": "2026-11-01T20:20:30Z",
-      "committer_date": "2026-11-01T20:20:30Z",
-      "associated_pulls": [
-        {
-          "number": 320,
-          "title": "Feature/306 replace time arithmetic with shared constants",
-          "base": "main",
-          "head": "feature/306-replace-time-arithmetic-with-shared-constants",
-          "merged_at": "2026-11-01T20:20:31Z",
-          "merge_commit_sha": "1a646c412fee145e5e3f80db22d65b6fe6205ed7"
-        }
-      ],
-      "pull": 320,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "c89b87227f568809b192aad054960abe186b1019": {
-      "message": "Merge pull request #353 from ukma-fin-ssdm-2026/feature/352-fix-luggin-ci",
-      "parents": [
-        "85a0938c90209864475b0823e700ea7a28d03a80",
-        "bb353483d71296b5ba19a6835507c8618105c5d0"
-      ],
-      "author_date": "2026-11-01T21:02:26Z",
-      "committer_date": "2026-11-01T21:02:26Z",
-      "associated_pulls": [
-        {
-          "number": 353,
-          "title": "(#352) Temporary (mb) change luging ci",
-          "base": "main",
-          "head": "feature/352-fix-luggin-ci",
-          "merged_at": "2026-11-01T21:02:26Z",
-          "merge_commit_sha": "c89b87227f568809b192aad054960abe186b1019"
-        }
-      ],
-      "pull": 353,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "85a0938c90209864475b0823e700ea7a28d03a80": {
       "message": "Merge pull request #349 from ukma-fin-ssdm-2026/feature/347-sonarcloud-quality-gate",
       "parents": [
@@ -23294,6 +23231,27 @@
         }
       ],
       "pull": 349,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "26f0127196f90b6c825c6e342c83f89bc343c8bb": {
+      "message": "Merge pull request #346 from ukma-fin-ssdm-2026/feature/338-app-icon",
+      "parents": [
+        "637fb636a3dbada3feb0916ae5a920d8a41929f4",
+        "729b19dd28ad260dc2f8d1f9a3ea46455a9b525c"
+      ],
+      "author_date": "2026-11-01T18:58:23Z",
+      "committer_date": "2026-11-01T18:58:23Z",
+      "associated_pulls": [
+        {
+          "number": 346,
+          "title": "(#338) Replace the Expo app icon with the Two Tickets icon",
+          "base": "main",
+          "head": "feature/338-app-icon",
+          "merged_at": "2026-11-01T18:58:23Z",
+          "merge_commit_sha": "26f0127196f90b6c825c6e342c83f89bc343c8bb"
+        }
+      ],
+      "pull": 346,
       "pull_source": "commits/{sha}/pulls"
     },
     "637fb636a3dbada3feb0916ae5a920d8a41929f4": {
@@ -23338,6 +23296,48 @@
       "pull": 350,
       "pull_source": "commits/{sha}/pulls"
     },
+    "1a646c412fee145e5e3f80db22d65b6fe6205ed7": {
+      "message": "Merge pull request #320 from ukma-fin-ssdm-2026/feature/306-replace-time-arithmetic-with-shared-constants",
+      "parents": [
+        "26f0127196f90b6c825c6e342c83f89bc343c8bb",
+        "5362ae56cdbf97add7798b75e127cdd826ddbfda"
+      ],
+      "author_date": "2026-11-01T20:20:30Z",
+      "committer_date": "2026-11-01T20:20:30Z",
+      "associated_pulls": [
+        {
+          "number": 320,
+          "title": "Feature/306 replace time arithmetic with shared constants",
+          "base": "main",
+          "head": "feature/306-replace-time-arithmetic-with-shared-constants",
+          "merged_at": "2026-11-01T20:20:31Z",
+          "merge_commit_sha": "1a646c412fee145e5e3f80db22d65b6fe6205ed7"
+        }
+      ],
+      "pull": 320,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "c89b87227f568809b192aad054960abe186b1019": {
+      "message": "Merge pull request #353 from ukma-fin-ssdm-2026/feature/352-fix-luggin-ci",
+      "parents": [
+        "85a0938c90209864475b0823e700ea7a28d03a80",
+        "bb353483d71296b5ba19a6835507c8618105c5d0"
+      ],
+      "author_date": "2026-11-01T21:02:26Z",
+      "committer_date": "2026-11-01T21:02:26Z",
+      "associated_pulls": [
+        {
+          "number": 353,
+          "title": "(#352) Temporary (mb) change luging ci",
+          "base": "main",
+          "head": "feature/352-fix-luggin-ci",
+          "merged_at": "2026-11-01T21:02:26Z",
+          "merge_commit_sha": "c89b87227f568809b192aad054960abe186b1019"
+        }
+      ],
+      "pull": 353,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "1c01f63d1e3183b3ff1cf31ff27eedc66e575225": {
       "message": "Merge pull request #351 from ukma-fin-ssdm-2026/feature/348-characterize-the-api-exception-filter",
       "parents": [
@@ -23357,6 +23357,27 @@
         }
       ],
       "pull": 351,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "334c3a6af88a466a3a0128e3e7ea7c0149a6956e": {
+      "message": "Merge pull request #358 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
+      "parents": [
+        "2d5d5eda53ca74b0a9483afe3d4a5d2773a7aedf",
+        "d2eec1c46731e4a1c26c9857dcd2eeed96f8fca5"
+      ],
+      "author_date": "2026-11-02T06:25:12Z",
+      "committer_date": "2026-11-02T06:25:12Z",
+      "associated_pulls": [
+        {
+          "number": 358,
+          "title": "(#308) Add video link",
+          "base": "main",
+          "head": "feature/8-loom-viktoriia",
+          "merged_at": "2026-11-02T06:25:12Z",
+          "merge_commit_sha": "334c3a6af88a466a3a0128e3e7ea7c0149a6956e"
+        }
+      ],
+      "pull": 358,
       "pull_source": "commits/{sha}/pulls"
     },
     "2d5d5eda53ca74b0a9483afe3d4a5d2773a7aedf": {
@@ -23422,27 +23443,6 @@
       "pull": 356,
       "pull_source": "commits/{sha}/pulls"
     },
-    "334c3a6af88a466a3a0128e3e7ea7c0149a6956e": {
-      "message": "Merge pull request #358 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
-      "parents": [
-        "2d5d5eda53ca74b0a9483afe3d4a5d2773a7aedf",
-        "d2eec1c46731e4a1c26c9857dcd2eeed96f8fca5"
-      ],
-      "author_date": "2026-11-02T06:25:12Z",
-      "committer_date": "2026-11-02T06:25:12Z",
-      "associated_pulls": [
-        {
-          "number": 358,
-          "title": "(#308) Add video link",
-          "base": "main",
-          "head": "feature/8-loom-viktoriia",
-          "merged_at": "2026-11-02T06:25:12Z",
-          "merge_commit_sha": "334c3a6af88a466a3a0128e3e7ea7c0149a6956e"
-        }
-      ],
-      "pull": 358,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "7d23162f41cbf76b7343b4a87e07cf07642e31f0": {
       "message": "Merge pull request #355 from ukma-fin-ssdm-2026/feature/303-refactorings-and-ai-use",
       "parents": [
@@ -23506,6 +23506,27 @@
       "pull": 298,
       "pull_source": "commits/{sha}/pulls"
     },
+    "883d563fc124a533679ec3eb3d685283bf752ac8": {
+      "message": "Merge pull request #361 from ukma-fin-ssdm-2026/feature/310-move-the-remaining-stubs-to-postgres",
+      "parents": [
+        "ca563e32d9c10f61d4600bd8dfad02a9046d5ac6",
+        "d611edaed65facaf437ea613921da4391adfd316"
+      ],
+      "author_date": "2026-11-07T09:11:11Z",
+      "committer_date": "2026-11-07T09:11:11Z",
+      "associated_pulls": [
+        {
+          "number": 361,
+          "title": "Feature/310 move the remaining stubs to postgres",
+          "base": "main",
+          "head": "feature/310-move-the-remaining-stubs-to-postgres",
+          "merged_at": "2026-11-07T09:11:11Z",
+          "merge_commit_sha": "883d563fc124a533679ec3eb3d685283bf752ac8"
+        }
+      ],
+      "pull": 361,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "ca563e32d9c10f61d4600bd8dfad02a9046d5ac6": {
       "message": "Merge pull request #368 from ukma-fin-ssdm-2026/feature/322-lab7-feedback",
       "parents": [
@@ -23548,39 +23569,6 @@
       "pull": 362,
       "pull_source": "commits/{sha}/pulls"
     },
-    "883d563fc124a533679ec3eb3d685283bf752ac8": {
-      "message": "Merge pull request #361 from ukma-fin-ssdm-2026/feature/310-move-the-remaining-stubs-to-postgres",
-      "parents": [
-        "ca563e32d9c10f61d4600bd8dfad02a9046d5ac6",
-        "d611edaed65facaf437ea613921da4391adfd316"
-      ],
-      "author_date": "2026-11-07T09:11:11Z",
-      "committer_date": "2026-11-07T09:11:11Z",
-      "associated_pulls": [
-        {
-          "number": 361,
-          "title": "Feature/310 move the remaining stubs to postgres",
-          "base": "main",
-          "head": "feature/310-move-the-remaining-stubs-to-postgres",
-          "merged_at": "2026-11-07T09:11:11Z",
-          "merge_commit_sha": "883d563fc124a533679ec3eb3d685283bf752ac8"
-        }
-      ],
-      "pull": 361,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "79e53fd08d4bfa374b4cdfd3b279817141318b48": {
-      "message": "Merge pull request #331 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/app/node-forge-1.4.2",
-      "parents": [
-        "5dbfcec4e1319c21f897769a060b32358b248b80",
-        "15360da079afc768236011039a56f2feff48d006"
-      ],
-      "author_date": "2026-11-03T07:57:06Z",
-      "committer_date": "2026-11-03T07:57:06Z",
-      "associated_pulls": [],
-      "pull": 331,
-      "pull_source": "merge commit message"
-    },
     "d5d28fa4eaad9e0da81f01aad29c3e9b224fcbf7": {
       "message": "Merge pull request #392 from ukma-fin-ssdm-2026/feature/378-find-and-classify-reliability-risks",
       "parents": [
@@ -23602,25 +23590,37 @@
       "pull": 392,
       "pull_source": "commits/{sha}/pulls"
     },
-    "d225cf03069a0455867a5acb6f45f20255c9f865": {
-      "message": "Merge pull request #373 from ukma-fin-ssdm-2026/feature/364-import-real-event",
+    "79e53fd08d4bfa374b4cdfd3b279817141318b48": {
+      "message": "Merge pull request #331 from ukma-fin-ssdm-2026/dependabot/npm_and_yarn/app/node-forge-1.4.2",
       "parents": [
-        "d5d28fa4eaad9e0da81f01aad29c3e9b224fcbf7",
-        "30216a4c10bc67499a1f3e4e9e98dbe8b8754fbc"
+        "5dbfcec4e1319c21f897769a060b32358b248b80",
+        "15360da079afc768236011039a56f2feff48d006"
       ],
-      "author_date": "2026-11-07T11:21:51Z",
-      "committer_date": "2026-11-07T11:21:51Z",
+      "author_date": "2026-11-03T07:57:06Z",
+      "committer_date": "2026-11-03T07:57:06Z",
+      "associated_pulls": [],
+      "pull": 331,
+      "pull_source": "merge commit message"
+    },
+    "ac8b640c23522ae8ff45d2a94b4e2a4961e5391f": {
+      "message": "Merge pull request #391 from ukma-fin-ssdm-2026/feature/371-set-up-the-job-queue-on-postgresql",
+      "parents": [
+        "97bb2f24b608fe7b3616b6b77409a873447207f1",
+        "f0cf90351804e14a73ddf7b33a8925ef7df492b4"
+      ],
+      "author_date": "2026-11-07T15:10:04Z",
+      "committer_date": "2026-11-07T15:10:04Z",
       "associated_pulls": [
         {
-          "number": 373,
-          "title": "(#364) Import real event",
+          "number": 391,
+          "title": "Feature/371 set up the job queue on postgresql",
           "base": "main",
-          "head": "feature/364-import-real-event",
-          "merged_at": "2026-11-07T11:21:52Z",
-          "merge_commit_sha": "d225cf03069a0455867a5acb6f45f20255c9f865"
+          "head": "feature/371-set-up-the-job-queue-on-postgresql",
+          "merged_at": "2026-11-07T15:10:05Z",
+          "merge_commit_sha": "ac8b640c23522ae8ff45d2a94b4e2a4961e5391f"
         }
       ],
-      "pull": 373,
+      "pull": 391,
       "pull_source": "commits/{sha}/pulls"
     },
     "97bb2f24b608fe7b3616b6b77409a873447207f1": {
@@ -23644,27 +23644,6 @@
       "pull": 394,
       "pull_source": "commits/{sha}/pulls"
     },
-    "ac8b640c23522ae8ff45d2a94b4e2a4961e5391f": {
-      "message": "Merge pull request #391 from ukma-fin-ssdm-2026/feature/371-set-up-the-job-queue-on-postgresql",
-      "parents": [
-        "97bb2f24b608fe7b3616b6b77409a873447207f1",
-        "f0cf90351804e14a73ddf7b33a8925ef7df492b4"
-      ],
-      "author_date": "2026-11-07T15:10:04Z",
-      "committer_date": "2026-11-07T15:10:04Z",
-      "associated_pulls": [
-        {
-          "number": 391,
-          "title": "Feature/371 set up the job queue on postgresql",
-          "base": "main",
-          "head": "feature/371-set-up-the-job-queue-on-postgresql",
-          "merged_at": "2026-11-07T15:10:05Z",
-          "merge_commit_sha": "ac8b640c23522ae8ff45d2a94b4e2a4961e5391f"
-        }
-      ],
-      "pull": 391,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "d7e93867cba094bd619790e683022df1bdb99855": {
       "message": "Merge pull request #397 from ukma-fin-ssdm-2026/feature/395-fix-categories",
       "parents": [
@@ -23684,6 +23663,27 @@
         }
       ],
       "pull": 397,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "d225cf03069a0455867a5acb6f45f20255c9f865": {
+      "message": "Merge pull request #373 from ukma-fin-ssdm-2026/feature/364-import-real-event",
+      "parents": [
+        "d5d28fa4eaad9e0da81f01aad29c3e9b224fcbf7",
+        "30216a4c10bc67499a1f3e4e9e98dbe8b8754fbc"
+      ],
+      "author_date": "2026-11-07T11:21:51Z",
+      "committer_date": "2026-11-07T11:21:51Z",
+      "associated_pulls": [
+        {
+          "number": 373,
+          "title": "(#364) Import real event",
+          "base": "main",
+          "head": "feature/364-import-real-event",
+          "merged_at": "2026-11-07T11:21:52Z",
+          "merge_commit_sha": "d225cf03069a0455867a5acb6f45f20255c9f865"
+        }
+      ],
+      "pull": 373,
       "pull_source": "commits/{sha}/pulls"
     },
     "5610630ed6b67bf61d58a4fb95c17150998a7fc2": {
@@ -23728,27 +23728,6 @@
       "pull": 398,
       "pull_source": "commits/{sha}/pulls"
     },
-    "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede": {
-      "message": "Merge pull request #401 from ukma-fin-ssdm-2026/feature/396-run-the-database-backups-with-their-own-read-only-role",
-      "parents": [
-        "3418099635683c6b99beefbc993e507ba5d3cb79",
-        "49f086f358faeb5ec93dcc3978598d8becdc3ebc"
-      ],
-      "author_date": "2026-11-08T09:20:18Z",
-      "committer_date": "2026-11-08T09:20:18Z",
-      "associated_pulls": [
-        {
-          "number": 401,
-          "title": "Feature/396 run the database backups with their own read only role",
-          "base": "main",
-          "head": "feature/396-run-the-database-backups-with-their-own-read-only-role",
-          "merged_at": "2026-11-08T09:20:19Z",
-          "merge_commit_sha": "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede"
-        }
-      ],
-      "pull": 401,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "97b8fd24109160fb06904216f7b80152fe32a74e": {
       "message": "Merge pull request #405 from ukma-fin-ssdm-2026/feature/385-reliability-tests",
       "parents": [
@@ -23768,27 +23747,6 @@
         }
       ],
       "pull": 405,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "a96d91afc6fdd5aa537e15bdc356d8c171160134": {
-      "message": "Merge pull request #399 from ukma-fin-ssdm-2026/feature/388-check-database-in-health",
-      "parents": [
-        "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede",
-        "4113e60e6b8f920809cb483fc6367331b47afd12"
-      ],
-      "author_date": "2026-11-08T09:44:06Z",
-      "committer_date": "2026-11-08T09:44:06Z",
-      "associated_pulls": [
-        {
-          "number": 399,
-          "title": "(#388) Check the database in the health check",
-          "base": "main",
-          "head": "feature/388-check-database-in-health",
-          "merged_at": "2026-11-08T09:44:07Z",
-          "merge_commit_sha": "a96d91afc6fdd5aa537e15bdc356d8c171160134"
-        }
-      ],
-      "pull": 399,
       "pull_source": "commits/{sha}/pulls"
     },
     "a2511691810d9cf468592de0b9139d23b0e84f67": {
@@ -23812,6 +23770,48 @@
       "pull": 400,
       "pull_source": "commits/{sha}/pulls"
     },
+    "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede": {
+      "message": "Merge pull request #401 from ukma-fin-ssdm-2026/feature/396-run-the-database-backups-with-their-own-read-only-role",
+      "parents": [
+        "3418099635683c6b99beefbc993e507ba5d3cb79",
+        "49f086f358faeb5ec93dcc3978598d8becdc3ebc"
+      ],
+      "author_date": "2026-11-08T09:20:18Z",
+      "committer_date": "2026-11-08T09:20:18Z",
+      "associated_pulls": [
+        {
+          "number": 401,
+          "title": "Feature/396 run the database backups with their own read only role",
+          "base": "main",
+          "head": "feature/396-run-the-database-backups-with-their-own-read-only-role",
+          "merged_at": "2026-11-08T09:20:19Z",
+          "merge_commit_sha": "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede"
+        }
+      ],
+      "pull": 401,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "a96d91afc6fdd5aa537e15bdc356d8c171160134": {
+      "message": "Merge pull request #399 from ukma-fin-ssdm-2026/feature/388-check-database-in-health",
+      "parents": [
+        "db2bfa90dc1cbd6bf5a7d824df5aa626d71b6ede",
+        "4113e60e6b8f920809cb483fc6367331b47afd12"
+      ],
+      "author_date": "2026-11-08T09:44:06Z",
+      "committer_date": "2026-11-08T09:44:06Z",
+      "associated_pulls": [
+        {
+          "number": 399,
+          "title": "(#388) Check the database in the health check",
+          "base": "main",
+          "head": "feature/388-check-database-in-health",
+          "merged_at": "2026-11-08T09:44:07Z",
+          "merge_commit_sha": "a96d91afc6fdd5aa537e15bdc356d8c171160134"
+        }
+      ],
+      "pull": 399,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "4aea6a61fe03be129c50cfda47a83d8031180dee": {
       "message": "Merge pull request #406 from ukma-fin-ssdm-2026/feature/390-run-reliability-tests-in-ci",
       "parents": [
@@ -23833,27 +23833,6 @@
       "pull": 406,
       "pull_source": "commits/{sha}/pulls"
     },
-    "c1a3ce4f1344ec2f67f7bb7affb29b557e42e327": {
-      "message": "Merge pull request #411 from ukma-fin-ssdm-2026/feature/408-assert-api-start",
-      "parents": [
-        "4fd70f057d3d5ee2357b4cadfb5fd643dd5f5c0c",
-        "9c63346c315f0e8e63d2672a677ecb8032e38324"
-      ],
-      "author_date": "2026-11-08T11:26:00Z",
-      "committer_date": "2026-11-08T11:26:00Z",
-      "associated_pulls": [
-        {
-          "number": 411,
-          "title": "(#408) Assert that the API is running in the reliability start test",
-          "base": "main",
-          "head": "feature/408-assert-api-start",
-          "merged_at": "2026-11-08T11:26:01Z",
-          "merge_commit_sha": "c1a3ce4f1344ec2f67f7bb7affb29b557e42e327"
-        }
-      ],
-      "pull": 411,
-      "pull_source": "commits/{sha}/pulls"
-    },
     "4fd70f057d3d5ee2357b4cadfb5fd643dd5f5c0c": {
       "message": "Merge pull request #402 from ukma-fin-ssdm-2026/feature/382-report-a-listing",
       "parents": [
@@ -23873,6 +23852,27 @@
         }
       ],
       "pull": 402,
+      "pull_source": "commits/{sha}/pulls"
+    },
+    "c1a3ce4f1344ec2f67f7bb7affb29b557e42e327": {
+      "message": "Merge pull request #411 from ukma-fin-ssdm-2026/feature/408-assert-api-start",
+      "parents": [
+        "4fd70f057d3d5ee2357b4cadfb5fd643dd5f5c0c",
+        "9c63346c315f0e8e63d2672a677ecb8032e38324"
+      ],
+      "author_date": "2026-11-08T11:26:00Z",
+      "committer_date": "2026-11-08T11:26:00Z",
+      "associated_pulls": [
+        {
+          "number": 411,
+          "title": "(#408) Assert that the API is running in the reliability start test",
+          "base": "main",
+          "head": "feature/408-assert-api-start",
+          "merged_at": "2026-11-08T11:26:01Z",
+          "merge_commit_sha": "c1a3ce4f1344ec2f67f7bb7affb29b557e42e327"
+        }
+      ],
+      "pull": 411,
       "pull_source": "commits/{sha}/pulls"
     },
     "a141a93569c239c2056cecfd1220d70ee398a8a5": {
@@ -23980,6 +23980,27 @@
       "pull": 414,
       "pull_source": "commits/{sha}/pulls"
     },
+    "cbb59396add079dfbc9e21b58ee9710fb100dbd3": {
+      "message": "Merge pull request #426 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
+      "parents": [
+        "8bf489a59fd6fd8092bd1d19d35ffbd5f00a3638",
+        "00e7d2b416e1283c1f3fd3147742dee33bd7e9e7"
+      ],
+      "author_date": "2026-11-09T05:41:01Z",
+      "committer_date": "2026-11-09T05:41:01Z",
+      "associated_pulls": [
+        {
+          "number": 426,
+          "title": "(#387) Add loom video about lab09 for Vlad-Re",
+          "base": "main",
+          "head": "feature/8-loom-vlad",
+          "merged_at": "2026-11-09T05:41:02Z",
+          "merge_commit_sha": "cbb59396add079dfbc9e21b58ee9710fb100dbd3"
+        }
+      ],
+      "pull": 426,
+      "pull_source": "commits/{sha}/pulls"
+    },
     "e8062ae738500f297c7396e23a4c01f27b164083": {
       "message": "Merge pull request #427 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia",
       "parents": [
@@ -23999,27 +24020,6 @@
         }
       ],
       "pull": 427,
-      "pull_source": "commits/{sha}/pulls"
-    },
-    "442ea07d0a6786ce84277ecaddebb7f2ef7d5359": {
-      "message": "Merge pull request #431 from ukma-fin-ssdm-2026/feature/429-lab-10",
-      "parents": [
-        "dc880c1d72c28b70468ea47808c6a4572fc12ee3",
-        "ee7b877525ebc770f4c3f17422f40475f099ba58"
-      ],
-      "author_date": "2026-11-10T07:43:17Z",
-      "committer_date": "2026-11-10T07:43:17Z",
-      "associated_pulls": [
-        {
-          "number": 431,
-          "title": "Feature/429 lab 10",
-          "base": "main",
-          "head": "feature/429-lab-10",
-          "merged_at": "2026-11-10T07:43:18Z",
-          "merge_commit_sha": "442ea07d0a6786ce84277ecaddebb7f2ef7d5359"
-        }
-      ],
-      "pull": 431,
       "pull_source": "commits/{sha}/pulls"
     },
     "dc880c1d72c28b70468ea47808c6a4572fc12ee3": {
@@ -24043,25 +24043,25 @@
       "pull": 428,
       "pull_source": "commits/{sha}/pulls"
     },
-    "cbb59396add079dfbc9e21b58ee9710fb100dbd3": {
-      "message": "Merge pull request #426 from ukma-fin-ssdm-2026/feature/8-loom-vlad",
+    "442ea07d0a6786ce84277ecaddebb7f2ef7d5359": {
+      "message": "Merge pull request #431 from ukma-fin-ssdm-2026/feature/429-lab-10",
       "parents": [
-        "8bf489a59fd6fd8092bd1d19d35ffbd5f00a3638",
-        "00e7d2b416e1283c1f3fd3147742dee33bd7e9e7"
+        "dc880c1d72c28b70468ea47808c6a4572fc12ee3",
+        "ee7b877525ebc770f4c3f17422f40475f099ba58"
       ],
-      "author_date": "2026-11-09T05:41:01Z",
-      "committer_date": "2026-11-09T05:41:01Z",
+      "author_date": "2026-11-10T07:43:17Z",
+      "committer_date": "2026-11-10T07:43:17Z",
       "associated_pulls": [
         {
-          "number": 426,
-          "title": "(#387) Add loom video about lab09 for Vlad-Re",
+          "number": 431,
+          "title": "Feature/429 lab 10",
           "base": "main",
-          "head": "feature/8-loom-vlad",
-          "merged_at": "2026-11-09T05:41:02Z",
-          "merge_commit_sha": "cbb59396add079dfbc9e21b58ee9710fb100dbd3"
+          "head": "feature/429-lab-10",
+          "merged_at": "2026-11-10T07:43:18Z",
+          "merge_commit_sha": "442ea07d0a6786ce84277ecaddebb7f2ef7d5359"
         }
       ],
-      "pull": 426,
+      "pull": 431,
       "pull_source": "commits/{sha}/pulls"
     },
     "53b666fd0bcc778e3a9eb0bf92e622f105ea4928": {

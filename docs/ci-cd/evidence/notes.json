@@ -125,7 +125,7 @@
       "note": "Re-run of the failed job, attempt 2, no code change; recovery after №157"
     },
     "41291705270/1": {
-      "note": "`Publish images`: the web image build failed, `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_GOOGLE_CLIENT_ID` were empty",
+      "note": "`Publish images`: the web image build failed, `EXPO_PUBLIC_GOOGLE_CLIENT_ID` was empty (`EXPO_PUBLIC_API_URL` was set)",
       "evidence": "run-585-attempt-1.log"
     },
     "41291705270/2": {
