@@ -33,7 +33,7 @@ DORA metrics of the `CI` workflow on `main` from 20.10 to 09.11.2026 (3 weeks), 
 
 ## Bonuses
 
-1. **Automatic collection.** [`scripts/ci-metrics/`](../../scripts/ci-metrics/) takes the runs of `CI` on `main` for a given period from the GitHub Actions API and records the queue and the execution of each attempt separately; its output is [`evidence/runs.json`](evidence/runs.json). Run: `node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out <folder>`.
+1. **Automatic metrics.** [`scripts/ci-metrics/`](../../scripts/ci-metrics/) takes the runs of `CI` on `main` for a given period from the GitHub Actions API, records the queue and the execution of each attempt separately ([`evidence/runs.json`](evidence/runs.json)) and computes the four metrics by the lab's definitions ([`evidence/dora-metrics.json`](evidence/dora-metrics.json)); for 20.10–09.11 it gives the numbers above to the minute. Run: `node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out <folder>`, then the same command with `--metrics`.
 
 ## AI Usage Note
 
