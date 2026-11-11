@@ -195,12 +195,15 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
 | `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
+| `GET` | `/api/v1/events/freshness` | Anyone with a guest or user token | `200` per import provider, when it was last updated | `401` |
 | `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
 | `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
 | `PUT` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
 
 `PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
+
+`GET /api/v1/events/freshness` serves the "last updated" notice (FR-014): `{ items: [{ provider, lastSucceededAt, latestRunFailed }] }`, one entry per import provider that has had a run, from `import_runs` (HLD I4). `lastSucceededAt` is when its last succeeded run finished, or `null`; `latestRunFailed` is whether its latest ended run failed, a run still going not counting. While one failed, the catalog keeps serving that provider's events of its last succeeded run, and the app shows "Оновлено <date, time>" above the list. Organization events are always current, so they have no entry.
 
 `GET /api/v1/events` query parameters (FR-007):
 
