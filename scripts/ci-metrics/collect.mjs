@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // Collects every attempt of the CI workflow (.github/workflows/ci.yml) on main from the GitHub REST API and writes
 // runs.json (raw runs, jobs and PR commits) and a Markdown table in the format of docs/ci-cd/metrics-raw.md.
+// With --metrics it reads runs.json back and computes the four DORA metrics into dora-metrics.json.
 // Read-only: it creates no workflow and starts nothing in Actions. See README.md next to this file.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -11,15 +12,21 @@ const WORKFLOW_FILE = 'ci.yml';
 const BRANCH = 'main';
 const SKIPPED_ACTORS = new Set(['dependabot[bot]']);
 const PARALLEL_REQUESTS = 6;
+const RED = new Set(['failure', 'timed_out', 'startup_failure']);
 
 const USAGE = `Usage: node scripts/ci-metrics/collect.mjs [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--out DIR]
                                             [--table FILE] [--notes FILE] [--repo OWNER/NAME]
+       node scripts/ci-metrics/collect.mjs --metrics [--from ...] [--to ...] [--out DIR] [--notes FILE]
+                                            [--exclude-runs 1-60,89] [--ignore-failure-causes billing,...]
   --from, --to  UTC dates of run creation, inclusive; the whole history by default
   --out         folder for runs.json and, unless --table is given, metrics-raw.md (default: ci-metrics-out)
   --table       path of the generated Markdown table
-  --notes       JSON file with the Note column and status overrides (see README.md)
+  --notes       JSON file with the Note column, status overrides and failure causes (see README.md)
   --repo        repository; read from the origin remote by default
-Auth: GITHUB_TOKEN, otherwise the token of \`gh auth login\`.`;
+  --metrics     read <out>/runs.json instead of the API and write <out>/dora-metrics.json
+  --exclude-runs            row numbers (№) to leave out of the metrics, e.g. 1-60,89
+  --ignore-failure-causes   causes from --notes whose red runs count as neither a deployment nor a failure
+Auth: GITHUB_TOKEN, otherwise the token of \`gh auth login\` (not needed with --metrics).`;
 
 function fail(message) {
   console.error(`collect: ${message}`);
@@ -37,6 +44,9 @@ function parseOptions() {
         table: { type: 'string' },
         notes: { type: 'string' },
         repo: { type: 'string' },
+        metrics: { type: 'boolean', default: false },
+        'exclude-runs': { type: 'string' },
+        'ignore-failure-causes': { type: 'string' },
         help: { type: 'boolean', short: 'h' },
       },
     }));
@@ -58,13 +68,23 @@ function parseOptions() {
   if (values.from && values.to && values.from > values.to) {
     fail('--from is after --to');
   }
+  if (!values.metrics && (values['exclude-runs'] || values['ignore-failure-causes'])) {
+    fail('--exclude-runs and --ignore-failure-causes only apply with --metrics');
+  }
   return values;
 }
 
 // The two file helpers take paths from the command line on purpose: the script is run by hand with trusted input.
-function readJson(path) {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
-  return JSON.parse(readFileSync(path, 'utf8'));
+function readJson(path, hint) {
+  try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      fail(`${path} not found${hint ? `; ${hint}` : ''}`);
+    }
+    throw error;
+  }
 }
 
 function writeText(path, text) {
@@ -377,14 +397,15 @@ const shortDateTime = (iso) =>
 const minutes = (value) => (value === null ? '—' : value.toFixed(1));
 const STATUS_ICONS = { success: '✅', failure: '❌', timed_out: '❌', startup_failure: '❌', cancelled: '⏹️' };
 
+const noteOf = (notes, row) => notes[`${row.run_id}/${row.run_attempt}`] ?? {};
+
 function buildRows(data, notes) {
   const rows = [];
   for (const run of data.runs) {
     const commit = data.commits[run.head_sha];
     const pull = commit.pull ? data.pulls[commit.pull] : null;
     for (const attempt of run.attempts) {
-      const manual = notes[`${run.id}/${attempt.run_attempt}`] ?? {};
-      const status = manual.status ?? attempt.conclusion ?? attempt.status;
+      const manual = noteOf(notes, { run_id: run.id, run_attempt: attempt.run_attempt });
       rows.push({
         number: rows.length + 1,
         run_id: run.id,
@@ -394,12 +415,15 @@ function buildRows(data, notes) {
         head_sha: run.head_sha,
         pull: commit.pull,
         first_commit_at: pull ? pull.first_commit_at : commit.author_date,
+        run_created_at: run.created_at,
+        created_at: attempt.created_at,
         completed_at: attempt.timings.last_job_completed_at ?? attempt.updated_at,
         queue_min: attempt.timings.queue_min,
         execution_min: attempt.timings.execution_min,
         conclusion: attempt.conclusion,
-        status,
+        status: manual.status ?? attempt.conclusion ?? attempt.status,
         status_overridden: manual.status !== undefined,
+        cause: manual.cause ?? null,
         note: manual.note ?? '',
         evidence: manual.evidence ?? null,
         url: run.html_url,
@@ -443,8 +467,296 @@ function renderTable({ rows, repo, from, to, firstRunOn, collectedOn }) {
   return lines.join('\n');
 }
 
-async function main() {
-  const options = parseOptions();
+// --- DORA metrics, by the lab's definitions (see README.md, "Metrics") ---
+
+function parseRowNumbers(text) {
+  const numbers = new Set();
+  for (const part of (text ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean)) {
+    const bounds = part.split('-').map((bound) => (/^\d+$/.test(bound) ? Number(bound) : NaN));
+    if (bounds.length > 2 || bounds.some(Number.isNaN)) {
+      fail(`--exclude-runs: "${part}" is not a row number or a range like 1-60`);
+    }
+    const [from, to = from] = bounds;
+    if (to < from) {
+      fail(`--exclude-runs: the range "${part}" is empty`);
+    }
+    for (let n = from; n <= to; n++) {
+      numbers.add(n);
+    }
+  }
+  return numbers;
+}
+
+const parseCauses = (text) =>
+  new Set(
+    (text ?? '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean),
+  );
+
+const round1 = (value) => Math.round(value * 10) / 10;
+const round2 = (value) => Math.round(value * 100) / 100;
+const mean = (values) => (values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : null);
+const median = (values) => {
+  if (!values.length) {
+    return null;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted.at(mid) : (sorted.at(mid - 1) + sorted.at(mid)) / 2;
+};
+const durationText = (min) => {
+  if (min === null) {
+    return null;
+  }
+  const whole = Math.round(min);
+  const parts = [];
+  if (whole >= 1440) {
+    parts.push(`${Math.floor(whole / 1440)} d`);
+  }
+  if (whole % 1440 >= 60) {
+    parts.push(`${Math.floor((whole % 1440) / 60)} h`);
+  }
+  parts.push(`${whole % 60} min`);
+  return parts.join(' ');
+};
+const stats = (values) => ({
+  count: values.length,
+  mean_min: mean(values) === null ? null : round1(mean(values)),
+  mean_text: durationText(mean(values)),
+  median_min: median(values) === null ? null : round1(median(values)),
+  median_text: durationText(median(values)),
+});
+const rowRef = (row) => ({
+  row: row.number,
+  run_number: row.run_number,
+  run_attempt: row.run_attempt,
+  completed_at: row.completed_at,
+  url: `${row.url}/attempts/${row.run_attempt}`,
+});
+
+// A row is a deployment (green), a failure (red, unless its cause is ignored) or neither: cancelled runs and
+// ignored red runs. `kind` drives every metric below.
+function classify(row, ignoredCauses) {
+  if (row.status === 'success') {
+    return 'deployment';
+  }
+  if (RED.has(row.status)) {
+    return ignoredCauses.has(row.cause) ? 'ignored' : 'failure';
+  }
+  return 'not_completed';
+}
+
+function computeMetrics({ data, notes, from, to, excludeRunsText, ignoredCauses }) {
+  const excludeRows = parseRowNumbers(excludeRunsText);
+  if (!data.rows.length || data.rows[0].run_created_at === undefined) {
+    fail('runs.json comes from an older collector or is empty; collect again first');
+  }
+  const periodFrom = from ?? data.period?.from ?? data.rows[0].run_created_at.slice(0, 10);
+  const periodTo = to ?? data.period?.to ?? data.collected_at.slice(0, 10);
+  const days =
+    Math.round((Date.parse(`${periodTo}T00:00:00Z`) - Date.parse(`${periodFrom}T00:00:00Z`)) / 86_400_000) + 1;
+
+  const withNotes = data.rows.map((row) => {
+    const manual = notes ? noteOf(notes, row) : {};
+    return {
+      ...row,
+      status: manual.status ?? (notes ? row.conclusion : row.status),
+      cause: manual.cause ?? (notes ? null : row.cause),
+    };
+  });
+  const inPeriod = withNotes.filter((row) => {
+    const day = row.run_created_at.slice(0, 10);
+    return day >= periodFrom && day <= periodTo;
+  });
+  const excluded = inPeriod.filter((row) => excludeRows.has(row.number));
+  const kept = inPeriod
+    .filter((row) => !excludeRows.has(row.number))
+    .map((row) => ({ ...row, kind: classify(row, ignoredCauses) }));
+  // Main is as green as its last completed run, so the timeline follows completion.
+  const timeline = [...kept].sort((a, b) => a.completed_at.localeCompare(b.completed_at) || a.number - b.number);
+  const byKind = (kind) => kept.filter((row) => row.kind === kind);
+  const deployments = byKind('deployment');
+  const failures = byKind('failure');
+
+  // Lead time, per change (a PR, or a commit pushed directly): from its first commit to the completion of the first
+  // green run created at or after the change's own first run. Main is linear, so every later run contains the commit.
+  const firstRuns = new Map();
+  for (const row of [...kept].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.number - b.number)) {
+    const key = row.pull ? `#${row.pull}` : row.head_sha.slice(0, 7);
+    if (!firstRuns.has(key)) {
+      firstRuns.set(key, row);
+    }
+  }
+  const greensByCreation = [...deployments].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const leadItems = [];
+  const pending = [];
+  for (const [change, first] of firstRuns) {
+    const green = greensByCreation.find((row) => row.created_at >= first.created_at);
+    const base = {
+      change,
+      pull: first.pull,
+      head_sha: first.head_sha.slice(0, 7),
+      first_commit_at: first.first_commit_at,
+      first_run_row: first.number,
+    };
+    if (!green) {
+      pending.push(base);
+      continue;
+    }
+    const lead = minutesBetween(first.first_commit_at, green.completed_at);
+    leadItems.push({
+      ...base,
+      green_run: rowRef(green),
+      lead_min: round1(lead),
+      lead_text: durationText(lead),
+      before_run_min: round1(lead - green.queue_min - green.execution_min),
+      queue_min: round1(green.queue_min),
+      execution_min: round1(green.execution_min),
+    });
+  }
+  const totalLead = leadItems.reduce((sum, item) => sum + item.lead_min, 0);
+  const share = (part) =>
+    totalLead ? round2((leadItems.reduce((sum, item) => sum + part(item), 0) / totalLead) * 100) : null;
+
+  // Recovery: an incident opens with a red run while main is green and closes with the next green run; red runs in
+  // between belong to the same incident. Its duration runs from the first red run's completion to the green one's.
+  const incidents = [];
+  let open = null;
+  for (const row of timeline) {
+    if (row.kind === 'failure') {
+      if (open) {
+        open.red_runs.push(rowRef(row));
+      } else {
+        open = { red_runs: [rowRef(row)] };
+      }
+    } else if (row.kind === 'deployment' && open) {
+      const duration = minutesBetween(open.red_runs[0].completed_at, row.completed_at);
+      incidents.push({
+        ...open,
+        green_run: rowRef(row),
+        recovery_min: round1(duration),
+        recovery_text: durationText(duration),
+      });
+      open = null;
+    }
+  }
+
+  const leadMinutes = leadItems.map((item) => item.lead_min);
+  const recoveryMinutes = incidents.map((item) => item.recovery_min);
+  const numbers = (rows) => rows.map((row) => row.number);
+  return {
+    generated_at: new Date().toISOString(),
+    source: {
+      file: 'runs.json',
+      collected_at: data.collected_at,
+      repository: data.repository,
+      workflow: data.workflow,
+      branch: data.branch,
+    },
+    definitions: {
+      deployment: 'a green run of CI on main (one row of metrics-raw.md; each attempt of a re-run is a row of its own)',
+      failure: 'a red run of CI on main; cancelled runs are neither a deployment nor a failure',
+      change_lead_time:
+        'from the first commit of the merged PR (for a direct push, the commit itself) to the completion of the first green run on main created at or after the change reached main; the queue is part of it',
+      change_fail_rate: 'red runs / (green + red runs) on main',
+      recovery_time:
+        'from the completion of a red run on main to the completion of the next green run on main; consecutive red runs form one incident',
+      period: 'UTC dates of run creation, inclusive',
+    },
+    period: { from: periodFrom, to: periodTo, days, weeks: round1(days / 7) },
+    filters: {
+      exclude_runs: excludeRunsText ?? null,
+      excluded_rows: numbers(excluded),
+      ignore_failure_causes: [...ignoredCauses],
+      ignored_rows: byKind('ignored').map((row) => ({ row: row.number, cause: row.cause })),
+    },
+    counts: {
+      rows_in_period: inPeriod.length,
+      rows_counted: kept.length,
+      deployments: deployments.length,
+      failures: failures.length,
+      not_completed: byKind('not_completed').length,
+      ignored: byKind('ignored').length,
+      excluded: excluded.length,
+    },
+    classification: {
+      deployment: numbers(deployments),
+      failure: numbers(failures),
+      not_completed: numbers(byKind('not_completed')),
+      ignored: numbers(byKind('ignored')),
+      excluded: numbers(excluded),
+    },
+    deployment_frequency: {
+      deployments: deployments.length,
+      days,
+      per_week: round1(deployments.length / (days / 7)),
+      per_day: round1(deployments.length / days),
+    },
+    change_lead_time: {
+      changes: leadItems.length,
+      ...stats(leadMinutes),
+      shares_percent: {
+        before_run: share((item) => item.before_run_min),
+        queue: share((item) => item.queue_min),
+        execution: share((item) => item.execution_min),
+      },
+      pending: pending.length ? pending : [],
+      items: leadItems,
+    },
+    change_fail_rate: {
+      failures: failures.length,
+      completed: deployments.length + failures.length,
+      percent:
+        deployments.length + failures.length
+          ? round1((failures.length / (deployments.length + failures.length)) * 100)
+          : null,
+    },
+    failed_deployment_recovery_time: {
+      incidents: incidents.length,
+      ...stats(recoveryMinutes),
+      unresolved: open ? open.red_runs : [],
+      items: incidents,
+    },
+  };
+}
+
+function runMetrics(options) {
+  const runsPath = join(options.out, 'runs.json');
+  const data = readJson(runsPath, 'run the collector first or pass --out with the folder that holds runs.json');
+  const notes = options.notes ? (readJson(options.notes).attempts ?? {}) : null;
+  const metrics = computeMetrics({
+    data,
+    notes,
+    from: options.from,
+    to: options.to,
+    excludeRunsText: options['exclude-runs'],
+    ignoredCauses: parseCauses(options['ignore-failure-causes']),
+  });
+  const outPath = join(options.out, 'dora-metrics.json');
+  writeText(outPath, `${JSON.stringify(metrics, null, 2)}\n`);
+  const {
+    deployment_frequency: df,
+    change_lead_time: lt,
+    change_fail_rate: cfr,
+    failed_deployment_recovery_time: rt,
+  } = metrics;
+  console.error(
+    [
+      `metrics: ${metrics.period.from}..${metrics.period.to} (${metrics.period.days} days), ${metrics.counts.rows_counted} rows counted -> ${relative('.', outPath)}`,
+      `  deployment frequency: ${df.deployments} deployments, ${df.per_week}/week, ${df.per_day}/day`,
+      `  change lead time: ${lt.changes} changes, mean ${lt.mean_text}, median ${lt.median_text}; before run ${lt.shares_percent.before_run}%, queue ${lt.shares_percent.queue}%, execution ${lt.shares_percent.execution}%`,
+      `  change fail rate: ${cfr.failures} of ${cfr.completed} = ${cfr.percent}%`,
+      `  recovery time: ${rt.incidents} incidents, mean ${rt.mean_text}, median ${rt.median_text}`,
+    ].join('\n'),
+  );
+}
+
+async function runCollect(options) {
   const token = readToken();
   const repo = readRepo(options.repo);
   const notes = options.notes ? (readJson(options.notes).attempts ?? {}) : {};
@@ -485,6 +797,15 @@ async function main() {
       .map(([status, n]) => `${status} ${n}`)
       .join(', ')}) -> ${relative('.', join(options.out, 'runs.json'))}, ${relative('.', tablePath)}`,
   );
+}
+
+async function main() {
+  const options = parseOptions();
+  if (options.metrics) {
+    runMetrics(options);
+  } else {
+    await runCollect(options);
+  }
 }
 
 main().catch((error) => fail(error.stack ?? String(error)));
