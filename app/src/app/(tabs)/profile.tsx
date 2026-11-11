@@ -37,7 +37,7 @@ const COVER_HEIGHT = 200;
 const COVER_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 const AVATAR_OVERLAP = 46;
-const LIST_BOTTOM_GAP = 26;
+const LIST_BOTTOM_GAP = 36;
 
 // "Затемнення": black at 35% fading out by 60% of the cover.
 function CoverShade() {

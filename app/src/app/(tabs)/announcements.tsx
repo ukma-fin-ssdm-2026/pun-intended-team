@@ -30,10 +30,10 @@ import { openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // "01 Шапка": top padding 60 in the iPhone 14 frame (13 px below its status bar). The feed keeps 120 px under it for the
-// tab bar (72 + 22 + 26).
+// tab bar (72 + 12 + 36).
 const HEADER_TOP = 60;
 const GAP_BELOW_STATUS_BAR = 13;
-const LIST_BOTTOM_GAP = 26;
+const LIST_BOTTOM_GAP = 36;
 
 const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
 // Т3.3 Пошук оголошень: the tabs switch only visually; every tab shows the matching posts.

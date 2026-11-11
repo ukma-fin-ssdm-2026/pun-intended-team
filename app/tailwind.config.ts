@@ -24,7 +24,7 @@ export default {
         'inter-medium': [fontFamilies.medium],
         'inter-semibold': [fontFamilies.semibold],
         'inter-bold': [fontFamilies.bold],
-        alice: [fontFamilies.logo],
+        logo: [fontFamilies.logo],
       },
     },
   },

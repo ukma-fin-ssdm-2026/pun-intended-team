@@ -18,11 +18,11 @@ import { findMockEvent } from '@/mocks/events';
 import { mockVenue } from '@/mocks/map';
 import { colors } from '@/styles/tokens';
 
-// "01 Пошук": top padding 56 in the iPhone 14 frame (9 px below its status bar). The venue card keeps 16 px above the
-// tab bar (Figma: bottom padding 110 = 72 + 22 + 16).
+// "01 Пошук": top padding 56 in the iPhone 14 frame (9 px below its status bar). The venue card keeps 26 px above the
+// tab bar (Figma: bottom padding 110 = 72 + 12 + 26).
 const SEARCH_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
-const CARD_GAP_ABOVE_BAR = 16;
+const CARD_GAP_ABOVE_BAR = 26;
 // Figma DROP_SHADOW values (radius as the CSS blur).
 const SEARCH_SHADOW = '0px 4px 14px rgba(0, 0, 0, 0.08)';
 const CARD_SHADOW = '0px -4px 20px rgba(0, 0, 0, 0.08)';
