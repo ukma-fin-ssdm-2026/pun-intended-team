@@ -98,7 +98,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | `event.changed` | CMP-03, catalog | matching | `eventId`, `change` | immediate — closes pools, voids pending matches, notifies applicants |
 | `user.banned` | moderation | matching | `userId` | immediate — withdraws applications, voids pending matches |
 | `audit.record` | identity and the other modules below moderation | moderation | actor, action, target, result, IP address (not recorded yet) | immediate — moderation writes the AuditLog row (SEC-004) |
-| `import.run` | schedule | CMP-03 | `providerId` | cron |
+| `import.run` | schedule | CMP-03 | `providerId` | daily at 02:00 UTC, one schedule per provider; never retried, and no run within 20 hours of the provider's last ([ADR-006](decisions/ADR-006.md), decision 11) |
 | `moderation.retention` | schedule | moderation | — | daily — audit log past retention (SEC-004) |
 | `identity.retention` | schedule | identity | — | daily — expired or revoked tokens, used or expired codes (SEC-005, SEC-008) |
 

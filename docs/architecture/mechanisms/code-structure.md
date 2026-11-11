@@ -76,7 +76,7 @@ src/
 ## Planned
 
 15. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
-16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. `npm run import:events` makes one run; the schedule (`import.run`, HLD I3) is still to come.
+16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. Without flags it runs until stopped and takes the `import.run` jobs (HLD I3) through `ImportScheduleModule`, with the job queue of `ImportInfraModule.withJobQueue()`; `--once` (`npm run import:events`) makes one run without the job queue and exits.
 
 ## AI Usage Note
 
