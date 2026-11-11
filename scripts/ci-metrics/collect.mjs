@@ -47,15 +47,31 @@ function parseOptions() {
     console.log(USAGE);
     process.exit(0);
   }
-  for (const key of ['from', 'to']) {
-    if (values[key] !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(values[key])) {
-      fail(`--${key} must be a date like 2026-10-20, got "${values[key]}"`);
+  for (const [name, value] of [
+    ['from', values.from],
+    ['to', values.to],
+  ]) {
+    if (value !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      fail(`--${name} must be a date like 2026-10-20, got "${value}"`);
     }
   }
   if (values.from && values.to && values.from > values.to) {
     fail('--from is after --to');
   }
   return values;
+}
+
+// The two file helpers take paths from the command line on purpose: the script is run by hand with trusted input.
+function readJson(path) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
+  return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function writeText(path, text) {
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
+  mkdirSync(dirname(path), { recursive: true });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
+  writeFileSync(path, text);
 }
 
 function readToken() {
@@ -132,12 +148,14 @@ function createClient(token) {
   return { request, paginate };
 }
 
+// Runs `fn` over `items` with at most `limit` calls in flight; the results keep the order of `items`.
 async function mapLimited(items, limit, fn) {
   const results = new Array(items.length);
   let index = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
     while (index < items.length) {
       const current = index++;
+      // eslint-disable-next-line security/detect-object-injection -- the index is the worker's own counter
       results[current] = await fn(items[current]);
     }
   });
@@ -246,6 +264,56 @@ function choosePull(sha, pulls) {
   );
 }
 
+async function collectCommit(client, repo, sha) {
+  const [pulls, { body: commit }] = await Promise.all([
+    client.paginate(`/repos/${repo}/commits/${sha}/pulls`, (page) => page),
+    client.request(`/repos/${repo}/commits/${sha}`),
+  ]);
+  const associated = pulls.map((pull) => ({
+    number: pull.number,
+    title: pull.title,
+    base: pull.base.ref,
+    head: pull.head.ref,
+    merged_at: pull.merged_at,
+    merge_commit_sha: pull.merge_commit_sha,
+  }));
+  let chosen = choosePull(sha, associated)?.number ?? null;
+  let source = chosen ? 'commits/{sha}/pulls' : null;
+  // When two PRs are merged within a second, GitHub can link the merge commit to no PR at all. The merge commit's
+  // own message still names it; the PR is taken only if it was merged into main and has the commit as a parent.
+  const named = commit.commit.message.match(/^Merge pull request #(\d+) /)?.[1];
+  if (!chosen && named && commit.parents.length === 2) {
+    const { body: pull } = await client.request(`/repos/${repo}/pulls/${named}`);
+    if (pull.merged_at && pull.base.ref === BRANCH && commit.parents.some((parent) => parent.sha === pull.head.sha)) {
+      chosen = pull.number;
+      source = 'merge commit message';
+    }
+  }
+  return {
+    message: commit.commit.message.split('\n')[0],
+    parents: commit.parents.map((parent) => parent.sha),
+    author_date: commit.commit.author.date,
+    committer_date: commit.commit.committer.date,
+    associated_pulls: associated,
+    pull: chosen,
+    pull_source: source,
+  };
+}
+
+async function collectPull(client, repo, number) {
+  const prCommits = await client.paginate(`/repos/${repo}/pulls/${number}/commits`, (page) => page);
+  const list = prCommits.map((c) => ({
+    sha: c.sha,
+    author_date: c.commit.author.date,
+    committer_date: c.commit.committer.date,
+  }));
+  return {
+    url: `https://github.com/${repo}/pull/${number}`,
+    first_commit_at: list.map((c) => c.author_date).sort()[0] ?? null,
+    commits: list,
+  };
+}
+
 async function collect({ client, repo, from, to }) {
   const created = from || to ? `&created=${from ?? '*'}..${to ?? '*'}` : '';
   const listed = await client.paginate(
@@ -278,43 +346,9 @@ async function collect({ client, repo, from, to }) {
   }
 
   const shas = [...new Set(runs.map((run) => run.head_sha))];
-  const commits = {};
-  await mapLimited(shas, PARALLEL_REQUESTS, async (sha) => {
-    const [pulls, { body: commit }] = await Promise.all([
-      client.paginate(`/repos/${repo}/commits/${sha}/pulls`, (page) => page),
-      client.request(`/repos/${repo}/commits/${sha}`),
-    ]);
-    const pickPull = (pull) => ({
-      number: pull.number,
-      title: pull.title,
-      base: pull.base.ref,
-      head: pull.head.ref,
-      merged_at: pull.merged_at,
-      merge_commit_sha: pull.merge_commit_sha,
-    });
-    const associated = pulls.map(pickPull);
-    let chosen = choosePull(sha, associated)?.number ?? null;
-    let source = chosen ? 'commits/{sha}/pulls' : null;
-    // When two PRs are merged within a second, GitHub can link the merge commit to no PR at all. The merge commit's
-    // own message still names it; the PR is taken only if it was merged into main and has the commit as a parent.
-    const named = commit.commit.message.match(/^Merge pull request #(\d+) /)?.[1];
-    if (!chosen && named && commit.parents.length === 2) {
-      const { body: pull } = await client.request(`/repos/${repo}/pulls/${named}`);
-      if (pull.merged_at && pull.base.ref === BRANCH && commit.parents.some((parent) => parent.sha === pull.head.sha)) {
-        chosen = pull.number;
-        source = 'merge commit message';
-      }
-    }
-    commits[sha] = {
-      message: commit.commit.message.split('\n')[0],
-      parents: commit.parents.map((parent) => parent.sha),
-      author_date: commit.commit.author.date,
-      committer_date: commit.commit.committer.date,
-      associated_pulls: associated,
-      pull: chosen,
-      pull_source: source,
-    };
-  });
+  const commits = Object.fromEntries(
+    await mapLimited(shas, PARALLEL_REQUESTS, async (sha) => [sha, await collectCommit(client, repo, sha)]),
+  );
 
   const pullNumbers = [
     ...new Set(
@@ -323,20 +357,12 @@ async function collect({ client, repo, from, to }) {
         .filter(Boolean),
     ),
   ];
-  const pulls = {};
-  await mapLimited(pullNumbers, PARALLEL_REQUESTS, async (number) => {
-    const prCommits = await client.paginate(`/repos/${repo}/pulls/${number}/commits`, (page) => page);
-    const list = prCommits.map((c) => ({
-      sha: c.sha,
-      author_date: c.commit.author.date,
-      committer_date: c.commit.committer.date,
-    }));
-    pulls[number] = {
-      url: `https://github.com/${repo}/pull/${number}`,
-      first_commit_at: list.map((c) => c.author_date).sort()[0] ?? null,
-      commits: list,
-    };
-  });
+  const pulls = Object.fromEntries(
+    await mapLimited(pullNumbers, PARALLEL_REQUESTS, async (number) => [
+      number,
+      await collectPull(client, repo, number),
+    ]),
+  );
 
   return { runs, commits, pulls };
 }
@@ -421,7 +447,7 @@ async function main() {
   const options = parseOptions();
   const token = readToken();
   const repo = readRepo(options.repo);
-  const notes = options.notes ? (JSON.parse(readFileSync(options.notes, 'utf8')).attempts ?? {}) : {};
+  const notes = options.notes ? (readJson(options.notes).attempts ?? {}) : {};
   const client = createClient(token);
 
   const data = await collect({ client, repo, from: options.from, to: options.to });
@@ -429,8 +455,6 @@ async function main() {
   const rows = buildRows(data, notes);
 
   const tablePath = options.table ?? join(options.out, 'metrics-raw.md');
-  mkdirSync(options.out, { recursive: true });
-  mkdirSync(dirname(tablePath), { recursive: true });
   const output = {
     repository: repo,
     workflow: `.github/workflows/${WORKFLOW_FILE}`,
@@ -442,8 +466,8 @@ async function main() {
     commits: data.commits,
     pulls: data.pulls,
   };
-  writeFileSync(join(options.out, 'runs.json'), `${JSON.stringify(output, null, 2)}\n`);
-  writeFileSync(
+  writeText(join(options.out, 'runs.json'), `${JSON.stringify(output, null, 2)}\n`);
+  writeText(
     tablePath,
     renderTable({
       rows,
