@@ -31,6 +31,10 @@ DORA metrics of the `CI` workflow on `main` from 20.10 to 09.11.2026 (3 weeks), 
 | Change fail rate | Reliability tests hung until the timeout (№86) | A started process is left open | Stop the started APIs in `after`; `--test-force-exit` | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№91) | Nobody watches `main` | Notify the team chat when `main` turns red | @Vlad-Re |
 
+## Bonuses
+
+1. **Automatic collection.** [`scripts/ci-metrics/`](../../scripts/ci-metrics/) takes the runs of `CI` on `main` for a given period from the GitHub Actions API and records the queue and the execution of each attempt separately; its output is [`evidence/runs.json`](evidence/runs.json). Run: `node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out <folder>`.
+
 ## AI Usage Note
 
 The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog were drafted by Claude Code. Reviewed by the team.
