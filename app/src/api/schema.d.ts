@@ -140,6 +140,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/freshness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * When the imported events were last updated
+         * @description Per import provider, when its last succeeded import run finished and whether its latest run failed. While one failed, the catalog serves the events of its last succeeded run, and the app shows a "last updated" notice with that time (FR-014). Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["getEventsFreshness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/{id}": {
         parameters: {
             query?: never;
@@ -1077,6 +1097,39 @@ export interface components {
             offset: number;
             /** @description Whether another page follows */
             hasMore: boolean;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "provider": "karabas",
+         *           "lastSucceededAt": "2026-11-10T02:01:12.000Z",
+         *           "latestRunFailed": true
+         *         }
+         *       ]
+         *     }
+         */
+        EventsFreshness: {
+            items: components["schemas"]["ProviderFreshness"][];
+        };
+        /**
+         * @description How current the events imported from one provider are (FR-014)
+         * @example {
+         *       "provider": "karabas",
+         *       "lastSucceededAt": "2026-11-10T02:01:12.000Z",
+         *       "latestRunFailed": true
+         *     }
+         */
+        ProviderFreshness: {
+            /** @description The import provider, e.g. artwizard or karabas */
+            provider: string;
+            /**
+             * Format: date-time
+             * @description When the provider’s last succeeded import run finished; null if none has succeeded yet
+             */
+            lastSucceededAt: string | null;
+            /** @description Whether its latest ended run failed: its events are then those of lastSucceededAt */
+            latestRunFailed: boolean;
         };
         /**
          * @description All editable fields of an event; PUT /events/{id} takes the same body
@@ -2404,6 +2457,35 @@ export interface operations {
             };
             /** @description `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified organization. `REFERENCE_NOT_FOUND`: no such active category, or the venue is not one of the organization’s own. `EVENT_ENDS_BEFORE_START`. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getEventsFreshness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per provider that has had an import run */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventsFreshness"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
