@@ -3,7 +3,7 @@
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 
-import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
@@ -67,11 +67,7 @@ function LinkedEvent({ eventId }: { eventId: string }) {
     // Inside 1 px stroke, as above: Figma's padding 8 / 8 / 12 minus the border.
     <View className="flex-row items-center gap-3 rounded-2xl border border-border-default py-[7px] pl-[7px] pr-[11px]">
       <View className="size-14 overflow-hidden rounded-xl">
-        {mockEvent?.cover ? (
-          <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-        ) : (
-          <CoralGradient preset="cover" />
-        )}
+        <EventCover cover={mockEvent?.cover} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-semibold text-tag text-brand-coral">Подія з каталогу</Text>

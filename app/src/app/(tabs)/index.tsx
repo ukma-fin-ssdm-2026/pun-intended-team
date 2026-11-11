@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
+import { coverOf } from '@/components/ui/event-cover';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
@@ -190,6 +191,7 @@ export default function CatalogScreen() {
                   category={event.category.name}
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
+                  cover={coverOf(event.imageUrl)}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.

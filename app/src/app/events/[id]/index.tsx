@@ -2,7 +2,6 @@
 // AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
 // data; reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -16,7 +15,7 @@ import { CompanyRequestSheet } from '@/components/matching/company-request-sheet
 import { DayPickerSheet } from '@/components/matching/day-picker-sheet';
 import { ProfileIncompleteDialog } from '@/components/matching/profile-incomplete-dialog';
 import { Button } from '@/components/ui/button';
-import { CoralGradient } from '@/components/ui/coral-gradient';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
@@ -292,12 +291,8 @@ export default function EventScreen() {
         <View className="h-[340px] overflow-hidden">
           {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
           <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-            {/* The API has no cover images yet; only mock events have one. */}
-            {mockEvent?.cover ? (
-              <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-            ) : (
-              <CoralGradient preset="cover" />
-            )}
+            {/* An imported event links its provider's image; a mock event has a bundled one. */}
+            <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} />
             <TopShade />
           </BlurTargetView>
           <View

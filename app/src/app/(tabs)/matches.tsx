@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications; reviewed by
 // Daryna Halytska.
-import { Image, type ImageSource } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate, formatShortDay } from '@/dates';
@@ -41,11 +42,7 @@ function MatchCard({
     <>
       <View className="flex-row items-center gap-3">
         <View className="size-10 overflow-hidden rounded-xl">
-          {event.cover ? (
-            <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient preset="thumb" />
-          )}
+          <EventCover cover={event.cover} gradient="thumb" />
         </View>
         <View className="flex-1 gap-px">
           <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
