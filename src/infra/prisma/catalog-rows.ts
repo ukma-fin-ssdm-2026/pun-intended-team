@@ -66,5 +66,6 @@ export function toImportedEventRow(row: EventTableRow): ImportedEventRow {
     sourceUrl: row.sourceUrl,
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
+    status: row.status,
   };
 }

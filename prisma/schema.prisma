@@ -459,6 +459,12 @@ model ImportRun {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
   status     String
+  /// Whether the run read the provider's full list and it passed the checks against the last complete run.
+  complete   Boolean   @default(false)
+  /// Records the run saw: saved, or skipped only because the geocoder failed or found nothing.
+  seen       Int?
+  /// Records per part of the provider, e.g. per Karabas section: `{ "/concerts/": 190 }`.
+  parts      Json?
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   skippedRecords SkippedRecord[]

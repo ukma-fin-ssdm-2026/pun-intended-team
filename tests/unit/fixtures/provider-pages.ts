@@ -10,19 +10,26 @@ export function savedPage(file: string): string {
 /** Today in Kyiv for the saved pages, which were saved on this day. */
 export const PAGES_SAVED_AT = new Date('2026-11-03T10:00:00Z');
 
+/** Today in Kyiv for the Karabas pages saved on 2026-11-07, whose names carry that date. */
+export const PAGES_SAVED_AT_NOV_7 = new Date('2026-11-07T10:00:00Z');
+
 type Route = string | { status: number; text?: string } | Error;
 
 /**
  * An HttpClient that answers from the saved pages: `routes` maps a path to a fixture file, a status, or an error
- * to throw. Any other path answers 404. Every requested URL is recorded.
+ * to throw. A path such as `/concerts/` answers only a request without a `page` parameter, the first page of a
+ * section; a later page needs its own route with the whole query, e.g. `/concerts/?time=1&page=2&per-page=20`.
+ * Anything else answers 404. Every requested URL is recorded.
  */
 export function savedPagesClient(routes: Record<string, Route>): HttpClient & { requested: string[] } {
   const requested: string[] = [];
+  const byPath = new Map(Object.entries(routes));
   return {
     requested,
     get(url: string): Promise<HttpResponse> {
       requested.push(url);
-      const route = routes[new URL(url).pathname];
+      const { pathname, search, searchParams } = new URL(url);
+      const route = byPath.get(searchParams.has('page') ? pathname + search : pathname);
       if (route instanceof Error) {
         return Promise.reject(route);
       }

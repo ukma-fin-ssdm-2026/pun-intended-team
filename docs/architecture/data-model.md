@@ -54,7 +54,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **ImportRun** | PK `id` | `provider`, `started_at`, `finished_at`, `status` — the last successful run gives the "last updated" notice (FR-014) |
+| **ImportRun** | PK `id` | `provider`, `started_at`, `finished_at`, `status` — the last successful run gives the "last updated" notice (FR-014); `complete`, `seen` and `parts` (records per Karabas section) — whether the run read the provider's full list, which the next run compares itself with before it cancels events the provider no longer lists (ADR-006) |
 | **SkippedRecord** | PK `id` | `import_run_id` FK, `raw` (jsonb), `reason` (FR-015) — e.g. a page the provider could not render, or a venue the geocoder cannot find |
 
 ### matching

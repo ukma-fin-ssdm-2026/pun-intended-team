@@ -1,24 +1,48 @@
 // Written with the help of Claude
 import { Logger } from '@nestjs/common';
+import { load } from 'cheerio';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
 import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
-import type { NormalizeResult } from '../../core/import/types/import.ts';
+import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
 import type { HttpClient } from './http-client.ts';
-import { errorMessage, fitDescription, fitTitle, inWindow, jsonLdObjects, slugOf } from './provider-pages.ts';
+import {
+  coveredInstants,
+  errorMessage,
+  fitDescription,
+  fitTitle,
+  inWindow,
+  jsonLdObjects,
+  slugOf,
+} from './provider-pages.ts';
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
-/** The Kyiv section pages we read, in order, and the slug of our category for each; the section decides, not `@type`. */
-export const KARABAS_SECTIONS: { path: string; categorySlug: string }[] = [
+/**
+ * A stop per section. On 2026-11-07 the 28 days of the window took 10 pages of 20 on `/concerts/`, and about 30 on
+ * `/theatres/`, which lists some 20 shows a day.
+ */
+export const MAX_PAGES_PER_SECTION = 40;
+/**
+ * Events per page. The "load more" link in the HTML leaves it out, and without it page 2 answers 100 events from
+ * two weeks later, skipping the days between; the site's own button adds it.
+ */
+const PER_PAGE = '20';
+
+/**
+ * The Kyiv section pages we read, in order, and the slug of our category for each; the section decides, not
+ * `@type`. A section with `types` takes only events of those `@type`s and skips the others: `/clubs/` also lists
+ * talks, board-game nights and wine tastings as plain `Event`, which are not parties (ADR-006).
+ */
+export const KARABAS_SECTIONS: { path: string; categorySlug: string; types?: string[] }[] = [
   { path: '/concerts/', categorySlug: 'concerts' },
   { path: '/exhibitions/', categorySlug: 'exhibitions' },
   { path: '/cinema/', categorySlug: 'cinema' },
   { path: '/theatres/', categorySlug: 'theatre' },
   { path: '/sport/', categorySlug: 'sports' },
   { path: '/festivals/', categorySlug: 'festivals' },
-  { path: '/clubs/', categorySlug: 'parties' },
+  { path: '/clubs/', categorySlug: 'parties', types: ['MusicEvent'] },
 ];
 
 /** One event as `fetch` returns it: its JSON-LD from a section page, and the slug of that section's category. */
@@ -68,47 +92,124 @@ export class KarabasEventProvider extends EventProvider {
     this.now = now;
   }
 
-  async fetch(): Promise<KarabasRecord[]> {
-    const window = catalogWindow(this.now());
+  /**
+   * Every section, page after page, until a page reaches past the window or has no "load more" link. The list is
+   * complete only when every section was read to that point.
+   */
+  async fetch(): Promise<FetchResult<KarabasRecord>> {
+    const now = this.now();
+    const window = catalogWindow(now);
     const byUrl = new Map<string, KarabasRecord>();
+    const read = { pages: 0, outsideWindow: 0 };
+    // Events in the window per section, before an event listed in two sections is kept once.
+    const parts = new Map<string, number>();
     let failedSections = 0;
-    let outsideWindow = 0;
+    let incompleteSections = 0;
 
-    for (const { path, categorySlug } of KARABAS_SECTIONS) {
-      const url = new URL(path, this.baseUrl).href;
-      let events: Record<string, unknown>[];
-      try {
-        const response = await this.http.get(url);
-        if (response.status !== 200) {
-          throw new Error(`answered ${response.status}`);
-        }
-        events = jsonLdObjects(response.text).filter(isEvent);
-      } catch (error) {
+    for (const section of KARABAS_SECTIONS) {
+      const result = await this.readSection(section, window, byUrl, read, parts);
+      if (result === 'failed') {
         failedSections++;
-        this.logger.warn(`GET ${url} failed: ${errorMessage(error)}`);
-        continue;
-      }
-      for (const event of events) {
-        const start = typeof event.startDate === 'string' ? karabasStart(event.startDate) : undefined;
-        if (start && !Number.isNaN(start.getTime()) && !inWindow(start, window)) {
-          outsideWindow++;
-          continue;
-        }
-        // The same event is listed in several sections; the first one decides its category.
-        const key = typeof event.url === 'string' ? event.url : JSON.stringify(event);
-        if (!byUrl.has(key)) {
-          byUrl.set(key, { section: path, categorySlug, event });
-        }
+      } else if (result === 'incomplete') {
+        incompleteSections++;
       }
     }
     if (failedSections === KARABAS_SECTIONS.length) {
       throw new Error('No Karabas section page could be fetched');
     }
     this.logger.log(
-      `${byUrl.size} events from ${window.from} to ${window.to}; ${outsideWindow} outside it; ` +
-        `${failedSections} of ${KARABAS_SECTIONS.length} sections failed`,
+      `${byUrl.size} events from ${window.from} to ${window.to} in ${read.pages} pages; ` +
+        `${read.outsideWindow} outside it; ${failedSections} of ${KARABAS_SECTIONS.length} sections failed, ` +
+        `${incompleteSections} not read to the end`,
     );
-    return [...byUrl.values()];
+    return {
+      records: [...byUrl.values()],
+      complete: failedSections === 0 && incompleteSections === 0,
+      covers: coveredInstants(now, window),
+      parts: Object.fromEntries(parts),
+    };
+  }
+
+  /**
+   * One section's pages into `byUrl`. `failed` when its first page cannot be read, `incomplete` when a later one
+   * cannot, or when the reading stops early: at the page limit, on a page that repeats the earlier ones, or at a
+   * "load more" link that leads out of the section.
+   */
+  private async readSection(
+    { path, categorySlug }: { path: string; categorySlug: string },
+    window: { from: string; to: string },
+    byUrl: Map<string, KarabasRecord>,
+    read: { pages: number; outsideWindow: number },
+    parts: Map<string, number>,
+  ): Promise<'complete' | 'incomplete' | 'failed'> {
+    const sectionUrl = new URL(path, this.baseUrl);
+    const seenInSection = new Set<string>();
+    const inWindowInSection = new Set<string>();
+    let url = sectionUrl.href;
+    for (let page = 1; ; page++) {
+      if (page > MAX_PAGES_PER_SECTION) {
+        this.logger.warn(`${path}: stopped after ${MAX_PAGES_PER_SECTION} pages, before the end of the window`);
+        return 'incomplete';
+      }
+      let html: string;
+      try {
+        const response = await this.http.get(url);
+        if (response.status !== 200) {
+          throw new Error(`answered ${response.status}`);
+        }
+        html = response.text;
+      } catch (error) {
+        this.logger.warn(`GET ${url} failed: ${errorMessage(error)}`);
+        return page === 1 ? 'failed' : 'incomplete';
+      }
+      read.pages++;
+      parts.set(path, inWindowInSection.size);
+
+      const events = jsonLdObjects(html).filter(isEvent);
+      let newInSection = 0;
+      // The start of the page's last event, the one the next page is counted from (`time` in its link). Not the
+      // latest start on the page: an event pinned to the top of a page could start long after the others.
+      let lastStart: Date | undefined;
+      for (const event of events) {
+        const start = typeof event.startDate === 'string' ? karabasStart(event.startDate) : undefined;
+        const validStart = start && !Number.isNaN(start.getTime()) ? start : undefined;
+        lastStart = validStart ?? lastStart;
+        // The same event is listed in several sections; the first one decides its category.
+        const key = typeof event.url === 'string' ? event.url : JSON.stringify(event);
+        if (!seenInSection.has(key)) {
+          seenInSection.add(key);
+          newInSection++;
+        }
+        if (validStart && !inWindow(validStart, window)) {
+          read.outsideWindow++;
+          continue;
+        }
+        if (!inWindowInSection.has(key)) {
+          inWindowInSection.add(key);
+          parts.set(path, inWindowInSection.size);
+        }
+        if (!byUrl.has(key)) {
+          byUrl.set(key, { section: path, categorySlug, event });
+        }
+      }
+
+      if (events.length === 0 || (lastStart && kyivDate(lastStart) > window.to)) {
+        return 'complete';
+      }
+      if (page > 1 && newInSection === 0) {
+        this.logger.warn(`${path}: page ${page} repeats the earlier pages; stopped`);
+        return 'incomplete';
+      }
+      const next = nextPage(html, sectionUrl);
+      if (next === 'last') {
+        return 'complete';
+      }
+      if (next === 'outside') {
+        this.logger.warn(`${path}: the "load more" link leads out of the section; stopped`);
+        return 'incomplete';
+      }
+      url = next.url;
+    }
   }
 
   normalize(raw: unknown): NormalizeResult {
@@ -124,6 +225,16 @@ export class KarabasEventProvider extends EventProvider {
       };
     }
     const { url, name, description, image, startDate, endDate, location } = parsed.data;
+    const types = KARABAS_SECTIONS.find(({ path }) => path === record.section)?.types;
+    const type = record.event['@type'];
+    if (types && !types.includes(String(type))) {
+      return {
+        skip: {
+          externalId: slugOf(url),
+          reason: `@type ${JSON.stringify(type)} on ${record.section}, which takes only ${types.join(', ')}`,
+        },
+      };
+    }
     const start = karabasStart(startDate);
     const end = karabasEnd(start, endDate);
     if (end.runUntil) {
@@ -144,6 +255,23 @@ export class KarabasEventProvider extends EventProvider {
       },
     };
   }
+}
+
+/**
+ * The section's next page, from the page's "load more" link with `per-page` added; `last` on a page without the
+ * link. `outside` for a link to another host or path, which is never followed (robots.txt disallows `/ajax.php`).
+ */
+export function nextPage(html: string, sectionUrl: URL): { url: string } | 'last' | 'outside' {
+  const href = load(html)('a[data-pagination-load-more]').attr('href');
+  if (!href) {
+    return 'last';
+  }
+  const next = new URL(href, sectionUrl);
+  if (next.origin !== sectionUrl.origin || next.pathname !== sectionUrl.pathname) {
+    return 'outside';
+  }
+  next.searchParams.set('per-page', PER_PAGE);
+  return { url: next.href };
 }
 
 function isEvent(object: Record<string, unknown>): boolean {
