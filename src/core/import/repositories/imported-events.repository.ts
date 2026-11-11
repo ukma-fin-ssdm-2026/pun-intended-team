@@ -52,6 +52,12 @@ export abstract class ImportedEventsRepository {
   /** The event an earlier import saved for this provider's record, if any. */
   abstract findEvent(provider: string, externalId: string): Promise<ImportedEventRow | undefined>;
 
+  /**
+   * The published imported events of the other providers at the venue that start at `startsAt`: the ones a new event
+   * of `provider` may duplicate (ADR-006, decision 8).
+   */
+  abstract findOtherProvidersEvents(provider: string, venueId: string, startsAt: string): Promise<ImportedEventRow[]>;
+
   /** Saves a new event with `source` import, no organization, published. */
   abstract createEvent(event: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow>;
 

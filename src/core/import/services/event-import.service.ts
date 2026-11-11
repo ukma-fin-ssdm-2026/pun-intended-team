@@ -5,6 +5,7 @@ import { EVENT_PROVIDERS, EventProvider } from '../adapters/event-provider.ts';
 import { Geocoder } from '../adapters/geocoder.ts';
 import { inKyiv } from '../../common/kyiv-area.ts';
 import { ImportedEventsRepository } from '../repositories/imported-events.repository.ts';
+import { similarTitles } from './event-match.ts';
 import { SavedVenues } from './venue-match.ts';
 import type {
   CompleteRun,
@@ -143,7 +144,13 @@ export class EventImportService {
         await skip(venue);
         continue;
       }
-      count(report, await this.save(provider.id, imported, category.id, venue.id));
+      const saved = await this.save(provider.id, imported, category.id, venue.id);
+      if (typeof saved === 'object') {
+        // Seen all the same: the provider still lists it, so it is no reason to cancel anything.
+        await skip(`Duplicate of ${saved.duplicateOf.provider} event ${saved.duplicateOf.id}`);
+        continue;
+      }
+      count(report, saved);
     }
 
     const last = await this.importedEventsRepository.lastCompleteRun(provider.id);
@@ -219,7 +226,17 @@ export class EventImportService {
     return saved;
   }
 
-  private async save(provider: string, imported: ImportedEvent, categoryId: string, venueId: string): Promise<Saved> {
+  /**
+   * Creates or updates the provider's event for the record. A record the provider has no event for yet, which another
+   * provider's published event at the same venue and start time with a similar title already shows, is not saved:
+   * that event is returned instead (ADR-006, decision 8).
+   */
+  private async save(
+    provider: string,
+    imported: ImportedEvent,
+    categoryId: string,
+    venueId: string,
+  ): Promise<Saved | { duplicateOf: ImportedEventRow }> {
     const { externalId, title, description, startsAt, endsAt, imageUrl, sourceUrl } = imported;
     const fields: ImportedEventFields = {
       title,
@@ -234,6 +251,11 @@ export class EventImportService {
 
     const existing = await this.importedEventsRepository.findEvent(provider, externalId);
     if (!existing) {
+      const others = await this.importedEventsRepository.findOtherProvidersEvents(provider, venueId, startsAt);
+      const duplicateOf = others.find((other) => similarTitles(other.title, title));
+      if (duplicateOf) {
+        return { duplicateOf };
+      }
       await this.importedEventsRepository.createEvent({ ...fields, provider, externalId });
       return 'created';
     }

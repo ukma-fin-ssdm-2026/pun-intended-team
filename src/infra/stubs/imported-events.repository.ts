@@ -28,6 +28,10 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     return randomUUID();
   }
 
+  async findOtherProvidersEvents(): Promise<ImportedEventRow[]> {
+    return [];
+  }
+
   async lastSucceededRunStart(): Promise<Date | undefined> {
     return undefined;
   }
