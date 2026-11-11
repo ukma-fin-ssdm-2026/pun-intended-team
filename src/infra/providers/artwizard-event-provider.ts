@@ -76,6 +76,8 @@ export interface ArtWizardOptions {
  */
 export class ArtWizardEventProvider extends EventProvider {
   readonly id = 'artwizard';
+  /** ArtWizard allows at most one update a day (ADR-006, decision 9). */
+  override readonly minHoursBetweenRuns = 20;
   private readonly logger = new Logger(ArtWizardEventProvider.name);
   private readonly http: HttpClient;
   private readonly apiKey: string;

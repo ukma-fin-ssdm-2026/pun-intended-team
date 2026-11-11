@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Venue } from '../../catalog/types/venue.ts';
+import { Clock } from '../adapters/clock.ts';
 import { EVENT_PROVIDERS, EventProvider } from '../adapters/event-provider.ts';
 import { Geocoder } from '../adapters/geocoder.ts';
 import { inKyiv } from '../../common/kyiv-area.ts';
@@ -15,7 +16,9 @@ import type {
   ImportReport,
   ImportRunSummary,
   NewImportedVenue,
+  NotStartedRun,
   RunDetails,
+  RunOptions,
   SkippedRecord,
 } from '../types/import.ts';
 
@@ -23,6 +26,8 @@ type Saved = 'created' | 'updated' | 'unchanged' | 'republished';
 
 /** A complete list is taken as broken, and cancels nothing, when it sees fewer than this share of the last one's. */
 const LEAST_SHARE_OF_LAST_LIST = 0.5;
+
+const HOUR_MS = 60 * 60 * 1000;
 
 /** FR-008: takes the events of the external providers into the catalog. */
 @Injectable()
@@ -33,21 +38,66 @@ export class EventImportService {
     @Inject(EVENT_PROVIDERS) private readonly providers: EventProvider[],
     private readonly importedEventsRepository: ImportedEventsRepository,
     private readonly geocoder: Geocoder,
+    private readonly clock: Clock,
   ) {}
 
-  /** Imports from every provider in turn; one that fails does not stop the others. */
-  async run(): Promise<ImportRunSummary> {
-    const summary: ImportRunSummary = { reports: [], failed: [] };
+  /** Imports from every provider in turn; one that fails, or is not started, does not stop the others. */
+  async run(options: RunOptions = {}): Promise<ImportRunSummary> {
+    const summary: ImportRunSummary = { reports: [], failed: [], notStarted: [] };
     for (const provider of this.providers) {
-      try {
-        summary.reports.push(await this.importFrom(provider));
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.error(`${provider.id}: the run failed: ${message}`);
-        summary.failed.push({ provider: provider.id, error: message });
-      }
+      await this.runOne(provider, options, summary);
     }
     return summary;
+  }
+
+  /** Imports from one provider, as the job `import.run` asks; undefined when no provider has the id. */
+  async runProvider(providerId: string, options: RunOptions = {}): Promise<ImportRunSummary | undefined> {
+    const provider = this.providers.find(({ id }) => id === providerId);
+    if (!provider) {
+      return undefined;
+    }
+    const summary: ImportRunSummary = { reports: [], failed: [], notStarted: [] };
+    await this.runOne(provider, options, summary);
+    return summary;
+  }
+
+  private async runOne(provider: EventProvider, { force = false }: RunOptions, summary: ImportRunSummary) {
+    try {
+      const tooSoon = force ? undefined : await this.tooSoon(provider);
+      if (tooSoon) {
+        this.logger.warn(
+          `${provider.id}: not started: the last run started at ${tooSoon.lastStartedAt}, ` +
+            `the next may start at ${tooSoon.allowedFrom}`,
+        );
+        summary.notStarted.push(tooSoon);
+        return;
+      }
+      if (force) {
+        this.logger.warn(`${provider.id}: started without checking when the last run started (--force)`);
+      }
+      summary.reports.push(await this.importFrom(provider));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`${provider.id}: the run failed: ${message}`);
+      summary.failed.push({ provider: provider.id, error: message });
+    }
+  }
+
+  /**
+   * The run is not started when the provider's last run, whatever its outcome, started less than its
+   * `minHoursBetweenRuns` ago: ArtWizard allows one update a day (ADR-006, decision 9). Checked before an unfinished
+   * run is marked failed, so a run still going in another process is never touched.
+   */
+  private async tooSoon(provider: EventProvider): Promise<NotStartedRun | undefined> {
+    const last = await this.importedEventsRepository.lastRunStart(provider.id);
+    if (!last) {
+      return undefined;
+    }
+    const allowedFrom = new Date(last.getTime() + provider.minHoursBetweenRuns * HOUR_MS);
+    if (this.clock.now() >= allowedFrom) {
+      return undefined;
+    }
+    return { provider: provider.id, lastStartedAt: last.toISOString(), allowedFrom: allowedFrom.toISOString() };
   }
 
   /**
