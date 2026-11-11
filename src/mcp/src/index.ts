@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-08T12:17:57.160Z
+ * Generated on: 2026-11-11T07:45:50.866Z
  */
 
 import { existsSync } from 'node:fs';
@@ -207,6 +207,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Events"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["getEventsFreshness", {
+    name: "getEventsFreshness",
+    title: "When the imported events were last updated",
+    description: `Per import provider, when its last succeeded import run finished and whether its latest run failed. While one failed, the catalog serves the events of its last succeeded run, and the app shows a "last updated" notice with that time (FR-014). Needs an access token: a guest token or a signed-in account.
+(Tags: Events)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/events/freshness",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Events"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],
   ["getEvent", {
     name: "getEvent",

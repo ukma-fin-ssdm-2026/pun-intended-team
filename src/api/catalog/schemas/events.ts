@@ -105,3 +105,31 @@ export const CreateEventBody = CreateEventFields.meta({
 export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
+
+const ProviderFreshnessFields = z.object({
+  provider: z.string().describe('The import provider, e.g. artwizard or karabas'),
+  lastSucceededAt: DateTime.nullable().describe(
+    'When the provider’s last succeeded import run finished; null if none has succeeded yet',
+  ),
+  latestRunFailed: z
+    .boolean()
+    .describe('Whether its latest ended run failed: its events are then those of lastSucceededAt'),
+});
+
+const providerFreshnessExample: z.infer<typeof ProviderFreshnessFields> = {
+  provider: 'karabas',
+  lastSucceededAt: '2026-11-10T02:01:12.000Z',
+  latestRunFailed: true,
+};
+
+export const ProviderFreshness = ProviderFreshnessFields.meta({
+  id: 'ProviderFreshness',
+  description: 'How current the events imported from one provider are (FR-014)',
+  example: providerFreshnessExample,
+});
+
+export const EventsFreshness = z
+  .object({ items: z.array(ProviderFreshness) })
+  .meta({ id: 'EventsFreshness', example: { items: [providerFreshnessExample] } });
+
+export type EventsFreshness = z.infer<typeof EventsFreshness>;

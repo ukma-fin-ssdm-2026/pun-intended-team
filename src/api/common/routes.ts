@@ -15,6 +15,7 @@ export const Routes = {
   },
   events: {
     list: '/api/v1/events',
+    freshness: '/api/v1/events/freshness',
     byId: '/api/v1/events/{id}',
     cancel: '/api/v1/events/{id}/cancel',
     applications: '/api/v1/events/{id}/applications',
