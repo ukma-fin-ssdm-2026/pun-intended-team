@@ -38,8 +38,8 @@ DORA metrics of the `CI` workflow on `main` from 20.10 to 09.11.2026 (3 weeks), 
 [`scripts/ci-metrics/collect.mjs`](../../scripts/ci-metrics/collect.mjs) takes the runs of `CI` on `main` from the GitHub Actions REST API and computes the four metrics by the lab's Working Definitions for a given period, with the queue and the execution of each run apart. It runs by hand only; there is no workflow. The first command collects the runs into `runs.json`, the second computes the metrics from it; the result for the full history is [`evidence/dora-metrics.json`](evidence/dora-metrics.json), the options are in the script's [README](../../scripts/ci-metrics/README.md).
 
 ```bash
-node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out /tmp/ci-metrics --notes docs/ci-cd/evidence/notes.json
-node scripts/ci-metrics/collect.mjs --metrics --out /tmp/ci-metrics --notes docs/ci-cd/evidence/notes.json
+node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out ci-metrics-out/period --notes docs/ci-cd/evidence/notes.json
+node scripts/ci-metrics/collect.mjs --metrics --out ci-metrics-out/period --notes docs/ci-cd/evidence/notes.json
 ```
 
 | Metric, 20.10–09.11 | By hand (Stage 2) | Script |

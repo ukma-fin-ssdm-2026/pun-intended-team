@@ -5,7 +5,7 @@
 // Read-only: it creates no workflow and starts nothing in Actions. See README.md next to this file.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 
 const WORKFLOW_FILE = 'ci.yml';
@@ -13,6 +13,12 @@ const BRANCH = 'main';
 const SKIPPED_ACTORS = new Set(['dependabot[bot]']);
 const PARALLEL_REQUESTS = 6;
 const RED = new Set(['failure', 'timed_out', 'startup_failure']);
+const API_ORIGIN = 'https://api.github.com';
+const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const CAUSE_PATTERN = /^[a-z0-9-]+$/;
+// Every file the script reads or writes stays inside the working directory: run it from the repository root.
+const ROOT = process.cwd();
 
 const USAGE = `Usage: node scripts/ci-metrics/collect.mjs [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--out DIR]
                                             [--table FILE] [--notes FILE] [--repo OWNER/NAME]
@@ -31,6 +37,15 @@ Auth: GITHUB_TOKEN, otherwise the token of \`gh auth login\` (not needed with --
 function fail(message) {
   console.error(`collect: ${message}`);
   process.exit(1);
+}
+
+// Resolves a path from the command line and refuses one that leaves ROOT.
+function repoPath(input, option) {
+  const resolved = resolve(ROOT, input);
+  if (resolved !== ROOT && !resolved.startsWith(`${ROOT}${sep}`)) {
+    fail(`--${option} must point inside ${ROOT}, got "${input}"`);
+  }
+  return resolved;
 }
 
 function parseOptions() {
@@ -61,7 +76,7 @@ function parseOptions() {
     ['from', values.from],
     ['to', values.to],
   ]) {
-    if (value !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    if (value !== undefined && !DATE_PATTERN.test(value)) {
       fail(`--${name} must be a date like 2026-10-20, got "${value}"`);
     }
   }
@@ -71,10 +86,17 @@ function parseOptions() {
   if (!values.metrics && (values['exclude-runs'] || values['ignore-failure-causes'])) {
     fail('--exclude-runs and --ignore-failure-causes only apply with --metrics');
   }
+  if (values.repo !== undefined && !REPO_PATTERN.test(values.repo)) {
+    fail(`--repo must be OWNER/NAME, got "${values.repo}"`);
+  }
+  values.out = repoPath(values.out, 'out');
+  values.table = values.table === undefined ? undefined : repoPath(values.table, 'table');
+  values.notes = values.notes === undefined ? undefined : repoPath(values.notes, 'notes');
   return values;
 }
 
-// The two file helpers take paths from the command line on purpose: the script is run by hand with trusted input.
+// The two file helpers take paths from the command line on purpose; parseOptions has resolved them and checked that
+// they stay inside ROOT.
 function readJson(path, hint) {
   try {
     // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
@@ -115,9 +137,13 @@ function readRepo(option) {
   }
   try {
     const url = execFileSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' }).trim();
-    const match = url.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
-    if (match) {
-      return match[1];
+    const host = url.indexOf('github.com');
+    if (host >= 0) {
+      const path = url.slice(host + 'github.com'.length + 1);
+      const repo = path.endsWith('.git') ? path.slice(0, -'.git'.length) : path;
+      if (REPO_PATTERN.test(repo)) {
+        return repo;
+      }
     }
   } catch {
     // Falls through to the error below.
@@ -125,9 +151,35 @@ function readRepo(option) {
   fail('cannot read the repository from the origin remote; pass --repo OWNER/NAME');
 }
 
+// Builds an API URL from path segments and query parameters, each encoded; nothing from the input is pasted raw.
+function apiUrl(segments, params = {}) {
+  const url = new URL(`/${segments.map((segment) => encodeURIComponent(String(segment))).join('/')}`, API_ORIGIN);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, String(value));
+  }
+  return url;
+}
+
+const repoApi = (repo, segments, params) => apiUrl(['repos', ...repo.split('/'), ...segments], params);
+
+// The target of the `rel="next"` entry of a Link header, or null.
+function nextLink(link) {
+  for (const part of (link ?? '').split(',')) {
+    const [target, ...params] = part.split(';').map((piece) => piece.trim());
+    if (params.includes('rel="next"') && target.startsWith('<') && target.endsWith('>')) {
+      return target.slice(1, -1);
+    }
+  }
+  return null;
+}
+
 function createClient(token) {
-  async function request(path) {
-    const url = path.startsWith('https://') ? path : `https://api.github.com${path}`;
+  // `target` is a URL from apiUrl or from a Link header; only the API's own origin is called, with the token in a header.
+  async function request(target) {
+    const url = new URL(target);
+    if (url.origin !== API_ORIGIN) {
+      fail(`refusing to call ${url.origin}: only ${API_ORIGIN} is expected`);
+    }
     for (let attempt = 1; ; attempt++) {
       const res = await fetch(url, {
         headers: {
@@ -149,18 +201,20 @@ function createClient(token) {
       if (res.status === 401) {
         fail('GitHub rejected the token (401). Check GITHUB_TOKEN or run `gh auth login`.');
       }
-      throw new Error(`GET ${url} answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      throw new Error(`GET ${url.pathname}${url.search} answered ${res.status}: ${(await res.text()).slice(0, 200)}`);
     }
   }
 
   // Follows the Link header; `pick` takes the array out of a page body.
-  async function paginate(path, pick) {
+  async function paginate(first, pick) {
     const items = [];
-    let next = `${path}${path.includes('?') ? '&' : '?'}per_page=100`;
+    let next = new URL(first);
+    next.searchParams.set('per_page', '100');
     while (next) {
       const { body, link } = await request(next);
       items.push(...pick(body));
-      next = link?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+      const following = nextLink(link);
+      next = following ? new URL(following) : null;
     }
     return items;
   }
@@ -286,8 +340,8 @@ function choosePull(sha, pulls) {
 
 async function collectCommit(client, repo, sha) {
   const [pulls, { body: commit }] = await Promise.all([
-    client.paginate(`/repos/${repo}/commits/${sha}/pulls`, (page) => page),
-    client.request(`/repos/${repo}/commits/${sha}`),
+    client.paginate(repoApi(repo, ['commits', sha, 'pulls']), (page) => page),
+    client.request(repoApi(repo, ['commits', sha])),
   ]);
   const associated = pulls.map((pull) => ({
     number: pull.number,
@@ -303,7 +357,7 @@ async function collectCommit(client, repo, sha) {
   // own message still names it; the PR is taken only if it was merged into main and has the commit as a parent.
   const named = commit.commit.message.match(/^Merge pull request #(\d+) /)?.[1];
   if (!chosen && named && commit.parents.length === 2) {
-    const { body: pull } = await client.request(`/repos/${repo}/pulls/${named}`);
+    const { body: pull } = await client.request(repoApi(repo, ['pulls', named]));
     if (pull.merged_at && pull.base.ref === BRANCH && commit.parents.some((parent) => parent.sha === pull.head.sha)) {
       chosen = pull.number;
       source = 'merge commit message';
@@ -321,7 +375,7 @@ async function collectCommit(client, repo, sha) {
 }
 
 async function collectPull(client, repo, number) {
-  const prCommits = await client.paginate(`/repos/${repo}/pulls/${number}/commits`, (page) => page);
+  const prCommits = await client.paginate(repoApi(repo, ['pulls', number, 'commits']), (page) => page);
   const list = prCommits.map((c) => ({
     sha: c.sha,
     author_date: c.commit.author.date,
@@ -335,9 +389,9 @@ async function collectPull(client, repo, number) {
 }
 
 async function collect({ client, repo, from, to }) {
-  const created = from || to ? `&created=${from ?? '*'}..${to ?? '*'}` : '';
+  const params = { branch: BRANCH, ...(from || to ? { created: `${from ?? '*'}..${to ?? '*'}` } : {}) };
   const listed = await client.paginate(
-    `/repos/${repo}/actions/workflows/${WORKFLOW_FILE}/runs?branch=${BRANCH}${created}`,
+    repoApi(repo, ['actions', 'workflows', WORKFLOW_FILE, 'runs'], params),
     (body) => body.workflow_runs,
   );
   // `branch` matches head_branch, which a pull_request run from a fork's main would also have.
@@ -352,10 +406,10 @@ async function collect({ client, repo, from, to }) {
     Array.from({ length: run.run_attempt }, (_, i) => ({ run, attempt: i + 1 })),
   );
   const attempts = await mapLimited(attemptTasks, PARALLEL_REQUESTS, async ({ run, attempt }) => {
-    const base = `/repos/${repo}/actions/runs/${run.id}/attempts/${attempt}`;
+    const base = ['actions', 'runs', run.id, 'attempts', attempt];
     const [{ body }, jobs] = await Promise.all([
-      client.request(base),
-      client.paginate(`${base}/jobs`, (page) => page.jobs),
+      client.request(repoApi(repo, base)),
+      client.paginate(repoApi(repo, [...base, 'jobs']), (page) => page.jobs),
     ]);
     const picked = pickAttempt(body);
     const pickedJobs = jobs.map(pickJob);
@@ -475,7 +529,7 @@ function parseRowNumbers(text) {
     .split(',')
     .map((p) => p.trim())
     .filter(Boolean)) {
-    const bounds = part.split('-').map((bound) => (/^\d+$/.test(bound) ? Number(bound) : NaN));
+    const bounds = part.split('-').map((bound) => (/^\d+$/.test(bound) ? Number(bound) : Number.NaN));
     if (bounds.length > 2 || bounds.some(Number.isNaN)) {
       fail(`--exclude-runs: "${part}" is not a row number or a range like 1-60`);
     }
@@ -490,13 +544,17 @@ function parseRowNumbers(text) {
   return numbers;
 }
 
-const parseCauses = (text) =>
-  new Set(
-    (text ?? '')
-      .split(',')
-      .map((c) => c.trim())
-      .filter(Boolean),
-  );
+function parseCauses(text) {
+  const causes = (text ?? '')
+    .split(',')
+    .map((cause) => cause.trim())
+    .filter(Boolean);
+  const bad = causes.find((cause) => !CAUSE_PATTERN.test(cause));
+  if (bad) {
+    fail(`--ignore-failure-causes: "${bad}" is not a tag like billing or ghcr-denied`);
+  }
+  return new Set(causes);
+}
 
 const round1 = (value) => Math.round(value * 10) / 10;
 const round2 = (value) => Math.round(value * 100) / 100;
@@ -808,4 +866,4 @@ async function main() {
   }
 }
 
-main().catch((error) => fail(error.stack ?? String(error)));
+main().catch((error) => fail(error.message ?? String(error)));

@@ -14,9 +14,10 @@ node scripts/ci-metrics/collect.mjs --out docs/ci-cd/evidence --table docs/ci-cd
 # 2. The DORA metrics from that runs.json, as committed in docs/ci-cd/evidence/dora-metrics.json
 node scripts/ci-metrics/collect.mjs --metrics --out docs/ci-cd/evidence --notes docs/ci-cd/evidence/notes.json
 
-# One period, into a scratch folder; the metrics read the runs.json written by the first command
-node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out /tmp/ci-metrics
-node scripts/ci-metrics/collect.mjs --metrics --out /tmp/ci-metrics
+# One period, into a scratch folder (ci-metrics-out/ is ignored by git); the metrics read the runs.json
+# written by the first command
+node scripts/ci-metrics/collect.mjs --from 2026-10-20 --to 2026-11-09 --out ci-metrics-out/period
+node scripts/ci-metrics/collect.mjs --metrics --out ci-metrics-out/period
 
 # The metrics of a period from the committed full history, with the team's filters
 node scripts/ci-metrics/collect.mjs --metrics --out docs/ci-cd/evidence --notes docs/ci-cd/evidence/notes.json \
@@ -33,6 +34,8 @@ node scripts/ci-metrics/collect.mjs --metrics --out docs/ci-cd/evidence --notes 
 | `--metrics` | off | Compute the metrics from `<out>/runs.json` instead of calling the API |
 | `--exclude-runs` | none | Row numbers (the № column) to leave out of the metrics entirely, e.g. `1-60,89` |
 | `--ignore-failure-causes` | none | Causes from `--notes`, comma-separated, whose red runs count as neither a deployment nor a failure |
+
+Run it from the repository root: `--out`, `--table` and `--notes` are resolved against the working directory and must stay inside it, otherwise the script stops. API URLs are built from the API origin with encoded path segments and query parameters; the token goes only into the `Authorization` header and is never printed.
 
 The full history takes about a minute and some 800 API requests, well under the hourly limit of 5,000.
 
