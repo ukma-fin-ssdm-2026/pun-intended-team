@@ -31,6 +31,27 @@ DORA metrics of the `CI` workflow on `main` from 20.10 to 09.11.2026 (3 weeks), 
 | Change fail rate | Reliability tests hung until the timeout (№86) | A started process is left open | Stop the started APIs in `after`; `--test-force-exit` | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№91) | Nobody watches `main` | Notify the team chat when `main` turns red | @Vlad-Re |
 
+## Bonuses
+
+### 2. Fast and slow test suites
+
+The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are split into two suites, each a job of its own, so its duration shows on the run page:
+
+- **Fast suite**, in the `CI passed` job: the unit tests (`npm run test:unit`), next to lint, formatting, type checks, the spec check and the audit. No database. Runs on every pull request and push.
+- **Slow suite**, in the new `Slow tests` job: a PostgreSQL 18 service, the Prisma migrations, then all tests with the coverage gate (`npm run test:coverage`: unit and e2e, 90% of lines, 80% of branches). Runs after a green `CI passed` on a push or a manual run on `main`, never on a pull request. No scheduled runs, to save billed Actions minutes.
+
+`Slow tests` is not a required check, and `Deploy API docs` does not wait for it. The suites are described in the [testing strategy](../testing/testing-strategy.md#fast-and-slow-suites).
+
+| | Run | `CI passed` | `Slow tests` |
+|---|---|---|---|
+| Pull request before the split | [run 43220805887](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43220805887), 12.11 | 4 min 38 s, of which 1 min 42 s is the coverage run of all tests and 12 s the start of the database | did not exist |
+| Pull request after the split (fast suite only) | TODO | TODO | not run |
+| `main` after the split (both suites) | TODO | TODO | TODO |
+
+In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s.
+
+**Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `Slow tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
+
 ## AI Usage Note
 
 The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog were drafted by Claude Code. Reviewed by the team.

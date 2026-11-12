@@ -49,9 +49,22 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and all tests with coverage (`npm run test:coverage`) in one job, on every pull request, on the course's self-hosted runners. The coverage step fails the build below 90% of lines or 80% of branches (see Bonuses); the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit` and the unit tests in one job, `CI passed`, on every pull request and push. All tests with coverage (`npm run test:coverage`) run in a second job, `Slow tests`, after a merge to `main`. The coverage step fails that job below 90% of lines or 80% of branches (see Bonuses); the gate rises as coverage grows.
 
 Tests run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
+
+### Fast and Slow Suites
+
+| Suite | Job | Contains | Runs on |
+|---|---|---|---|
+| Fast | `CI passed` (required check) | `npm run test:unit`: [`tests/unit/`](../../tests/unit/), no database | every pull request and every push to `main` or `staging` |
+| Slow | `Slow tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main`, after a green `CI passed`; never on a pull request |
+
+The reliability tests keep their own job, `Reliability tests`, on every pull request; it needs no database.
+
+**Why the e2e tests and the coverage gate moved.** They need the database and the migrations, and the coverage run was the longest step of the job a pull request waits for. The unit tests alone cannot carry the gate: they cover about half of the lines, since controllers and database code are reached only over HTTP. So the gate stays on the run of all tests and moves with it.
+
+**What it costs.** A broken migration, an e2e regression or a coverage drop is no longer stopped before the merge: it turns `Slow tests` red on `main`. The author therefore runs `npm run test:e2e` locally before opening a pull request that touches the API, the database or a migration (see [Checks](../../AGENTS.md#checks)), and a red `Slow tests` is fixed or reverted before other work is merged. The measurements are in the [DORA summary](../ci-cd/dora-summary.md#bonuses).
 
 ## Bonuses
 
@@ -65,7 +78,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 
 ### Coverage gate
 
-**Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` on every pull request and fails the build when either value is below the threshold.
+**Threshold: 90% of lines and 80% of branches over all tests**, set in [`mcr.config.mjs`](../../mcr.config.mjs). The "Run all tests with coverage" step of [`ci.yml`](../../.github/workflows/ci.yml) runs `npm run test:coverage` in the `Slow tests` job after every merge to `main` (see [Fast and Slow Suites](#fast-and-slow-suites)) and fails the job when either value is below the threshold.
 
 **Why this threshold.** When the gate was set, coverage of all tests was 95.07% of lines and 86.06% of branches, and the gate sat about 5 points below both; it is 93.98% and 89.69% now (see Coverage). The margin is there so one new file with a gap does not fail the build, while a real drop does: a feature merged without tests, or tests removed. It is well above the 70% overall that MAIN-001 asks for, so passing the gate also means MAIN-001 is met. Branches get a lower threshold because their coverage is lower to begin with: most of the missing branches are error and production paths listed under Coverage. Only the run of all tests is gated: unit tests alone cover 52% of lines, since controllers and database code are reached only over HTTP. The threshold rises as coverage grows, especially once matching is built.
 
