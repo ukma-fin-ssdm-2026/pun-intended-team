@@ -12,9 +12,9 @@ export abstract class EventProvider {
   /**
    * The provider's raw records, as received, and whether they are its full list for the window. A page that cannot
    * be fetched is logged and left out, and the list is then not complete; the call fails only when nothing can be
-   * fetched at all. `since` is the start of the last successful run, if any.
+   * fetched at all.
    */
-  abstract fetch(since?: Date): Promise<FetchResult>;
+  abstract fetch(): Promise<FetchResult>;
 
   /** One raw record in our shape, or the reason it cannot be used. Never throws. */
   abstract normalize(raw: unknown): NormalizeResult;
