@@ -38,7 +38,7 @@ DORA metrics of the `CI` workflow on `main` from 20.10 to 09.11.2026 (3 weeks), 
 The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are split into two suites, each a job of its own, so its duration shows on the run page:
 
 - **Fast suite**, in the `CI passed` job: the unit tests (`npm run test:unit`), next to lint, formatting, type checks, the spec check and the audit. No database. Runs on every pull request and push.
-- **Slow suite**, in the new `Slow tests` job: a PostgreSQL 18 service, the Prisma migrations, then all tests with the coverage gate (`npm run test:coverage`: unit and e2e, 90% of lines, 80% of branches). Runs after a green `CI passed` on a push or a manual run on `main`, never on a pull request. No scheduled runs, to save billed Actions minutes.
+- **Slow suite**, in the new `Slow tests` job: a PostgreSQL 18 service, the Prisma migrations, then all tests with the coverage gate (`npm run test:coverage`: unit and e2e, 90% of lines, 80% of branches). Runs after a green `CI passed` on a push or a manual run on `main` or `staging`: after every merge to `main` and before every staging publish, which waits for it. Never on a pull request. No scheduled runs, to save billed Actions minutes.
 
 `Slow tests` is not a required check, and `Deploy API docs` does not wait for it. The suites are described in the [testing strategy](../testing/testing-strategy.md#fast-and-slow-suites).
 

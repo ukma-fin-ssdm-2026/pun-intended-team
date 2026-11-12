@@ -12,6 +12,7 @@
 # Changed by Claude (Claude Code): added the job that runs the reliability tests as a check of its own.
 # Changed by Claude (Claude Code): split the tests into a fast suite in "CI passed" and a slow suite in the new
 # "Slow tests" job, which runs only on main.
+# Changed by Claude (Claude Code): the slow suite also runs on staging, and the publish job waits for it.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is a required check in the rulesets. It runs all checks as steps of one
@@ -22,10 +23,10 @@
 # The tests are split in two. The fast suite is the unit tests: they need no database and run in "CI passed"
 # on every pull request and push. The slow suite is the "Slow tests" job: a PostgreSQL service, the migrations
 # and all tests (unit and e2e) with the coverage gate. It runs after a green "CI passed" on a push or manual run
-# on main, never on a pull request, and is not a required check, so a broken migration or e2e test shows up
-# only after the merge. After a green push to main, the deploy job publishes the API docs; it does not wait
-# for the slow suite.
-# After a green push to staging, the publish job pushes the API and web images to GHCR, which deploy-staging
+# on main or staging: after every merge to main and before every staging publish. It never runs on a pull
+# request and is not a required check, so a broken migration or e2e test shows up only after the merge.
+# After a green push to main, the deploy job publishes the API docs; it does not wait for the slow suite.
+# After a push to staging with both suites green, the publish job pushes the API and web images to GHCR, which deploy-staging
 # then runs on staging (docs/operations/staging.md).
 name: CI
 
@@ -178,17 +179,17 @@ jobs:
           exit $status
 
       # --- Fast test suite (was part of api-tests.yml) ---
-      # Unit tests need no database. The e2e tests and the coverage gate run in "Slow tests", on main only.
+      # Unit tests need no database. The e2e tests and the coverage gate run in "Slow tests", on main and staging only.
       - name: Run unit tests
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run test:unit
 
-  # Slow test suite: needs the database and takes most of the test time, so it runs only after a merge.
-  # Not a required check in the rulesets.
+  # Slow test suite: needs the database and takes most of the test time, so it runs only after a merge to main
+  # and before every staging publish, which waits for it. Not a required check in the rulesets.
   slow-tests:
     name: Slow tests
     needs: ci-passed
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') && github.event_name != 'pull_request'
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
     permissions:
@@ -304,7 +305,7 @@ jobs:
 
   publish:
     name: Publish images
-    needs: ci-passed
+    needs: [ci-passed, slow-tests]
     if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
