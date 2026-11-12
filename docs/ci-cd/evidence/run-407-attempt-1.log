@@ -1,0 +1,7 @@
+# Run 407, attempt 1 (run id 39041683786): row №98 of docs/ci-cd/metrics-raw.md
+# https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39041683786/attempts/1
+# Commit 41cf080 "Merge pull request #219 from ukma-fin-ssdm-2026/feature/189-add-database-constraints-for-data-model-invariants", push; run conclusion: failure
+
+## Job "CI passed" (job id 117422291499): failure, runner none
+# Annotation: The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings
+# Log: none, the job never got a runner (GET /actions/jobs/{id}/logs answers 404)

@@ -8,3 +8,7 @@
 # the second for a scan of the current file.
 4d6be830d87ea47e582ab76983974dc31e279358:docs/api/quality-attributes.md:curl-auth-header:258
 docs/api/quality-attributes.md:curl-auth-header:262
+# False positive: the value is the ghcr.io image tag, i.e. the SHA of the merge commit of PR #330, not a credential.
+docs/ci-cd/evidence/run-579-attempt-1.log:generic-api-key:9
+docs/ci-cd/evidence/run-579-attempt-1.log:generic-api-key:10
+docs/ci-cd/evidence/run-579-attempt-1.log:generic-api-key:11

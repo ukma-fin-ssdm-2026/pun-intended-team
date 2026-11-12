@@ -1,0 +1,8 @@
+# Run 586, attempt 1 (run id 41293144993): row №161 of docs/ci-cd/metrics-raw.md
+# https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/1
+# Commit 2025c20 "Merge pull request #333 from ukma-fin-ssdm-2026/feature/332-staging-web", workflow_dispatch; run conclusion: failure
+
+## Job "Deploy staging / Deploy staging" (job id 124809457919): failure, runner none
+# Annotation: Branch "main" is not allowed to deploy to staging due to environment protection rules.
+# Annotation: The deployment was rejected or didn't satisfy other protection rules.
+# Log: none, the job never got a runner (GET /actions/jobs/{id}/logs answers 404)
