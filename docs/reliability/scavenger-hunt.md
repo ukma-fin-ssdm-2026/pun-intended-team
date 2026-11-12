@@ -100,7 +100,7 @@ HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
 ### REL-05: `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked
 
 ```ts
-// src/api/common/config.ts
+// src/api/common/config.ts, before the fix in #425
 export const port = Number(process.env.PORT ?? DEFAULT_PORT);
 export const authRateLimitPerMinute = Number(process.env.AUTH_RATE_LIMIT_PER_MINUTE ?? 20);
 ```
@@ -116,6 +116,7 @@ ThrottlerModule.forRoot([{ ttl: MINUTE_MS, limit: authRateLimitPerMinute }]),
 **Error:** the server gets port 0 (the system picks a random port), or the sign-in rate limit is 0 requests per minute.
 **Failure:** nothing reaches the API on its expected port, or every request to a rate-limited sign-in endpoint is refused as too many requests.
 **Severity:** High
+**Status:** fixed in #425: an empty value takes the default, and anything but a whole number in range stops the start with a message naming the variable ([report](reliability-report.md#rel-05-port-and-auth_rate_limit_per_minute-are-not-checked)).
 
 ### REL-06: A failed nightly backup skips the day
 
