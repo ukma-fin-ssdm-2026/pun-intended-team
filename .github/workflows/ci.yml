@@ -10,13 +10,21 @@
 # Changed by Claude (Claude Code): the publish job also builds the web app image.
 # Changed by Claude (Claude Code): the test step passes the import service's database URL to the e2e tests.
 # Changed by Claude (Claude Code): added the job that runs the reliability tests as a check of its own.
+# Changed by Claude (Claude Code): split the tests into a fast suite in "CI passed" and a slow suite in the new
+# "Slow tests" job, which runs only on main.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is a required check in the rulesets. It runs all checks as steps of one
 # job, because every job is billed separately, rounded up to a full minute, and pays for its own checkout
 # and `npm ci`. Every check step runs even if an earlier one failed, so one run reports all problems;
 # the job still fails if any step failed. The reliability tests also run as a job of their own, so the rulesets
-# can require them by name. After a green push to main, the deploy job publishes the API docs.
+# can require them by name.
+# The tests are split in two. The fast suite is the unit tests: they need no database and run in "CI passed"
+# on every pull request and push. The slow suite is the "Slow tests" job: a PostgreSQL service, the migrations
+# and all tests (unit and e2e) with the coverage gate. It runs after a green "CI passed" on a push or manual run
+# on main, never on a pull request, and is not a required check, so a broken migration or e2e test shows up
+# only after the merge. After a green push to main, the deploy job publishes the API docs; it does not wait
+# for the slow suite.
 # After a green push to staging, the publish job pushes the API and web images to GHCR, which deploy-staging
 # then runs on staging (docs/operations/staging.md).
 name: CI
@@ -41,21 +49,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: nearby
-          POSTGRES_PASSWORD: nearby_dev_password
-          POSTGRES_DB: nearby
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U nearby -d nearby"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -70,7 +63,7 @@ jobs:
             app/package-lock.json
 
       # No dependency runs its own install scripts on the runner. The only one needed is @prisma/engines,
-      # which downloads the schema engine for migrations; prisma generate replaces the root postinstall.
+      # which prisma generate needs; prisma generate replaces the root postinstall.
       - name: Install dependencies
         id: install
         run: |
@@ -184,7 +177,55 @@ jobs:
           done
           exit $status
 
-      # --- API tests (was api-tests.yml) ---
+      # --- Fast test suite (was part of api-tests.yml) ---
+      # Unit tests need no database. The e2e tests and the coverage gate run in "Slow tests", on main only.
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:unit
+
+  # Slow test suite: needs the database and takes most of the test time, so it runs only after a merge.
+  # Not a required check in the rulesets.
+  slow-tests:
+    name: Slow tests
+    needs: ci-passed
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nearby
+          POSTGRES_PASSWORD: nearby_dev_password
+          POSTGRES_DB: nearby
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nearby -d nearby"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # As in "CI passed"; here @prisma/engines also provides the schema engine for the migrations.
+      - name: Install dependencies
+        id: install
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild @prisma/engines
+          npx --no-install prisma generate
+
       - name: Apply database migrations
         id: migrate
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
@@ -203,11 +244,6 @@ jobs:
           BACKUP_DATABASE_URL: postgresql://nearby_backup:nearby_backup_dev_password@localhost:5432/nearby
         run: npm run db:set-passwords
 
-      # Unit tests need no database and fail within seconds, so a break shows up before the long run below.
-      - name: Run unit tests
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: npm run test:unit
-
       # Unit and e2e tests in one run, so the e2e tests do not run twice; the report covers both.
       # Fails if coverage is below the thresholds in mcr.config.mjs.
       - name: Run all tests with coverage
@@ -219,7 +255,7 @@ jobs:
         run: npm run test:coverage
 
   # Lab 9 bonus. The tests start the built API against fake dependencies, so the job needs no database.
-  # The coverage step of "CI passed" runs them too, for the report.
+  # The coverage step of "Slow tests" runs them too, for the report.
   reliability-tests:
     name: Reliability tests
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
