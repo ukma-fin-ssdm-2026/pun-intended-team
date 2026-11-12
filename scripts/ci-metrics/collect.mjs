@@ -17,6 +17,7 @@ const API_ORIGIN = 'https://api.github.com';
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const CAUSE_PATTERN = /^[a-z0-9-]+$/;
+const STATUS_PATTERN = /^[a-z_]+$/;
 // Every file the script reads or writes stays inside the working directory: run it from the repository root.
 const ROOT = process.cwd();
 
@@ -39,13 +40,29 @@ function fail(message) {
   process.exit(1);
 }
 
-// Resolves a path from the command line and refuses one that leaves ROOT.
-function repoPath(input, option) {
-  const resolved = resolve(ROOT, input);
+// The guards below throw instead of calling fail(): a throw visibly ends the function, so nothing after a guard can
+// run with a value it refused. main() reports the error through fail().
+
+// Resolves a path against ROOT and throws when it leaves ROOT.
+function assertInsideRoot(path, message = `${path} must stay inside ${ROOT}`) {
+  const resolved = resolve(ROOT, path);
   if (resolved !== ROOT && !resolved.startsWith(`${ROOT}${sep}`)) {
-    fail(`--${option} must point inside ${ROOT}, got "${input}"`);
+    throw new Error(message);
   }
   return resolved;
+}
+
+// Resolves a path from the command line and refuses one that leaves ROOT.
+function repoPath(input, option) {
+  return assertInsideRoot(input, `--${option} must point inside ${ROOT}, got "${input}"`);
+}
+
+// A string read from runs.json or notes.json is only printed after it matched a strict pattern.
+function assertMatches(value, pattern, message) {
+  if (typeof value !== 'string' || !pattern.test(value)) {
+    throw new Error(message);
+  }
+  return value;
 }
 
 function parseOptions() {
@@ -77,7 +94,7 @@ function parseOptions() {
     ['to', values.to],
   ]) {
     if (value !== undefined && !DATE_PATTERN.test(value)) {
-      fail(`--${name} must be a date like 2026-10-20, got "${value}"`);
+      throw new Error(`--${name} must be a date like 2026-10-20, got "${value}"`);
     }
   }
   if (values.from && values.to && values.from > values.to) {
@@ -95,25 +112,27 @@ function parseOptions() {
   return values;
 }
 
-// The two file helpers take paths from the command line on purpose; parseOptions has resolved them and checked that
-// they stay inside ROOT.
+// The two file helpers take paths from the command line on purpose. Each checks the path itself, right before the
+// file system call, so a path joined after parseOptions is checked as well.
 function readJson(path, hint) {
+  const safePath = assertInsideRoot(path);
   try {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
-    return JSON.parse(readFileSync(path, 'utf8'));
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI path, checked to be inside ROOT above
+    return JSON.parse(readFileSync(safePath, 'utf8'));
   } catch (error) {
     if (error.code === 'ENOENT') {
-      fail(`${path} not found${hint ? `; ${hint}` : ''}`);
+      fail(`${safePath} not found${hint ? `; ${hint}` : ''}`);
     }
     throw error;
   }
 }
 
 function writeText(path, text) {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
-  mkdirSync(dirname(path), { recursive: true });
-  // eslint-disable-next-line security/detect-non-literal-fs-filename -- path from the CLI, run by hand
-  writeFileSync(path, text);
+  const safePath = assertInsideRoot(path);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI path, checked to be inside ROOT above
+  mkdirSync(dirname(safePath), { recursive: true });
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- CLI path, checked to be inside ROOT above
+  writeFileSync(safePath, text);
 }
 
 function readToken() {
@@ -614,8 +633,17 @@ function computeMetrics({ data, notes, from, to, excludeRunsText, ignoredCauses 
   if (!data.rows.length || data.rows[0].run_created_at === undefined) {
     fail('runs.json comes from an older collector or is empty; collect again first');
   }
-  const periodFrom = from ?? data.period?.from ?? data.rows[0].run_created_at.slice(0, 10);
-  const periodTo = to ?? data.period?.to ?? data.collected_at.slice(0, 10);
+  // Without --from/--to the period comes from runs.json; it is printed, so it must be a plain date.
+  const periodFrom = assertMatches(
+    from ?? data.period?.from ?? data.rows[0].run_created_at.slice(0, 10),
+    DATE_PATTERN,
+    'runs.json: the start of the period is not a date like 2026-10-20; collect again first',
+  );
+  const periodTo = assertMatches(
+    to ?? data.period?.to ?? data.collected_at.slice(0, 10),
+    DATE_PATTERN,
+    'runs.json: the end of the period is not a date like 2026-10-20; collect again first',
+  );
   const days =
     Math.round((Date.parse(`${periodTo}T00:00:00Z`) - Date.parse(`${periodFrom}T00:00:00Z`)) / 86_400_000) + 1;
 
@@ -824,6 +852,12 @@ async function runCollect(options) {
   const collectedAt = new Date().toISOString();
   const rows = buildRows(data, notes);
 
+  // A status can come from notes.json and is printed below, so it is checked before anything is written.
+  const counts = rows.reduce((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {});
+  const summary = Object.entries(counts)
+    .map(([status, n]) => `${assertMatches(status, STATUS_PATTERN, 'a row has a status that is not a plain tag')} ${n}`)
+    .join(', ');
+
   const tablePath = options.table ?? join(options.out, 'metrics-raw.md');
   const output = {
     repository: repo,
@@ -849,11 +883,8 @@ async function runCollect(options) {
     }),
   );
 
-  const counts = rows.reduce((acc, row) => ({ ...acc, [row.status]: (acc[row.status] ?? 0) + 1 }), {});
   console.error(
-    `collect: ${rows.length} rows (${Object.entries(counts)
-      .map(([status, n]) => `${status} ${n}`)
-      .join(', ')}) -> ${relative('.', join(options.out, 'runs.json'))}, ${relative('.', tablePath)}`,
+    `collect: ${rows.length} rows (${summary}) -> ${relative('.', join(options.out, 'runs.json'))}, ${relative('.', tablePath)}`,
   );
 }
 
