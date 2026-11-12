@@ -14,7 +14,7 @@ export function lastUpdatedNotice(providers: ProviderFreshness[]): string | unde
     latestRunFailed && lastSucceededAt ? [lastSucceededAt] : [],
   );
   if (times.length === 0) return undefined;
-  const oldest = times.reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b));
+  const oldest = times.reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b), times[0]);
   return `Оновлено ${formatDateTime(oldest)}`;
 }
 
