@@ -84,7 +84,6 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
       Promise.resolve([{ id: CATEGORY_ID, slug: CATEGORY_SLUG, isActive: true }]),
     ),
     failUnfinishedRuns: mock.fn<ImportedEventsRepository['failUnfinishedRuns']>(() => Promise.resolve()),
-    lastSucceededRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
@@ -393,6 +392,7 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
   });
 
   test('skips the event when the geocoder fails, and imports the rest', async () => {
+    const error = mock.method(Logger.prototype, 'error', () => {});
     const { run, geocoder } = makeService(
       [{}, {}],
       [{ event: withoutCoordinates }, { event: anImportedEvent({ externalId: 'ext-2' }) }],
@@ -400,9 +400,101 @@ describe('EventImportService.importFrom, with a venue without coordinates', () =
     geocoder.locate.mock.mockImplementation(() => Promise.reject(new Error('Nominatim answered 503')));
 
     const report = await run();
+    error.mock.restore();
 
-    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder failed: Nominatim answered 503' }]);
+    assert.deepEqual(report.skipped, [{ externalId: 'ext-1', reason: 'The geocoder is unavailable in this run' }]);
     assert.equal(report.created, 1);
+  });
+});
+
+// A first Karabas run asks the geocoder about every new venue; one that cannot be reached must not be asked again.
+describe('EventImportService.importFrom, with the geocoder unavailable', () => {
+  const UNAVAILABLE = 'The geocoder is unavailable in this run';
+  const atNewVenue = (externalId: string) =>
+    anImportedEvent({
+      externalId,
+      venue: { name: `Club ${externalId}`, address: `Street ${externalId}`, location: null },
+    });
+  const atKnownVenue = (externalId: string) =>
+    anImportedEvent({
+      externalId,
+      venue: { name: 'Docker-G pub', address: 'вул. Ігорівська, 13/5, Київ', location: null },
+    });
+  const knownVenue = anImportedVenue({
+    id: 'known-venue',
+    name: 'Docker-G pub',
+    address: 'вул. Ігорівська, 13/5, Київ',
+  });
+  let error: ReturnType<typeof mock.method>;
+  let warn: ReturnType<typeof mock.method>;
+  beforeEach(() => {
+    error = mock.method(Logger.prototype, 'error', () => {});
+    warn = mock.method(Logger.prototype, 'warn', () => {});
+  });
+  afterEach(() => {
+    error.mock.restore();
+    warn.mock.restore();
+  });
+
+  /** Three events at three new venues, with the known venue's event between them; the geocoder cannot be reached. */
+  function aRunWithTheGeocoderDown() {
+    const service = makeService(
+      [{}, {}, {}, {}],
+      [
+        { event: atNewVenue('new-1') },
+        { event: atKnownVenue('known-1') },
+        { event: atNewVenue('new-2') },
+        { event: atNewVenue('new-3') },
+      ],
+    );
+    service.repository.findVenues.mock.mockImplementation(() => Promise.resolve([knownVenue]));
+    service.geocoder.locate.mock.mockImplementation(() => Promise.reject(new Error('fetch failed')));
+    return service;
+  }
+
+  test('asks the geocoder once per run after it fails, and logs one error', async () => {
+    const { run, geocoder } = aRunWithTheGeocoderDown();
+
+    await run();
+
+    assert.equal(geocoder.locate.mock.callCount(), 1);
+    const geocoderErrors = error.mock.calls.filter((call) => String(call.arguments[0]).includes('geocoder'));
+    assert.equal(geocoderErrors.length, 1);
+    assert.match(String(geocoderErrors[0]?.arguments[0]), /fetch failed/);
+  });
+
+  test('imports the events at saved venues and skips the rest with the reason', async () => {
+    const { run, repository } = aRunWithTheGeocoderDown();
+
+    const report = await run();
+
+    assert.deepEqual(
+      repository.createEvent.mock.calls.map((call) => [call.arguments[0].externalId, call.arguments[0].venueId]),
+      [['known-1', 'known-venue']],
+    );
+    assert.deepEqual(report.skipped, [
+      { externalId: 'new-1', reason: UNAVAILABLE },
+      { externalId: 'new-2', reason: UNAVAILABLE },
+      { externalId: 'new-3', reason: UNAVAILABLE },
+    ]);
+    assert.deepEqual(
+      repository.saveSkipped.mock.calls.map((call) => call.arguments[2]),
+      [UNAVAILABLE, UNAVAILABLE, UNAVAILABLE],
+    );
+    assert.equal(repository.createVenue.mock.callCount(), 0);
+  });
+
+  test('counts the skipped events as seen, so cancelUnseen does not cancel them', async () => {
+    const { run, repository } = aRunWithTheGeocoderDown();
+
+    const report = await run();
+
+    assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments, [
+      PROVIDER_ID,
+      ['new-1', 'known-1', 'new-2', 'new-3'],
+      COVERS,
+    ]);
+    assert.equal(report.complete, true);
   });
 });
 
@@ -654,17 +746,6 @@ describe('EventImportService.importFrom, other fields', () => {
     assert.equal(repository.updateEvent.mock.calls[0]?.arguments[1].imageUrl, null);
     assert.equal(report.updated, 1);
   });
-
-  test('passes the start of the last succeeded run to the provider', async () => {
-    const lastRun = new Date('2026-11-02T03:00:00Z');
-    const { run, provider, repository } = makeService();
-    repository.lastSucceededRunStart.mock.mockImplementation(() => Promise.resolve(lastRun));
-
-    await run();
-
-    assert.deepEqual(repository.lastSucceededRunStart.mock.calls[0]?.arguments, [PROVIDER_ID]);
-    assert.deepEqual(provider.fetch.mock.calls[0]?.arguments, [lastRun]);
-  });
 });
 
 // ADR-006: an event gone from a provider's complete list is no longer served as published.
@@ -904,7 +985,6 @@ describe('EventImportService.importFrom, when the database fails', () => {
   type Repository = ReturnType<typeof makeService>['repository'];
   const beforeTheRun: [string, (repository: Repository) => void][] = [
     ['failUnfinishedRuns', (repository) => repository.failUnfinishedRuns.mock.mockImplementation(databaseDown)],
-    ['lastSucceededRunStart', (repository) => repository.lastSucceededRunStart.mock.mockImplementation(databaseDown)],
     ['startRun', (repository) => repository.startRun.mock.mockImplementation(databaseDown)],
   ];
   for (const [method, fail] of beforeTheRun) {

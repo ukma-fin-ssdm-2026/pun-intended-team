@@ -33,15 +33,6 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     return run.id;
   }
 
-  async lastSucceededRunStart(provider: string): Promise<Date | undefined> {
-    const run = await this.prisma.importRun.findFirst({
-      where: { provider, status: 'succeeded' },
-      orderBy: { startedAt: 'desc' },
-      select: { startedAt: true },
-    });
-    return run?.startedAt;
-  }
-
   async finishRun(runId: string, status: ImportRunStatus, details?: RunDetails): Promise<void> {
     await this.prisma.importRun.update({
       where: { id: runId },
