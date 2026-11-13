@@ -121,6 +121,26 @@ describe('PrismaImportedEventsRepository.findOtherProvidersEvents', () => {
   });
 });
 
+// ADR-006, decision 9: a failed or unfinished run counts too, so the guard never allows a second run in a day.
+describe('PrismaImportedEventsRepository.lastRunStart', () => {
+  test('reads the start of the provider’s latest run, whatever its status', async () => {
+    const { repository, prisma } = makeRepository();
+    const startedAt = new Date('2026-11-11T02:00:00.000Z');
+    prisma.importRun.findFirst.mock.mockImplementation(() => Promise.resolve({ startedAt }));
+
+    assert.deepEqual(await repository.lastRunStart('artwizard'), startedAt);
+    assert.deepEqual(prisma.importRun.findFirst.mock.calls[0]?.arguments, [
+      { where: { provider: 'artwizard' }, orderBy: { startedAt: 'desc' }, select: { startedAt: true } },
+    ]);
+  });
+
+  test('is undefined for a provider that never ran', async () => {
+    const { repository } = makeRepository();
+
+    assert.equal(await repository.lastRunStart('artwizard'), undefined);
+  });
+});
+
 // ADR-006: removed and cancelled events
 describe('PrismaImportedEventsRepository.cancelUnseen', () => {
   test('cancels only the provider’s published imported events in the range that were not seen', async () => {

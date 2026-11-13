@@ -14,6 +14,7 @@ import type { Category } from '../../dist/core/catalog/types/category.js';
 import type { EventFilter } from '../../dist/core/catalog/types/event.js';
 import { kyivDate } from '../../dist/core/common/kyiv-time.js';
 import type { PageRequest } from '../../dist/core/common/page.js';
+import type { Clock } from '../../dist/core/import/adapters/clock.js';
 import { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
@@ -113,7 +114,9 @@ function makeCatalog(provider: EventProvider) {
   const categoriesService = new CategoriesService(categoriesRepository);
   const { eventsRepository, venuesRepository } = catalogReading(categories);
   return {
-    importService: new EventImportService([provider], new StubImportedEventsRepository(categories), geocoder),
+    importService: new EventImportService([provider], new StubImportedEventsRepository(categories), geocoder, {
+      now: () => new Date(),
+    } satisfies Clock),
     eventsService: new EventsService(
       eventsRepository,
       {} as OrganizationsRepository,

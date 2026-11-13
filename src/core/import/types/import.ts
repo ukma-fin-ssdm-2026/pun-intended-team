@@ -76,10 +76,24 @@ export interface ImportReport {
   skipped: SkippedRecord[];
 }
 
-/** What one import run did: a report per provider, and the providers whose run failed. */
+/** What one import run did: a report per provider, the providers whose run failed, and those not started. */
 export interface ImportRunSummary {
   reports: ImportReport[];
   failed: { provider: string; error: string }[];
+  notStarted: NotStartedRun[];
+}
+
+/** A provider's run the import did not start, since its last run started too recently (ADR-006, decision 9). */
+export interface NotStartedRun {
+  provider: string;
+  lastStartedAt: string;
+  /** The earliest time the provider's next run may start. */
+  allowedFrom: string;
+}
+
+export interface RunOptions {
+  /** Starts a run even when the provider's last one started too recently; for local runs only. */
+  force?: boolean;
 }
 
 export type NewImportedVenue = Pick<Venue, 'name' | 'address' | 'location'>;

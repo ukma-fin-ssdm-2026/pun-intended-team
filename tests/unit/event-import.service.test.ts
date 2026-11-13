@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
+import type { Clock } from '../../dist/core/import/adapters/clock.js';
 import type { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import type { ImportedEventsRepository } from '../../dist/core/import/repositories/imported-events.repository.js';
@@ -28,6 +29,9 @@ function aList(records: unknown[], overrides: Partial<FetchResult> = {}): FetchR
   return { records, complete: true, covers: COVERS, ...overrides };
 }
 const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
+/** What the stubbed clock says unless a test sets it. */
+const NOW = new Date('2026-11-11T02:00:00.000Z');
+const HOUR_MS = 60 * 60 * 1000;
 /** The slug of aCategory(), the one category the repository knows. */
 const CATEGORY_SLUG = aCategory().slug;
 /** No category has it, e.g. a typo in a provider's mapping. */
@@ -76,6 +80,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
   normalized.forEach((result, call) => normalize.mock.mockImplementationOnce(() => result, call));
   const provider = {
     id: PROVIDER_ID,
+    minHoursBetweenRuns: 20,
     fetch: mock.fn((): Promise<FetchResult> => Promise.resolve(aList(raws))),
     normalize,
   };
@@ -84,6 +89,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
       Promise.resolve([{ id: CATEGORY_ID, slug: CATEGORY_SLUG, isActive: true }]),
     ),
     failUnfinishedRuns: mock.fn<ImportedEventsRepository['failUnfinishedRuns']>(() => Promise.resolve()),
+    lastRunStart: mock.fn((): Promise<Date | undefined> => Promise.resolve(undefined)),
     startRun: mock.fn((): Promise<string> => Promise.resolve(RUN_ID)),
     finishRun: mock.fn<ImportedEventsRepository['finishRun']>(() => Promise.resolve()),
     saveSkipped: mock.fn<ImportedEventsRepository['saveSkipped']>(() => Promise.resolve()),
@@ -104,13 +110,15 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
   const geocoder = {
     locate: mock.fn((): Promise<Venue['location'] | undefined> => Promise.resolve({ lat: 50.45, lng: 30.52 })),
   };
+  const clock = { now: mock.fn(() => NOW) };
   const service = new EventImportService(
     [provider as unknown as EventProvider],
     repository as unknown as ImportedEventsRepository,
     geocoder as unknown as Geocoder,
+    clock as Clock,
   );
   const run = () => service.importFrom(provider as unknown as EventProvider);
-  return { service, run, provider, repository, geocoder };
+  return { service, run, provider, repository, geocoder, clock };
 }
 
 // FR-008, FLEX-003
@@ -1002,7 +1010,7 @@ describe('EventImportService.importFrom, when the database fails', () => {
 
 describe('EventImportService.run', () => {
   test('reports a provider whose run the database could not start, and still imports the next one', async () => {
-    const { provider, repository, geocoder } = makeService();
+    const { provider, repository, geocoder, clock } = makeService();
     const second = {
       id: 'up',
       fetch: () => Promise.resolve(aList([{}])),
@@ -1012,6 +1020,7 @@ describe('EventImportService.run', () => {
       [provider, second] as unknown as EventProvider[],
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
+      clock as Clock,
     );
     repository.startRun.mock.mockImplementationOnce(() => Promise.reject(new Error('Connection terminated')), 0);
     const error = mock.method(Logger.prototype, 'error', () => {});
@@ -1027,7 +1036,7 @@ describe('EventImportService.run', () => {
   });
 
   test('imports from every provider and reports a failed one without stopping the others', async () => {
-    const { repository, geocoder } = makeService();
+    const { repository, geocoder, clock } = makeService();
     const failing = { id: 'down', fetch: () => Promise.reject(new Error('Karabas is down')), normalize: () => null };
     const working = {
       id: 'up',
@@ -1038,6 +1047,7 @@ describe('EventImportService.run', () => {
       [failing, working] as unknown as EventProvider[],
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
+      clock as Clock,
     );
     const error = mock.method(Logger.prototype, 'error', () => {});
 
@@ -1143,5 +1153,177 @@ describe('EventImportService.importFrom, duplicates across providers', () => {
 
     assert.equal(report.updated, 1);
     assert.equal(repository.findOtherProvidersEvents.mock.callCount(), 0);
+  });
+});
+
+// ADR-006, decision 9: ArtWizard allows one update a day, so a provider's run starts only 20 hours after its last.
+describe('EventImportService, the least time between runs', () => {
+  const startedAgo = (ms: number) => new Date(NOW.getTime() - ms);
+
+  test('does not start a run when the provider’s last one started less than 20 hours ago, and touches nothing', async () => {
+    const { service, provider, repository } = makeService();
+    repository.lastRunStart.mock.mockImplementation(() => Promise.resolve(startedAgo(20 * HOUR_MS - 1)));
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const summary = await service.run();
+
+    assert.deepEqual(repository.lastRunStart.mock.calls[0]?.arguments, [PROVIDER_ID]);
+    assert.deepEqual(summary, {
+      reports: [],
+      failed: [],
+      notStarted: [
+        {
+          provider: PROVIDER_ID,
+          lastStartedAt: '2026-11-10T06:00:00.001Z',
+          allowedFrom: '2026-11-11T02:00:00.001Z',
+        },
+      ],
+    });
+    // An unfinished run may still be going in another process, so it is not marked failed either.
+    assert.equal(repository.failUnfinishedRuns.mock.callCount(), 0);
+    assert.equal(repository.startRun.mock.callCount(), 0);
+    assert.equal(provider.fetch.mock.callCount(), 0);
+    const [message] = warn.mock.calls[0]?.arguments as [string];
+    assert.match(message, /^test_provider: not started: the last run started at 2026-11-10T06:00:00.001Z/);
+    warn.mock.restore();
+  });
+
+  test('starts a run once 20 hours have passed since the last one started', async () => {
+    const { service, repository } = makeService();
+    repository.lastRunStart.mock.mockImplementation(() => Promise.resolve(startedAgo(20 * HOUR_MS)));
+
+    const summary = await service.run();
+
+    assert.deepEqual(summary.notStarted, []);
+    assert.equal(summary.reports.length, 1);
+    assert.equal(repository.startRun.mock.callCount(), 1);
+  });
+
+  test('starts the first run of a provider that never ran', async () => {
+    const { service, repository } = makeService();
+
+    const summary = await service.run();
+
+    assert.equal(summary.reports.length, 1);
+    assert.equal(repository.startRun.mock.callCount(), 1);
+  });
+
+  test('reads the time from the clock, not from the system', async () => {
+    const { service, repository, clock } = makeService();
+    repository.lastRunStart.mock.mockImplementation(() => Promise.resolve(new Date('2026-11-10T02:00:00.000Z')));
+    clock.now.mock.mockImplementation(() => new Date('2026-11-10T21:59:59.999Z'));
+    mock.method(Logger.prototype, 'warn', () => {});
+
+    assert.equal((await service.run()).notStarted.length, 1);
+
+    clock.now.mock.mockImplementation(() => new Date('2026-11-10T22:00:00.000Z'));
+
+    assert.equal((await service.run()).reports.length, 1);
+    mock.restoreAll();
+  });
+
+  test('uses each provider’s own least time between runs', async () => {
+    const { service, provider, repository } = makeService();
+    provider.minHoursBetweenRuns = 2;
+    repository.lastRunStart.mock.mockImplementation(() => Promise.resolve(startedAgo(3 * HOUR_MS)));
+
+    const summary = await service.run();
+
+    assert.equal(summary.reports.length, 1);
+  });
+
+  test('with force, starts the run without asking when the last one started', async () => {
+    const { service, repository } = makeService();
+    repository.lastRunStart.mock.mockImplementation(() => Promise.resolve(startedAgo(60_000)));
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const summary = await service.run({ force: true });
+
+    assert.equal(repository.lastRunStart.mock.callCount(), 0);
+    assert.equal(summary.reports.length, 1);
+    assert.deepEqual(summary.notStarted, []);
+    assert.match(warn.mock.calls[0]?.arguments[0] as string, /without checking when the last run started/);
+    warn.mock.restore();
+  });
+
+  test('reports a provider as failed when the database cannot say when its last run started, and starts nothing', async () => {
+    const { service, repository } = makeService();
+    repository.lastRunStart.mock.mockImplementation(() => Promise.reject(new Error('Connection terminated')));
+    const error = mock.method(Logger.prototype, 'error', () => {});
+
+    const summary = await service.run();
+
+    assert.deepEqual(summary.failed, [{ provider: PROVIDER_ID, error: 'Connection terminated' }]);
+    assert.equal(repository.startRun.mock.callCount(), 0);
+    error.mock.restore();
+  });
+
+  test('still runs the next provider when one is not started', async () => {
+    const { repository, geocoder, clock } = makeService();
+    const recent = { id: 'recent', minHoursBetweenRuns: 20, fetch: mock.fn(), normalize: () => null };
+    const due = {
+      id: 'due',
+      minHoursBetweenRuns: 20,
+      fetch: () => Promise.resolve(aList([{}])),
+      normalize: () => ({ event: anImportedEvent() }),
+    };
+    repository.lastRunStart.mock.mockImplementation((provider?: string) =>
+      Promise.resolve(provider === 'recent' ? startedAgo(HOUR_MS) : undefined),
+    );
+    const service = new EventImportService(
+      [recent, due] as unknown as EventProvider[],
+      repository as unknown as ImportedEventsRepository,
+      geocoder as unknown as Geocoder,
+      clock as Clock,
+    );
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const summary = await service.run();
+
+    assert.deepEqual(
+      summary.notStarted.map(({ provider }) => provider),
+      ['recent'],
+    );
+    assert.deepEqual(
+      summary.reports.map(({ provider }) => provider),
+      ['due'],
+    );
+    assert.equal(recent.fetch.mock.callCount(), 0);
+    warn.mock.restore();
+  });
+});
+
+describe('EventImportService.runProvider', () => {
+  test('runs only the provider with the id, with the same check of the last run', async () => {
+    const { repository, geocoder, clock } = makeService();
+    const other = { id: 'other', minHoursBetweenRuns: 20, fetch: mock.fn(), normalize: () => null };
+    const asked = {
+      id: 'asked',
+      minHoursBetweenRuns: 20,
+      fetch: mock.fn(() => Promise.resolve(aList([{}]))),
+      normalize: () => ({ event: anImportedEvent() }),
+    };
+    const service = new EventImportService(
+      [other, asked] as unknown as EventProvider[],
+      repository as unknown as ImportedEventsRepository,
+      geocoder as unknown as Geocoder,
+      clock as Clock,
+    );
+
+    const summary = await service.runProvider('asked');
+
+    assert.deepEqual(
+      summary?.reports.map(({ provider }) => provider),
+      ['asked'],
+    );
+    assert.deepEqual(repository.lastRunStart.mock.calls[0]?.arguments, ['asked']);
+    assert.equal(other.fetch.mock.callCount(), 0);
+  });
+
+  test('returns nothing, and runs nothing, for an id no provider has', async () => {
+    const { service, provider } = makeService();
+
+    assert.equal(await service.runProvider('gone'), undefined);
+    assert.equal(provider.fetch.mock.callCount(), 0);
   });
 });
