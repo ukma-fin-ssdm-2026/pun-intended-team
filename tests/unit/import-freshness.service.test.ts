@@ -3,21 +3,61 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import type { ImportRunsRepository } from '../../dist/core/catalog/repositories/import-runs.repository.js';
 import { ImportFreshnessService } from '../../dist/core/catalog/services/import-freshness.service.js';
-import type { ProviderFreshness } from '../../dist/core/catalog/types/import-freshness.js';
+import type { ProviderImportStatus } from '../../dist/core/catalog/types/import-freshness.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { PrismaImportRunsRepository } from '../../dist/infra/prisma/prisma-import-runs.repository.js';
 
 // FR-014, REL-003
-describe('ImportFreshnessService.list', () => {
-  test('lists every provider by id, with when it was last updated and whether its latest run failed', async () => {
-    const providers: ProviderFreshness[] = [
-      { provider: 'karabas', lastSucceededAt: '2026-11-10T02:01:12.000Z', latestRunFailed: true },
-      { provider: 'artwizard', lastSucceededAt: '2026-11-11T02:00:31.000Z', latestRunFailed: false },
-    ];
+describe('ImportFreshnessService.lastUpdatedAt', () => {
+  function lastUpdatedAt(providers: ProviderImportStatus[]): Promise<string | null> {
     const repository = { freshness: mock.fn(() => Promise.resolve(providers)) };
-    const service = new ImportFreshnessService(repository as unknown as ImportRunsRepository);
+    return new ImportFreshnessService(repository as unknown as ImportRunsRepository).lastUpdatedAt();
+  }
 
-    assert.deepEqual(await service.list(), [providers[1], providers[0]]);
+  test('is null while every provider’s latest run succeeded', async () => {
+    assert.equal(
+      await lastUpdatedAt([
+        { provider: 'artwizard', lastSucceededAt: '2026-11-11T02:00:31.000Z', latestRunFailed: false },
+        { provider: 'karabas', lastSucceededAt: '2026-11-11T02:01:12.000Z', latestRunFailed: false },
+      ]),
+      null,
+    );
+  });
+
+  test('is null when no provider has had a run', async () => {
+    assert.equal(await lastUpdatedAt([]), null);
+  });
+
+  test('is when the last succeeded run finished of the provider whose latest run failed', async () => {
+    assert.equal(
+      await lastUpdatedAt([
+        { provider: 'artwizard', lastSucceededAt: '2026-11-11T02:00:31.000Z', latestRunFailed: false },
+        { provider: 'karabas', lastSucceededAt: '2026-11-10T02:01:12.000Z', latestRunFailed: true },
+      ]),
+      '2026-11-10T02:01:12.000Z',
+    );
+  });
+
+  test('is the oldest time when several providers failed, in whatever order they come', async () => {
+    const artwizard = { provider: 'artwizard', lastSucceededAt: '2026-11-09T02:00:31.000Z', latestRunFailed: true };
+    const karabas = { provider: 'karabas', lastSucceededAt: '2026-11-10T02:01:12.000Z', latestRunFailed: true };
+
+    assert.equal(await lastUpdatedAt([artwizard, karabas]), '2026-11-09T02:00:31.000Z');
+    assert.equal(await lastUpdatedAt([karabas, artwizard]), '2026-11-09T02:00:31.000Z');
+  });
+
+  test('is null for a failed provider that never succeeded, since there is no time to show', async () => {
+    assert.equal(await lastUpdatedAt([{ provider: 'artwizard', lastSucceededAt: null, latestRunFailed: true }]), null);
+  });
+
+  test('leaves a failed provider that never succeeded out when another failed one has a time', async () => {
+    assert.equal(
+      await lastUpdatedAt([
+        { provider: 'artwizard', lastSucceededAt: null, latestRunFailed: true },
+        { provider: 'karabas', lastSucceededAt: '2026-11-10T02:01:12.000Z', latestRunFailed: true },
+      ]),
+      '2026-11-10T02:01:12.000Z',
+    );
   });
 });
 

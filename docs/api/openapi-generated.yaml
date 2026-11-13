@@ -381,9 +381,20 @@ components:
             $ref: '#/components/schemas/Event'
         page:
           $ref: '#/components/schemas/PageInfo'
+        lastUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: >-
+            Null while the imported events are current. While the latest import
+            run of a provider failed, the catalog keeps serving the events of
+            its last succeeded run, and this is when that run finished: the time
+            of the "last updated" notice (FR-014). The same on every page and
+            with every filter
       required:
         - items
         - page
+        - lastUpdatedAt
       example:
         items:
           - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
@@ -409,6 +420,7 @@ components:
           limit: 20
           offset: 0
           hasMore: false
+        lastUpdatedAt: null
     Event:
       type: object
       properties:
@@ -533,47 +545,6 @@ components:
         limit: 20
         offset: 0
         hasMore: false
-    EventsFreshness:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProviderFreshness'
-      required:
-        - items
-      example:
-        items:
-          - provider: karabas
-            lastSucceededAt: '2026-11-10T02:01:12.000Z'
-            latestRunFailed: true
-    ProviderFreshness:
-      type: object
-      properties:
-        provider:
-          type: string
-          description: The import provider, e.g. artwizard or karabas
-        lastSucceededAt:
-          type: string
-          nullable: true
-          format: date-time
-          description: >-
-            When the provider’s last succeeded import run finished; null if none
-            has succeeded yet
-        latestRunFailed:
-          type: boolean
-          description: >-
-            Whether its latest ended run failed: its events are then those of
-            lastSucceededAt
-      required:
-        - provider
-        - lastSucceededAt
-        - latestRunFailed
-      description: How current the events imported from one provider are (FR-014)
-      example:
-        provider: karabas
-        lastSucceededAt: '2026-11-10T02:01:12.000Z'
-        latestRunFailed: true
     CreateEventBody:
       type: object
       properties:
@@ -2127,8 +2098,9 @@ paths:
       summary: Browse the event catalog
       description: >-
         Browse the event catalog: published events in the catalog window,
-        soonest first. Needs an access token: a guest token or a signed-in
-        account.
+        soonest first. `lastUpdatedAt` is not null while the imported events are
+        those of an earlier import run (FR-014). Needs an access token: a guest
+        token or a signed-in account.
       tags:
         - Events
       security:
@@ -2252,33 +2224,6 @@ paths:
             organization. `REFERENCE_NOT_FOUND`: no such active category, or the
             venue is not one of the organization’s own.
             `EVENT_ENDS_BEFORE_START`.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /api/v1/events/freshness:
-    get:
-      operationId: getEventsFreshness
-      summary: When the imported events were last updated
-      description: >-
-        Per import provider, when its last succeeded import run finished and
-        whether its latest run failed. While one failed, the catalog serves the
-        events of its last succeeded run, and the app shows a "last updated"
-        notice with that time (FR-014). Needs an access token: a guest token or
-        a signed-in account.
-      tags:
-        - Events
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: One entry per provider that has had an import run
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EventsFreshness'
-        '401':
-          description: No access token, or an invalid or expired one
           content:
             application/json:
               schema:

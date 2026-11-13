@@ -22,7 +22,6 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
 import { useEvents } from '@/hooks/use-events';
-import { useLastUpdatedNotice } from '@/hooks/use-events-freshness';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockUser } from '@/mocks/user';
@@ -89,7 +88,7 @@ export default function CatalogScreen() {
   // The API narrows by one category and by the days; the next page is loaded when the list is scrolled to its end.
   const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
-  const lastUpdated = useLastUpdatedNotice();
+  const lastUpdated = allEvents.lastUpdated;
   useStatusBarStyle('light');
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.

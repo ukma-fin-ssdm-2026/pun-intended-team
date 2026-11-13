@@ -3163,8 +3163,11 @@ describe('Event import', () => {
   });
 
   // FR-014, REL-003
-  test('after a failed ArtWizard run, serves its events and the time of its last succeeded run for the notice', async () => {
+  test('after a failed ArtWizard run, serves its events with the time of its last succeeded run for the notice', async () => {
     await runImport();
+    const current = await call('GET', '/api/v1/events?limit=1', { token: tokens.guest });
+    assert.equal(current.status, 200);
+    assert.equal(current.body.lastUpdatedAt, null);
     const { rows } = await withDatabase((client) =>
       client.query<{ finished_at: Date }>(
         `SELECT finished_at FROM import_runs WHERE provider = 'artwizard' AND status = 'succeeded'
@@ -3174,23 +3177,21 @@ describe('Event import', () => {
     const lastSucceededAt = rows[0]?.finished_at.toISOString();
 
     await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
-    const res = await call('GET', '/api/v1/events/freshness', { token: tokens.guest });
-
-    assert.equal(res.status, 200);
-    assert.deepEqual(res.body, {
-      items: [
-        { provider: 'artwizard', lastSucceededAt, latestRunFailed: true },
-        { provider: 'karabas', lastSucceededAt: res.body.items[1]?.lastSucceededAt, latestRunFailed: false },
-      ],
-    });
-    assert.ok(res.body.items[1].lastSucceededAt > lastSucceededAt);
     const events = await call('GET', '/api/v1/events?limit=20', { token: tokens.guest });
+
     assert.equal(events.status, 200);
     assert.ok(events.body.items.length > 0);
+    assert.ok(lastSucceededAt);
+    assert.equal(events.body.lastUpdatedAt, lastSucceededAt);
+    // The same on another page and with a filter.
+    const other = await call('GET', '/api/v1/events?limit=1&offset=3&from=2026-12-01', { token: tokens.guest });
+    assert.equal(other.status, 200);
+    assert.equal(other.body.lastUpdatedAt, lastSucceededAt);
   });
 
-  test('wants a guest or user token for the freshness of the catalog, like the catalog itself', async () => {
-    assertRejected(await call('GET', '/api/v1/events/freshness'), 401, 'UNAUTHENTICATED');
+  test('has no route of its own for the notice: the former one is read as an event id', async () => {
+    const former = 'freshness';
+    assertInvalid(await call('GET', `/api/v1/events/${former}`, { token: tokens.guest }), 'params', 'id');
   });
 
   test('finds an ArtWizard venue saved with the city twice, as earlier runs saved it, instead of saving it again', async () => {

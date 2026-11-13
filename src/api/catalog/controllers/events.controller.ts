@@ -7,14 +7,7 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
-import {
-  CreateEventBody,
-  Event,
-  EventIdParams,
-  EventsFreshness,
-  EventsPage,
-  ListEventsQuery,
-} from '../schemas/events.ts';
+import { CreateEventBody, Event, EventIdParams, EventsPage, ListEventsQuery } from '../schemas/events.ts';
 
 const ListEventsRequest = { query: ListEventsQuery } satisfies RequestSchemas;
 const GetEventRequest = { params: EventIdParams } satisfies RequestSchemas;
@@ -40,7 +33,9 @@ export class EventsController {
     path: Routes.events.list,
     operationId: 'listEvents',
     summary: 'Browse the event catalog',
-    description: 'Browse the event catalog: published events in the catalog window, soonest first.',
+    description:
+      'Browse the event catalog: published events in the catalog window, soonest first. ' +
+      '`lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014).',
     tags: ['Events'],
     access: 'guest',
     request: ListEventsRequest,
@@ -50,27 +45,11 @@ export class EventsController {
   })
   async listEvents(@Input() { query }: RouteInput<typeof ListEventsRequest>): Promise<EventsPage> {
     const { limit, offset, ...filter } = query;
-    return this.eventsService.list(filter, { limit, offset });
-  }
-
-  // Before GET /events/{id}, which would otherwise take "freshness" for an id.
-  @Endpoint({
-    method: 'get',
-    path: Routes.events.freshness,
-    operationId: 'getEventsFreshness',
-    summary: 'When the imported events were last updated',
-    description:
-      'Per import provider, when its last succeeded import run finished and whether its latest run failed. ' +
-      'While one failed, the catalog serves the events of its last succeeded run, and the app shows a ' +
-      '"last updated" notice with that time (FR-014).',
-    tags: ['Events'],
-    access: 'guest',
-    responses: {
-      200: { description: 'One entry per provider that has had an import run', schema: EventsFreshness },
-    },
-  })
-  async getEventsFreshness(): Promise<EventsFreshness> {
-    return { items: await this.importFreshnessService.list() };
+    const [page, lastUpdatedAt] = await Promise.all([
+      this.eventsService.list(filter, { limit, offset }),
+      this.importFreshnessService.lastUpdatedAt(),
+    ]);
+    return { ...page, lastUpdatedAt };
   }
 
   @Endpoint({

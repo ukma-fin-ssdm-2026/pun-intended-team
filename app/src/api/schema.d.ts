@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * Browse the event catalog
-         * @description Browse the event catalog: published events in the catalog window, soonest first. Needs an access token: a guest token or a signed-in account.
+         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
          */
         get: operations["listEvents"];
         put?: never;
@@ -134,26 +134,6 @@ export interface paths {
          * @description Publish an event. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["createEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events/freshness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * When the imported events were last updated
-         * @description Per import provider, when its last succeeded import run finished and whether its latest run failed. While one failed, the catalog serves the events of its last succeeded run, and the app shows a "last updated" notice with that time (FR-014). Needs an access token: a guest token or a signed-in account.
-         */
-        get: operations["getEventsFreshness"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1015,12 +995,18 @@ export interface components {
          *         "limit": 20,
          *         "offset": 0,
          *         "hasMore": false
-         *       }
+         *       },
+         *       "lastUpdatedAt": null
          *     }
          */
         EventsPage: {
             items: components["schemas"]["Event"][];
             page: components["schemas"]["PageInfo"];
+            /**
+             * Format: date-time
+             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same on every page and with every filter
+             */
+            lastUpdatedAt: string | null;
         };
         /**
          * @description An event users can go to together
@@ -1097,39 +1083,6 @@ export interface components {
             offset: number;
             /** @description Whether another page follows */
             hasMore: boolean;
-        };
-        /**
-         * @example {
-         *       "items": [
-         *         {
-         *           "provider": "karabas",
-         *           "lastSucceededAt": "2026-11-10T02:01:12.000Z",
-         *           "latestRunFailed": true
-         *         }
-         *       ]
-         *     }
-         */
-        EventsFreshness: {
-            items: components["schemas"]["ProviderFreshness"][];
-        };
-        /**
-         * @description How current the events imported from one provider are (FR-014)
-         * @example {
-         *       "provider": "karabas",
-         *       "lastSucceededAt": "2026-11-10T02:01:12.000Z",
-         *       "latestRunFailed": true
-         *     }
-         */
-        ProviderFreshness: {
-            /** @description The import provider, e.g. artwizard or karabas */
-            provider: string;
-            /**
-             * Format: date-time
-             * @description When the provider’s last succeeded import run finished; null if none has succeeded yet
-             */
-            lastSucceededAt: string | null;
-            /** @description Whether its latest ended run failed: its events are then those of lastSucceededAt */
-            latestRunFailed: boolean;
         };
         /**
          * @description All editable fields of an event; PUT /events/{id} takes the same body
@@ -2457,35 +2410,6 @@ export interface operations {
             };
             /** @description `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified organization. `REFERENCE_NOT_FOUND`: no such active category, or the venue is not one of the organization’s own. `EVENT_ENDS_BEFORE_START`. */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    getEventsFreshness: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One entry per provider that has had an import run */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventsFreshness"];
-                };
-            };
-            /** @description No access token, or an invalid or expired one */
-            401: {
                 headers: {
                     [name: string]: unknown;
                 };

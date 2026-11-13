@@ -1,6 +1,6 @@
 // Written with the help of Claude
 /** How current one provider's imported events are (FR-014). */
-export interface ProviderFreshness {
+export interface ProviderImportStatus {
   /** The provider's id, as stored with its events, e.g. `karabas`. */
   provider: string;
   /** When its last succeeded import run finished; null if none has succeeded yet. */
