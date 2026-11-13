@@ -61,6 +61,35 @@ describe('PoliteHttpClient', () => {
     assert.ok(first && second && second.at - first.at >= 100, `${second?.at} - ${first?.at}`);
   });
 
+  test('never sends before the interval has passed, even when the timer fires a millisecond early', async () => {
+    let now = 1_000_000;
+    const sleeps: number[] = [];
+    // The first wait ends a millisecond early, as a real timer may; the next ones on time.
+    const early = {
+      now: () => now,
+      sleep: (ms: number) => {
+        now += sleeps.length === 0 ? ms - 1 : ms;
+        sleeps.push(ms);
+        return Promise.resolve();
+      },
+    };
+    const sentAt: number[] = [];
+    const realFetch = globalThis.fetch;
+    const fetchMock = mock.method(globalThis, 'fetch', (...args: Parameters<typeof fetch>) => {
+      sentAt.push(now);
+      return realFetch(...args);
+    });
+    const polite = client({ intervalMs: 1000, clock: early });
+
+    await polite.get(`${baseUrl}/a`);
+    await polite.get(`${baseUrl}/b`);
+
+    fetchMock.mock.restore();
+    assert.equal(sentAt.length, 2);
+    assert.ok((sentAt[1] ?? 0) - (sentAt[0] ?? 0) >= 1000, `${sentAt[1]} - ${sentAt[0]}`);
+    assert.deepEqual(sleeps, [1000, 1]);
+  });
+
   test('retries a 5xx answer and returns the page once it comes', async () => {
     received.length = 0;
     failuresLeft = 2;
