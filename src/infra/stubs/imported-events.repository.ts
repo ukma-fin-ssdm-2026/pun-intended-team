@@ -32,10 +32,6 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     return undefined;
   }
 
-  async lastSucceededRunStart(): Promise<Date | undefined> {
-    return undefined;
-  }
-
   async finishRun(): Promise<void> {}
 
   async lastCompleteRun(): Promise<undefined> {

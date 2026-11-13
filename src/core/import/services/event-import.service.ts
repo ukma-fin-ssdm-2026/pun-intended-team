@@ -22,6 +22,18 @@ import type {
   SkippedRecord,
 } from '../types/import.ts';
 
+/**
+ * The geocoder's state for one run. Addresses it could not find are asked about once, so a venue with many events
+ * costs one lookup. After it fails, e.g. because it cannot be reached, it is not asked again: every lookup would
+ * wait for its retries and fail the same way.
+ */
+interface Geocoding {
+  notFound: Set<string>;
+  unavailable: boolean;
+}
+
+const GEOCODER_UNAVAILABLE = 'The geocoder is unavailable in this run';
+
 type Saved = 'created' | 'updated' | 'unchanged' | 'republished';
 
 /** A complete list is taken as broken, and cancels nothing, when it sees fewer than this share of the last one's. */
@@ -114,11 +126,10 @@ export class EventImportService {
    */
   async importFrom(provider: EventProvider): Promise<ImportReport> {
     await this.importedEventsRepository.failUnfinishedRuns(provider.id);
-    const since = await this.importedEventsRepository.lastSucceededRunStart(provider.id);
     const runId = await this.importedEventsRepository.startRun(provider.id);
     let result: { report: ImportReport; details: RunDetails };
     try {
-      result = await this.importRecords(provider, runId, since);
+      result = await this.importRecords(provider, runId);
     } catch (error) {
       await this.recordFailure(provider.id, runId);
       throw error;
@@ -141,9 +152,8 @@ export class EventImportService {
   private async importRecords(
     provider: EventProvider,
     runId: string,
-    since?: Date,
   ): Promise<{ report: ImportReport; details: RunDetails }> {
-    const list = await provider.fetch(since);
+    const list = await provider.fetch();
     const { records: raws, complete } = list;
     const categories = new Map(
       (await this.importedEventsRepository.findCategories()).map((category) => [category.slug, category]),
@@ -159,8 +169,7 @@ export class EventImportService {
       republished: 0,
       skipped: [],
     };
-    // Addresses the geocoder could not find in this run, so a venue with many events is asked about once.
-    const notFound = new Set<string>();
+    const geocoding: Geocoding = { notFound: new Set(), unavailable: false };
     const venues = new SavedVenues(await this.importedEventsRepository.findVenues());
     // The provider's events this run saw: saved, or skipped only because the geocoder failed or found nothing,
     // which says nothing about whether the event still exists.
@@ -187,7 +196,7 @@ export class EventImportService {
         await skip('The event does not end after it starts');
         continue;
       }
-      const venue = await this.venueFor(imported, venues, notFound);
+      const venue = await this.venueFor(report.provider, imported, venues, geocoding);
       seen.add(imported.externalId);
       if (typeof venue === 'string') {
         await skip(venue);
@@ -220,9 +229,10 @@ export class EventImportService {
    * the geocoder's. A string is the reason the event has no venue.
    */
   private async venueFor(
+    providerId: string,
     { venue }: ImportedEvent,
     venues: SavedVenues,
-    notFound: Set<string>,
+    geocoding: Geocoding,
   ): Promise<Venue | string> {
     const { name, address, location } = venue;
     const saved = venues.find(venue);
@@ -246,18 +256,26 @@ export class EventImportService {
     if (location) {
       return this.created(venues, { name, address, location });
     }
+    if (geocoding.unavailable) {
+      return GEOCODER_UNAVAILABLE;
+    }
     const key = `${name}\n${address}`;
-    if (notFound.has(key)) {
+    if (geocoding.notFound.has(key)) {
       return 'The geocoder found no coordinates for the venue';
     }
     let found: Venue['location'] | undefined;
     try {
       found = await this.geocoder.locate(venue);
     } catch (error) {
-      return `The geocoder failed: ${error instanceof Error ? error.message : String(error)}`;
+      geocoding.unavailable = true;
+      this.logger.error(
+        `${providerId}: the geocoder failed, so it is not asked again in this run: ` +
+          (error instanceof Error ? error.message : String(error)),
+      );
+      return GEOCODER_UNAVAILABLE;
     }
     if (!found) {
-      notFound.add(key);
+      geocoding.notFound.add(key);
       return 'The geocoder found no coordinates for the venue';
     }
     return this.created(venues, { name, address, location: found });
