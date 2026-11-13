@@ -14,6 +14,7 @@ import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
+import { PgBossJobQueue } from '../../dist/infra/jobs/pg-boss-job-queue.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
 import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
@@ -3019,35 +3020,38 @@ describe('Event import', () => {
 
   after(() => new Promise<void>((resolve) => providerSite.close(() => resolve())));
 
+  /** Starts the import process from a folder without .env, with no key file and no MAIN_DATABASE_URL. */
+  function startImport(args: string[], { artWizardApiKey = ARTWIZARD_TEST_KEY } = {}) {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
+    const child = spawn(process.execPath, [path.resolve('dist/import/main.js'), ...args], {
+      cwd,
+      env: {
+        PATH: process.env.PATH,
+        IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
+        ARTWIZARD_API_URL: providerSiteUrl,
+        ARTWIZARD_API_KEY: artWizardApiKey,
+        KARABAS_BASE_URL: providerSiteUrl,
+        NOMINATIM_BASE_URL: providerSiteUrl,
+        IMPORT_REQUEST_INTERVAL_MS: '0',
+        IMPORT_NOW: '2026-11-03T10:00:00Z',
+      },
+    });
+    child.on('close', () => rmSync(cwd, { recursive: true, force: true }));
+    return child;
+  }
+
   /**
-   * One import run from a folder without .env, with no key file and no MAIN_DATABASE_URL. Asynchronous, so the
-   * local provider site in this process can answer it. Returns what the process printed.
+   * One import run of every provider. Asynchronous, so the local provider site in this process can answer it. With
+   * `--force`, since the tests run the providers many times a day. Returns what the process printed.
    */
   async function runImport({ artWizardApiKey = ARTWIZARD_TEST_KEY, exitCode = 0 } = {}) {
-    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
-    try {
-      const child = spawn(process.execPath, [path.resolve('dist/import/main.js')], {
-        cwd,
-        env: {
-          PATH: process.env.PATH,
-          IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
-          ARTWIZARD_API_URL: providerSiteUrl,
-          ARTWIZARD_API_KEY: artWizardApiKey,
-          KARABAS_BASE_URL: providerSiteUrl,
-          NOMINATIM_BASE_URL: providerSiteUrl,
-          IMPORT_REQUEST_INTERVAL_MS: '0',
-          IMPORT_NOW: '2026-11-03T10:00:00Z',
-        },
-      });
-      let output = '';
-      child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
-      child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
-      const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
-      assert.equal(status, exitCode, output);
-      return output;
-    } finally {
-      rmSync(cwd, { recursive: true, force: true });
-    }
+    const child = startImport(['--once', '--force'], { artWizardApiKey });
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
+    assert.equal(status, exitCode, output);
+    return output;
   }
 
   const importedEvents = (provider: string) =>
@@ -3338,6 +3342,128 @@ describe('Event import', () => {
     } finally {
       await client.end();
     }
+  });
+  test('refuses --force without --once, and in production, before it connects anywhere', () => {
+    for (const [args, env] of [
+      [['--force'], {}],
+      [['--once', '--force'], { NODE_ENV: 'production' }],
+    ] as const) {
+      const { status, stderr } = spawnSync(process.execPath, [path.resolve('dist/import/main.js'), ...args], {
+        cwd: tmpdir(),
+        env: { PATH: process.env.PATH, ...env },
+        encoding: 'utf8',
+      });
+
+      assert.equal(status, 2, stderr);
+      assert.match(stderr, /--force is for a local run only/);
+    }
+  });
+
+  // HLD I3, ADR-006 (decision 9): without --once the import runs until stopped and imports on the import.run jobs.
+  describe('the long-running process', () => {
+    const WAIT_MS = 30_000;
+    let worker: ChildProcess;
+    let workerOutput = '';
+    /** Enqueues as the API would, as nearby_main. */
+    let jobs: PgBossJobQueue;
+
+    /** Polls `check` until it returns something, or fails after WAIT_MS. */
+    async function eventually<T>(what: string, check: () => Promise<T | undefined> | T | undefined): Promise<T> {
+      const until = Date.now() + WAIT_MS;
+      for (;;) {
+        const value = await check();
+        if (value !== undefined) {
+          return value;
+        }
+        assert.ok(Date.now() < until, `${what} did not happen; the import printed:\n${workerOutput}`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+
+    const runIds = (provider: string) =>
+      withDatabase(async (client) =>
+        (await client.query<{ id: string }>('SELECT id FROM import_runs WHERE provider = $1', [provider])).rows.map(
+          ({ id }) => id,
+        ),
+      );
+
+    before(async () => {
+      // Earlier tests ran the providers minutes ago; a day earlier, they are due again. Their order stays the same.
+      await withDatabase((client) => client.query(`UPDATE import_runs SET started_at = started_at - interval '1 day'`));
+      await withDatabase((client) => client.query(`DELETE FROM pgboss.job WHERE name = 'import.run'`));
+      worker = startImport([]);
+      worker.stdout?.on('data', (chunk: Buffer) => (workerOutput += chunk.toString()));
+      worker.stderr?.on('data', (chunk: Buffer) => (workerOutput += chunk.toString()));
+      jobs = new PgBossJobQueue(runDatabaseUrl('MAIN_DATABASE_URL'));
+      jobs.onApplicationBootstrap();
+      await jobs.whenStarted();
+    });
+
+    after(async () => {
+      await jobs?.onModuleDestroy();
+      if (worker && worker.exitCode === null) {
+        worker.kill('SIGTERM');
+        await new Promise((resolve) => worker.once('close', resolve));
+      }
+      await withDatabase(async (client) => {
+        await client.query(`DELETE FROM pgboss.job WHERE name = 'import.run'`);
+        await client.query(`DELETE FROM pgboss.schedule WHERE name = 'import.run'`);
+      });
+    });
+
+    test('schedules every provider daily at 02:00 UTC, without retries, as nearby_import', async () => {
+      const schedules = await eventually('Storing the schedules', () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ key: string; cron: string; data: unknown }>(
+            `SELECT key, cron, data FROM pgboss.schedule WHERE name = 'import.run' ORDER BY key`,
+          );
+          return rows.length === 2 ? rows : undefined;
+        }),
+      );
+
+      assert.deepEqual(schedules, [
+        { key: 'artwizard', cron: '0 2 * * *', data: { providerId: 'artwizard' } },
+        { key: 'karabas', cron: '0 2 * * *', data: { providerId: 'karabas' } },
+      ]);
+      const { rows } = await withDatabase((client) =>
+        client.query(`SELECT retry_limit FROM pgboss.queue WHERE name = 'import.run'`),
+      );
+      assert.deepEqual(rows, [{ retry_limit: 0 }]);
+    });
+
+    test('an import.run job runs its provider only, and a second one within 20 hours starts no run', async () => {
+      const karabasBefore = await runIds('karabas');
+      const artWizardBefore = await runIds('artwizard');
+
+      await jobs.enqueue('import.run', { providerId: 'karabas' });
+      const [run] = await eventually('The Karabas run', () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ id: string; status: string }>(
+            `SELECT id, status FROM import_runs
+              WHERE provider = 'karabas' AND status <> 'running' AND NOT (id = ANY($1::uuid[]))`,
+            [karabasBefore],
+          );
+          return rows.length > 0 ? rows : undefined;
+        }),
+      );
+      assert.equal(run?.status, 'succeeded', workerOutput);
+
+      await jobs.enqueue('import.run', { providerId: 'karabas' });
+      await eventually(
+        'Skipping the second Karabas run',
+        () => /karabas: not started: the last run started at/.test(workerOutput) || undefined,
+      );
+
+      assert.deepEqual((await runIds('karabas')).length, karabasBefore.length + 1);
+      assert.deepEqual(await runIds('artwizard'), artWizardBefore);
+    });
+
+    test('exits normally on SIGTERM', async () => {
+      worker.kill('SIGTERM');
+      const [code] = (await new Promise((resolve) => worker.once('exit', (...args) => resolve(args)))) as [number];
+
+      assert.equal(code, 0, workerOutput);
+    });
   });
 });
 

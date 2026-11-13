@@ -10,6 +10,12 @@ export abstract class EventProvider {
   abstract readonly id: string;
 
   /**
+   * The least time between the starts of two of the provider's runs, whatever their outcome. The import starts no
+   * run sooner (ADR-006, decision 9), also when it is started by hand.
+   */
+  readonly minHoursBetweenRuns: number = 20;
+
+  /**
    * The provider's raw records, as received, and whether they are its full list for the window. A page that cannot
    * be fetched is logged and left out, and the list is then not complete; the call fails only when nothing can be
    * fetched at all.
