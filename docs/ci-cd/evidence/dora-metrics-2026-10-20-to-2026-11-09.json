@@ -1,0 +1,1966 @@
+{
+  "generated_at": "2026-11-13T12:04:55.907Z",
+  "source": {
+    "file": "runs.json",
+    "collected_at": "2026-11-11T10:59:27.167Z",
+    "repository": "ukma-fin-ssdm-2026/pun-intended-team",
+    "workflow": ".github/workflows/ci.yml",
+    "branch": "main"
+  },
+  "definitions": {
+    "deployment": "a green run of CI on main (one row of metrics-raw.md; each attempt of a re-run is a row of its own)",
+    "failure": "a red run of CI on main; cancelled runs are neither a deployment nor a failure",
+    "change_lead_time": "from the first commit of the merged PR (for a direct push, the commit itself) to the completion of the first green run on main created at or after the change reached main; the queue is part of it",
+    "change_fail_rate": "red runs / (green + red runs) on main",
+    "recovery_time": "from the completion of a red run on main to the completion of the next green run on main; consecutive red runs form one incident",
+    "period": "UTC dates of run creation, inclusive"
+  },
+  "period": {
+    "from": "2026-10-20",
+    "to": "2026-11-09",
+    "days": 21,
+    "weeks": 3
+  },
+  "filters": {
+    "exclude_runs": null,
+    "excluded_rows": [],
+    "ignore_failure_causes": [],
+    "ignored_rows": []
+  },
+  "counts": {
+    "rows_in_period": 94,
+    "rows_counted": 94,
+    "deployments": 81,
+    "failures": 6,
+    "not_completed": 7,
+    "ignored": 0,
+    "excluded": 0
+  },
+  "classification": {
+    "deployment": [
+      117,
+      118,
+      119,
+      120,
+      121,
+      122,
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      149,
+      150,
+      151,
+      152,
+      153,
+      154,
+      155,
+      156,
+      158,
+      162,
+      163,
+      164,
+      165,
+      166,
+      167,
+      168,
+      169,
+      170,
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186,
+      187,
+      188,
+      189,
+      190,
+      191,
+      192,
+      193,
+      194,
+      195,
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      203,
+      204,
+      205,
+      206,
+      208,
+      209,
+      210
+    ],
+    "failure": [
+      157,
+      159,
+      160,
+      161,
+      202,
+      207
+    ],
+    "not_completed": [
+      123,
+      124,
+      142,
+      171,
+      172,
+      173,
+      174
+    ],
+    "ignored": [],
+    "excluded": []
+  },
+  "deployment_frequency": {
+    "deployments": 81,
+    "days": 21,
+    "per_week": 27,
+    "per_day": 3.9
+  },
+  "change_lead_time": {
+    "changes": 89,
+    "count": 89,
+    "mean_min": 1809.7,
+    "mean_text": "1 d 6 h 10 min",
+    "median_min": 322.6,
+    "median_text": "5 h 23 min",
+    "shares_percent": {
+      "before_run": 99.74,
+      "queue": 0.08,
+      "execution": 0.18
+    },
+    "pending": [],
+    "items": [
+      {
+        "change": "#245",
+        "pull": 245,
+        "head_sha": "4e5c547",
+        "first_commit_at": "2026-10-20T06:16:27Z",
+        "first_run_row": 117,
+        "green_run": {
+          "row": 117,
+          "run_number": 457,
+          "run_attempt": 1,
+          "completed_at": "2026-10-20T06:58:05Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39383304469/attempts/1"
+        },
+        "lead_min": 41.6,
+        "lead_text": "42 min",
+        "before_run_min": 39.6,
+        "queue_min": 0,
+        "execution_min": 2
+      },
+      {
+        "change": "#247",
+        "pull": 247,
+        "head_sha": "63319ab",
+        "first_commit_at": "2026-10-19T11:15:18Z",
+        "first_run_row": 118,
+        "green_run": {
+          "row": 118,
+          "run_number": 472,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T08:30:00Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39924791190/attempts/1"
+        },
+        "lead_min": 5594.7,
+        "lead_text": "3 d 21 h 15 min",
+        "before_run_min": 5592.4,
+        "queue_min": 0.1,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#252",
+        "pull": 252,
+        "head_sha": "d02ab68",
+        "first_commit_at": "2026-10-18T19:04:32Z",
+        "first_run_row": 119,
+        "green_run": {
+          "row": 119,
+          "run_number": 482,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T19:58:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40015294096/attempts/1"
+        },
+        "lead_min": 7253.9,
+        "lead_text": "5 d 54 min",
+        "before_run_min": 7251.6,
+        "queue_min": 0.1,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#253",
+        "pull": 253,
+        "head_sha": "897e019",
+        "first_commit_at": "2026-10-17T14:20:14Z",
+        "first_run_row": 120,
+        "green_run": {
+          "row": 120,
+          "run_number": 483,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:02:09Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40015709966/attempts/1"
+        },
+        "lead_min": 8981.9,
+        "lead_text": "6 d 5 h 42 min",
+        "before_run_min": 8979.2,
+        "queue_min": 0.1,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#255",
+        "pull": 255,
+        "head_sha": "848af87",
+        "first_commit_at": "2026-10-23T19:36:03Z",
+        "first_run_row": 121,
+        "green_run": {
+          "row": 121,
+          "run_number": 484,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:04:44Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40016140272/attempts/1"
+        },
+        "lead_min": 28.7,
+        "lead_text": "29 min",
+        "before_run_min": 26.6,
+        "queue_min": 0.1,
+        "execution_min": 2
+      },
+      {
+        "change": "#248",
+        "pull": 248,
+        "head_sha": "8a55858",
+        "first_commit_at": "2026-10-23T00:25:36Z",
+        "first_run_row": 122,
+        "green_run": {
+          "row": 122,
+          "run_number": 485,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:10:21Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40016878313/attempts/1"
+        },
+        "lead_min": 1184.8,
+        "lead_text": "19 h 45 min",
+        "before_run_min": 1182.7,
+        "queue_min": 0.1,
+        "execution_min": 2
+      },
+      {
+        "change": "#249",
+        "pull": 249,
+        "head_sha": "41a1a33",
+        "first_commit_at": "2026-10-23T00:25:56Z",
+        "first_run_row": 123,
+        "green_run": {
+          "row": 125,
+          "run_number": 488,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:12:35Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40017063830/attempts/1"
+        },
+        "lead_min": 1186.7,
+        "lead_text": "19 h 47 min",
+        "before_run_min": 1183.9,
+        "queue_min": 0.6,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#250",
+        "pull": 250,
+        "head_sha": "8d0b612",
+        "first_commit_at": "2026-10-23T15:52:02Z",
+        "first_run_row": 124,
+        "green_run": {
+          "row": 125,
+          "run_number": 488,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:12:35Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40017063830/attempts/1"
+        },
+        "lead_min": 260.6,
+        "lead_text": "4 h 21 min",
+        "before_run_min": 257.8,
+        "queue_min": 0.6,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#251",
+        "pull": 251,
+        "head_sha": "b67506b",
+        "first_commit_at": "2026-10-23T15:52:11Z",
+        "first_run_row": 125,
+        "green_run": {
+          "row": 125,
+          "run_number": 488,
+          "run_attempt": 1,
+          "completed_at": "2026-10-23T20:12:35Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40017063830/attempts/1"
+        },
+        "lead_min": 260.4,
+        "lead_text": "4 h 20 min",
+        "before_run_min": 257.6,
+        "queue_min": 0.6,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#262",
+        "pull": 262,
+        "head_sha": "70b2142",
+        "first_commit_at": "2026-10-24T10:24:23Z",
+        "first_run_row": 126,
+        "green_run": {
+          "row": 126,
+          "run_number": 497,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T10:37:10Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40086493035/attempts/1"
+        },
+        "lead_min": 12.8,
+        "lead_text": "13 min",
+        "before_run_min": 10.7,
+        "queue_min": 0,
+        "execution_min": 2
+      },
+      {
+        "change": "#256",
+        "pull": 256,
+        "head_sha": "f927ec6",
+        "first_commit_at": "2026-10-17T17:28:10Z",
+        "first_run_row": 127,
+        "green_run": {
+          "row": 127,
+          "run_number": 499,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T11:03:17Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40088143909/attempts/1"
+        },
+        "lead_min": 9695.1,
+        "lead_text": "6 d 17 h 35 min",
+        "before_run_min": 9692.3,
+        "queue_min": 0,
+        "execution_min": 2.8
+      },
+      {
+        "change": "#265",
+        "pull": 265,
+        "head_sha": "938fe02",
+        "first_commit_at": "2026-10-24T11:41:50Z",
+        "first_run_row": 128,
+        "green_run": {
+          "row": 128,
+          "run_number": 502,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T11:52:56Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40091525230/attempts/1"
+        },
+        "lead_min": 11.1,
+        "lead_text": "11 min",
+        "before_run_min": 8.9,
+        "queue_min": 0.1,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#270",
+        "pull": 270,
+        "head_sha": "5a2f5c0",
+        "first_commit_at": "2026-10-24T12:55:44Z",
+        "first_run_row": 129,
+        "green_run": {
+          "row": 129,
+          "run_number": 506,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T13:05:20Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40096486117/attempts/1"
+        },
+        "lead_min": 9.6,
+        "lead_text": "10 min",
+        "before_run_min": 7.4,
+        "queue_min": 0,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#268",
+        "pull": 268,
+        "head_sha": "734033d",
+        "first_commit_at": "2026-10-24T12:32:24Z",
+        "first_run_row": 130,
+        "green_run": {
+          "row": 130,
+          "run_number": 507,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T13:07:31Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40096544076/attempts/1"
+        },
+        "lead_min": 35.1,
+        "lead_text": "35 min",
+        "before_run_min": 31.6,
+        "queue_min": 1.4,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#273",
+        "pull": 273,
+        "head_sha": "068d4e0",
+        "first_commit_at": "2026-10-24T15:06:22Z",
+        "first_run_row": 131,
+        "green_run": {
+          "row": 131,
+          "run_number": 510,
+          "run_attempt": 1,
+          "completed_at": "2026-10-24T16:12:41Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40110329856/attempts/1"
+        },
+        "lead_min": 66.3,
+        "lead_text": "1 h 6 min",
+        "before_run_min": 64.2,
+        "queue_min": 0,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#266",
+        "pull": 266,
+        "head_sha": "011662a",
+        "first_commit_at": "2026-10-24T11:55:34Z",
+        "first_run_row": 132,
+        "green_run": {
+          "row": 132,
+          "run_number": 513,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T07:40:36Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40173531430/attempts/1"
+        },
+        "lead_min": 1185,
+        "lead_text": "19 h 45 min",
+        "before_run_min": 1182.9,
+        "queue_min": 0.1,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#274",
+        "pull": 274,
+        "head_sha": "3aa906f",
+        "first_commit_at": "2026-10-24T15:19:55Z",
+        "first_run_row": 133,
+        "green_run": {
+          "row": 133,
+          "run_number": 515,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T08:03:30Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40174967591/attempts/1"
+        },
+        "lead_min": 1003.6,
+        "lead_text": "16 h 44 min",
+        "before_run_min": 1001.1,
+        "queue_min": 0,
+        "execution_min": 2.5
+      },
+      {
+        "change": "#259",
+        "pull": 259,
+        "head_sha": "536723b",
+        "first_commit_at": "2026-10-23T22:25:33Z",
+        "first_run_row": 134,
+        "green_run": {
+          "row": 134,
+          "run_number": 519,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T12:03:55Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40191334699/attempts/1"
+        },
+        "lead_min": 2258.4,
+        "lead_text": "1 d 13 h 38 min",
+        "before_run_min": 2256.2,
+        "queue_min": 0.1,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#260",
+        "pull": 260,
+        "head_sha": "9ac9e23",
+        "first_commit_at": "2026-10-18T14:18:19Z",
+        "first_run_row": 135,
+        "green_run": {
+          "row": 135,
+          "run_number": 520,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T12:06:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40191514382/attempts/1"
+        },
+        "lead_min": 9948.1,
+        "lead_text": "6 d 21 h 48 min",
+        "before_run_min": 9945.9,
+        "queue_min": 0,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#258",
+        "pull": 258,
+        "head_sha": "b8dc363",
+        "first_commit_at": "2026-10-18T13:59:27Z",
+        "first_run_row": 136,
+        "green_run": {
+          "row": 136,
+          "run_number": 522,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T14:18:19Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40201393993/attempts/1"
+        },
+        "lead_min": 10098.9,
+        "lead_text": "7 d 19 min",
+        "before_run_min": 10096.2,
+        "queue_min": 0.1,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#282",
+        "pull": 282,
+        "head_sha": "543f94f",
+        "first_commit_at": "2026-10-25T12:07:16Z",
+        "first_run_row": 137,
+        "green_run": {
+          "row": 137,
+          "run_number": 523,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T14:20:33Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40201465730/attempts/1"
+        },
+        "lead_min": 133.3,
+        "lead_text": "2 h 13 min",
+        "before_run_min": 129.3,
+        "queue_min": 1.8,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#284",
+        "pull": 284,
+        "head_sha": "6f913a7",
+        "first_commit_at": "2026-10-25T14:57:11Z",
+        "first_run_row": 138,
+        "green_run": {
+          "row": 138,
+          "run_number": 526,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T16:32:23Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40211927047/attempts/1"
+        },
+        "lead_min": 95.2,
+        "lead_text": "1 h 35 min",
+        "before_run_min": 92.4,
+        "queue_min": 0,
+        "execution_min": 2.8
+      },
+      {
+        "change": "#288",
+        "pull": 288,
+        "head_sha": "7b62566",
+        "first_commit_at": "2026-10-25T17:51:27Z",
+        "first_run_row": 139,
+        "green_run": {
+          "row": 139,
+          "run_number": 533,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T20:43:58Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40231963896/attempts/1"
+        },
+        "lead_min": 172.5,
+        "lead_text": "2 h 53 min",
+        "before_run_min": 170.2,
+        "queue_min": 0.1,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#275",
+        "pull": 275,
+        "head_sha": "4f6155e",
+        "first_commit_at": "2026-10-17T14:37:48Z",
+        "first_run_row": 140,
+        "green_run": {
+          "row": 140,
+          "run_number": 535,
+          "run_attempt": 1,
+          "completed_at": "2026-10-25T20:46:17Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40232039478/attempts/1"
+        },
+        "lead_min": 11888.5,
+        "lead_text": "8 d 6 h 8 min",
+        "before_run_min": 11884.8,
+        "queue_min": 1.4,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#286",
+        "pull": 286,
+        "head_sha": "7abb497",
+        "first_commit_at": "2026-10-25T16:06:14Z",
+        "first_run_row": 141,
+        "green_run": {
+          "row": 141,
+          "run_number": 538,
+          "run_attempt": 1,
+          "completed_at": "2026-10-26T03:55:08Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40266210265/attempts/1"
+        },
+        "lead_min": 708.9,
+        "lead_text": "11 h 49 min",
+        "before_run_min": 706.5,
+        "queue_min": 0.1,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#290",
+        "pull": 290,
+        "head_sha": "5441143",
+        "first_commit_at": "2026-10-25T22:10:42Z",
+        "first_run_row": 142,
+        "green_run": {
+          "row": 143,
+          "run_number": 540,
+          "run_attempt": 1,
+          "completed_at": "2026-10-26T03:57:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40266363763/attempts/1"
+        },
+        "lead_min": 346.7,
+        "lead_text": "5 h 47 min",
+        "before_run_min": 344,
+        "queue_min": 0.5,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#291",
+        "pull": 291,
+        "head_sha": "c1a28dc",
+        "first_commit_at": "2026-10-25T21:29:14Z",
+        "first_run_row": 143,
+        "green_run": {
+          "row": 143,
+          "run_number": 540,
+          "run_attempt": 1,
+          "completed_at": "2026-10-26T03:57:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40266363763/attempts/1"
+        },
+        "lead_min": 388.2,
+        "lead_text": "6 h 28 min",
+        "before_run_min": 385.4,
+        "queue_min": 0.5,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#292",
+        "pull": 292,
+        "head_sha": "eaaba80",
+        "first_commit_at": "2026-10-26T05:58:46Z",
+        "first_run_row": 144,
+        "green_run": {
+          "row": 144,
+          "run_number": 542,
+          "run_attempt": 1,
+          "completed_at": "2026-10-26T06:53:56Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40282299762/attempts/1"
+        },
+        "lead_min": 55.2,
+        "lead_text": "55 min",
+        "before_run_min": 52.9,
+        "queue_min": 0,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#295",
+        "pull": 295,
+        "head_sha": "7f30279",
+        "first_commit_at": "2026-10-27T07:09:05Z",
+        "first_run_row": 145,
+        "green_run": {
+          "row": 145,
+          "run_number": 547,
+          "run_attempt": 1,
+          "completed_at": "2026-10-27T07:50:10Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40469274427/attempts/1"
+        },
+        "lead_min": 41.1,
+        "lead_text": "41 min",
+        "before_run_min": 38.7,
+        "queue_min": 0,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#296",
+        "pull": 296,
+        "head_sha": "fc42b7b",
+        "first_commit_at": "2026-10-27T07:19:50Z",
+        "first_run_row": 146,
+        "green_run": {
+          "row": 146,
+          "run_number": 549,
+          "run_attempt": 1,
+          "completed_at": "2026-10-27T08:01:43Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40470010115/attempts/1"
+        },
+        "lead_min": 41.9,
+        "lead_text": "42 min",
+        "before_run_min": 35.1,
+        "queue_min": 0,
+        "execution_min": 6.8
+      },
+      {
+        "change": "#297",
+        "pull": 297,
+        "head_sha": "635c070",
+        "first_commit_at": "2026-10-27T07:27:59Z",
+        "first_run_row": 147,
+        "green_run": {
+          "row": 147,
+          "run_number": 550,
+          "run_attempt": 1,
+          "completed_at": "2026-10-27T08:04:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40470081934/attempts/1"
+        },
+        "lead_min": 36.4,
+        "lead_text": "36 min",
+        "before_run_min": 27.6,
+        "queue_min": 6.2,
+        "execution_min": 2.6
+      },
+      {
+        "change": "#287",
+        "pull": 287,
+        "head_sha": "bf84a4a",
+        "first_commit_at": "2026-10-25T17:23:13Z",
+        "first_run_row": 148,
+        "green_run": {
+          "row": 148,
+          "run_number": 553,
+          "run_attempt": 1,
+          "completed_at": "2026-10-28T09:52:27Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40667353219/attempts/1"
+        },
+        "lead_min": 3869.2,
+        "lead_text": "2 d 16 h 29 min",
+        "before_run_min": 3867,
+        "queue_min": 0,
+        "execution_min": 2.2
+      },
+      {
+        "change": "#316",
+        "pull": 316,
+        "head_sha": "e952c30",
+        "first_commit_at": "2026-10-28T09:57:44Z",
+        "first_run_row": 149,
+        "green_run": {
+          "row": 149,
+          "run_number": 558,
+          "run_attempt": 1,
+          "completed_at": "2026-10-28T15:47:35Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40719142740/attempts/1"
+        },
+        "lead_min": 349.9,
+        "lead_text": "5 h 50 min",
+        "before_run_min": 347.6,
+        "queue_min": 0,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#318",
+        "pull": 318,
+        "head_sha": "d150e47",
+        "first_commit_at": "2026-10-28T15:03:23Z",
+        "first_run_row": 150,
+        "green_run": {
+          "row": 150,
+          "run_number": 559,
+          "run_attempt": 1,
+          "completed_at": "2026-10-28T15:49:59Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40719311295/attempts/1"
+        },
+        "lead_min": 46.6,
+        "lead_text": "47 min",
+        "before_run_min": 42.9,
+        "queue_min": 1.3,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#317",
+        "pull": 317,
+        "head_sha": "aa4fbc6",
+        "first_commit_at": "2026-10-28T10:32:41Z",
+        "first_run_row": 151,
+        "green_run": {
+          "row": 151,
+          "run_number": 562,
+          "run_attempt": 1,
+          "completed_at": "2026-10-28T16:00:07Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40721151619/attempts/1"
+        },
+        "lead_min": 327.4,
+        "lead_text": "5 h 27 min",
+        "before_run_min": 324.7,
+        "queue_min": 0.4,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#319",
+        "pull": 319,
+        "head_sha": "31665d0",
+        "first_commit_at": "2026-10-28T15:34:40Z",
+        "first_run_row": 152,
+        "green_run": {
+          "row": 152,
+          "run_number": 563,
+          "run_attempt": 1,
+          "completed_at": "2026-10-28T16:02:59Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/40721281168/attempts/1"
+        },
+        "lead_min": 28.3,
+        "lead_text": "28 min",
+        "before_run_min": 23.5,
+        "queue_min": 2,
+        "execution_min": 2.8
+      },
+      {
+        "change": "#324",
+        "pull": 324,
+        "head_sha": "6a5e4ea",
+        "first_commit_at": "2026-10-31T11:36:17Z",
+        "first_run_row": 153,
+        "green_run": {
+          "row": 153,
+          "run_number": 569,
+          "run_attempt": 1,
+          "completed_at": "2026-10-31T13:09:18Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41203869024/attempts/1"
+        },
+        "lead_min": 93,
+        "lead_text": "1 h 33 min",
+        "before_run_min": 87.6,
+        "queue_min": 1.4,
+        "execution_min": 4
+      },
+      {
+        "change": "#326",
+        "pull": 326,
+        "head_sha": "9e847c6",
+        "first_commit_at": "2026-10-31T13:48:23Z",
+        "first_run_row": 154,
+        "green_run": {
+          "row": 154,
+          "run_number": 572,
+          "run_attempt": 1,
+          "completed_at": "2026-10-31T14:12:53Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41208842446/attempts/1"
+        },
+        "lead_min": 24.5,
+        "lead_text": "25 min",
+        "before_run_min": 21.4,
+        "queue_min": 0.1,
+        "execution_min": 3.1
+      },
+      {
+        "change": "#328",
+        "pull": 328,
+        "head_sha": "afca1c4",
+        "first_commit_at": "2026-10-31T12:57:39Z",
+        "first_run_row": 155,
+        "green_run": {
+          "row": 155,
+          "run_number": 573,
+          "run_attempt": 1,
+          "completed_at": "2026-10-31T14:59:56Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41212502356/attempts/1"
+        },
+        "lead_min": 122.3,
+        "lead_text": "2 h 2 min",
+        "before_run_min": 119.6,
+        "queue_min": 0.1,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#329",
+        "pull": 329,
+        "head_sha": "32550cc",
+        "first_commit_at": "2026-10-31T14:58:57Z",
+        "first_run_row": 156,
+        "green_run": {
+          "row": 156,
+          "run_number": 575,
+          "run_attempt": 1,
+          "completed_at": "2026-10-31T16:26:31Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41219371411/attempts/1"
+        },
+        "lead_min": 87.6,
+        "lead_text": "1 h 28 min",
+        "before_run_min": 83.5,
+        "queue_min": 0.6,
+        "execution_min": 3.5
+      },
+      {
+        "change": "#330",
+        "pull": 330,
+        "head_sha": "d444d27",
+        "first_commit_at": "2026-10-31T18:14:32Z",
+        "first_run_row": 157,
+        "green_run": {
+          "row": 158,
+          "run_number": 579,
+          "run_attempt": 2,
+          "completed_at": "2026-10-31T20:31:49Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/2"
+        },
+        "lead_min": 137.3,
+        "lead_text": "2 h 17 min",
+        "before_run_min": 132.5,
+        "queue_min": 3.2,
+        "execution_min": 1.6
+      },
+      {
+        "change": "#333",
+        "pull": 333,
+        "head_sha": "2025c20",
+        "first_commit_at": "2026-11-01T08:33:29Z",
+        "first_run_row": 159,
+        "green_run": {
+          "row": 162,
+          "run_number": 586,
+          "run_attempt": 2,
+          "completed_at": "2026-11-01T09:33:58Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/2"
+        },
+        "lead_min": 60.5,
+        "lead_text": "1 h 0 min",
+        "before_run_min": 59.4,
+        "queue_min": 0.1,
+        "execution_min": 1
+      },
+      {
+        "change": "#336",
+        "pull": 336,
+        "head_sha": "79bb1f7",
+        "first_commit_at": "2026-11-01T09:25:29Z",
+        "first_run_row": 163,
+        "green_run": {
+          "row": 163,
+          "run_number": 588,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T10:54:56Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41298890754/attempts/1"
+        },
+        "lead_min": 89.5,
+        "lead_text": "1 h 29 min",
+        "before_run_min": 80.3,
+        "queue_min": 2.2,
+        "execution_min": 7
+      },
+      {
+        "change": "#339",
+        "pull": 339,
+        "head_sha": "91fdcb0",
+        "first_commit_at": "2026-11-01T09:42:19Z",
+        "first_run_row": 164,
+        "green_run": {
+          "row": 164,
+          "run_number": 590,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T12:18:31Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41305553718/attempts/1"
+        },
+        "lead_min": 156.2,
+        "lead_text": "2 h 36 min",
+        "before_run_min": 152.5,
+        "queue_min": 0,
+        "execution_min": 3.7
+      },
+      {
+        "change": "#341",
+        "pull": 341,
+        "head_sha": "67cd776",
+        "first_commit_at": "2026-10-29T07:56:53Z",
+        "first_run_row": 165,
+        "green_run": {
+          "row": 165,
+          "run_number": 593,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T15:09:18Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41319010933/attempts/1"
+        },
+        "lead_min": 4752.4,
+        "lead_text": "3 d 7 h 12 min",
+        "before_run_min": 4743.9,
+        "queue_min": 1.6,
+        "execution_min": 7
+      },
+      {
+        "change": "#340",
+        "pull": 340,
+        "head_sha": "7886fde",
+        "first_commit_at": "2026-10-29T08:00:32Z",
+        "first_run_row": 166,
+        "green_run": {
+          "row": 166,
+          "run_number": 594,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T15:24:51Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41319067664/attempts/1"
+        },
+        "lead_min": 4764.3,
+        "lead_text": "3 d 7 h 24 min",
+        "before_run_min": 4740.8,
+        "queue_min": 8.2,
+        "execution_min": 15.3
+      },
+      {
+        "change": "#334",
+        "pull": 334,
+        "head_sha": "8a7c48f",
+        "first_commit_at": "2026-10-31T20:36:27Z",
+        "first_run_row": 167,
+        "green_run": {
+          "row": 167,
+          "run_number": 596,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T15:49:03Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41321500508/attempts/1"
+        },
+        "lead_min": 1152.6,
+        "lead_text": "19 h 13 min",
+        "before_run_min": 1133.3,
+        "queue_min": 10.7,
+        "execution_min": 8.6
+      },
+      {
+        "change": "#342",
+        "pull": 342,
+        "head_sha": "a332130",
+        "first_commit_at": "2026-11-01T15:20:46Z",
+        "first_run_row": 168,
+        "green_run": {
+          "row": 168,
+          "run_number": 603,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T17:40:07Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41330423885/attempts/1"
+        },
+        "lead_min": 139.4,
+        "lead_text": "2 h 19 min",
+        "before_run_min": 113.4,
+        "queue_min": 11.6,
+        "execution_min": 14.4
+      },
+      {
+        "change": "#345",
+        "pull": 345,
+        "head_sha": "c3652c5",
+        "first_commit_at": "2026-11-01T17:10:15Z",
+        "first_run_row": 169,
+        "green_run": {
+          "row": 169,
+          "run_number": 606,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T18:11:06Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41332755073/attempts/1"
+        },
+        "lead_min": 60.9,
+        "lead_text": "1 h 1 min",
+        "before_run_min": 31.2,
+        "queue_min": 23.6,
+        "execution_min": 6.1
+      },
+      {
+        "change": "#343",
+        "pull": 343,
+        "head_sha": "637fb63",
+        "first_commit_at": "2026-11-01T16:02:19Z",
+        "first_run_row": 170,
+        "green_run": {
+          "row": 170,
+          "run_number": 613,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T19:18:11Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41339285884/attempts/1"
+        },
+        "lead_min": 195.9,
+        "lead_text": "3 h 16 min",
+        "before_run_min": 175.7,
+        "queue_min": 4.6,
+        "execution_min": 15.7
+      },
+      {
+        "change": "#346",
+        "pull": 346,
+        "head_sha": "26f0127",
+        "first_commit_at": "2026-11-01T17:29:41Z",
+        "first_run_row": 171,
+        "green_run": {
+          "row": 175,
+          "run_number": 626,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T21:56:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41353725097/attempts/1"
+        },
+        "lead_min": 266.7,
+        "lead_text": "4 h 27 min",
+        "before_run_min": 256.9,
+        "queue_min": 7.2,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#320",
+        "pull": 320,
+        "head_sha": "1a646c4",
+        "first_commit_at": "2026-10-29T12:22:31Z",
+        "first_run_row": 172,
+        "green_run": {
+          "row": 175,
+          "run_number": 626,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T21:56:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41353725097/attempts/1"
+        },
+        "lead_min": 4893.9,
+        "lead_text": "3 d 9 h 34 min",
+        "before_run_min": 4884,
+        "queue_min": 7.2,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#349",
+        "pull": 349,
+        "head_sha": "85a0938",
+        "first_commit_at": "2026-11-01T18:02:28Z",
+        "first_run_row": 173,
+        "green_run": {
+          "row": 175,
+          "run_number": 626,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T21:56:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41353725097/attempts/1"
+        },
+        "lead_min": 233.9,
+        "lead_text": "3 h 54 min",
+        "before_run_min": 224.1,
+        "queue_min": 7.2,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#353",
+        "pull": 353,
+        "head_sha": "c89b872",
+        "first_commit_at": "2026-11-01T20:57:44Z",
+        "first_run_row": 174,
+        "green_run": {
+          "row": 175,
+          "run_number": 626,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T21:56:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41353725097/attempts/1"
+        },
+        "lead_min": 58.6,
+        "lead_text": "59 min",
+        "before_run_min": 48.8,
+        "queue_min": 7.2,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#350",
+        "pull": 350,
+        "head_sha": "e56f92b",
+        "first_commit_at": "2026-11-01T19:39:13Z",
+        "first_run_row": 175,
+        "green_run": {
+          "row": 175,
+          "run_number": 626,
+          "run_attempt": 1,
+          "completed_at": "2026-11-01T21:56:22Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41353725097/attempts/1"
+        },
+        "lead_min": 137.2,
+        "lead_text": "2 h 17 min",
+        "before_run_min": 127.3,
+        "queue_min": 7.2,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#351",
+        "pull": 351,
+        "head_sha": "1c01f63",
+        "first_commit_at": "2026-11-01T20:14:34Z",
+        "first_run_row": 176,
+        "green_run": {
+          "row": 176,
+          "run_number": 632,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T05:50:48Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41396076491/attempts/1"
+        },
+        "lead_min": 576.2,
+        "lead_text": "9 h 36 min",
+        "before_run_min": 573.1,
+        "queue_min": 0,
+        "execution_min": 3.1
+      },
+      {
+        "change": "#357",
+        "pull": 357,
+        "head_sha": "2d5d5ed",
+        "first_commit_at": "2026-11-02T01:39:05Z",
+        "first_run_row": 177,
+        "green_run": {
+          "row": 177,
+          "run_number": 633,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T05:53:50Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41396117818/attempts/1"
+        },
+        "lead_min": 254.8,
+        "lead_text": "4 h 15 min",
+        "before_run_min": 249,
+        "queue_min": 2.8,
+        "execution_min": 3
+      },
+      {
+        "change": "#358",
+        "pull": 358,
+        "head_sha": "334c3a6",
+        "first_commit_at": "2026-11-02T06:11:46Z",
+        "first_run_row": 178,
+        "green_run": {
+          "row": 178,
+          "run_number": 635,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T06:28:30Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41399786035/attempts/1"
+        },
+        "lead_min": 16.7,
+        "lead_text": "17 min",
+        "before_run_min": 13.5,
+        "queue_min": 0.1,
+        "execution_min": 3.2
+      },
+      {
+        "change": "#359",
+        "pull": 359,
+        "head_sha": "0748b91",
+        "first_commit_at": "2026-11-02T06:50:25Z",
+        "first_run_row": 179,
+        "green_run": {
+          "row": 179,
+          "run_number": 638,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T07:09:48Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41404161854/attempts/1"
+        },
+        "lead_min": 19.4,
+        "lead_text": "19 min",
+        "before_run_min": 16.3,
+        "queue_min": 0.1,
+        "execution_min": 3.1
+      },
+      {
+        "change": "#355",
+        "pull": 355,
+        "head_sha": "7d23162",
+        "first_commit_at": "2026-11-01T22:12:32Z",
+        "first_run_row": 180,
+        "green_run": {
+          "row": 180,
+          "run_number": 639,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T07:12:47Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41404289750/attempts/1"
+        },
+        "lead_min": 540.3,
+        "lead_text": "9 h 0 min",
+        "before_run_min": 535.4,
+        "queue_min": 2,
+        "execution_min": 2.9
+      },
+      {
+        "change": "#356",
+        "pull": 356,
+        "head_sha": "a4d3be3",
+        "first_commit_at": "2026-11-01T22:26:48Z",
+        "first_run_row": 181,
+        "green_run": {
+          "row": 181,
+          "run_number": 644,
+          "run_attempt": 1,
+          "completed_at": "2026-11-02T21:26:04Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41527851396/attempts/1"
+        },
+        "lead_min": 1379.3,
+        "lead_text": "22 h 59 min",
+        "before_run_min": 1376.3,
+        "queue_min": 0.1,
+        "execution_min": 2.8
+      },
+      {
+        "change": "#367",
+        "pull": 367,
+        "head_sha": "37954e8",
+        "first_commit_at": "2026-11-03T06:46:23Z",
+        "first_run_row": 182,
+        "green_run": {
+          "row": 182,
+          "run_number": 647,
+          "run_attempt": 1,
+          "completed_at": "2026-11-03T07:53:45Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41599094715/attempts/1"
+        },
+        "lead_min": 67.4,
+        "lead_text": "1 h 7 min",
+        "before_run_min": 65.1,
+        "queue_min": 0.1,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#298",
+        "pull": 298,
+        "head_sha": "5dbfcec",
+        "first_commit_at": "2026-10-27T07:56:30Z",
+        "first_run_row": 183,
+        "green_run": {
+          "row": 183,
+          "run_number": 649,
+          "run_attempt": 1,
+          "completed_at": "2026-11-03T08:01:10Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41599733358/attempts/1"
+        },
+        "lead_min": 10084.7,
+        "lead_text": "7 d 5 min",
+        "before_run_min": 10080.7,
+        "queue_min": 0.2,
+        "execution_min": 3.8
+      },
+      {
+        "change": "#331",
+        "pull": 331,
+        "head_sha": "79e53fd",
+        "first_commit_at": "2026-10-31T20:10:05Z",
+        "first_run_row": 184,
+        "green_run": {
+          "row": 184,
+          "run_number": 650,
+          "run_attempt": 1,
+          "completed_at": "2026-11-03T08:04:28Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41599734839/attempts/1"
+        },
+        "lead_min": 3594.4,
+        "lead_text": "2 d 11 h 54 min",
+        "before_run_min": 3587.1,
+        "queue_min": 4.2,
+        "execution_min": 3.1
+      },
+      {
+        "change": "#368",
+        "pull": 368,
+        "head_sha": "ca563e3",
+        "first_commit_at": "2026-11-03T07:50:57Z",
+        "first_run_row": 186,
+        "green_run": {
+          "row": 186,
+          "run_number": 658,
+          "run_attempt": 1,
+          "completed_at": "2026-11-03T17:26:53Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41683996665/attempts/1"
+        },
+        "lead_min": 575.9,
+        "lead_text": "9 h 36 min",
+        "before_run_min": 573.9,
+        "queue_min": 0.1,
+        "execution_min": 2
+      },
+      {
+        "change": "#361",
+        "pull": 361,
+        "head_sha": "883d563",
+        "first_commit_at": "2026-11-01T21:35:40Z",
+        "first_run_row": 187,
+        "green_run": {
+          "row": 187,
+          "run_number": 663,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T09:14:23Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42358648155/attempts/1"
+        },
+        "lead_min": 7898.7,
+        "lead_text": "5 d 11 h 39 min",
+        "before_run_min": 7895.6,
+        "queue_min": 0.1,
+        "execution_min": 3.1
+      },
+      {
+        "change": "#362",
+        "pull": 362,
+        "head_sha": "47178f0",
+        "first_commit_at": "2026-10-29T10:27:19Z",
+        "first_run_row": 188,
+        "green_run": {
+          "row": 188,
+          "run_number": 664,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T09:17:20Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42358836030/attempts/1"
+        },
+        "lead_min": 12890,
+        "lead_text": "8 d 22 h 50 min",
+        "before_run_min": 12886.4,
+        "queue_min": 0.7,
+        "execution_min": 2.9
+      },
+      {
+        "change": "#392",
+        "pull": 392,
+        "head_sha": "d5d28fa",
+        "first_commit_at": "2026-11-05T17:31:14Z",
+        "first_run_row": 189,
+        "green_run": {
+          "row": 189,
+          "run_number": 668,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T11:03:18Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42366347096/attempts/1"
+        },
+        "lead_min": 2492.1,
+        "lead_text": "1 d 17 h 32 min",
+        "before_run_min": 2489.7,
+        "queue_min": 0,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#373",
+        "pull": 373,
+        "head_sha": "d225cf0",
+        "first_commit_at": "2026-11-03T09:02:09Z",
+        "first_run_row": 190,
+        "green_run": {
+          "row": 190,
+          "run_number": 670,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T11:24:25Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42367874110/attempts/1"
+        },
+        "lead_min": 5902.3,
+        "lead_text": "4 d 2 h 22 min",
+        "before_run_min": 5899.8,
+        "queue_min": 0,
+        "execution_min": 2.5
+      },
+      {
+        "change": "#394",
+        "pull": 394,
+        "head_sha": "97bb2f2",
+        "first_commit_at": "2026-11-07T11:57:22Z",
+        "first_run_row": 191,
+        "green_run": {
+          "row": 191,
+          "run_number": 672,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T12:04:35Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42370654288/attempts/1"
+        },
+        "lead_min": 7.2,
+        "lead_text": "7 min",
+        "before_run_min": 4.3,
+        "queue_min": 0.1,
+        "execution_min": 2.9
+      },
+      {
+        "change": "#391",
+        "pull": 391,
+        "head_sha": "ac8b640",
+        "first_commit_at": "2026-11-05T21:15:02Z",
+        "first_run_row": 192,
+        "green_run": {
+          "row": 192,
+          "run_number": 677,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T15:12:36Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42385051931/attempts/1"
+        },
+        "lead_min": 2517.6,
+        "lead_text": "1 d 17 h 58 min",
+        "before_run_min": 2515.1,
+        "queue_min": 0.1,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#397",
+        "pull": 397,
+        "head_sha": "d7e9386",
+        "first_commit_at": "2026-11-07T12:56:49Z",
+        "first_run_row": 193,
+        "green_run": {
+          "row": 193,
+          "run_number": 680,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T16:34:33Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42391738658/attempts/1"
+        },
+        "lead_min": 217.7,
+        "lead_text": "3 h 38 min",
+        "before_run_min": 214.9,
+        "queue_min": 0.1,
+        "execution_min": 2.8
+      },
+      {
+        "change": "#363",
+        "pull": 363,
+        "head_sha": "5610630",
+        "first_commit_at": "2026-11-02T13:12:55Z",
+        "first_run_row": 194,
+        "green_run": {
+          "row": 194,
+          "run_number": 681,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T16:38:16Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42392053811/attempts/1"
+        },
+        "lead_min": 7405.4,
+        "lead_text": "5 d 3 h 25 min",
+        "before_run_min": 7402.5,
+        "queue_min": 0.1,
+        "execution_min": 2.9
+      },
+      {
+        "change": "#398",
+        "pull": 398,
+        "head_sha": "3418099",
+        "first_commit_at": "2026-11-07T12:09:25Z",
+        "first_run_row": 195,
+        "green_run": {
+          "row": 195,
+          "run_number": 683,
+          "run_attempt": 1,
+          "completed_at": "2026-11-07T16:46:37Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42392686236/attempts/1"
+        },
+        "lead_min": 277.2,
+        "lead_text": "4 h 37 min",
+        "before_run_min": 273.6,
+        "queue_min": 0.1,
+        "execution_min": 3.5
+      },
+      {
+        "change": "#401",
+        "pull": 401,
+        "head_sha": "db2bfa9",
+        "first_commit_at": "2026-11-07T17:55:52Z",
+        "first_run_row": 196,
+        "green_run": {
+          "row": 196,
+          "run_number": 687,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T09:23:40Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42466757866/attempts/1"
+        },
+        "lead_min": 927.8,
+        "lead_text": "15 h 28 min",
+        "before_run_min": 924.5,
+        "queue_min": 0.1,
+        "execution_min": 3.3
+      },
+      {
+        "change": "#399",
+        "pull": 399,
+        "head_sha": "a96d91a",
+        "first_commit_at": "2026-11-07T16:56:55Z",
+        "first_run_row": 197,
+        "green_run": {
+          "row": 197,
+          "run_number": 690,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T09:47:44Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42468432449/attempts/1"
+        },
+        "lead_min": 1010.8,
+        "lead_text": "16 h 51 min",
+        "before_run_min": 1007.2,
+        "queue_min": 0.1,
+        "execution_min": 3.5
+      },
+      {
+        "change": "#400",
+        "pull": 400,
+        "head_sha": "a251169",
+        "first_commit_at": "2026-11-07T17:27:51Z",
+        "first_run_row": 198,
+        "green_run": {
+          "row": 198,
+          "run_number": 697,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T10:03:19Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42469497866/attempts/1"
+        },
+        "lead_min": 995.5,
+        "lead_text": "16 h 35 min",
+        "before_run_min": 992,
+        "queue_min": 0,
+        "execution_min": 3.5
+      },
+      {
+        "change": "#405",
+        "pull": 405,
+        "head_sha": "97b8fd2",
+        "first_commit_at": "2026-11-07T21:56:15Z",
+        "first_run_row": 199,
+        "green_run": {
+          "row": 199,
+          "run_number": 702,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T10:40:31Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42472231514/attempts/1"
+        },
+        "lead_min": 764.3,
+        "lead_text": "12 h 44 min",
+        "before_run_min": 761.5,
+        "queue_min": 0.1,
+        "execution_min": 2.7
+      },
+      {
+        "change": "#406",
+        "pull": 406,
+        "head_sha": "4aea6a6",
+        "first_commit_at": "2026-11-07T21:53:35Z",
+        "first_run_row": 200,
+        "green_run": {
+          "row": 200,
+          "run_number": 703,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T10:56:20Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42473346630/attempts/1"
+        },
+        "lead_min": 782.8,
+        "lead_text": "13 h 3 min",
+        "before_run_min": 780.2,
+        "queue_min": 0.1,
+        "execution_min": 2.5
+      },
+      {
+        "change": "#402",
+        "pull": 402,
+        "head_sha": "4fd70f0",
+        "first_commit_at": "2026-11-07T22:14:46Z",
+        "first_run_row": 201,
+        "green_run": {
+          "row": 201,
+          "run_number": 706,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T11:28:00Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42475649970/attempts/1"
+        },
+        "lead_min": 793.2,
+        "lead_text": "13 h 13 min",
+        "before_run_min": 790.3,
+        "queue_min": 0.1,
+        "execution_min": 2.9
+      },
+      {
+        "change": "#411",
+        "pull": 411,
+        "head_sha": "c1a3ce4",
+        "first_commit_at": "2026-11-08T11:09:32Z",
+        "first_run_row": 202,
+        "green_run": {
+          "row": 203,
+          "run_number": 709,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T11:41:30Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42476676384/attempts/1"
+        },
+        "lead_min": 32,
+        "lead_text": "32 min",
+        "before_run_min": 29.5,
+        "queue_min": 0.1,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#403",
+        "pull": 403,
+        "head_sha": "ed64ccf",
+        "first_commit_at": "2026-11-07T22:36:51Z",
+        "first_run_row": 203,
+        "green_run": {
+          "row": 203,
+          "run_number": 709,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T11:41:30Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42476676384/attempts/1"
+        },
+        "lead_min": 784.7,
+        "lead_text": "13 h 5 min",
+        "before_run_min": 782.2,
+        "queue_min": 0.1,
+        "execution_min": 2.4
+      },
+      {
+        "change": "#413",
+        "pull": 413,
+        "head_sha": "a141a93",
+        "first_commit_at": "2026-11-07T12:14:32Z",
+        "first_run_row": 204,
+        "green_run": {
+          "row": 204,
+          "run_number": 717,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T14:18:28Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42488983460/attempts/1"
+        },
+        "lead_min": 1563.9,
+        "lead_text": "1 d 2 h 4 min",
+        "before_run_min": 1561.8,
+        "queue_min": 0.1,
+        "execution_min": 2.1
+      },
+      {
+        "change": "#415",
+        "pull": 415,
+        "head_sha": "13c049e",
+        "first_commit_at": "2026-11-08T15:06:30Z",
+        "first_run_row": 205,
+        "green_run": {
+          "row": 205,
+          "run_number": 720,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T15:14:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42493534864/attempts/1"
+        },
+        "lead_min": 7.9,
+        "lead_text": "8 min",
+        "before_run_min": 4.9,
+        "queue_min": 0,
+        "execution_min": 3
+      },
+      {
+        "change": "#412",
+        "pull": 412,
+        "head_sha": "63fb196",
+        "first_commit_at": "2026-11-08T09:57:14Z",
+        "first_run_row": 206,
+        "green_run": {
+          "row": 206,
+          "run_number": 723,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T15:19:47Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42494034499/attempts/1"
+        },
+        "lead_min": 322.6,
+        "lead_text": "5 h 23 min",
+        "before_run_min": 320.1,
+        "queue_min": 0,
+        "execution_min": 2.5
+      },
+      {
+        "change": "#414",
+        "pull": 414,
+        "head_sha": "8bf489a",
+        "first_commit_at": "2026-11-08T14:38:43Z",
+        "first_run_row": 207,
+        "green_run": {
+          "row": 208,
+          "run_number": 734,
+          "run_attempt": 1,
+          "completed_at": "2026-11-09T05:43:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42568712421/attempts/1"
+        },
+        "lead_min": 904.7,
+        "lead_text": "15 h 5 min",
+        "before_run_min": 902.4,
+        "queue_min": 0,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#426",
+        "pull": 426,
+        "head_sha": "cbb5939",
+        "first_commit_at": "2026-11-08T23:45:44Z",
+        "first_run_row": 208,
+        "green_run": {
+          "row": 208,
+          "run_number": 734,
+          "run_attempt": 1,
+          "completed_at": "2026-11-09T05:43:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42568712421/attempts/1"
+        },
+        "lead_min": 357.7,
+        "lead_text": "5 h 58 min",
+        "before_run_min": 355.3,
+        "queue_min": 0,
+        "execution_min": 2.3
+      },
+      {
+        "change": "#427",
+        "pull": 427,
+        "head_sha": "e8062ae",
+        "first_commit_at": "2026-11-09T06:15:49Z",
+        "first_run_row": 209,
+        "green_run": {
+          "row": 209,
+          "run_number": 736,
+          "run_attempt": 1,
+          "completed_at": "2026-11-09T06:30:28Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42573078293/attempts/1"
+        },
+        "lead_min": 14.7,
+        "lead_text": "15 min",
+        "before_run_min": 11.1,
+        "queue_min": 0,
+        "execution_min": 3.5
+      },
+      {
+        "change": "#428",
+        "pull": 428,
+        "head_sha": "dc880c1",
+        "first_commit_at": "2026-11-09T14:46:23Z",
+        "first_run_row": 210,
+        "green_run": {
+          "row": 210,
+          "run_number": 738,
+          "run_attempt": 1,
+          "completed_at": "2026-11-09T14:59:20Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42639391278/attempts/1"
+        },
+        "lead_min": 13,
+        "lead_text": "13 min",
+        "before_run_min": 8.9,
+        "queue_min": 0.1,
+        "execution_min": 4
+      }
+    ]
+  },
+  "change_fail_rate": {
+    "failures": 6,
+    "completed": 87,
+    "percent": 6.9
+  },
+  "failed_deployment_recovery_time": {
+    "incidents": 4,
+    "count": 4,
+    "mean_min": 249.6,
+    "mean_text": "4 h 10 min",
+    "median_min": 70.5,
+    "median_text": "1 h 11 min",
+    "unresolved": [],
+    "items": [
+      {
+        "red_runs": [
+          {
+            "row": 157,
+            "run_number": 579,
+            "run_attempt": 1,
+            "completed_at": "2026-10-31T18:33:33Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/1"
+          }
+        ],
+        "green_run": {
+          "row": 158,
+          "run_number": 579,
+          "run_attempt": 2,
+          "completed_at": "2026-10-31T20:31:49Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/2"
+        },
+        "recovery_min": 118.3,
+        "recovery_text": "1 h 58 min"
+      },
+      {
+        "red_runs": [
+          {
+            "row": 159,
+            "run_number": 585,
+            "run_attempt": 1,
+            "completed_at": "2026-11-01T09:11:15Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/1"
+          },
+          {
+            "row": 160,
+            "run_number": 585,
+            "run_attempt": 2,
+            "completed_at": "2026-11-01T09:24:12Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/2"
+          },
+          {
+            "row": 161,
+            "run_number": 586,
+            "run_attempt": 1,
+            "completed_at": "2026-11-01T09:31:35Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/1"
+          }
+        ],
+        "green_run": {
+          "row": 162,
+          "run_number": 586,
+          "run_attempt": 2,
+          "completed_at": "2026-11-01T09:33:58Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/2"
+        },
+        "recovery_min": 22.7,
+        "recovery_text": "23 min"
+      },
+      {
+        "red_runs": [
+          {
+            "row": 202,
+            "run_number": 707,
+            "run_attempt": 1,
+            "completed_at": "2026-11-08T11:38:18Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42475724874/attempts/1"
+          }
+        ],
+        "green_run": {
+          "row": 203,
+          "run_number": 709,
+          "run_attempt": 1,
+          "completed_at": "2026-11-08T11:41:30Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42476676384/attempts/1"
+        },
+        "recovery_min": 3.2,
+        "recovery_text": "3 min"
+      },
+      {
+        "red_runs": [
+          {
+            "row": 207,
+            "run_number": 725,
+            "run_attempt": 1,
+            "completed_at": "2026-11-08T15:29:17Z",
+            "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42494845238/attempts/1"
+          }
+        ],
+        "green_run": {
+          "row": 208,
+          "run_number": 734,
+          "run_attempt": 1,
+          "completed_at": "2026-11-09T05:43:24Z",
+          "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/42568712421/attempts/1"
+        },
+        "recovery_min": 854.1,
+        "recovery_text": "14 h 14 min"
+      }
+    ]
+  }
+}
