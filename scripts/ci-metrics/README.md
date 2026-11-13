@@ -29,7 +29,7 @@ node scripts/ci-metrics/collect.mjs --metrics --out docs/ci-cd/evidence --notes 
 | `--from`, `--to` | the whole history | UTC dates of run creation, inclusive. With `--metrics`, they select rows of `runs.json` |
 | `--out` | `ci-metrics-out` | Folder for `runs.json`, and for `metrics-raw.md` unless `--table` is given. With `--metrics`, the folder that holds `runs.json` and receives `dora-metrics.json` |
 | `--table` | `<out>/metrics-raw.md` | Path of the generated table |
-| `--notes` | none | JSON with the Note column, status overrides, failure causes and evidence file names, keyed by `<run id>/<attempt>` (see below) |
+| `--notes` | none | JSON with the Note column, status overrides and failure causes, keyed by `<run id>/<attempt>` (see below) |
 | `--repo` | the `origin` remote | `OWNER/NAME` |
 | `--metrics` | off | Compute the metrics from `<out>/runs.json` instead of calling the API |
 | `--exclude-runs` | none | Row numbers (the № column) to leave out of the metrics entirely, e.g. `1-60,89` |
@@ -49,8 +49,7 @@ The table cannot be generated from the API alone: the Note column, a status GitH
     "42475724874/1": {
       "note": "`Reliability tests` hit the 10-minute job timeout; GitHub shows the run as cancelled",
       "status": "failure",
-      "cause": "timeout",
-      "evidence": "run-707-attempt-1.log"
+      "cause": "timeout"
     }
   }
 }
@@ -61,7 +60,6 @@ The table cannot be generated from the API alone: the Note column, a status GitH
 | `note` | The Note column, verbatim |
 | `status` | Overrides the attempt's conclusion in the Status column and in the metrics |
 | `cause` | A short tag for a red run, the value `--ignore-failure-causes` matches: `billing`, `ghcr-denied`, `build-arg`, `environment-rules`, `timeout`, `flaky-test`, `manual-cancel` |
-| `evidence` | The log excerpt in `docs/ci-cd/evidence/` |
 
 ## What It Collects
 

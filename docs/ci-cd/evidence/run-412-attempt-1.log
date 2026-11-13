@@ -1,7 +1,0 @@
-# Run 412, attempt 1 (run id 39045018474): row №101 of docs/ci-cd/metrics-raw.md
-# https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39045018474/attempts/1
-# Commit b44f1c9 "Merge pull request #224 from ukma-fin-ssdm-2026/feature/209-record-the-lab-6-loom-video", push; run conclusion: failure
-
-## Job "CI passed" (job id 117431907484): failure, runner none
-# Annotation: The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings
-# Log: none, the job never got a runner (GET /actions/jobs/{id}/logs answers 404)

@@ -1,7 +1,0 @@
-# Run 379, attempt 1 (run id 39022147032): row №89 of docs/ci-cd/metrics-raw.md
-# https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39022147032/attempts/1
-# Commit 5f5d98e "Merge pull request #193 from ukma-fin-ssdm-2026/feature/192-fix-ci-money-burning", push; run conclusion: failure
-
-## Job "CI passed" (job id 117365919034): failure, runner none
-# Annotation: The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings
-# Log: none, the job never got a runner (GET /actions/jobs/{id}/logs answers 404)

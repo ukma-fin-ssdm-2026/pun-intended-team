@@ -498,7 +498,6 @@ function buildRows(data, notes) {
         status_overridden: manual.status !== undefined,
         cause: manual.cause ?? null,
         note: manual.note ?? '',
-        evidence: manual.evidence ?? null,
         url: run.html_url,
       });
     }

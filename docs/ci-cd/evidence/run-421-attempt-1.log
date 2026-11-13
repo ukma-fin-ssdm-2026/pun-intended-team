@@ -1,7 +1,0 @@
-# Run 421, attempt 1 (run id 39051902685): row №104 of docs/ci-cd/metrics-raw.md
-# https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/39051902685/attempts/1
-# Commit 53b9f03 "Merge pull request #228 from ukma-fin-ssdm-2026/feature/8-loom-viktoriia", push; run conclusion: failure
-
-## Job "CI passed" (job id 117452020455): failure, runner none
-# Annotation: The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings
-# Log: none, the job never got a runner (GET /actions/jobs/{id}/logs answers 404)
