@@ -46,3 +46,5 @@ generated/
 
 # ---- Staging (docker-compose.staging.yml) ----
 /backups/
+# Scratch output of scripts/ci-metrics/collect.mjs
+ci-metrics-out/
