@@ -94,6 +94,20 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     return row ? toImportedEventRow(row) : undefined;
   }
 
+  async findOtherProvidersEvents(provider: string, venueId: string, startsAt: string): Promise<ImportedEventRow[]> {
+    const rows = await this.prisma.event.findMany({
+      where: {
+        source: 'import',
+        status: 'published',
+        provider: { not: provider },
+        venueId,
+        startsAt: new Date(startsAt),
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toImportedEventRow);
+  }
+
   async createEvent({ provider, externalId, ...fields }: Omit<ImportedEventRow, 'id'>): Promise<ImportedEventRow> {
     const row = await this.prisma.event.create({
       data: { ...eventColumns(fields), provider, externalId, source: 'import', status: 'published' },

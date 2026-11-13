@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Chip } from '@/components/ui/chip';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
+import { coverOf } from '@/components/ui/event-cover';
 import { EventCardSkeleton } from '@/components/ui/event-card-skeleton';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
@@ -87,6 +88,7 @@ export default function CatalogScreen() {
   // The API narrows by one category and by the days; the next page is loaded when the list is scrolled to its end.
   const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
+  const lastUpdated = allEvents.lastUpdated;
   useStatusBarStyle('light');
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.
@@ -174,6 +176,13 @@ export default function CatalogScreen() {
           // NativeWind maps className only on React Native's own components, so the layout sits on a View inside.
           <Animated.View entering={FadeIn.duration(DISSOLVE_MS)}>
             <View className="gap-4 px-5 pt-7">
+              {lastUpdated && loadedEvents.length > 0 && (
+                // FR-014: an import failed, so the imported events are those of its last succeeded run.
+                <View className="flex-row items-center gap-2 self-start rounded-full bg-surface-card px-4 py-2">
+                  <Icon name="clock" size={16} />
+                  <Text className="font-inter text-caption text-text-secondary">{lastUpdated}</Text>
+                </View>
+              )}
               {events.map((event) => (
                 <EventCard
                   key={event.id}
@@ -181,6 +190,7 @@ export default function CatalogScreen() {
                   category={event.category.name}
                   dateLabel={formatEventDate(event.startsAt)}
                   place={event.venue.name}
+                  cover={coverOf(event.imageUrl)}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.

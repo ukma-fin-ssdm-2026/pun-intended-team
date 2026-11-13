@@ -29,9 +29,16 @@ const PageInfo = z
   })
   .meta({ id: 'PageInfo', example: pageInfoExample });
 
+/** The fields of a page, for a page schema that adds its own; `pageOf` is the plain one. */
+export function pageFields<T extends z.ZodType>(item: T) {
+  return z.object({ items: z.array(item), page: PageInfo });
+}
+
+export function pageExample<T>(itemExample: T) {
+  return { items: [itemExample], page: pageInfoExample };
+}
+
 /** A page of items; there is no total, so the size of the catalog is not revealed. */
 export function pageOf<T extends z.ZodType>(item: T, id: string, itemExample: z.output<T>) {
-  return z
-    .object({ items: z.array(item), page: PageInfo })
-    .meta({ id, example: { items: [itemExample], page: pageInfoExample } });
+  return pageFields(item).meta({ id, example: pageExample(itemExample) });
 }

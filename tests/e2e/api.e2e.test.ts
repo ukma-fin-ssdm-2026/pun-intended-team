@@ -3166,6 +3166,38 @@ describe('Event import', () => {
     assert.equal(before, 30);
   });
 
+  // FR-014, REL-003
+  test('after a failed ArtWizard run, serves its events with the time of its last succeeded run for the notice', async () => {
+    await runImport();
+    const current = await call('GET', '/api/v1/events?limit=1', { token: tokens.guest });
+    assert.equal(current.status, 200);
+    assert.equal(current.body.lastUpdatedAt, null);
+    const { rows } = await withDatabase((client) =>
+      client.query<{ finished_at: Date }>(
+        `SELECT finished_at FROM import_runs WHERE provider = 'artwizard' AND status = 'succeeded'
+          ORDER BY started_at DESC LIMIT 1`,
+      ),
+    );
+    const lastSucceededAt = rows[0]?.finished_at.toISOString();
+
+    await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
+    const events = await call('GET', '/api/v1/events?limit=20', { token: tokens.guest });
+
+    assert.equal(events.status, 200);
+    assert.ok(events.body.items.length > 0);
+    assert.ok(lastSucceededAt);
+    assert.equal(events.body.lastUpdatedAt, lastSucceededAt);
+    // The same on another page and with a filter.
+    const other = await call('GET', '/api/v1/events?limit=1&offset=3&from=2026-12-01', { token: tokens.guest });
+    assert.equal(other.status, 200);
+    assert.equal(other.body.lastUpdatedAt, lastSucceededAt);
+  });
+
+  test('has no route of its own for the notice: the former one is read as an event id', async () => {
+    const former = 'freshness';
+    assertInvalid(await call('GET', `/api/v1/events/${former}`, { token: tokens.guest }), 'params', 'id');
+  });
+
   test('finds an ArtWizard venue saved with the city twice, as earlier runs saved it, instead of saving it again', async () => {
     await runImport();
     // As the import wrote it before: the API's address already ends with Київ, and the city was added again.

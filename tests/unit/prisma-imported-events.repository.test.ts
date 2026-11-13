@@ -11,6 +11,7 @@ const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
 function makeRepository() {
   const prisma = {
     event: {
+      findMany: mock.fn((): Promise<unknown[]> => Promise.resolve([])),
       update: mock.fn(() => Promise.resolve({})),
       updateMany: mock.fn(() => Promise.resolve({ count: 2 })),
     },
@@ -88,6 +89,34 @@ describe('PrismaImportedEventsRepository.failUnfinishedRuns', () => {
 
     assert.deepEqual(prisma.importRun.updateMany.mock.calls[0]?.arguments, [
       { where: { provider: 'karabas', status: 'running' }, data: { status: 'failed' } },
+    ]);
+  });
+});
+
+// ADR-006, decision 8
+describe('PrismaImportedEventsRepository.findOtherProvidersEvents', () => {
+  test('looks only at the other providers’ published imported events at the venue and the start time', async () => {
+    const { repository, prisma } = makeRepository();
+
+    assert.deepEqual(
+      await repository.findOtherProvidersEvents(
+        'artwizard',
+        'b0000000-0000-4000-8000-000000000001',
+        '2026-10-22T16:00:00.000Z',
+      ),
+      [],
+    );
+    assert.deepEqual(prisma.event.findMany.mock.calls[0]?.arguments, [
+      {
+        where: {
+          source: 'import',
+          status: 'published',
+          provider: { not: 'artwizard' },
+          venueId: 'b0000000-0000-4000-8000-000000000001',
+          startsAt: new Date('2026-10-22T16:00:00.000Z'),
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
     ]);
   });
 });

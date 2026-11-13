@@ -99,6 +99,7 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     ),
     createVenue: mock.fn((venue: NewImportedVenue): Promise<Venue> => Promise.resolve(anImportedVenue({ ...venue }))),
     findEvent: mock.fn((): Promise<ImportedEventRow | undefined> => Promise.resolve(undefined)),
+    findOtherProvidersEvents: mock.fn((): Promise<ImportedEventRow[]> => Promise.resolve([])),
     createEvent: mock.fn((row: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow> =>
       Promise.resolve(theSavedEvent(row)),
     ),
@@ -1062,6 +1063,96 @@ describe('EventImportService.run', () => {
       ['failed', 'succeeded'],
     );
     error.mock.restore();
+  });
+});
+
+// ADR-006, decision 8: an event both providers list is saved once.
+describe('EventImportService.importFrom, duplicates across providers', () => {
+  const KARABAS_EVENT_ID = 'e0000000-0000-4000-8000-0000000000bb';
+  /** Karabas' event as saved by its earlier run, at the same venue and time. */
+  const karabasEvent = (title: string) =>
+    theSavedEvent({
+      id: KARABAS_EVENT_ID,
+      provider: 'karabas',
+      externalId: 'bridgerton-rozkishnij-vechir',
+      title,
+      startsAt: '2026-10-22T16:00:00.000Z',
+    });
+  const artWizardRecord = () => ({
+    event: anImportedEvent({
+      externalId: 'bridgerton-candlelight',
+      title: 'Bridgerton: Розкішний вечір музики при свічках',
+    }),
+  });
+
+  test('does not save an event another provider’s event at the same venue and time already shows', async () => {
+    const { run, repository } = makeService([{ slug: 'bridgerton-candlelight' }], [artWizardRecord()]);
+    repository.findOtherProvidersEvents.mock.mockImplementation(() =>
+      Promise.resolve([karabasEvent('Bridgerton. Розкішний вечір музики при свічках')]),
+    );
+    mock.method(Logger.prototype, 'warn', () => {});
+
+    const report = await run();
+
+    assert.deepEqual(repository.findOtherProvidersEvents.mock.calls[0]?.arguments, [
+      PROVIDER_ID,
+      VENUE_ID,
+      '2026-10-22T16:00:00.000Z',
+    ]);
+    assert.equal(repository.createEvent.mock.callCount(), 0);
+    const reason = `Duplicate of karabas event ${KARABAS_EVENT_ID}`;
+    assert.deepEqual(report.skipped, [{ externalId: 'bridgerton-candlelight', reason }]);
+    assert.deepEqual(repository.saveSkipped.mock.calls[0]?.arguments, [
+      RUN_ID,
+      { slug: 'bridgerton-candlelight' },
+      reason,
+    ]);
+    mock.restoreAll();
+  });
+
+  test('counts a duplicate as seen, so the provider’s other events are cancelled as usual and the run is complete', async () => {
+    const { run, repository } = makeService([{}], [artWizardRecord()]);
+    repository.findOtherProvidersEvents.mock.mockImplementation(() =>
+      Promise.resolve([karabasEvent('Bridgerton. Розкішний вечір музики при свічках')]),
+    );
+    mock.method(Logger.prototype, 'warn', () => {});
+
+    const report = await run();
+
+    assert.equal(report.complete, true);
+    assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments, [
+      PROVIDER_ID,
+      ['bridgerton-candlelight'],
+      COVERS,
+    ]);
+    assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [
+      RUN_ID,
+      'succeeded',
+      { complete: true, seen: 1, parts: undefined },
+    ]);
+    mock.restoreAll();
+  });
+
+  test('saves an event whose title differs from the other provider’s event at the same venue and time', async () => {
+    const { run, repository } = makeService([{}], [artWizardRecord()]);
+    repository.findOtherProvidersEvents.mock.mockImplementation(() =>
+      Promise.resolve([karabasEvent('Німецька органна музика')]),
+    );
+
+    const report = await run();
+
+    assert.equal(report.created, 1);
+    assert.equal(repository.createEvent.mock.callCount(), 1);
+  });
+
+  test('keeps updating the provider’s own saved event without looking for duplicates', async () => {
+    const { run, repository } = makeService();
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent({ title: 'Old title' })));
+
+    const report = await run();
+
+    assert.equal(report.updated, 1);
+    assert.equal(repository.findOtherProvidersEvents.mock.callCount(), 0);
   });
 });
 

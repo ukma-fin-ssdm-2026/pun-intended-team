@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-08T12:17:57.160Z
+ * Generated on: 2026-11-13T12:39:22.063Z
  */
 
 import { existsSync } from 'node:fs';
@@ -181,7 +181,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listEvents", {
     name: "listEvents",
     title: "Browse the event catalog",
-    description: `Browse the event catalog: published events in the catalog window, soonest first. Needs an access token: a guest token or a signed-in account.
+    description: `Browse the event catalog: published events in the catalog window, soonest first. \`lastUpdatedAt\` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue, e.g. after tapping its map pin"},"from":{"type":"string","format":"date","description":"First day, Kyiv time; earlier dates count as today"},"to":{"type":"string","format":"date","description":"Last day, Kyiv time; later dates count as the end of the catalog window"}}},
     method: "get",

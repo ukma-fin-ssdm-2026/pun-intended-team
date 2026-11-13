@@ -203,7 +203,7 @@ function keyOf(address: string): string {
 }
 
 /** Lower case, one kind of apostrophe, and every other mark but the hyphen in a word as a space. */
-function simplified(text: string): string {
+export function simplified(text: string): string {
   return text
     .normalize('NFKC')
     .toLowerCase()
@@ -214,6 +214,6 @@ function simplified(text: string): string {
     .trim();
 }
 
-function containsRun(words: string[], run: string[]): boolean {
+export function containsRun(words: string[], run: string[]): boolean {
   return words.some((_, start) => run.every((word, i) => words[start + i] === word));
 }

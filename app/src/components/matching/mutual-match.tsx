@@ -1,11 +1,11 @@
 // Written with the help of Claude
 // AI Usage: mutual match from the Figma "07 Взаємний метч" frame and its title variants; reviewed by Daryna Halytska.
-import { Image } from 'expo-image';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatShortDay, formatTime } from '@/dates';
 import type { MockEvent } from '@/mocks/events';
@@ -144,11 +144,7 @@ export function MutualMatch({ title, person, event, onBack, onMore, onEventPress
             className="flex-row items-center gap-3 rounded-[20px] border border-border-default py-3 pl-3 pr-4"
           >
             <View className="size-11 overflow-hidden rounded-xl">
-              {event.cover ? (
-                <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-              ) : (
-                <CoralGradient preset="cover" />
-              )}
+              <EventCover cover={event.cover} />
             </View>
             <View className="flex-1 gap-0.5">
               <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">

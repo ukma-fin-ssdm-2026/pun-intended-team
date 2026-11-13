@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
 import { EventsService } from '../../../core/catalog/services/events.service.ts';
+import { ImportFreshnessService } from '../../../core/catalog/services/import-freshness.service.ts';
 import type { AccountCaller } from '../../../core/identity/types/caller.ts';
 import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
@@ -22,14 +23,19 @@ const NOT_OWN_EVENT = {
 
 @Controller()
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly importFreshnessService: ImportFreshnessService,
+  ) {}
 
   @Endpoint({
     method: 'get',
     path: Routes.events.list,
     operationId: 'listEvents',
     summary: 'Browse the event catalog',
-    description: 'Browse the event catalog: published events in the catalog window, soonest first.',
+    description:
+      'Browse the event catalog: published events in the catalog window, soonest first. ' +
+      '`lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014).',
     tags: ['Events'],
     access: 'guest',
     request: ListEventsRequest,
@@ -39,7 +45,11 @@ export class EventsController {
   })
   async listEvents(@Input() { query }: RouteInput<typeof ListEventsRequest>): Promise<EventsPage> {
     const { limit, offset, ...filter } = query;
-    return this.eventsService.list(filter, { limit, offset });
+    const [page, lastUpdatedAt] = await Promise.all([
+      this.eventsService.list(filter, { limit, offset }),
+      this.importFreshnessService.lastUpdatedAt(),
+    ]);
+    return { ...page, lastUpdatedAt };
   }
 
   @Endpoint({

@@ -1,11 +1,11 @@
 // Written with the help of Claude
 // AI Usage: event card from the Figma catalog; reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
-import { Image, type ImageSource } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
-import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
 import { colors, shadows } from '@/styles/tokens';
@@ -16,7 +16,8 @@ type Props = {
   // Already formatted for display, e.g. "Сб, 24 жовт · 19:00".
   dateLabel: string;
   place: string;
-  // Without a cover image the card shows the coral gradient, as the lecture card on the Figma catalog.
+  // Without a cover image, or when it fails to load, the card shows the coral gradient, as the lecture card on the
+  // Figma catalog.
   cover?: ImageSource;
   // "В обране": the heart is filled in brand/coral while the event is a favourite.
   favorite: boolean;
@@ -51,11 +52,7 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
       <View className="h-[170px] overflow-hidden rounded-2xl">
         {/* What the glass blurs on Android; the glass itself stays outside. */}
         <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          {cover ? (
-            <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient preset="cover" />
-          )}
+          <EventCover cover={cover} />
         </BlurTargetView>
         <Glass
           className="absolute left-2.5 top-2.5 h-9 min-w-[72px] items-center justify-center px-4"

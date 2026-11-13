@@ -6,6 +6,7 @@ import { TransactionRunner } from '../core/common/transaction-runner.ts';
 import { CategoriesRepository } from '../core/catalog/repositories/categories.repository.ts';
 import { EventSessionsRepository } from '../core/catalog/repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../core/catalog/repositories/events.repository.ts';
+import { ImportRunsRepository } from '../core/catalog/repositories/import-runs.repository.ts';
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
 import { AccountsRepository } from '../core/identity/repositories/accounts.repository.ts';
@@ -47,6 +48,7 @@ import { PrismaCategoriesRepository } from './prisma/prisma-categories.repositor
 import { PrismaDatabaseProbe } from './prisma/prisma-database-probe.ts';
 import { PrismaEventSessionsRepository } from './prisma/prisma-event-sessions.repository.ts';
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
+import { PrismaImportRunsRepository } from './prisma/prisma-import-runs.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
@@ -76,6 +78,7 @@ const repositories = [
   { provide: ReportCasesRepository, useClass: PrismaReportCasesRepository },
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
   { provide: BackupRunsRepository, useClass: PrismaBackupRunsRepository },
+  { provide: ImportRunsRepository, useClass: PrismaImportRunsRepository },
 ];
 
 const adapters = [
