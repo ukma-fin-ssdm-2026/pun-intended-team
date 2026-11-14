@@ -984,6 +984,7 @@ export interface components {
          *             }
          *           },
          *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
          *           "endsAt": "2026-10-17T21:30:00+03:00",
          *           "endTimeKnown": true,
          *           "imageUrl": null,
@@ -1029,6 +1030,7 @@ export interface components {
          *         }
          *       },
          *       "startsAt": "2026-10-17T19:00:00+03:00",
+         *       "startTimeKnown": true,
          *       "endsAt": "2026-10-17T21:30:00+03:00",
          *       "endTimeKnown": true,
          *       "imageUrl": null,
@@ -1046,6 +1048,8 @@ export interface components {
             venue: components["schemas"]["Venue"];
             /** Format: date-time */
             startsAt: string;
+            /** @description False when the provider gives no time of day: startsAt is then a default opening time (12:00 Europe/Kyiv for exhibitions) that only orders the event and its sessions; show the dates without a time. Always true for an organization event */
+            startTimeKnown: boolean;
             /** Format: date-time */
             endsAt: string;
             /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */

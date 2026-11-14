@@ -411,6 +411,7 @@ components:
                 lat: 50.4825
                 lng: 30.5181
             startsAt: '2026-10-17T19:00:00+03:00'
+            startTimeKnown: true
             endsAt: '2026-10-17T21:30:00+03:00'
             endTimeKnown: true
             imageUrl: null
@@ -439,6 +440,13 @@ components:
         startsAt:
           type: string
           format: date-time
+        startTimeKnown:
+          type: boolean
+          description: >-
+            False when the provider gives no time of day: startsAt is then a
+            default opening time (12:00 Europe/Kyiv for exhibitions) that only
+            orders the event and its sessions; show the dates without a time.
+            Always true for an organization event
         endsAt:
           type: string
           format: date-time
@@ -471,6 +479,7 @@ components:
         - category
         - venue
         - startsAt
+        - startTimeKnown
         - endsAt
         - endTimeKnown
         - imageUrl
@@ -493,6 +502,7 @@ components:
             lat: 50.4825
             lng: 30.5181
         startsAt: '2026-10-17T19:00:00+03:00'
+        startTimeKnown: true
         endsAt: '2026-10-17T21:30:00+03:00'
         endTimeKnown: true
         imageUrl: null

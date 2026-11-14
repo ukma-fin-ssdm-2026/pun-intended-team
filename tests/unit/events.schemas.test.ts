@@ -34,30 +34,40 @@ describe('CreateEventBody', () => {
     assert.deepEqual(result.data, body);
   });
 
-  test('does not take endTimeKnown: the end of an organization event is always known', () => {
-    const result = CreateEventBody.safeParse({ ...aNewEvent(), endTimeKnown: false });
+  // The start and the end of an organization event are always known.
+  for (const flag of ['startTimeKnown', 'endTimeKnown'] as const) {
+    test(`does not take ${flag}`, () => {
+      const result = CreateEventBody.safeParse({ ...aNewEvent(), [flag]: false });
 
-    assert.equal(result.success && 'endTimeKnown' in result.data, false);
-  });
+      assert.equal(result.success && flag in result.data, false);
+    });
+  }
 });
 
 describe('Event', () => {
-  test('carries endTimeKnown, false for an event whose provider gives no end', () => {
-    const result = Event.safeParse({ ...eventExample, endsAt: '2026-10-17T23:59:59.999+03:00', endTimeKnown: false });
+  const flags = [
+    { flag: 'startTimeKnown', title: 'a default start, an exhibition run without opening hours' },
+    { flag: 'endTimeKnown', title: 'an event whose provider gives no end' },
+  ] as const;
+  for (const { flag, title } of flags) {
+    test(`carries ${flag}, false for ${title}`, () => {
+      const result = Event.safeParse({ ...eventExample, endsAt: '2026-10-17T23:59:59.999+03:00', [flag]: false });
 
-    assert.equal(result.success, true);
-    assert.equal(result.data?.endTimeKnown, false);
-  });
+      assert.equal(result.success, true);
+      assert.equal(result.data?.[flag], false);
+    });
 
-  test('rejects an event without endTimeKnown and points at it', () => {
-    const { endTimeKnown: _endTimeKnown, ...event } = eventExample;
+    test(`rejects an event without ${flag} and points at it`, () => {
+      const event: Partial<typeof eventExample> = { ...eventExample };
+      delete event[flag];
 
-    const result = Event.safeParse(event);
+      const result = Event.safeParse(event);
 
-    if (result.success) assert.fail('expected the event to be rejected');
-    assert.deepEqual(
-      result.error.issues.map((issue: { path: PropertyKey[] }) => issue.path),
-      [['endTimeKnown']],
-    );
-  });
+      if (result.success) assert.fail('expected the event to be rejected');
+      assert.deepEqual(
+        result.error.issues.map((issue: { path: PropertyKey[] }) => issue.path),
+        [[flag]],
+      );
+    });
+  }
 });
