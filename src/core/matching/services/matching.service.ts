@@ -3,6 +3,7 @@ import { randomInt } from 'node:crypto';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { EventSessionsService } from '../../catalog/services/event-sessions.service.ts';
 import type { EventSession, OpenedSession } from '../../catalog/types/event-session.ts';
+import { DomainError } from '../../common/domain-error.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
@@ -11,7 +12,7 @@ import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
 import type { Application, ApplicationStatus } from '../types/application.ts';
-import type { Match, MatchSource } from '../types/match.ts';
+import { type Match, type MatchSource, PENDING_STATUSES } from '../types/match.ts';
 import type { Exclusion, Pairing, PoolMember } from '../types/matching.ts';
 import { instantCandidate } from './instant-match.ts';
 import { match } from './match.ts';
@@ -86,11 +87,19 @@ export class MatchingService implements OnModuleInit {
 
   /**
    * Withdraws the application if its status is still one of `from`, under the event lock, so a round that has read
-   * the pool never proposes it meanwhile (rule 7). Undefined if the status changed.
+   * the pool never proposes it meanwhile (rule 7). A pending proposal is cancelled and the other user returns to the
+   * pool (A5); a mutual match is kept, so the application stays. Undefined if the status changed.
    */
   async withdraw(application: Application, from: ApplicationStatus[]): Promise<Application | undefined> {
     return this.transactions.run(async (tx) => {
       await this.matchesRepository.lockEvent(application.eventId, tx);
+      const match = await this.matchesRepository.findByApplication(application.id, [...PENDING_STATUSES, 'mutual'], tx);
+      if (match?.status === 'mutual') {
+        throw new DomainError('CONFLICT', 'An application with a mutual match cannot be withdrawn');
+      }
+      if (match) {
+        await this.matchesRepository.cancelForWithdrawal(match, application.id, tx);
+      }
       return this.applicationsRepository.withdraw(application.id, from, tx);
     });
   }

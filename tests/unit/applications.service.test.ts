@@ -232,14 +232,14 @@ describe('ApplicationsService.listMine', () => {
 describe('ApplicationsService.withdraw', () => {
   useFixedClock();
 
-  for (const status of ['in_pool', 'paused'] as const) {
+  for (const status of ['in_pool', 'paused', 'paired'] as const) {
     test(`withdraws an application that is ${status}`, async () => {
       const stored = anApplication({ status });
       const { service, matchingService } = makeService({ stored });
 
       const application = await service.withdraw(ACCOUNT_ID, APPLICATION_ID);
 
-      assert.deepEqual(matchingService.withdraw.mock.calls[0]?.arguments, [stored, ['in_pool', 'paused']]);
+      assert.deepEqual(matchingService.withdraw.mock.calls[0]?.arguments, [stored, ['in_pool', 'paused', 'paired']]);
       assert.equal(application.status, 'withdrawn');
       assert.equal(application.nextRoundAt, null);
     });
@@ -254,7 +254,7 @@ describe('ApplicationsService.withdraw', () => {
     assert.equal(matchingService.withdraw.mock.callCount(), 0);
   });
 
-  for (const status of ['paired', 'removed', 'no_match', 'cancelled'] as const) {
+  for (const status of ['removed', 'no_match', 'cancelled'] as const) {
     test(`refuses an application that is ${status}`, async () => {
       const { service, matchingService } = makeService({ stored: anApplication({ status }) });
 

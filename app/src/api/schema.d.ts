@@ -447,7 +447,7 @@ export interface paths {
         put?: never;
         /**
          * Leave the matching pool
-         * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+         * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["withdrawApplication"];
         delete?: never;
@@ -3320,7 +3320,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the application is no longer waiting in the pool. */
+            /** @description `CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer. */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -99,8 +99,9 @@ export class ApplicationsController {
     operationId: 'withdrawApplication',
     summary: 'Leave the matching pool',
     description:
-      'Withdraw one of the caller’s applications; withdrawing it again changes nothing. ' +
-      'The caller can apply to the same event again later.',
+      'Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting ' +
+      'for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event ' +
+      'again later.',
     tags: ['Matching'],
     access: 'user',
     request: WithdrawRequest,
@@ -108,7 +109,8 @@ export class ApplicationsController {
       200: { description: 'The withdrawn application', schema: Application },
       404: { description: 'No application with this id, or it is not the caller’s own', schema: ErrorResponse },
       409: {
-        description: '`CONFLICT`: the application is no longer waiting in the pool.',
+        description:
+          '`CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer.',
         schema: ErrorResponse,
       },
     },

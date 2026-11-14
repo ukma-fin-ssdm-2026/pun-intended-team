@@ -12,8 +12,7 @@ import { MatchingService } from './matching.service.ts';
 import { nextRoundAt } from './rounds.ts';
 
 const ACTIVE: ApplicationStatus[] = ['in_pool', 'paired', 'paused'];
-// A paired application is withdrawn with its proposal, which comes with the proposals themselves.
-const WITHDRAWABLE: ApplicationStatus[] = ['in_pool', 'paused'];
+const WITHDRAWABLE: ApplicationStatus[] = ['in_pool', 'paused', 'paired'];
 
 @Injectable()
 export class ApplicationsService {
@@ -77,7 +76,10 @@ export class ApplicationsService {
     return this.withSessionOf(await this.requireOwn(userId, id));
   }
 
-  /** Takes the user out of the pool (FR-031); withdrawing again changes nothing. */
+  /**
+   * Takes the user out of the pool (FR-031), with a pending proposal (A5); withdrawing again changes nothing. An
+   * application with a mutual match stays.
+   */
   async withdraw(userId: string, id: string): Promise<ApplicationDetails> {
     const application = await this.requireOwn(userId, id);
     const withdrawn =
@@ -85,7 +87,7 @@ export class ApplicationsService {
         ? application
         : WITHDRAWABLE.includes(application.status) && (await this.matchingService.withdraw(application, WITHDRAWABLE));
     if (!withdrawn) {
-      throw new DomainError('CONFLICT', 'Only an application waiting in the pool can be withdrawn');
+      throw new DomainError('CONFLICT', 'Only an application waiting in the pool or for an answer can be withdrawn');
     }
     return this.withSessionOf(withdrawn);
   }

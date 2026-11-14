@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import type { EventSessionsService } from '../../dist/core/catalog/services/event-sessions.service.js';
 import type { EventSession, OpenedSession } from '../../dist/core/catalog/types/event-session.js';
+import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
@@ -11,7 +12,7 @@ import type { ApplicationsRepository } from '../../dist/core/matching/repositori
 import type { MatchesRepository } from '../../dist/core/matching/repositories/matches.repository.js';
 import { MatchingService } from '../../dist/core/matching/services/matching.service.js';
 import type { Application, ApplicationStatus } from '../../dist/core/matching/types/application.js';
-import type { Match, NewMatch } from '../../dist/core/matching/types/match.js';
+import type { Match, MatchRecord, MatchStatus, NewMatch } from '../../dist/core/matching/types/match.js';
 import type { ModerationService } from '../../dist/core/moderation/services/moderation.service.js';
 import type { MatchingExclusions } from '../../dist/core/moderation/types/report.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
@@ -70,6 +71,13 @@ function makeService({ pool = [NEWCOMER, WAITING] }: { pool?: Application[] } = 
     findExcludedPairs: mock.fn<(eventId: string, tx: Transaction) => Promise<[string, string][]>>(() =>
       Promise.resolve([]),
     ),
+    findByApplication: mock.fn<
+      (applicationId: string, statuses: MatchStatus[], tx: Transaction) => Promise<MatchRecord | undefined>
+    >(() => Promise.resolve(undefined)),
+    cancelForWithdrawal: mock.fn<(match: MatchRecord, applicationId: string, tx: Transaction) => Promise<void>>(() => {
+      calls.push('cancel');
+      return Promise.resolve();
+    }),
     propose: mock.fn<(match: NewMatch, tx: Transaction) => Promise<Match>>((match) =>
       Promise.resolve({
         ...match,
@@ -354,7 +362,55 @@ describe('MatchingService.withdraw', () => {
     ]);
     assert.equal(withdrawn?.status, 'withdrawn');
   });
+
+  // UC-001 A5
+  for (const status of ['proposed', 'accepted_a', 'accepted_b'] as const) {
+    test(`cancels a ${status} proposal of the application before withdrawing it`, async () => {
+      const { service, calls, matchesRepository } = makeService();
+      const match = aMatchRecord(status);
+      matchesRepository.findByApplication.mock.mockImplementation(() => Promise.resolve(match));
+
+      await service.withdraw({ ...NEWCOMER, status: 'paired' }, ['in_pool', 'paused', 'paired']);
+
+      assert.deepEqual(matchesRepository.findByApplication.mock.calls[0]?.arguments, [
+        NEWCOMER.id,
+        ['proposed', 'accepted_a', 'accepted_b', 'mutual'],
+        TX,
+      ]);
+      assert.deepEqual(matchesRepository.cancelForWithdrawal.mock.calls[0]?.arguments, [match, NEWCOMER.id, TX]);
+      assert.deepEqual(calls, ['lock', 'cancel', 'withdraw']);
+    });
+  }
+
+  test('keeps an application with a mutual match', async () => {
+    const { service, matchesRepository, applicationsRepository } = makeService();
+    matchesRepository.findByApplication.mock.mockImplementation(() => Promise.resolve(aMatchRecord('mutual')));
+
+    await assert.rejects(
+      service.withdraw({ ...NEWCOMER, status: 'paired' }, ['in_pool', 'paused', 'paired']),
+      (error: unknown) => error instanceof DomainError && error.code === 'CONFLICT',
+    );
+    assert.equal(matchesRepository.cancelForWithdrawal.mock.callCount(), 0);
+    assert.equal(applicationsRepository.withdraw.mock.callCount(), 0);
+  });
 });
+
+function aMatchRecord(status: MatchStatus): MatchRecord {
+  return {
+    id: 'match-1',
+    applicationAId: NEWCOMER.id,
+    applicationBId: WAITING.id,
+    source: 'round',
+    score: 0.7,
+    seed: 1,
+    status,
+    validUntil: '2026-10-16T09:00:00.000Z',
+    createdAt: NOW.toISOString(),
+    eventId: EVENT_ID,
+    applicationA: { ...NEWCOMER, status: 'paired' },
+    applicationB: { ...WAITING, status: 'paired' },
+  };
+}
 
 // matching.md, rule 2
 describe('MatchingService.runRound', () => {

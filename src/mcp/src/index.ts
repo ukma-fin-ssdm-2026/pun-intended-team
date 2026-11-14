@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T18:31:14.778Z
+ * Generated on: 2026-11-14T18:39:46.488Z
  */
 
 import { existsSync } from 'node:fs';
@@ -391,7 +391,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["withdrawApplication", {
     name: "withdrawApplication",
     title: "Leave the matching pool",
-    description: `Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+    description: `Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
     method: "post",
