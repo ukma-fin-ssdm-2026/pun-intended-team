@@ -58,7 +58,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 | Tests | Job | Contains | Runs on |
 |---|---|---|---|
 | Unit tests | `CI passed` (required check) | `npm run test:unit`: [`tests/unit/`](../../tests/unit/), no database | every pull request and every push to `main` or `staging` |
-| E2E tests | `E2E tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main` or `staging`, after a green `CI passed`: after every merge to `main` and before every staging publish, which waits for it; never on a pull request |
+| E2E tests | `E2E tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main` or `staging`, side by side with `CI passed`: after every merge to `main` and before every staging publish, which waits for it; never on a pull request |
 
 The reliability tests keep their own job, `Reliability tests`, on every pull request; it needs no database.
 

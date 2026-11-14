@@ -15,6 +15,7 @@
 # Changed by Claude (Claude Code): the e2e tests also run on staging, and the publish job waits for them.
 # Changed by Claude (Claude Code): the two groups of tests are called unit tests and e2e tests, in the job name
 # and the comments.
+# Changed by Claude (Claude Code): "E2E tests" no longer waits for "CI passed"; the two jobs run side by side.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is a required check in the rulesets. It runs all checks as steps of one
@@ -25,8 +26,9 @@
 # The tests are split in two. The unit tests need no database and run in "CI passed" on every pull request and
 # push. The e2e tests are slow because they need a PostgreSQL service and the migrations, so they run only after
 # a merge to main and before a staging publish, in the "E2E tests" job, which runs all tests (unit and e2e) with
-# the coverage gate. It runs after a green "CI passed" on a push or manual run on main or staging. It never runs
-# on a pull request and is not a required check, so a broken migration or e2e test shows up only after the merge.
+# the coverage gate. It runs on a push or manual run on main or staging, side by side with "CI passed", so a run
+# on main ends sooner. It never runs on a pull request and is not a required check, so a broken migration or e2e
+# test shows up only after the merge.
 # After a green push to main, the deploy job publishes the API docs; it does not wait for the e2e tests. Once all
 # tests are green, "Publish API image" pushes the API image to GHCR, tagged with the commit, and keeps the newest 3.
 # After a push to staging with "CI passed" and "E2E tests" green, the publish job pushes the API and web images
@@ -188,10 +190,9 @@ jobs:
         run: npm run test:unit
 
   # E2E tests: runs only after a merge to main and before every staging publish, which waits for it.
-  # Not a required check in the rulesets.
+  # Not a required check in the rulesets. It does not wait for "CI passed": its checks already ran on the pull request.
   e2e-tests:
     name: E2E tests
-    needs: ci-passed
     if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') && github.event_name != 'pull_request'
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15
