@@ -214,6 +214,18 @@ describe('MatchingService.matchOnApply', () => {
     assert.equal(match?.validUntil.toISOString(), '2026-10-16T09:00:00.000Z');
   });
 
+  // matching.md, rule 4; HLD I3
+  test('plans the expiry of the proposal at its valid_until, in the transaction', async () => {
+    const { service, jobs } = makeService();
+
+    await service.matchOnApply(NEWCOMER);
+
+    assert.deepEqual(
+      jobs.enqueue.mock.calls.map(({ arguments: args }) => args),
+      [['matching.expire', { matchId: 'match-1' }, { runAt: new Date('2026-10-16T09:00:00.000Z') }, TX]],
+    );
+  });
+
   test('reads the pool of every day the application waits on', async () => {
     const { service, applicationsRepository } = makeService();
 

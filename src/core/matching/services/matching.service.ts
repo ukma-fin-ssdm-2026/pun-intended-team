@@ -18,6 +18,7 @@ import { match } from './match.ts';
 import { proposalValidUntil, roundTimes } from './rounds.ts';
 
 const ROUND_JOB = 'matching.round';
+const EXPIRE_JOB = 'matching.expire';
 
 /** The pool of an event as one matching step reads it under the lock. */
 interface Pool {
@@ -144,17 +145,21 @@ export class MatchingService implements OnModuleInit {
     const sharedDays = required(pool.members.get(a))
       .sessionIds.filter((id) => daysOfB.has(id))
       .map((id) => required(pool.sessions.get(id)));
-    return this.matchesRepository.propose(
+    const validUntil = proposalValidUntil(new Date(), sharedDays);
+    const match = await this.matchesRepository.propose(
       {
         applicationAId: required(pool.applications.get(a)).id,
         applicationBId: required(pool.applications.get(b)).id,
         source,
         score,
         seed,
-        validUntil: proposalValidUntil(new Date(), sharedDays),
+        validUntil,
       },
       tx,
     );
+    // Its handler comes with expiry and strikes; the job waits in the queue until then (HLD I3).
+    await this.jobs.enqueue(EXPIRE_JOB, { matchId: match.id }, { runAt: validUntil }, tx);
+    return match;
   }
 
   /** Every proposed score is logged, so the threshold can be tuned on real data (matching.md, policy). */
