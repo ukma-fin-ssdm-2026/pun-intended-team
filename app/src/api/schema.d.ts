@@ -1422,7 +1422,7 @@ export interface components {
          *     }
          */
         CreateApplicationBody: {
-            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days */
+            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days. Each lies within the catalog window: today and the next 28 days */
             dates?: string[];
             /**
              * @description What kind of company the user is looking for at this event
@@ -3192,7 +3192,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or runs on several days and `dates` is missing. */
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, one of them is after the catalog window (today and the next 28 days), or the event runs on several days and `dates` is missing. */
             422: {
                 headers: {
                     [name: string]: unknown;
