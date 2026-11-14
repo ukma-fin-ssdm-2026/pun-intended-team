@@ -7,7 +7,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 ## Rules
 
 1. **Instant match on apply** — only if the top candidate scores above the threshold **and** the two are each other's best option in the current pool. Otherwise the user waits for the next round.
-2. **Scheduled rounds** — the whole pool of a session is paired at once, at fixed offsets before the start. Offsets that fall in the past are skipped.
+2. **Scheduled rounds** — the whole pool of a session is paired at once, at fixed offsets before the start. Offsets that fall in the past are skipped. A round has no minimum score: every user who can be paired gets a proposal, from the best pairs down; only the instant match needs the threshold.
 3. **Open mode** — after the last round, newcomers and declined users are matched instantly against the leftovers, until the session's cutoff. The cutoff also closes the session to new applications.
 4. **Proposal lifetime** — valid for **24 h or until the next round starts, whichever comes first** (after the last round: until the cutoff). Nobody is left in a pending proposal while a round runs without them. A job expires the proposal at `valid_until`.
 5. **Decline** — both users return to the pool; the decliner excludes the candidate (FR-020).
