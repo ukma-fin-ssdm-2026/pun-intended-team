@@ -16,6 +16,7 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Imported events that ArtWizard or Karabas no longer lists are shown as cancelled, and published again if they come back. A run that failed, read only part of the list, or got a list that looks broken cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Imported events whose provider gives no end time say so (`endTimeKnown`), and the app shows only the start, «з 19:00», for them; a length written in a Karabas description, such as «Тривалість вистави – 1 год 20 хв», becomes the end time ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
 - A Karabas show that runs on many days, such as a play every evening until 29 November or a museum open daily until 1 May, is one event from today's show to its last one, and users can apply for any of its days within the next four weeks, not only its first show. The catalog and map filters «Завтра», «Ці вихідні» and picked days show it on each of its days ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
+- Exhibitions running now are in the catalog for every day they run, without an opening time; the app shows their dates only ([#417](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/417)).
 
 ### Changed
 
