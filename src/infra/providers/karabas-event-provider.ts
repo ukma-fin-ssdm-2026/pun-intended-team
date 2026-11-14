@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { load } from 'cheerio';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
-import { MINUTE_MS } from '../../core/common/durations.ts';
+import { DAY_MS, MINUTE_MS } from '../../core/common/durations.ts';
 import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay, toKyivWallClock } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
@@ -241,7 +241,9 @@ export class KarabasEventProvider extends EventProvider {
     const end = karabasEnd(start, endDate, durationFromDescription(description));
     if (end.runUntil) {
       const until = end.runEndTime ? `${end.runUntil} at ${end.runEndTime}` : end.runUntil;
-      this.logger.log(`${slugOf(url)}: a run of shows until ${until}; importing the first show only`);
+      this.logger.log(
+        `${slugOf(url)}: a run of shows until ${until}; imported as ${runDays(start, end.runUntil)} days`,
+      );
     }
     const address = [location.address.streetAddress, location.address.addressLocality].filter(Boolean).join(', ');
     return {
@@ -294,9 +296,12 @@ export function karabasStart(startDate: string): Date {
 /** The end of a Karabas event, and whether Karabas gives one (ADR-006, decision 5). */
 export interface KarabasEnd {
   endsAt: Date;
-  /** False when neither the `endDate` nor a length gives an end: `endsAt` is then the end of the start day. */
+  /**
+   * False when neither the `endDate` nor a length gives an end: `endsAt` is then the end of the start day, or of the
+   * last day of a run.
+   */
   endTimeKnown: boolean;
-  /** The last Kyiv date of a run of shows, of which `endsAt` ends the first. */
+  /** The last Kyiv date of a run of shows, whose last show `endsAt` ends. */
   runUntil?: string;
   /** The time of day, HH:MM in Kyiv, each show of the run ends at, when the `endDate` gives one. */
   runEndTime?: string;
@@ -306,8 +311,8 @@ export interface KarabasEnd {
  * The end of an event from its `endDate`, or else from the length its description gives, in minutes. A midnight is
  * written without the shift of `startDate`: the next midnight means no end is given, a later one a run of shows from
  * the start date to the day before it. Any other time is shifted like the start: later the same day it is the end,
- * and on a later day it ends a run of shows, daily from the start time to that time of day. Of a run only the first
- * show is imported (ADR-006).
+ * and on a later day it ends a run of shows, daily from the start time to that time of day. A run is one multi-day
+ * event that ends with its last show (ADR-006, decision 5).
  */
 export function karabasEnd(start: Date, endDate: string | undefined, durationMinutes?: number): KarabasEnd {
   const startDay = kyivDate(start);
@@ -324,7 +329,14 @@ export function karabasEnd(start: Date, endDate: string | undefined, durationMin
   }
   if (endDate.slice(11, 19) === '00:00:00') {
     const lastDay = addDays(endDate.slice(0, 10), -1);
-    return lastDay > startDay ? { ...fromLength(), runUntil: lastDay } : fromLength();
+    if (!(lastDay > startDay)) {
+      return fromLength();
+    }
+    const first = fromLength();
+    const endsAt = first.endTimeKnown
+      ? fromKyivWallClock(`${lastDay}T${toKyivWallClock(first.endsAt).toISOString().slice(11)}`)
+      : kyivEndOfDay(`${lastDay}T12:00:00Z`);
+    return { endsAt, endTimeKnown: first.endTimeKnown, runUntil: lastDay };
   }
   const end = karabasStart(endDate);
   if (!(end > start)) {
@@ -338,7 +350,12 @@ export function karabasEnd(start: Date, endDate: string | undefined, durationMin
   const runEndTime = toKyivWallClock(end).toISOString().slice(11, 16);
   const firstEnd = fromKyivWallClock(`${startDay}T${runEndTime}:00Z`);
   // An end time that is not after the start time of day (21:00 to 02:00 on a later day) is no daily run.
-  return firstEnd > start ? { endsAt: firstEnd, endTimeKnown: true, runUntil: endDay, runEndTime } : fromLength();
+  return firstEnd > start ? { endsAt: end, endTimeKnown: true, runUntil: endDay, runEndTime } : fromLength();
+}
+
+/** The number of Kyiv days from the start's day to `lastDay`, both included. */
+function runDays(start: Date, lastDay: string): number {
+  return (Date.parse(lastDay) - Date.parse(kyivDate(start))) / DAY_MS + 1;
 }
 
 const LOWER_CASE = 'а-яіїєґ';
