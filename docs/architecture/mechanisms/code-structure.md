@@ -8,7 +8,17 @@ The main server (CMP-02) is split into three layers. **`src/api/`** handles HTTP
 
 The catalog module as the example; every other module follows the same pattern.
 
-How the classes depend on each other: [code structure diagram](../uml/rendered/code-structure.svg) (source: [`uml/code-structure.puml`](../uml/code-structure.puml)).
+**Diagrams.** How the modules and classes depend on each other (sources in [`uml/`](../uml/)):
+
+- [Modules](../uml/rendered/code-structure.svg) ([source](../uml/code-structure.puml)): the overview. The layers and the import process, one box per module, which modules call which, and which infra package implements each module's ports. No classes.
+- [API](../uml/rendered/code-structure-api.svg) ([source](../uml/code-structure-api.puml)): every controller with its handlers, the guard and the rest of `api/common`, and the services each controller calls.
+- [Core: users](../uml/rendered/code-structure-core-users.svg) ([source](../uml/code-structure-core-users.puml)): identity, profiles and moderation, with their services, repositories and adapters.
+- [Core: events](../uml/rendered/code-structure-core-events.svg) ([source](../uml/code-structure-core-events.puml)): catalog, listings and matching.
+- [Core: operations](../uml/rendered/code-structure-core-operations.svg) ([source](../uml/code-structure-core-operations.puml)): admin, system, notifications, jobs and `core/common`.
+- [Infra](../uml/rendered/code-structure-infra.svg) ([source](../uml/code-structure-infra.puml)): what `InfraModule` binds to each repository and adapter, by infra package.
+- [Import](../uml/rendered/code-structure-import.svg) ([source](../uml/code-structure-import.puml)): the import process, `core/import`, what `ImportInfraModule` binds, and the stub.
+
+Together they show every class in `src/` with its public methods, except types, Nest module classes (the overview's boxes) and plain helper functions. A class is drawn with its methods on one diagram; other diagrams show it as a grey box. CI does not check that they are current: after a structural change, update the sources and re-render them with `npm run docs:diagrams` (needs Docker).
 
 ```
 src/
