@@ -32,6 +32,11 @@ export type ReportedPerson = {
   listingId?: string;
 };
 
+// A user of the API, whose name comes in one form only: the handle stands in for the forms the copy declines.
+export function reportedUser({ displayName, username }: { displayName: string; username: string }): ReportedPerson {
+  return { name: displayName, accusative: `@${username}`, instrumental: `@${username}`, username };
+}
+
 const nextSteps = (person: ReportedPerson): { icon: IconName; text: string }[] => [
   { icon: 'report-shield', text: 'Модератор розгляне скаргу протягом доби' },
   { icon: 'report-close', text: `Ви з ${person.instrumental} більше не потрапите в метчі одне одного` },
