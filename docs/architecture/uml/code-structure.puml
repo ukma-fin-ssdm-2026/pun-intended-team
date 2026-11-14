@@ -3,7 +3,7 @@
   AI Usage Note
   Drafted with Claude from the code in src/.
 '/
-title Nearby — Main Server Code Structure (src/)
+title Nearby — Code Structure (src/): selected modules, not all of them
 
 skinparam shadowing false
 skinparam packageStyle rectangle
@@ -24,8 +24,18 @@ package "core (business logic)" as CORE {
     class AuthService {
       +authenticate(accessToken)
     }
+    class SessionsService {
+      +isActive(sessionId, accountId)
+    }
+    abstract class AccessTokens {
+      +verify(token)
+    }
     abstract class SessionsRepository {
-      +findCaller(accessToken)
+      +create(session)
+      +findById(id)
+      +rotate(id, currentHash, next)
+      +revoke(id, revokedAt)
+      +revokeAll(accountId, revokedAt, exceptId)
     }
   }
 
@@ -39,6 +49,7 @@ package "core (business logic)" as CORE {
     abstract class ListingsRepository {
       +findActive(fromDate, page)
       +findActiveById(id)
+      +findByIds(ids)
       +create(listing)
       +markRemoved(id)
     }
@@ -65,6 +76,7 @@ package "core (business logic)" as CORE {
     abstract class EventsRepository {
       +findById(id)
       +findPublished(filter, page)
+      +countPublishedEndingAfter(instant)
       +create(event)
       +update(id, changes)
     }
@@ -98,12 +110,47 @@ package "infra (bound in InfraModule)" as INFRA {
     class PrismaSessionsRepository
     class PrismaCategoriesRepository
     class PrismaProfilesRepository
+    class PrismaListingsRepository
+    class PrismaEventsRepository
+    class PrismaVenuesRepository
+    class PrismaOrganizationsRepository
   }
-  package "stubs" {
-    class StubListingsRepository
-    class StubEventsRepository
-    class StubVenuesRepository
-    class StubOrganizationsRepository
+}
+
+package "import (bound in ImportInfraModule, process src/import/)" as IMPORT {
+  package "core/import" {
+    class EventImportService {
+      +run()
+      +importFrom(provider)
+    }
+    abstract class EventProvider {
+      +fetch()
+      +normalize(raw)
+    }
+    abstract class Geocoder {
+      +locate(venue)
+    }
+    abstract class ImportedEventsRepository {
+      +findCategories()
+      +failUnfinishedRuns(provider)
+      +startRun(provider)
+      +finishRun(runId, status, details)
+      +lastCompleteRun(provider)
+      +saveSkipped(runId, raw, reason)
+      +findVenues()
+      +updateVenueLocation(id, location)
+      +createVenue(venue)
+      +findEvent(provider, externalId)
+      +createEvent(event)
+      +updateEvent(id, fields)
+      +cancelUnseen(provider, seenExternalIds, range)
+    }
+  }
+  package "infra" as IMPORT_INFRA {
+    class ArtWizardEventProvider
+    class KarabasEventProvider
+    class NominatimGeocoder
+    class PrismaImportedEventsRepository
   }
 }
 
@@ -120,7 +167,9 @@ ListingsService --> CategoriesService
 ListingsService --> ProfilesService
 
 ' services reach storage through repositories
-AuthService --> SessionsRepository
+AuthService --> AccessTokens
+AuthService --> SessionsService
+SessionsService --> SessionsRepository
 ListingsService --> ListingsRepository
 EventsService --> CategoriesService
 EventsService --> EventsRepository
@@ -131,12 +180,21 @@ ProfilesService --> ProfilesRepository
 
 ' infra implements core repositories
 SessionsRepository <|.. PrismaSessionsRepository
-ListingsRepository <|.. StubListingsRepository
-EventsRepository <|.. StubEventsRepository
+ListingsRepository <|.. PrismaListingsRepository
+EventsRepository <|.. PrismaEventsRepository
 CategoriesRepository <|.. PrismaCategoriesRepository
-VenuesRepository <|.. StubVenuesRepository
-OrganizationsRepository <|.. StubOrganizationsRepository
+VenuesRepository <|.. PrismaVenuesRepository
+OrganizationsRepository <|.. PrismaOrganizationsRepository
 ProfilesRepository <|.. PrismaProfilesRepository
+
+' the import runs as its own process, with its own infra bindings
+EventImportService --> EventProvider
+EventImportService --> Geocoder
+EventImportService --> ImportedEventsRepository
+EventProvider <|.. ArtWizardEventProvider
+EventProvider <|.. KarabasEventProvider
+Geocoder <|.. NominatimGeocoder
+ImportedEventsRepository <|.. PrismaImportedEventsRepository
 
 legend right
   Solid arrow: calls (constructor injection)

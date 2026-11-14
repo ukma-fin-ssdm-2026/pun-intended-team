@@ -7,10 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/tokens';
 
-// "01 Шапка" has a 60 px top padding in the iPhone 14 frame, 13 px below its 47 px status bar. A taller status bar
-// keeps that gap; on screens without one (the web) the padding stays 60 px, as in Figma.
-const TOP_PADDING = 60;
-const GAP_BELOW_STATUS_BAR = 13;
+// "01 Шапка" has a 30 px top padding in Figma, less than a phone's status bar; there the header starts right below it.
+const TOP_PADDING = 30;
 
 type Props = {
   // Signed-in user's display name, once the profile has loaded; a guest has none.
@@ -24,9 +22,9 @@ export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, o
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="gap-6 px-5" style={{ paddingTop: Math.max(TOP_PADDING, insets.top + GAP_BELOW_STATUS_BAR) }}>
+    <View className="gap-6 px-5" style={{ paddingTop: Math.max(TOP_PADDING, insets.top) }}>
       <View className="flex-row items-center justify-between">
-        <Text className="font-alice text-logo text-text-on-dark">Nearby</Text>
+        <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
         <View className="flex-row items-center gap-3">
           {onNotificationsPress && (
             <Pressable

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockPostPlace } from '@/mocks/map';
+import { mockPostPlace } from '@/mocks/announcements';
 import { colors } from '@/styles/tokens';
 
 // "01 Пошук": top padding 56 in the iPhone 14 frame (9 px below its status bar). "02 Обране місце" has a 34 px bottom
@@ -34,6 +34,9 @@ export default function PostPlaceScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   useStatusBarStyle('dark');
+
+  // Opened straight from a link, the screen has no history; it goes to the post editor on Т3, where Д2.1 comes from.
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace('/announcements'));
 
   // "Перетягни мапу, щоб уточнити точку": the map moves under the pin, which stays where it is.
   const offsetX = useSharedValue(0);
@@ -76,7 +79,7 @@ export default function PostPlaceScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Назад"
-          onPress={() => router.back()}
+          onPress={goBack}
           className="size-[50px] items-center justify-center rounded-[25px] bg-surface-card"
         >
           <Icon name="arrow-left" size={20} />

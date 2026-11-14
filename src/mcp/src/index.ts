@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T18:41:41.046Z
+ * Generated on: 2026-11-14T21:28:08.115Z
  */
 
 import { existsSync } from 'node:fs';
@@ -181,7 +181,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listEvents", {
     name: "listEvents",
     title: "Browse the event catalog",
-    description: `Browse the event catalog: published events in the catalog window, soonest first. Needs an access token: a guest token or a signed-in account.
+    description: `Browse the event catalog: published events in the catalog window, soonest first. \`lastUpdatedAt\` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue, e.g. after tapping its map pin"},"from":{"type":"string","format":"date","description":"First day, Kyiv time; earlier dates count as today"},"to":{"type":"string","format":"date","description":"Last day, Kyiv time; later dates count as the end of the catalog window"}}},
     method: "get",
@@ -348,7 +348,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     title: "Ask for a match at an event",
     description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match lists the days both users share. The answer says when the next matching round runs, or that a match is proposed at once. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"dates":{"type":"array","items":{"type":"string","format":"date"},"minItems":1,"maxItems":366,"description":"The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"dates":{"type":"array","items":{"type":"string","format":"date"},"minItems":1,"maxItems":366,"description":"The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days. Each lies within the catalog window: today and the next 28 days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
     method: "post",
     pathTemplate: "/api/v1/events/{id}/applications",
     executionParameters: [{"name":"id","in":"path"}],

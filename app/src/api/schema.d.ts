@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * Browse the event catalog
-         * @description Browse the event catalog: published events in the catalog window, soonest first. Needs an access token: a guest token or a signed-in account.
+         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
          */
         get: operations["listEvents"];
         put?: never;
@@ -1084,7 +1084,9 @@ export interface components {
          *             }
          *           },
          *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
          *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
          *           "imageUrl": null,
          *           "sourceUrl": null,
          *           "source": "organization",
@@ -1095,12 +1097,18 @@ export interface components {
          *         "limit": 20,
          *         "offset": 0,
          *         "hasMore": false
-         *       }
+         *       },
+         *       "lastUpdatedAt": null
          *     }
          */
         EventsPage: {
             items: components["schemas"]["Event"][];
             page: components["schemas"]["PageInfo"];
+            /**
+             * Format: date-time
+             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same on every page and with every filter
+             */
+            lastUpdatedAt: string | null;
         };
         /**
          * @description An event users can go to together
@@ -1122,7 +1130,9 @@ export interface components {
          *         }
          *       },
          *       "startsAt": "2026-10-17T19:00:00+03:00",
+         *       "startTimeKnown": true,
          *       "endsAt": "2026-10-17T21:30:00+03:00",
+         *       "endTimeKnown": true,
          *       "imageUrl": null,
          *       "sourceUrl": null,
          *       "source": "organization",
@@ -1138,8 +1148,12 @@ export interface components {
             venue: components["schemas"]["Venue"];
             /** Format: date-time */
             startsAt: string;
+            /** @description False when the provider gives no time of day: startsAt is then a default opening time (12:00 Europe/Kyiv for exhibitions) that only orders the event and its sessions; show the dates without a time. Always true for an organization event */
+            startTimeKnown: boolean;
             /** Format: date-time */
             endsAt: string;
+            /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */
+            endTimeKnown: boolean;
             /** @description Imported events: the provider's image URL, shown as is; null for organization events */
             imageUrl: string | null;
             /** @description Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise */
@@ -1512,7 +1526,7 @@ export interface components {
          *     }
          */
         CreateApplicationBody: {
-            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days */
+            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days. Each lies within the catalog window: today and the next 28 days */
             dates?: string[];
             /**
              * @description What kind of company the user is looking for at this event
@@ -3417,7 +3431,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or runs on several days and `dates` is missing. */
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, one of them is after the catalog window (today and the next 28 days), or the event runs on several days and `dates` is missing. */
             422: {
                 headers: {
                     [name: string]: unknown;

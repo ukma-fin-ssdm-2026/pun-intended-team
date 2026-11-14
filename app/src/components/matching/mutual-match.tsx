@@ -1,15 +1,16 @@
 // Written with the help of Claude
 // AI Usage: mutual match from the Figma "07 Взаємний метч" frame and its title variants; reviewed by Daryna Halytska.
-import { Image, type ImageSource } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import type { components } from '@/api/schema';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
-import { formatShortDay, formatTime } from '@/dates';
+import { formatSessionDay } from '@/dates';
 import { colors } from '@/styles/tokens';
 
 // "01 Шапка": top padding 56 in the iPhone 14 frame (9 px below its status bar), 52 at the bottom, of which the contacts
@@ -57,7 +58,13 @@ export type MutualPerson = {
   contacts: MutualContact[];
 };
 
-export type MutualEvent = { id: string; title: string; startsAt: string; cover?: ImageSource | number };
+export type MutualEvent = {
+  id: string;
+  title: string;
+  startsAt: string;
+  startTimeKnown: boolean;
+  cover?: ImageSource | number;
+};
 
 type HeroProps = {
   title: MutualTitle;
@@ -72,7 +79,7 @@ type HeroProps = {
 // The gradient header; the component gallery shows it with each title.
 export function MutualMatchHero({ title, person, ownInitial, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
-  const when = `${formatShortDay(event.startsAt)}, ${formatTime(event.startsAt)}`;
+  const when = formatSessionDay(event.startsAt, event.startTimeKnown);
   const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви йдете разом';
 
   return (
@@ -182,11 +189,7 @@ export function MutualMatch({ title, person, ownInitial, event, onBack, onMore, 
             className="flex-row items-center gap-3 rounded-[20px] border border-border-default py-3 pl-3 pr-4"
           >
             <View className="size-11 overflow-hidden rounded-xl">
-              {event.cover ? (
-                <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-              ) : (
-                <CoralGradient preset="cover" />
-              )}
+              <EventCover cover={event.cover} />
             </View>
             <View className="flex-1 gap-0.5">
               <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">

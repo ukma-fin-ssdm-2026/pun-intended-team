@@ -188,7 +188,6 @@ export default function ComponentsGallery() {
           category={mockEvents[2].category.name}
           dateLabel={formatEventDate(mockEvents[2].startsAt)}
           place={mockEvents[2].venue.name}
-          inPool
           favorite={favoriteIds.includes(mockEvents[2].id)}
           onToggleFavorite={() => toggleFavorite(mockEvents[2].id)}
         />

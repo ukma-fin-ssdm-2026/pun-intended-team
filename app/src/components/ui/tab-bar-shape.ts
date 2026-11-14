@@ -4,9 +4,9 @@
 // The notch geometry is taken from the Figma bar shape (72 px high, 168 px notch): it keeps its size, only the
 // straight parts of the bar stretch with the screen width.
 export const BAR_HEIGHT = 72;
-// "Нижня навігація" is 94 px in Figma: the 72 px bar and a 22 px white safe area, flush with the bottom of the screen.
-// A device with a larger bottom inset uses its own instead of the 22 px.
-const MIN_SAFE_AREA = 22;
+// "Нижня навігація" is 84 px in Figma: the 72 px bar and a 12 px white safe area, flush with the bottom of the screen.
+// A device with a larger bottom inset uses its own instead of the 12 px.
+const MIN_SAFE_AREA = 12;
 export const tabBarSafeArea = (bottomInset: number) => Math.max(bottomInset, MIN_SAFE_AREA);
 
 const NOTCH_HALF_WIDTH = 84;

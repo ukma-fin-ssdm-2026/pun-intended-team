@@ -49,6 +49,7 @@ npm run docs:coverage   # after changing tests; commit docs/testing/coverage/
 
 - Before opening a pull request, merge `main` into the branch and run the checks above.
 - The description links the issue (`Closes #<issue>`) and says what changed and how it was checked.
+- Add every team member except the author as a reviewer: `viktoriyabaran`, `DarynaHalytska`, `OLEGkn-coder`, `Vlad-Re`.
 - A pull request needs one approval from another member; for a subtask, from the person responsible for the parent task. Agents do not approve or merge pull requests.
 - Every review comment must be addressed before the pull request is merged.
 - Do not create, close or relabel issues without asking; labels are listed in charter §4.

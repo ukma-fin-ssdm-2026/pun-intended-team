@@ -12,7 +12,7 @@ Severity rates the consequence if the failure happens, not how likely it is. It 
 | [REL-02](scavenger-hunt.md#rel-02-app-requests-without-a-timeout) | App requests have no timeout | Medium | A request could leave a screen loading forever on Android, but only that screen is affected. | Fixed (#367) |
 | [REL-03](scavenger-hunt.md#rel-03-sign-out-dispatches-an-unhandled-navigation-action) | Sign-out dispatches a navigation action no navigator handles | Low | Sign-out still reaches the onboarding; the only effect is an error logged in development builds. | Fixed (#367) |
 | [REL-04](scavenger-hunt.md#rel-04-health-does-not-check-the-database) | `/health` answers "ok" without checking the database | High | A dead database goes unnoticed by the deploy rollback, the compose health gate and the uptime monitor, while every request that needs it fails. | Fixed (#399) |
-| [REL-05](scavenger-hunt.md#rel-05-port-and-auth_rate_limit_per_minute-are-not-checked) | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked | High | The API becomes unreachable or refuses every sign-in. | Open |
+| [REL-05](scavenger-hunt.md#rel-05-port-and-auth_rate_limit_per_minute-are-not-checked) | `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` are not checked | High | The API becomes unreachable or refuses every sign-in. | Fixed (#425) |
 | [REL-06](scavenger-hunt.md#rel-06-a-failed-nightly-backup-skips-the-day) | A failed nightly backup skips the day without notice | Medium | The day has no backup and nobody is told. | Fixed (#398) |
 | [REL-07](scavenger-hunt.md#rel-07-profile-edit-hides-the-more-button-when-interests-fail-to-load) | Profile edit hides the "more" button when interests fail to load | Low | One optional list is missing and the rest of the screen works. | Fixed (#398) |
 | [REL-08](scavenger-hunt.md#rel-08-a-lost-refresh-response-ends-the-session) | A lost refresh response ends the session | Medium | The user is signed out of the account and has to sign in again. | Mitigated (#398) |
@@ -385,6 +385,73 @@ Automatic. As soon as `SELECT 1` answers again, `/health` answers `200` and the 
 - **One dependency only.** The external providers of the import are not checked; they are not on the request path, so they should not make the API unhealthy.
 - **The API is not restarted when it turns unhealthy at run time.** Docker Compose marks it unhealthy, but restarts a container only when it exits. The health check decides deploys and alerts the uptime monitor; it does not restart anything.
 
+## REL-05: `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` Are Not Checked
+
+**Fault:** `config.ts` read both with `Number(process.env.X ?? default)`. `??` replaces only an unset variable, and `Number('')` is `0`. **Failure:** an empty `AUTH_RATE_LIMIT_PER_MINUTE` gave a limit of 0, so `ThrottlerGuard` refused every Google registration, sign-in and refresh as `429`; an empty `PORT` gave port 0, a random one; any other bad value started the API with it or failed with Node's own error, which does not name the variable.
+
+### Before
+
+```ts
+// src/api/common/config.ts
+export const port = Number(process.env.PORT ?? DEFAULT_PORT);
+export const authRateLimitPerMinute = Number(process.env.AUTH_RATE_LIMIT_PER_MINUTE ?? 20);
+```
+
+### After
+
+```ts
+// src/api/common/config.ts
+function readInteger(name: string, fallback: number, min: number, max = Number.MAX_SAFE_INTEGER): number {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+  if (!/^[1-9]\d*$/.test(value)) {
+    throw new Error(`${name} must be a whole number of at least ${min}, got "${value}"`);
+  }
+  if (Number(value) < min || Number(value) > max) {
+    throw new Error(`${name} must be a whole number from ${min} to ${max}, got "${value}"`);
+  }
+  return Number(value);
+}
+
+export const port = readInteger('PORT', DEFAULT_PORT, 1, 65535);
+export const authRateLimitPerMinute = readInteger('AUTH_RATE_LIMIT_PER_MINUTE', 20, 1);
+```
+
+`config.ts` is read when the API starts, so a thrown error stops the start with exit code 1.
+
+### Patterns Applied
+
+- **Validation of the configuration at startup**, the same way as the database limits of REL-01: an unset or empty value takes the default, anything but a whole number in range is refused.
+- **An error that names the variable and quotes the value**, so the log says what to fix.
+
+### Fail Fast or Fail Safe
+
+Both, by the kind of value.
+
+- **An empty value fails safe:** it is the usual typo in `.env` and has an obvious meaning, so it takes the default instead of 0.
+- **Any other bad value fails fast.** Here a **wrong answer is worse than none**: an API on the wrong port or with a limit of 0 starts and looks healthy, while a refused start is seen at once and, in a deploy, rolled back.
+
+### What the User Sees
+
+- **Users:** nothing. A bad value never reaches a running API, so sign-in keeps its limit of 20 requests per minute and the app finds the API on its port.
+- **Operators:** the API exits at start with, for example, `AUTH_RATE_LIMIT_PER_MINUTE must be a whole number of at least 1, got "abc"`. In a deploy, the container does not turn healthy and the deploy rolls back.
+
+### Recovery
+
+Manual: fix the value in `.env` and start the API again.
+
+### Verification
+
+- [`tests/reliability/port-and-rate-limit-settings.reliability.test.ts`](../../tests/reliability/port-and-rate-limit-settings.reliability.test.ts) (boundary) starts the built API: it stops with exit code 1 and a message naming the variable on `PORT` `0`, `-1`, `abc`, `70000` and `1.5`, and on `AUTH_RATE_LIMIT_PER_MINUTE` `0`, `-5`, `abc` and `1.5`; with an empty limit the first sign-in request is not refused; a limit of `1` starts the API.
+- The shared start check moved into [`api-process.ts`](../../tests/reliability/api-process.ts), so the REL-01 boundary test uses it as well.
+
+### Open Issues
+
+- **An empty `PORT` is not tested.** It takes the default by the same code as the empty limit.
+- **The Dockerfile's `HEALTHCHECK` reads `PORT` on its own**, with `??`, so with an empty `PORT` it calls port 80 while the API listens on 4100. The container turns unhealthy and the deploy rolls back, so the failure is loud, not silent.
+
 ## REL-06: A Failed Nightly Backup Skips the Day
 
 **Fault:** under `set -e`, a failed `pg_dump` ended the script and left its `.partial` file, and nothing checked that a copy could be read back. **Failure:** the container restarted after 01:00, so the loop waited for the next night; that day had no backup and nobody was told.
@@ -713,7 +780,7 @@ Manual, following "A version runs on a newer schema" in [staging](../operations/
 
 ## Reliability Tests
 
-The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 20 tests in 5 files, all passing.
+The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 31 tests in 6 files, all passing.
 
 | File | Type | Finding | What it proves |
 |---|---|---|---|
@@ -722,8 +789,9 @@ The tests in [`tests/reliability/`](../../tests/reliability/) start the built AP
 | [`request-timeout.reliability.test.ts`](../../tests/reliability/request-timeout.reliability.test.ts) | Fault injection | REL-02 | The app's `fetchWithTimeout` against a fake API: no answer and a body that stops in the middle are aborted after 15 s and not before; a dropped connection fails at once. |
 | [`health-check.reliability.test.ts`](../../tests/reliability/health-check.reliability.test.ts) | Fault injection | REL-04 | A database that refuses the connection or never answers: `/health` answers `503 unhealthy` within its limit, and the Dockerfile's `HEALTHCHECK` command fails. |
 | [`database-timeout-settings.reliability.test.ts`](../../tests/reliability/database-timeout-settings.reliability.test.ts) | Boundary | REL-01 | The API starts with `DATABASE_STATEMENT_TIMEOUT_MS` empty or exactly one day, and stops with exit code 1 and a message naming the variable on `0`, `-1`, `abc`, one day and 1 ms, and `99999999999999999999`. This test found that a value too long for Node's timers started an API whose every database call failed; #405 fixed it. |
+| [`port-and-rate-limit-settings.reliability.test.ts`](../../tests/reliability/port-and-rate-limit-settings.reliability.test.ts) | Boundary | REL-05 | The API stops with exit code 1 and a message naming the variable on `PORT` `0`, `-1`, `abc`, `70000` and `1.5`, and on `AUTH_RATE_LIMIT_PER_MINUTE` `0`, `-5`, `abc` and `1.5`. With an empty limit the first sign-in request is not refused, and a limit of `1` starts the API. |
 
-[`api-process.ts`](../../tests/reliability/api-process.ts) is not a test: it starts and stops the built API for the others.
+[`api-process.ts`](../../tests/reliability/api-process.ts) is not a test: it starts and stops the built API for the others and checks that a start is refused.
 
 All three types the lab asks for are there. The tests were also run against broken code, and fail there:
 
@@ -731,13 +799,13 @@ All three types the lab asks for are there. The tests were also run against brok
 - `health-check`: all four fail on the code before the REL-04 fix;
 - `error-handling`: both fail when the filter puts the error's message in the body;
 - `request-timeout`: the no-answer test fails with a 10 s limit, and the stalled-body test when the timer is cleared once the headers arrive; the dropped-connection test was not checked this way;
-- `database-timeout-settings`: the two values above one day fail without the one-day check.
+- `database-timeout-settings`: the two values above one day fail without the one-day check;
+- `port-and-rate-limit-settings`: on the `config.ts` before the fix, 10 of 11 fail; the limit of `1` starts the API either way.
 
 The fixes of REL-06, REL-07, REL-08 and REL-10 are covered by unit, e2e and app tests, listed in their sections.
 
 ## Open Findings
 
-- **REL-05** (High): not fixed in this lab. Proposed: read `PORT` and `AUTH_RATE_LIMIT_PER_MINUTE` like the database limits, so an empty value takes the default and anything but a positive integer stops the start (fail fast).
 - **REL-09** (Low): sign-in fails either way, so only the status is wrong. Proposed: pass a check for the key-fetch errors to `ApiExceptionFilter` in `app.module.ts` next to `isDatabaseTimeout`, so they answer `503`.
 - **REL-11** (Low): no user request is affected. Proposed: guard `finishRun` in the `catch` of `importFrom()`, log its error and rethrow the original one.
 - **REL-12** (Low): only the message is wrong. Proposed: let `renew` throw an error with the response status and let `call()` report that status instead of `0`.

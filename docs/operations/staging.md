@@ -10,7 +10,7 @@ Staging runs the `staging` branch on one Linux server: the API at `https://api.n
 | `db` | PostgreSQL 18, data in the `nearby-staging-db` volume | The server itself (`127.0.0.1:5432`) |
 | `migrate` | Before every API start, from the same image: `prisma migrate deploy` as the owner, then the passwords of `nearby_main`, `nearby_import` and `nearby_backup`; then exits | — |
 | `backup` | Nightly `pg_dump` at 01:00 UTC, 7 daily and 4 weekly copies ([`deploy/backup-db.sh`](../../deploy/backup-db.sh)), as the read-only role `nearby_backup`; starts after `migrate` | — |
-| `import` | One event import run, started by hand | — |
+| `import` | The event import as the `nearby_import` role: runs every provider daily at 02:00 UTC through the `import.run` jobs; starts after `migrate` | — |
 
 ## Settings and secrets
 
@@ -75,7 +75,7 @@ git fetch origin && git push origin origin/main:staging
 ```
 The push runs **Publish images**, then **Deploy staging**. [`deploy/deploy-staging.sh`](../../deploy/deploy-staging.sh) checks out that commit, so the compose file and scripts always match the images, pulls the images, backs up the database to `/var/backups/nearby/manual/` and restarts the services; `migrate` runs before the API starts. Only commits on `staging` are accepted. If the API is not healthy within 2 minutes (its `/health` answers `503` while the database does not answer), or the web app is not, the script goes back to the commit and image that ran before, and the job fails. Each deploy and rollback is a line in `/opt/nearby/deploy.log`.
 
-To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `staging` with its full SHA; leave it empty for the latest `staging`. The run shows who deployed what.
+To deploy an earlier commit, run Actions → **Deploy staging** → **Run workflow** on `staging` with its full SHA; leave it empty for the latest `staging`. The run shows who deployed what. Its API image must still be in GHCR: after every green run on `main`, **Publish API image** keeps the image tagged `staging` and the 3 newest others, and deletes the rest.
 
 If GitHub Actions is down, deploy on the server as `deploy`, logged in with your own token (`read:packages`):
 
@@ -142,9 +142,28 @@ docker compose -f docker-compose.staging.yml start api
 
 ## Event import
 
+The `import` service runs all the time and imports each provider once a day at 02:00 UTC ([ADR-006](../architecture/decisions/ADR-006.md), decision 11). It needs only `IMPORT_DATABASE_URL` and, for ArtWizard, `ARTWIZARD_API_KEY`; `nearby_import` gets its grants on the job queue from the `import_job_queue` migration. Every deploy starts it with the other services, so there is nothing to set up beyond the secrets above. After the first deploy with it, check that it is up and has stored both schedules:
+
 ```bash
-API_VERSION=$(git rev-parse HEAD) docker compose -f docker-compose.staging.yml run --rm import
+docker compose -f docker-compose.staging.yml ps import
+docker compose -f docker-compose.staging.yml logs import | grep 'Waiting for import.run'
+docker compose -f docker-compose.staging.yml exec db psql -U nearby -d nearby -c "SELECT key, cron FROM pgboss.schedule WHERE name = 'import.run'"
 ```
+
+Each run is a row in `import_runs`; the log of a night shows each provider's counts, or why its run failed or was not started:
+
+```bash
+docker compose -f docker-compose.staging.yml exec db psql -U nearby -d nearby -c "SELECT provider, status, started_at, finished_at FROM import_runs ORDER BY started_at DESC LIMIT 6"
+docker compose -f docker-compose.staging.yml logs --since 24h import
+```
+
+A provider whose run started less than 20 hours ago is not started again, whether by its job or by hand: ArtWizard allows one update a day. A failed run is not retried; the next one is the following night's. To run the providers once by hand, e.g. after the first deploy, while no run has started in the last 20 hours:
+
+```bash
+API_VERSION=$(git rev-parse HEAD) docker compose -f docker-compose.staging.yml run --rm import node dist/import/main.js --once
+```
+
+`--force` is refused here (`NODE_ENV=production`). To stop the scheduled runs, e.g. if ArtWizard's permission ends before the adapter is unbound: `docker compose -f docker-compose.staging.yml stop import`; the next deploy starts it again.
 
 ## Connecting clients
 

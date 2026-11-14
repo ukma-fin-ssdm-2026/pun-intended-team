@@ -33,6 +33,8 @@ An event in the city that users can go to together. It is posted by a verified o
 | `category` | `{ id, name }` | |
 | `venue` | `{ id, name, address, location: { lat, lng } }` | |
 | `startsAt`, `endsAt` | date-time | |
+| `startTimeKnown` | boolean | False for an imported event whose provider gives no time of day, such as an ArtWizard exhibition run without opening hours: `startsAt` is then a default opening time, 12:00 in Europe/Kyiv, that only orders the event and its sessions, and a client shows the dates without a time. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
+| `endTimeKnown` | boolean | False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in Europe/Kyiv, and a client shows only the start. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
 
@@ -213,13 +215,15 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
-| `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
+| `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events and `lastUpdatedAt` | `400`, `401` |
 | `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
 | `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
 | `PUT` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
 
 `PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
+
+The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" notice (FR-014). It is `null` while the imported events are current. While the latest ended import run of a provider failed, a run still going not counting, the catalog keeps serving that provider's events of its last succeeded run, and `lastUpdatedAt` is when that run finished, from `import_runs` (HLD I4); the oldest such time if several providers failed. A failed provider that never succeeded has no events and gives no time. The app shows it as "Оновлено <date, time>" above the list. The value is the same on every page and with every filter. It is a field of the catalog page and not an endpoint of its own, so the catalog gets the one timestamp it shows with the request it already makes (catalog access, rule 1), and provider names stay inside the server.
 
 `GET /api/v1/events` query parameters (FR-007):
 
@@ -268,7 +272,7 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `POST` | `/api/v1/matches/{id}/decline` | One of the two users | `200` the match | `400`, `401`, `404`, `409` |
 | `GET` | `/api/v1/matches/{id}/contacts` | One of the two users of a mutual match | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404` |
 
-`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. A day must lie within the catalog window, today and the next 28 days, as the catalog does: a run of shows until May takes applications for the coming four weeks, and a later day gives `422 INVALID_SESSION_DAY`. A single-day event has no such limit. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
 
 `GET /me/applications` lists the active applications, soonest first day first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. A `paired` application with a proposal still waiting for an answer is withdrawn too: the proposal is `cancelled` and the other user returns to the pool (use case A5). An application with a mutual match, or with another status, answers `409 CONFLICT`. Someone else's application is a `404`.
 
@@ -423,7 +427,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
-| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, or it runs on several days and `dates` is missing |
+| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 

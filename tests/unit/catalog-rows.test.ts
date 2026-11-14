@@ -28,7 +28,9 @@ describe('toEvent', () => {
       category: { id: CATEGORY_ID, name: 'Концерти' },
       venue: aVenue(),
       startsAt: '2026-11-14T16:00:00.000Z',
+      startTimeKnown: true,
       endsAt: '2026-11-14T18:30:00.000Z',
+      endTimeKnown: true,
       imageUrl: null,
       sourceUrl: null,
       source: 'organization',
@@ -45,18 +47,38 @@ describe('toEvent', () => {
     assert.deepEqual(Object.keys(event).sort(), [
       'category',
       'description',
+      'endTimeKnown',
       'endsAt',
       'id',
       'imageUrl',
       'organizationId',
       'source',
       'sourceUrl',
+      'startTimeKnown',
       'startsAt',
       'status',
       'title',
       'venue',
     ]);
     assert.equal(event.organizationId, null);
+  });
+
+  test('says that the start and the end of an imported event are unknown when the row does', () => {
+    // An exhibition run without opening hours: from a default 12:00 to the end of its last day.
+    const event = toEvent(
+      anEventRow({
+        source: 'import',
+        startsAt: new Date('2026-11-14T10:00:00.000Z'),
+        startTimeKnown: false,
+        endsAt: new Date('2026-11-29T21:59:59.999Z'),
+        endTimeKnown: false,
+      }),
+    );
+
+    assert.deepEqual(
+      [event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+      ['2026-11-14T10:00:00.000Z', false, '2026-11-29T21:59:59.999Z', false],
+    );
   });
 
   test("keeps an imported event's image and page at the provider", () => {

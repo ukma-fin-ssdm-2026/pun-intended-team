@@ -1,0 +1,603 @@
+{
+  "definitions": {
+    "deployment": "a successful image publication job (Publish API image or Publish images) for a commit of main; on 31.10–01.11 the job ran on main, later only on staging, which gets main commits",
+    "failure": "a failed publication job; skipped and cancelled jobs count as neither",
+    "change_lead_time": "from the first commit of the PR to the completion of the first successful publication of a commit that contains it",
+    "recovery_time": "from a failed publication to the next successful one",
+    "period": "20.10–09.11.2026, the period of dora-summary.md; no publication job ran before 31.10"
+  },
+  "attempts": [
+    {
+      "run_id": 41229574183,
+      "run_attempt": 1,
+      "branch": "main",
+      "head_sha": "d444d276b14fd38631d608958f56f782c35a92b2",
+      "conclusion": "failure",
+      "completed_at": "2026-10-31T18:33:33Z",
+      "cause": "GHCR refused the push (denied)",
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/1"
+    },
+    {
+      "run_id": 41229574183,
+      "run_attempt": 2,
+      "branch": "main",
+      "head_sha": "d444d276b14fd38631d608958f56f782c35a92b2",
+      "conclusion": "success",
+      "completed_at": "2026-10-31T20:31:49Z",
+      "cause": null,
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/2"
+    },
+    {
+      "run_id": 41291705270,
+      "run_attempt": 1,
+      "branch": "main",
+      "head_sha": "2025c204981746e2e1a333f753f1f4bbf63b7196",
+      "conclusion": "failure",
+      "completed_at": "2026-11-01T09:11:15Z",
+      "cause": "the web image build failed: EXPO_PUBLIC_GOOGLE_CLIENT_ID was empty",
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/1"
+    },
+    {
+      "run_id": 41291705270,
+      "run_attempt": 2,
+      "branch": "main",
+      "head_sha": "2025c204981746e2e1a333f753f1f4bbf63b7196",
+      "conclusion": "failure",
+      "completed_at": "2026-11-01T09:24:12Z",
+      "cause": "GHCR refused the web image push (denied)",
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/2"
+    },
+    {
+      "run_id": 41293144993,
+      "run_attempt": 1,
+      "branch": "main",
+      "head_sha": "2025c204981746e2e1a333f753f1f4bbf63b7196",
+      "conclusion": "success",
+      "completed_at": "2026-11-01T09:31:33Z",
+      "cause": null,
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/1"
+    },
+    {
+      "run_id": 41323645301,
+      "run_attempt": 1,
+      "branch": "staging",
+      "head_sha": "8a7c48f47733d527fbf40a283bad63907c033921",
+      "conclusion": "success",
+      "completed_at": "2026-11-01T16:15:48Z",
+      "cause": null,
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41323645301/attempts/1"
+    },
+    {
+      "run_id": 41354054785,
+      "run_attempt": 1,
+      "branch": "staging",
+      "head_sha": "e56f92b35f0e25526b0ff9ed195cca48f257dad0",
+      "conclusion": "success",
+      "completed_at": "2026-11-01T22:00:09Z",
+      "cause": null,
+      "url": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41354054785/attempts/1"
+    }
+  ],
+  "deployment_frequency": {
+    "deployments": 4,
+    "weeks": 3,
+    "per_week": 1.3
+  },
+  "change_lead_time": {
+    "changes": 89,
+    "published": 55,
+    "mean_min": 7774.5,
+    "mean_text": "5 d 9 h 34 min",
+    "median_min": 8541.1,
+    "median_text": "5 d 22 h 21 min",
+    "never_published": [
+      "#351",
+      "#357",
+      "#358",
+      "#359",
+      "#355",
+      "#356",
+      "#367",
+      "#298",
+      "#331",
+      "#368",
+      "#361",
+      "#362",
+      "#392",
+      "#373",
+      "#394",
+      "#391",
+      "#397",
+      "#363",
+      "#398",
+      "#401",
+      "#399",
+      "#400",
+      "#405",
+      "#406",
+      "#402",
+      "#411",
+      "#403",
+      "#413",
+      "#415",
+      "#412",
+      "#414",
+      "#426",
+      "#427",
+      "#428"
+    ],
+    "items": [
+      {
+        "change": "#245",
+        "first_commit_at": "2026-10-20T06:16:27Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 16695.4,
+        "lead_text": "11 d 14 h 15 min"
+      },
+      {
+        "change": "#247",
+        "first_commit_at": "2026-10-19T11:15:18Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 17836.5,
+        "lead_text": "12 d 9 h 17 min"
+      },
+      {
+        "change": "#252",
+        "first_commit_at": "2026-10-18T19:04:32Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 18807.3,
+        "lead_text": "13 d 1 h 27 min"
+      },
+      {
+        "change": "#253",
+        "first_commit_at": "2026-10-17T14:20:14Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 20531.6,
+        "lead_text": "14 d 6 h 12 min"
+      },
+      {
+        "change": "#255",
+        "first_commit_at": "2026-10-23T19:36:03Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 11575.8,
+        "lead_text": "8 d 56 min"
+      },
+      {
+        "change": "#248",
+        "first_commit_at": "2026-10-23T00:25:36Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 12726.2,
+        "lead_text": "8 d 20 h 6 min"
+      },
+      {
+        "change": "#249",
+        "first_commit_at": "2026-10-23T00:25:56Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 12725.9,
+        "lead_text": "8 d 20 h 6 min"
+      },
+      {
+        "change": "#250",
+        "first_commit_at": "2026-10-23T15:52:02Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 11799.8,
+        "lead_text": "8 d 4 h 40 min"
+      },
+      {
+        "change": "#251",
+        "first_commit_at": "2026-10-23T15:52:11Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 11799.6,
+        "lead_text": "8 d 4 h 40 min"
+      },
+      {
+        "change": "#262",
+        "first_commit_at": "2026-10-24T10:24:23Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10687.4,
+        "lead_text": "7 d 10 h 7 min"
+      },
+      {
+        "change": "#256",
+        "first_commit_at": "2026-10-17T17:28:10Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 20343.7,
+        "lead_text": "14 d 3 h 4 min"
+      },
+      {
+        "change": "#265",
+        "first_commit_at": "2026-10-24T11:41:50Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10610,
+        "lead_text": "7 d 8 h 50 min"
+      },
+      {
+        "change": "#270",
+        "first_commit_at": "2026-10-24T12:55:44Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10536.1,
+        "lead_text": "7 d 7 h 36 min"
+      },
+      {
+        "change": "#268",
+        "first_commit_at": "2026-10-24T12:32:24Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10559.4,
+        "lead_text": "7 d 7 h 59 min"
+      },
+      {
+        "change": "#273",
+        "first_commit_at": "2026-10-24T15:06:22Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10405.5,
+        "lead_text": "7 d 5 h 25 min"
+      },
+      {
+        "change": "#266",
+        "first_commit_at": "2026-10-24T11:55:34Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10596.3,
+        "lead_text": "7 d 8 h 36 min"
+      },
+      {
+        "change": "#274",
+        "first_commit_at": "2026-10-24T15:19:55Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 10391.9,
+        "lead_text": "7 d 5 h 12 min"
+      },
+      {
+        "change": "#259",
+        "first_commit_at": "2026-10-23T22:25:33Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 11406.3,
+        "lead_text": "7 d 22 h 6 min"
+      },
+      {
+        "change": "#260",
+        "first_commit_at": "2026-10-18T14:18:19Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 19093.5,
+        "lead_text": "13 d 6 h 14 min"
+      },
+      {
+        "change": "#258",
+        "first_commit_at": "2026-10-18T13:59:27Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 19112.4,
+        "lead_text": "13 d 6 h 32 min"
+      },
+      {
+        "change": "#282",
+        "first_commit_at": "2026-10-25T12:07:16Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 9144.5,
+        "lead_text": "6 d 8 h 25 min"
+      },
+      {
+        "change": "#284",
+        "first_commit_at": "2026-10-25T14:57:11Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8974.6,
+        "lead_text": "6 d 5 h 35 min"
+      },
+      {
+        "change": "#288",
+        "first_commit_at": "2026-10-25T17:51:27Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8800.4,
+        "lead_text": "6 d 2 h 40 min"
+      },
+      {
+        "change": "#275",
+        "first_commit_at": "2026-10-17T14:37:48Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 20514,
+        "lead_text": "14 d 5 h 54 min"
+      },
+      {
+        "change": "#286",
+        "first_commit_at": "2026-10-25T16:06:14Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8905.6,
+        "lead_text": "6 d 4 h 26 min"
+      },
+      {
+        "change": "#290",
+        "first_commit_at": "2026-10-25T22:10:42Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8541.1,
+        "lead_text": "5 d 22 h 21 min"
+      },
+      {
+        "change": "#291",
+        "first_commit_at": "2026-10-25T21:29:14Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8582.6,
+        "lead_text": "5 d 23 h 3 min"
+      },
+      {
+        "change": "#292",
+        "first_commit_at": "2026-10-26T05:58:46Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8073.1,
+        "lead_text": "5 d 14 h 33 min"
+      },
+      {
+        "change": "#295",
+        "first_commit_at": "2026-10-27T07:09:05Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 6562.7,
+        "lead_text": "4 d 13 h 23 min"
+      },
+      {
+        "change": "#296",
+        "first_commit_at": "2026-10-27T07:19:50Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 6552,
+        "lead_text": "4 d 13 h 12 min"
+      },
+      {
+        "change": "#297",
+        "first_commit_at": "2026-10-27T07:27:59Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 6543.8,
+        "lead_text": "4 d 13 h 4 min"
+      },
+      {
+        "change": "#287",
+        "first_commit_at": "2026-10-25T17:23:13Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 8828.6,
+        "lead_text": "6 d 3 h 9 min"
+      },
+      {
+        "change": "#316",
+        "first_commit_at": "2026-10-28T09:57:44Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 4954.1,
+        "lead_text": "3 d 10 h 34 min"
+      },
+      {
+        "change": "#318",
+        "first_commit_at": "2026-10-28T15:03:23Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 4648.4,
+        "lead_text": "3 d 5 h 28 min"
+      },
+      {
+        "change": "#317",
+        "first_commit_at": "2026-10-28T10:32:41Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 4919.1,
+        "lead_text": "3 d 9 h 59 min"
+      },
+      {
+        "change": "#319",
+        "first_commit_at": "2026-10-28T15:34:40Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 4617.1,
+        "lead_text": "3 d 4 h 57 min"
+      },
+      {
+        "change": "#324",
+        "first_commit_at": "2026-10-31T11:36:17Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 535.5,
+        "lead_text": "8 h 56 min"
+      },
+      {
+        "change": "#326",
+        "first_commit_at": "2026-10-31T13:48:23Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 403.4,
+        "lead_text": "6 h 43 min"
+      },
+      {
+        "change": "#328",
+        "first_commit_at": "2026-10-31T12:57:39Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 454.2,
+        "lead_text": "7 h 34 min"
+      },
+      {
+        "change": "#329",
+        "first_commit_at": "2026-10-31T14:58:57Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 332.9,
+        "lead_text": "5 h 33 min"
+      },
+      {
+        "change": "#330",
+        "first_commit_at": "2026-10-31T18:14:32Z",
+        "published_sha": "d444d27",
+        "published_at": "2026-10-31T20:31:49Z",
+        "lead_min": 137.3,
+        "lead_text": "2 h 17 min"
+      },
+      {
+        "change": "#333",
+        "first_commit_at": "2026-11-01T08:33:29Z",
+        "published_sha": "2025c20",
+        "published_at": "2026-11-01T09:31:33Z",
+        "lead_min": 58.1,
+        "lead_text": "58 min"
+      },
+      {
+        "change": "#336",
+        "first_commit_at": "2026-11-01T09:25:29Z",
+        "published_sha": "8a7c48f",
+        "published_at": "2026-11-01T16:15:48Z",
+        "lead_min": 410.3,
+        "lead_text": "6 h 50 min"
+      },
+      {
+        "change": "#339",
+        "first_commit_at": "2026-11-01T09:42:19Z",
+        "published_sha": "8a7c48f",
+        "published_at": "2026-11-01T16:15:48Z",
+        "lead_min": 393.5,
+        "lead_text": "6 h 33 min"
+      },
+      {
+        "change": "#341",
+        "first_commit_at": "2026-10-29T07:56:53Z",
+        "published_sha": "8a7c48f",
+        "published_at": "2026-11-01T16:15:48Z",
+        "lead_min": 4818.9,
+        "lead_text": "3 d 8 h 19 min"
+      },
+      {
+        "change": "#340",
+        "first_commit_at": "2026-10-29T08:00:32Z",
+        "published_sha": "8a7c48f",
+        "published_at": "2026-11-01T16:15:48Z",
+        "lead_min": 4815.3,
+        "lead_text": "3 d 8 h 15 min"
+      },
+      {
+        "change": "#334",
+        "first_commit_at": "2026-10-31T20:36:27Z",
+        "published_sha": "8a7c48f",
+        "published_at": "2026-11-01T16:15:48Z",
+        "lead_min": 1179.3,
+        "lead_text": "19 h 39 min"
+      },
+      {
+        "change": "#342",
+        "first_commit_at": "2026-11-01T15:20:46Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 399.4,
+        "lead_text": "6 h 39 min"
+      },
+      {
+        "change": "#345",
+        "first_commit_at": "2026-11-01T17:10:15Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 289.9,
+        "lead_text": "4 h 50 min"
+      },
+      {
+        "change": "#343",
+        "first_commit_at": "2026-11-01T16:02:19Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 357.8,
+        "lead_text": "5 h 58 min"
+      },
+      {
+        "change": "#346",
+        "first_commit_at": "2026-11-01T17:29:41Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 270.5,
+        "lead_text": "4 h 30 min"
+      },
+      {
+        "change": "#320",
+        "first_commit_at": "2026-10-29T12:22:31Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 4897.6,
+        "lead_text": "3 d 9 h 38 min"
+      },
+      {
+        "change": "#349",
+        "first_commit_at": "2026-11-01T18:02:28Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 237.7,
+        "lead_text": "3 h 58 min"
+      },
+      {
+        "change": "#353",
+        "first_commit_at": "2026-11-01T20:57:44Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 62.4,
+        "lead_text": "1 h 2 min"
+      },
+      {
+        "change": "#350",
+        "first_commit_at": "2026-11-01T19:39:13Z",
+        "published_sha": "e56f92b",
+        "published_at": "2026-11-01T22:00:09Z",
+        "lead_min": 140.9,
+        "lead_text": "2 h 21 min"
+      }
+    ]
+  },
+  "change_fail_rate": {
+    "failures": 3,
+    "completed": 7,
+    "percent": 42.9
+  },
+  "failed_deployment_recovery_time": {
+    "incidents": 2,
+    "mean_min": 69.3,
+    "mean_text": "1 h 9 min",
+    "median_min": 69.3,
+    "median_text": "1 h 9 min",
+    "items": [
+      {
+        "red_runs": [
+          "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/1"
+        ],
+        "green_run": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41229574183/attempts/2",
+        "recovery_min": 118.3,
+        "recovery_text": "1 h 58 min"
+      },
+      {
+        "red_runs": [
+          "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/1",
+          "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41291705270/attempts/2"
+        ],
+        "green_run": "https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/41293144993/attempts/1",
+        "recovery_min": 20.3,
+        "recovery_text": "20 min"
+      }
+    ]
+  }
+}

@@ -30,12 +30,12 @@ export const fontFamilies = {
   semibold: 'Inter_600SemiBold',
   bold: 'Inter_700Bold',
   // The "Nearby" logotype.
-  logo: 'Alice_400Regular',
+  logo: 'OtomanopeeOne_400Regular',
 };
 
 // Size and line height of the Figma text styles; the weight comes from the font family.
 export const typography = {
-  logo: { fontSize: 30, lineHeight: 34 },
+  logo: { fontSize: 30, lineHeight: 43 },
   display: { fontSize: 28, lineHeight: 34 },
   h1: { fontSize: 22, lineHeight: 28 },
   h2: { fontSize: 18, lineHeight: 24 },

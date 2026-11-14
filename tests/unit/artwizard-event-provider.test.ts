@@ -3,7 +3,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
-import { ArtWizardEventProvider, quillText } from '../../dist/infra/providers/artwizard-event-provider.js';
+import {
+  ArtWizardEventProvider,
+  quillText,
+  venueAddress,
+} from '../../dist/infra/providers/artwizard-event-provider.js';
 import type { HttpClient, HttpResponse } from '../../dist/infra/providers/http-client.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
 import { PAGES_SAVED_AT, savedPage } from './fixtures/provider-pages.ts';
@@ -44,8 +48,8 @@ type Answer = EventsPage | { status: number; text?: string } | Error;
  */
 function apiClient(pages: Record<number, Answer> = {}): HttpClient & { requested: URL[] } {
   const answers: Record<number, Answer> = {
-    1: { ...savedEventsPage(1), total_pages: 2 },
-    2: { ...savedEventsPage(2), total_pages: 2 },
+    1: { ...savedEventsPage(1), total: 40, total_pages: 2 },
+    2: { ...savedEventsPage(2), total: 40, total_pages: 2 },
     ...pages,
   };
   const requested: URL[] = [];
@@ -94,12 +98,13 @@ afterEach(() => mock.restoreAll());
 
 // FR-008, FR-015
 describe('ArtWizardEventProvider.fetch', () => {
-  test('requests every page of the Kyiv events that touch the catalog window, with the key', async () => {
+  test('requests every page of the Kyiv events of the coming 4 weeks, with the key', async () => {
     const http = apiClient();
 
-    const events = await makeProvider({ http }).fetch();
+    const { records, complete } = await makeProvider({ http }).fetch();
 
-    assert.equal(events.length, 40);
+    assert.equal(records.length, 40);
+    assert.equal(complete, true);
     assert.deepEqual(
       http.requested.map((url) => [url.origin + url.pathname, Object.fromEntries(url.searchParams)]),
       [1, 2].map((page) => [
@@ -107,7 +112,7 @@ describe('ArtWizardEventProvider.fetch', () => {
         {
           apiKey: API_KEY,
           city: 'kyiv',
-          'filter[event_occurrences_data.date_from:lte]': 'date:2026-12-01',
+          'filter[event_occurrences_data.date_from:lte]': 'date:2026-11-30',
           'filter[event_occurrences_data.date_to:gte]': 'date:2026-11-03',
           page_size: '20',
           page: String(page),
@@ -119,16 +124,100 @@ describe('ArtWizardEventProvider.fetch', () => {
   test('logs the totals, and never the key', async () => {
     await makeProvider().fetch();
 
-    assert.deepEqual(logged, ['40 of 74 Kyiv events from 2026-11-03 to 2026-12-01, 2 pages']);
+    assert.deepEqual(logged, ['40 of 40 Kyiv events from 2026-11-03 to 2026-11-30, 2 pages']);
   });
 
   test('stops at the last page the API names', async () => {
-    const http = apiClient({ 1: { ...savedEventsPage(1), total_pages: 1 } });
+    const http = apiClient({ 1: { ...savedEventsPage(1), total: 20, total_pages: 1 } });
 
-    const events = await makeProvider({ http }).fetch();
+    const { records } = await makeProvider({ http }).fetch();
 
-    assert.equal(events.length, 20);
+    assert.equal(records.length, 20);
     assert.equal(http.requested.length, 1);
+  });
+
+  test('asks for nothing after the 28th day, one day before the end of the catalog window', async () => {
+    const http = apiClient();
+
+    await makeProvider({ http, now: new Date('2026-11-07T10:00:00Z') }).fetch();
+
+    assert.ok(
+      http.requested.every(
+        (url) => url.searchParams.get('filter[event_occurrences_data.date_from:lte]') === 'date:2026-12-04',
+      ),
+    );
+  });
+
+  test('covers the list from the time it was read to the end of the 28th day', async () => {
+    const { covers, parts } = await makeProvider().fetch();
+
+    assert.deepEqual(covers, { from: '2026-11-03T10:00:00.000Z', to: '2026-11-30T21:59:59.999Z' });
+    assert.equal(parts, undefined);
+  });
+
+  test('reports the list as not complete when it holds fewer events than the API names', async () => {
+    // The saved run named 74 events in 4 pages; here pages 1 and 2 claim to be all of them.
+    const http = apiClient({
+      1: { ...savedEventsPage(1), total: 74, total_pages: 2 },
+      2: { ...savedEventsPage(2), total: 74, total_pages: 2 },
+    });
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { records, complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(records.length, 40);
+    assert.equal(complete, false);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      ['Not the full list: 40 distinct events read, the API names 74'],
+    );
+  });
+
+  test('reads at most 50 pages, and reports the list as not complete when the API names more', async () => {
+    // Each page has its own slugs, so no record is a repeat.
+    const pageOf = (n: number) => {
+      const { data, ...rest } = savedEventsPage(1);
+      const records = (data as { slug: string }[]).map((record) => ({ ...record, slug: `${record.slug}-p${n}` }));
+      return { ...rest, data: records, total: 1020, total_pages: 51 };
+    };
+    const http = apiClient(Object.fromEntries(Array.from({ length: 51 }, (_, i) => [i + 1, pageOf(i + 1)])));
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { records, complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(http.requested.length, 50);
+    assert.equal(records.length, 1000);
+    assert.equal(complete, false);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      ['Not the full list: the API names 51 pages, only the first 50 were read'],
+    );
+  });
+
+  test('keeps an event listed on two pages once, logs the repeat, and reports the list as not complete', async () => {
+    // As on 2026-11-07: page 2 repeats an event of page 1 in place of another, so the API's total of 40 is right
+    // and the pages still hold 40 records, but only 39 distinct events.
+    const page1 = savedEventsPage(1);
+    const page2 = savedEventsPage(2);
+    const repeated = (page1.data as { slug: string }[])[0];
+    const http = apiClient({
+      1: { ...page1, total: 40, total_pages: 2 },
+      2: { ...page2, total: 40, total_pages: 2, data: [...(page2.data as unknown[]).slice(0, -1), repeated] },
+    });
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+
+    const { records, complete } = await makeProvider({ http }).fetch();
+
+    assert.equal(records.length, 39);
+    assert.equal(new Set(records.map((record) => (record as { slug: string }).slug)).size, 39);
+    assert.equal(complete, false);
+    assert.deepEqual(
+      warn.mock.calls.map((call) => call.arguments[0]),
+      [
+        `${repeated?.slug}: listed again on page 2, first on page 1; kept once`,
+        'Not the full list: 39 distinct events read, the API names 40',
+      ],
+    );
   });
 
   test('fails the run without a key, and sends nothing', async () => {
@@ -173,11 +262,13 @@ describe('ArtWizardEventProvider.normalize', () => {
         categorySlug: 'cinema',
         venue: {
           name: 'Будинок Кіно',
-          address: 'вулиця Саксаганського, 6, Київ, Київ',
+          address: 'вулиця Саксаганського, 6, Київ',
           location: event.venue.location,
         },
         startsAt: '2026-11-03T16:00:00.000Z',
+        startTimeKnown: true,
         endsAt: '2026-11-03T21:59:59.999Z',
+        endTimeKnown: false,
         imageUrl: savedEvent('santimetri-20261103').picture_url,
         sourceUrl: 'https://artwizard.io/kyiv/e/santimetri-20261103',
       },
@@ -191,6 +282,7 @@ describe('ArtWizardEventProvider.normalize', () => {
     const event = normalized(savedEvent('den-vidkritikh-dverey-20261104'));
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-04T08:30:00.000Z', '2026-11-04T15:30:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
   });
 
   test('keeps an end after midnight as the real end', () => {
@@ -199,28 +291,45 @@ describe('ArtWizardEventProvider.normalize', () => {
     );
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-07T20:00:00.000Z', '2026-11-08T00:00:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
+  });
+
+  test('says the end is unknown when date_to equals date_from, and ends the event with its day', () => {
+    // "Сантиметри": 18:00 to 18:00 on 3 November.
+    const saved = savedEvent('santimetri-20261103');
+    const event = normalized(saved);
+
+    const [occurrence] = saved.event_occurrences_data as { date_from: string; date_to: string }[];
+    assert.equal(occurrence?.date_from, occurrence?.date_to);
+    assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-03T21:59:59.999Z', false]);
   });
 
   test('skips "Я бачу, вас цікавить пітьма", whose only occurrence is 00:00–23:59:59', () => {
     assert.equal(skipReason(savedEvent('ia-bachu-vas-tsikavit-pitma-20261103')), 'No start time (00:00 on ArtWizard)');
   });
 
-  test('skips an ongoing exhibition: the opening is past, only its 00:00–23:59:59 run is in the window', () => {
-    // "Іванів ковчег": opening on 20 August at 18:00, then open from 21 August to 29 November.
-    assert.equal(
-      skipReason(savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820')),
-      'No start time (00:00 on ArtWizard)',
-    );
-  });
-
   test('takes the opening of an exhibition that opens in the window, and logs the other occurrence', () => {
     // "Тимчасово постійно": opening on 5 November at 17:00, open from 5 November to 6 December.
     const event = normalized(savedEvent('timchasovo-postiyno-20261105'));
 
-    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T15:00:00.000Z', '2026-11-05T21:59:59.999Z']);
+    assert.deepEqual(
+      [event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+      ['2026-11-05T15:00:00.000Z', true, '2026-11-05T21:59:59.999Z', false],
+    );
     assert.deepEqual(logged, [
-      'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-12-01; importing the one of 2026-11-05T17:00 only',
+      'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-11-30; importing the one of 2026-11-05T17:00 only',
     ]);
+  });
+
+  test('takes the opening of that exhibition as its run once the opening has passed', () => {
+    const provider = makeProvider({ now: new Date('2026-11-06T10:00:00Z') });
+
+    const event = normalized(savedEvent('timchasovo-postiyno-20261105'), provider);
+
+    assert.deepEqual(
+      [event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+      ['2026-11-06T10:00:00.000Z', false, '2026-12-06T21:59:59.999Z', false],
+    );
   });
 
   test('takes the earliest timed occurrence in the window, whatever their order', () => {
@@ -235,7 +344,7 @@ describe('ArtWizardEventProvider.normalize', () => {
     // The 2026 occurrences are past and the 2027 one is after the window.
     assert.equal(
       skipReason(savedEvent('muzichna-programa-14-18-zhovtnia-20261015')),
-      'No occurrence from 2026-11-03 to 2026-12-01',
+      'No occurrence from 2026-11-03 to 2026-11-30',
     );
   });
 
@@ -317,8 +426,191 @@ describe('ArtWizardEventProvider.normalize', () => {
     assert.equal(skipReason({ ...savedEvent('santimetri-20261103'), title: ' ' }), 'Invalid record: title');
   });
 
+  test('adds the city to a venue address without it, with no former address', () => {
+    const { venue } = normalized(savedEvent('santimetri-20261103'), makeProvider());
+    const raw = savedEvent('santimetri-20261103');
+    raw.location = savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820').location;
+
+    const other = normalized(raw);
+
+    assert.equal(venue.address, 'вулиця Саксаганського, 6, Київ');
+    assert.deepEqual(other.venue, {
+      name: 'Музей Івана Гончара',
+      address: 'вул. Лаврська, 19, Київ',
+      location: other.venue.location,
+    });
+  });
+
   test('joins the inserts of a Quill description into plain text', () => {
     assert.equal(quillText('Just text, [not JSON'), 'Just text, [not JSON');
     assert.equal(quillText('[{"insert":"One "},{"insert":{"image":"x"}},{"insert":"two"}]'), 'One two');
   });
+});
+
+// ADR-006, decision 5: an exhibition without opening hours is imported as its run, from a default 12:00.
+describe('ArtWizardEventProvider.normalize, an exhibition run', () => {
+  const END_OF_NOV_29 = '2026-11-29T21:59:59.999Z';
+  const cases = [
+    {
+      title: '"Іванів ковчег": the opening of 20 August is past, the run is open until 29 November',
+      raw: () => savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: END_OF_NOV_29,
+    },
+    {
+      title: '"Гімн праці": the run is written before the opening of 30 October, and lasts until 30 November',
+      raw: () => savedEvent('hymn-pracy-20261030'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: '2026-11-30T21:59:59.999Z',
+    },
+    {
+      title: 'an exhibition whose timed opening on 1 November is before the window',
+      raw: () => savedEvent('vistavka-vidshtovkhuiuchis-vid-smerti--20261101'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: '2026-12-01T21:59:59.999Z',
+    },
+    {
+      title: '"Нелінійний простір": one occurrence from the opening of 29 October at 18:30 to 29 November',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-10-29T18:30:00.000Z', '2026-11-29T18:30:00.000Z']]),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: END_OF_NOV_29,
+    },
+    {
+      title: 'a run that begins after the first day of the window, from its own first day',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-11-10T00:00:00.000Z', '2026-11-20T23:59:59.000Z']]),
+      startsAt: '2026-11-10T10:00:00.000Z',
+      endsAt: '2026-11-20T21:59:59.999Z',
+    },
+    {
+      title: 'a run in summer, at 12:00 Kyiv time (UTC+3)',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-07-01T00:00:00.000Z', '2026-07-31T23:59:59.000Z']]),
+      now: new Date('2026-07-10T08:00:00Z'),
+      startsAt: '2026-07-10T09:00:00.000Z',
+      endsAt: '2026-07-31T20:59:59.999Z',
+    },
+  ];
+  for (const { title, raw, now = PAGES_SAVED_AT, startsAt, endsAt } of cases) {
+    test(`imports ${title}`, () => {
+      const event = normalized(raw(), makeProvider({ now }));
+
+      assert.deepEqual(
+        [event.categorySlug, event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+        ['exhibitions', startsAt, false, endsAt, false],
+      );
+    });
+  }
+
+  test('takes "Текстура простору", of the types Виставки and Музика, as an exhibition: its first type', () => {
+    const event = normalized(savedEvent('tekstura-prostoru-20261008'));
+
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T10:00:00.000Z', '2026-11-04T21:59:59.999Z']);
+  });
+
+  test('logs the run and its default opening time', () => {
+    normalized(savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'));
+
+    assert.deepEqual(logged, [
+      'ivaniv-kovcheg-prostir-svobodi-20260820: an exhibition run from 2026-08-21 to 2026-11-29 without opening ' +
+        'hours; imported from 2026-11-03 at 12:00 (default)',
+    ]);
+  });
+
+  test('takes the run that starts first of several, and logs the others', () => {
+    const raw = withOccurrences('mizh-kadrami-20261023', [
+      ['2026-11-20T00:00:00.000Z', '2026-11-25T23:59:59.000Z'],
+      ['2026-11-05T00:00:00.000Z', '2026-11-10T23:59:59.000Z'],
+    ]);
+
+    const event = normalized(raw);
+
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T10:00:00.000Z', '2026-11-10T21:59:59.999Z']);
+    assert.equal(
+      logged[0],
+      'mizh-kadrami-20261023: 2 exhibition runs from 2026-11-03 to 2026-11-30; importing the one from 2026-11-05 ' +
+        'to 2026-11-10 only',
+    );
+  });
+
+  const skipped = [
+    {
+      title: 'a run that ended before the window',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-10-01T00:00:00.000Z', '2026-11-02T23:59:59.000Z']]),
+      reason: 'No occurrence from 2026-11-03 to 2026-11-30',
+    },
+    {
+      title: 'a timed occurrence over several days that is not an exhibition',
+      raw: () => ({
+        ...withOccurrences('mizh-kadrami-20261023', [['2026-10-29T18:30:00.000Z', '2026-11-29T18:30:00.000Z']]),
+        type: ['Кіно'],
+      }),
+      reason: 'No occurrence from 2026-11-03 to 2026-11-30',
+    },
+    {
+      title: 'a run without a time that is not an exhibition',
+      raw: () => ({ ...savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'), type: ['Театр'] }),
+      reason: 'No start time (00:00 on ArtWizard)',
+    },
+  ];
+  for (const { title, raw, reason } of skipped) {
+    test(`skips ${title}`, () => {
+      assert.equal(skipReason(raw()), reason);
+    });
+  }
+
+  test('imports 38 and skips 2 of the 40 events on the saved pages: no exhibition runs among the skipped', () => {
+    const provider = makeProvider();
+    const results = [...savedEventsPage(1).data, ...savedEventsPage(2).data].map((raw) => provider.normalize(raw));
+
+    const skips = results.flatMap((result) => ('skip' in result ? [result.skip] : []));
+    const runs = results.flatMap((result) => ('event' in result && result.event.startTimeKnown === false ? [1] : []));
+    assert.deepEqual([results.length - skips.length, skips.length, runs.length], [38, 2, 8]);
+    assert.deepEqual(
+      skips.map(({ externalId, reason }) => [externalId, reason]),
+      [
+        ['muzichna-programa-14-18-zhovtnia-20261015', 'No occurrence from 2026-11-03 to 2026-11-30'],
+        ['ia-bachu-vas-tsikavit-pitma-20261103', 'No start time (00:00 on ArtWizard)'],
+      ],
+    );
+  });
+});
+
+describe('venueAddress', () => {
+  const cases = [
+    {
+      title: 'adds the city',
+      address: 'вул. Лаврська, 19',
+      city: 'Київ',
+      result: 'вул. Лаврська, 19, Київ',
+    },
+    {
+      title: 'does not add a city the address ends with',
+      address: 'вулиця Саксаганського, 6, Київ',
+      city: 'Київ',
+      result: 'вулиця Саксаганського, 6, Київ',
+    },
+    {
+      title: 'compares the city without regard to case and spaces',
+      address: 'Нижньоюрківська, 31,  київ ',
+      city: 'Київ',
+      result: 'Нижньоюрківська, 31,  київ',
+    },
+    {
+      title: 'adds the city to a street that only contains it',
+      address: 'вул. Київська, 5',
+      city: 'Київ',
+      result: 'вул. Київська, 5, Київ',
+    },
+    { title: 'is the city alone without an address', address: null, city: 'Київ', result: 'Київ' },
+    {
+      title: 'is the address alone without a city',
+      address: 'вул. Лаврська, 19',
+      city: null,
+      result: 'вул. Лаврська, 19',
+    },
+  ];
+  for (const { title, address, city, result } of cases) {
+    test(title, () => {
+      assert.deepEqual(venueAddress(address, city), result);
+    });
+  }
 });

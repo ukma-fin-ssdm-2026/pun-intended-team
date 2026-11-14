@@ -85,6 +85,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
     id: liveEvent.id,
     title: liveEvent.title,
     startsAt: match.days[0]?.startsAt ?? liveEvent.startsAt,
+    startTimeKnown: liveEvent.startTimeKnown,
     cover: findMockEvent(liveEvent.id)?.cover,
   };
 

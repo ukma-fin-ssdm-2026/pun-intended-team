@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: organization events screen from the Figma "О1 Організація · Мої події" frame with the О3 sheet; reviewed by
 // Daryna Halytska.
-import { Image, type ImageSource } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
@@ -12,6 +12,7 @@ import { CancelEventSheet } from '@/components/organization/cancel-event-sheet';
 import { eventFailure } from '@/components/organization/event-messages';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -64,11 +65,7 @@ function EventRow({ item, onEdit, onCancel }: { item: Row; onEdit: () => void; o
     <View className="gap-3 rounded-[24px] bg-surface-card p-3" style={{ boxShadow: shadows.small }}>
       <View className="flex-row items-center gap-3">
         <View className={`size-[94px] overflow-hidden rounded-2xl ${status === 'cancelled' ? 'opacity-50' : ''}`}>
-          {event.cover ? (
-            <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient preset="thumb" />
-          )}
+          <EventCover cover={event.cover} gradient="thumb" />
         </View>
         <View className="flex-1 items-start gap-1">
           <View className="flex-row items-center gap-1.5 rounded-xl bg-surface-background py-[5px] pl-2 pr-2.5">

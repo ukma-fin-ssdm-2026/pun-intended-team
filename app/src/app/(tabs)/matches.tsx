@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications and matches;
 // reviewed by Daryna Halytska.
-import { Image, type ImageSource } from 'expo-image';
+import type { ImageSource } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -11,6 +11,7 @@ import { loadMyApplications } from '@/api/applications';
 import { loadMyMatches } from '@/api/matches';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate, formatShortDay } from '@/dates';
@@ -26,11 +27,11 @@ import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 64 in the iPhone 14 frame (17 px below its status bar), 52 at the bottom, of which the list
-// covers 28. The list keeps 120 px under it for the tab bar (72 + 22 + 26).
+// covers 28. The list keeps 120 px under it for the tab bar (72 + 12 + 36).
 const HEADER_TOP = 64;
 const GAP_BELOW_STATUS_BAR = 17;
 const LIST_OVERLAP = 28;
-const LIST_BOTTOM_GAP = 26;
+const LIST_BOTTOM_GAP = 36;
 
 function MatchCard({
   event,
@@ -46,11 +47,7 @@ function MatchCard({
     <>
       <View className="flex-row items-center gap-3">
         <View className="size-10 overflow-hidden rounded-xl">
-          {event.cover ? (
-            <Image source={event.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient preset="thumb" />
-          )}
+          <EventCover cover={event.cover} gradient="thumb" />
         </View>
         <View className="flex-1 gap-px">
           <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
@@ -97,12 +94,12 @@ function statusNote(application: Application): string {
 }
 
 // "Сб, 24 жовт · 19:00", or the first picked day of a multi-day event and how many more.
-function daysLabel(sessions: Application['sessions']): string {
+function daysLabel(sessions: Application['sessions'], startTimeKnown: boolean): string {
   const first = sessions[0]?.startsAt ?? '';
   const more = sessions.length - 1;
   return more > 0
     ? `${formatShortDay(first)} і ще ${more} ${plural(more, ['день', 'дні', 'днів'])}`
-    : formatEventDate(first);
+    : formatEventDate(first, startTimeKnown);
 }
 
 // The card of one application, with the days it waits on.
@@ -113,7 +110,7 @@ function SearchCard({ application }: { application: Application }) {
     <MatchCard
       event={{
         title: event?.title ?? ' ',
-        dateLabel: daysLabel(openSessions(application)),
+        dateLabel: daysLabel(openSessions(application), event?.startTimeKnown ?? true),
         cover: findMockEvent(application.eventId)?.cover,
       }}
       onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}
@@ -147,12 +144,11 @@ function MatchedCard({ application, match }: { application: Application; match: 
   const router = useRouter();
   const { data: event } = useEvent(application.eventId);
   const status = matchStatus[match.status];
-  const day = match.days[0]?.startsAt;
   return (
     <MatchCard
       event={{
         title: event?.title ?? ' ',
-        dateLabel: match.days.length > 1 ? daysLabel(match.days) : day ? formatEventDate(day) : '',
+        dateLabel: match.days.length > 0 ? daysLabel(match.days, event?.startTimeKnown ?? true) : '',
         cover: findMockEvent(application.eventId)?.cover,
       }}
       onPress={match.status === 'expired' ? undefined : () => router.push(matchHref(match))}

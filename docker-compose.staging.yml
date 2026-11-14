@@ -51,7 +51,7 @@ services:
     logging: *logging
     image: *image
     restart: unless-stopped
-    environment: &api-environment
+    environment:
       NODE_ENV: production
       TRUST_PROXY: uniquelocal
       CORS_ORIGINS: ${CORS_ORIGINS:-}
@@ -75,21 +75,25 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # One import run, then exit: docker compose -f docker-compose.staging.yml run --rm import
+  # The event import, as nearby_import: runs every provider daily at 02:00 UTC through the import.run jobs
+  # (docs/operations/staging.md#event-import). It needs no key file and no MAIN_DATABASE_URL.
   import:
     logging: *logging
     image: *image
+    restart: unless-stopped
     command: ['node', 'dist/import/main.js']
-    profiles: [manual]
-    # The API's settings, plus the ArtWizard key, which only the import needs.
     environment:
-      <<: *api-environment
+      NODE_ENV: production
+      IMPORT_DATABASE_URL: ${IMPORT_DATABASE_URL}
       ARTWIZARD_API_KEY: ${ARTWIZARD_API_KEY:-}
-    volumes:
-      - ./keys:/app/keys:ro
+    # The job queue lets a running import finish for up to 30 s after SIGTERM.
+    stop_grace_period: 40s
+    # Its grants on the job queue come from the migrations.
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   # The web app: the static export of app/, served by its own Caddy.
   web:

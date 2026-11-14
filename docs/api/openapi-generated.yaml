@@ -381,9 +381,20 @@ components:
             $ref: '#/components/schemas/Event'
         page:
           $ref: '#/components/schemas/PageInfo'
+        lastUpdatedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: >-
+            Null while the imported events are current. While the latest import
+            run of a provider failed, the catalog keeps serving the events of
+            its last succeeded run, and this is when that run finished: the time
+            of the "last updated" notice (FR-014). The same on every page and
+            with every filter
       required:
         - items
         - page
+        - lastUpdatedAt
       example:
         items:
           - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
@@ -400,7 +411,9 @@ components:
                 lat: 50.4825
                 lng: 30.5181
             startsAt: '2026-10-17T19:00:00+03:00'
+            startTimeKnown: true
             endsAt: '2026-10-17T21:30:00+03:00'
+            endTimeKnown: true
             imageUrl: null
             sourceUrl: null
             source: organization
@@ -409,6 +422,7 @@ components:
           limit: 20
           offset: 0
           hasMore: false
+        lastUpdatedAt: null
     Event:
       type: object
       properties:
@@ -426,9 +440,22 @@ components:
         startsAt:
           type: string
           format: date-time
+        startTimeKnown:
+          type: boolean
+          description: >-
+            False when the provider gives no time of day: startsAt is then a
+            default opening time (12:00 Europe/Kyiv for exhibitions) that only
+            orders the event and its sessions; show the dates without a time.
+            Always true for an organization event
         endsAt:
           type: string
           format: date-time
+        endTimeKnown:
+          type: boolean
+          description: >-
+            False for an imported event whose provider gives no end: endsAt is
+            then the end of its start day in Europe/Kyiv and only startsAt
+            should be shown. Always true for an organization event
         imageUrl:
           type: string
           nullable: true
@@ -452,7 +479,9 @@ components:
         - category
         - venue
         - startsAt
+        - startTimeKnown
         - endsAt
+        - endTimeKnown
         - imageUrl
         - sourceUrl
         - source
@@ -473,7 +502,9 @@ components:
             lat: 50.4825
             lng: 30.5181
         startsAt: '2026-10-17T19:00:00+03:00'
+        startTimeKnown: true
         endsAt: '2026-10-17T21:30:00+03:00'
+        endTimeKnown: true
         imageUrl: null
         sourceUrl: null
         source: organization
@@ -991,7 +1022,8 @@ components:
           maxItems: 366
           description: >-
             The Kyiv days the user can go on, any one of which suits them;
-            needed only for an event that runs on several days
+            needed only for an event that runs on several days. Each lies within
+            the catalog window: today and the next 28 days
         desiredCompany:
           type: string
           enum:
@@ -2260,8 +2292,9 @@ paths:
       summary: Browse the event catalog
       description: >-
         Browse the event catalog: published events in the catalog window,
-        soonest first. Needs an access token: a guest token or a signed-in
-        account.
+        soonest first. `lastUpdatedAt` is not null while the imported events are
+        those of an earlier import run (FR-014). Needs an access token: a guest
+        token or a signed-in account.
       tags:
         - Events
       security:
@@ -3088,8 +3121,9 @@ paths:
             `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`:
             the cutoff of a picked day has passed: an hour before it starts, or
             for a session of 3 hours or more, 2 hours before it ends.
-            `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or
-            runs on several days and `dates` is missing.
+            `INVALID_SESSION_DAY`: the event does not run on one of `dates`, one
+            of them is after the catalog window (today and the next 28 days), or
+            the event runs on several days and `dates` is missing.
           content:
             application/json:
               schema:

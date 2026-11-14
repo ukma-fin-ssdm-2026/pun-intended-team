@@ -7,10 +7,19 @@ import {
   KARABAS_SECTIONS,
   KarabasEventProvider,
   type KarabasRecord,
+  durationFromDescription,
   karabasEnd,
+  MAX_PAGES_PER_SECTION,
+  nextPage,
 } from '../../dist/infra/providers/karabas-event-provider.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
-import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
+import {
+  PAGES_SAVED_AT,
+  PAGES_SAVED_AT_NOV_7,
+  PAGES_SAVED_AT_NOV_14,
+  savedPage,
+  savedPagesClient,
+} from './fixtures/provider-pages.ts';
 
 const SAVED_SECTIONS = {
   '/concerts/': 'karabas/kyiv-concerts.html',
@@ -30,9 +39,23 @@ function normalized(provider: KarabasEventProvider, record: KarabasRecord): Impo
   return result.event;
 }
 
-async function recordOf(slug: string, routes: Parameters<typeof savedPagesClient>[0] = SAVED_SECTIONS) {
-  const { provider } = makeProvider(routes);
-  const record = (await provider.fetch()).find((record) => String(record.event.url).endsWith(`/${slug}/`));
+/**
+ * The exhibitions, theatres and sport pages of 2026-11-14: runs with an end time, lengths in descriptions, a real
+ * end.
+ */
+const NOV_14_SECTIONS = {
+  '/exhibitions/': 'karabas/kyiv-exhibitions-2026-11-14.html',
+  '/theatres/': 'karabas/kyiv-theatres-2026-11-14.html',
+  '/sport/': 'karabas/kyiv-sport-2026-11-14.html',
+};
+
+async function recordOf(
+  slug: string,
+  routes: Parameters<typeof savedPagesClient>[0] = SAVED_SECTIONS,
+  now = PAGES_SAVED_AT,
+) {
+  const { provider } = makeProvider(routes, now);
+  const record = (await provider.fetch()).records.find((record) => String(record.event.url).endsWith(`/${slug}/`));
   assert.ok(record, slug);
   return { provider, record };
 }
@@ -42,7 +65,7 @@ describe('KarabasEventProvider.fetch', () => {
   test('takes the 20 events of the concerts page as Concerts, whatever their @type', async () => {
     const { provider } = makeProvider({ '/concerts/': SAVED_SECTIONS['/concerts/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 20);
     assert.ok(records.every((record) => record.categorySlug === 'concerts'));
@@ -53,20 +76,34 @@ describe('KarabasEventProvider.fetch', () => {
     ]);
   });
 
-  test('takes the events of the clubs page, MusicEvent and Event alike, as Parties', async () => {
+  test('takes the MusicEvent records of the clubs page as Parties, and skips the plain Event ones with the reason', async () => {
     const { provider } = makeProvider({ '/clubs/': SAVED_SECTIONS['/clubs/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 20);
-    assert.ok(records.every((record) => record.categorySlug === 'parties'));
-    assert.deepEqual([...new Set(records.map((record) => record.event['@type']))].sort(), ['Event', 'MusicEvent']);
+    const results = records.map((record) => provider.normalize(record));
+    const parties = results.flatMap((result) => ('event' in result ? [result.event] : []));
+    const skipped = results.flatMap((result) => ('skip' in result ? [result.skip] : []));
+    assert.equal(parties.length, 15);
+    assert.ok(parties.every((event) => event.categorySlug === 'parties'));
+    assert.deepEqual(
+      skipped.map(({ externalId }) => externalId),
+      [
+        'art-vechir-v-halerei-modi-mizh-ryadkiv-2',
+        'vynohray-vyno-y-teatr-v-odnomu-kelysi-79',
+        'psykholohichnyy-zakhid-doroslist-i-separatsiya',
+        'klub-nastil-nykh-ihor-187',
+        'psykholohichnyy-zakhid-doroslist-u-stosunkakh-1',
+      ],
+    );
+    assert.ok(skipped.every(({ reason }) => reason === '@type "Event" on /clubs/, which takes only MusicEvent'));
   });
 
   test('takes the one event of the sport page as Sports', async () => {
     const { provider } = makeProvider({ '/sport/': SAVED_SECTIONS['/sport/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 1);
     const event = normalized(provider, records[0] as KarabasRecord);
@@ -77,7 +114,7 @@ describe('KarabasEventProvider.fetch', () => {
   test('keeps an event listed in two sections once, under the first section', async () => {
     const { provider } = makeProvider(SAVED_SECTIONS);
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     const urls = records.map((record) => record.event.url);
     assert.equal(new Set(urls).size, urls.length);
@@ -90,14 +127,19 @@ describe('KarabasEventProvider.fetch', () => {
     );
   });
 
-  test('requests each section page once and nothing else', async () => {
+  test('requests each section page, and the next page only of a section that links to one', async () => {
     const { provider, http } = makeProvider(SAVED_SECTIONS);
 
     await provider.fetch();
 
+    // The saved concerts and clubs pages of 3 November link to a page 2, which was not saved and answers 404.
     assert.deepEqual(
       http.requested,
-      KARABAS_SECTIONS.map(({ path }) => `https://kyiv.karabas.com${path}`),
+      KARABAS_SECTIONS.flatMap(({ path }) => [
+        `https://kyiv.karabas.com${path}`,
+        ...(path === '/concerts/' ? ['https://kyiv.karabas.com/concerts/?time=1793989800&page=2&per-page=20'] : []),
+        ...(path === '/clubs/' ? ['https://kyiv.karabas.com/clubs/?time=1794078000&page=2&per-page=20'] : []),
+      ]),
     );
   });
 
@@ -105,21 +147,233 @@ describe('KarabasEventProvider.fetch', () => {
     // On 15 October the window ends on 12 November, so the sambo tournament on 21 November is out.
     const { provider } = makeProvider({ '/sport/': SAVED_SECTIONS['/sport/'] }, new Date('2026-10-15T09:00:00Z'));
 
-    assert.deepEqual(await provider.fetch(), []);
+    assert.deepEqual((await provider.fetch()).records, []);
   });
 
   test('reads the other sections when one cannot be fetched', async () => {
     const { provider } = makeProvider({ ...SAVED_SECTIONS, '/concerts/': new Error('ECONNRESET') });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 21);
+  });
+
+  test('reports the list as complete only when every section was read to its end', async () => {
+    const everySection = Object.fromEntries(
+      KARABAS_SECTIONS.map(({ path }) => [path, 'karabas/kyiv-sport-2026-11-07.html']),
+    );
+
+    assert.equal((await makeProvider(everySection, PAGES_SAVED_AT_NOV_7).provider.fetch()).complete, true);
+    const oneMissing = { ...everySection, '/cinema/': { status: 503 } };
+    assert.equal((await makeProvider(oneMissing, PAGES_SAVED_AT_NOV_7).provider.fetch()).complete, false);
   });
 
   test('fails the run when no section can be fetched', async () => {
     const { provider } = makeProvider({});
 
     await assert.rejects(provider.fetch(), /No Karabas section page could be fetched/);
+  });
+});
+
+// FR-008, REL-003: the concerts pages saved on 7 November, read with that day as today.
+describe('KarabasEventProvider.fetch, page after page', () => {
+  const PAGE_2 = '/concerts/?time=1794150000&page=2&per-page=20';
+  const PAGE_3 = '/concerts/?time=1794592800&page=3&per-page=20';
+  const PAGE_1_FILE = 'karabas/kyiv-concerts-2026-11-07-page-1.html';
+  const PAGE_2_FILE = 'karabas/kyiv-concerts-2026-11-07-page-2.html';
+  const concerts = { '/concerts/': PAGE_1_FILE, [PAGE_2]: PAGE_2_FILE };
+  const read = (routes: Parameters<typeof savedPagesClient>[0], now = PAGES_SAVED_AT_NOV_7) => {
+    const made = makeProvider(routes, now);
+    return { ...made, result: made.provider.fetch() };
+  };
+  const paths = (requested: string[]) => requested.map((url) => url.replace('https://kyiv.karabas.com', ''));
+  const concertPaths = (requested: string[]) => paths(requested).filter((path) => path.startsWith('/concerts/'));
+
+  test('follows the "load more" link with per-page=20 added, and takes the events of every page', async () => {
+    const { http, result } = read(concerts);
+
+    const { records } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2, PAGE_3]);
+    assert.equal(records.length, 40);
+    assert.ok(records.every((record) => record.categorySlug === 'concerts'));
+  });
+
+  test('asks for every later page with per-page=20, which the link in the HTML leaves out', async () => {
+    const { http, result } = read(concerts);
+
+    await result;
+
+    const later = http.requested.map((url) => new URL(url)).filter((url) => url.searchParams.has('page'));
+    assert.ok(later.length > 0);
+    assert.ok(later.every((url) => url.searchParams.get('per-page') === '20'));
+  });
+
+  test('keeps an event listed on two pages once', async () => {
+    // Page 2 ends with an event of page 1, as when consecutive pages overlap.
+    const page2 = savedPage(PAGE_2_FILE).replaceAll(
+      '/pory-roku-vival-di-p-yatstsola-pry-svichkakh-1/',
+      '/kvytok-v-paryzh-muzychne-foye-nfu/',
+    );
+    const { result } = read({ '/concerts/': PAGE_1_FILE, [PAGE_2]: { status: 200, text: page2 } });
+
+    const { records } = await result;
+
+    const urls = records.map((record) => String(record.event.url));
+    assert.equal(new Set(urls).size, urls.length);
+    assert.equal(urls.filter((url) => url.endsWith('/kvytok-v-paryzh-muzychne-foye-nfu/')).length, 1);
+    assert.equal(records.length, 39);
+  });
+
+  test('stops at a page that repeats the earlier ones, and reports the list as not complete', async () => {
+    const page1 = savedPage(PAGE_1_FILE);
+    const { http, result } = read({ '/concerts/': PAGE_1_FILE, [PAGE_2]: { status: 200, text: page1 } });
+
+    const { records, complete } = await result;
+
+    assert.equal(complete, false);
+    assert.equal(records.length, 20);
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2]);
+  });
+
+  test('keeps the pages read so far when a later one fails, and reports the list as not complete', async () => {
+    // Page 3 was not saved, so it answers 404.
+    const { result } = read(concerts);
+
+    const { records, complete } = await result;
+
+    assert.equal(records.length, 40);
+    assert.equal(complete, false);
+  });
+
+  test('stops at the page that reaches past the window, without asking for the next one', async () => {
+    // On 15 October the window ends on 12 November; page 2 runs to 13 November.
+    const { http, result } = read(concerts, new Date('2026-10-15T09:00:00Z'));
+
+    const { records, complete } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2]);
+    assert.ok(records.length > 20);
+    assert.ok(records.every((record) => String(record.event.startDate) < '2026-11-13'));
+    assert.equal(complete, false, 'the other sections answer 404 here');
+  });
+
+  test('reads on past a page whose first event is pinned after the window, by the start of its last event', async () => {
+    // The page's first event, "Квиток в Париж", moved to January; its own JSON-LD, not the page's list of events.
+    const pinned = savedPage(PAGE_1_FILE).replace(
+      /(kvytok-v-paryzh-muzychne-foye-nfu\/",\s*"startDate": ")2026-11-07T15:00:00\+02:00/,
+      '$12027-01-15T20:00:00+02:00',
+    );
+    const { http, result } = read({ '/concerts/': { status: 200, text: pinned }, [PAGE_2]: PAGE_2_FILE });
+
+    const { records } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2, PAGE_3]);
+    assert.equal(records.length, 39, 'the pinned event is outside the window');
+  });
+
+  test('counts the events in the window per section, before an event of two sections is kept once', async () => {
+    const { result } = read({ ...concerts, '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    const { parts } = await result;
+
+    // The sections that answered 404 are not counted: the list is not complete anyway.
+    assert.deepEqual(parts, { '/concerts/': 40, '/sport/': 1 });
+  });
+
+  test('counts a section that answers a page without events as 0', async () => {
+    const empty = savedPage('karabas/kyiv-sport-2026-11-07.html').replace(
+      /<script type="application\/ld\+json">[\s\S]*?<\/script>/g,
+      '',
+    );
+    const { result } = read({ '/festivals/': { status: 200, text: empty } });
+
+    assert.deepEqual((await result).parts, { '/festivals/': 0 });
+  });
+
+  test('covers the list from the time it was read to the end of the window’s last Kyiv day', async () => {
+    const { result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    assert.deepEqual((await result).covers, { from: '2026-11-07T10:00:00.000Z', to: '2026-12-05T21:59:59.999Z' });
+  });
+
+  test('reads a section without a "load more" link as its last page', async () => {
+    const { http, result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    const { records } = await result;
+
+    assert.equal(records.length, 1);
+    assert.deepEqual(
+      paths(http.requested).filter((path) => path.startsWith('/sport/')),
+      ['/sport/'],
+    );
+  });
+
+  test(`stops after ${MAX_PAGES_PER_SECTION} pages of a section, and reports the list as not complete`, async () => {
+    // Every page brings one new event and links to the next one, so only the limit stops the reading.
+    const pageWith = (n: number) =>
+      savedPage(PAGE_1_FILE)
+        .replaceAll('/kvytok-v-paryzh-muzychne-foye-nfu/', `/endless-${n}/`)
+        .replace('/concerts/?time=1794150000&amp;page=2', `/concerts/?time=1794150000&amp;page=${n + 1}`);
+    const later = Array.from({ length: MAX_PAGES_PER_SECTION }, (_, i) => i + 2).map((n) => [
+      `/concerts/?time=1794150000&page=${n}&per-page=20`,
+      { status: 200, text: pageWith(n) },
+    ]);
+    const routes = Object.fromEntries([['/concerts/', { status: 200, text: pageWith(1) }], ...later]) as Parameters<
+      typeof savedPagesClient
+    >[0];
+    const { http, result } = read(routes);
+
+    assert.equal((await result).complete, false);
+    assert.equal(concertPaths(http.requested).length, MAX_PAGES_PER_SECTION);
+  });
+});
+
+describe('nextPage', () => {
+  const section = new URL('https://kyiv.karabas.com/concerts/');
+  const withLink = (href: string) => `<a href="${href}" data-pagination-load-more><span>Завантажити ще</span></a>`;
+
+  test('is the "load more" link of the saved page, with per-page=20 added', () => {
+    assert.deepEqual(nextPage(savedPage('karabas/kyiv-concerts-2026-11-07-page-1.html'), section), {
+      url: 'https://kyiv.karabas.com/concerts/?time=1794150000&page=2&per-page=20',
+    });
+  });
+
+  test('sets a per-page the link already has to 20', () => {
+    assert.deepEqual(nextPage(withLink('/concerts/?time=1&amp;page=3&amp;per-page=100'), section), {
+      url: 'https://kyiv.karabas.com/concerts/?time=1&page=3&per-page=20',
+    });
+  });
+
+  test('is the last page on a page without the link', () => {
+    const sport = new URL('https://kyiv.karabas.com/sport/');
+    assert.equal(nextPage(savedPage('karabas/kyiv-sport-2026-11-07.html'), sport), 'last');
+  });
+
+  const outside = [
+    { title: '/ajax.php', href: '/ajax.php?action=events&page=2' },
+    { title: 'another section', href: '/clubs/?page=2' },
+    { title: 'another host', href: 'https://example.com/concerts/?page=2' },
+  ];
+  for (const { title, href } of outside) {
+    test(`refuses a link to ${title}`, () => {
+      assert.equal(nextPage(withLink(href), section), 'outside');
+    });
+  }
+
+  test('ends the section at a link out of it, and reports the list as not complete', async () => {
+    const page = savedPage('karabas/kyiv-concerts-2026-11-07-page-1.html').replace(
+      '/concerts/?time=1794150000&amp;page=2',
+      '/ajax.php?page=2',
+    );
+    const http = savedPagesClient({ '/concerts/': { status: 200, text: page } });
+    const provider = new KarabasEventProvider({ http, now: () => PAGES_SAVED_AT_NOV_7 });
+
+    const { records, complete } = await provider.fetch();
+
+    assert.equal(records.length, 20);
+    assert.equal(complete, false);
+    assert.ok(!http.requested.some((url) => url.includes('ajax.php')));
   });
 });
 
@@ -140,6 +394,7 @@ describe('KarabasEventProvider.normalize', () => {
         // 21:00+02:00 in the JSON-LD, 19:00 on the page.
         startsAt: '2026-11-05T17:00:00.000Z',
         endsAt: '2026-11-05T21:59:59.999Z',
+        endTimeKnown: false,
         imageUrl:
           'https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/01a139fc-2110-78c5-9c54-a9d320ece9a2/2920259823_ImageBig639275816856307582.jpeg',
         sourceUrl: 'https://kyiv.karabas.com/lama-15/',
@@ -167,20 +422,23 @@ describe('KarabasEventProvider.normalize', () => {
     const event = normalized(provider, record);
 
     assert.equal(record.event.endDate, '2026-11-06T00:00:00+02:00');
-    assert.equal(event.endsAt, '2026-11-05T21:59:59.999Z');
+    assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-05T21:59:59.999Z', false]);
   });
 
   test('keeps a real end later the same day, shifted like the start', async () => {
     const { provider, record } = await recordOf('psykholohichnyy-zakhid-doroslist-i-separatsiya');
 
-    const event = normalized(provider, record);
+    // The only saved event with such an end is a plain Event of the clubs page, which that page does not import;
+    // read here as if a section without a @type rule had listed it first.
+    const event = normalized(provider, { ...record, section: '/theatres/', categorySlug: 'theatre' });
 
     // 21:00–23:00+02:00 in the JSON-LD, 19:00–21:00 on the page.
     assert.equal(record.event.endDate, '2026-11-04T23:00:00+02:00');
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-04T17:00:00.000Z', '2026-11-04T19:00:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
   });
 
-  test('imports the first show of a run, ending with its day, and logs the run', async () => {
+  test('imports a run until a later midnight as one event to the end of its last day, and logs the run', async () => {
     // As "Тигролови" on the theatres page on 2026-11-03: shows from 3 to 12 November.
     const run: KarabasRecord = {
       section: '/theatres/',
@@ -203,20 +461,152 @@ describe('KarabasEventProvider.normalize', () => {
 
     const event = normalized(provider, run);
 
-    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T16:00:00.000Z', '2026-11-03T21:59:59.999Z']);
-    assert.ok(
-      log.mock.calls.some(({ arguments: [message] }) =>
-        String(message).includes('tyhrolovy-teatr-zoloti-vorota-7: a run of shows until 2026-11-12'),
-      ),
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T16:00:00.000Z', '2026-11-12T21:59:59.999Z']);
+    assert.equal(event.endTimeKnown, false);
+    assert.deepEqual(
+      log.mock.calls.map(({ arguments: [message] }) => message),
+      ['tyhrolovy-teatr-zoloti-vorota-7: a run of shows until 2026-11-12; imported as 10 days'],
     );
     log.mock.restore();
   });
 
-  test('ends the event with its day when endDate is a time on another day', () => {
-    const start = new Date('2026-11-04T19:00:00.000Z');
+  describe('on the pages of 2026-11-14', () => {
+    const recordOfNov14 = (slug: string) => recordOf(slug, NOV_14_SECTIONS, PAGES_SAVED_AT_NOV_14);
 
-    assert.deepEqual(karabasEnd(start, '2026-11-05T04:00:00+02:00'), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
-    assert.deepEqual(karabasEnd(start, undefined), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
+    test('imports a run with an end time as one event to that time on its last day, and logs the run', async () => {
+      // "Київський музей медуз": 10:00 on 14 November to 14:00 on 1 May on the page.
+      const { provider, record } = await recordOfNov14('kyivs-kyy-muzey-meduz');
+      const log = mock.method(Logger.prototype, 'log', () => {});
+
+      const event = normalized(provider, record);
+
+      assert.deepEqual(
+        [record.event.startDate, record.event.endDate],
+        ['2026-11-14T12:00:00+02:00', '2027-05-01T17:00:00+03:00'],
+      );
+      assert.deepEqual(
+        [event.startsAt, event.endsAt, event.endTimeKnown],
+        ['2026-11-14T08:00:00.000Z', '2027-05-01T11:00:00.000Z', true],
+      );
+      assert.deepEqual(
+        log.mock.calls.map(({ arguments: [message] }) => message),
+        ['kyivs-kyy-muzey-meduz: a run of shows until 2027-05-01 at 14:00; imported as 169 days'],
+      );
+      log.mock.restore();
+    });
+
+    const runs: [slug: string, startsAt: string, endsAt: string][] = [
+      // 10:00 on 14 November to 14:00 on 1 May.
+      ['kiyivskij-okeanarium-morska-kazka', '2026-11-14T08:00:00.000Z', '2027-05-01T11:00:00.000Z'],
+      // 11:00 on 14 November to 20:00 on 31 December.
+      ['muzey-miniland-ua-5', '2026-11-14T09:00:00.000Z', '2026-12-31T18:00:00.000Z'],
+      // A play on the theatres page, 17:00 on 14 November to 21:00 on 29 November.
+      ['svit-u-horikhoviy-shkaralupi-12', '2026-11-14T15:00:00.000Z', '2026-11-29T19:00:00.000Z'],
+    ];
+    for (const [slug, startsAt, endsAt] of runs) {
+      test(`imports the run ${slug} from today's show to its last show, with a known end`, async () => {
+        const { provider, record } = await recordOfNov14(slug);
+
+        const event = normalized(provider, record);
+
+        assert.deepEqual([event.startsAt, event.endsAt, event.endTimeKnown], [startsAt, endsAt, true]);
+      });
+    }
+
+    test('leaves out the run of 2024, which ended before the window', async () => {
+      const { provider } = makeProvider(NOV_14_SECTIONS, PAGES_SAVED_AT_NOV_14);
+
+      const { records } = await provider.fetch();
+
+      assert.ok(!records.some(({ event }) => String(event.url).endsWith('/muzey-miniland-ua/')));
+    });
+
+    test('keeps the other shows of the theatres page to their own day', async () => {
+      const { provider } = makeProvider({ '/theatres/': NOV_14_SECTIONS['/theatres/'] }, PAGES_SAVED_AT_NOV_14);
+      const { records } = await provider.fetch();
+
+      const days = records
+        .filter(({ event }) => !String(event.url).endsWith('/svit-u-horikhoviy-shkaralupi-12/'))
+        .map((record) => normalized(provider, record))
+        .map(({ startsAt, endsAt }) => [startsAt.slice(0, 10), endsAt.slice(0, 10)]);
+
+      assert.equal(days.length, 19);
+      assert.ok(days.every(([start, end]) => start === '2026-11-14' && end === '2026-11-14'));
+    });
+
+    // endDate is the JSON-LD value; startsAt is checked only where given.
+    const cases: Array<{
+      name: string;
+      slug: string;
+      endDate?: string;
+      startsAt?: string;
+      endsAt: string;
+      endTimeKnown: boolean;
+    }> = [
+      {
+        name: 'ends an event at its start plus the length its description gives',
+        // A guitar museum tour at 12:00: "Тривалість екскурсії 70 хвилин", and the next midnight as endDate.
+        slug: 'muzey-hitar-ta-istorii-svitovoi-elektromuzychnoi-industrii-53',
+        endDate: '2026-11-15T00:00:00+02:00',
+        startsAt: '2026-11-14T10:00:00.000Z',
+        endsAt: '2026-11-14T11:10:00.000Z',
+        endTimeKnown: true,
+      },
+      {
+        name: 'leaves the end unknown when the description gives only a bound',
+        // "Тривалість орієнтовна від 1 години."
+        slug: 'mayster-klas-svitlo-kazkovykh-mriy-1',
+        endsAt: '2026-11-14T21:59:59.999Z',
+        endTimeKnown: false,
+      },
+      {
+        name: 'keeps a real end later the same day on the sport page',
+        // A boxing evening, 16:00–23:00 on 5 December: 18:00+02:00 to 01:00+02:00 of the next day in the JSON-LD.
+        slug: 'vechir-profesiynoho-boksu-vid-tbg-ta-bfl-1',
+        endDate: '2026-12-06T01:00:00+02:00',
+        startsAt: '2026-12-05T14:00:00.000Z',
+        endsAt: '2026-12-05T21:00:00.000Z',
+        endTimeKnown: true,
+      },
+      {
+        name: 'leaves the end unknown for the other event of the sport page, which ends at the next midnight',
+        slug: 'blahodiynyy-turnir-liha-profesiynoho-sambo-11-0',
+        endsAt: '2026-11-21T21:59:59.999Z',
+        endTimeKnown: false,
+      },
+    ];
+    for (const { name, slug, endDate, startsAt, endsAt, endTimeKnown } of cases) {
+      test(name, async () => {
+        const { provider, record } = await recordOfNov14(slug);
+
+        const event = normalized(provider, record);
+
+        if (endDate !== undefined) assert.equal(record.event.endDate, endDate);
+        if (startsAt === undefined) {
+          assert.deepEqual([event.endsAt, event.endTimeKnown], [endsAt, endTimeKnown]);
+        } else {
+          assert.deepEqual([event.startsAt, event.endsAt, event.endTimeKnown], [startsAt, endsAt, endTimeKnown]);
+        }
+      });
+    }
+  });
+
+  test('skips any @type but MusicEvent on the clubs page', async () => {
+    const { provider, record } = await recordOf('lama-15', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const result = provider.normalize({ ...record, event: { ...record.event, '@type': 'TheaterEvent' } });
+
+    assert.ok('skip' in result);
+    assert.match(result.skip.reason, /@type "TheaterEvent" on \/clubs\//);
+  });
+
+  test('keeps the category of the section that lists an event first, whatever its @type', async () => {
+    // A plain Event of the clubs page, as if the concerts page had listed it first.
+    const { provider, record } = await recordOf('klub-nastil-nykh-ihor-187', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const event = normalized(provider, { ...record, section: '/concerts/', categorySlug: 'concerts' });
+
+    assert.equal(event.categorySlug, 'concerts');
   });
 
   test('gives no image URL for an event without an image', async () => {
@@ -233,5 +623,180 @@ describe('KarabasEventProvider.normalize', () => {
     assert.deepEqual(provider.normalize({ ...record, event }), {
       skip: { externalId: 'lama-15', reason: 'Invalid record: location' },
     });
+  });
+});
+
+describe('karabasEnd', () => {
+  // 19:00 in Kyiv on 4 November, written `21:00:00+02:00` by Karabas.
+  const START = new Date('2026-11-04T17:00:00.000Z');
+  const END_OF_DAY = new Date('2026-11-04T21:59:59.999Z');
+
+  test('gives no end for the next midnight: the end of the day, unknown', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-05T00:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('gives no end without an endDate', () => {
+    assert.deepEqual(karabasEnd(START, undefined), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('reads a later midnight as a run until the day before it, ending with that day, unknown', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00'), {
+      endsAt: new Date('2026-11-12T21:59:59.999Z'),
+      endTimeKnown: false,
+      runUntil: '2026-11-12',
+    });
+  });
+
+  test('keeps a time later the same day as the end, shifted like the start', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T23:30:00+02:00'), {
+      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+
+  test('reads a time on a later day as a run until that day, the last show ending at that time', () => {
+    // 19:00 on 4 November to 21:30 on 20 November.
+    assert.deepEqual(karabasEnd(START, '2026-11-20T23:30:00+02:00'), {
+      endsAt: new Date('2026-11-20T19:30:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2026-11-20',
+      runEndTime: '21:30',
+    });
+  });
+
+  test('ends the last show of a run in Kyiv time when the run ends in summer time', () => {
+    // 10:00 on 14 November to 14:00 on 1 May, as "Київський музей медуз".
+    assert.deepEqual(karabasEnd(new Date('2026-11-14T08:00:00.000Z'), '2027-05-01T17:00:00+03:00'), {
+      endsAt: new Date('2027-05-01T11:00:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2027-05-01',
+      runEndTime: '14:00',
+    });
+  });
+
+  test('does not read a time on a later day as a run when it is not after the start time of day', () => {
+    // 19:00 to 02:00 of the next day.
+    assert.deepEqual(karabasEnd(START, '2026-11-05T04:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('ignores an endDate that is not after the start', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T20:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+    assert.deepEqual(karabasEnd(START, '2026-11-04T21:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('ends the event after the length of its description when the endDate gives no end', () => {
+    const known = { endsAt: new Date('2026-11-04T18:20:00.000Z'), endTimeKnown: true };
+
+    assert.deepEqual(karabasEnd(START, '2026-11-05T00:00:00+02:00', 80), known);
+    assert.deepEqual(karabasEnd(START, undefined, 80), known);
+  });
+
+  test('ends a run until a later midnight on its last day after the length of its description', () => {
+    // 19:00 to 20:20 every day from 4 to 12 November.
+    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00', 80), {
+      endsAt: new Date('2026-11-12T18:20:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2026-11-12',
+    });
+  });
+
+  test('ends a run until a later midnight in Kyiv time when its last day is in summer time', () => {
+    // 19:00 to 20:20 every day from 4 November to 1 April.
+    assert.deepEqual(karabasEnd(START, '2027-04-02T00:00:00+03:00', 80).endsAt, new Date('2027-04-01T17:20:00.000Z'));
+    assert.deepEqual(karabasEnd(START, '2027-04-02T00:00:00+03:00').endsAt, new Date('2027-04-01T20:59:59.999Z'));
+  });
+
+  test('prefers an endDate that gives an end to the length', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T23:30:00+02:00', 80), {
+      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+
+  test('leaves the end unknown when the length would take the event past midnight', () => {
+    // 23:00 in Kyiv and 2 hours.
+    const late = new Date('2026-11-04T21:00:00.000Z');
+
+    assert.deepEqual(karabasEnd(late, '2026-11-05T00:00:00+02:00', 120), { endsAt: END_OF_DAY, endTimeKnown: false });
+    assert.deepEqual(karabasEnd(late, '2026-11-05T00:00:00+02:00', 59), {
+      endsAt: new Date('2026-11-04T21:59:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+});
+
+describe('durationFromDescription', () => {
+  const lengths: [description: string, minutes: number][] = [
+    ['Переклад: Дмитро Тодорюк Тривалість вистави – 1 год 50 хв Виконується українською мовою.', 110],
+    ['Тривалість вистави – 1 год 20 хв', 80],
+    ['Тривалість вистави: 1 година 10 хвилин.', 70],
+    ['Вистава йде українською мовою. Тривалість 1 год. 40 хв.', 100],
+    ['Тривалість вистави - 1год.5хв.', 65],
+    ['Тривалість: 1 год.20 хвилин [вистава на 2 дії]', 80],
+    ['Тривалість – 1 година 55 хв. без антракту', 115],
+    ['Через це збільшилася й тривалість вистави – 1,5 години справжнього дива', 90],
+    ['Тривалість: 2 год (без антракту)', 120],
+    ['Тривалість - 3 год. з антрактомЖанр - Трагедія', 180],
+    ['Жанр – різдвяна казкаТривалість – 1годинаРекомендований вік - 7 плюс', 60],
+    ['Тривалість вистави - 2 годиниРекомендований вік - з 10 років', 120],
+    ['тривалість: 90 хв обмеження за віком: 18+', 90],
+    ['Вікове обмеження 18+Тривалість: 110 хвилинНа сцені: Данііл Кіно', 110],
+    ['Тривалість вистави 100хв з антрактом', 100],
+    ['Тривалість екскурсії 70 хвилин. UNIVERSUM Hall', 70],
+    ['Тривалість програми - 90 хв, в тому числі концерту в Зоряній Залі – 70 хвилин.', 90],
+    ['Тривалість концерту в Зоряній Залі – 60 хвилин.', 60],
+    ['Тривалість: 10 хв', 10],
+    ['Тривалість: 12 годин', 720],
+  ];
+  for (const [description, minutes] of lengths) {
+    test(`reads ${minutes} minutes from "${description.slice(0, 60)}"`, () => {
+      assert.equal(durationFromDescription(description), minutes);
+    });
+  }
+
+  const noLengths: [title: string, description: string][] = [
+    ['a description without a length', 'Вистава без антракту. Початок о 19:00.'],
+    ['a note about the interval after the word', 'Тривалість: без антракту'],
+    ['a lower bound', 'Тривалість орієнтовна від 1 години.'],
+    ['an upper bound', 'Тривалість до 60 хвилин.'],
+    ['an upper bound of a part', 'Тривалість однієї історії до 5 хв.'],
+    ['another number before the length', 'Тривалість: 1 дія, 90 хвилин'],
+    [
+      'a length far from the word',
+      'Тривалість вистави залежить від настрою глядачів і акторів у залі, але зазвичай 90 хвилин',
+    ],
+    ['a length in another sentence', 'Яка тривалість? Близько 90 хвилин.'],
+    ['minutes without the word', 'Екскурсії стартують кожні 30 хвилин.'],
+    ['another form of the word', 'продовжена в межах загальної тривалості 2 години'],
+    ['a length under 10 minutes', 'Тривалість: 9 хв'],
+    ['a length over 12 hours', 'Тривалість: 13 годин'],
+    ['minutes over 12 hours', 'Тривалість: 721 хв'],
+    ['60 minutes or more after the hours', 'Тривалість: 1 год 75 хв'],
+    ['a word that only starts like a unit', 'Тривалість 2 годування'],
+    ['an empty description', ''],
+  ];
+  for (const [title, description] of noLengths) {
+    test(`reads no length from ${title}`, () => {
+      assert.equal(durationFromDescription(description), undefined);
+    });
+  }
+
+  test('reads the lengths the exhibitions page of 2026-11-14 gives, and no other', async () => {
+    const { provider } = makeProvider({ '/exhibitions/': NOV_14_SECTIONS['/exhibitions/'] }, PAGES_SAVED_AT_NOV_14);
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+    const { records } = await provider.fetch();
+    warn.mock.restore();
+
+    const read = records
+      .map(({ event }) => [String(event.name), durationFromDescription(String(event.description ?? ''))] as const)
+      .filter(([, minutes]) => minutes !== undefined);
+
+    // The page spells the title this way.
+    assert.deepEqual(read, [
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+    ]);
   });
 });

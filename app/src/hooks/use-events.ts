@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { apiClient } from '@/api/client';
 import { call } from '@/api/public-client';
 import type { components } from '@/api/schema';
+import { formatDateTime } from '@/dates';
 import { useApiQuery } from '@/hooks/use-api-query';
 
 type Event = components['schemas']['Event'];
@@ -13,13 +14,19 @@ type EventsPage = components['schemas']['EventsPage'];
 const PAGE_SIZE = 20;
 
 // What the API narrows by. The search text, several categories and the districts are applied to the loaded pages only.
-export type EventQuery = { categoryId?: string; from?: string; to?: string };
+export type EventQuery = { categoryId?: string; from?: string; to?: string; venueId?: string };
 
 const fetchPage = (query: EventQuery, offset: number) =>
   call(() => apiClient.GET('/api/v1/events', { params: { query: { ...query, limit: PAGE_SIZE, offset } } }));
 
 // Pages after the first, valid only for the first page they were loaded after: a reload or another query drops them.
 type More = { base: EventsPage; items: Event[]; hasMore: boolean; failed: boolean };
+
+// FR-014: "Оновлено 10 лист 2026, 04:01" while the imported events are those of an earlier import run, which is when
+// the API gives `lastUpdatedAt`; nothing while they are current.
+export function lastUpdatedNotice(lastUpdatedAt: string | null | undefined): string | undefined {
+  return lastUpdatedAt ? `Оновлено ${formatDateTime(lastUpdatedAt)}` : undefined;
+}
 
 // One page of the catalog; `loadMore` adds the next one, when the screen is scrolled to its end.
 export function useEvents({ categoryId, from, to }: EventQuery = {}) {
@@ -70,7 +77,16 @@ export function useEvents({ categoryId, from, to }: EventQuery = {}) {
     loadMore,
     loadingMore,
     loadMoreFailed: extra?.failed ?? false,
+    lastUpdated: lastUpdatedNotice(base?.lastUpdatedAt),
   };
+}
+
+// The first page of one venue's events, for the venue card of the map (FR-013); nothing while no venue is picked.
+export function useVenueEvents(venueId: string | undefined, query: EventQuery) {
+  const { categoryId, from, to } = query;
+  return useApiQuery(venueId ? JSON.stringify([venueId, categoryId, from, to]) : null, () =>
+    fetchPage({ categoryId, from, to, venueId }, 0),
+  );
 }
 
 // The saved events: one request per id, since the catalog is not listed whole. An id the API does not return is left

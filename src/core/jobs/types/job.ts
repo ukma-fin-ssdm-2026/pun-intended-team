@@ -14,3 +14,11 @@ export type JobHandler<Payload extends object = object> = (job: Job<Payload>) =>
 
 /** When a job may start: at once (no options), after a delay, or at a given time. */
 export type EnqueueOptions = { delayMs: number; runAt?: never } | { runAt: Date; delayMs?: never };
+
+/** How the jobs of one name are run; what is left out keeps the default (3 retries, 15 minutes to finish). */
+export interface QueueOptions {
+  /** How often a failed job is tried again; 0 for never. */
+  retryLimit?: number;
+  /** How long a job may run before it counts as failed. */
+  timeoutSeconds?: number;
+}

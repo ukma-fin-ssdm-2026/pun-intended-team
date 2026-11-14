@@ -421,6 +421,8 @@ model Event {
   sourceUrl      String?       @map("source_url")
   startsAt       DateTime      @map("starts_at") @db.Timestamptz(3)
   endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
+  startTimeKnown Boolean       @default(true) @map("start_time_known")
+  endTimeKnown   Boolean       @default(true) @map("end_time_known")
   status         EventStatus   @default(published)
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -459,6 +461,12 @@ model ImportRun {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
   status     String
+  /// Whether the run read the provider's full list and it passed the checks against the last complete run.
+  complete   Boolean   @default(false)
+  /// Records the run saw: saved, or skipped only because the geocoder failed or found nothing.
+  seen       Int?
+  /// Records per part of the provider, e.g. per Karabas section: `{ "/concerts/": 190 }`.
+  parts      Json?
   updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   skippedRecords SkippedRecord[]

@@ -2,11 +2,11 @@
 import { Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
-import { fromKyivWallClock, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
+import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
-import type { NormalizeResult } from '../../core/import/types/import.ts';
+import type { FetchResult, ImportedEvent, NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
-import { errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
+import { coveredInstants, errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
 export const ARTWIZARD_API_URL = 'https://api.artwizard.io';
 /** Where the event pages are; `sourceUrl` points there, never to `details_url`, which is empty or another site. */
@@ -14,6 +14,13 @@ const ARTWIZARD_SITE_URL = 'https://artwizard.io';
 const PAGE_SIZE = 20;
 /** A stop for a response whose `total_pages` is wrong: Kyiv had 4 pages of 20 on 2026-11-03. */
 const MAX_PAGES = 50;
+/**
+ * ArtWizard's permission covers Kyiv events of the coming 4 weeks (ADR-006, decision 9): today and the 27 days
+ * after it, one day less than the catalog window.
+ */
+const DAYS_AHEAD = 27;
+/** The default opening time of an exhibition run without opening hours, Kyiv time (ADR-006, decision 5). */
+const EXHIBITION_DEFAULT_OPENING = '12:00';
 
 /** ArtWizard's event types (`type`), and the slug of our category for each; the first known type wins. */
 export const ARTWIZARD_CATEGORY_SLUGS = new Map<string, string>([
@@ -67,10 +74,12 @@ export interface ArtWizardOptions {
 
 /**
  * ArtWizard (artwizard.io) behind the EventProvider port, through the events API ArtWizard gave us access to
- * (ADR-006). One request per page of 20 Kyiv events whose occurrences touch the catalog window.
+ * (ADR-006). One request per page of 20 Kyiv events whose occurrences touch the coming 4 weeks.
  */
 export class ArtWizardEventProvider extends EventProvider {
   readonly id = 'artwizard';
+  /** ArtWizard allows at most one update a day (ADR-006, decision 9). */
+  override readonly minHoursBetweenRuns = 20;
   private readonly logger = new Logger(ArtWizardEventProvider.name);
   private readonly http: HttpClient;
   private readonly apiKey: string;
@@ -85,22 +94,52 @@ export class ArtWizardEventProvider extends EventProvider {
     this.now = now;
   }
 
-  async fetch(): Promise<unknown[]> {
+  /**
+   * Every page of the answer. The list is complete only when every page the API names was read and they held as
+   * many distinct events as its `total`; an event added while the pages are read shifts the later pages by one, so
+   * one event comes twice and another not at all.
+   */
+  async fetch(): Promise<FetchResult> {
     if (!this.apiKey) {
       throw new Error('ARTWIZARD_API_KEY is not set: see .env.example');
     }
-    const window = catalogWindow(this.now());
+    const now = this.now();
+    const window = permittedWindow(now);
     const events: unknown[] = [];
+    // The page each slug was first read on. A slug on two pages means the order shifted while the pages were read,
+    // so another event was most likely never returned: it is kept once, and the list is not complete.
+    const firstPage = new Map<string, number>();
     let total = 0;
+    let totalPages = 0;
     let pages = 1;
     for (let page = 1; page <= pages; page++) {
       const body = await this.fetchPage(window, page);
-      events.push(...body.data);
+      for (const record of body.data) {
+        const slug = slugOf(record);
+        const seenOn = slug === undefined ? undefined : firstPage.get(slug);
+        if (slug !== undefined && seenOn !== undefined) {
+          this.logger.warn(`${slug}: listed again on page ${page}, first on page ${seenOn}; kept once`);
+          continue;
+        }
+        if (slug !== undefined) {
+          firstPage.set(slug, page);
+        }
+        events.push(record);
+      }
       total = body.total;
-      pages = Math.min(body.total_pages, MAX_PAGES);
+      totalPages = body.total_pages;
+      pages = Math.min(totalPages, MAX_PAGES);
     }
     this.logger.log(`${events.length} of ${total} Kyiv events from ${window.from} to ${window.to}, ${pages} pages`);
-    return events;
+    const complete = totalPages <= MAX_PAGES && firstPage.size === total;
+    if (!complete) {
+      this.logger.warn(
+        totalPages > MAX_PAGES
+          ? `Not the full list: the API names ${totalPages} pages, only the first ${MAX_PAGES} were read`
+          : `Not the full list: ${firstPage.size} distinct events read, the API names ${total}`,
+      );
+    }
+    return { records: events, complete, covers: coveredInstants(now, window) };
   }
 
   private async fetchPage(window: { from: string; to: string }, page: number): Promise<z.infer<typeof EventsPage>> {
@@ -139,8 +178,7 @@ export class ArtWizardEventProvider extends EventProvider {
   }
 
   normalize(raw: unknown): NormalizeResult {
-    const slug = (raw as { slug?: unknown } | null)?.slug;
-    const externalId = typeof slug === 'string' && slug.trim() ? slug.trim() : null;
+    const externalId = slugOf(raw) ?? null;
     if (!externalId) {
       return { skip: { externalId: null, reason: 'Invalid record: slug' } };
     }
@@ -161,28 +199,40 @@ export class ArtWizardEventProvider extends EventProvider {
       return { skip: { externalId, reason: `No category for the types ${JSON.stringify(type)}` } };
     }
 
-    const window = catalogWindow(this.now());
+    const window = permittedWindow(this.now());
     const inWindow = event_occurrences_data
       .filter((occurrence) => occurrenceInWindow(occurrence, window))
-      .sort((a, b) => a.date_from.localeCompare(b.date_from));
+      .sort(byStart);
     const first = inWindow.find((occurrence) => !untimed(occurrence));
-    if (inWindow.length > 1) {
+    // An exhibition without a timed occurrence in the window is imported as its run (ADR-006, decision 5).
+    const [run, ...otherRuns] =
+      !first && categorySlug === 'exhibitions'
+        ? event_occurrences_data.filter((occurrence) => runInWindow(occurrence, window)).sort(byStart)
+        : [];
+    if (run && otherRuns.length > 0) {
+      this.logger.log(
+        `${externalId}: ${otherRuns.length + 1} exhibition runs from ${window.from} to ${window.to}; ` +
+          `importing the one from ${dates(run)} only`,
+      );
+    } else if (inWindow.length > 1) {
       this.logger.log(
         `${externalId}: ${inWindow.length} occurrences from ${window.from} to ${window.to}; ` +
           (first ? `importing the one of ${first.date_from.slice(0, 16)} only` : 'none has a start time'),
       );
     }
-    if (!first) {
+    const times = first ? occurrenceTimes(first) : run && runTimes(run, window);
+    if (!times) {
       // ArtWizard shows 00:00 when the organizer gave no time; a midnight start would also move the matching rounds.
       return inWindow.length > 0
         ? { skip: { externalId, reason: 'No start time (00:00 on ArtWizard)' } }
         : { skip: { externalId, reason: `No occurrence from ${window.from} to ${window.to}` } };
     }
-    // The API writes Kyiv time with a `Z`: 18:00 on the page is `18:00:00.000Z`.
-    const start = fromKyivWallClock(first.date_from);
-    const end = fromKyivWallClock(first.date_to);
-    // Our venues are matched by name and address, and the earlier import wrote the address with the city.
-    const address = [location.address_ua, location.city?.name].filter(Boolean).join(', ');
+    if (run) {
+      this.logger.log(
+        `${externalId}: an exhibition run from ${dates(run)} without opening hours; imported from ` +
+          `${kyivDate(times.startsAt)} at ${EXHIBITION_DEFAULT_OPENING} (default)`,
+      );
+    }
     const coordinates =
       location.latitude != null && location.longitude != null
         ? { lat: location.latitude, lng: location.longitude }
@@ -193,16 +243,40 @@ export class ArtWizardEventProvider extends EventProvider {
         title: fitTitle(title),
         description: fitDescription(quillText(description ?? '')),
         categorySlug,
-        venue: { name: location.name_ua, address, location: coordinates },
-        startsAt: start.toISOString(),
-        // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the
-        // end of its day.
-        endsAt: (end > start ? end : kyivEndOfDay(start)).toISOString(),
+        venue: {
+          name: location.name_ua,
+          address: venueAddress(location.address_ua, location.city?.name),
+          location: coordinates,
+        },
+        ...times,
         imageUrl: picture_url || null,
         sourceUrl: `${ARTWIZARD_SITE_URL}/${city}/e/${encodeURIComponent(externalId)}`,
       },
     };
   }
+}
+
+/**
+ * The venue's address with its city once: the import has always added the city, which some ArtWizard addresses
+ * already end with ("вулиця Саксаганського, 6, Київ"). Venues saved before with the city twice are still found,
+ * since the import compares addresses without the city (ADR-006, decision 7).
+ */
+export function venueAddress(address: string | null | undefined, city: string | null | undefined): string {
+  const street = address?.trim() ?? '';
+  const lastPart = street.split(',').at(-1)?.trim().toLowerCase();
+  return city && street && lastPart === city.trim().toLowerCase() ? street : [street, city].filter(Boolean).join(', ');
+}
+
+/** The record's slug, its external id; undefined when it has none. */
+function slugOf(raw: unknown): string | undefined {
+  const slug = (raw as { slug?: unknown } | null)?.slug;
+  return typeof slug === 'string' && slug.trim() ? slug.trim() : undefined;
+}
+
+/** The Kyiv dates the import may ask ArtWizard for: the catalog window's first 28, both ends included. */
+function permittedWindow(now: Date): { from: string; to: string } {
+  const { from } = catalogWindow(now);
+  return { from, to: addDays(from, DAYS_AHEAD) };
 }
 
 /**
@@ -221,6 +295,58 @@ function occurrenceInWindow(occurrence: Occurrence, window: { from: string; to: 
   const from = occurrence.date_from.slice(0, 10);
   const to = occurrence.date_to.slice(0, 10);
   return untimed(occurrence) ? from <= window.to && to >= window.from : from >= window.from && from <= window.to;
+}
+
+/**
+ * Whether the occurrence is an exhibition run that touches the window: one without a time, or one with a time that
+ * started before the window and ends on a later day, whose time is the opening's and not the opening hours
+ * ("Нелінійний простір": 18:30 on 29 October to 29 November).
+ */
+function runInWindow(occurrence: Occurrence, window: { from: string; to: string }): boolean {
+  const from = occurrence.date_from.slice(0, 10);
+  const to = occurrence.date_to.slice(0, 10);
+  const run = untimed(occurrence) || (from < window.from && to > from);
+  return run && from <= window.to && to >= window.from;
+}
+
+type EventTimes = Required<Pick<ImportedEvent, 'startsAt' | 'startTimeKnown' | 'endsAt' | 'endTimeKnown'>>;
+
+function byStart(a: Occurrence, b: Occurrence): number {
+  return a.date_from.localeCompare(b.date_from);
+}
+
+/** "2026-08-21 to 2026-11-29": the Kyiv dates of an occurrence, for the log. */
+function dates(occurrence: Occurrence): string {
+  return `${occurrence.date_from.slice(0, 10)} to ${occurrence.date_to.slice(0, 10)}`;
+}
+
+/** The times of an occurrence with a time; the API writes Kyiv time with a `Z`: 18:00 on the page is `18:00:00.000Z`. */
+function occurrenceTimes(occurrence: Occurrence): EventTimes {
+  const start = fromKyivWallClock(occurrence.date_from);
+  const end = fromKyivWallClock(occurrence.date_to);
+  return {
+    startsAt: start.toISOString(),
+    startTimeKnown: true,
+    // An end that is not after the start (date_to equal to date_from) means none: the end is unknown, and the event
+    // lasts until the end of its day.
+    endsAt: (end > start ? end : kyivEndOfDay(start)).toISOString(),
+    endTimeKnown: end > start,
+  };
+}
+
+/**
+ * An exhibition run as one multi-day event: from the later of the window's first day and the run's first day at the
+ * default opening time to the end of the run's last day, with neither time known.
+ */
+function runTimes(run: Occurrence, window: { from: string; to: string }): EventTimes {
+  const runFrom = run.date_from.slice(0, 10);
+  const firstDay = runFrom > window.from ? runFrom : window.from;
+  return {
+    startsAt: fromKyivWallClock(`${firstDay}T${EXHIBITION_DEFAULT_OPENING}:00.000Z`).toISOString(),
+    startTimeKnown: false,
+    endsAt: kyivEndOfDay(fromKyivWallClock(run.date_to)).toISOString(),
+    endTimeKnown: false,
+  };
 }
 
 /** The text of a Quill Delta (`[{"insert":"..."}]`), the format ArtWizard stores descriptions in; plain text as is. */

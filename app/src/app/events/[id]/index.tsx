@@ -2,7 +2,6 @@
 // AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
 // data; reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -16,11 +15,11 @@ import { CompanyRequestSheet } from '@/components/matching/company-request-sheet
 import { DayPickerSheet } from '@/components/matching/day-picker-sheet';
 import { ProfileIncompleteDialog } from '@/components/matching/profile-incomplete-dialog';
 import { Button } from '@/components/ui/button';
-import { CoralGradient } from '@/components/ui/coral-gradient';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
-import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, sessionCutoff } from '@/dates';
+import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, pickableSessions } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
 import { useApplicationMatch } from '@/hooks/use-matches';
 import { useEvent } from '@/hooks/use-event';
@@ -75,12 +74,6 @@ function daysLabel(starts: string[], eventStart: string): string {
   return formatShortDay(starts[0] ?? eventStart);
 }
 
-// The sessions that still take applications, for the day picker.
-function stillOpen(sessions: string[], startsAt: string, endsAt: string): string[] {
-  const now = Date.now();
-  return sessions.filter((start) => sessionCutoff(startsAt, endsAt, start) > now);
-}
-
 function preview(text: string): string | undefined {
   if (text.length <= DESCRIPTION_PREVIEW) return undefined;
   const cut = text.slice(0, DESCRIPTION_PREVIEW);
@@ -130,7 +123,7 @@ function DetailRow({
 }: {
   icon: IconName;
   value: string;
-  note: string;
+  note?: string;
   onPress?: () => void;
 }) {
   return (
@@ -145,7 +138,7 @@ function DetailRow({
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-medium text-body text-text-primary">{value}</Text>
-        <Text className="font-inter text-caption text-text-secondary">{note}</Text>
+        {note ? <Text className="font-inter text-caption text-text-secondary">{note}</Text> : null}
       </View>
     </Pressable>
   );
@@ -235,7 +228,8 @@ export default function EventScreen() {
   const changing = request === '1' && step === null;
   const dayOpen = step === 'day' || (changing && multiDay);
   const requestOpen = step === 'request' || (changing && !multiDay);
-  const pickable = dayOpen ? stillOpen(sessions, event.startsAt, event.endsAt) : [];
+  // A run of shows until May offers only the days of the coming four weeks, as the API takes them.
+  const pickable = dayOpen ? pickableSessions(event.startsAt, event.endsAt) : [];
   const alreadyPicked = application
     ? pickable.filter((start) =>
         application.sessions.some(({ startsAt }) => Date.parse(startsAt) === Date.parse(start)),
@@ -297,12 +291,8 @@ export default function EventScreen() {
         <View className="h-[340px] overflow-hidden">
           {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
           <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-            {/* The API has no cover images yet; only mock events have one. */}
-            {mockEvent?.cover ? (
-              <Image source={mockEvent.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-            ) : (
-              <CoralGradient preset="cover" />
-            )}
+            {/* An imported event links its provider's image; a mock event has a bundled one. */}
+            <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} />
             <TopShade />
           </BlurTargetView>
           <View
@@ -360,11 +350,7 @@ export default function EventScreen() {
               onPress={() => router.navigate('/map')}
             />
             <View className="h-px bg-border-default" />
-            <DetailRow
-              icon="calendar"
-              value={formatEventDay(event.startsAt)}
-              note={formatTimeRange(event.startsAt, event.endsAt)}
-            />
+            <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
             {/* The API has no organizer name yet; only mock events have one. */}
             {mockEvent && (
               <>
@@ -412,6 +398,7 @@ export default function EventScreen() {
         onClose={closeSteps}
         eventTitle={event.title}
         sessions={pickable}
+        startTimeKnown={event.startTimeKnown}
         initial={alreadyPicked}
         onPick={(starts) => {
           setSessionStarts(starts);

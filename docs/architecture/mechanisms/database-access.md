@@ -10,7 +10,7 @@ Each process connects with its **own database role**, so a compromised import se
 |---|---|---|
 | `nearby`, the owner (`POSTGRES_USER`) | Prisma migrations (CI / deploy); a restore by hand | Change the schema. No running process holds it: not the API, the import or the backup. |
 | `nearby_main` | Main server (CMP-02) | Read and write all application tables and the job queue's tables in the schema `pgboss` ([job queue](job-queue.md)); no schema changes |
-| `nearby_import` | Import service (CMP-03) | Write imported `events` and `venues`, `import_runs`, skipped records; enqueue `event.changed`. |
+| `nearby_import` | Import service (CMP-03) | Write imported `events` and `venues`, `import_runs`, skipped records; read and write the job queue's tables in the schema `pgboss`, as `nearby_main` does (the `import_job_queue` migration), to run `import.run` and, later, enqueue `event.changed`. |
 | `nearby_backup` | Backup service (`deploy/backup-db.sh`) | Read every table in every schema (`pg_read_all_data`, also schemas and tables created later, such as `pgboss`) for `pg_dump`; insert into `backup_runs`. No other write, no schema changes. A restore is not its job: the owner does it by hand ([Backups and restore](../../operations/staging.md#backups-and-restore)). Row-level security is not used; `pg_read_all_data` would not bypass it. |
 
 Roles and grants are created in a migration; each process gets its own connection string from the env file on its host.
