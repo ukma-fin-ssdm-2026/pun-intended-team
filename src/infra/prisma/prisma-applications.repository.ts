@@ -10,8 +10,9 @@ import {
   type ApplicationStatus,
 } from '../../core/matching/types/application.ts';
 import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
-import type { AfterEventPlan, Application as ApplicationRow, Prisma } from './generated/client.ts';
+import type { AfterEventPlan, Application as ApplicationRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 const withDaysAndPlans = {
@@ -29,7 +30,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(application: ApplicationRecord, tx?: Transaction): Promise<Application> {
-    const client = (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
+    const client = clientOf(this.prisma, tx);
     try {
       const row = await client.application.create({
         data: {
@@ -52,7 +53,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 
   async findPool(sessionIds: string[], tx: Transaction): Promise<Application[]> {
-    const rows = await (tx as unknown as Prisma.TransactionClient).application.findMany({
+    const rows = await clientOf(this.prisma, tx).application.findMany({
       where: { status: 'in_pool', sessions: { some: { sessionId: { in: sessionIds } } } },
       include: withDaysAndPlans,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -79,7 +80,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 
   async withdraw(id: string, from: ApplicationStatus[], tx: Transaction): Promise<Application | undefined> {
-    const client = tx as unknown as Prisma.TransactionClient;
+    const client = clientOf(this.prisma, tx);
     const { count } = await client.application.updateMany({
       where: { id, status: { in: from } },
       data: { status: 'withdrawn' },

@@ -3,8 +3,9 @@ import { Injectable } from '@nestjs/common';
 import { EventSessionsRepository } from '../../core/catalog/repositories/event-sessions.repository.ts';
 import type { EventSessionRecord, OpenedSession } from '../../core/catalog/types/event-session.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
-import type { EventSession as EventSessionRow, Prisma } from './generated/client.ts';
+import type { EventSession as EventSessionRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 
 const withEventTimes = { event: { select: { startsAt: true, endsAt: true } } } as const;
 
@@ -19,7 +20,7 @@ export class PrismaEventSessionsRepository implements EventSessionsRepository {
     starts: Date[],
     tx?: Transaction,
   ): Promise<OpenedSession<EventSessionRecord>[]> {
-    const client = (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
+    const client = clientOf(this.prisma, tx);
     // ON CONFLICT DO NOTHING: of two first applications at once, both get the one session, and only the rows this
     // call inserted come back.
     const created = await client.eventSession.createManyAndReturn({

@@ -3,8 +3,9 @@ import { Injectable } from '@nestjs/common';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { MatchesRepository } from '../../core/matching/repositories/matches.repository.ts';
 import type { Match, NewMatch } from '../../core/matching/types/match.ts';
-import type { Match as MatchRow, Prisma } from './generated/client.ts';
+import type { Match as MatchRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 
 @Injectable()
 export class PrismaMatchesRepository implements MatchesRepository {
@@ -15,11 +16,11 @@ export class PrismaMatchesRepository implements MatchesRepository {
   }
 
   async lockEvent(eventId: string, tx: Transaction): Promise<void> {
-    await client(tx).$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`matching:${eventId}`}))`;
+    await clientOf(this.prisma, tx).$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`matching:${eventId}`}))`;
   }
 
   async findExcludedPairs(eventId: string, tx: Transaction): Promise<[string, string][]> {
-    const rows = await client(tx).exclusion.findMany({
+    const rows = await clientOf(this.prisma, tx).exclusion.findMany({
       where: { eventId },
       select: { userId: true, excludedUserId: true },
     });
@@ -27,19 +28,16 @@ export class PrismaMatchesRepository implements MatchesRepository {
   }
 
   async propose(match: NewMatch, tx: Transaction): Promise<Match> {
-    const { count } = await client(tx).application.updateMany({
+    const client = clientOf(this.prisma, tx);
+    const { count } = await client.application.updateMany({
       where: { id: { in: [match.applicationAId, match.applicationBId] }, status: 'in_pool' },
       data: { status: 'paired' },
     });
     if (count !== 2) {
       throw new Error('An application left the pool while it was being matched');
     }
-    return toMatch(await client(tx).match.create({ data: { ...match, seed: BigInt(match.seed) } }));
+    return toMatch(await client.match.create({ data: { ...match, seed: BigInt(match.seed) } }));
   }
-}
-
-function client(tx: Transaction): Prisma.TransactionClient {
-  return tx as unknown as Prisma.TransactionClient;
 }
 
 function toMatch(row: MatchRow): Match {
