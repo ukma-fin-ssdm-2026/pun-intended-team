@@ -63,7 +63,7 @@ Related to: Account (author), Category, Event.
 
 **Base path:** `/api/v1/applications`, created at `/api/v1/events/{id}/applications`
 
-A user's request to be matched at one event. For an event that runs on several days it lists the days the user can go, any one of which suits them; a match picks one ([matching](../architecture/mechanisms/matching.md), rule 9).
+A user's request to be matched at one event. For an event that runs on several days it lists the days the user can go, any one of which suits them; a match lists the days both users share, and they pick one ([matching](../architecture/mechanisms/matching.md), rule 9).
 
 | Field | Type | Notes |
 |---|---|---|

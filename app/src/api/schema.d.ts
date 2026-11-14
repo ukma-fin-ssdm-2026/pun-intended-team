@@ -387,7 +387,7 @@ export interface paths {
         put?: never;
         /**
          * Ask for a match at an event
-         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `dates` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
+         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `dates` lists the days the user can go, and a match lists the days both users share. The answer says when the next matching round runs, or that a match is proposed at once. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["applyToEvent"];
         delete?: never;

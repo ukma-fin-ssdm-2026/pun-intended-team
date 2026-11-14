@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-08T12:17:57.160Z
+ * Generated on: 2026-11-14T18:31:14.778Z
  */
 
 import { existsSync } from 'node:fs';
@@ -346,7 +346,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["applyToEvent", {
     name: "applyToEvent",
     title: "Ask for a match at an event",
-    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
+    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match lists the days both users share. The answer says when the next matching round runs, or that a match is proposed at once. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"dates":{"type":"array","items":{"type":"string","format":"date"},"minItems":1,"maxItems":366,"description":"The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
     method: "post",
