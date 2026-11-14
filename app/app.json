@@ -35,7 +35,13 @@
         }
       ],
       "expo-image",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Nearby показує на мапі заклади поруч із тобою."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

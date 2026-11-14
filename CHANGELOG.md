@@ -12,6 +12,7 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Time limits on the API's database calls: when the database does not answer in time, the request ends with 503 instead of never returning.
 - A Backups page in the admin panel lists the nightly backups of the last 30 days with their status, and the admin overview warns when a backup needs attention.
 - Asking for a match at an event: the user chooses the kind of company and the plans after the event, and for a multi-day event the days that suit them (`POST /events/{id}/applications`). A user with an incomplete profile is asked to complete it first. Applications for a day close an hour before it starts, or 2 hours before it ends if it lasts 3 hours or more. The Метчі tab lists the user's applications, and an application can be withdrawn. Matching itself comes later.
+- A real map on the map tab: one pin per Kyiv venue with upcoming events and their number. A pin opens the venue's events, and the filters and the search narrow the pins. The map starts at the user's location when it is allowed, otherwise it shows the whole city. Android needs `GOOGLE_MAPS_ANDROID_API_KEY` in the EAS environment.
 - Imported events that ArtWizard or Karabas no longer lists are shown as cancelled, and published again if they come back. A run that failed, read only part of the list, or got a list that looks broken cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 
 ### Changed
