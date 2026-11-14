@@ -10,15 +10,26 @@
 # Changed by Claude (Claude Code): the publish job also builds the web app image.
 # Changed by Claude (Claude Code): the test step passes the import service's database URL to the e2e tests.
 # Changed by Claude (Claude Code): added the job that runs the reliability tests as a check of its own.
+# Changed by Claude (Claude Code): split the tests: the unit tests stay in "CI passed", the e2e tests move to the
+# new "E2E tests" job, which runs only on main.
+# Changed by Claude (Claude Code): the e2e tests also run on staging, and the publish job waits for them.
+# Changed by Claude (Claude Code): the two groups of tests are called unit tests and e2e tests, in the job name
+# and the comments.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is a required check in the rulesets. It runs all checks as steps of one
 # job, because every job is billed separately, rounded up to a full minute, and pays for its own checkout
 # and `npm ci`. Every check step runs even if an earlier one failed, so one run reports all problems;
 # the job still fails if any step failed. The reliability tests also run as a job of their own, so the rulesets
-# can require them by name. After a green push to main, the deploy job publishes the API docs.
-# After a green push to staging, the publish job pushes the API and web images to GHCR, which deploy-staging
-# then runs on staging (docs/operations/staging.md).
+# can require them by name.
+# The tests are split in two. The unit tests need no database and run in "CI passed" on every pull request and
+# push. The e2e tests are slow because they need a PostgreSQL service and the migrations, so they run only after
+# a merge to main and before a staging publish, in the "E2E tests" job, which runs all tests (unit and e2e) with
+# the coverage gate. It runs after a green "CI passed" on a push or manual run on main or staging. It never runs
+# on a pull request and is not a required check, so a broken migration or e2e test shows up only after the merge.
+# After a green push to main, the deploy job publishes the API docs; it does not wait for the e2e tests.
+# After a push to staging with "CI passed" and "E2E tests" green, the publish job pushes the API and web images
+# to GHCR, which deploy-staging then runs on staging (docs/operations/staging.md).
 name: CI
 
 on:
@@ -41,21 +52,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: nearby
-          POSTGRES_PASSWORD: nearby_dev_password
-          POSTGRES_DB: nearby
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U nearby -d nearby"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7
@@ -70,7 +66,7 @@ jobs:
             app/package-lock.json
 
       # No dependency runs its own install scripts on the runner. The only one needed is @prisma/engines,
-      # which downloads the schema engine for migrations; prisma generate replaces the root postinstall.
+      # which prisma generate needs; prisma generate replaces the root postinstall.
       - name: Install dependencies
         id: install
         run: |
@@ -184,7 +180,55 @@ jobs:
           done
           exit $status
 
-      # --- API tests (was api-tests.yml) ---
+      # --- Unit tests (was part of api-tests.yml) ---
+      # Unit tests need no database. The e2e tests and the coverage gate run in "E2E tests", on main and staging only.
+      - name: Run unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: npm run test:unit
+
+  # E2E tests: runs only after a merge to main and before every staging publish, which waits for it.
+  # Not a required check in the rulesets.
+  e2e-tests:
+    name: E2E tests
+    needs: ci-passed
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging') && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Same image and credentials as docker-compose.yml. Throwaway database, so the password is not a secret.
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: nearby
+          POSTGRES_PASSWORD: nearby_dev_password
+          POSTGRES_DB: nearby
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nearby -d nearby"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # As in "CI passed"; here @prisma/engines also provides the schema engine for the migrations.
+      - name: Install dependencies
+        id: install
+        run: |
+          npm ci --ignore-scripts
+          npm rebuild @prisma/engines
+          npx --no-install prisma generate
+
       - name: Apply database migrations
         id: migrate
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
@@ -203,12 +247,9 @@ jobs:
           BACKUP_DATABASE_URL: postgresql://nearby_backup:nearby_backup_dev_password@localhost:5432/nearby
         run: npm run db:set-passwords
 
-      # Unit tests need no database and fail within seconds, so a break shows up before the long run below.
-      - name: Run unit tests
-        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: npm run test:unit
-
       # Unit and e2e tests in one run, so the e2e tests do not run twice; the report covers both.
+      # The step runs all tests, not only tests/e2e, because the coverage thresholds in mcr.config.mjs are set
+      # for the full run.
       # Fails if coverage is below the thresholds in mcr.config.mjs.
       - name: Run all tests with coverage
         if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
@@ -219,7 +260,7 @@ jobs:
         run: npm run test:coverage
 
   # Lab 9 bonus. The tests start the built API against fake dependencies, so the job needs no database.
-  # The coverage step of "CI passed" runs them too, for the report.
+  # The coverage step of "E2E tests" runs them too, for the report.
   reliability-tests:
     name: Reliability tests
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
@@ -268,7 +309,7 @@ jobs:
 
   publish:
     name: Publish images
-    needs: ci-passed
+    needs: [ci-passed, e2e-tests]
     if: github.ref == 'refs/heads/staging' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest # TEMPORARY: was [self-hosted, linux]
     timeout-minutes: 15

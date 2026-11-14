@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { CalendarDate, DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { CalendarDate, DateTime, Id, PageQuery, pageExample, pageFields } from '../../common/schemas/common.ts';
 import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
 
 export const EventSource = z
@@ -63,7 +63,15 @@ export const Event = EventFields.meta({
   example: eventExample,
 });
 
-export const EventsPage = pageOf(Event, 'EventsPage', eventExample);
+export const EventsPage = pageFields(Event)
+  .extend({
+    lastUpdatedAt: DateTime.nullable().describe(
+      'Null while the imported events are current. While the latest import run of a provider failed, the catalog ' +
+        'keeps serving the events of its last succeeded run, and this is when that run finished: the time of the ' +
+        '"last updated" notice (FR-014). The same on every page and with every filter',
+    ),
+  })
+  .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });
 
 export const EventIdParams = z.object({
   id: Id.describe('Event id'),

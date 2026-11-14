@@ -3,7 +3,6 @@
 // reviewed by Daryna Halytska.
 import '../../global.css';
 
-import { Alice_400Regular } from '@expo-google-fonts/alice';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -11,6 +10,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
+import { OtomanopeeOne_400Regular } from '@expo-google-fonts/otomanopee-one';
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -31,7 +31,7 @@ export default function RootLayout() {
     Inter_500Medium,
     Inter_600SemiBold,
     Inter_700Bold,
-    Alice_400Regular,
+    OtomanopeeOne_400Regular,
   });
 
   // The splash screen stays up until the fonts are ready, so text never renders in the fallback font first, and until the

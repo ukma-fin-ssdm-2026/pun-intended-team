@@ -24,7 +24,7 @@ src/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts
+    common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, CategoriesService
       repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
@@ -36,7 +36,7 @@ src/
       import.module.ts          provides + exports EventImportService; depends on no other module
       adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
-      services/                 event-import.service.ts
+      services/                 event-import.service.ts, venue-match.ts (when two providers' venues are one)
       types/                    import (ImportedEvent.categorySlug: the providers' adapters map genres to category slugs, which never change)
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
@@ -76,7 +76,7 @@ src/
 ## Planned
 
 15. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
-16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. `npm run import:events` makes one run; the schedule (`import.run`, HLD I3) is still to come.
+16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. Without flags it runs until stopped and takes the `import.run` jobs (HLD I3) through `ImportScheduleModule`, with the job queue of `ImportInfraModule.withJobQueue()`; `--once` (`npm run import:events`) makes one run without the job queue and exits.
 
 ## AI Usage Note
 

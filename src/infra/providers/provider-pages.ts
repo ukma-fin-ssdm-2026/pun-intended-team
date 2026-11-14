@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // Shared by the scraping adapters: reading schema.org JSON-LD out of a page and fitting text to our event schema.
 import { load } from 'cheerio';
-import { kyivDate } from '../../core/common/kyiv-time.ts';
+import { kyivDate, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 
 /** Limits of our API's event schema: the catalog answers 500 for an event outside them. */
 const TITLE_MAX = 120;
@@ -32,6 +32,11 @@ export function slugOf(url: string): string {
 export function inWindow(instant: Date, window: { from: string; to: string }): boolean {
   const date = kyivDate(instant);
   return date >= window.from && date <= window.to;
+}
+
+/** What a list read at `now` for the window covers: from `now` to the end of the window's last Kyiv day. */
+export function coveredInstants(now: Date, window: { to: string }): { from: string; to: string } {
+  return { from: now.toISOString(), to: kyivEndOfDay(`${window.to}T12:00:00Z`).toISOString() };
 }
 
 export function fitTitle(text: string): string {

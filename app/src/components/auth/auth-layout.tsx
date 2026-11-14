@@ -49,7 +49,7 @@ export function AuthLayout({ title, subtitle, children, footer }: Props) {
             >
               <Icon name="arrow-left" size={20} color={colors.text['on-dark']} />
             </Pressable>
-            <Text className="font-alice text-[24px] text-text-on-dark">Nearby</Text>
+            <Text className="font-logo text-[24px] text-text-on-dark">Nearby</Text>
             <View className="size-10" />
           </View>
           <View className="gap-1.5">

@@ -8,9 +8,11 @@ import {
   KarabasEventProvider,
   type KarabasRecord,
   karabasEnd,
+  MAX_PAGES_PER_SECTION,
+  nextPage,
 } from '../../dist/infra/providers/karabas-event-provider.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
-import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
+import { PAGES_SAVED_AT, PAGES_SAVED_AT_NOV_7, savedPage, savedPagesClient } from './fixtures/provider-pages.ts';
 
 const SAVED_SECTIONS = {
   '/concerts/': 'karabas/kyiv-concerts.html',
@@ -32,7 +34,7 @@ function normalized(provider: KarabasEventProvider, record: KarabasRecord): Impo
 
 async function recordOf(slug: string, routes: Parameters<typeof savedPagesClient>[0] = SAVED_SECTIONS) {
   const { provider } = makeProvider(routes);
-  const record = (await provider.fetch()).find((record) => String(record.event.url).endsWith(`/${slug}/`));
+  const record = (await provider.fetch()).records.find((record) => String(record.event.url).endsWith(`/${slug}/`));
   assert.ok(record, slug);
   return { provider, record };
 }
@@ -42,7 +44,7 @@ describe('KarabasEventProvider.fetch', () => {
   test('takes the 20 events of the concerts page as Concerts, whatever their @type', async () => {
     const { provider } = makeProvider({ '/concerts/': SAVED_SECTIONS['/concerts/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 20);
     assert.ok(records.every((record) => record.categorySlug === 'concerts'));
@@ -53,20 +55,34 @@ describe('KarabasEventProvider.fetch', () => {
     ]);
   });
 
-  test('takes the events of the clubs page, MusicEvent and Event alike, as Parties', async () => {
+  test('takes the MusicEvent records of the clubs page as Parties, and skips the plain Event ones with the reason', async () => {
     const { provider } = makeProvider({ '/clubs/': SAVED_SECTIONS['/clubs/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 20);
-    assert.ok(records.every((record) => record.categorySlug === 'parties'));
-    assert.deepEqual([...new Set(records.map((record) => record.event['@type']))].sort(), ['Event', 'MusicEvent']);
+    const results = records.map((record) => provider.normalize(record));
+    const parties = results.flatMap((result) => ('event' in result ? [result.event] : []));
+    const skipped = results.flatMap((result) => ('skip' in result ? [result.skip] : []));
+    assert.equal(parties.length, 15);
+    assert.ok(parties.every((event) => event.categorySlug === 'parties'));
+    assert.deepEqual(
+      skipped.map(({ externalId }) => externalId),
+      [
+        'art-vechir-v-halerei-modi-mizh-ryadkiv-2',
+        'vynohray-vyno-y-teatr-v-odnomu-kelysi-79',
+        'psykholohichnyy-zakhid-doroslist-i-separatsiya',
+        'klub-nastil-nykh-ihor-187',
+        'psykholohichnyy-zakhid-doroslist-u-stosunkakh-1',
+      ],
+    );
+    assert.ok(skipped.every(({ reason }) => reason === '@type "Event" on /clubs/, which takes only MusicEvent'));
   });
 
   test('takes the one event of the sport page as Sports', async () => {
     const { provider } = makeProvider({ '/sport/': SAVED_SECTIONS['/sport/'] });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 1);
     const event = normalized(provider, records[0] as KarabasRecord);
@@ -77,7 +93,7 @@ describe('KarabasEventProvider.fetch', () => {
   test('keeps an event listed in two sections once, under the first section', async () => {
     const { provider } = makeProvider(SAVED_SECTIONS);
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     const urls = records.map((record) => record.event.url);
     assert.equal(new Set(urls).size, urls.length);
@@ -90,14 +106,19 @@ describe('KarabasEventProvider.fetch', () => {
     );
   });
 
-  test('requests each section page once and nothing else', async () => {
+  test('requests each section page, and the next page only of a section that links to one', async () => {
     const { provider, http } = makeProvider(SAVED_SECTIONS);
 
     await provider.fetch();
 
+    // The saved concerts and clubs pages of 3 November link to a page 2, which was not saved and answers 404.
     assert.deepEqual(
       http.requested,
-      KARABAS_SECTIONS.map(({ path }) => `https://kyiv.karabas.com${path}`),
+      KARABAS_SECTIONS.flatMap(({ path }) => [
+        `https://kyiv.karabas.com${path}`,
+        ...(path === '/concerts/' ? ['https://kyiv.karabas.com/concerts/?time=1793989800&page=2&per-page=20'] : []),
+        ...(path === '/clubs/' ? ['https://kyiv.karabas.com/clubs/?time=1794078000&page=2&per-page=20'] : []),
+      ]),
     );
   });
 
@@ -105,21 +126,233 @@ describe('KarabasEventProvider.fetch', () => {
     // On 15 October the window ends on 12 November, so the sambo tournament on 21 November is out.
     const { provider } = makeProvider({ '/sport/': SAVED_SECTIONS['/sport/'] }, new Date('2026-10-15T09:00:00Z'));
 
-    assert.deepEqual(await provider.fetch(), []);
+    assert.deepEqual((await provider.fetch()).records, []);
   });
 
   test('reads the other sections when one cannot be fetched', async () => {
     const { provider } = makeProvider({ ...SAVED_SECTIONS, '/concerts/': new Error('ECONNRESET') });
 
-    const records = await provider.fetch();
+    const { records } = await provider.fetch();
 
     assert.equal(records.length, 21);
+  });
+
+  test('reports the list as complete only when every section was read to its end', async () => {
+    const everySection = Object.fromEntries(
+      KARABAS_SECTIONS.map(({ path }) => [path, 'karabas/kyiv-sport-2026-11-07.html']),
+    );
+
+    assert.equal((await makeProvider(everySection, PAGES_SAVED_AT_NOV_7).provider.fetch()).complete, true);
+    const oneMissing = { ...everySection, '/cinema/': { status: 503 } };
+    assert.equal((await makeProvider(oneMissing, PAGES_SAVED_AT_NOV_7).provider.fetch()).complete, false);
   });
 
   test('fails the run when no section can be fetched', async () => {
     const { provider } = makeProvider({});
 
     await assert.rejects(provider.fetch(), /No Karabas section page could be fetched/);
+  });
+});
+
+// FR-008, REL-003: the concerts pages saved on 7 November, read with that day as today.
+describe('KarabasEventProvider.fetch, page after page', () => {
+  const PAGE_2 = '/concerts/?time=1794150000&page=2&per-page=20';
+  const PAGE_3 = '/concerts/?time=1794592800&page=3&per-page=20';
+  const PAGE_1_FILE = 'karabas/kyiv-concerts-2026-11-07-page-1.html';
+  const PAGE_2_FILE = 'karabas/kyiv-concerts-2026-11-07-page-2.html';
+  const concerts = { '/concerts/': PAGE_1_FILE, [PAGE_2]: PAGE_2_FILE };
+  const read = (routes: Parameters<typeof savedPagesClient>[0], now = PAGES_SAVED_AT_NOV_7) => {
+    const made = makeProvider(routes, now);
+    return { ...made, result: made.provider.fetch() };
+  };
+  const paths = (requested: string[]) => requested.map((url) => url.replace('https://kyiv.karabas.com', ''));
+  const concertPaths = (requested: string[]) => paths(requested).filter((path) => path.startsWith('/concerts/'));
+
+  test('follows the "load more" link with per-page=20 added, and takes the events of every page', async () => {
+    const { http, result } = read(concerts);
+
+    const { records } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2, PAGE_3]);
+    assert.equal(records.length, 40);
+    assert.ok(records.every((record) => record.categorySlug === 'concerts'));
+  });
+
+  test('asks for every later page with per-page=20, which the link in the HTML leaves out', async () => {
+    const { http, result } = read(concerts);
+
+    await result;
+
+    const later = http.requested.map((url) => new URL(url)).filter((url) => url.searchParams.has('page'));
+    assert.ok(later.length > 0);
+    assert.ok(later.every((url) => url.searchParams.get('per-page') === '20'));
+  });
+
+  test('keeps an event listed on two pages once', async () => {
+    // Page 2 ends with an event of page 1, as when consecutive pages overlap.
+    const page2 = savedPage(PAGE_2_FILE).replaceAll(
+      '/pory-roku-vival-di-p-yatstsola-pry-svichkakh-1/',
+      '/kvytok-v-paryzh-muzychne-foye-nfu/',
+    );
+    const { result } = read({ '/concerts/': PAGE_1_FILE, [PAGE_2]: { status: 200, text: page2 } });
+
+    const { records } = await result;
+
+    const urls = records.map((record) => String(record.event.url));
+    assert.equal(new Set(urls).size, urls.length);
+    assert.equal(urls.filter((url) => url.endsWith('/kvytok-v-paryzh-muzychne-foye-nfu/')).length, 1);
+    assert.equal(records.length, 39);
+  });
+
+  test('stops at a page that repeats the earlier ones, and reports the list as not complete', async () => {
+    const page1 = savedPage(PAGE_1_FILE);
+    const { http, result } = read({ '/concerts/': PAGE_1_FILE, [PAGE_2]: { status: 200, text: page1 } });
+
+    const { records, complete } = await result;
+
+    assert.equal(complete, false);
+    assert.equal(records.length, 20);
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2]);
+  });
+
+  test('keeps the pages read so far when a later one fails, and reports the list as not complete', async () => {
+    // Page 3 was not saved, so it answers 404.
+    const { result } = read(concerts);
+
+    const { records, complete } = await result;
+
+    assert.equal(records.length, 40);
+    assert.equal(complete, false);
+  });
+
+  test('stops at the page that reaches past the window, without asking for the next one', async () => {
+    // On 15 October the window ends on 12 November; page 2 runs to 13 November.
+    const { http, result } = read(concerts, new Date('2026-10-15T09:00:00Z'));
+
+    const { records, complete } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2]);
+    assert.ok(records.length > 20);
+    assert.ok(records.every((record) => String(record.event.startDate) < '2026-11-13'));
+    assert.equal(complete, false, 'the other sections answer 404 here');
+  });
+
+  test('reads on past a page whose first event is pinned after the window, by the start of its last event', async () => {
+    // The page's first event, "Квиток в Париж", moved to January; its own JSON-LD, not the page's list of events.
+    const pinned = savedPage(PAGE_1_FILE).replace(
+      /(kvytok-v-paryzh-muzychne-foye-nfu\/",\s*"startDate": ")2026-11-07T15:00:00\+02:00/,
+      '$12027-01-15T20:00:00+02:00',
+    );
+    const { http, result } = read({ '/concerts/': { status: 200, text: pinned }, [PAGE_2]: PAGE_2_FILE });
+
+    const { records } = await result;
+
+    assert.deepEqual(concertPaths(http.requested), ['/concerts/', PAGE_2, PAGE_3]);
+    assert.equal(records.length, 39, 'the pinned event is outside the window');
+  });
+
+  test('counts the events in the window per section, before an event of two sections is kept once', async () => {
+    const { result } = read({ ...concerts, '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    const { parts } = await result;
+
+    // The sections that answered 404 are not counted: the list is not complete anyway.
+    assert.deepEqual(parts, { '/concerts/': 40, '/sport/': 1 });
+  });
+
+  test('counts a section that answers a page without events as 0', async () => {
+    const empty = savedPage('karabas/kyiv-sport-2026-11-07.html').replace(
+      /<script type="application\/ld\+json">[\s\S]*?<\/script>/g,
+      '',
+    );
+    const { result } = read({ '/festivals/': { status: 200, text: empty } });
+
+    assert.deepEqual((await result).parts, { '/festivals/': 0 });
+  });
+
+  test('covers the list from the time it was read to the end of the window’s last Kyiv day', async () => {
+    const { result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    assert.deepEqual((await result).covers, { from: '2026-11-07T10:00:00.000Z', to: '2026-12-05T21:59:59.999Z' });
+  });
+
+  test('reads a section without a "load more" link as its last page', async () => {
+    const { http, result } = read({ '/sport/': 'karabas/kyiv-sport-2026-11-07.html' });
+
+    const { records } = await result;
+
+    assert.equal(records.length, 1);
+    assert.deepEqual(
+      paths(http.requested).filter((path) => path.startsWith('/sport/')),
+      ['/sport/'],
+    );
+  });
+
+  test(`stops after ${MAX_PAGES_PER_SECTION} pages of a section, and reports the list as not complete`, async () => {
+    // Every page brings one new event and links to the next one, so only the limit stops the reading.
+    const pageWith = (n: number) =>
+      savedPage(PAGE_1_FILE)
+        .replaceAll('/kvytok-v-paryzh-muzychne-foye-nfu/', `/endless-${n}/`)
+        .replace('/concerts/?time=1794150000&amp;page=2', `/concerts/?time=1794150000&amp;page=${n + 1}`);
+    const later = Array.from({ length: MAX_PAGES_PER_SECTION }, (_, i) => i + 2).map((n) => [
+      `/concerts/?time=1794150000&page=${n}&per-page=20`,
+      { status: 200, text: pageWith(n) },
+    ]);
+    const routes = Object.fromEntries([['/concerts/', { status: 200, text: pageWith(1) }], ...later]) as Parameters<
+      typeof savedPagesClient
+    >[0];
+    const { http, result } = read(routes);
+
+    assert.equal((await result).complete, false);
+    assert.equal(concertPaths(http.requested).length, MAX_PAGES_PER_SECTION);
+  });
+});
+
+describe('nextPage', () => {
+  const section = new URL('https://kyiv.karabas.com/concerts/');
+  const withLink = (href: string) => `<a href="${href}" data-pagination-load-more><span>Завантажити ще</span></a>`;
+
+  test('is the "load more" link of the saved page, with per-page=20 added', () => {
+    assert.deepEqual(nextPage(savedPage('karabas/kyiv-concerts-2026-11-07-page-1.html'), section), {
+      url: 'https://kyiv.karabas.com/concerts/?time=1794150000&page=2&per-page=20',
+    });
+  });
+
+  test('sets a per-page the link already has to 20', () => {
+    assert.deepEqual(nextPage(withLink('/concerts/?time=1&amp;page=3&amp;per-page=100'), section), {
+      url: 'https://kyiv.karabas.com/concerts/?time=1&page=3&per-page=20',
+    });
+  });
+
+  test('is the last page on a page without the link', () => {
+    const sport = new URL('https://kyiv.karabas.com/sport/');
+    assert.equal(nextPage(savedPage('karabas/kyiv-sport-2026-11-07.html'), sport), 'last');
+  });
+
+  const outside = [
+    { title: '/ajax.php', href: '/ajax.php?action=events&page=2' },
+    { title: 'another section', href: '/clubs/?page=2' },
+    { title: 'another host', href: 'https://example.com/concerts/?page=2' },
+  ];
+  for (const { title, href } of outside) {
+    test(`refuses a link to ${title}`, () => {
+      assert.equal(nextPage(withLink(href), section), 'outside');
+    });
+  }
+
+  test('ends the section at a link out of it, and reports the list as not complete', async () => {
+    const page = savedPage('karabas/kyiv-concerts-2026-11-07-page-1.html').replace(
+      '/concerts/?time=1794150000&amp;page=2',
+      '/ajax.php?page=2',
+    );
+    const http = savedPagesClient({ '/concerts/': { status: 200, text: page } });
+    const provider = new KarabasEventProvider({ http, now: () => PAGES_SAVED_AT_NOV_7 });
+
+    const { records, complete } = await provider.fetch();
+
+    assert.equal(records.length, 20);
+    assert.equal(complete, false);
+    assert.ok(!http.requested.some((url) => url.includes('ajax.php')));
   });
 });
 
@@ -173,7 +406,9 @@ describe('KarabasEventProvider.normalize', () => {
   test('keeps a real end later the same day, shifted like the start', async () => {
     const { provider, record } = await recordOf('psykholohichnyy-zakhid-doroslist-i-separatsiya');
 
-    const event = normalized(provider, record);
+    // The only saved event with such an end is a plain Event of the clubs page, which that page does not import;
+    // read here as if a section without a @type rule had listed it first.
+    const event = normalized(provider, { ...record, section: '/theatres/', categorySlug: 'theatre' });
 
     // 21:00–23:00+02:00 in the JSON-LD, 19:00–21:00 on the page.
     assert.equal(record.event.endDate, '2026-11-04T23:00:00+02:00');
@@ -217,6 +452,24 @@ describe('KarabasEventProvider.normalize', () => {
 
     assert.deepEqual(karabasEnd(start, '2026-11-05T04:00:00+02:00'), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
     assert.deepEqual(karabasEnd(start, undefined), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
+  });
+
+  test('skips any @type but MusicEvent on the clubs page', async () => {
+    const { provider, record } = await recordOf('lama-15', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const result = provider.normalize({ ...record, event: { ...record.event, '@type': 'TheaterEvent' } });
+
+    assert.ok('skip' in result);
+    assert.match(result.skip.reason, /@type "TheaterEvent" on \/clubs\//);
+  });
+
+  test('keeps the category of the section that lists an event first, whatever its @type', async () => {
+    // A plain Event of the clubs page, as if the concerts page had listed it first.
+    const { provider, record } = await recordOf('klub-nastil-nykh-ihor-187', { '/clubs/': SAVED_SECTIONS['/clubs/'] });
+
+    const event = normalized(provider, { ...record, section: '/concerts/', categorySlug: 'concerts' });
+
+    assert.equal(event.categorySlug, 'concerts');
   });
 
   test('gives no image URL for an event without an image', async () => {

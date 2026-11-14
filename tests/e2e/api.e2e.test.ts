@@ -14,6 +14,7 @@ import { after, before, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
+import { PgBossJobQueue } from '../../dist/infra/jobs/pg-boss-job-queue.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
 import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
@@ -2967,20 +2968,26 @@ describe('Event import', () => {
   const ARTWIZARD_TEST_KEY = 'e2e-artwizard-key';
   let providerSite: Server;
   let providerSiteUrl = '';
+  /** A Karabas event the local site leaves out of every page while set, as if Karabas had removed it. */
+  let karabasRemoved: string | undefined;
 
   before(async () => {
     const saved = (file: string) => readFileSync(path.resolve('tests/unit/fixtures/providers', file));
-    const pages: Record<string, string> = {
-      '/concerts/': 'karabas/kyiv-concerts.html',
-      '/clubs/': 'karabas/kyiv-clubs.html',
-      '/sport/': 'karabas/kyiv-sport.html',
-      '/search': 'nominatim/search.json',
-    };
+    const pages = new Map([
+      ['/concerts/', 'karabas/kyiv-concerts.html'],
+      ['/clubs/', 'karabas/kyiv-clubs.html'],
+      ['/sport/', 'karabas/kyiv-sport.html'],
+      ['/search', 'nominatim/search.json'],
+    ]);
     // The ArtWizard API's pages 1 and 2 of the saved run, as if they were all: 40 of its 74 Kyiv events.
     const artWizardPage = (page: string) => {
       const body = JSON.parse(saved(`artwizard/events-page-${page}.json`).toString()) as Record<string, unknown>;
-      return JSON.stringify({ ...body, total_pages: 2 });
+      return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
+    const eventBlocks = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
+    const noEvents = saved('karabas/kyiv-sport-2026-11-07.html').toString().replace(eventBlocks, '');
+    const withoutEvent = (html: string, slug: string) =>
+      html.replace(eventBlocks, (block) => (block.includes(`/${slug}/"`) ? '' : block));
     providerSite = createHttpServer((req, res) => {
       const { pathname, searchParams } = new URL(req.url ?? '/', 'http://localhost');
       if (pathname === '/events') {
@@ -2994,7 +3001,16 @@ describe('Event import', () => {
         }
         return;
       }
-      const file = pages[pathname];
+      // Only the first page of three Karabas sections was saved on 3 November. The others, and the next page of a
+      // saved one, answer with a saved page without its events, which has no "load more" link either: the end of
+      // the section, so a Karabas run reads its full list.
+      if (KARABAS_SECTIONS.some(({ path }) => path === pathname)) {
+        const file = searchParams.has('page') ? undefined : pages.get(pathname);
+        const html = file ? saved(file).toString() : noEvents;
+        res.writeHead(200).end(karabasRemoved ? withoutEvent(html, karabasRemoved) : html);
+        return;
+      }
+      const file = pages.get(pathname);
       res.writeHead(file ? 200 : 404).end(file ? saved(file) : '');
     });
     await new Promise<void>((resolve) => providerSite.listen(0, resolve));
@@ -3004,35 +3020,38 @@ describe('Event import', () => {
 
   after(() => new Promise<void>((resolve) => providerSite.close(() => resolve())));
 
+  /** Starts the import process from a folder without .env, with no key file and no MAIN_DATABASE_URL. */
+  function startImport(args: string[], { artWizardApiKey = ARTWIZARD_TEST_KEY } = {}) {
+    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
+    const child = spawn(process.execPath, [path.resolve('dist/import/main.js'), ...args], {
+      cwd,
+      env: {
+        PATH: process.env.PATH,
+        IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
+        ARTWIZARD_API_URL: providerSiteUrl,
+        ARTWIZARD_API_KEY: artWizardApiKey,
+        KARABAS_BASE_URL: providerSiteUrl,
+        NOMINATIM_BASE_URL: providerSiteUrl,
+        IMPORT_REQUEST_INTERVAL_MS: '0',
+        IMPORT_NOW: '2026-11-03T10:00:00Z',
+      },
+    });
+    child.on('close', () => rmSync(cwd, { recursive: true, force: true }));
+    return child;
+  }
+
   /**
-   * One import run from a folder without .env, with no key file and no MAIN_DATABASE_URL. Asynchronous, so the
-   * local provider site in this process can answer it. Returns what the process printed.
+   * One import run of every provider. Asynchronous, so the local provider site in this process can answer it. With
+   * `--force`, since the tests run the providers many times a day. Returns what the process printed.
    */
   async function runImport({ artWizardApiKey = ARTWIZARD_TEST_KEY, exitCode = 0 } = {}) {
-    const cwd = mkdtempSync(path.join(tmpdir(), 'nearby-import-'));
-    try {
-      const child = spawn(process.execPath, [path.resolve('dist/import/main.js')], {
-        cwd,
-        env: {
-          PATH: process.env.PATH,
-          IMPORT_DATABASE_URL: runDatabaseUrl('IMPORT_DATABASE_URL'),
-          ARTWIZARD_API_URL: providerSiteUrl,
-          ARTWIZARD_API_KEY: artWizardApiKey,
-          KARABAS_BASE_URL: providerSiteUrl,
-          NOMINATIM_BASE_URL: providerSiteUrl,
-          IMPORT_REQUEST_INTERVAL_MS: '0',
-          IMPORT_NOW: '2026-11-03T10:00:00Z',
-        },
-      });
-      let output = '';
-      child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
-      child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
-      const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
-      assert.equal(status, exitCode, output);
-      return output;
-    } finally {
-      rmSync(cwd, { recursive: true, force: true });
-    }
+    const child = startImport(['--once', '--force'], { artWizardApiKey });
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()));
+    const status = await new Promise<number | null>((resolve) => child.on('close', resolve));
+    assert.equal(status, exitCode, output);
+    return output;
   }
 
   const importedEvents = (provider: string) =>
@@ -3059,11 +3078,12 @@ describe('Event import', () => {
     await runImport();
 
     // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
-    // has no occurrence in it. Karabas: 20 concerts, 12 club events that are not concerts too, and 1 sport event.
+    // has no occurrence in it. Karabas: 20 concerts, the 7 MusicEvent records of the 12 club events that are not
+    // concerts too (the other 5 are plain Event: talks, board games, wine), and 1 sport event.
     const artWizard = await importedEvents('artwizard');
     const karabas = await importedEvents('karabas');
     assert.equal(artWizard.length, 30);
-    assert.equal(karabas.length, 33);
+    assert.equal(karabas.length, 28);
     for (const event of [...artWizard, ...karabas]) {
       assert.equal(event.organization_id, null);
       assert.equal(event.status, 'published');
@@ -3071,8 +3091,8 @@ describe('Event import', () => {
       assert.match(event.source_url ?? '', /^https:\/\/(artwizard\.io|kyiv\.karabas\.com)\//);
     }
     const { rows: runs } = await withDatabase((client) =>
-      client.query<{ provider: string; status: string; finished: boolean; skipped: number }>(
-        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, count(s.id)::int AS skipped
+      client.query<{ provider: string; status: string; finished: boolean; complete: boolean; skipped: number }>(
+        `SELECT r.provider, r.status, r.finished_at IS NOT NULL AS finished, r.complete, count(s.id)::int AS skipped
            FROM import_runs r LEFT JOIN skipped_records s ON s.import_run_id = r.id
           WHERE NOT (r.id = ANY($1::uuid[]))
           GROUP BY r.id
@@ -3081,8 +3101,8 @@ describe('Event import', () => {
       ),
     );
     assert.deepEqual(runs, [
-      { provider: 'artwizard', status: 'succeeded', finished: true, skipped: 10 },
-      { provider: 'karabas', status: 'succeeded', finished: true, skipped: 0 },
+      { provider: 'artwizard', status: 'succeeded', finished: true, complete: true, skipped: 10 },
+      { provider: 'karabas', status: 'succeeded', finished: true, complete: true, skipped: 5 },
     ]);
   });
 
@@ -3093,9 +3113,180 @@ describe('Event import', () => {
     await runImport();
 
     assert.equal((await importedEvents('karabas')).length, first);
-    assert.equal(first, 33);
+    assert.equal(first, 28);
     // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
     assert.equal((await importedEvents('artwizard')).length, 30);
+  });
+
+  const eventStatus = async (provider: string, externalId: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ id: string; status: string }>(
+        'SELECT id, status FROM events WHERE provider = $1 AND external_id = $2',
+        [provider, externalId],
+      );
+      return rows[0];
+    });
+
+  test('cancels a Karabas event gone from its full list, and publishes it again when it comes back', async () => {
+    await runImport();
+    const before = await eventStatus('karabas', 'lama-15');
+    assert.equal(before?.status, 'published');
+
+    karabasRemoved = 'lama-15';
+    let output: string;
+    try {
+      output = await runImport();
+    } finally {
+      karabasRemoved = undefined;
+    }
+
+    assert.match(output, /karabas: fetched 32, .*cancelled 1, skipped 5; the full list/);
+    assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'cancelled');
+    const shown = await call('GET', `/api/v1/events/${before?.id}`, { token: tokens.guest });
+    assert.equal(shown.status, 200);
+    assert.equal(shown.body.status, 'cancelled');
+    const listed = (await importedEvents('karabas')).filter((event) => event.status === 'published');
+    assert.equal(listed.length, 27);
+
+    const back = await runImport();
+
+    assert.match(back, /karabas: fetched 33, .*\(republished 1\), unchanged 27, cancelled 0/);
+    assert.equal((await eventStatus('karabas', 'lama-15'))?.status, 'published');
+  });
+
+  test('cancels nothing when an ArtWizard run fails', async () => {
+    await runImport();
+    const published = async () =>
+      (await importedEvents('artwizard')).filter((event) => event.status === 'published').length;
+    const before = await published();
+
+    await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
+
+    assert.equal(await published(), before);
+    assert.equal(before, 30);
+  });
+
+  // FR-014, REL-003
+  test('after a failed ArtWizard run, serves its events with the time of its last succeeded run for the notice', async () => {
+    await runImport();
+    const current = await call('GET', '/api/v1/events?limit=1', { token: tokens.guest });
+    assert.equal(current.status, 200);
+    assert.equal(current.body.lastUpdatedAt, null);
+    const { rows } = await withDatabase((client) =>
+      client.query<{ finished_at: Date }>(
+        `SELECT finished_at FROM import_runs WHERE provider = 'artwizard' AND status = 'succeeded'
+          ORDER BY started_at DESC LIMIT 1`,
+      ),
+    );
+    const lastSucceededAt = rows[0]?.finished_at.toISOString();
+
+    await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
+    const events = await call('GET', '/api/v1/events?limit=20', { token: tokens.guest });
+
+    assert.equal(events.status, 200);
+    assert.ok(events.body.items.length > 0);
+    assert.ok(lastSucceededAt);
+    assert.equal(events.body.lastUpdatedAt, lastSucceededAt);
+    // The same on another page and with a filter.
+    const other = await call('GET', '/api/v1/events?limit=1&offset=3&from=2026-12-01', { token: tokens.guest });
+    assert.equal(other.status, 200);
+    assert.equal(other.body.lastUpdatedAt, lastSucceededAt);
+  });
+
+  test('has no route of its own for the notice: the former one is read as an event id', async () => {
+    const former = 'freshness';
+    assertInvalid(await call('GET', `/api/v1/events/${former}`, { token: tokens.guest }), 'params', 'id');
+  });
+
+  test('finds an ArtWizard venue saved with the city twice, as earlier runs saved it, instead of saving it again', async () => {
+    await runImport();
+    // As the import wrote it before: the API's address already ends with Київ, and the city was added again.
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `UPDATE venues SET address = address || ', Київ'
+          WHERE source = 'import' AND name = 'Будинок Кіно' AND address = 'вулиця Саксаганського, 6, Київ'
+          RETURNING id`,
+      ),
+    );
+    assert.equal(rows.length, 1);
+
+    await runImport();
+
+    const { rows: venues } = await withDatabase((client) =>
+      client.query<{ id: string; address: string }>(
+        `SELECT id, address FROM venues WHERE source = 'import' AND name = 'Будинок Кіно'`,
+      ),
+    );
+    assert.deepEqual(venues, [{ id: rows[0]?.id, address: 'вулиця Саксаганського, 6, Київ, Київ' }]);
+    const { rows: events } = await withDatabase((client) =>
+      client.query<{ venue_id: string }>(
+        `SELECT DISTINCT e.venue_id FROM events e JOIN venues v ON v.id = e.venue_id
+          WHERE e.provider = 'artwizard' AND v.name = 'Будинок Кіно'`,
+      ),
+    );
+    assert.deepEqual(events, [{ venue_id: rows[0]?.id }]);
+  });
+
+  // ADR-006, decision 7: the venue pairs of the live runs are in the unit tests; these check the database side.
+  test('moves the events of a venue to an older saved one at the same address with a similar name, and keeps both rows', async () => {
+    await runImport();
+    // The venue as ArtWizard writes it, saved before the Karabas one, as if ArtWizard had listed it first.
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO venues (name, address, latitude, longitude, source, created_at)
+         VALUES ('Pepper''s Club', 'вулиця Князів Острозьких, 8, Київ', 50.440262, 30.544271, 'import',
+                 now() - interval '1 year')
+         RETURNING id`,
+      ),
+    );
+    const older = rows[0]?.id;
+
+    await runImport();
+
+    const { rows: venues } = await withDatabase((client) =>
+      client.query<{ id: string; events: number }>(
+        `SELECT v.id, (SELECT count(*)::int FROM events e WHERE e.venue_id = v.id) AS events
+           FROM venues v WHERE v.source = 'import' AND v.name LIKE '%Pepper''s Club%' ORDER BY v.created_at`,
+      ),
+    );
+    assert.equal(venues.length, 2);
+    assert.equal(venues[0]?.id, older);
+    assert.ok((venues[0]?.events ?? 0) > 0);
+    assert.equal(venues[1]?.events, 0);
+  });
+
+  test('keeps two venues of one building apart when their names differ', async () => {
+    await runImport();
+
+    const { rows } = await withDatabase((client) =>
+      client.query<{ name: string }>(
+        `SELECT name FROM venues WHERE source = 'import' AND name IN ('Реверб', 'Otel’') ORDER BY name`,
+      ),
+    );
+    assert.deepEqual(
+      rows.map(({ name }) => name),
+      ['Otel’', 'Реверб'],
+    );
+  });
+
+  test('marks a run that never finished as failed before the next run of its provider', async () => {
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string }>(
+        `INSERT INTO import_runs (provider, status, started_at) VALUES ('karabas', 'running', now() - interval '1 day')
+         RETURNING id`,
+      ),
+    );
+    const leftOver = rows[0]?.id;
+
+    await runImport();
+
+    const { rows: after } = await withDatabase((client) =>
+      client.query<{ status: string; finished: boolean }>(
+        'SELECT status, finished_at IS NOT NULL AS finished FROM import_runs WHERE id = $1',
+        [leftOver],
+      ),
+    );
+    assert.deepEqual(after, [{ status: 'failed', finished: false }]);
   });
 
   test('without ARTWIZARD_API_KEY fails the ArtWizard run only, and still imports Karabas', async () => {
@@ -3117,7 +3308,7 @@ describe('Event import', () => {
       { provider: 'artwizard', status: 'failed' },
       { provider: 'karabas', status: 'succeeded' },
     ]);
-    assert.equal((await importedEvents('karabas')).length, 33);
+    assert.equal((await importedEvents('karabas')).length, 28);
   });
 
   test('serves the imported events through the API, with their image and source URLs', async () => {
@@ -3161,7 +3352,8 @@ describe('Event import', () => {
       const output = await runImport();
 
       assert.doesNotMatch(output, /Unknown category/);
-      assert.match(output, /karabas: fetched 33, .*skipped 0/);
+      // The five plain Event records of /clubs/ are skipped for their @type, never for the category.
+      assert.match(output, /karabas: fetched 33, .*skipped 5;/);
       const { rows } = await withDatabase((client) =>
         client.query<{ count: number }>(
           `SELECT count(*)::int AS count FROM events WHERE provider = 'karabas' AND category_id = $1`,
@@ -3182,6 +3374,128 @@ describe('Event import', () => {
     } finally {
       await client.end();
     }
+  });
+  test('refuses --force without --once, and in production, before it connects anywhere', () => {
+    for (const [args, env] of [
+      [['--force'], {}],
+      [['--once', '--force'], { NODE_ENV: 'production' }],
+    ] as const) {
+      const { status, stderr } = spawnSync(process.execPath, [path.resolve('dist/import/main.js'), ...args], {
+        cwd: tmpdir(),
+        env: { PATH: process.env.PATH, ...env },
+        encoding: 'utf8',
+      });
+
+      assert.equal(status, 2, stderr);
+      assert.match(stderr, /--force is for a local run only/);
+    }
+  });
+
+  // HLD I3, ADR-006 (decision 9): without --once the import runs until stopped and imports on the import.run jobs.
+  describe('the long-running process', () => {
+    const WAIT_MS = 30_000;
+    let worker: ChildProcess;
+    let workerOutput = '';
+    /** Enqueues as the API would, as nearby_main. */
+    let jobs: PgBossJobQueue;
+
+    /** Polls `check` until it returns something, or fails after WAIT_MS. */
+    async function eventually<T>(what: string, check: () => Promise<T | undefined> | T | undefined): Promise<T> {
+      const until = Date.now() + WAIT_MS;
+      for (;;) {
+        const value = await check();
+        if (value !== undefined) {
+          return value;
+        }
+        assert.ok(Date.now() < until, `${what} did not happen; the import printed:\n${workerOutput}`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+
+    const runIds = (provider: string) =>
+      withDatabase(async (client) =>
+        (await client.query<{ id: string }>('SELECT id FROM import_runs WHERE provider = $1', [provider])).rows.map(
+          ({ id }) => id,
+        ),
+      );
+
+    before(async () => {
+      // Earlier tests ran the providers minutes ago; a day earlier, they are due again. Their order stays the same.
+      await withDatabase((client) => client.query(`UPDATE import_runs SET started_at = started_at - interval '1 day'`));
+      await withDatabase((client) => client.query(`DELETE FROM pgboss.job WHERE name = 'import.run'`));
+      worker = startImport([]);
+      worker.stdout?.on('data', (chunk: Buffer) => (workerOutput += chunk.toString()));
+      worker.stderr?.on('data', (chunk: Buffer) => (workerOutput += chunk.toString()));
+      jobs = new PgBossJobQueue(runDatabaseUrl('MAIN_DATABASE_URL'));
+      jobs.onApplicationBootstrap();
+      await jobs.whenStarted();
+    });
+
+    after(async () => {
+      await jobs?.onModuleDestroy();
+      if (worker && worker.exitCode === null) {
+        worker.kill('SIGTERM');
+        await new Promise((resolve) => worker.once('close', resolve));
+      }
+      await withDatabase(async (client) => {
+        await client.query(`DELETE FROM pgboss.job WHERE name = 'import.run'`);
+        await client.query(`DELETE FROM pgboss.schedule WHERE name = 'import.run'`);
+      });
+    });
+
+    test('schedules every provider daily at 02:00 UTC, without retries, as nearby_import', async () => {
+      const schedules = await eventually('Storing the schedules', () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ key: string; cron: string; data: unknown }>(
+            `SELECT key, cron, data FROM pgboss.schedule WHERE name = 'import.run' ORDER BY key`,
+          );
+          return rows.length === 2 ? rows : undefined;
+        }),
+      );
+
+      assert.deepEqual(schedules, [
+        { key: 'artwizard', cron: '0 2 * * *', data: { providerId: 'artwizard' } },
+        { key: 'karabas', cron: '0 2 * * *', data: { providerId: 'karabas' } },
+      ]);
+      const { rows } = await withDatabase((client) =>
+        client.query(`SELECT retry_limit FROM pgboss.queue WHERE name = 'import.run'`),
+      );
+      assert.deepEqual(rows, [{ retry_limit: 0 }]);
+    });
+
+    test('an import.run job runs its provider only, and a second one within 20 hours starts no run', async () => {
+      const karabasBefore = await runIds('karabas');
+      const artWizardBefore = await runIds('artwizard');
+
+      await jobs.enqueue('import.run', { providerId: 'karabas' });
+      const [run] = await eventually('The Karabas run', () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ id: string; status: string }>(
+            `SELECT id, status FROM import_runs
+              WHERE provider = 'karabas' AND status <> 'running' AND NOT (id = ANY($1::uuid[]))`,
+            [karabasBefore],
+          );
+          return rows.length > 0 ? rows : undefined;
+        }),
+      );
+      assert.equal(run?.status, 'succeeded', workerOutput);
+
+      await jobs.enqueue('import.run', { providerId: 'karabas' });
+      await eventually(
+        'Skipping the second Karabas run',
+        () => /karabas: not started: the last run started at/.test(workerOutput) || undefined,
+      );
+
+      assert.deepEqual((await runIds('karabas')).length, karabasBefore.length + 1);
+      assert.deepEqual(await runIds('artwizard'), artWizardBefore);
+    });
+
+    test('exits normally on SIGTERM', async () => {
+      worker.kill('SIGTERM');
+      const [code] = (await new Promise((resolve) => worker.once('exit', (...args) => resolve(args)))) as [number];
+
+      assert.equal(code, 0, workerOutput);
+    });
   });
 });
 

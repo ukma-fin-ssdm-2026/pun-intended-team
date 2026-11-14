@@ -194,13 +194,15 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
-| `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events | `400`, `401` |
+| `GET` | `/api/v1/events` | Anyone with a guest or user token | `200` a page of events and `lastUpdatedAt` | `400`, `401` |
 | `GET` | `/api/v1/events/{id}` | Anyone with a guest or user token | `200` the event | `400`, `401`, `404` |
 | `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
 | `PUT` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
 
 `PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
+
+The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" notice (FR-014). It is `null` while the imported events are current. While the latest ended import run of a provider failed, a run still going not counting, the catalog keeps serving that provider's events of its last succeeded run, and `lastUpdatedAt` is when that run finished, from `import_runs` (HLD I4); the oldest such time if several providers failed. A failed provider that never succeeded has no events and gives no time. The app shows it as "Оновлено <date, time>" above the list. The value is the same on every page and with every filter. It is a field of the catalog page and not an endpoint of its own, so the catalog gets the one timestamp it shows with the request it already makes (catalog access, rule 1), and provider names stay inside the server.
 
 `GET /api/v1/events` query parameters (FR-007):
 
