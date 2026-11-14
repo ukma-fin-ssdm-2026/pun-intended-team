@@ -63,6 +63,101 @@ First read from the sitemap and the event pages' JSON-LD; since the permission, 
 - Sport from football sites: considered, deferred to a separate issue; Karabas `/sport/` covers matches for now.
 - Test fixtures: real responses saved in `tests/unit/fixtures/providers/{artwizard,karabas}/`; the ArtWizard key is never saved.
 
+## Start and end times (#410)
+
+Read on 2026-11-14 for the catalog window of that day, 14 November to 12 December, by a throwaway script that is not in the repository: within each site's robots.txt, with the import's User-Agent, at most one request a second per host. Basis for decision 5 of [ADR-006](../decisions/ADR-006.md).
+
+- **Karabas:** the seven Kyiv sections the adapter reads, page after page as the adapter does, from the JSON-LD of the section pages.
+- **Concert.ua:** the Kyiv sections that correspond to them, `/uk/catalog/kyiv/concerts`, `/theater`, `/festivals` and `/electronic`, every page through the `rel="next"` link, from the JSON-LD of the section pages. The list is not in date order, so every page is read whatever the window. No event page was requested on either site.
+- **ArtWizard:** one read of the Kyiv events through the API, as the adapter does it.
+
+### Ends per site
+
+| Site | Events in the window | With a real end | Without |
+|---|---|---|---|
+| Karabas | 707 | 3 (`endDate` later the same day: a boxing evening 16:00–23:00 on `/sport/`, two talks 19:00–21:00 on `/clubs/`, which the adapter skips as not parties) | 704: 700 with the next midnight, 4 with a time on a later day (below) |
+| Concert.ua | 78 (of 132 listed) | 78 have an `endDate` | 0 |
+| ArtWizard | 70 importable (of 107) | 11 (`date_to` after `date_from`) | 59 (`date_to` equal to `date_from`) |
+
+With the lengths and the runs below, the adapter knows the end of 204 of the 700 Karabas events it takes: 1 from a same-day `endDate`, 199 from a length, 4 as the first show of a run.
+
+No Karabas event in the window had a later midnight as its `endDate` on that day (the run of "Тигролови" of 3 November was such a case).
+
+### Concert.ua: how long its events last
+
+| Section | In the window | Exactly start + 2 hours | Another length |
+|---|---|---|---|
+| `/concerts` | 43 | 28 | 15 |
+| `/theater` | 30 | 20 | 10 |
+| `/festivals` | 2 | 0 | 2 |
+| `/electronic` | 3 | 3 | 0 |
+| All | 78 | 51 (65 %) | 27 (35 %) |
+
+The other lengths run from 60 to 300 minutes, most often 90, 150 and 180, plus a two-day festival (31 hours) and a play with an end 15 minutes after its start. Two hours is so common, for plays and concerts alike, that it reads as the site's default when the organizer gives no length; such an end is no more real than a missing one.
+
+### Karabas: a length in the description
+
+Patterns matched, only right after the word "Тривалість" or "тривалість" (with at most a few words in between, such as "вистави" or "концерту"): hours and minutes ("N год M хв", "N година M хвилин", with or without full stops and spaces), tenths of an hour ("1,5 години"), hours alone ("2 год", "2 години") and minutes alone ("90 хв", "110 хвилин"), between 10 minutes and 12 hours. Notes such as "без антракту" or "з антрактом" are ignored.
+
+| Section | Events | Mention "тривалість" | Length read |
+|---|---|---|---|
+| `/theatres/` | 472 | 178 | 172 |
+| `/concerts/` | 200 | 21 | 21 |
+| `/exhibitions/` | 24 | 8 | 6 |
+| `/cinema/`, `/sport/`, `/clubs/` | 11 | 0 | 0 |
+| All | 707 | 207 (29 %) | 199 (28 %) |
+
+Examples read: "Тривалість вистави – 1 год 50 хв", "Тривалість: 1 година 10 хвилин", "Тривалість 1 год. 40 хв.", "тривалість: 90 хв", "тривалість вистави – 1,5 години". The 8 not read: "Тривалість орієнтовна від 1 години", "Тривалість до 60 хвилин", "Тривалість однієї історії до 5 хв" (no exact length) and "Тривалість: 1 дія, 90 хвилин" (another number comes first). The lengths read run from 35 to 210 minutes; none takes its event past midnight.
+
+Whether a length agrees with the `endDate` could not be checked: none of the 3 events with a real end has a length in its description, and all 199 lengths belong to events without an end. The only event with both a Karabas length and a Concert.ua end is "Обережно з бажаннями", 65 minutes on Karabas and the 2 hours on Concert.ua.
+
+### Events both sites sell
+
+Matched as decision 8 of ADR-006 does: the same start instant, a similar title (the same words, or the words of one running on in the other), and a venue name that is similar; neither list gives Concert.ua's street address.
+
+| | Count |
+|---|---|
+| Events both sites sell | 30: 38 % of Concert.ua's 78, 4 % of Karabas' 707 |
+| … whose Concert.ua end is exactly 2 hours | 24 |
+| … whose Concert.ua end is another length | 6 |
+| … for which Karabas has an end or a length | 1 (the length above) |
+| Same start and title under venue names that do not match | 3 more |
+
+Examples: "OTOY" at Stereo Plaza, 14 November 19:00; "Музика Ганса Циммера при свічках" at Будинок архітектора, 15 November 18:00 (85 minutes on Concert.ua); "Олексій Коган та Jazz in Kyiv Band" at Pepper's Club, 24 November 19:00; "Самозванці" at Театр "Особистості", 20 November 18:00; "Номер 13" at the operetta theatre, 16 November 18:00. The three with other venue names: "Палац культури КПІ ім. Ігоря Сікорського" against "Центр культури і мистецтв КПІ", and twice "Центральний будинок збройних сил України" against "Будинок Офіцерів".
+
+So Concert.ua's ends, matched onto Karabas events, would give 6 ends that are not the 2-hour default, for under 1 % of the Karabas events.
+
+### ArtWizard events without a start time
+
+| | Count |
+|---|---|
+| Events read | 107 |
+| Skipped: no start time (00:00) in the window | 27: 19 exhibitions, 8 others |
+| Skipped: no occurrence in the window | 7 |
+| Skipped: no category | 3 |
+| Of the 27, sold by Karabas or Concert.ua with a time | 0 |
+
+The 8 that are not exhibitions: "Oleksandr Mashovets Quartet | Brutalism" (32 Jazz Club), "Відкриття нової Цегли", "Літслей повертається!", "Максим Тощо «Хмельниччина»" and "Сольний концерт гурту «Робаний Йот»" (Mezzanine), "Hardcore Vpadlo Gig: Стіни Падуть" (Реверб), the film cycle "(ĪNFĀNS) — той, хто не мовить" (Жовтень) and "М’яке місто: День інклюзивної культури". Neither ticket site lists any of them, by title or at the same venue on the same day, so the case of "Я бачу, вас цікавить пітьма" on 3 November (00:00 on ArtWizard, 18:00 on Karabas) did not repeat: a start time for these events cannot be taken from the ticket sites.
+
+### Karabas: an end on a later day that is not a midnight
+
+| Event | Section | `startDate` | `endDate` |
+|---|---|---|---|
+| Київський музей медуз | `/exhibitions/` | 14 November 10:00 | 1 May 2027 14:00 |
+| Київський океанаріум «Морська казка» | `/exhibitions/` | 14 November 10:00 | 1 May 2027 14:00 |
+| Музей Miniland.UA | `/exhibitions/` | 14 November 11:00 | 31 December 20:00 |
+| Світ у горіховій шкаралупі | `/theatres/` | 14 November 17:00 | 29 November 21:00 |
+
+4 of 707. Each is a run of days, not one long event: the page of the museum shows "10:00 - 1 травня 2027, 14:00", and its start is the day the page is read. `/festivals/` lists a fifth, "FANCON 2027", outside the window.
+
+### Requests a full run needs
+
+| Site | Requests on 2026-11-14 | For end times |
+|---|---|---|
+| Karabas | 46 section pages: 26 `/theatres/`, 11 `/concerts/`, 4 `/clubs/`, 2 `/exhibitions/`, 1 each `/cinema/`, `/sport/`, `/festivals/` | No more: `endDate` and the description are in the JSON-LD of the section pages |
+| Concert.ua | 11 section pages: 4 `/concerts`, 5 `/theater`, 1 `/festivals`, 1 `/electronic` | No more for `endDate`, which is in the JSON-LD of the section pages; the address and the description still need one event page each |
+| ArtWizard | 6 API pages | — |
+
 ## Categories (agreed)
 
 Concerts, Exhibitions, Talks (lectures + discussions), Workshops, Cinema, Theatre, Stand-up, Sports, Festivals (incl. fairs), Parties, Volunteering (renamed from Toloka, listings only), Open days (kept, listings only).
