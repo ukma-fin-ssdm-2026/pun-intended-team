@@ -232,6 +232,16 @@ describe('MatchingService.matchOnApply', () => {
     );
   });
 
+  // Inside the transaction, so the step holding the lock needs no second connection.
+  test('reads the profiles and the days of the pool in the transaction of the lock', async () => {
+    const { service, profilesService, eventSessionsService } = makeService();
+
+    await service.matchOnApply(NEWCOMER);
+
+    assert.equal(profilesService.getInterests.mock.calls[0]?.arguments[1], TX);
+    assert.equal(eventSessionsService.getByIds.mock.calls[0]?.arguments[1], TX);
+  });
+
   test('reads the pool of every day the application waits on', async () => {
     const { service, applicationsRepository } = makeService();
 
@@ -272,7 +282,7 @@ describe('MatchingService.matchOnApply', () => {
 
     await service.matchOnApply(NEWCOMER);
 
-    assert.deepEqual(moderationService.exclusionsFor.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID]]);
+    assert.deepEqual(moderationService.exclusionsFor.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID], TX]);
     assert.equal(matchesRepository.propose.mock.callCount(), 0);
   });
 

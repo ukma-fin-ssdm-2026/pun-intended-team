@@ -13,5 +13,5 @@ export abstract class EventSessionsRepository {
     tx?: Transaction,
   ): Promise<OpenedSession<EventSessionRecord>[]>;
 
-  abstract findByIds(ids: string[]): Promise<EventSessionRecord[]>;
+  abstract findByIds(ids: string[], tx?: Transaction): Promise<EventSessionRecord[]>;
 }

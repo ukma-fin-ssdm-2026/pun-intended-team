@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
 import type { ListingsService } from '../../dist/core/listings/services/listings.service.js';
 import type { Listing } from '../../dist/core/listings/types/listing.js';
@@ -415,14 +416,16 @@ describe('ModerationService.exclusionsFor', () => {
     assert.deepEqual(exclusions, { reported: [[ACCOUNT_ID, OTHER_ACCOUNT_ID]], banned: [BANNED_ID] });
   });
 
-  test('asks about each user once when the pool lists one twice', async () => {
+  test('asks about each user once when the pool lists one twice, in the caller’s transaction', async () => {
     const { service, reportCasesRepository, accountsService } = makeService();
+    const tx = {} as Transaction;
 
-    await service.exclusionsFor([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID]);
+    await service.exclusionsFor([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID], tx);
 
     assert.deepEqual(reportCasesRepository.findReportedPairs.mock.calls[0]?.arguments, [
       [ACCOUNT_ID, OTHER_ACCOUNT_ID],
+      tx,
     ]);
-    assert.deepEqual(accountsService.findBanned.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID]]);
+    assert.deepEqual(accountsService.findBanned.mock.calls[0]?.arguments, [[ACCOUNT_ID, OTHER_ACCOUNT_ID], tx]);
   });
 });

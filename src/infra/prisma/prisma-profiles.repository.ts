@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { DomainError } from '../../core/common/domain-error.ts';
 import { ProfilesRepository } from '../../core/profiles/repositories/profiles.repository.ts';
 import {
@@ -15,6 +16,7 @@ import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
 import type { Profile as ProfileRow } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 const withRelations = {
@@ -46,8 +48,8 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return row ? this.toProfile(row) : undefined;
   }
 
-  async findByAccountIds(accountIds: string[]): Promise<Profile[]> {
-    const rows = await this.prisma.profile.findMany({
+  async findByAccountIds(accountIds: string[], tx?: Transaction): Promise<Profile[]> {
+    const rows = await clientOf(this.prisma, tx).profile.findMany({
       where: { accountId: { in: accountIds } },
       include: withRelations,
     });

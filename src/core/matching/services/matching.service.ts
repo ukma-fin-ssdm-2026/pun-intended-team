@@ -114,9 +114,12 @@ export class MatchingService implements OnModuleInit {
     const declined = await this.matchesRepository.findExcludedPairs(eventId, tx);
     const userIds = applications.map(({ userId }) => userId);
     const [interests, moderation, sessions] = await Promise.all([
-      this.profilesService.getInterests(userIds),
-      this.moderationService.exclusionsFor(userIds),
-      this.eventSessionsService.getByIds(applications.flatMap((application) => application.sessionIds)),
+      this.profilesService.getInterests(userIds, tx),
+      this.moderationService.exclusionsFor(userIds, tx),
+      this.eventSessionsService.getByIds(
+        applications.flatMap((application) => application.sessionIds),
+        tx,
+      ),
     ]);
     const now = new Date();
     const banned = new Set(moderation.banned);

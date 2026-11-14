@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Transaction } from '../../common/transaction.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import type {
   ReportCaseRecord,
@@ -33,5 +34,5 @@ export abstract class ReportCasesRepository {
   abstract countOpen(): Promise<number>;
 
   /** `[reporter, reported]` for every account of `accountIds` that reported another of them, each pair once. */
-  abstract findReportedPairs(accountIds: string[]): Promise<[string, string][]>;
+  abstract findReportedPairs(accountIds: string[], tx?: Transaction): Promise<[string, string][]>;
 }

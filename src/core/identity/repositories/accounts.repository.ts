@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Transaction } from '../../common/transaction.ts';
 import type {
   Account,
   AccountRecord,
@@ -55,5 +56,5 @@ export abstract class AccountsRepository {
   abstract countByStatus(status: AccountStatus): Promise<number>;
 
   /** The ones of `accountIds` that have the status. */
-  abstract findIdsWithStatus(accountIds: string[], status: AccountStatus): Promise<string[]>;
+  abstract findIdsWithStatus(accountIds: string[], status: AccountStatus, tx?: Transaction): Promise<string[]>;
 }

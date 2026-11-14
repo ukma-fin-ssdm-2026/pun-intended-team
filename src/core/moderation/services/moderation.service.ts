@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { ListingsService } from '../../listings/services/listings.service.ts';
 import type { Listing } from '../../listings/types/listing.ts';
@@ -134,11 +135,11 @@ export class ModerationService {
    * Who of a pool must not be matched: pairs where one reported the other, whatever came of the report, and banned
    * users (FR-020, HLD I2).
    */
-  async exclusionsFor(userIds: string[]): Promise<MatchingExclusions> {
+  async exclusionsFor(userIds: string[], tx?: Transaction): Promise<MatchingExclusions> {
     const ids = [...new Set(userIds)];
     const [reported, banned] = await Promise.all([
-      this.reportCasesRepository.findReportedPairs(ids),
-      this.accountsService.findBanned(ids),
+      this.reportCasesRepository.findReportedPairs(ids, tx),
+      this.accountsService.findBanned(ids, tx),
     ]);
     return { reported, banned };
   }

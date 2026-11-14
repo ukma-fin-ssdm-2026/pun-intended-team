@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { AccountsRepository } from '../../core/identity/repositories/accounts.repository.ts';
 import type {
   Account,
@@ -12,6 +13,7 @@ import type {
 import type { Account as AccountRow } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 @Injectable()
@@ -148,8 +150,8 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return this.prisma.account.count({ where: { status } });
   }
 
-  async findIdsWithStatus(accountIds: string[], status: AccountStatus): Promise<string[]> {
-    const rows = await this.prisma.account.findMany({
+  async findIdsWithStatus(accountIds: string[], status: AccountStatus, tx?: Transaction): Promise<string[]> {
+    const rows = await clientOf(this.prisma, tx).account.findMany({
       where: { id: { in: accountIds }, status },
       select: { id: true },
     });

@@ -49,8 +49,8 @@ export class EventSessionsService {
     return sessions.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }
 
-  async getByIds(ids: string[]): Promise<Map<string, EventSession>> {
-    const sessions = await this.eventSessionsRepository.findByIds(ids);
+  async getByIds(ids: string[], tx?: Transaction): Promise<Map<string, EventSession>> {
+    const sessions = await this.eventSessionsRepository.findByIds(ids, tx);
     return new Map(sessions.map((session) => [session.id, withCutoff(session)]));
   }
 }

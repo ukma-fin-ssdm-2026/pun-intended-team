@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
 import type { InterestsRepository } from '../../dist/core/profiles/repositories/interests.repository.js';
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
@@ -96,7 +97,7 @@ function makeService() {
     interestsRepository as unknown as InterestsRepository,
     accountsService as unknown as AccountsService,
   );
-  return { service, profilesRepository, accountsService };
+  return { service, profilesRepository, interestsRepository, accountsService };
 }
 
 describe('ProfilesService.getSummaries', () => {
@@ -140,12 +141,14 @@ describe('ProfilesService.getInterests', () => {
     );
   });
 
-  test('reads each account once when the list repeats one', async () => {
-    const { service, profilesRepository } = makeService();
+  test('reads each account once when the list repeats one, in the caller’s transaction', async () => {
+    const { service, profilesRepository, interestsRepository } = makeService();
+    const tx = {} as Transaction;
 
-    await service.getInterests([ACCOUNT_ID, ACCOUNT_ID]);
+    await service.getInterests([ACCOUNT_ID, ACCOUNT_ID], tx);
 
-    assert.deepEqual(profilesRepository.findByAccountIds.mock.calls[0]?.arguments, [[ACCOUNT_ID]]);
+    assert.deepEqual(profilesRepository.findByAccountIds.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
+    assert.deepEqual(interestsRepository.findAll.mock.calls[0]?.arguments, [tx]);
   });
 });
 

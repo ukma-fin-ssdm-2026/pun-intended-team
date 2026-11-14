@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../common/transaction.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import type { Account } from '../types/account.ts';
 import { SessionsService } from './sessions.service.ts';
@@ -34,8 +35,8 @@ export class AccountsService {
   }
 
   /** The banned ones of `accountIds`. */
-  async findBanned(accountIds: string[]): Promise<string[]> {
-    return this.accountsRepository.findIdsWithStatus(accountIds, 'banned');
+  async findBanned(accountIds: string[], tx?: Transaction): Promise<string[]> {
+    return this.accountsRepository.findIdsWithStatus(accountIds, 'banned', tx);
   }
 
   async stats(): Promise<{ users: number }> {

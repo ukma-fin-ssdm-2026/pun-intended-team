@@ -36,8 +36,11 @@ export class PrismaEventSessionsRepository implements EventSessionsRepository {
     return rows.map((row) => ({ ...toEventSession(row), created: createdIds.has(row.id) }));
   }
 
-  async findByIds(ids: string[]): Promise<EventSessionRecord[]> {
-    const rows = await this.prisma.eventSession.findMany({ where: { id: { in: ids } }, include: withEventTimes });
+  async findByIds(ids: string[], tx?: Transaction): Promise<EventSessionRecord[]> {
+    const rows = await clientOf(this.prisma, tx).eventSession.findMany({
+      where: { id: { in: ids } },
+      include: withEventTimes,
+    });
     return rows.map(toEventSession);
   }
 }

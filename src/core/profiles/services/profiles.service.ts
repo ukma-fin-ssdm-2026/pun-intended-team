@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { ageOn } from '../../common/age.ts';
 import { DomainError } from '../../common/domain-error.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
@@ -50,10 +51,10 @@ export class ProfilesService {
   }
 
   /** The interests of each account, for scoring a pair; accounts without a profile are left out. */
-  async getInterests(accountIds: string[]): Promise<Map<string, Interest[]>> {
+  async getInterests(accountIds: string[], tx?: Transaction): Promise<Map<string, Interest[]>> {
     const [profiles, interestsOf] = await Promise.all([
-      this.profilesRepository.findByAccountIds([...new Set(accountIds)]),
-      this.interestsLookup(),
+      this.profilesRepository.findByAccountIds([...new Set(accountIds)], tx),
+      this.interestsLookup(tx),
     ]);
     return new Map(profiles.map((profile) => [profile.accountId, interestsOf(profile)]));
   }
@@ -186,8 +187,8 @@ export class ProfilesService {
   }
 
   /** The chosen interests of a profile, in the order of the list. */
-  private async interestsLookup(): Promise<(profile: Profile) => Interest[]> {
-    const allInterests = await this.interestsRepository.findAll();
+  private async interestsLookup(tx?: Transaction): Promise<(profile: Profile) => Interest[]> {
+    const allInterests = await this.interestsRepository.findAll(tx);
     return (profile) => {
       const chosen = new Set(profile.interestIds);
       return allInterests.filter((interest) => chosen.has(interest.id));

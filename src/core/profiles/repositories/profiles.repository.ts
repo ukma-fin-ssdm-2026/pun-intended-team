@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Transaction } from '../../common/transaction.ts';
 import type { LinkedAccount, NewProfile, Profile, ProfileChanges, ProfileSummary } from '../types/profile.ts';
 
 export abstract class ProfilesRepository {
@@ -7,7 +8,7 @@ export abstract class ProfilesRepository {
   abstract findByAccountId(accountId: string): Promise<Profile | undefined>;
 
   /** Accounts without a profile are left out. */
-  abstract findByAccountIds(accountIds: string[]): Promise<Profile[]>;
+  abstract findByAccountIds(accountIds: string[], tx?: Transaction): Promise<Profile[]>;
 
   /** Case-insensitive, like the unique index. */
   abstract findAccountIdByUsername(username: string): Promise<string | undefined>;
