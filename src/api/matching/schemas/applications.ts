@@ -100,7 +100,8 @@ const CreateApplicationFields = z.strictObject({
     .refine((dates) => new Set(dates).size === dates.length, { message: 'Each day may appear once' })
     .optional()
     .describe(
-      'The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days',
+      'The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several ' +
+        'days. Each lies within the catalog window: today and the next 28 days',
     ),
   desiredCompany: CommunicationFormat.describe('What kind of company the user is looking for at this event'),
   afterEventPlans: AfterEventPlans,

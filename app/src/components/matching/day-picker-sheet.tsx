@@ -18,12 +18,22 @@ type Props = {
   eventTitle: string;
   // The starts of the sessions that still take applications.
   sessions: string[];
+  // False when the event's start is a default opening time: the days are shown without it.
+  startTimeKnown?: boolean;
   // The days ticked when the sheet opens: those the user already picked, when changing them.
   initial?: string[];
   onPick: (sessionStarts: string[]) => void;
 };
 
-export function DayPickerSheet({ visible, onClose, eventTitle, sessions, initial = [], onPick }: Props) {
+export function DayPickerSheet({
+  visible,
+  onClose,
+  eventTitle,
+  sessions,
+  startTimeKnown = true,
+  initial = [],
+  onPick,
+}: Props) {
   const [picked, setPicked] = useState<string[]>(initial);
   const toggle = (session: string) =>
     setPicked((current) =>
@@ -51,7 +61,7 @@ export function DayPickerSheet({ visible, onClose, eventTitle, sessions, initial
                 multiple
                 icon="calendar"
                 title={formatEventDay(session)}
-                note={formatTime(session)}
+                note={startTimeKnown ? formatTime(session) : undefined}
                 selected={picked.includes(session)}
                 onPress={() => toggle(session)}
               />

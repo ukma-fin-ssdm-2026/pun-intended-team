@@ -14,8 +14,13 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Asking for a match at an event: the user chooses the kind of company and the plans after the event, and for a multi-day event the days that suit them (`POST /events/{id}/applications`). A user with an incomplete profile is asked to complete it first. Applications for a day close an hour before it starts, or 2 hours before it ends if it lasts 3 hours or more. The Метчі tab lists the user's applications, and an application can be withdrawn. Matching itself comes later.
 - A real map on the map tab: one pin per Kyiv venue with upcoming events and their number. A pin opens the venue's events, and the filters and the search narrow the pins. The map starts at the user's location when it is allowed, otherwise it shows the whole city. Android needs `GOOGLE_MAPS_ANDROID_API_KEY` in the EAS environment.
 - Imported events that ArtWizard or Karabas no longer lists are shown as cancelled, and published again if they come back. A run that failed, read only part of the list, or got a list that looks broken cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+- Imported events whose provider gives no end time say so (`endTimeKnown`), and the app shows only the start, «з 19:00», for them; a length written in a Karabas description, such as «Тривалість вистави – 1 год 20 хв», becomes the end time ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
+- A Karabas show that runs on many days, such as a play every evening until 29 November or a museum open daily until 1 May, is one event from today's show to its last one, and users can apply for any of its days within the next four weeks, not only its first show. The catalog and map filters «Завтра», «Ці вихідні» and picked days show it on each of its days ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
+- Exhibitions running now are in the catalog for every day they run, without an opening time; the app shows their dates only ([#417](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/417)).
 
 ### Changed
+
+- The days of an event that runs on several days can be picked only within the next four weeks, the catalog's window. A later day is refused with `422 INVALID_SESSION_DAY`, and the app no longer offers it. Single-day events are not affected ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
 
 - Events, venues, organizations and listings are kept in the database, so they are no longer lost when the API restarts, and the app shows them instead of sample data: the catalog with its filters, the event page, the listings, and publishing, editing and cancelling an organization's events.
 - The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
@@ -29,6 +34,7 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - A short connection drop while the app renews the session no longer signs the user out.
 - A rollback after a failed deploy names the migrations the previous version does not know, instead of only reporting "rolled back".
 - Karabas events are imported for the whole four weeks, not only the first page of each section, about four days ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+- A Karabas event that runs for several days with an end time, such as a museum open from 10:00 to 14:00 until 1 May, is recognised as a run of shows: its first day is imported, ending at that time, instead of lasting until midnight ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
 - Talks, board-game nights and wine tastings from the Karabas clubs page are no longer shown as Вечірки ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - An ArtWizard event listed twice by its API is imported once, and its venue address names the city once ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - A place that ArtWizard and Karabas both list, or that Karabas lists under two names, is one venue on the map, with its events together, and ArtWizard's coordinates are used where they are in Kyiv ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
