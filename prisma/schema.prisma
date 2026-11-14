@@ -421,6 +421,7 @@ model Event {
   sourceUrl      String?       @map("source_url")
   startsAt       DateTime      @map("starts_at") @db.Timestamptz(3)
   endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
+  endTimeKnown   Boolean       @default(true) @map("end_time_known")
   status         EventStatus   @default(published)
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)

@@ -250,6 +250,7 @@ export class KarabasEventProvider extends EventProvider {
         venue: { name: location.name, address, location: null },
         startsAt: start.toISOString(),
         endsAt: end.endsAt.toISOString(),
+        endTimeKnown: end.endTimeKnown,
         imageUrl: image?.url ?? null,
         sourceUrl: url,
       },
@@ -293,16 +294,19 @@ export function karabasStart(startDate: string): Date {
  * only the first show is imported (ADR-006). Any other time is shifted like the start, and is a real end when it
  * is later the same day; otherwise the event ends with its day.
  */
-export function karabasEnd(start: Date, endDate: string | undefined): { endsAt: Date; runUntil?: string } {
-  const endOfDay = kyivEndOfDay(start);
+export function karabasEnd(
+  start: Date,
+  endDate: string | undefined,
+): { endsAt: Date; endTimeKnown: boolean; runUntil?: string } {
+  const unknown = { endsAt: kyivEndOfDay(start), endTimeKnown: false };
   if (!endDate) {
-    return { endsAt: endOfDay };
+    return unknown;
   }
   const startDay = kyivDate(start);
   if (endDate.slice(11, 19) === '00:00:00') {
     const lastDay = addDays(endDate.slice(0, 10), -1);
-    return lastDay > startDay ? { endsAt: endOfDay, runUntil: lastDay } : { endsAt: endOfDay };
+    return lastDay > startDay ? { ...unknown, runUntil: lastDay } : unknown;
   }
   const end = karabasStart(endDate);
-  return end > start && kyivDate(end) === startDay ? { endsAt: end } : { endsAt: endOfDay };
+  return end > start && kyivDate(end) === startDay ? { endsAt: end, endTimeKnown: true } : unknown;
 }

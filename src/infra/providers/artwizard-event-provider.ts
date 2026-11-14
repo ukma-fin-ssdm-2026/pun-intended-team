@@ -233,9 +233,10 @@ export class ArtWizardEventProvider extends EventProvider {
           location: coordinates,
         },
         startsAt: start.toISOString(),
-        // An end that is not after the start (date_to equal to date_from) means none: the event lasts until the
-        // end of its day.
+        // An end that is not after the start (date_to equal to date_from) means none: the end is unknown, and the
+        // event lasts until the end of its day.
         endsAt: (end > start ? end : kyivEndOfDay(start)).toISOString(),
+        endTimeKnown: end > start,
         imageUrl: picture_url || null,
         sourceUrl: `${ARTWIZARD_SITE_URL}/${city}/e/${encodeURIComponent(externalId)}`,
       },

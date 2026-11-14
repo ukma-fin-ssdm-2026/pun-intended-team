@@ -41,6 +41,7 @@ export function toEvent(row: EventRow): Event {
     venue: toVenue(row.venue),
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
+    endTimeKnown: row.endTimeKnown,
     imageUrl: row.imageUrl,
     sourceUrl: row.sourceUrl,
     source: row.source,
@@ -66,6 +67,7 @@ export function toImportedEventRow(row: EventTableRow): ImportedEventRow {
     sourceUrl: row.sourceUrl,
     startsAt: row.startsAt.toISOString(),
     endsAt: row.endsAt.toISOString(),
+    endTimeKnown: row.endTimeKnown,
     status: row.status,
   };
 }
