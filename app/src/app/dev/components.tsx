@@ -18,7 +18,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
 import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
-import { mockPeople } from '@/mocks/matching';
+import { mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import {
   setAnnouncementsEmpty,
@@ -208,7 +208,12 @@ export default function ComponentsGallery() {
       <Section title="07 · варіанти заголовка">
         {mutualTitles.slice(1).map((title) => (
           <View key={title} className="overflow-hidden rounded-[28px]">
-            <MutualMatchHero title={title} person={mockPeople.maksym} event={matchEvent} />
+            <MutualMatchHero
+              title={title}
+              person={mockMutualPerson(mockPeople.maksym)}
+              ownInitial={mockMutual.ownInitial}
+              event={matchEvent}
+            />
           </View>
         ))}
       </Section>

@@ -1,15 +1,15 @@
 // Written with the help of Claude
 // AI Usage: mutual match from the Figma "07 Взаємний метч" frame and its title variants; reviewed by Daryna Halytska.
-import { Image } from 'expo-image';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Image, type ImageSource } from 'expo-image';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import type { components } from '@/api/schema';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
 import { formatShortDay, formatTime } from '@/dates';
-import type { MockEvent } from '@/mocks/events';
-import { mockMutual, type MatchPerson } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
 
 // "01 Шапка": top padding 56 in the iPhone 14 frame (9 px below its status bar), 52 at the bottom, of which the contacts
@@ -37,19 +37,43 @@ function Avatar({ initial, className = '' }: { initial: string; className?: stri
   );
 }
 
+export type MutualContact = {
+  key: string;
+  // A network's logo, or an icon such as the phone.
+  icon: { network: components['schemas']['SocialNetwork'] } | { name: IconName };
+  label: string;
+  value: string;
+  // Where its button leads, e.g. the profile link; without one the button is shown but does nothing.
+  url?: string;
+};
+
+// The other user. A name from the API comes in one form only, so the lines that decline it are left out without the
+// other forms.
+export type MutualPerson = {
+  name: string;
+  initial: string;
+  instrumental?: string;
+  genitive?: string;
+  contacts: MutualContact[];
+};
+
+export type MutualEvent = { id: string; title: string; startsAt: string; cover?: ImageSource | number };
+
 type HeroProps = {
   title: MutualTitle;
-  // The match and the event they go to together.
-  person: MatchPerson;
-  event: MockEvent;
+  // The match, the caller's own initial and the event they go to together, on the day they share.
+  person: MutualPerson;
+  ownInitial: string;
+  event: MutualEvent;
   onBack?: () => void;
   onMore?: () => void;
 };
 
 // The gradient header; the component gallery shows it with each title.
-export function MutualMatchHero({ title, person, event, onBack, onMore }: HeroProps) {
+export function MutualMatchHero({ title, person, ownInitial, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
   const when = `${formatShortDay(event.startsAt)}, ${formatTime(event.startsAt)}`;
+  const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви разом йдете';
 
   return (
     <View
@@ -68,7 +92,7 @@ export function MutualMatchHero({ title, person, event, onBack, onMore }: HeroPr
         </Pressable>
       </View>
       <View className="flex-row items-center">
-        <Avatar initial={mockMutual.ownInitial} className="-mr-5" />
+        <Avatar initial={ownInitial} className="-mr-5" />
         <Avatar initial={person.initial} />
         <View className="absolute left-[60px] top-[58px] size-9 items-center justify-center rounded-[18px] bg-brand-coral">
           <Icon name="mutual-check" size={20} color={colors.text['on-dark']} />
@@ -78,36 +102,36 @@ export function MutualMatchHero({ title, person, event, onBack, onMore }: HeroPr
         {title}
       </Text>
       <Text className="text-center font-inter text-caption text-text-on-dark-muted">
-        Ви з {person.instrumental} йдете на «{event.title}» · {when}
+        {together} на «{event.title}» · {when}
       </Text>
     </View>
   );
 }
 
-function ContactRow({
-  icon,
-  label,
-  value,
-  action,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-  action: IconName;
-}) {
+function ContactRow({ contact }: { contact: MutualContact }) {
+  const { icon, label, value, url } = contact;
   return (
     <View className="flex-row items-center gap-3.5 py-3.5">
       <View className="size-10 items-center justify-center rounded-xl bg-surface-card">
-        <Icon name={icon} size={20} color={colors.brand.coral} />
+        {'network' in icon ? (
+          <SocialNetworkIcon network={icon.network} size={20} color={colors.brand.coral} />
+        ) : (
+          <Icon name={icon.name} size={20} color={colors.brand.coral} />
+        )}
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter text-caption text-text-secondary">{label}</Text>
         <Text className="font-inter-medium text-body text-text-primary">{value}</Text>
       </View>
-      {/* No prototype link: the buttons are shown as in Figma. */}
-      <View className="size-9 items-center justify-center rounded-[18px] bg-brand-ink">
-        <Icon name={action} size={18} color={colors.text['on-dark']} />
-      </View>
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`Відкрити ${label}`}
+        disabled={!url}
+        onPress={() => url && void Linking.openURL(url)}
+        className="size-9 items-center justify-center rounded-[18px] bg-brand-ink"
+      >
+        <Icon name="arrow-long" size={18} color={colors.text['on-dark']} />
+      </Pressable>
     </View>
   );
 }
@@ -116,23 +140,37 @@ type Props = HeroProps & {
   onEventPress: () => void;
 };
 
-export function MutualMatch({ title, person, event, onBack, onMore, onEventPress }: Props) {
+export function MutualMatch({ title, person, ownInitial, event, onBack, onMore, onEventPress }: Props) {
   const insets = useSafeAreaInsets();
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
+  // "Написати в Telegram" in Figma: the first contact with a link.
+  const write = person.contacts.find(({ url }) => url);
 
   return (
     <View className="flex-1 bg-surface-card">
       <ScrollView>
-        <MutualMatchHero title={title} person={person} event={event} onBack={onBack} onMore={onMore} />
+        <MutualMatchHero
+          title={title}
+          person={person}
+          ownInitial={ownInitial}
+          event={event}
+          onBack={onBack}
+          onMore={onMore}
+        />
         <View
           className="gap-4 rounded-t-[28px] bg-surface-card px-5 pt-6"
           style={{ marginTop: -SHEET_OVERLAP, paddingBottom: CONTACTS_BOTTOM - ACTION_BOTTOM + actionBottom }}
         >
-          <Text className="font-inter-semibold text-title text-text-primary">Контакти {person.genitive}</Text>
+          <Text className="font-inter-semibold text-title text-text-primary">
+            {person.genitive ? `Контакти ${person.genitive}` : 'Контакти'}
+          </Text>
           <View className="rounded-[20px] bg-surface-background px-4 py-1">
-            <ContactRow icon="send" label="Telegram" value={person.telegram} action="arrow-long" />
-            <View className="h-px bg-border-default" />
-            <ContactRow icon="phone" label="Телефон" value={person.phone} action="copy" />
+            {person.contacts.map((contact, index) => (
+              <View key={contact.key}>
+                {index > 0 && <View className="h-px bg-border-default" />}
+                <ContactRow contact={contact} />
+              </View>
+            ))}
           </View>
           <Text className="font-inter text-caption text-text-secondary">
             {person.name} теж бачить твої контакти. Бігом домовляйтесь про зустріч!
@@ -163,10 +201,15 @@ export function MutualMatch({ title, person, event, onBack, onMore, onEventPress
         </View>
       </ScrollView>
 
-      {/* No prototype link: shown as in Figma. */}
-      <View className="absolute left-0 right-0 items-center" style={{ bottom: actionBottom }}>
-        <Button label="Написати в Telegram" variant="dark" />
-      </View>
+      {write && (
+        <View className="absolute left-0 right-0 items-center" style={{ bottom: actionBottom }}>
+          <Button
+            label={`Написати в ${write.label}`}
+            variant="dark"
+            onPress={() => write.url && void Linking.openURL(write.url)}
+          />
+        </View>
+      )}
     </View>
   );
 }
