@@ -492,48 +492,61 @@ describe('KarabasEventProvider.normalize', () => {
       log.mock.restore();
     });
 
-    test('ends an event at its start plus the length its description gives', async () => {
-      // A guitar museum tour at 12:00: "Тривалість екскурсії 70 хвилин", and the next midnight as endDate.
-      const { provider, record } = await recordOfNov14('muzey-hitar-ta-istorii-svitovoi-elektromuzychnoi-industrii-53');
+    // endDate is the JSON-LD value; startsAt is checked only where given.
+    const cases: Array<{
+      name: string;
+      slug: string;
+      endDate?: string;
+      startsAt?: string;
+      endsAt: string;
+      endTimeKnown: boolean;
+    }> = [
+      {
+        name: 'ends an event at its start plus the length its description gives',
+        // A guitar museum tour at 12:00: "Тривалість екскурсії 70 хвилин", and the next midnight as endDate.
+        slug: 'muzey-hitar-ta-istorii-svitovoi-elektromuzychnoi-industrii-53',
+        endDate: '2026-11-15T00:00:00+02:00',
+        startsAt: '2026-11-14T10:00:00.000Z',
+        endsAt: '2026-11-14T11:10:00.000Z',
+        endTimeKnown: true,
+      },
+      {
+        name: 'leaves the end unknown when the description gives only a bound',
+        // "Тривалість орієнтовна від 1 години."
+        slug: 'mayster-klas-svitlo-kazkovykh-mriy-1',
+        endsAt: '2026-11-14T21:59:59.999Z',
+        endTimeKnown: false,
+      },
+      {
+        name: 'keeps a real end later the same day on the sport page',
+        // A boxing evening, 16:00–23:00 on 5 December: 18:00+02:00 to 01:00+02:00 of the next day in the JSON-LD.
+        slug: 'vechir-profesiynoho-boksu-vid-tbg-ta-bfl-1',
+        endDate: '2026-12-06T01:00:00+02:00',
+        startsAt: '2026-12-05T14:00:00.000Z',
+        endsAt: '2026-12-05T21:00:00.000Z',
+        endTimeKnown: true,
+      },
+      {
+        name: 'leaves the end unknown for the other event of the sport page, which ends at the next midnight',
+        slug: 'blahodiynyy-turnir-liha-profesiynoho-sambo-11-0',
+        endsAt: '2026-11-21T21:59:59.999Z',
+        endTimeKnown: false,
+      },
+    ];
+    for (const { name, slug, endDate, startsAt, endsAt, endTimeKnown } of cases) {
+      test(name, async () => {
+        const { provider, record } = await recordOfNov14(slug);
 
-      const event = normalized(provider, record);
+        const event = normalized(provider, record);
 
-      assert.equal(record.event.endDate, '2026-11-15T00:00:00+02:00');
-      assert.deepEqual(
-        [event.startsAt, event.endsAt, event.endTimeKnown],
-        ['2026-11-14T10:00:00.000Z', '2026-11-14T11:10:00.000Z', true],
-      );
-    });
-
-    test('leaves the end unknown when the description gives only a bound', async () => {
-      // "Тривалість орієнтовна від 1 години."
-      const { provider, record } = await recordOfNov14('mayster-klas-svitlo-kazkovykh-mriy-1');
-
-      const event = normalized(provider, record);
-
-      assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-14T21:59:59.999Z', false]);
-    });
-
-    test('keeps a real end later the same day on the sport page', async () => {
-      // A boxing evening, 16:00–23:00 on 5 December: 18:00+02:00 to 01:00+02:00 of the next day in the JSON-LD.
-      const { provider, record } = await recordOfNov14('vechir-profesiynoho-boksu-vid-tbg-ta-bfl-1');
-
-      const event = normalized(provider, record);
-
-      assert.equal(record.event.endDate, '2026-12-06T01:00:00+02:00');
-      assert.deepEqual(
-        [event.startsAt, event.endsAt, event.endTimeKnown],
-        ['2026-12-05T14:00:00.000Z', '2026-12-05T21:00:00.000Z', true],
-      );
-    });
-
-    test('leaves the end unknown for the other event of the sport page, which ends at the next midnight', async () => {
-      const { provider, record } = await recordOfNov14('blahodiynyy-turnir-liha-profesiynoho-sambo-11-0');
-
-      const event = normalized(provider, record);
-
-      assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-21T21:59:59.999Z', false]);
-    });
+        if (endDate !== undefined) assert.equal(record.event.endDate, endDate);
+        if (startsAt === undefined) {
+          assert.deepEqual([event.endsAt, event.endTimeKnown], [endsAt, endTimeKnown]);
+        } else {
+          assert.deepEqual([event.startsAt, event.endsAt, event.endTimeKnown], [startsAt, endsAt, endTimeKnown]);
+        }
+      });
+    }
   });
 
   test('skips any @type but MusicEvent on the clubs page', async () => {
