@@ -14,7 +14,7 @@ type EventsPage = components['schemas']['EventsPage'];
 const PAGE_SIZE = 20;
 
 // What the API narrows by. The search text, several categories and the districts are applied to the loaded pages only.
-export type EventQuery = { categoryId?: string; from?: string; to?: string };
+export type EventQuery = { categoryId?: string; from?: string; to?: string; venueId?: string };
 
 const fetchPage = (query: EventQuery, offset: number) =>
   call(() => apiClient.GET('/api/v1/events', { params: { query: { ...query, limit: PAGE_SIZE, offset } } }));
@@ -79,6 +79,14 @@ export function useEvents({ categoryId, from, to }: EventQuery = {}) {
     loadMoreFailed: extra?.failed ?? false,
     lastUpdated: lastUpdatedNotice(base?.lastUpdatedAt),
   };
+}
+
+// The first page of one venue's events, for the venue card of the map (FR-013); nothing while no venue is picked.
+export function useVenueEvents(venueId: string | undefined, query: EventQuery) {
+  const { categoryId, from, to } = query;
+  return useApiQuery(venueId ? JSON.stringify([venueId, categoryId, from, to]) : null, () =>
+    fetchPage({ categoryId, from, to, venueId }, 0),
+  );
 }
 
 // The saved events: one request per id, since the catalog is not listed whole. An id the API does not return is left

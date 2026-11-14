@@ -4,12 +4,56 @@ DORA metrics of the `CI` workflow on `main` for the runs created from 20.10 to 0
 
 ## DORA Metrics
 
-| Metric | Result | Category |
-|---|---|---|
-| Deployment frequency | 27 per week | Hourly to daily → 22.7% |
-| Change lead time | mean 30 h 10 min, median 5 h 23 min | Under a day → 24.4% |
-| Change fail rate | 6.9% (6 of 87) | 4–8% → 36.2% |
-| Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min | Under a day → 56.5% |
+| Metric | Formula | Result | Category |
+|---|---|---|---|
+| Deployment frequency | green `main` runs ÷ weeks: 81 ÷ 3 | 27 per week | Hourly to daily → 22.7% |
+| Change lead time | from the first commit of a PR to the completion of the first green `main` run that contains it; mean and median of 89 PRs | mean 30 h 10 min, median 5 h 23 min | Under a day → 24.4% |
+| Change fail rate | red `main` runs ÷ completed `main` runs × 100%: 6 ÷ 87; the 7 cancelled runs count as neither | 6.9% | 4–8% → 36.2% |
+| Failed deployment recovery time | from a red `main` run to the next green one; mean and median of 4 incidents | mean 4 h 10 min, median 1 h 11 min | Under a day → 56.5% |
+
+### Queue and Execution in the Lead Time
+
+Each PR's lead time is split into the time before its green `main` run started, the run's queue and its execution (`shares_percent` and `change_lead_time.items` in the [evidence](evidence/dora-metrics-2026-10-20-to-2026-11-09.json)).
+
+| Part | Share of the lead time | Per PR: mean | Per PR: median |
+|---|---|---|---|
+| Before the run: the PR is open, waits for review or for the merge | 99.74% | 30 h 5 min | 5 h 20 min |
+| Queue | 0.08% | 1.5 min | 0.1 min |
+| Execution | 0.18% | 3.3 min | 2.7 min |
+
+Of the time a change spends in CI, 31.5% is the queue. The mean is pulled up by a few long waits, up to 23.6 min; the median is 0.1 min.
+
+## Paired Analysis
+
+**Speed.** 27 deployments a week and a median lead time of 5 h 23 min look fast, but the mean is 30 h 10 min: 21 of 89 PRs took more than a day, 4 of them more than a week (the longest, #362, 8 d 23 h). The pipeline is not what holds them: 99.74% of the lead time passes before the green run starts.
+
+**Stability.** 6 of 87 runs were red (6.9%), and the median return to green was 1 h 11 min. None of the six was a defect in the product code that passed the PR checks: four came from setting up the staging image publish (№157, №159–№161), one was a hung reliability test (№202) and one a flaky e2e test (№207).
+
+**Together.** Frequent merges did not cost stability: `main` turned red on pipeline changes and on tests, not on the features merged. Speed and stability follow the same rhythm. 49 of 81 deployments were on a Saturday or a Sunday, 7 of 21 days had none, and all six red runs fell on the busy weekends of 31.10–01.11 and 08.11. The longest recovery, 14 h 14 min after №207, started on Sunday afternoon and ended on Monday morning. So the lead time is set before the merge, and the recovery time by how soon someone notices a red `main`.
+
+### Runs per Day
+
+Green runs on `main` (bars) and red runs (line) by the UTC day the run was created:
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 1000
+    height: 420
+    xAxis:
+      labelFontSize: 12
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2da44e, #cf222e"
+---
+xychart-beta
+    title "CI runs on main, 20.10–09.11.2026"
+    x-axis ["20.10", "21.10", "22.10", "23.10", "24.10", "25.10", "26.10", "27.10", "28.10", "29.10", "30.10", "31.10", "01.11", "02.11", "03.11", "04.11", "05.11", "06.11", "07.11", "08.11", "09.11"]
+    y-axis "Runs" 0 --> 12
+    bar [1, 0, 0, 6, 6, 9, 3, 3, 5, 0, 0, 5, 10, 6, 5, 0, 0, 0, 9, 10, 3]
+    line [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 2, 0]
+```
 
 ## CI Benchmarks
 
@@ -73,6 +117,21 @@ The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are 
 In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s.
 
 **Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
+
+### 5. Release artifact from every green `main` run
+
+The `Publish API image` job of [`ci.yml`](../../.github/workflows/ci.yml) runs after every green run on `main`, once `CI passed`, `E2E tests` and `Reliability tests` are green. It builds the API image and pushes it to `ghcr.io/ukma-fin-ssdm-2026/nearby-api`, tagged with the full commit SHA ([package page](https://github.com/orgs/ukma-fin-ssdm-2026/packages/container/package/nearby-api)); it logs in with `GITHUB_TOKEN` and `packages: write`. The web image is left out: its build needs the staging settings. The package is private, so the same job then deletes old versions and keeps the image tagged `staging` and the 3 newest others; a cleanup in a separate job would stop running whenever billing blocks it, and storage would only grow.
+
+Before this job, an image was published only when someone pushed `staging`, which gets `main` commits. Below are the metrics of 20.10–09.11 with a successful image publication as the deployment, next to the CI-run version; the publication attempts, per-PR lead times and incidents are in [`evidence/dora-metrics-image-publication-2026-10-20-to-2026-11-09.json`](evidence/dora-metrics-image-publication-2026-10-20-to-2026-11-09.json).
+
+| Metric, 20.10–09.11 | Green CI run on `main` | Image published | Category of the image version |
+|---|---|---|---|
+| Deployment frequency | 27 per week | 4 in 3 weeks, 1.3 per week, all on 31.10–01.11 | Daily to weekly → 44.6% |
+| Change lead time | mean 30 h 10 min, median 5 h 23 min (89 PRs) | mean 5 d 10 h, median 5 d 22 h (55 PRs); 34 PRs were never published | 1 day to 1 week → 56.4% |
+| Change fail rate | 6.9% (6 of 87) | 42.9% (3 of 7) | 32–64% → 94.1% |
+| Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min (4 incidents) | mean and median 1 h 9 min (2 incidents: 1 h 58 min, 20 min) | Under a day → 56.5% |
+
+A green `main` was not an artifact: most changes waited days for one, and more than a third never got one. All seven publication attempts were on one weekend, while staging was being set up; the three failures were GHCR refusing a push twice and a missing build argument of the web image, so the fail rate rests on a small sample. With the job, every green `main` run gets an image, so the two versions differ only by the few minutes of the build.
 
 ## AI Usage Note
 
