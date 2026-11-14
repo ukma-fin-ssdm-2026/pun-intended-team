@@ -56,6 +56,7 @@ class GalleryEventProvider extends EventProvider {
         venue: { name: place, address: 'Kyiv', location: { lat: 50.45, lng: 30.52 } },
         startsAt: when,
         endsAt: '2026-11-08T18:00:00Z',
+        endTimeKnown: true,
         imageUrl: null,
         sourceUrl: null,
       },

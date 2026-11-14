@@ -985,6 +985,7 @@ export interface components {
          *           },
          *           "startsAt": "2026-10-17T19:00:00+03:00",
          *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
          *           "imageUrl": null,
          *           "sourceUrl": null,
          *           "source": "organization",
@@ -1029,6 +1030,7 @@ export interface components {
          *       },
          *       "startsAt": "2026-10-17T19:00:00+03:00",
          *       "endsAt": "2026-10-17T21:30:00+03:00",
+         *       "endTimeKnown": true,
          *       "imageUrl": null,
          *       "sourceUrl": null,
          *       "source": "organization",
@@ -1046,6 +1048,8 @@ export interface components {
             startsAt: string;
             /** Format: date-time */
             endsAt: string;
+            /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */
+            endTimeKnown: boolean;
             /** @description Imported events: the provider's image URL, shown as is; null for organization events */
             imageUrl: string | null;
             /** @description Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise */

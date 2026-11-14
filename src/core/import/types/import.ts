@@ -13,7 +13,9 @@ export interface ImportedEvent {
   categorySlug: string;
   venue: ImportedVenue;
   startsAt: string;
+  /** The end the provider gives; without one, the end of the start day in Europe/Kyiv, and `endTimeKnown` is false. */
   endsAt: string;
+  endTimeKnown: boolean;
   /** The provider's image URL; the image itself is never downloaded. */
   imageUrl: string | null;
   /** The event's page at the provider: the attribution and the way to tickets. */
@@ -106,6 +108,7 @@ export interface ImportedEventFields {
   venueId: string;
   startsAt: string;
   endsAt: string;
+  endTimeKnown: boolean;
   imageUrl: string | null;
   sourceUrl: string | null;
 }

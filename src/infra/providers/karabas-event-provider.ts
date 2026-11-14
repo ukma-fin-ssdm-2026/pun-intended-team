@@ -3,7 +3,8 @@ import { Logger } from '@nestjs/common';
 import { load } from 'cheerio';
 import { z } from 'zod';
 import { catalogWindow } from '../../core/common/catalog-window.ts';
-import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
+import { MINUTE_MS } from '../../core/common/durations.ts';
+import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay, toKyivWallClock } from '../../core/common/kyiv-time.ts';
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, NormalizeResult } from '../../core/import/types/import.ts';
 import type { HttpClient } from './http-client.ts';
@@ -236,9 +237,11 @@ export class KarabasEventProvider extends EventProvider {
       };
     }
     const start = karabasStart(startDate);
-    const end = karabasEnd(start, endDate);
+    // The length is read from the description as the page gives it, before it is cut to our limit.
+    const end = karabasEnd(start, endDate, durationFromDescription(description));
     if (end.runUntil) {
-      this.logger.log(`${slugOf(url)}: a run of shows until ${end.runUntil}; importing the first show only`);
+      const until = end.runEndTime ? `${end.runUntil} at ${end.runEndTime}` : end.runUntil;
+      this.logger.log(`${slugOf(url)}: a run of shows until ${until}; importing the first show only`);
     }
     const address = [location.address.streetAddress, location.address.addressLocality].filter(Boolean).join(', ');
     return {
@@ -250,6 +253,7 @@ export class KarabasEventProvider extends EventProvider {
         venue: { name: location.name, address, location: null },
         startsAt: start.toISOString(),
         endsAt: end.endsAt.toISOString(),
+        endTimeKnown: end.endTimeKnown,
         imageUrl: image?.url ?? null,
         sourceUrl: url,
       },
@@ -287,22 +291,103 @@ export function karabasStart(startDate: string): Date {
   return fromKyivWallClock(new Date(startDate));
 }
 
+/** The end of a Karabas event, and whether Karabas gives one (ADR-006, decision 5). */
+export interface KarabasEnd {
+  endsAt: Date;
+  /** False when neither the `endDate` nor a length gives an end: `endsAt` is then the end of the start day. */
+  endTimeKnown: boolean;
+  /** The last Kyiv date of a run of shows, of which `endsAt` ends the first. */
+  runUntil?: string;
+  /** The time of day, HH:MM in Kyiv, each show of the run ends at, when the `endDate` gives one. */
+  runEndTime?: string;
+}
+
 /**
- * The end of an event from its `endDate`. A midnight is written without the shift of `startDate`: the next
- * midnight means no end is given, a later one a run of shows from the start date to the day before it, of which
- * only the first show is imported (ADR-006). Any other time is shifted like the start, and is a real end when it
- * is later the same day; otherwise the event ends with its day.
+ * The end of an event from its `endDate`, or else from the length its description gives, in minutes. A midnight is
+ * written without the shift of `startDate`: the next midnight means no end is given, a later one a run of shows from
+ * the start date to the day before it. Any other time is shifted like the start: later the same day it is the end,
+ * and on a later day it ends a run of shows, daily from the start time to that time of day. Of a run only the first
+ * show is imported (ADR-006).
  */
-export function karabasEnd(start: Date, endDate: string | undefined): { endsAt: Date; runUntil?: string } {
-  const endOfDay = kyivEndOfDay(start);
-  if (!endDate) {
-    return { endsAt: endOfDay };
-  }
+export function karabasEnd(start: Date, endDate: string | undefined, durationMinutes?: number): KarabasEnd {
   const startDay = kyivDate(start);
+  const fromLength = (): Pick<KarabasEnd, 'endsAt' | 'endTimeKnown'> => {
+    const end = durationMinutes === undefined ? undefined : new Date(start.getTime() + durationMinutes * MINUTE_MS);
+    // A 23:00 show of 2 hours would end after midnight: the length may be of the programme and not of that night,
+    // so only an end on the start day is taken.
+    return end && end > start && kyivDate(end) === startDay
+      ? { endsAt: end, endTimeKnown: true }
+      : { endsAt: kyivEndOfDay(start), endTimeKnown: false };
+  };
+  if (!endDate) {
+    return fromLength();
+  }
   if (endDate.slice(11, 19) === '00:00:00') {
     const lastDay = addDays(endDate.slice(0, 10), -1);
-    return lastDay > startDay ? { endsAt: endOfDay, runUntil: lastDay } : { endsAt: endOfDay };
+    return lastDay > startDay ? { ...fromLength(), runUntil: lastDay } : fromLength();
   }
   const end = karabasStart(endDate);
-  return end > start && kyivDate(end) === startDay ? { endsAt: end } : { endsAt: endOfDay };
+  if (!(end > start)) {
+    return fromLength();
+  }
+  const endDay = kyivDate(end);
+  if (endDay === startDay) {
+    return { endsAt: end, endTimeKnown: true };
+  }
+  // The end time of day on the start day: the wall-clock digits of the start day with the time of the end.
+  const runEndTime = toKyivWallClock(end).toISOString().slice(11, 16);
+  const firstEnd = fromKyivWallClock(`${startDay}T${runEndTime}:00Z`);
+  // An end time that is not after the start time of day (21:00 to 02:00 on a later day) is no daily run.
+  return firstEnd > start ? { endsAt: firstEnd, endTimeKnown: true, runUntil: endDay, runEndTime } : fromLength();
+}
+
+const LOWER_CASE = 'а-яіїєґ';
+/** "год", "год.", "година", "години", "годин", and the same for minutes; not the start of a longer word. */
+const HOURS = `год(?:ин[аи]?|\\.)?(?![${LOWER_CASE}])`;
+const MINUTES = `хв(?:илин[аи]?|\\.)?(?![${LOWER_CASE}])`;
+/**
+ * A length right after the word "тривалість", with at most 40 characters without a digit or the end of a sentence
+ * in between ("Тривалість вистави – "): hours and minutes, tenths of an hour, hours alone, or minutes alone.
+ */
+const LENGTH = new RegExp(
+  `[Тт]ривалість([^\\d.!?]{0,40}?)(?:` +
+    `(\\d{1,2})\\s*${HOURS}\\s*(\\d{1,2})\\s*${MINUTES}|` +
+    `(\\d{1,2})[.,](\\d)\\s*${HOURS}|` +
+    `(\\d{1,2})\\s*${HOURS}|` +
+    `(\\d{1,3})\\s*${MINUTES})`,
+);
+/** Words before the number that make it a bound and not a length: "від 1 години", "до 60 хвилин". */
+const BOUND = new RegExp(`(?:^|[^${LOWER_CASE}])(?:від|до|понад|близько)(?:[^${LOWER_CASE}]|$)`, 'i');
+const SHORTEST_MINUTES = 10;
+const LONGEST_MINUTES = 12 * 60;
+
+/**
+ * The length of an event in minutes, when its description states one: "Тривалість вистави – 1 год 20 хв" is 80,
+ * "тривалість: 90 хв" 90, "Тривалість: 1,5 години" 90. Read conservatively (ADR-006, decision 5): only the first
+ * length right after the word "тривалість", from 10 minutes to 12 hours; undefined otherwise, also for a bound
+ * ("від 1 години"). A note such as "без антракту" is not a length.
+ */
+export function durationFromDescription(text: string): number | undefined {
+  const match = LENGTH.exec(text);
+  if (!match) {
+    return undefined;
+  }
+  const [, between, hours, andMinutes, wholeHours, tenths, onlyHours, onlyMinutes] = match;
+  if (BOUND.test(between ?? '')) {
+    return undefined;
+  }
+  let minutes: number;
+  if (hours !== undefined) {
+    if (Number(andMinutes) >= 60) {
+      return undefined;
+    }
+    minutes = Number(hours) * 60 + Number(andMinutes);
+  } else if (wholeHours !== undefined) {
+    minutes = Number(wholeHours) * 60 + Number(tenths) * 6;
+  } else if (onlyHours !== undefined) {
+    minutes = Number(onlyHours) * 60;
+  } else {
+    minutes = Number(onlyMinutes);
+  }
+  return minutes >= SHORTEST_MINUTES && minutes <= LONGEST_MINUTES ? minutes : undefined;
 }

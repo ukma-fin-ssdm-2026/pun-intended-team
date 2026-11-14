@@ -46,6 +46,7 @@ function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent 
     venue: { name: 'Caribbean Club', address: 'Kyiv', location: { lat: 50.46, lng: 30.52 } },
     startsAt: '2026-10-22T16:00:00.000Z',
     endsAt: '2026-10-22T19:00:00.000Z',
+    endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
     ...overrides,
@@ -64,6 +65,7 @@ function theSavedEvent(overrides: Partial<ImportedEventRow> = {}): ImportedEvent
     venueId: VENUE_ID,
     startsAt: '2026-10-22T19:00:00+03:00',
     endsAt: '2026-10-22T22:00:00+03:00',
+    endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
     status: 'published',
@@ -135,6 +137,7 @@ describe('EventImportService.importFrom', () => {
       venueId: VENUE_ID,
       startsAt: '2026-10-22T16:00:00.000Z',
       endsAt: '2026-10-22T19:00:00.000Z',
+      endTimeKnown: true,
       imageUrl: 'https://images.example/jazz.jpg',
       sourceUrl: 'https://tickets.example/jazz-evening/',
       provider: PROVIDER_ID,
@@ -203,6 +206,27 @@ describe('EventImportService.importFrom', () => {
     assert.equal(id, theSavedEvent().id);
     assert.equal(changes?.title, 'Jazz evening, new date');
     assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
+  });
+
+  test('updates an event of which only endTimeKnown changed', async () => {
+    // Saved with a known end; the provider now gives none, and the end of the day happens to be the saved end.
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ endTimeKnown: false }) }]);
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent({ endTimeKnown: true })));
+
+    const report = await run();
+
+    const [id, changes] = repository.updateEvent.mock.calls[0]?.arguments ?? [];
+    assert.equal(id, theSavedEvent().id);
+    assert.equal(changes?.endTimeKnown, false);
+    assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
+  });
+
+  test('saves a new event without a known end as such', async () => {
+    const { run, repository } = makeService([{}], [{ event: anImportedEvent({ endTimeKnown: false }) }]);
+
+    await run();
+
+    assert.equal(repository.createEvent.mock.calls[0]?.arguments[0].endTimeKnown, false);
   });
 
   test('saves the event under the id of the category with its slug', async () => {

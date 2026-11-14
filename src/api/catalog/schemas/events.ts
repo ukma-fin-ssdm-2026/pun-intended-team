@@ -26,6 +26,12 @@ const EventFields = z.object({
   venue: Venue,
   startsAt: DateTime,
   endsAt: DateTime,
+  endTimeKnown: z
+    .boolean()
+    .describe(
+      'False for an imported event whose provider gives no end: endsAt is then the end of its start day in ' +
+        'Europe/Kyiv and only startsAt should be shown. Always true for an organization event',
+    ),
   imageUrl: z
     .string()
     .nullable()
@@ -51,6 +57,7 @@ export const eventExample: Event = {
   },
   startsAt: '2026-10-17T19:00:00+03:00',
   endsAt: '2026-10-17T21:30:00+03:00',
+  endTimeKnown: true,
   imageUrl: null,
   sourceUrl: null,
   source: 'organization',

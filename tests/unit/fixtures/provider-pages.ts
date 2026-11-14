@@ -13,6 +13,9 @@ export const PAGES_SAVED_AT = new Date('2026-11-03T10:00:00Z');
 /** Today in Kyiv for the Karabas pages saved on 2026-11-07, whose names carry that date. */
 export const PAGES_SAVED_AT_NOV_7 = new Date('2026-11-07T10:00:00Z');
 
+/** Today in Kyiv for the Karabas pages saved on 2026-11-14, whose names carry that date. */
+export const PAGES_SAVED_AT_NOV_14 = new Date('2026-11-14T10:00:00Z');
+
 type Route = string | { status: number; text?: string } | Error;
 
 /**

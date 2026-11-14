@@ -33,6 +33,7 @@ An event in the city that users can go to together. It is posted by a verified o
 | `category` | `{ id, name }` | |
 | `venue` | `{ id, name, address, location: { lat, lng } }` | |
 | `startsAt`, `endsAt` | date-time | |
+| `endTimeKnown` | boolean | False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in Europe/Kyiv, and a client shows only the start. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
 

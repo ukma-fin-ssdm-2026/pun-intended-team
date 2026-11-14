@@ -29,6 +29,7 @@ describe('toEvent', () => {
       venue: aVenue(),
       startsAt: '2026-11-14T16:00:00.000Z',
       endsAt: '2026-11-14T18:30:00.000Z',
+      endTimeKnown: true,
       imageUrl: null,
       sourceUrl: null,
       source: 'organization',
@@ -45,6 +46,7 @@ describe('toEvent', () => {
     assert.deepEqual(Object.keys(event).sort(), [
       'category',
       'description',
+      'endTimeKnown',
       'endsAt',
       'id',
       'imageUrl',
@@ -57,6 +59,15 @@ describe('toEvent', () => {
       'venue',
     ]);
     assert.equal(event.organizationId, null);
+  });
+
+  test('says that the end of an imported event is unknown when the row does', () => {
+    const event = toEvent(
+      anEventRow({ source: 'import', endsAt: new Date('2026-11-14T21:59:59.999Z'), endTimeKnown: false }),
+    );
+
+    assert.equal(event.endTimeKnown, false);
+    assert.equal(event.endsAt, '2026-11-14T21:59:59.999Z');
   });
 
   test("keeps an imported event's image and page at the provider", () => {

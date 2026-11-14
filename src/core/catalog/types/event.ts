@@ -14,6 +14,11 @@ export interface Event {
   venue: Venue;
   startsAt: string;
   endsAt: string;
+  /**
+   * False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in
+   * Europe/Kyiv. Always true for an organization's event.
+   */
+  endTimeKnown: boolean;
   /** Set on imported events: the provider's image, linked, never copied. */
   imageUrl: string | null;
   /** Set on imported events: the event's page at the provider, for attribution and tickets. */
