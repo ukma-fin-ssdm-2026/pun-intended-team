@@ -14,8 +14,11 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Asking for a match at an event: the user chooses the kind of company and the plans after the event, and for a multi-day event the days that suit them (`POST /events/{id}/applications`). A user with an incomplete profile is asked to complete it first. Applications for a day close an hour before it starts, or 2 hours before it ends if it lasts 3 hours or more. The Метчі tab lists the user's applications, and an application can be withdrawn. Matching itself comes later.
 - Imported events that ArtWizard or Karabas no longer lists are shown as cancelled, and published again if they come back. A run that failed, read only part of the list, or got a list that looks broken cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - Imported events whose provider gives no end time say so (`endTimeKnown`), and the app shows only the start, «з 19:00», for them; a length written in a Karabas description, such as «Тривалість вистави – 1 год 20 хв», becomes the end time ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
+- A Karabas show that runs on many days, such as a play every evening until 29 November or a museum open daily until 1 May, is one event from today's show to its last one, and users can apply for any of its days within the next four weeks, not only its first show ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
 
 ### Changed
+
+- The days of an event that runs on several days can be picked only within the next four weeks, the catalog's window. A later day is refused with `422 INVALID_SESSION_DAY`, and the app no longer offers it. Single-day events are not affected ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
 
 - Events, venues, organizations and listings are kept in the database, so they are no longer lost when the API restarts, and the app shows them instead of sample data: the catalog with its filters, the event page, the listings, and publishing, editing and cancelling an organization's events.
 - The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
