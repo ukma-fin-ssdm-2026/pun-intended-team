@@ -132,6 +132,74 @@ describe('EventSessionsService.open', () => {
     assert.equal(session?.startsAt, '2026-10-22T16:00:00.000Z');
   });
 
+  describe('an imported run of shows', () => {
+    // As Karabas writes them on the day of NOW: the start is today's show, the end the run's last show.
+    /** A play at 19:00, two hours long, every day until 8 November. */
+    const PLAY = { startsAt: '2026-10-15T19:00:00+03:00', endsAt: '2026-11-08T21:00:00+02:00' };
+    /** A museum open 10:00–14:00 every day until 1 May. */
+    const MUSEUM = { startsAt: '2026-10-15T10:00:00+03:00', endsAt: '2027-05-01T14:00:00+03:00' };
+    /** A play at 19:00 every day until 12 November, of unknown length: its end is the end of its last day. */
+    const UNKNOWN_END = {
+      startsAt: '2026-10-15T19:00:00+03:00',
+      endsAt: '2026-11-12T21:59:59.999Z',
+      endTimeKnown: false,
+    };
+
+    const sessions: [title: string, times: Partial<Event>, day: string, startsAt: string, cutoffAt: string][] = [
+      ['the first day of a play', PLAY, '2026-10-15', '2026-10-15T16:00:00.000Z', '2026-10-15T15:00:00.000Z'],
+      // After the clocks go back on 25 October, 19:00 in Kyiv is 17:00Z.
+      ['a middle day of a play', PLAY, '2026-10-28', '2026-10-28T17:00:00.000Z', '2026-10-28T16:00:00.000Z'],
+      ['the last day of a play', PLAY, '2026-11-08', '2026-11-08T17:00:00.000Z', '2026-11-08T16:00:00.000Z'],
+      // A long day: the cutoff is 2 hours before 14:00.
+      ['a museum day', MUSEUM, '2026-11-01', '2026-11-01T08:00:00.000Z', '2026-11-01T10:00:00.000Z'],
+      ['the last day of the window', MUSEUM, '2026-11-12', '2026-11-12T08:00:00.000Z', '2026-11-12T10:00:00.000Z'],
+      // 19:00 to the end of the day is a long session: 2 hours before midnight.
+      [
+        'a day of a run without an end',
+        UNKNOWN_END,
+        '2026-10-20',
+        '2026-10-20T16:00:00.000Z',
+        '2026-10-20T18:59:59.999Z',
+      ],
+    ];
+    for (const [title, times, day, startsAt, cutoffAt] of sessions) {
+      test(`opens ${title} at the start's time of day, with its own cutoff`, async () => {
+        const { service } = makeService(anEvent(times));
+
+        const [session] = await service.open(EVENT_ID, [day]);
+
+        assert.deepEqual([session.startsAt, session.cutoffAt], [startsAt, cutoffAt]);
+      });
+    }
+
+    test('refuses a day after the catalog window, opening none of the days', async () => {
+      const { service, eventSessionsRepository } = makeService(anEvent(MUSEUM));
+
+      await assert.rejects(
+        service.open(EVENT_ID, ['2026-11-01', '2026-11-13']),
+        (error: unknown) =>
+          rejectsWith('INVALID_SESSION_DAY')(error) && /28 days ahead, until 2026-11-12/.test(String(error)),
+      );
+      assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 0);
+    });
+
+    test('refuses a day after the window even when the run goes on', async () => {
+      const { service } = makeService(anEvent(MUSEUM));
+
+      await assert.rejects(service.open(EVENT_ID, ['2027-04-30']), rejectsWith('INVALID_SESSION_DAY'));
+    });
+  });
+
+  test('still opens a single-day event after the catalog window', async () => {
+    const { service } = makeService(
+      anEvent({ startsAt: '2026-12-20T19:00:00+02:00', endsAt: '2026-12-20T21:00:00+02:00' }),
+    );
+
+    const [session] = await service.open(EVENT_ID);
+
+    assert.equal(session.startsAt, '2026-12-20T17:00:00.000Z');
+  });
+
   const refusals = [
     { title: 'refuses an event that does not exist', event: null, day: undefined, code: 'NOT_FOUND' },
     {
