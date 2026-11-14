@@ -1036,6 +1036,229 @@ components:
           status: in_pool
           nextRoundAt: '2026-10-21T16:00:00.000Z'
           createdAt: '2026-10-15T09:00:00.000Z'
+    MatchList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Match'
+      example:
+        - id: 6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+          eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+          applicationId: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+          status: proposed
+          days:
+            - startsAt: '2026-10-24T16:00:00.000Z'
+              cutoffAt: '2026-10-24T15:00:00.000Z'
+          validUntil: '2026-10-22T09:00:00.000Z'
+          partner:
+            username: olena_k
+            displayName: Olena
+            description: Cinema, galleries and long walks.
+            occupation: Illustrator
+            age: 24
+            interests:
+              - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+                name: Книги
+                group: Книги й комікси
+            desiredCompany: company
+            afterEventPlans:
+              - walk
+              - coffee
+          createdAt: '2026-10-21T09:00:00.000Z'
+    Match:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventId:
+          type: string
+          format: uuid
+        applicationId:
+          type: string
+          format: uuid
+          description: The caller’s own application
+        status:
+          $ref: '#/components/schemas/MatchStatus'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicationSession'
+          description: >-
+            The days both can go, soonest first: one for a single-day event; the
+            two pick one of them
+        validUntil:
+          type: string
+          format: date-time
+          description: >-
+            Until then the proposal waits for both answers: 24 hours, or until
+            the next round or the cutoff
+        partner:
+          type: object
+          properties:
+            username:
+              type: string
+            displayName:
+              type: string
+            description:
+              type: string
+            occupation:
+              type: string
+            age:
+              type: integer
+              description: Whole years
+            interests:
+              type: array
+              items:
+                $ref: '#/components/schemas/Interest'
+            desiredCompany:
+              type: string
+              enum:
+                - friends
+                - dating
+                - company
+              description: What kind of company they are looking for at this event
+            afterEventPlans:
+              type: array
+              items:
+                $ref: '#/components/schemas/AfterEventPlan'
+              description: >-
+                What they would do together after the event; empty: only the
+                event
+          required:
+            - username
+            - displayName
+            - description
+            - occupation
+            - age
+            - interests
+            - desiredCompany
+            - afterEventPlans
+          description: >-
+            The other user’s public profile and answers, without contacts
+            (FR-019)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventId
+        - applicationId
+        - status
+        - days
+        - validUntil
+        - partner
+        - createdAt
+      description: A proposed match as one of the two users sees it
+      example:
+        id: 6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+        eventId: a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e
+        applicationId: 4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11
+        status: proposed
+        days:
+          - startsAt: '2026-10-24T16:00:00.000Z'
+            cutoffAt: '2026-10-24T15:00:00.000Z'
+        validUntil: '2026-10-22T09:00:00.000Z'
+        partner:
+          username: olena_k
+          displayName: Olena
+          description: Cinema, galleries and long walks.
+          occupation: Illustrator
+          age: 24
+          interests:
+            - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+              name: Книги
+              group: Книги й комікси
+          desiredCompany: company
+          afterEventPlans:
+            - walk
+            - coffee
+        createdAt: '2026-10-21T09:00:00.000Z'
+    MatchStatus:
+      type: string
+      enum:
+        - proposed
+        - accepted
+        - mutual
+        - declined
+        - expired
+        - cancelled
+      description: >-
+        As the caller sees it. `proposed`: waiting for the caller’s answer;
+        whether the other has accepted stays hidden. `accepted`: the caller
+        accepted and waits for the other. `mutual`: both accepted, the contacts
+        are open. `declined`: one of the two declined. `expired`: not answered
+        in time. `cancelled`: one of the two withdrew, the event was cancelled
+        or a user was banned
+    Interest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        group:
+          type: string
+          description: The heading the interest is shown under
+      required:
+        - id
+        - name
+        - group
+      description: An interest from the fixed list users pick from
+      example:
+        id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+        name: Книги
+        group: Книги й комікси
+    MatchContacts:
+      type: object
+      properties:
+        phone:
+          type: string
+          nullable: true
+          description: Only if they share it; null while sign-in is Google-only
+        linkedAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedAccount'
+      required:
+        - phone
+        - linkedAccounts
+      description: How to reach the other user of a mutual match (FR-019)
+      example:
+        phone: null
+        linkedAccounts:
+          - network: telegram
+            username: olena_k
+            url: https://t.me/olena_k
+    LinkedAccount:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/SocialNetwork'
+        username:
+          type: string
+          description: The handle, without "@"; for WhatsApp, the phone number digits
+        url:
+          type: string
+          description: The profile link a mutual match opens
+      required:
+        - network
+        - username
+        - url
+      description: A social network the user shares with a mutual match
+      example:
+        network: telegram
+        username: olena_k
+        url: https://t.me/olena_k
+    SocialNetwork:
+      type: string
+      enum:
+        - telegram
+        - instagram
+        - whatsapp
+        - tiktok
+        - facebook
+      description: A social network whose handle a mutual match sees
     AdminOrganizationsPage:
       type: object
       properties:
@@ -1502,26 +1725,6 @@ components:
           - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
             name: Книги
             group: Книги й комікси
-    Interest:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        group:
-          type: string
-          description: The heading the interest is shown under
-      required:
-        - id
-        - name
-        - group
-      description: An interest from the fixed list users pick from
-      example:
-        id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Книги
-        group: Книги й комікси
     Profile:
       type: object
       properties:
@@ -1594,35 +1797,6 @@ components:
             username: olena_k
             url: https://t.me/olena_k
         isComplete: true
-    LinkedAccount:
-      type: object
-      properties:
-        network:
-          $ref: '#/components/schemas/SocialNetwork'
-        username:
-          type: string
-          description: The handle, without "@"; for WhatsApp, the phone number digits
-        url:
-          type: string
-          description: The profile link a mutual match opens
-      required:
-        - network
-        - username
-        - url
-      description: A social network the user shares with a mutual match
-      example:
-        network: telegram
-        username: olena_k
-        url: https://t.me/olena_k
-    SocialNetwork:
-      type: string
-      enum:
-        - telegram
-        - instagram
-        - whatsapp
-        - tiktok
-        - facebook
-      description: A social network whose handle a mutual match sees
     CreateProfileBody:
       type: object
       properties:
@@ -3041,6 +3215,233 @@ paths:
           description: >-
             `CONFLICT`: the application has a mutual match, or is no longer
             waiting in the pool or for an answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/matches:
+    get:
+      operationId: listMyMatches
+      summary: List your matches
+      description: >-
+        The caller’s proposals still waiting for answers and their mutual
+        matches, soonest shared day first. A proposal past its `validUntil`
+        shows as `expired`. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The pending and mutual matches
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchList'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/matches/{id}:
+    get:
+      operationId: getMatch
+      summary: Get one of your matches
+      description: >-
+        One of the caller’s matches, whatever its status, with the other user’s
+        profile but no contacts. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Match id
+          required: true
+          description: Match id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No match with this id, or the caller is not one of its two users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/matches/{id}/accept:
+    post:
+      operationId: acceptMatch
+      summary: Accept a proposed match
+      description: >-
+        Accept the proposal. Once the other user accepts too, the match is
+        `mutual` and both see the contacts. Accepting again changes nothing.
+        Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Match id
+          required: true
+          description: Match id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The match, `accepted` or `mutual`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No match with this id, or the caller is not one of its two users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the proposal is no longer waiting for answers: declined,
+            expired, cancelled or mutual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/matches/{id}/decline:
+    post:
+      operationId: declineMatch
+      summary: Decline a proposed match
+      description: >-
+        Decline the proposal, even after accepting it. Both users return to the
+        pool and are never proposed to each other again at this event. Declining
+        again changes nothing; a mutual match can no longer be declined. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Match id
+          required: true
+          description: Match id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The declined match
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Match'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No match with this id, or the caller is not one of its two users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: >-
+            `CONFLICT`: the proposal is no longer waiting for answers: declined,
+            expired, cancelled or mutual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/matches/{id}/contacts:
+    get:
+      operationId: getMatchContacts
+      summary: Get the contacts of a mutual match
+      description: >-
+        How to reach the other user, once both accepted. Before that, and for a
+        match that did not go ahead, the answer is `404`, as for a match that
+        does not exist (SEC-001). Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Match id
+          required: true
+          description: Match id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The other user’s contacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchContacts'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No mutual match with this id that the caller is part of
           content:
             application/json:
               schema:

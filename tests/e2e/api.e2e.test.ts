@@ -1826,6 +1826,111 @@ describe('Applications', () => {
     );
     assert.deepEqual(rows, [{ source: 'round', score: '0.700' }]);
   });
+
+  /** Two users proposed to each other at once: the same answers score 1. */
+  async function aProposal() {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    const waited = await apply(waiting.token, soonEvent);
+    const applied = await apply(newcomer.token, soonEvent);
+    assert.equal(applied.body.status, 'paired', JSON.stringify(applied.body));
+    const mine = await call('GET', '/api/v1/me/matches', { token: waiting.token });
+    assert.equal(mine.status, 200, JSON.stringify(mine.body));
+    return { waiting, newcomer, waited: waited.body, applied: applied.body, match: mine.body[0] };
+  }
+
+  const answer = (token: string, matchId: string, verb: 'accept' | 'decline') =>
+    call('POST', `/api/v1/matches/${matchId}/${verb}`, { token });
+
+  // FR-019, SEC-001, UC-001 steps 8–11
+  test('shows a proposal without contacts, and the contacts once both users accept', async () => {
+    const { waiting, newcomer, waited, match } = await aProposal();
+
+    assert.equal(match.applicationId, waited.id);
+    assert.equal(match.status, 'proposed');
+    assert.equal(match.partner.username, newcomer.username);
+    assert.equal(match.partner.desiredCompany, 'company');
+    assert.equal(match.days.length, 1);
+    assert.equal('linkedAccounts' in match.partner, false);
+    assertRejected(
+      await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token }),
+      404,
+      'NOT_FOUND',
+    );
+
+    const accepted = await answer(waiting.token, match.id, 'accept');
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+    assert.equal(accepted.body.status, 'accepted');
+    // The other does not see that the first one accepted.
+    const seenByOther = await call('GET', `/api/v1/matches/${match.id}`, { token: newcomer.token });
+    assert.equal(seenByOther.body.status, 'proposed');
+    assertRejected(
+      await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token }),
+      404,
+      'NOT_FOUND',
+    );
+
+    const mutual = await answer(newcomer.token, match.id, 'accept');
+    assert.equal(mutual.body.status, 'mutual');
+    const contacts = await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token });
+    assert.equal(contacts.status, 200, JSON.stringify(contacts.body));
+    assert.deepEqual(contacts.body, {
+      phone: null,
+      linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e', url: 'https://t.me/nearby_e2e' }],
+    });
+    assert.equal((await answer(newcomer.token, match.id, 'accept')).body.status, 'mutual');
+    assertRejected(await answer(waiting.token, match.id, 'decline'), 409, 'CONFLICT');
+    assertRejected(
+      await call('POST', `/api/v1/applications/${waited.id}/withdraw`, { token: waiting.token }),
+      409,
+      'CONFLICT',
+    );
+  });
+
+  // UC-001 A3, matching.md rule 5, FR-020
+  test('returns both users to the pool on decline and never proposes them to each other again', async () => {
+    const { waiting, newcomer, waited, applied, match } = await aProposal();
+
+    const declined = await answer(newcomer.token, match.id, 'decline');
+
+    assert.equal(declined.status, 200, JSON.stringify(declined.body));
+    assert.equal(declined.body.status, 'declined');
+    for (const [token, id] of [
+      [waiting.token, waited.id],
+      [newcomer.token, applied.id],
+    ]) {
+      assert.equal((await call('GET', `/api/v1/applications/${id}`, { token })).body.status, 'in_pool');
+    }
+    assert.deepEqual((await call('GET', '/api/v1/me/matches', { token: waiting.token })).body, []);
+    assertRejected(await answer(waiting.token, match.id, 'accept'), 409, 'CONFLICT');
+    // Applying again, the same answers would score 1, but the pair stays apart.
+    await call('POST', `/api/v1/applications/${applied.id}/withdraw`, { token: newcomer.token });
+    assert.equal((await apply(newcomer.token, soonEvent)).body.status, 'in_pool');
+  });
+
+  // UC-001 A5
+  test('cancels a pending proposal when one of the two withdraws, and returns the other to the pool', async () => {
+    const { waiting, newcomer, waited, applied, match } = await aProposal();
+
+    const withdrawn = await call('POST', `/api/v1/applications/${applied.id}/withdraw`, { token: newcomer.token });
+
+    assert.equal(withdrawn.status, 200, JSON.stringify(withdrawn.body));
+    assert.equal(withdrawn.body.status, 'withdrawn');
+    assert.equal(
+      (await call('GET', `/api/v1/applications/${waited.id}`, { token: waiting.token })).body.status,
+      'in_pool',
+    );
+    assert.equal((await call('GET', `/api/v1/matches/${match.id}`, { token: waiting.token })).body.status, 'cancelled');
+  });
+
+  // SEC-001
+  test('reports a match to anyone but its two users as missing', async () => {
+    const { match } = await aProposal();
+
+    assertRejected(await call('GET', `/api/v1/matches/${match.id}`, { token: tokens.user }), 404, 'NOT_FOUND');
+    assertRejected(await answer(tokens.user, match.id, 'accept'), 404, 'NOT_FOUND');
+    assertRejected(await answer(tokens.user, match.id, 'decline'), 404, 'NOT_FOUND');
+  });
 });
 
 describe('GET /api/v1/admin/categories', () => {

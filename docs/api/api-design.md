@@ -79,6 +79,25 @@ A user's request to be matched at one event. For an event that runs on several d
 
 Related to: Account (applicant), EventSession, Event.
 
+### Match
+
+**Base path:** `/api/v1/matches`
+
+A proposal between two applications of one event, as one of the two users sees it ([matching](../architecture/mechanisms/matching.md)).
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `eventId` | UUID | |
+| `applicationId` | UUID | The caller's own application |
+| `status` | `proposed` \| `accepted` \| `mutual` \| `declined` \| `expired` \| `cancelled` | As the caller sees it: `proposed` waits for their answer, and whether the other has accepted stays hidden; `accepted` waits for the other's. A proposal past `validUntil` is `expired` |
+| `days` | `[{ startsAt, cutoffAt }]` | The days both users can go, soonest first; the two pick one of them (rule 9) |
+| `validUntil` | date-time | Until then the proposal waits for both answers: 24 hours, or until the next round on a shared day or the last shared day's cutoff, whichever comes first (rule 4) |
+| `partner` | object | The other user's `username`, `displayName`, `description`, `occupation`, `age`, `interests`, and their `desiredCompany` and `afterEventPlans` for this event; never their contacts (FR-019) |
+| `createdAt` | date-time | |
+
+Related to: Application (both users), Exclusion.
+
 ### Profile
 
 **Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
@@ -243,10 +262,17 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/me/applications` | Signed-in user | `200` the caller's active applications | `401` |
 | `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
 | `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
+| `GET` | `/api/v1/me/matches` | Signed-in user | `200` the caller's pending and mutual matches | `401` |
+| `GET` | `/api/v1/matches/{id}` | One of the two users | `200` the match | `400`, `401`, `404` |
+| `POST` | `/api/v1/matches/{id}/accept` | One of the two users | `200` the match | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/matches/{id}/decline` | One of the two users | `200` the match | `400`, `401`, `404`, `409` |
+| `GET` | `/api/v1/matches/{id}/contacts` | One of the two users of a mutual match | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404` |
 
 `POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
 
 `GET /me/applications` lists the active applications, soonest first day first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. A `paired` application with a proposal still waiting for an answer is withdrawn too: the proposal is `cancelled` and the other user returns to the pool (use case A5). An application with a mutual match, or with another status, answers `409 CONFLICT`. Someone else's application is a `404`.
+
+A proposal moves both applications to `paired`. `GET /me/matches` lists the caller's matches still waiting for answers and the mutual ones, soonest shared day first; it is not paginated. Accept and decline take the same per-event lock as the rounds, so no answer crosses a round (rule 7). Accepting when the other has accepted makes the match `mutual`; accepting again changes nothing. Declining, even after accepting, sends both users back to the pool and keeps them apart at this event (rule 5); declining again changes nothing. A match that is no longer waiting for answers, including a mutual one for decline, answers `409 CONFLICT`. The contacts are `{ phone, linkedAccounts }` of the other user: `phone` only if they share it, so `null` while sign-in is Google-only. Until the match is mutual they answer `404`, as does any match the caller is not part of (SEC-001). Nothing expires a proposal past `validUntil` yet; it shows as `expired` and can no longer be answered, but its two applications stay `paired` until one of them is withdrawn.
 
 ### Profile and Interests
 

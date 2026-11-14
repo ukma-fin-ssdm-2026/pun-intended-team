@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T18:39:46.488Z
+ * Generated on: 2026-11-14T18:41:41.046Z
  */
 
 import { existsSync } from 'node:fs';
@@ -402,6 +402,81 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Matching"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyMatches", {
+    name: "listMyMatches",
+    title: "List your matches",
+    description: `The caller’s proposals still waiting for answers and their mutual matches, soonest shared day first. A proposal past its \`validUntil\` shows as \`expired\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/matches",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["getMatch", {
+    name: "getMatch",
+    title: "Get one of your matches",
+    description: `One of the caller’s matches, whatever its status, with the other user’s profile but no contacts. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/matches/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["acceptMatch", {
+    name: "acceptMatch",
+    title: "Accept a proposed match",
+    description: `Accept the proposal. Once the other user accepts too, the match is \`mutual\` and both see the contacts. Accepting again changes nothing. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/matches/{id}/accept",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["declineMatch", {
+    name: "declineMatch",
+    title: "Decline a proposed match",
+    description: `Decline the proposal, even after accepting it. Both users return to the pool and are never proposed to each other again at this event. Declining again changes nothing; a mutual match can no longer be declined. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/matches/{id}/decline",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["getMatchContacts", {
+    name: "getMatchContacts",
+    title: "Get the contacts of a mutual match",
+    description: `How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is \`404\`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/matches/{id}/contacts",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],
   ["adminListOrganizations", {
     name: "adminListOrganizations",
