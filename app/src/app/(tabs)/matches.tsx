@@ -132,12 +132,12 @@ function SearchCard({ application }: { application: Application }) {
 const matchStatus: Record<Match['status'], { title: string; note: (match: Match) => string; coral?: boolean }> = {
   proposed: {
     title: 'Є пропозиція',
-    note: (match) => `${match.partner.displayName} · відповідай до ${formatEventDate(match.validUntil)}`,
+    note: (match) => `${match.partner.displayName} · встигни відповісти до ${formatEventDate(match.validUntil)}`,
     coral: true,
   },
-  accepted: { title: 'Згоду надіслано', note: (match) => `Чекаємо на відповідь: ${match.partner.displayName}` },
+  accepted: { title: 'Згоду надіслано', note: (match) => `${match.partner.displayName} ще думає` },
   mutual: { title: 'Це взаємно!', note: () => 'Контакти відкрито', coral: true },
-  expired: { title: 'Пропозиція минула', note: () => 'Відповіді не було вчасно' },
+  expired: { title: 'Час вийшов', note: () => 'Пропозиція вже не діє' },
   declined: { title: 'Не цього разу', note: () => 'Шукаємо далі' },
   cancelled: { title: 'Пропозицію скасовано', note: () => 'Шукаємо далі' },
 };

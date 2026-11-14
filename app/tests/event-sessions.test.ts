@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { describe, expect, test } from '@jest/globals';
 
-import { eventSessions, sessionCutoff, formatTimeRange, formatUntil } from '@/dates';
+import { eventSessions, sessionCutoff, formatNearDate, formatTimeRange, formatUntil } from '@/dates';
 
 // Kyiv is UTC+3 until the clocks go back on 25 October 2026 at 04:00, UTC+2 after.
 describe('eventSessions', () => {
@@ -43,6 +43,20 @@ describe('formatUntil', () => {
     ['2026-10-27T10:00:00Z', 'через 7 днів'],
   ])('says how far %s is', (iso, label) => {
     expect(formatUntil(iso, now)).toBe(label);
+  });
+});
+
+describe('formatNearDate', () => {
+  // 23:30 in Kyiv on 20 October.
+  const now = new Date('2026-10-20T20:30:00Z');
+
+  test.each([
+    ['2026-10-20T20:45:00Z', 'сьогодні, 23:45'],
+    ['2026-10-20T21:30:00Z', 'завтра, 00:30'],
+    ['2026-10-21T16:00:00Z', 'завтра, 19:00'],
+    ['2026-10-22T16:00:00Z', 'Чт, 22 жовт · 19:00'],
+  ])('names the day of %s by Kyiv time', (iso, label) => {
+    expect(formatNearDate(iso, now)).toBe(label);
   });
 });
 

@@ -72,6 +72,15 @@ export function formatTime(iso: string): string {
   return kyivTime(new Date(iso)).time;
 }
 
+// "сьогодні, 09:00", "завтра, 15:00", or further off "Сб, 24 жовт · 19:00".
+export function formatNearDate(iso: string, now = new Date()): string {
+  const day = kyivDay(new Date(iso));
+  const today = kyivDay(now);
+  if (day === today) return `сьогодні, ${formatTime(iso)}`;
+  if (day === tomorrow(today)) return `завтра, ${formatTime(iso)}`;
+  return formatEventDate(iso);
+}
+
 // "19:00 – 21:30", or "з 10:00" when the end is unknown.
 export function formatTimeRange(startIso: string, endIso: string): string {
   const start = kyivTime(new Date(startIso)).time;

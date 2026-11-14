@@ -3,7 +3,7 @@
 // the 05.2 / 05.3 states; reviewed by Daryna Halytska.
 import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { acceptMatch, declineMatch } from '@/api/matches';
 import { failureSnackbar } from '@/auth/messages';
+import { DeclineMatchDialog } from '@/components/matching/decline-match-dialog';
 import { MatchStatus } from '@/components/matching/match-status';
 import { MatchingNav } from '@/components/matching/matching-nav';
 import { ProposalCard } from '@/components/matching/proposal-card';
@@ -58,8 +59,8 @@ type Answer = 'accepted' | 'declined';
 
 // What a proposal the caller already answered, or one past its time, shows in place of the buttons.
 const waitingNotes: Partial<Record<Match['status'], string>> = {
-  accepted: 'Згоду надіслано. Чекаємо на відповідь',
-  expired: 'Пропозиція минула',
+  accepted: 'Згоду надіслано, чекаємо на відповідь',
+  expired: 'Час на відповідь вийшов',
 };
 
 export default function ProposalScreen() {
@@ -77,6 +78,7 @@ export default function ProposalScreen() {
   // Remounts the swipe control after a failed answer, so its knob returns to the start.
   const [attempt, setAttempt] = useState(0);
   const [report, setReport] = useState<ReportStep>('closed');
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
   const { snackbar, show } = useSnackbar();
   useStatusBarStyle('light');
 
@@ -132,11 +134,12 @@ export default function ProposalScreen() {
     setSending(true);
     const result = await (choice === 'accepted' ? acceptMatch(match.id) : declineMatch(match.id));
     setSending(false);
+    setConfirmingDecline(false);
     if (!result.ok) {
       setAttempt((count) => count + 1);
       show(
         result.status === 409
-          ? { tone: 'error', title: 'Пропозиція вже неактуальна', note: 'Онови список метчів' }
+          ? { tone: 'error', title: 'Ця пропозиція вже не діє', note: 'Зазирни у «Метчі», там усе свіже' }
           : failureSnackbar(result),
       );
       return;
@@ -176,13 +179,12 @@ export default function ProposalScreen() {
 
       {/* NativeWind maps className only on React Native's own components, so animated views get plain styles. */}
       <Animated.View style={[{ flex: 1 }, profileStyle]}>
-        <ScrollView
-          contentContainerClassName="px-5 pt-2.5"
-          contentContainerStyle={{ paddingBottom: actionsBottom + ACTIONS_HEIGHT + NOTE_GAP + NOTE_HEIGHT + LIST_GAP }}
-          showsVerticalScrollIndicator={false}
+        <View
+          className="flex-1 px-5 pt-2.5"
+          style={{ paddingBottom: actionsBottom + ACTIONS_HEIGHT + NOTE_GAP + NOTE_HEIGHT + LIST_GAP }}
         >
           <ProposalCard match={match} ownInterestIds={ownInterestIds} cover={mockEvent?.cover} />
-        </ScrollView>
+        </View>
       </Animated.View>
 
       <Animated.View
@@ -218,7 +220,7 @@ export default function ProposalScreen() {
               accessibilityLabel="Не цього разу"
               accessibilityState={{ disabled: !canAnswer || sending }}
               disabled={!canAnswer || sending}
-              onPress={() => void respond('declined')}
+              onPress={() => setConfirmingDecline(true)}
               className="size-[60px] items-center justify-center rounded-[30px] bg-brand-coral active:opacity-90"
               style={{ boxShadow: '0px 8px 20px -6px rgba(223, 84, 74, 0.3)' }}
             >
@@ -241,6 +243,12 @@ export default function ProposalScreen() {
       )}
 
       <ReportFlow person={reportedUser(match.partner)} step={report} onStepChange={setReport} onDone={toMatches} />
+      <DeclineMatchDialog
+        visible={confirmingDecline}
+        busy={sending}
+        onClose={() => setConfirmingDecline(false)}
+        onDecline={() => void respond('declined')}
+      />
       {snackbar && <Snackbar {...snackbar} />}
     </View>
   );

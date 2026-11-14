@@ -49,8 +49,8 @@ export function SafetySheet({ visible, person, onClose, onConfirm }: Props) {
               Перед першою зустріччю
             </Text>
             <Text className="text-center font-inter text-caption text-text-secondary">
-              {person.name} теж {person.accepted ?? 'прийняв(-ла)'} метч! Кілька простих правил, і можна планувати
-              зустріч.
+              {person.accepted ? `${person.name} теж ${person.accepted} метч!` : `${person.name} теж хоче піти разом!`}{' '}
+              Кілька простих правил, і можна планувати зустріч.
             </Text>
           </View>
 

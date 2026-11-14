@@ -73,7 +73,7 @@ type HeroProps = {
 export function MutualMatchHero({ title, person, ownInitial, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
   const when = `${formatShortDay(event.startsAt)}, ${formatTime(event.startsAt)}`;
-  const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви разом йдете';
+  const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви йдете разом';
 
   return (
     <View

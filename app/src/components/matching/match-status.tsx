@@ -16,7 +16,7 @@ const copy = {
   declined: {
     icon: 'status-close',
     title: 'Не цього разу',
-    text: (name: string) => `${name} не дізнається, хто відмовився. А ми шукаємо тобі компанію далі.`,
+    text: (name: string) => `${name} про це не дізнається. А ми шукаємо тобі компанію далі.`,
   },
 } as const;
 
