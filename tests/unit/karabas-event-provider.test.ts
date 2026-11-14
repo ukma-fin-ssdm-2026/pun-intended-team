@@ -39,9 +39,13 @@ function normalized(provider: KarabasEventProvider, record: KarabasRecord): Impo
   return result.event;
 }
 
-/** The exhibitions and sport pages of 2026-11-14: runs with an end time, lengths in descriptions, a real end. */
+/**
+ * The exhibitions, theatres and sport pages of 2026-11-14: runs with an end time, lengths in descriptions, a real
+ * end.
+ */
 const NOV_14_SECTIONS = {
   '/exhibitions/': 'karabas/kyiv-exhibitions-2026-11-14.html',
+  '/theatres/': 'karabas/kyiv-theatres-2026-11-14.html',
   '/sport/': 'karabas/kyiv-sport-2026-11-14.html',
 };
 
@@ -434,7 +438,7 @@ describe('KarabasEventProvider.normalize', () => {
     assert.equal(event.endTimeKnown, true);
   });
 
-  test('imports the first show of a run, ending with its day, and logs the run', async () => {
+  test('imports a run until a later midnight as one event to the end of its last day, and logs the run', async () => {
     // As "Тигролови" on the theatres page on 2026-11-03: shows from 3 to 12 November.
     const run: KarabasRecord = {
       section: '/theatres/',
@@ -457,12 +461,11 @@ describe('KarabasEventProvider.normalize', () => {
 
     const event = normalized(provider, run);
 
-    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T16:00:00.000Z', '2026-11-03T21:59:59.999Z']);
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T16:00:00.000Z', '2026-11-12T21:59:59.999Z']);
     assert.equal(event.endTimeKnown, false);
-    assert.ok(
-      log.mock.calls.some(({ arguments: [message] }) =>
-        String(message).includes('tyhrolovy-teatr-zoloti-vorota-7: a run of shows until 2026-11-12'),
-      ),
+    assert.deepEqual(
+      log.mock.calls.map(({ arguments: [message] }) => message),
+      ['tyhrolovy-teatr-zoloti-vorota-7: a run of shows until 2026-11-12; imported as 10 days'],
     );
     log.mock.restore();
   });
@@ -470,7 +473,7 @@ describe('KarabasEventProvider.normalize', () => {
   describe('on the pages of 2026-11-14', () => {
     const recordOfNov14 = (slug: string) => recordOf(slug, NOV_14_SECTIONS, PAGES_SAVED_AT_NOV_14);
 
-    test('imports the first day of a run with an end time, ending at that time, and logs the run', async () => {
+    test('imports a run with an end time as one event to that time on its last day, and logs the run', async () => {
       // "Київський музей медуз": 10:00 on 14 November to 14:00 on 1 May on the page.
       const { provider, record } = await recordOfNov14('kyivs-kyy-muzey-meduz');
       const log = mock.method(Logger.prototype, 'log', () => {});
@@ -483,13 +486,52 @@ describe('KarabasEventProvider.normalize', () => {
       );
       assert.deepEqual(
         [event.startsAt, event.endsAt, event.endTimeKnown],
-        ['2026-11-14T08:00:00.000Z', '2026-11-14T12:00:00.000Z', true],
+        ['2026-11-14T08:00:00.000Z', '2027-05-01T11:00:00.000Z', true],
       );
       assert.deepEqual(
         log.mock.calls.map(({ arguments: [message] }) => message),
-        ['kyivs-kyy-muzey-meduz: a run of shows until 2027-05-01 at 14:00; importing the first show only'],
+        ['kyivs-kyy-muzey-meduz: a run of shows until 2027-05-01 at 14:00; imported as 169 days'],
       );
       log.mock.restore();
+    });
+
+    const runs: [slug: string, startsAt: string, endsAt: string][] = [
+      // 10:00 on 14 November to 14:00 on 1 May.
+      ['kiyivskij-okeanarium-morska-kazka', '2026-11-14T08:00:00.000Z', '2027-05-01T11:00:00.000Z'],
+      // 11:00 on 14 November to 20:00 on 31 December.
+      ['muzey-miniland-ua-5', '2026-11-14T09:00:00.000Z', '2026-12-31T18:00:00.000Z'],
+      // A play on the theatres page, 17:00 on 14 November to 21:00 on 29 November.
+      ['svit-u-horikhoviy-shkaralupi-12', '2026-11-14T15:00:00.000Z', '2026-11-29T19:00:00.000Z'],
+    ];
+    for (const [slug, startsAt, endsAt] of runs) {
+      test(`imports the run ${slug} from today's show to its last show, with a known end`, async () => {
+        const { provider, record } = await recordOfNov14(slug);
+
+        const event = normalized(provider, record);
+
+        assert.deepEqual([event.startsAt, event.endsAt, event.endTimeKnown], [startsAt, endsAt, true]);
+      });
+    }
+
+    test('leaves out the run of 2024, which ended before the window', async () => {
+      const { provider } = makeProvider(NOV_14_SECTIONS, PAGES_SAVED_AT_NOV_14);
+
+      const { records } = await provider.fetch();
+
+      assert.ok(!records.some(({ event }) => String(event.url).endsWith('/muzey-miniland-ua/')));
+    });
+
+    test('keeps the other shows of the theatres page to their own day', async () => {
+      const { provider } = makeProvider({ '/theatres/': NOV_14_SECTIONS['/theatres/'] }, PAGES_SAVED_AT_NOV_14);
+      const { records } = await provider.fetch();
+
+      const days = records
+        .filter(({ event }) => !String(event.url).endsWith('/svit-u-horikhoviy-shkaralupi-12/'))
+        .map((record) => normalized(provider, record))
+        .map(({ startsAt, endsAt }) => [startsAt.slice(0, 10), endsAt.slice(0, 10)]);
+
+      assert.equal(days.length, 19);
+      assert.ok(days.every(([start, end]) => start === '2026-11-14' && end === '2026-11-14'));
     });
 
     // endDate is the JSON-LD value; startsAt is checked only where given.
@@ -597,9 +639,9 @@ describe('karabasEnd', () => {
     assert.deepEqual(karabasEnd(START, undefined), { endsAt: END_OF_DAY, endTimeKnown: false });
   });
 
-  test('reads a later midnight as a run until the day before it, with an unknown end', () => {
+  test('reads a later midnight as a run until the day before it, ending with that day, unknown', () => {
     assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00'), {
-      endsAt: END_OF_DAY,
+      endsAt: new Date('2026-11-12T21:59:59.999Z'),
       endTimeKnown: false,
       runUntil: '2026-11-12',
     });
@@ -612,20 +654,20 @@ describe('karabasEnd', () => {
     });
   });
 
-  test('reads a time on a later day as a run until that day, the first show ending at that time', () => {
+  test('reads a time on a later day as a run until that day, the last show ending at that time', () => {
     // 19:00 on 4 November to 21:30 on 20 November.
     assert.deepEqual(karabasEnd(START, '2026-11-20T23:30:00+02:00'), {
-      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endsAt: new Date('2026-11-20T19:30:00.000Z'),
       endTimeKnown: true,
       runUntil: '2026-11-20',
       runEndTime: '21:30',
     });
   });
 
-  test('ends the first show of a run in Kyiv time when the run ends in summer time', () => {
+  test('ends the last show of a run in Kyiv time when the run ends in summer time', () => {
     // 10:00 on 14 November to 14:00 on 1 May, as "Київський музей медуз".
     assert.deepEqual(karabasEnd(new Date('2026-11-14T08:00:00.000Z'), '2027-05-01T17:00:00+03:00'), {
-      endsAt: new Date('2026-11-14T12:00:00.000Z'),
+      endsAt: new Date('2027-05-01T11:00:00.000Z'),
       endTimeKnown: true,
       runUntil: '2027-05-01',
       runEndTime: '14:00',
@@ -647,7 +689,21 @@ describe('karabasEnd', () => {
 
     assert.deepEqual(karabasEnd(START, '2026-11-05T00:00:00+02:00', 80), known);
     assert.deepEqual(karabasEnd(START, undefined, 80), known);
-    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00', 80), { ...known, runUntil: '2026-11-12' });
+  });
+
+  test('ends a run until a later midnight on its last day after the length of its description', () => {
+    // 19:00 to 20:20 every day from 4 to 12 November.
+    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00', 80), {
+      endsAt: new Date('2026-11-12T18:20:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2026-11-12',
+    });
+  });
+
+  test('ends a run until a later midnight in Kyiv time when its last day is in summer time', () => {
+    // 19:00 to 20:20 every day from 4 November to 1 April.
+    assert.deepEqual(karabasEnd(START, '2027-04-02T00:00:00+03:00', 80).endsAt, new Date('2027-04-01T17:20:00.000Z'));
+    assert.deepEqual(karabasEnd(START, '2027-04-02T00:00:00+03:00').endsAt, new Date('2027-04-01T20:59:59.999Z'));
   });
 
   test('prefers an endDate that gives an end to the length', () => {

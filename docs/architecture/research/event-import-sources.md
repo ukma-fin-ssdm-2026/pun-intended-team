@@ -158,6 +158,19 @@ The 8 that are not exhibitions: "Oleksandr Mashovets Quartet | Brutalism" (32 Ja
 | Concert.ua | 11 section pages: 4 `/concerts`, 5 `/theater`, 1 `/festivals`, 1 `/electronic` | No more for `endDate`, which is in the JSON-LD of the section pages; the address and the description still need one event page each |
 | ArtWizard | 6 API pages | — |
 
+## Runs of shows (#416)
+
+Read on 2026-11-14, 13:42–13:45 UTC, with the import's HTTP client and User-Agent, at most one request a second and no retries: 9 requests to kyiv.karabas.com, none to ArtWizard. They were `robots.txt` (unchanged: `Crawl-delay: 1`, `/ajax.php*` disallowed), `/theatres/` pages 1 and 2, `/exhibitions/` page 2 (page 1 was saved that morning for #410), `/festivals/`, and the event pages of the four runs. `/theatres/` page 1 is saved as a fixture. Basis for the runs in decision 5 of [ADR-006](../decisions/ADR-006.md).
+
+- **Runs per kind.** No run with a later midnight (the kind of "Тигролови", 3–12 November) on any page read. Four with a time on a later day, the four of the table above: one in the 40 records of `/theatres/` pages 1–2, three in the 25 of `/exhibitions/`, which is the whole section, plus a Miniland.UA record that ended in February 2025. `/festivals/` listed nothing. The full read for #410 found the same four in 707 events.
+- **One record per run.** No section page lists an event URL twice: 0 repeats in the 105 records read, and none in the 40 of the saved `/concerts/` pages of 7 November. The adapter's one record per URL loses nothing.
+- **The start is today.** A section page writes a running show's `startDate` as today at its time of day. Its event page writes the real first day at the same time: 8 November for the play, 1 May 2026 for the jellyfish museum and the oceanarium, 7 July for Miniland.UA. Only the run that has ended keeps its old start. So a run never starts before the window on a section page.
+- **No schedule on the event page.** Each event page has one `Event` in its JSON-LD with the same `startDate`–`endDate`, no `subEvent` or `eventSchedule`, and one `Offer` or `AggregateOffer` for the whole run. The markup has no date picker, only the range ("14 листопада 2026, 10:00 - 1 травня 2027, 14:00").
+- **Not every day has a show.** Miniland.UA's description, on the section page too, says it opens Wednesday to Friday 15:00–20:00 and Saturday and Sunday 11:00–20:00, and is closed on Monday and Tuesday. The record's 11:00–20:00 every day holds on 2 days in 7. Nothing tells the other three apart from daily: the museum and the oceanarium give 10:00–14:00 every day, and the play 17:00–21:00 on each of 22 days, which no page confirms or denies.
+- **Cost of reading the days from event pages.** One request per run and day, about 4 a day against the 46 of a full run. It would give nothing: the event page has no more dates than the section page.
+
+So the days of a run can be taken only from the section page's range, as one session a day at its time. Closed days written in a description stay unknown to the import.
+
 ## Categories (agreed)
 
 Concerts, Exhibitions, Talks (lectures + discussions), Workshops, Cinema, Theatre, Stand-up, Sports, Festivals (incl. fairs), Parties, Volunteering (renamed from Toloka, listings only), Open days (kept, listings only).

@@ -984,6 +984,7 @@ export interface components {
          *             }
          *           },
          *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
          *           "endsAt": "2026-10-17T21:30:00+03:00",
          *           "endTimeKnown": true,
          *           "imageUrl": null,
@@ -1029,6 +1030,7 @@ export interface components {
          *         }
          *       },
          *       "startsAt": "2026-10-17T19:00:00+03:00",
+         *       "startTimeKnown": true,
          *       "endsAt": "2026-10-17T21:30:00+03:00",
          *       "endTimeKnown": true,
          *       "imageUrl": null,
@@ -1046,6 +1048,8 @@ export interface components {
             venue: components["schemas"]["Venue"];
             /** Format: date-time */
             startsAt: string;
+            /** @description False when the provider gives no time of day: startsAt is then a default opening time (12:00 Europe/Kyiv for exhibitions) that only orders the event and its sessions; show the dates without a time. Always true for an organization event */
+            startTimeKnown: boolean;
             /** Format: date-time */
             endsAt: string;
             /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */
@@ -1422,7 +1426,7 @@ export interface components {
          *     }
          */
         CreateApplicationBody: {
-            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days */
+            /** @description The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days. Each lies within the catalog window: today and the next 28 days */
             dates?: string[];
             /**
              * @description What kind of company the user is looking for at this event
@@ -3192,7 +3196,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, or runs on several days and `dates` is missing. */
+            /** @description `PROFILE_INCOMPLETE`: the profile lacks a communication format, an interest or a linked account; the app sends the user to complete it. `EVENT_CANCELLED`: the event is cancelled. `APPLICATIONS_CLOSED`: the cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends. `INVALID_SESSION_DAY`: the event does not run on one of `dates`, one of them is after the catalog window (today and the next 28 days), or the event runs on several days and `dates` is missing. */
             422: {
                 headers: {
                     [name: string]: unknown;

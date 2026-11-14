@@ -107,12 +107,14 @@ export function filterEvents<T extends FilterableEvent>(events: T[], filters: Ca
     (event) =>
       (!search || event.title.toLocaleLowerCase('uk').includes(search)) &&
       (filters.categoryIds.length === 0 || filters.categoryIds.includes(event.category.id)) &&
-      (!days || days.includes(kyivDay(new Date(event.startsAt)))) &&
-      (!filters.dates || inRange(kyivDay(new Date(event.startsAt)), filters.dates)) &&
+      (!days || overlaps(event, { from: days[0], to: days[days.length - 1] })) &&
+      (!filters.dates || overlaps(event, filters.dates)) &&
       (filters.districts.length === 0 || (!!event.district && filters.districts.includes(event.district))),
   );
 }
 
-function inRange(day: KyivDay, { from, to }: DateRange) {
-  return day >= from && day <= to;
+// As the API's date filter (FR-007): an event is on the days from its start to its end, so a run of shows until May
+// shows on every one of them, not only on its first.
+function overlaps(event: FilterableEvent, { from, to }: DateRange) {
+  return kyivDay(new Date(event.startsAt)) <= to && kyivDay(new Date(event.endsAt)) >= from;
 }

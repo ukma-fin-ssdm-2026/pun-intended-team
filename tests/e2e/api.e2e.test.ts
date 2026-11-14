@@ -1202,7 +1202,7 @@ describe('GET /api/v1/events/{id}', () => {
     const res = await call('GET', `/api/v1/events/${filmNight}`, { token: tokens.guest });
     assert.equal(res.status, 200);
     assert.equal(res.body.id, filmNight);
-    assert.equal(res.body.endTimeKnown, true);
+    assert.deepEqual([res.body.startTimeKnown, res.body.endTimeKnown], [true, true]);
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1215,7 +1215,7 @@ describe('POST /api/v1/events', () => {
     const res = await call('POST', '/api/v1/events', { token: tokens.org, body: newEvent });
     assert.equal(res.status, 201);
     assert.equal(res.body.title, newEvent.title);
-    assert.equal(res.body.endTimeKnown, true);
+    assert.deepEqual([res.body.startTimeKnown, res.body.endTimeKnown], [true, true]);
     assert.equal(res.headers.get('location'), `/api/v1/events/${res.body.id}`);
   });
 
@@ -3079,12 +3079,12 @@ describe('Event import', () => {
 
     await runImport();
 
-    // ArtWizard: 30 of the 40 events; 8 exhibitions and a play have no start time in the window, and one event
-    // has no occurrence in it. Karabas: 20 concerts, the 7 MusicEvent records of the 12 club events that are not
+    // ArtWizard: 38 of the 40 events, 8 of them exhibition runs without opening hours; a play has no start time in
+    // the window, and one event has no occurrence in it. Karabas: 20 concerts, the 7 MusicEvent records of the 12 club events that are not
     // concerts too (the other 5 are plain Event: talks, board games, wine), and 1 sport event.
     const artWizard = await importedEvents('artwizard');
     const karabas = await importedEvents('karabas');
-    assert.equal(artWizard.length, 30);
+    assert.equal(artWizard.length, 38);
     assert.equal(karabas.length, 28);
     for (const event of [...artWizard, ...karabas]) {
       assert.equal(event.organization_id, null);
@@ -3103,7 +3103,7 @@ describe('Event import', () => {
       ),
     );
     assert.deepEqual(runs, [
-      { provider: 'artwizard', status: 'succeeded', finished: true, complete: true, skipped: 10 },
+      { provider: 'artwizard', status: 'succeeded', finished: true, complete: true, skipped: 2 },
       { provider: 'karabas', status: 'succeeded', finished: true, complete: true, skipped: 5 },
     ]);
   });
@@ -3117,7 +3117,7 @@ describe('Event import', () => {
     assert.equal((await importedEvents('karabas')).length, first);
     assert.equal(first, 28);
     // The ArtWizard slugs are the external ids, so a second run updates its events instead of adding them again.
-    assert.equal((await importedEvents('artwizard')).length, 30);
+    assert.equal((await importedEvents('artwizard')).length, 38);
   });
 
   const eventStatus = async (provider: string, externalId: string) =>
@@ -3165,7 +3165,7 @@ describe('Event import', () => {
     await runImport({ artWizardApiKey: 'wrong-key', exitCode: 1 });
 
     assert.equal(await published(), before);
-    assert.equal(before, 30);
+    assert.equal(before, 38);
   });
 
   // FR-014, REL-003
@@ -3346,9 +3346,28 @@ describe('Event import', () => {
     for (const { id, end_time_known: known, ends_with_day: endsWithDay } of rows) {
       const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
       assert.equal(res.body.endTimeKnown, known);
-      // An unknown end is always stored as the end of the start day.
+      // An unknown end is always stored as the end of a day: the start day's, or a run's last day's.
       assert.ok(known || endsWithDay, id);
     }
+  });
+
+  // ADR-006, decision 5
+  test('serves an ArtWizard exhibition run from a default 12:00 to its last day, and says the start is a default', async () => {
+    await runImport();
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string; external_id: string }>(
+        `SELECT id, external_id FROM events WHERE source = 'import' AND NOT start_time_known ORDER BY external_id`,
+      ),
+    );
+    const ivaniv = rows.find((row) => row.external_id === 'ivaniv-kovcheg-prostir-svobodi-20260820');
+
+    assert.equal(rows.length, 8);
+    const res = await call('GET', `/api/v1/events/${ivaniv?.id}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.deepEqual(
+      [Date.parse(res.body.startsAt), res.body.startTimeKnown, Date.parse(res.body.endsAt), res.body.endTimeKnown],
+      [Date.parse('2026-11-03T12:00:00+02:00'), false, Date.parse('2026-11-29T23:59:59.999+02:00'), false],
+    );
   });
 
   // A typo in a provider's mapping would otherwise only skip that genre's events, with no test failing.

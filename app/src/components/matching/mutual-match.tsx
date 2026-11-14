@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
-import { formatShortDay, formatTime } from '@/dates';
+import { formatSessionDay } from '@/dates';
 import type { MockEvent } from '@/mocks/events';
 import { mockMutual, type MatchPerson } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
@@ -49,7 +49,7 @@ type HeroProps = {
 // The gradient header; the component gallery shows it with each title.
 export function MutualMatchHero({ title, person, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
-  const when = `${formatShortDay(event.startsAt)}, ${formatTime(event.startsAt)}`;
+  const when = formatSessionDay(event.startsAt, event.startTimeKnown);
 
   return (
     <View

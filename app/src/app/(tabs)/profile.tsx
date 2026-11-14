@@ -103,7 +103,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           key={event.id}
           title={event.title}
           category={event.category.name}
-          dateLabel={formatEventDate(event.startsAt)}
+          dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
           cover={event.cover}
           favorite

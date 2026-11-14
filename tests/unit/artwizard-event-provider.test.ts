@@ -266,6 +266,7 @@ describe('ArtWizardEventProvider.normalize', () => {
           location: event.venue.location,
         },
         startsAt: '2026-11-03T16:00:00.000Z',
+        startTimeKnown: true,
         endsAt: '2026-11-03T21:59:59.999Z',
         endTimeKnown: false,
         imageUrl: savedEvent('santimetri-20261103').picture_url,
@@ -307,23 +308,28 @@ describe('ArtWizardEventProvider.normalize', () => {
     assert.equal(skipReason(savedEvent('ia-bachu-vas-tsikavit-pitma-20261103')), 'No start time (00:00 on ArtWizard)');
   });
 
-  test('skips an ongoing exhibition: the opening is past, only its 00:00–23:59:59 run is in the window', () => {
-    // "Іванів ковчег": opening on 20 August at 18:00, then open from 21 August to 29 November.
-    assert.equal(
-      skipReason(savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820')),
-      'No start time (00:00 on ArtWizard)',
-    );
-  });
-
   test('takes the opening of an exhibition that opens in the window, and logs the other occurrence', () => {
     // "Тимчасово постійно": opening on 5 November at 17:00, open from 5 November to 6 December.
     const event = normalized(savedEvent('timchasovo-postiyno-20261105'));
 
-    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T15:00:00.000Z', '2026-11-05T21:59:59.999Z']);
-    assert.equal(event.endTimeKnown, false);
+    assert.deepEqual(
+      [event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+      ['2026-11-05T15:00:00.000Z', true, '2026-11-05T21:59:59.999Z', false],
+    );
     assert.deepEqual(logged, [
       'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-11-30; importing the one of 2026-11-05T17:00 only',
     ]);
+  });
+
+  test('takes the opening of that exhibition as its run once the opening has passed', () => {
+    const provider = makeProvider({ now: new Date('2026-11-06T10:00:00Z') });
+
+    const event = normalized(savedEvent('timchasovo-postiyno-20261105'), provider);
+
+    assert.deepEqual(
+      [event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+      ['2026-11-06T10:00:00.000Z', false, '2026-12-06T21:59:59.999Z', false],
+    );
   });
 
   test('takes the earliest timed occurrence in the window, whatever their order', () => {
@@ -438,6 +444,133 @@ describe('ArtWizardEventProvider.normalize', () => {
   test('joins the inserts of a Quill description into plain text', () => {
     assert.equal(quillText('Just text, [not JSON'), 'Just text, [not JSON');
     assert.equal(quillText('[{"insert":"One "},{"insert":{"image":"x"}},{"insert":"two"}]'), 'One two');
+  });
+});
+
+// ADR-006, decision 5: an exhibition without opening hours is imported as its run, from a default 12:00.
+describe('ArtWizardEventProvider.normalize, an exhibition run', () => {
+  const END_OF_NOV_29 = '2026-11-29T21:59:59.999Z';
+  const cases = [
+    {
+      title: '"Іванів ковчег": the opening of 20 August is past, the run is open until 29 November',
+      raw: () => savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: END_OF_NOV_29,
+    },
+    {
+      title: '"Гімн праці": the run is written before the opening of 30 October, and lasts until 30 November',
+      raw: () => savedEvent('hymn-pracy-20261030'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: '2026-11-30T21:59:59.999Z',
+    },
+    {
+      title: 'an exhibition whose timed opening on 1 November is before the window',
+      raw: () => savedEvent('vistavka-vidshtovkhuiuchis-vid-smerti--20261101'),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: '2026-12-01T21:59:59.999Z',
+    },
+    {
+      title: '"Нелінійний простір": one occurrence from the opening of 29 October at 18:30 to 29 November',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-10-29T18:30:00.000Z', '2026-11-29T18:30:00.000Z']]),
+      startsAt: '2026-11-03T10:00:00.000Z',
+      endsAt: END_OF_NOV_29,
+    },
+    {
+      title: 'a run that begins after the first day of the window, from its own first day',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-11-10T00:00:00.000Z', '2026-11-20T23:59:59.000Z']]),
+      startsAt: '2026-11-10T10:00:00.000Z',
+      endsAt: '2026-11-20T21:59:59.999Z',
+    },
+    {
+      title: 'a run in summer, at 12:00 Kyiv time (UTC+3)',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-07-01T00:00:00.000Z', '2026-07-31T23:59:59.000Z']]),
+      now: new Date('2026-07-10T08:00:00Z'),
+      startsAt: '2026-07-10T09:00:00.000Z',
+      endsAt: '2026-07-31T20:59:59.999Z',
+    },
+  ];
+  for (const { title, raw, now = PAGES_SAVED_AT, startsAt, endsAt } of cases) {
+    test(`imports ${title}`, () => {
+      const event = normalized(raw(), makeProvider({ now }));
+
+      assert.deepEqual(
+        [event.categorySlug, event.startsAt, event.startTimeKnown, event.endsAt, event.endTimeKnown],
+        ['exhibitions', startsAt, false, endsAt, false],
+      );
+    });
+  }
+
+  test('takes "Текстура простору", of the types Виставки and Музика, as an exhibition: its first type', () => {
+    const event = normalized(savedEvent('tekstura-prostoru-20261008'));
+
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T10:00:00.000Z', '2026-11-04T21:59:59.999Z']);
+  });
+
+  test('logs the run and its default opening time', () => {
+    normalized(savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'));
+
+    assert.deepEqual(logged, [
+      'ivaniv-kovcheg-prostir-svobodi-20260820: an exhibition run from 2026-08-21 to 2026-11-29 without opening ' +
+        'hours; imported from 2026-11-03 at 12:00 (default)',
+    ]);
+  });
+
+  test('takes the run that starts first of several, and logs the others', () => {
+    const raw = withOccurrences('mizh-kadrami-20261023', [
+      ['2026-11-20T00:00:00.000Z', '2026-11-25T23:59:59.000Z'],
+      ['2026-11-05T00:00:00.000Z', '2026-11-10T23:59:59.000Z'],
+    ]);
+
+    const event = normalized(raw);
+
+    assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T10:00:00.000Z', '2026-11-10T21:59:59.999Z']);
+    assert.equal(
+      logged[0],
+      'mizh-kadrami-20261023: 2 exhibition runs from 2026-11-03 to 2026-11-30; importing the one from 2026-11-05 ' +
+        'to 2026-11-10 only',
+    );
+  });
+
+  const skipped = [
+    {
+      title: 'a run that ended before the window',
+      raw: () => withOccurrences('mizh-kadrami-20261023', [['2026-10-01T00:00:00.000Z', '2026-11-02T23:59:59.000Z']]),
+      reason: 'No occurrence from 2026-11-03 to 2026-11-30',
+    },
+    {
+      title: 'a timed occurrence over several days that is not an exhibition',
+      raw: () => ({
+        ...withOccurrences('mizh-kadrami-20261023', [['2026-10-29T18:30:00.000Z', '2026-11-29T18:30:00.000Z']]),
+        type: ['Кіно'],
+      }),
+      reason: 'No occurrence from 2026-11-03 to 2026-11-30',
+    },
+    {
+      title: 'a run without a time that is not an exhibition',
+      raw: () => ({ ...savedEvent('ivaniv-kovcheg-prostir-svobodi-20260820'), type: ['Театр'] }),
+      reason: 'No start time (00:00 on ArtWizard)',
+    },
+  ];
+  for (const { title, raw, reason } of skipped) {
+    test(`skips ${title}`, () => {
+      assert.equal(skipReason(raw()), reason);
+    });
+  }
+
+  test('imports 38 and skips 2 of the 40 events on the saved pages: no exhibition runs among the skipped', () => {
+    const provider = makeProvider();
+    const results = [...savedEventsPage(1).data, ...savedEventsPage(2).data].map((raw) => provider.normalize(raw));
+
+    const skips = results.flatMap((result) => ('skip' in result ? [result.skip] : []));
+    const runs = results.flatMap((result) => ('event' in result && result.event.startTimeKnown === false ? [1] : []));
+    assert.deepEqual([results.length - skips.length, skips.length, runs.length], [38, 2, 8]);
+    assert.deepEqual(
+      skips.map(({ externalId, reason }) => [externalId, reason]),
+      [
+        ['muzichna-programa-14-18-zhovtnia-20261015', 'No occurrence from 2026-11-03 to 2026-11-30'],
+        ['ia-bachu-vas-tsikavit-pitma-20261103', 'No start time (00:00 on ArtWizard)'],
+      ],
+    );
   });
 });
 

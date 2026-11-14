@@ -33,6 +33,7 @@ An event in the city that users can go to together. It is posted by a verified o
 | `category` | `{ id, name }` | |
 | `venue` | `{ id, name, address, location: { lat, lng } }` | |
 | `startsAt`, `endsAt` | date-time | |
+| `startTimeKnown` | boolean | False for an imported event whose provider gives no time of day, such as an ArtWizard exhibition run without opening hours: `startsAt` is then a default opening time, 12:00 in Europe/Kyiv, that only orders the event and its sessions, and a client shows the dates without a time. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `endTimeKnown` | boolean | False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in Europe/Kyiv, and a client shows only the start. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
@@ -247,7 +248,7 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
 | `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
 
-`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. A day must lie within the catalog window, today and the next 28 days, as the catalog does: a run of shows until May takes applications for the coming four weeks, and a later day gives `422 INVALID_SESSION_DAY`. A single-day event has no such limit. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
 
 `GET /me/applications` lists the active applications, soonest first day first; it is not paginated. Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. Another status answers `409 CONFLICT`. Someone else's application is a `404`.
 
@@ -400,7 +401,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
-| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, or it runs on several days and `dates` is missing |
+| `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.
 

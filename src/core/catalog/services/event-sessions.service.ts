@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import { CATALOG_WINDOW_DAYS, catalogWindow } from '../../common/catalog-window.ts';
 import { DomainError } from '../../common/domain-error.ts';
 import { EventSessionsRepository } from '../repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
@@ -15,7 +16,8 @@ export class EventSessionsService {
 
   /**
    * The sessions a user applies to: the event's only one, or one for each of `days` of a multi-day event. Every day
-   * must take applications, or none is opened.
+   * must take applications and lie within the catalog window, or none is opened: a run of shows until May takes
+   * applications for the coming four weeks only.
    */
   async open(eventId: string, days?: string[]): Promise<EventSession[]> {
     const event = await this.eventsRepository.findById(eventId);
@@ -25,7 +27,15 @@ export class EventSessionsService {
     if (event.status === 'cancelled') {
       throw new DomainError('EVENT_CANCELLED', 'A cancelled event takes no applications');
     }
+    const now = new Date();
+    const lastDay = catalogWindow(now).to;
     const starts = (days?.length ? [...new Set(days)] : [undefined]).map((day) => {
+      if (day !== undefined && day > lastDay) {
+        throw new DomainError(
+          'INVALID_SESSION_DAY',
+          `Days can be picked at most ${CATALOG_WINDOW_DAYS} days ahead, until ${lastDay}`,
+        );
+      }
       const startsAt = sessionStart(event, day);
       if (!startsAt) {
         throw new DomainError(
@@ -35,7 +45,6 @@ export class EventSessionsService {
       }
       return startsAt;
     });
-    const now = new Date();
     if (starts.some((startsAt) => sessionCutoff(event, startsAt) <= now)) {
       throw new DomainError('APPLICATIONS_CLOSED', 'A picked session no longer takes applications');
     }
