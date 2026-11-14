@@ -35,7 +35,8 @@ export class EventsController {
     summary: 'Browse the event catalog',
     description:
       'Browse the event catalog: published events in the catalog window, soonest first. ' +
-      '`lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014).',
+      '`lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more ' +
+      'than 30 hours ago (FR-014).',
     tags: ['Events'],
     access: 'guest',
     request: ListEventsRequest,
