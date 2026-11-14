@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import MapScreen from '@/app/(tabs)/map';
+import { FiltersSheet } from '@/components/filters-sheet';
 import type { VenueMapProps } from '@/components/map/venue-map-props';
 import { useEvents, useVenueEvents } from '@/hooks/use-events';
 
@@ -14,7 +15,11 @@ jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: () => Promise.resolve({ status: 'denied' }),
   Accuracy: { Balanced: 3 },
 }));
-jest.mock('@/components/filters-sheet', () => ({ FiltersSheet: () => null }));
+jest.mock('@/components/filters-sheet', () => ({ FiltersSheet: jest.fn(() => null) }));
+const mockCategories = [{ id: 'c1', name: 'Концерти' }];
+jest.mock('@/hooks/use-categories', () => ({
+  useCategories: () => ({ data: mockCategories, loading: false, error: undefined, reload: () => {} }),
+}));
 jest.mock('@/hooks/use-events', () => ({ useEvents: jest.fn(), useVenueEvents: jest.fn() }));
 // The real map needs native code; this one draws a button per pin.
 jest.mock('@/components/map/venue-map', () => {
@@ -108,6 +113,19 @@ describe('MapScreen', () => {
     await render(<MapScreen />);
 
     expect(loadMore).toHaveBeenCalled();
+  });
+
+  // The sheet counts the map's events and offers the live categories, not the sample data.
+  test('gives the filters sheet the loaded events and the categories', async () => {
+    await render(<MapScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Фільтри' }));
+
+    expect(jest.mocked(FiltersSheet).mock.lastCall?.[0]).toMatchObject({
+      visible: true,
+      events,
+      categories: mockCategories,
+    });
   });
 
   test('offers a retry when the events cannot be loaded', async () => {
