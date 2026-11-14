@@ -49,6 +49,7 @@ function eventsResult(overrides: Partial<ReturnType<typeof useEvents>> = {}): Re
     loadMore: jest.fn(),
     loadingMore: false,
     loadMoreFailed: false,
+    lastUpdated: undefined,
     ...overrides,
   };
 }
@@ -58,7 +59,11 @@ beforeEach(() => {
   jest.mocked(useEvents).mockReturnValue(eventsResult());
   jest.mocked(useVenueEvents).mockImplementation((venueId) => ({
     data: venueId
-      ? { items: events.filter((event) => event.venue.id === venueId), page: { limit: 20, offset: 0, hasMore: false } }
+      ? {
+          items: events.filter((event) => event.venue.id === venueId),
+          page: { limit: 20, offset: 0, hasMore: false },
+          lastUpdatedAt: null,
+        }
       : undefined,
     failure: undefined,
     loading: false,
