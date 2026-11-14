@@ -1,4 +1,6 @@
 // Written with the help of Claude
+import type { Href } from 'expo-router';
+
 import type { components } from '@/api/schema';
 import { createStore } from '@/state/store';
 
@@ -43,6 +45,11 @@ function firstDay(match: Match): number {
 // After a change made elsewhere, such as a withdrawal that cancels a proposal: the next screen that asks loads them again.
 export function invalidateMatches() {
   if (store.get().state.status === 'loaded') store.set({ state: { status: 'idle' } });
+}
+
+// The screen a match opens: the proposal until both accepted, then the contacts.
+export function matchHref({ id, status }: Match): Href {
+  return status === 'mutual' ? { pathname: '/mutual', params: { id } } : { pathname: '/proposal', params: { id } };
 }
 
 // On sign-in and sign-out, so the next account never sees the previous one's matches.
