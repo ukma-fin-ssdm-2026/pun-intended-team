@@ -25,7 +25,6 @@ import { formatShortDay } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { mockProposal, mockSearch } from '@/mocks/matching';
-import { markProposalAnswered } from '@/state/matches';
 import { colors } from '@/styles/tokens';
 
 // "04 Дії" sits 34 px above the bottom of the frame; a larger bottom inset replaces the 34 px. The contacts note is 12 px
@@ -86,13 +85,7 @@ export default function ProposalScreen() {
         withTiming(1, { duration: duration(MESSAGE_MS), easing: EASE_IN_OUT }),
       ),
     );
-    const timer = setTimeout(
-      () => {
-        markProposalAnswered(answer);
-        router.dismissTo('/matches');
-      },
-      SLIDE_MS + MESSAGE_DELAY_MS + MESSAGE_MS + STATUS_MS,
-    );
+    const timer = setTimeout(() => router.dismissTo('/matches'), SLIDE_MS + MESSAGE_DELAY_MS + MESSAGE_MS + STATUS_MS);
     return () => clearTimeout(timer);
   }, [answer, reduceMotion, width, router, profileX, controlsOpacity, messageOpacity]);
 
