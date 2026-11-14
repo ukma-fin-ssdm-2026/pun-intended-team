@@ -69,7 +69,8 @@ const fresh: Notification[] = [
     time: '2 год',
     text: 'Знайшли тобі компанію на «Джаз-вечір у Мистецькому Арсеналі».',
     unread: true,
-    href: '/proposal',
+    // A proposal opens by the id of a match from the API, which the mock notifications do not have.
+    toMatches: true,
   },
 ];
 

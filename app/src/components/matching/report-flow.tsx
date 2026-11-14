@@ -10,7 +10,6 @@ import { reportListing, reportUser, type ReportReason } from '@/api/reports';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
-import { mockPerson } from '@/mocks/matching';
 import { colors, shadows } from '@/styles/tokens';
 
 export const reportReasons: { value: ReportReason; label: string }[] = [
@@ -211,8 +210,8 @@ function ReportSentDialog({ person, onDone }: { person: ReportedPerson; onDone: 
 export type ReportStep = 'closed' | 'form' | 'sent';
 
 type Props = {
-  // The match by default (05, 07); a post's author on Т3.
-  person?: ReportedPerson;
+  // The match (05, 07), or a post's author on Т3.
+  person: ReportedPerson;
   step: ReportStep;
   onStepChange: (step: ReportStep) => void;
   // "Зрозуміло" on Д3.1; the prototype opens Т2 Метчі.
@@ -221,7 +220,7 @@ type Props = {
 
 // One modal for both steps, so sending the report swaps the sheet for the dialog without closing and reopening it.
 // A backdrop tap closes either step, as in the prototype.
-export function ReportFlow({ person = mockPerson, step, onStepChange, onDone }: Props) {
+export function ReportFlow({ person, step, onStepChange, onDone }: Props) {
   return (
     <Overlay
       visible={step !== 'closed'}

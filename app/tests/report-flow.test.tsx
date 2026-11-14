@@ -5,8 +5,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { reportListing, reportUser } from '@/api/reports';
 import { ReportFlow } from '@/components/matching/report-flow';
 
-// The default person of the sheet; its mock module loads images that Jest cannot resolve.
-jest.mock('@/mocks/matching', () => ({ mockPerson: { name: 'Олена', accusative: 'Олену', instrumental: 'Оленою' } }));
 jest.mock('@/api/reports', () => ({
   reportListing: jest.fn(() => Promise.resolve({ ok: true, data: undefined })),
   reportUser: jest.fn(() => Promise.resolve({ ok: true, data: undefined })),

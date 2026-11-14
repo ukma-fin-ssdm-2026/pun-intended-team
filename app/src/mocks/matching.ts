@@ -3,16 +3,6 @@
 import type { MutualPerson } from '@/components/matching/mutual-match';
 import { mockProfile } from '@/mocks/profile';
 
-// The matching flow follows the jazz evening, as in Figma. Dates are shifted like the mock events (Figma's 15 жовт is
-// 21 жовт here, 20 жовт is 26 жовт).
-export const mockSearch = {
-  eventId: '7a2d4b5c-0002-4b00-8000-000000000001',
-  nextPick: 'Ср, 21 жовт · через 2 дні',
-  round: 2,
-  rounds: 4,
-  roundsNote: 'останній за 6 год до події',
-};
-
 // The people of the matching mocks: Олена is the new proposal for the jazz evening (05, Т2), Максим the mutual match
 // for the house concert (Т2, Т5 "Це взаємно!", 06, 07).
 export type MatchPerson = {
@@ -65,34 +55,6 @@ export const mockPeople: Record<MatchPerson['id'], MatchPerson> = {
 };
 
 export const isMatchPersonId = (id: string | undefined): id is MatchPerson['id'] => id === 'olena' || id === 'maksym';
-
-// The proposed match of 05.
-export const mockPerson = mockPeople.olena;
-
-// 05 Запропонований метч: the first of three proposals for the jazz evening.
-export const mockProposal = {
-  position: 'Нові метчі · 1 з 3',
-  count: 3,
-  next: 'Далі: ще 2 пропозиції',
-  // Figma uses this photo as the user's cover.
-  cover: require('@/assets/images/events/kvartyrnyk.png'),
-  initial: 'О',
-  nameAge: 'Олена, 24',
-  occupation: 'Ілюстраторка',
-  lookingFor: 'компанію на вечір',
-  afterEvent: 'прогулянка, кава',
-  validUntil: 'Ср, 21 жовт, 19:00',
-  about:
-    'Працюю в ілюстрації, люблю камерні концерти й довгі прогулянки після них. Шукаю компанію, з якою можна обговорити музику.',
-  commonLabel: '· 3 спільних',
-  interests: [
-    { label: 'Джаз', common: true },
-    { label: 'Сучасне мистецтво', common: true },
-    { label: 'Лекції', common: true },
-    { label: 'Кераміка', common: false },
-    { label: 'Інді', common: false },
-  ],
-};
 
 // 07 Взаємний метч: the user's own initial next to the match's.
 export const mockMutual = { ownInitial: mockProfile.initial };
