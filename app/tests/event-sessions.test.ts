@@ -106,16 +106,23 @@ describe('sessionCutoff', () => {
 
 describe('formatTimeRange', () => {
   test.each([
-    ['gives the start and the end', '2026-10-20T19:00:00+03:00', '2026-10-20T21:30:00+03:00', '19:00 – 21:30'],
+    ['gives the start and the end', '2026-10-20T19:00:00+03:00', '2026-10-20T21:30:00+03:00', true, '19:00 – 21:30'],
     [
-      'gives only the start when the import did not know the end',
+      'gives only the start when the end is unknown',
       '2026-11-08T10:00:00+02:00',
       '2026-11-08T21:59:59.999Z',
+      false,
       'з 10:00',
     ],
-    ['keeps an end at midnight', '2026-11-08T20:00:00+02:00', '2026-11-08T22:00:00.000Z', '20:00 – 00:00'],
-    ['keeps an end at 23:59', '2026-11-08T20:00:00+02:00', '2026-11-08T21:59:00.000Z', '20:00 – 23:59'],
-  ])('%s', (_title, start, end, label) => {
-    expect(formatTimeRange(start, end)).toBe(label);
+    [
+      'goes by the flag, not by an end at the last millisecond of the day',
+      '2026-11-08T20:00:00+02:00',
+      '2026-11-08T21:59:59.999Z',
+      true,
+      '20:00 – 23:59',
+    ],
+    ['keeps an end at midnight', '2026-11-08T20:00:00+02:00', '2026-11-08T22:00:00.000Z', true, '20:00 – 00:00'],
+  ])('%s', (_title, start, end, endTimeKnown, label) => {
+    expect(formatTimeRange(start, end, endTimeKnown)).toBe(label);
   });
 });

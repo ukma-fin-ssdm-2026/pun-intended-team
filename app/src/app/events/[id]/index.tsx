@@ -353,7 +353,7 @@ export default function EventScreen() {
             <DetailRow
               icon="calendar"
               value={formatEventDay(event.startsAt)}
-              note={formatTimeRange(event.startsAt, event.endsAt)}
+              note={formatTimeRange(event.startsAt, event.endsAt, event.endTimeKnown)}
             />
             {/* The API has no organizer name yet; only mock events have one. */}
             {mockEvent && (
