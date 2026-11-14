@@ -305,14 +305,17 @@ export class EventImportService {
     categoryId: string,
     venueId: string,
   ): Promise<Saved | { duplicateOf: ImportedEventRow }> {
-    const { externalId, title, description, startsAt, endsAt, imageUrl, sourceUrl } = imported;
+    const { externalId, title, description, startsAt, endsAt, endTimeKnown, imageUrl, sourceUrl } = imported;
+    const startTimeKnown = imported.startTimeKnown ?? true;
     const fields: ImportedEventFields = {
       title,
       description,
       categoryId,
       venueId,
       startsAt,
+      startTimeKnown,
       endsAt,
+      endTimeKnown,
       imageUrl,
       sourceUrl,
     };
@@ -389,6 +392,8 @@ function isSame(event: ImportedEventRow, fields: ImportedEventFields): boolean {
     event.venueId === fields.venueId &&
     event.imageUrl === fields.imageUrl &&
     event.sourceUrl === fields.sourceUrl &&
+    event.startTimeKnown === fields.startTimeKnown &&
+    event.endTimeKnown === fields.endTimeKnown &&
     Date.parse(event.startsAt) === Date.parse(fields.startsAt) &&
     Date.parse(event.endsAt) === Date.parse(fields.endsAt)
   );

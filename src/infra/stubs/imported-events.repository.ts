@@ -111,6 +111,7 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
 
 function toRow(event: StoredEvent): ImportedEventRow {
   const { id, provider, externalId, title, description, categoryId, venueId, startsAt, endsAt, status } = event;
+  const { startTimeKnown, endTimeKnown } = event;
   const { imageUrl = null, sourceUrl = null } = event;
   if (provider === undefined || externalId === undefined) {
     throw new Error(`Event ${id} was not imported`);
@@ -124,7 +125,9 @@ function toRow(event: StoredEvent): ImportedEventRow {
     categoryId,
     venueId,
     startsAt,
+    startTimeKnown,
     endsAt,
+    endTimeKnown,
     imageUrl,
     sourceUrl,
     status,

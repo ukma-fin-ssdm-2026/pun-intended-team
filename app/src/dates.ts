@@ -43,10 +43,11 @@ function kyivTime(date: Date): KyivTime {
   return { year, month, day, weekday, time: `${parts.hour}:${parts.minute}` };
 }
 
-// "Сб, 24 жовт · 19:00", as on the catalog cards.
-export function formatEventDate(iso: string): string {
+// "Сб, 24 жовт · 19:00", as on the catalog cards; "Сб, 24 жовт" when the time is a default (`startTimeKnown` false).
+export function formatEventDate(iso: string, startTimeKnown = true): string {
   const { month, day, weekday, time } = kyivTime(new Date(iso));
-  return `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]} · ${time}`;
+  const date = `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]}`;
+  return startTimeKnown ? `${date} · ${time}` : date;
 }
 
 // "Сб, 24 жовт", as in the matching screens' subtitles.
@@ -72,16 +73,25 @@ export function formatTime(iso: string): string {
   return kyivTime(new Date(iso)).time;
 }
 
-// "19:00 – 21:30", or "з 10:00" when the end is unknown.
-export function formatTimeRange(startIso: string, endIso: string): string {
-  const start = kyivTime(new Date(startIso)).time;
-  return endsUnknown(endIso) ? `з ${start}` : `${start} – ${kyivTime(new Date(endIso)).time}`;
+type EventTimes = { startsAt: string; startTimeKnown: boolean; endsAt: string; endTimeKnown: boolean };
+
+// "19:00 – 21:30", or "з 10:00" for an event whose end is unknown (`endTimeKnown` false): its `endsAt` is then only
+// the end of a day. An event whose start time is a default (`startTimeKnown` false), an exhibition run without opening
+// hours, shows no time: "до 29 листопада" for a run of several days, nothing for one day.
+export function formatTimeRange({ startsAt, startTimeKnown, endsAt, endTimeKnown }: EventTimes): string {
+  if (!startTimeKnown) {
+    const end = kyivTime(new Date(endsAt));
+    return kyivDay(new Date(startsAt)) === kyivDay(new Date(endsAt))
+      ? ''
+      : `до ${end.day} ${monthsLong[end.month - 1]}`;
+  }
+  const start = kyivTime(new Date(startsAt)).time;
+  return endTimeKnown ? `${start} – ${kyivTime(new Date(endsAt)).time}` : `з ${start}`;
 }
 
-// The import ends an event at the last millisecond of its Kyiv day when the provider gives no end time.
-function endsUnknown(endIso: string): boolean {
-  const next = Date.parse(endIso) + 1;
-  return next % 60_000 === 0 && kyivTime(new Date(next)).time === '00:00';
+// "Сб, 24 жовт, 19:00" for a session, as on the mutual match card; without the time when it is a default.
+export function formatSessionDay(iso: string, startTimeKnown: boolean): string {
+  return startTimeKnown ? `${formatShortDay(iso)}, ${formatTime(iso)}` : formatShortDay(iso);
 }
 
 // Kyiv's offset from UTC at an instant, in minutes: 120 in winter, 180 in summer.
@@ -117,8 +127,11 @@ function addDays(day: KyivDay, days: number): KyivDay {
   return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
 }
 
-// A month-long exhibition has about 30; the cap only stops a bad end date from looping for long.
+// A run of shows until May has about 170; the cap only stops a bad end date from looping for long.
 const MAX_SESSIONS = 366;
+
+// How far ahead the API takes applications for a day, as the catalog shows events: today and the next 28 days.
+export const CATALOG_WINDOW_DAYS = 28;
 
 // The starts of an event's sessions, as the API sets them (matching.md, rule 9): one on each Kyiv day from the start
 // date, at the event's Kyiv time of day, while that is before the end. More than one makes it a multi-day event.
@@ -146,15 +159,23 @@ const CUTOFF_BEFORE_END_MS = 2 * HOUR_MS;
 // last session ends with the event; an earlier one at the event's end time on its day, or at midnight when that time
 // comes earlier in the day.
 export function sessionCutoff(startsAt: string, endsAt: string, sessionStart: string): number {
-  const sessions = eventSessions(startsAt, endsAt);
   const start = Date.parse(sessionStart);
   let end = Date.parse(endsAt);
-  if (sessions[sessions.length - 1] !== sessionStart) {
-    const day = kyivDay(new Date(sessionStart));
-    const onItsDay = Date.parse(kyivIso(day, formatTime(endsAt)));
+  const day = kyivDay(new Date(sessionStart));
+  if (Date.parse(kyivIso(addDays(day, 1), formatTime(startsAt))) < end) {
+    // kyivIso keeps minutes only: the seconds of an end at the end of a day (23:59:59.999) are added back.
+    const onItsDay = Date.parse(kyivIso(day, formatTime(endsAt))) + (end % 60_000);
     end = onItsDay > start ? onItsDay : Date.parse(kyivIso(addDays(day, 1), '00:00')) - 1;
   }
   return end - start >= LONG_SESSION_MS ? end - CUTOFF_BEFORE_END_MS : start - CUTOFF_BEFORE_START_MS;
+}
+
+// The sessions a user can still pick, as the API takes them: within the catalog window and before their cutoff.
+export function pickableSessions(startsAt: string, endsAt: string, now = new Date()): string[] {
+  const lastDay = addDays(kyivDay(now), CATALOG_WINDOW_DAYS);
+  return eventSessions(startsAt, endsAt).filter(
+    (start) => kyivDay(new Date(start)) <= lastDay && sessionCutoff(startsAt, endsAt, start) > now.getTime(),
+  );
 }
 
 // "через 3 год", "завтра", "через 2 дні": how far away an instant is, for the next matching round.

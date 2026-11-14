@@ -176,7 +176,7 @@ export default function MapScreen() {
                           {event.title}
                         </Text>
                         <Text className="font-inter text-caption text-text-secondary">
-                          {formatEventDate(event.startsAt)}
+                          {formatEventDate(event.startsAt, event.startTimeKnown)}
                         </Text>
                       </View>
                       <Icon name="arrow-right" size={18} color={colors.text.secondary} />

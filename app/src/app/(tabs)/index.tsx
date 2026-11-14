@@ -188,7 +188,7 @@ export default function CatalogScreen() {
                   key={event.id}
                   title={event.title}
                   category={event.category.name}
-                  dateLabel={formatEventDate(event.startsAt)}
+                  dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
                   place={event.venue.name}
                   cover={coverOf(event.imageUrl)}
                   favorite={favoriteIds.includes(event.id)}
