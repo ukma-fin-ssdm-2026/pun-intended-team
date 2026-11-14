@@ -1418,8 +1418,8 @@ describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
 
   /** A new account whose profile has everything matching needs. */
-  async function newCompleteProfile(): Promise<{ token: string; accountId: string }> {
-    const { token, accountId } = await newProfile();
+  async function newCompleteProfile(): Promise<{ token: string; accountId: string; username: string }> {
+    const { token, accountId, username } = await newProfile();
     for (const [method, path, body] of [
       ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends' }],
       ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
@@ -1432,7 +1432,7 @@ describe('Applications', () => {
       const res = await call(method, path, { token, body });
       assert.equal(res.status, 200, JSON.stringify(res.body));
     }
-    return { token, accountId };
+    return { token, accountId, username };
   }
 
   async function newEventAt(startsAt: string, endsAt: string): Promise<string> {
@@ -1751,6 +1751,80 @@ describe('Applications', () => {
     ]);
     assert.equal(rows.length, 1);
     assert.equal(new Set(matched).size, 2);
+  });
+
+  // FR-020
+  test('never proposes two users one of whom reported the other', async () => {
+    const waiting = await newCompleteProfile();
+    const reporter = await newCompleteProfile();
+    await apply(waiting.token, soonEvent);
+    const report = await call('POST', '/api/v1/reports', {
+      token: reporter.token,
+      body: { username: waiting.username, reason: 'other' },
+    });
+    assert.equal(report.status, 204);
+
+    const res = await apply(reporter.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
+  // FR-020
+  test('never proposes a banned user', async () => {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    await apply(waiting.token, soonEvent);
+    await reportAndResolve(waiting.username, waiting.accountId, 'ban');
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
+  // matching.md, rule 2: a round pairs whoever can be paired, however low the score.
+  test('plans the rounds of a new session and pairs its pool when a round runs', async () => {
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    // The same interest, but another kind of company and other plans: 0.7, too little for an instant match.
+    const waiting = await apply(first.token, soonEvent, { desiredCompany: 'friends', afterEventPlans: [] });
+    const newcomer = await apply(second.token, soonEvent);
+    assert.equal(newcomer.body.status, 'in_pool');
+    const start = Date.parse(at19(inDays(13)));
+
+    const rounds = await withDatabase(async (client) => {
+      const { rows } = await client.query<{ id: string; start_after: Date }>(
+        `SELECT job.id, job.start_after FROM pgboss.job job
+           JOIN application_sessions days ON days.session_id::text = job.data->>'sessionId'
+          WHERE job.name = 'matching.round' AND days.application_id = $1
+          ORDER BY job.start_after`,
+        [waiting.body.id],
+      );
+      return rows;
+    });
+    assert.deepEqual(
+      rounds.map(({ start_after }) => start_after.toISOString()),
+      [7 * 24, 3 * 24, 24, 6].map((hours) => new Date(start - hours * 60 * 60 * 1000).toISOString()),
+    );
+
+    await withDatabase((client) =>
+      client.query('UPDATE pgboss.job SET start_after = now() WHERE id = $1', [rounds[0]?.id]),
+    );
+    const deadline = Date.now() + 20_000;
+    let status = 'in_pool';
+    while (status === 'in_pool' && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      status = (await call('GET', `/api/v1/applications/${waiting.body.id}`, { token: first.token })).body.status;
+    }
+
+    assert.equal(status, 'paired');
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT source, score FROM matches
+          WHERE $1 IN (application_a_id, application_b_id) AND $2 IN (application_a_id, application_b_id)`,
+        [waiting.body.id, newcomer.body.id],
+      ),
+    );
+    assert.deepEqual(rows, [{ source: 'round', score: '0.700' }]);
   });
 });
 
