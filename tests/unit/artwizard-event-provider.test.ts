@@ -267,6 +267,7 @@ describe('ArtWizardEventProvider.normalize', () => {
         },
         startsAt: '2026-11-03T16:00:00.000Z',
         endsAt: '2026-11-03T21:59:59.999Z',
+        endTimeKnown: false,
         imageUrl: savedEvent('santimetri-20261103').picture_url,
         sourceUrl: 'https://artwizard.io/kyiv/e/santimetri-20261103',
       },
@@ -280,6 +281,7 @@ describe('ArtWizardEventProvider.normalize', () => {
     const event = normalized(savedEvent('den-vidkritikh-dverey-20261104'));
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-04T08:30:00.000Z', '2026-11-04T15:30:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
   });
 
   test('keeps an end after midnight as the real end', () => {
@@ -288,6 +290,17 @@ describe('ArtWizardEventProvider.normalize', () => {
     );
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-07T20:00:00.000Z', '2026-11-08T00:00:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
+  });
+
+  test('says the end is unknown when date_to equals date_from, and ends the event with its day', () => {
+    // "Сантиметри": 18:00 to 18:00 on 3 November.
+    const saved = savedEvent('santimetri-20261103');
+    const event = normalized(saved);
+
+    const [occurrence] = saved.event_occurrences_data as { date_from: string; date_to: string }[];
+    assert.equal(occurrence?.date_from, occurrence?.date_to);
+    assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-03T21:59:59.999Z', false]);
   });
 
   test('skips "Я бачу, вас цікавить пітьма", whose only occurrence is 00:00–23:59:59', () => {
@@ -307,6 +320,7 @@ describe('ArtWizardEventProvider.normalize', () => {
     const event = normalized(savedEvent('timchasovo-postiyno-20261105'));
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-05T15:00:00.000Z', '2026-11-05T21:59:59.999Z']);
+    assert.equal(event.endTimeKnown, false);
     assert.deepEqual(logged, [
       'timchasovo-postiyno-20261105: 2 occurrences from 2026-11-03 to 2026-11-30; importing the one of 2026-11-05T17:00 only',
     ]);

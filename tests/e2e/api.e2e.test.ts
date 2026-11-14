@@ -1202,6 +1202,7 @@ describe('GET /api/v1/events/{id}', () => {
     const res = await call('GET', `/api/v1/events/${filmNight}`, { token: tokens.guest });
     assert.equal(res.status, 200);
     assert.equal(res.body.id, filmNight);
+    assert.equal(res.body.endTimeKnown, true);
   });
 
   test('rejects an id that is not a UUID with 400', async () => {
@@ -1214,6 +1215,7 @@ describe('POST /api/v1/events', () => {
     const res = await call('POST', '/api/v1/events', { token: tokens.org, body: newEvent });
     assert.equal(res.status, 201);
     assert.equal(res.body.title, newEvent.title);
+    assert.equal(res.body.endTimeKnown, true);
     assert.equal(res.headers.get('location'), `/api/v1/events/${res.body.id}`);
   });
 
@@ -3328,6 +3330,25 @@ describe('Event import', () => {
       assert.equal(res.body.sourceUrl, sourceUrl);
     }
     assert.ok(rows.some(({ source_url: sourceUrl }) => sourceUrl !== null));
+  });
+
+  test('says through the API which imported events have no known end', async () => {
+    await runImport();
+    const { rows } = await withDatabase((client) =>
+      client.query<{ id: string; end_time_known: boolean; ends_with_day: boolean }>(
+        `SELECT id, end_time_known, (ends_at AT TIME ZONE 'Europe/Kyiv')::time = '23:59:59.999' AS ends_with_day
+           FROM events WHERE source = 'import' AND provider IN ('artwizard', 'karabas')`,
+      ),
+    );
+
+    // The saved Karabas pages give the next midnight as the end of every event they list.
+    assert.ok(rows.some(({ end_time_known: known }) => !known));
+    for (const { id, end_time_known: known, ends_with_day: endsWithDay } of rows) {
+      const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
+      assert.equal(res.body.endTimeKnown, known);
+      // An unknown end is always stored as the end of the start day.
+      assert.ok(known || endsWithDay, id);
+    }
   });
 
   // A typo in a provider's mapping would otherwise only skip that genre's events, with no test failing.

@@ -7,12 +7,19 @@ import {
   KARABAS_SECTIONS,
   KarabasEventProvider,
   type KarabasRecord,
+  durationFromDescription,
   karabasEnd,
   MAX_PAGES_PER_SECTION,
   nextPage,
 } from '../../dist/infra/providers/karabas-event-provider.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
-import { PAGES_SAVED_AT, PAGES_SAVED_AT_NOV_7, savedPage, savedPagesClient } from './fixtures/provider-pages.ts';
+import {
+  PAGES_SAVED_AT,
+  PAGES_SAVED_AT_NOV_7,
+  PAGES_SAVED_AT_NOV_14,
+  savedPage,
+  savedPagesClient,
+} from './fixtures/provider-pages.ts';
 
 const SAVED_SECTIONS = {
   '/concerts/': 'karabas/kyiv-concerts.html',
@@ -32,8 +39,18 @@ function normalized(provider: KarabasEventProvider, record: KarabasRecord): Impo
   return result.event;
 }
 
-async function recordOf(slug: string, routes: Parameters<typeof savedPagesClient>[0] = SAVED_SECTIONS) {
-  const { provider } = makeProvider(routes);
+/** The exhibitions and sport pages of 2026-11-14: runs with an end time, lengths in descriptions, a real end. */
+const NOV_14_SECTIONS = {
+  '/exhibitions/': 'karabas/kyiv-exhibitions-2026-11-14.html',
+  '/sport/': 'karabas/kyiv-sport-2026-11-14.html',
+};
+
+async function recordOf(
+  slug: string,
+  routes: Parameters<typeof savedPagesClient>[0] = SAVED_SECTIONS,
+  now = PAGES_SAVED_AT,
+) {
+  const { provider } = makeProvider(routes, now);
   const record = (await provider.fetch()).records.find((record) => String(record.event.url).endsWith(`/${slug}/`));
   assert.ok(record, slug);
   return { provider, record };
@@ -373,6 +390,7 @@ describe('KarabasEventProvider.normalize', () => {
         // 21:00+02:00 in the JSON-LD, 19:00 on the page.
         startsAt: '2026-11-05T17:00:00.000Z',
         endsAt: '2026-11-05T21:59:59.999Z',
+        endTimeKnown: false,
         imageUrl:
           'https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/01a139fc-2110-78c5-9c54-a9d320ece9a2/2920259823_ImageBig639275816856307582.jpeg',
         sourceUrl: 'https://kyiv.karabas.com/lama-15/',
@@ -400,7 +418,7 @@ describe('KarabasEventProvider.normalize', () => {
     const event = normalized(provider, record);
 
     assert.equal(record.event.endDate, '2026-11-06T00:00:00+02:00');
-    assert.equal(event.endsAt, '2026-11-05T21:59:59.999Z');
+    assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-05T21:59:59.999Z', false]);
   });
 
   test('keeps a real end later the same day, shifted like the start', async () => {
@@ -413,6 +431,7 @@ describe('KarabasEventProvider.normalize', () => {
     // 21:00–23:00+02:00 in the JSON-LD, 19:00–21:00 on the page.
     assert.equal(record.event.endDate, '2026-11-04T23:00:00+02:00');
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-04T17:00:00.000Z', '2026-11-04T19:00:00.000Z']);
+    assert.equal(event.endTimeKnown, true);
   });
 
   test('imports the first show of a run, ending with its day, and logs the run', async () => {
@@ -439,6 +458,7 @@ describe('KarabasEventProvider.normalize', () => {
     const event = normalized(provider, run);
 
     assert.deepEqual([event.startsAt, event.endsAt], ['2026-11-03T16:00:00.000Z', '2026-11-03T21:59:59.999Z']);
+    assert.equal(event.endTimeKnown, false);
     assert.ok(
       log.mock.calls.some(({ arguments: [message] }) =>
         String(message).includes('tyhrolovy-teatr-zoloti-vorota-7: a run of shows until 2026-11-12'),
@@ -447,11 +467,73 @@ describe('KarabasEventProvider.normalize', () => {
     log.mock.restore();
   });
 
-  test('ends the event with its day when endDate is a time on another day', () => {
-    const start = new Date('2026-11-04T19:00:00.000Z');
+  describe('on the pages of 2026-11-14', () => {
+    const recordOfNov14 = (slug: string) => recordOf(slug, NOV_14_SECTIONS, PAGES_SAVED_AT_NOV_14);
 
-    assert.deepEqual(karabasEnd(start, '2026-11-05T04:00:00+02:00'), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
-    assert.deepEqual(karabasEnd(start, undefined), { endsAt: new Date('2026-11-04T21:59:59.999Z') });
+    test('imports the first day of a run with an end time, ending at that time, and logs the run', async () => {
+      // "Київський музей медуз": 10:00 on 14 November to 14:00 on 1 May on the page.
+      const { provider, record } = await recordOfNov14('kyivs-kyy-muzey-meduz');
+      const log = mock.method(Logger.prototype, 'log', () => {});
+
+      const event = normalized(provider, record);
+
+      assert.deepEqual(
+        [record.event.startDate, record.event.endDate],
+        ['2026-11-14T12:00:00+02:00', '2027-05-01T17:00:00+03:00'],
+      );
+      assert.deepEqual(
+        [event.startsAt, event.endsAt, event.endTimeKnown],
+        ['2026-11-14T08:00:00.000Z', '2026-11-14T12:00:00.000Z', true],
+      );
+      assert.deepEqual(
+        log.mock.calls.map(({ arguments: [message] }) => message),
+        ['kyivs-kyy-muzey-meduz: a run of shows until 2027-05-01 at 14:00; importing the first show only'],
+      );
+      log.mock.restore();
+    });
+
+    test('ends an event at its start plus the length its description gives', async () => {
+      // A guitar museum tour at 12:00: "Тривалість екскурсії 70 хвилин", and the next midnight as endDate.
+      const { provider, record } = await recordOfNov14('muzey-hitar-ta-istorii-svitovoi-elektromuzychnoi-industrii-53');
+
+      const event = normalized(provider, record);
+
+      assert.equal(record.event.endDate, '2026-11-15T00:00:00+02:00');
+      assert.deepEqual(
+        [event.startsAt, event.endsAt, event.endTimeKnown],
+        ['2026-11-14T10:00:00.000Z', '2026-11-14T11:10:00.000Z', true],
+      );
+    });
+
+    test('leaves the end unknown when the description gives only a bound', async () => {
+      // "Тривалість орієнтовна від 1 години."
+      const { provider, record } = await recordOfNov14('mayster-klas-svitlo-kazkovykh-mriy-1');
+
+      const event = normalized(provider, record);
+
+      assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-14T21:59:59.999Z', false]);
+    });
+
+    test('keeps a real end later the same day on the sport page', async () => {
+      // A boxing evening, 16:00–23:00 on 5 December: 18:00+02:00 to 01:00+02:00 of the next day in the JSON-LD.
+      const { provider, record } = await recordOfNov14('vechir-profesiynoho-boksu-vid-tbg-ta-bfl-1');
+
+      const event = normalized(provider, record);
+
+      assert.equal(record.event.endDate, '2026-12-06T01:00:00+02:00');
+      assert.deepEqual(
+        [event.startsAt, event.endsAt, event.endTimeKnown],
+        ['2026-12-05T14:00:00.000Z', '2026-12-05T21:00:00.000Z', true],
+      );
+    });
+
+    test('leaves the end unknown for the other event of the sport page, which ends at the next midnight', async () => {
+      const { provider, record } = await recordOfNov14('blahodiynyy-turnir-liha-profesiynoho-sambo-11-0');
+
+      const event = normalized(provider, record);
+
+      assert.deepEqual([event.endsAt, event.endTimeKnown], ['2026-11-21T21:59:59.999Z', false]);
+    });
   });
 
   test('skips any @type but MusicEvent on the clubs page', async () => {
@@ -486,5 +568,166 @@ describe('KarabasEventProvider.normalize', () => {
     assert.deepEqual(provider.normalize({ ...record, event }), {
       skip: { externalId: 'lama-15', reason: 'Invalid record: location' },
     });
+  });
+});
+
+describe('karabasEnd', () => {
+  // 19:00 in Kyiv on 4 November, written `21:00:00+02:00` by Karabas.
+  const START = new Date('2026-11-04T17:00:00.000Z');
+  const END_OF_DAY = new Date('2026-11-04T21:59:59.999Z');
+
+  test('gives no end for the next midnight: the end of the day, unknown', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-05T00:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('gives no end without an endDate', () => {
+    assert.deepEqual(karabasEnd(START, undefined), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('reads a later midnight as a run until the day before it, with an unknown end', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00'), {
+      endsAt: END_OF_DAY,
+      endTimeKnown: false,
+      runUntil: '2026-11-12',
+    });
+  });
+
+  test('keeps a time later the same day as the end, shifted like the start', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T23:30:00+02:00'), {
+      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+
+  test('reads a time on a later day as a run until that day, the first show ending at that time', () => {
+    // 19:00 on 4 November to 21:30 on 20 November.
+    assert.deepEqual(karabasEnd(START, '2026-11-20T23:30:00+02:00'), {
+      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2026-11-20',
+      runEndTime: '21:30',
+    });
+  });
+
+  test('ends the first show of a run in Kyiv time when the run ends in summer time', () => {
+    // 10:00 on 14 November to 14:00 on 1 May, as "Київський музей медуз".
+    assert.deepEqual(karabasEnd(new Date('2026-11-14T08:00:00.000Z'), '2027-05-01T17:00:00+03:00'), {
+      endsAt: new Date('2026-11-14T12:00:00.000Z'),
+      endTimeKnown: true,
+      runUntil: '2027-05-01',
+      runEndTime: '14:00',
+    });
+  });
+
+  test('does not read a time on a later day as a run when it is not after the start time of day', () => {
+    // 19:00 to 02:00 of the next day.
+    assert.deepEqual(karabasEnd(START, '2026-11-05T04:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('ignores an endDate that is not after the start', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T20:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+    assert.deepEqual(karabasEnd(START, '2026-11-04T21:00:00+02:00'), { endsAt: END_OF_DAY, endTimeKnown: false });
+  });
+
+  test('ends the event after the length of its description when the endDate gives no end', () => {
+    const known = { endsAt: new Date('2026-11-04T18:20:00.000Z'), endTimeKnown: true };
+
+    assert.deepEqual(karabasEnd(START, '2026-11-05T00:00:00+02:00', 80), known);
+    assert.deepEqual(karabasEnd(START, undefined, 80), known);
+    assert.deepEqual(karabasEnd(START, '2026-11-13T00:00:00+02:00', 80), { ...known, runUntil: '2026-11-12' });
+  });
+
+  test('prefers an endDate that gives an end to the length', () => {
+    assert.deepEqual(karabasEnd(START, '2026-11-04T23:30:00+02:00', 80), {
+      endsAt: new Date('2026-11-04T19:30:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+
+  test('leaves the end unknown when the length would take the event past midnight', () => {
+    // 23:00 in Kyiv and 2 hours.
+    const late = new Date('2026-11-04T21:00:00.000Z');
+
+    assert.deepEqual(karabasEnd(late, '2026-11-05T00:00:00+02:00', 120), { endsAt: END_OF_DAY, endTimeKnown: false });
+    assert.deepEqual(karabasEnd(late, '2026-11-05T00:00:00+02:00', 59), {
+      endsAt: new Date('2026-11-04T21:59:00.000Z'),
+      endTimeKnown: true,
+    });
+  });
+});
+
+describe('durationFromDescription', () => {
+  const lengths: [description: string, minutes: number][] = [
+    ['Переклад: Дмитро Тодорюк Тривалість вистави – 1 год 50 хв Виконується українською мовою.', 110],
+    ['Тривалість вистави – 1 год 20 хв', 80],
+    ['Тривалість вистави: 1 година 10 хвилин.', 70],
+    ['Вистава йде українською мовою. Тривалість 1 год. 40 хв.', 100],
+    ['Тривалість вистави - 1год.5хв.', 65],
+    ['Тривалість: 1 год.20 хвилин [вистава на 2 дії]', 80],
+    ['Тривалість – 1 година 55 хв. без антракту', 115],
+    ['Через це збільшилася й тривалість вистави – 1,5 години справжнього дива', 90],
+    ['Тривалість: 2 год (без антракту)', 120],
+    ['Тривалість - 3 год. з антрактомЖанр - Трагедія', 180],
+    ['Жанр – різдвяна казкаТривалість – 1годинаРекомендований вік - 7 плюс', 60],
+    ['Тривалість вистави - 2 годиниРекомендований вік - з 10 років', 120],
+    ['тривалість: 90 хв обмеження за віком: 18+', 90],
+    ['Вікове обмеження 18+Тривалість: 110 хвилинНа сцені: Данііл Кіно', 110],
+    ['Тривалість вистави 100хв з антрактом', 100],
+    ['Тривалість екскурсії 70 хвилин. UNIVERSUM Hall', 70],
+    ['Тривалість програми - 90 хв, в тому числі концерту в Зоряній Залі – 70 хвилин.', 90],
+    ['Тривалість концерту в Зоряній Залі – 60 хвилин.', 60],
+    ['Тривалість: 10 хв', 10],
+    ['Тривалість: 12 годин', 720],
+  ];
+  for (const [description, minutes] of lengths) {
+    test(`reads ${minutes} minutes from "${description.slice(0, 60)}"`, () => {
+      assert.equal(durationFromDescription(description), minutes);
+    });
+  }
+
+  const noLengths: [title: string, description: string][] = [
+    ['a description without a length', 'Вистава без антракту. Початок о 19:00.'],
+    ['a note about the interval after the word', 'Тривалість: без антракту'],
+    ['a lower bound', 'Тривалість орієнтовна від 1 години.'],
+    ['an upper bound', 'Тривалість до 60 хвилин.'],
+    ['an upper bound of a part', 'Тривалість однієї історії до 5 хв.'],
+    ['another number before the length', 'Тривалість: 1 дія, 90 хвилин'],
+    [
+      'a length far from the word',
+      'Тривалість вистави залежить від настрою глядачів і акторів у залі, але зазвичай 90 хвилин',
+    ],
+    ['a length in another sentence', 'Яка тривалість? Близько 90 хвилин.'],
+    ['minutes without the word', 'Екскурсії стартують кожні 30 хвилин.'],
+    ['another form of the word', 'продовжена в межах загальної тривалості 2 години'],
+    ['a length under 10 minutes', 'Тривалість: 9 хв'],
+    ['a length over 12 hours', 'Тривалість: 13 годин'],
+    ['minutes over 12 hours', 'Тривалість: 721 хв'],
+    ['60 minutes or more after the hours', 'Тривалість: 1 год 75 хв'],
+    ['a word that only starts like a unit', 'Тривалість 2 годування'],
+    ['an empty description', ''],
+  ];
+  for (const [title, description] of noLengths) {
+    test(`reads no length from ${title}`, () => {
+      assert.equal(durationFromDescription(description), undefined);
+    });
+  }
+
+  test('reads the lengths the exhibitions page of 2026-11-14 gives, and no other', async () => {
+    const { provider } = makeProvider({ '/exhibitions/': NOV_14_SECTIONS['/exhibitions/'] }, PAGES_SAVED_AT_NOV_14);
+    const warn = mock.method(Logger.prototype, 'warn', () => {});
+    const { records } = await provider.fetch();
+    warn.mock.restore();
+
+    const read = records
+      .map(({ event }) => [String(event.name), durationFromDescription(String(event.description ?? ''))] as const)
+      .filter(([, minutes]) => minutes !== undefined);
+
+    // The page spells the title this way.
+    assert.deepEqual(read, [
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+      ['Музей гітар та історії світової електромузичноі індустрії', 70],
+    ]);
   });
 });
