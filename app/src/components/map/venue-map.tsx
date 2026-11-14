@@ -1,17 +1,22 @@
 // Written with the help of Claude
 // The venue map on Android and iOS: react-native-maps, with Google Maps on Android (its key is in the EAS environment,
 // external-services.md) and Apple Maps on iOS. The web build uses venue-map.web.tsx.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Marker, type Region } from 'react-native-maps';
 
 import { clampToKyiv, isInKyiv, KYIV_CENTER, type MapPoint } from './kyiv';
-import { mapTargets, VENUE_CARD_HEIGHT, type VenueMapProps } from './venue-map-props';
+import { mapTargets, VENUE_CARD_HEIGHT, type VenueMapProps, type VenuePin } from './venue-map-props';
 import { VenuePinView } from './venue-pin';
 
 // The whole city, so every pin is on screen; a closer view around the user.
 const CITY_DELTA = 0.32;
 const USER_DELTA = 0.04;
+
+// Google Maps on Android draws a marker once, as an image of its view. A marker that tracked its view all the time
+// would be redrawn on every frame, so it tracks it only for this long after it is made, which is enough for the number
+// to be laid out and drawn.
+export const TRACK_PIN_VIEW_MS = 500;
 
 const regionAround = ({ lat, lng }: MapPoint, delta: number): Region => ({
   latitude: lat,
@@ -19,6 +24,26 @@ const regionAround = ({ lat, lng }: MapPoint, delta: number): Region => ({
   latitudeDelta: delta,
   longitudeDelta: delta,
 });
+
+function VenueMarker({ pin, selected, onPress }: { pin: VenuePin; selected: boolean; onPress: () => void }) {
+  const [tracking, setTracking] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setTracking(false), TRACK_PIN_VIEW_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <Marker
+      coordinate={{ latitude: pin.location.lat, longitude: pin.location.lng }}
+      onPress={onPress}
+      tracksViewChanges={tracking}
+      accessibilityLabel={pin.name}
+      zIndex={selected ? 1 : 0}
+    >
+      <VenuePinView count={pin.count} selected={selected} />
+    </Marker>
+  );
+}
 
 export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) {
   const map = useRef<MapView>(null);
@@ -61,17 +86,13 @@ export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) 
       {pins.map((pin) => {
         const selected = pin.id === selectedId;
         return (
-          <Marker
-            // A new key redraws the marker when it is selected, since it does not track its view's changes.
-            key={`${pin.id}:${selected}`}
-            coordinate={{ latitude: pin.location.lat, longitude: pin.location.lng }}
+          <VenueMarker
+            // A new number or selection makes a new marker, which draws its view again.
+            key={`${pin.id}:${pin.count}:${selected}`}
+            pin={pin}
+            selected={selected}
             onPress={() => onPinPress(pin.id)}
-            tracksViewChanges={false}
-            accessibilityLabel={pin.name}
-            zIndex={selected ? 1 : 0}
-          >
-            <VenuePinView count={pin.count} selected={selected} />
-          </Marker>
+          />
         );
       })}
     </MapView>
