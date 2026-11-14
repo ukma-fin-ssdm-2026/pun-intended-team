@@ -27,7 +27,8 @@
 # a merge to main and before a staging publish, in the "E2E tests" job, which runs all tests (unit and e2e) with
 # the coverage gate. It runs after a green "CI passed" on a push or manual run on main or staging. It never runs
 # on a pull request and is not a required check, so a broken migration or e2e test shows up only after the merge.
-# After a green push to main, the deploy job publishes the API docs; it does not wait for the e2e tests.
+# After a green push to main, the deploy job publishes the API docs; it does not wait for the e2e tests. Once all
+# tests are green, "Publish API image" pushes the API image to GHCR, tagged with the commit, and keeps the newest 3.
 # After a push to staging with "CI passed" and "E2E tests" green, the publish job pushes the API and web images
 # to GHCR, which deploy-staging then runs on staging (docs/operations/staging.md).
 name: CI
@@ -306,6 +307,51 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  publish-main:
+    name: Publish API image
+    needs: [ci-passed, e2e-tests, reliability-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Build and push to GHCR
+        env:
+          API_IMAGE: ghcr.io/ukma-fin-ssdm-2026/nearby-api
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DOCKER_CONFIG=$(mktemp -d)
+          export DOCKER_CONFIG
+          trap 'docker image rm --force "$API_IMAGE:$GITHUB_SHA" >/dev/null; rm -rf "$DOCKER_CONFIG"' EXIT
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker build --platform linux/amd64 -t "$API_IMAGE:$GITHUB_SHA" .
+          docker push "$API_IMAGE:$GITHUB_SHA"
+
+      - name: Delete old images
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSIONS: orgs/ukma-fin-ssdm-2026/packages/container/nearby-api/versions
+          KEEP: 3
+        run: |
+          set -o pipefail
+          gh api --paginate "$VERSIONS?per_page=100" \
+            --jq '.[] | [.created_at, .id, (.metadata.container.tags | join(","))] | @tsv' |
+            sort -t $'\t' -k1,1r -k2,2nr |
+            awk -F'\t' -v keep="$KEEP" '
+              BEGIN { drop = 1 }
+              $3 != "" { drop = ("," $3 ",") !~ /,staging,/ && ++kept > keep }
+              drop { print $2 }' |
+            while read -r id; do
+              gh api --method DELETE "$VERSIONS/$id" --silent
+              echo "Deleted version $id"
+            done
 
   publish:
     name: Publish images

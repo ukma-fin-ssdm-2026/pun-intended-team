@@ -118,6 +118,21 @@ In the five latest pull request runs before the split, `CI passed` took between 
 
 **Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
 
+### 5. Release artifact from every green `main` run
+
+The `Publish API image` job of [`ci.yml`](../../.github/workflows/ci.yml) runs after every green run on `main`, once `CI passed`, `E2E tests` and `Reliability tests` are green. It builds the API image and pushes it to `ghcr.io/ukma-fin-ssdm-2026/nearby-api`, tagged with the full commit SHA ([package page](https://github.com/orgs/ukma-fin-ssdm-2026/packages/container/package/nearby-api)); it logs in with `GITHUB_TOKEN` and `packages: write`. The web image is left out: its build needs the staging settings. The package is private, so the same job then deletes old versions and keeps the image tagged `staging` and the 3 newest others; a cleanup in a separate job would stop running whenever billing blocks it, and storage would only grow.
+
+Before this job, an image was published only when someone pushed `staging`, which gets `main` commits. Below are the metrics of 20.10–09.11 with a successful image publication as the deployment, next to the CI-run version; the publication attempts, per-PR lead times and incidents are in [`evidence/dora-metrics-image-publication-2026-10-20-to-2026-11-09.json`](evidence/dora-metrics-image-publication-2026-10-20-to-2026-11-09.json).
+
+| Metric, 20.10–09.11 | Green CI run on `main` | Image published | Category of the image version |
+|---|---|---|---|
+| Deployment frequency | 27 per week | 4 in 3 weeks, 1.3 per week, all on 31.10–01.11 | Daily to weekly → 44.6% |
+| Change lead time | mean 30 h 10 min, median 5 h 23 min (89 PRs) | mean 5 d 10 h, median 5 d 22 h (55 PRs); 34 PRs were never published | 1 day to 1 week → 56.4% |
+| Change fail rate | 6.9% (6 of 87) | 42.9% (3 of 7) | 32–64% → 94.1% |
+| Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min (4 incidents) | mean and median 1 h 9 min (2 incidents: 1 h 58 min, 20 min) | Under a day → 56.5% |
+
+A green `main` was not an artifact: most changes waited days for one, and more than a third never got one. All seven publication attempts were on one weekend, while staging was being set up; the three failures were GHCR refusing a push twice and a missing build argument of the web image, so the fail rate rests on a small sample. With the job, every green `main` run gets an image, so the two versions differ only by the few minutes of the build.
+
 ## AI Usage Note
 
 The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog was drafted by Claude Code. Reviewed by the team.
