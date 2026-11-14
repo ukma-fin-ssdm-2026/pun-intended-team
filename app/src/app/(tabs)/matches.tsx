@@ -89,12 +89,12 @@ function statusNote(application: Application): string {
 }
 
 // "Сб, 24 жовт · 19:00", or the first picked day of a multi-day event and how many more.
-function daysLabel(sessions: Application['sessions']): string {
+function daysLabel(sessions: Application['sessions'], startTimeKnown: boolean): string {
   const first = sessions[0]?.startsAt ?? '';
   const more = sessions.length - 1;
   return more > 0
     ? `${formatShortDay(first)} і ще ${more} ${plural(more, ['день', 'дні', 'днів'])}`
-    : formatEventDate(first);
+    : formatEventDate(first, startTimeKnown);
 }
 
 // The card of one application, with the days it waits on.
@@ -105,7 +105,7 @@ function SearchCard({ application }: { application: Application }) {
     <MatchCard
       event={{
         title: event?.title ?? ' ',
-        dateLabel: daysLabel(openSessions(application)),
+        dateLabel: daysLabel(openSessions(application), event?.startTimeKnown ?? true),
         cover: findMockEvent(application.eventId)?.cover,
       }}
       onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}

@@ -47,6 +47,7 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-24T16:00:00Z',
     endsAt: '2026-10-24T18:30:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -71,6 +72,7 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T18:00:00Z',
     endsAt: '2026-10-25T20:00:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -94,6 +96,7 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-27T14:00:00Z',
     endsAt: '2026-10-27T15:30:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -116,6 +119,7 @@ export const mockEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T19:00:00Z',
     endsAt: '2026-10-30T21:30:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -129,7 +133,8 @@ export const mockEvents: MockEvent[] = [
 ];
 
 // Events the other screens link to but the Figma catalog does not list: the open mic on the map (Т1), the moved
-// ceramics workshop of Т5 "Подію змінено" and the exhibition on the organizer page.
+// ceramics workshop of Т5 "Подію змінено", the exhibition on the organizer page, and an imported exhibition run
+// without opening hours, which starts at a default 12:00 shown as no time (`startTimeKnown` false).
 export const mockOtherEvents: MockEvent[] = [
   {
     id: '7a2d4b5c-0002-4b00-8000-000000000005',
@@ -145,6 +150,7 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-25T16:00:00Z',
     endsAt: '2026-10-25T18:00:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -170,6 +176,7 @@ export const mockOtherEvents: MockEvent[] = [
     // Moved to 18:30, as the notification says.
     startsAt: '2026-10-29T16:30:00Z',
     endsAt: '2026-10-29T18:30:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -192,6 +199,7 @@ export const mockOtherEvents: MockEvent[] = [
     },
     startsAt: '2026-10-30T10:00:00Z',
     endsAt: '2026-10-30T17:00:00Z',
+    startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
     sourceUrl: null,
@@ -201,6 +209,28 @@ export const mockOtherEvents: MockEvent[] = [
     cover: require('@/assets/images/events/jazz-evening.png'),
     district: 'Печерськ',
     organizer: 'Мистецький Арсенал',
+  },
+  {
+    id: '7a2d4b5c-0002-4b00-8000-000000000008',
+    title: 'Виставка «Простір памʼяті»',
+    description: 'Живопис і графіка з фондів музею. Відкрита щодня до 29 листопада.',
+    category: { id: '6f1c2a3e-0001-4a00-8000-000000000002', name: 'Виставки' },
+    venue: {
+      id: '8b3e5c6d-0003-4c00-8000-000000000005',
+      name: 'Музей Івана Гончара',
+      address: 'вул. Лаврська, 19',
+      location: { lat: 50.4369, lng: 30.5531 },
+    },
+    startsAt: '2026-10-24T09:00:00Z',
+    startTimeKnown: false,
+    endsAt: '2026-11-29T21:59:59.999Z',
+    endTimeKnown: false,
+    imageUrl: null,
+    sourceUrl: null,
+    source: 'import',
+    status: 'published',
+    district: 'Печерськ',
+    organizer: 'Музей Івана Гончара',
   },
 ];
 

@@ -15,6 +15,12 @@ export interface Event {
   startsAt: string;
   endsAt: string;
   /**
+   * False for an imported event whose provider gives no time of day, such as an exhibition run without opening hours:
+   * `startsAt` is then a default opening time that only orders the event and its sessions. Always true for an
+   * organization's event.
+   */
+  startTimeKnown: boolean;
+  /**
    * False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in
    * Europe/Kyiv. Always true for an organization's event.
    */

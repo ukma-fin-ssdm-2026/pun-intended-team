@@ -43,10 +43,11 @@ function kyivTime(date: Date): KyivTime {
   return { year, month, day, weekday, time: `${parts.hour}:${parts.minute}` };
 }
 
-// "Сб, 24 жовт · 19:00", as on the catalog cards.
-export function formatEventDate(iso: string): string {
+// "Сб, 24 жовт · 19:00", as on the catalog cards; "Сб, 24 жовт" when the time is a default (`startTimeKnown` false).
+export function formatEventDate(iso: string, startTimeKnown = true): string {
   const { month, day, weekday, time } = kyivTime(new Date(iso));
-  return `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]} · ${time}`;
+  const date = `${weekdaysShort[weekday]}, ${day} ${monthsShort[month - 1]}`;
+  return startTimeKnown ? `${date} · ${time}` : date;
 }
 
 // "Сб, 24 жовт", as in the matching screens' subtitles.
@@ -72,11 +73,25 @@ export function formatTime(iso: string): string {
   return kyivTime(new Date(iso)).time;
 }
 
+type EventTimes = { startsAt: string; startTimeKnown: boolean; endsAt: string; endTimeKnown: boolean };
+
 // "19:00 – 21:30", or "з 10:00" for an event whose end is unknown (`endTimeKnown` false): its `endsAt` is then only
-// the end of its start day.
-export function formatTimeRange(startIso: string, endIso: string, endTimeKnown: boolean): string {
-  const start = kyivTime(new Date(startIso)).time;
-  return endTimeKnown ? `${start} – ${kyivTime(new Date(endIso)).time}` : `з ${start}`;
+// the end of a day. An event whose start time is a default (`startTimeKnown` false), an exhibition run without opening
+// hours, shows no time: "до 29 листопада" for a run of several days, nothing for one day.
+export function formatTimeRange({ startsAt, startTimeKnown, endsAt, endTimeKnown }: EventTimes): string {
+  if (!startTimeKnown) {
+    const end = kyivTime(new Date(endsAt));
+    return kyivDay(new Date(startsAt)) === kyivDay(new Date(endsAt))
+      ? ''
+      : `до ${end.day} ${monthsLong[end.month - 1]}`;
+  }
+  const start = kyivTime(new Date(startsAt)).time;
+  return endTimeKnown ? `${start} – ${kyivTime(new Date(endsAt)).time}` : `з ${start}`;
+}
+
+// "Сб, 24 жовт, 19:00" for a session, as on the mutual match card; without the time when it is a default.
+export function formatSessionDay(iso: string, startTimeKnown: boolean): string {
+  return startTimeKnown ? `${formatShortDay(iso)}, ${formatTime(iso)}` : formatShortDay(iso);
 }
 
 // Kyiv's offset from UTC at an instant, in minutes: 120 in winter, 180 in summer.

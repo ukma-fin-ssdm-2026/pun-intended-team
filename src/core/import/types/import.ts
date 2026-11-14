@@ -12,7 +12,10 @@ export interface ImportedEvent {
   /** Slug of one of our categories, which never changes; the provider's adapter maps its own genres to it. */
   categorySlug: string;
   venue: ImportedVenue;
+  /** Without a time of day from the provider, a default opening time, and `startTimeKnown` is false. */
   startsAt: string;
+  /** Absent means known: only an adapter that writes a default start sets it. */
+  startTimeKnown?: boolean;
   /** The end the provider gives; without one, the end of the start day in Europe/Kyiv, and `endTimeKnown` is false. */
   endsAt: string;
   endTimeKnown: boolean;
@@ -107,6 +110,7 @@ export interface ImportedEventFields {
   categoryId: string;
   venueId: string;
   startsAt: string;
+  startTimeKnown: boolean;
   endsAt: string;
   endTimeKnown: boolean;
   imageUrl: string | null;

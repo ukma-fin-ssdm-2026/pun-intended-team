@@ -33,6 +33,7 @@ An event in the city that users can go to together. It is posted by a verified o
 | `category` | `{ id, name }` | |
 | `venue` | `{ id, name, address, location: { lat, lng } }` | |
 | `startsAt`, `endsAt` | date-time | |
+| `startTimeKnown` | boolean | False for an imported event whose provider gives no time of day, such as an ArtWizard exhibition run without opening hours: `startsAt` is then a default opening time, 12:00 in Europe/Kyiv, that only orders the event and its sessions, and a client shows the dates without a time. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `endTimeKnown` | boolean | False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in Europe/Kyiv, and a client shows only the start. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |

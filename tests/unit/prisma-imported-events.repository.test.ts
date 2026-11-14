@@ -38,6 +38,7 @@ describe('PrismaImportedEventsRepository.updateEvent', () => {
       categoryId: 'c0000000-0000-4000-8000-000000000001',
       venueId: 'b0000000-0000-4000-8000-000000000001',
       startsAt: '2026-10-22T16:00:00.000Z',
+      startTimeKnown: true,
       endsAt: '2026-10-22T19:00:00.000Z',
       endTimeKnown: false,
       imageUrl: 'https://images.example/jazz.jpg',

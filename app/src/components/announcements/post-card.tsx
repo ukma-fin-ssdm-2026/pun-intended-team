@@ -74,7 +74,9 @@ function LinkedEvent({ eventId }: { eventId: string }) {
         <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
           {event.title}
         </Text>
-        <Text className="font-inter text-caption text-text-secondary">{formatEventDate(event.startsAt)}</Text>
+        <Text className="font-inter text-caption text-text-secondary">
+          {formatEventDate(event.startsAt, event.startTimeKnown)}
+        </Text>
       </View>
     </View>
   );

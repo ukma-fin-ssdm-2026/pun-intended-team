@@ -121,7 +121,7 @@ function DetailRow({
 }: {
   icon: IconName;
   value: string;
-  note: string;
+  note?: string;
   onPress?: () => void;
 }) {
   return (
@@ -136,7 +136,7 @@ function DetailRow({
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-medium text-body text-text-primary">{value}</Text>
-        <Text className="font-inter text-caption text-text-secondary">{note}</Text>
+        {note ? <Text className="font-inter text-caption text-text-secondary">{note}</Text> : null}
       </View>
     </Pressable>
   );
@@ -345,11 +345,7 @@ export default function EventScreen() {
               onPress={() => router.navigate('/map')}
             />
             <View className="h-px bg-border-default" />
-            <DetailRow
-              icon="calendar"
-              value={formatEventDay(event.startsAt)}
-              note={formatTimeRange(event.startsAt, event.endsAt, event.endTimeKnown)}
-            />
+            <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
             {/* The API has no organizer name yet; only mock events have one. */}
             {mockEvent && (
               <>
@@ -393,6 +389,7 @@ export default function EventScreen() {
         onClose={closeSteps}
         eventTitle={event.title}
         sessions={pickable}
+        startTimeKnown={event.startTimeKnown}
         initial={alreadyPicked}
         onPick={(starts) => {
           setSessionStarts(starts);

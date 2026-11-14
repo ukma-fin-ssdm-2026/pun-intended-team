@@ -1,7 +1,15 @@
 // Written with the help of Claude
 import { describe, expect, test } from '@jest/globals';
 
-import { eventSessions, sessionCutoff, formatTimeRange, formatUntil, pickableSessions } from '@/dates';
+import {
+  eventSessions,
+  sessionCutoff,
+  formatEventDate,
+  formatSessionDay,
+  formatTimeRange,
+  formatUntil,
+  pickableSessions,
+} from '@/dates';
 
 // Kyiv is UTC+3 until the clocks go back on 25 October 2026 at 04:00, UTC+2 after.
 describe('eventSessions', () => {
@@ -143,8 +151,29 @@ describe('formatTimeRange', () => {
       '20:00 – 23:59',
     ],
     ['keeps an end at midnight', '2026-11-08T20:00:00+02:00', '2026-11-08T22:00:00.000Z', true, '20:00 – 00:00'],
-  ])('%s', (_title, start, end, endTimeKnown, label) => {
-    expect(formatTimeRange(start, end, endTimeKnown)).toBe(label);
+  ])('%s', (_title, startsAt, endsAt, endTimeKnown, label) => {
+    expect(formatTimeRange({ startsAt, startTimeKnown: true, endsAt, endTimeKnown })).toBe(label);
+  });
+
+  // An exhibition run without opening hours: a default 12:00 start, the end of its last day (ADR-006, decision 5).
+  test.each([
+    ['gives only the last day of a run whose start time is a default', '2026-11-29T21:59:59.999Z', 'до 29 листопада'],
+    ['gives nothing for a single day whose start time is a default', '2026-11-03T21:59:59.999Z', ''],
+  ])('%s', (_title, endsAt, label) => {
+    const run = { startsAt: '2026-11-03T12:00:00+02:00', startTimeKnown: false, endsAt, endTimeKnown: false };
+
+    expect(formatTimeRange(run)).toBe(label);
+  });
+});
+
+describe('the date of an event or a session', () => {
+  const noon = '2026-11-03T12:00:00+02:00';
+
+  test.each([
+    ['a catalog card', formatEventDate, 'Вт, 3 лист · 12:00'],
+    ['a mutual match', formatSessionDay, 'Вт, 3 лист, 12:00'],
+  ])('gives the time on %s only when it is known', (_where, format, withTime) => {
+    expect([format(noon, true), format(noon, false)]).toEqual([withTime, 'Вт, 3 лист']);
   });
 });
 

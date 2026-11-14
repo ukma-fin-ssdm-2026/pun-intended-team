@@ -25,6 +25,13 @@ const EventFields = z.object({
   category: Category,
   venue: Venue,
   startsAt: DateTime,
+  startTimeKnown: z
+    .boolean()
+    .describe(
+      'False when the provider gives no time of day: startsAt is then a default opening time (12:00 Europe/Kyiv ' +
+        'for exhibitions) that only orders the event and its sessions; show the dates without a time. Always true ' +
+        'for an organization event',
+    ),
   endsAt: DateTime,
   endTimeKnown: z
     .boolean()
@@ -56,6 +63,7 @@ export const eventExample: Event = {
     location: { lat: 50.4825, lng: 30.5181 },
   },
   startsAt: '2026-10-17T19:00:00+03:00',
+  startTimeKnown: true,
   endsAt: '2026-10-17T21:30:00+03:00',
   endTimeKnown: true,
   imageUrl: null,
