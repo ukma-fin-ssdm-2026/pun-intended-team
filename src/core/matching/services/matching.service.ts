@@ -13,7 +13,7 @@ import { MatchesRepository } from '../repositories/matches.repository.ts';
 import type { Application, ApplicationStatus } from '../types/application.ts';
 import type { Match, MatchSource } from '../types/match.ts';
 import type { Exclusion, Pairing, PoolMember } from '../types/matching.ts';
-import { instantPartner } from './instant-match.ts';
+import { instantCandidate } from './instant-match.ts';
 import { match } from './match.ts';
 import { proposalValidUntil, roundTimes } from './rounds.ts';
 
@@ -69,8 +69,16 @@ export class MatchingService implements OnModuleInit {
       await this.matchesRepository.lockEvent(application.eventId, tx);
       const pool = await this.readPool(application.eventId, application.sessionIds, tx);
       const member = pool.members.get(application.userId);
-      const pairing = member && instantPartner(member, [...pool.members.values()], pool.exclusions, seed);
-      return pairing ? [await this.propose(pairing, pool, 'instant', seed, tx)] : [];
+      const candidate = member && instantCandidate(member, [...pool.members.values()], pool.exclusions, seed);
+      if (!candidate) {
+        return [];
+      }
+      // Below the threshold too, so the threshold can be tuned on real data (matching.md, policy).
+      this.#logger.log(
+        `Instant match for application ${application.id}: best score ${candidate.pairing.score}` +
+          (candidate.proposed ? '' : ', not proposed'),
+      );
+      return candidate.proposed ? [await this.propose(candidate.pairing, pool, 'instant', seed, tx)] : [];
     });
     this.logProposals(proposed);
     return proposed.length > 0;

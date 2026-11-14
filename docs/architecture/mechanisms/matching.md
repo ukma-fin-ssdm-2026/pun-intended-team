@@ -32,7 +32,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 | Strikes before removal | 2 |
 | A long session | 3 h or more |
 
-Every score is logged so the threshold can be tuned on real data.
+The score of every proposal, and of the best candidate at every instant-match attempt, is logged so the threshold can be tuned on real data.
 
 ## AI Usage Note
 

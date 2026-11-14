@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { INSTANT_MATCH_THRESHOLD, instantPartner } from '../../dist/core/matching/services/instant-match.js';
+import { INSTANT_MATCH_THRESHOLD, instantCandidate } from '../../dist/core/matching/services/instant-match.js';
 import type { Exclusion, PoolMember } from '../../dist/core/matching/types/matching.js';
 
 const SEED = 42;
@@ -21,31 +21,32 @@ function aMember(overrides: Partial<PoolMember> = {}): PoolMember {
 const NEWCOMER = aMember();
 
 // matching.md, rule 1
-describe('instantPartner', () => {
+describe('instantCandidate', () => {
   test('pairs the newcomer with a candidate who scores 1 and has no better option', () => {
     const candidate = aMember({ userId: 'C' });
 
-    const pairing = instantPartner(NEWCOMER, [NEWCOMER, candidate], [], SEED);
+    const best = instantCandidate(NEWCOMER, [NEWCOMER, candidate], [], SEED);
 
-    assert.deepEqual(pairing, { a: 'M', b: 'C', score: 1 });
+    assert.deepEqual(best, { pairing: { a: 'M', b: 'C', score: 1 }, proposed: true });
   });
 
   test('pairs at exactly the threshold', () => {
     // The same interests and plans, another kind of company: 0.7 + 0.1.
     const candidate = aMember({ userId: 'C', desiredCompany: 'friends' });
 
-    const pairing = instantPartner(NEWCOMER, [candidate], [], SEED);
+    const best = instantCandidate(NEWCOMER, [candidate], [], SEED);
 
-    assert.equal(pairing?.score, INSTANT_MATCH_THRESHOLD);
+    assert.equal(best?.pairing.score, INSTANT_MATCH_THRESHOLD);
+    assert.equal(best?.proposed, true);
   });
 
   test('waits for a round when the best candidate scores below the threshold', () => {
     // Another kind of company and other plans: 0.7.
     const candidate = aMember({ userId: 'C', desiredCompany: 'friends', afterEventPlans: ['walk'] });
 
-    const pairing = instantPartner(NEWCOMER, [candidate], [], SEED);
+    const best = instantCandidate(NEWCOMER, [candidate], [], SEED);
 
-    assert.equal(pairing, undefined);
+    assert.deepEqual(best, { pairing: { a: 'M', b: 'C', score: 0.7 }, proposed: false });
   });
 
   test('waits for a round when someone else in the pool suits the candidate better', () => {
@@ -54,45 +55,47 @@ describe('instantPartner', () => {
     const candidate = aMember({ userId: 'C' });
     const other = aMember({ userId: 'O' });
 
-    const pairing = instantPartner(newcomer, [candidate, other], [], SEED);
+    const best = instantCandidate(newcomer, [candidate, other], [], SEED);
 
-    assert.equal(pairing, undefined);
+    assert.equal(best?.pairing.score, 0.8);
+    assert.equal(best?.proposed, false);
   });
 
   test('pairs when someone else suits the candidate equally well', () => {
     const candidate = aMember({ userId: 'C' });
     const other = aMember({ userId: 'O' });
 
-    const pairing = instantPartner(NEWCOMER, [candidate, other], [], SEED);
+    const best = instantCandidate(NEWCOMER, [candidate, other], [], SEED);
 
-    assert.equal(pairing?.score, 1);
+    assert.equal(best?.pairing.score, 1);
+    assert.equal(best?.proposed, true);
   });
 
   // FR-020
   for (const exclusion of [['M', 'C'] as const, ['C', 'M'] as const] satisfies Exclusion[]) {
     test(`skips an excluded candidate given as [${exclusion.join(', ')}]`, () => {
-      const pairing = instantPartner(NEWCOMER, [aMember({ userId: 'C' })], [exclusion], SEED);
-
-      assert.equal(pairing, undefined);
+      assert.equal(instantCandidate(NEWCOMER, [aMember({ userId: 'C' })], [exclusion], SEED), undefined);
     });
   }
 
   test('skips a candidate the newcomer cannot be paired with', () => {
-    const pairing = instantPartner(NEWCOMER, [aMember({ userId: 'C', sessionIds: ['day-2'] })], [], SEED);
+    const best = instantCandidate(NEWCOMER, [aMember({ userId: 'C', sessionIds: ['day-2'] })], [], SEED);
 
-    assert.equal(pairing, undefined);
+    assert.equal(best, undefined);
   });
 
   test('gives no partner in a pool of the newcomer alone', () => {
-    assert.equal(instantPartner(NEWCOMER, [NEWCOMER], [], SEED), undefined);
+    assert.equal(instantCandidate(NEWCOMER, [NEWCOMER], [], SEED), undefined);
   });
 
   // FUNC-001
   test('picks among equal candidates by the seed, the same every time', () => {
     const pool = ['A', 'B', 'C', 'D'].map((userId) => aMember({ userId }));
 
-    const runs = Array.from({ length: 10 }, () => instantPartner(NEWCOMER, pool, [], SEED)?.b);
-    const bySeed = new Set(Array.from({ length: 10 }, (_, seed) => instantPartner(NEWCOMER, pool, [], seed)?.b));
+    const runs = Array.from({ length: 10 }, () => instantCandidate(NEWCOMER, pool, [], SEED)?.pairing.b);
+    const bySeed = new Set(
+      Array.from({ length: 10 }, (_, seed) => instantCandidate(NEWCOMER, pool, [], seed)?.pairing.b),
+    );
 
     assert.equal(new Set(runs).size, 1);
     assert.ok(bySeed.size > 1);
