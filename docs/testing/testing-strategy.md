@@ -18,7 +18,7 @@ Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreS
 
 ## Coverage
 
-MCR, 1 November 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
+MCR, 1 November 2026, a local run. The report of all tests from every run on `main` is the `coverage-report` artifact of its `E2E tests` job:
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
@@ -86,4 +86,4 @@ The reliability tests keep their own job, `Reliability tests`, on every pull req
 
 ## AI Usage Note
 
-Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run and match the committed reports.
+Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run.

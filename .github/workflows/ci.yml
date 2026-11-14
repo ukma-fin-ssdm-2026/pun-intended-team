@@ -16,6 +16,7 @@
 # Changed by Claude (Claude Code): the two groups of tests are called unit tests and e2e tests, in the job name
 # and the comments.
 # Changed by Claude (Claude Code): "E2E tests" no longer waits for "CI passed"; the two jobs run side by side.
+# Changed by Claude (Claude Code): "E2E tests" publishes the coverage report, which is no longer committed.
 #
 # CI = everything that must be green for the code to count as healthy.
 # The "CI passed" job is a required check in the rulesets. It runs all checks as steps of one
@@ -260,6 +261,15 @@ jobs:
           MAIN_DATABASE_URL: postgresql://nearby_main:nearby_main_dev_password@localhost:5432/nearby
           IMPORT_DATABASE_URL: postgresql://nearby_import:nearby_import_dev_password@localhost:5432/nearby
         run: npm run test:coverage
+
+      # The report is published here instead of being committed, also when the coverage gate fails.
+      - name: Upload the coverage report
+        if: ${{ !cancelled() && steps.migrate.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 30
 
   # Lab 9 bonus. The tests start the built API against fake dependencies, so the job needs no database.
   # The coverage step of "E2E tests" runs them too, for the report.

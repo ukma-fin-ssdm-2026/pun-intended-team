@@ -71,10 +71,21 @@ xychart-beta
 | Change lead time | 98.9% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
 | Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
 | Deployment frequency | No deployment on 7 of 21 days | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
-| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI | @OLEGkn-coder |
+| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI (#453, done; see below) | @OLEGkn-coder |
 | Change fail rate | Flaky rate limit test (№207) | Not yet known | Flaky test hunt: 5 runs of the suite on one commit; quarantine with an issue | @viktoriyabaran |
 | Change fail rate | Reliability tests hung until the timeout (№202) | A started process is left open | Stop the started APIs in `after`; `--test-force-exit` | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red | @Vlad-Re |
+
+### Implemented: Coverage Reports from CI
+
+**Action** (#453): the coverage reports in `docs/testing/coverage/` are no longer committed, and `npm run docs:coverage` is gone. The `E2E tests` job uploads the report of all tests from every `main` run as the `coverage-report` artifact, kept for 30 days ([`ci.yml`](../../.github/workflows/ci.yml)).
+
+**Metric:** deployment frequency. Each committed report is one generated HTML file, so two pull requests that regenerated it conflicted: the second one waited for a merge of `main`, a new report and a new CI run before it could be merged.
+
+| | Pull requests that changed the reports | Merges of `main` into a branch that had to redo them |
+|---|---|---|
+| Before, 20.10–09.11 | 25 of 88 | 9 |
+| After the merge of #453 | TODO | TODO |
 
 ## Bonuses
 

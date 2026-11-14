@@ -151,12 +151,11 @@ npm run test:e2e             # integration tests
 npm run test:reliability     # fault injection against a fake database (REL-01); needs no database
 npm run test:coverage:unit   # unit tests with coverage
 npm run test:coverage        # all tests with coverage
-npm run docs:coverage        # regenerates the committed reports in docs/testing/coverage/
 ```
 
 The coverage commands use [monocart-coverage-reports](https://github.com/cenfun/monocart-coverage-reports), print a summary and write a single-file HTML report to `coverage/index.html`, which is not committed. Coverage measures only code that makes decisions when it runs; what is left out and why is in the [testing mechanism](docs/architecture/mechanisms/testing.md). Blank and comment lines are not counted.
 
-The committed reports, [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html), are a snapshot: after changing tests, run `npm run docs:coverage` and commit `docs/testing/coverage/` in the same pull request.
+CI publishes the report of all tests from every run on `main`: it is the `coverage-report` artifact of the `E2E tests` job, on the run's page, kept for 30 days. Reports are not committed.
 
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
@@ -170,7 +169,6 @@ Documentation related to testing is located [here](docs/testing/), the test plan
 
 - [`testing-strategy.md`](docs/testing/testing-strategy.md) — current test layers and counts, coverage and how testing will grow
 - [`debugging-log.md`](docs/testing/debugging-log.md) — the Lab 6 debugging challenge: a planted bug found by the tests, fixed and guarded by a regression test
-- [`coverage/`](docs/testing/coverage/) — committed coverage reports for the [unit tests](docs/testing/coverage/unit/index.html) and [all tests](docs/testing/coverage/all/index.html)
 - [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
 - [`review-log.md`](docs/validation/review-log.md) — the Lab 7 peer review of the test plan by Whadio, what we changed after it, and the review of an AI-generated pull request
 
