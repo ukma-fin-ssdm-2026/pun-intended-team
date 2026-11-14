@@ -142,6 +142,14 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
   }
 
+  async findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.account.findMany({
+      where: { id: { in: accountIds }, dateOfBirth: { not: null } },
+      select: { id: true, dateOfBirth: true },
+    });
+    return new Map(rows.map(({ id, dateOfBirth }) => [id, this.cipher.decrypt(dateOfBirth!)]));
+  }
+
   async setStatus(accountId: string, status: AccountStatus): Promise<void> {
     await this.prisma.account.update({ where: { id: accountId }, data: { status } });
   }

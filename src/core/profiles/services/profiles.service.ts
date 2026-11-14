@@ -61,12 +61,14 @@ export class ProfilesService {
 
   /** What a proposed match sees of each account; accounts without a profile are left out. */
   async getPublicProfiles(accountIds: string[]): Promise<Map<string, PublicProfile>> {
-    const [profiles, interestsOf] = await Promise.all([
-      this.profilesRepository.findByAccountIds([...new Set(accountIds)]),
+    const ids = [...new Set(accountIds)];
+    const [profiles, interestsOf, datesOfBirth] = await Promise.all([
+      this.profilesRepository.findByAccountIds(ids),
       this.interestsLookup(),
+      this.accountsService.getDatesOfBirth(ids),
     ]);
-    const entries = await Promise.all(
-      profiles.map(async (profile): Promise<[string, PublicProfile]> => [
+    return new Map(
+      profiles.map((profile) => [
         profile.accountId,
         {
           accountId: profile.accountId,
@@ -74,12 +76,11 @@ export class ProfilesService {
           displayName: profile.displayName,
           description: profile.description,
           occupation: profile.occupation,
-          age: await this.ageOf(profile.accountId),
+          age: ageFrom(profile.accountId, datesOfBirth.get(profile.accountId)),
           interests: interestsOf(profile),
         },
       ]),
     );
-    return new Map(entries);
   }
 
   /** What a mutual match sees: the linked networks, and the phone number if the user shares it (FR-019). */
@@ -178,12 +179,7 @@ export class ProfilesService {
   }
 
   private async ageOf(accountId: string): Promise<number> {
-    const dateOfBirth = await this.accountsService.getDateOfBirth(accountId);
-    // An account that has a profile always has a date of birth; a missing one is a data bug, so a 500.
-    if (dateOfBirth === undefined) {
-      throw new Error(`Profile of ${accountId} has no account date of birth`);
-    }
-    return ageOn(kyivDate(), dateOfBirth);
+    return ageFrom(accountId, await this.accountsService.getDateOfBirth(accountId));
   }
 
   /** The chosen interests of a profile, in the order of the list. */
@@ -194,6 +190,14 @@ export class ProfilesService {
       return allInterests.filter((interest) => chosen.has(interest.id));
     };
   }
+}
+
+function ageFrom(accountId: string, dateOfBirth: string | undefined): number {
+  // An account that has a profile always has a date of birth; a missing one is a data bug, so a 500.
+  if (dateOfBirth === undefined) {
+    throw new Error(`Profile of ${accountId} has no account date of birth`);
+  }
+  return ageOn(kyivDate(), dateOfBirth);
 }
 
 function withUrl({ network, username }: LinkedAccount): LinkedAccountDetails {

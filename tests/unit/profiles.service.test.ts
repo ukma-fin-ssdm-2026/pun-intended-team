@@ -90,6 +90,9 @@ function makeService() {
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
   const accountsService = {
     getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve(DATE_OF_BIRTH)),
+    getDatesOfBirth: mock.fn((accountIds: string[]) =>
+      Promise.resolve(new Map(accountIds.map((accountId) => [accountId, DATE_OF_BIRTH]))),
+    ),
     getPhone: mock.fn((): Promise<string | null> => Promise.resolve(PHONE)),
   };
   const service = new ProfilesService(
@@ -190,6 +193,21 @@ describe('ProfilesService.getPublicProfiles', () => {
     const profiles = await service.getPublicProfiles([ACCOUNT_ID]);
 
     assert.equal(profiles.size, 0);
+  });
+
+  test('reads the dates of birth of all the accounts at once', async () => {
+    const { service, profilesRepository, accountsService } = makeService();
+    profilesRepository.findByAccountIds.mock.mockImplementation(() =>
+      Promise.resolve([aProfile(), aProfile({ accountId: OTHER_ACCOUNT_ID })]),
+    );
+
+    await service.getPublicProfiles([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID]);
+
+    assert.deepEqual(
+      accountsService.getDatesOfBirth.mock.calls.map(({ arguments: args }) => args),
+      [[[ACCOUNT_ID, OTHER_ACCOUNT_ID]]],
+    );
+    assert.equal(accountsService.getDateOfBirth.mock.callCount(), 0);
   });
 });
 
