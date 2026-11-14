@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import { sessionCutoff, sessionStart } from '../../dist/core/catalog/services/session-start.js';
 import { EventSessionsService } from '../../dist/core/catalog/services/event-sessions.service.js';
 import type { EventSessionsRepository } from '../../dist/core/catalog/repositories/event-sessions.repository.js';
 import type { EventsRepository } from '../../dist/core/catalog/repositories/events.repository.js';
@@ -144,6 +145,16 @@ describe('EventSessionsService.open', () => {
       endsAt: '2026-11-12T21:59:59.999Z',
       endTimeKnown: false,
     };
+    /**
+     * An ArtWizard exhibition open until 29 November without opening hours (ADR-006, decision 5): from a default
+     * 12:00 today to the end of its last day, neither time known.
+     */
+    const EXHIBITION_RUN = {
+      startsAt: '2026-10-15T12:00:00+03:00',
+      startTimeKnown: false,
+      endsAt: '2026-11-29T21:59:59.999Z',
+      endTimeKnown: false,
+    };
 
     const sessions: [title: string, times: Partial<Event>, day: string, startsAt: string, cutoffAt: string][] = [
       ['the first day of a play', PLAY, '2026-10-15', '2026-10-15T16:00:00.000Z', '2026-10-15T15:00:00.000Z'],
@@ -160,6 +171,28 @@ describe('EventSessionsService.open', () => {
         '2026-10-20',
         '2026-10-20T16:00:00.000Z',
         '2026-10-20T18:59:59.999Z',
+      ],
+      // 12:00 to the end of the day: 2 hours before midnight, also after the clocks go back.
+      [
+        'the first day of an exhibition run',
+        EXHIBITION_RUN,
+        '2026-10-15',
+        '2026-10-15T09:00:00.000Z',
+        '2026-10-15T18:59:59.999Z',
+      ],
+      [
+        'a winter day of an exhibition run',
+        EXHIBITION_RUN,
+        '2026-10-28',
+        '2026-10-28T10:00:00.000Z',
+        '2026-10-28T19:59:59.999Z',
+      ],
+      [
+        'the last window day of an exhibition run',
+        EXHIBITION_RUN,
+        '2026-11-12',
+        '2026-11-12T10:00:00.000Z',
+        '2026-11-12T19:59:59.999Z',
       ],
     ];
     for (const [title, times, day, startsAt, cutoffAt] of sessions) {
@@ -183,10 +216,26 @@ describe('EventSessionsService.open', () => {
       assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 0);
     });
 
-    test('refuses a day after the window even when the run goes on', async () => {
-      const { service } = makeService(anEvent(MUSEUM));
+    for (const [title, times, day] of [
+      ['a museum', MUSEUM, '2027-04-30'],
+      ['an exhibition run', EXHIBITION_RUN, '2026-11-13'],
+    ] as const) {
+      test(`refuses a day after the window even when ${title} goes on`, async () => {
+        const { service } = makeService(anEvent(times));
 
-      await assert.rejects(service.open(EVENT_ID, ['2027-04-30']), rejectsWith('INVALID_SESSION_DAY'));
+        await assert.rejects(service.open(EVENT_ID, [day]), rejectsWith('INVALID_SESSION_DAY'));
+      });
+    }
+
+    test('keeps the start and cutoff of a later day when the next import moves an exhibition run a day on', () => {
+      const moved = { ...EXHIBITION_RUN, startsAt: '2026-10-16T12:00:00+03:00' };
+
+      const opened = sessionStart(EXHIBITION_RUN, '2026-10-20');
+
+      assert.deepEqual(opened, new Date('2026-10-20T09:00:00.000Z'));
+      assert.deepEqual(sessionStart(moved, '2026-10-20'), opened);
+      assert.deepEqual(sessionCutoff(moved, opened), sessionCutoff(EXHIBITION_RUN, opened));
+      assert.equal(sessionStart(moved, '2026-10-15'), undefined, 'the day that has passed is no longer a day of it');
     });
   });
 
