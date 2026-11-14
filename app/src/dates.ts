@@ -112,8 +112,11 @@ function addDays(day: KyivDay, days: number): KyivDay {
   return new Date(Date.UTC(year, month - 1, date + days)).toISOString().slice(0, 10);
 }
 
-// A month-long exhibition has about 30; the cap only stops a bad end date from looping for long.
+// A run of shows until May has about 170; the cap only stops a bad end date from looping for long.
 const MAX_SESSIONS = 366;
+
+// How far ahead the API takes applications for a day, as the catalog shows events: today and the next 28 days.
+export const CATALOG_WINDOW_DAYS = 28;
 
 // The starts of an event's sessions, as the API sets them (matching.md, rule 9): one on each Kyiv day from the start
 // date, at the event's Kyiv time of day, while that is before the end. More than one makes it a multi-day event.
@@ -141,15 +144,23 @@ const CUTOFF_BEFORE_END_MS = 2 * HOUR_MS;
 // last session ends with the event; an earlier one at the event's end time on its day, or at midnight when that time
 // comes earlier in the day.
 export function sessionCutoff(startsAt: string, endsAt: string, sessionStart: string): number {
-  const sessions = eventSessions(startsAt, endsAt);
   const start = Date.parse(sessionStart);
   let end = Date.parse(endsAt);
-  if (sessions[sessions.length - 1] !== sessionStart) {
-    const day = kyivDay(new Date(sessionStart));
-    const onItsDay = Date.parse(kyivIso(day, formatTime(endsAt)));
+  const day = kyivDay(new Date(sessionStart));
+  if (Date.parse(kyivIso(addDays(day, 1), formatTime(startsAt))) < end) {
+    // kyivIso keeps minutes only: the seconds of an end at the end of a day (23:59:59.999) are added back.
+    const onItsDay = Date.parse(kyivIso(day, formatTime(endsAt))) + (end % 60_000);
     end = onItsDay > start ? onItsDay : Date.parse(kyivIso(addDays(day, 1), '00:00')) - 1;
   }
   return end - start >= LONG_SESSION_MS ? end - CUTOFF_BEFORE_END_MS : start - CUTOFF_BEFORE_START_MS;
+}
+
+// The sessions a user can still pick, as the API takes them: within the catalog window and before their cutoff.
+export function pickableSessions(startsAt: string, endsAt: string, now = new Date()): string[] {
+  const lastDay = addDays(kyivDay(now), CATALOG_WINDOW_DAYS);
+  return eventSessions(startsAt, endsAt).filter(
+    (start) => kyivDay(new Date(start)) <= lastDay && sessionCutoff(startsAt, endsAt, start) > now.getTime(),
+  );
 }
 
 // "через 3 год", "завтра", "через 2 дні": how far away an instant is, for the next matching round.

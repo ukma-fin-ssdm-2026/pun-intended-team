@@ -19,7 +19,7 @@ import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
-import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, sessionCutoff } from '@/dates';
+import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, pickableSessions } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useProfile } from '@/hooks/use-profile';
@@ -70,12 +70,6 @@ const CHANGE_FAILED: SnackbarContent = {
 function daysLabel(starts: string[], eventStart: string): string {
   if (starts.length > 1) return `${starts.length} ${plural(starts.length, ['день', 'дні', 'днів'])}`;
   return formatShortDay(starts[0] ?? eventStart);
-}
-
-// The sessions that still take applications, for the day picker.
-function stillOpen(sessions: string[], startsAt: string, endsAt: string): string[] {
-  const now = Date.now();
-  return sessions.filter((start) => sessionCutoff(startsAt, endsAt, start) > now);
 }
 
 function preview(text: string): string | undefined {
@@ -230,7 +224,8 @@ export default function EventScreen() {
   const changing = request === '1' && step === null;
   const dayOpen = step === 'day' || (changing && multiDay);
   const requestOpen = step === 'request' || (changing && !multiDay);
-  const pickable = dayOpen ? stillOpen(sessions, event.startsAt, event.endsAt) : [];
+  // A run of shows until May offers only the days of the coming four weeks, as the API takes them.
+  const pickable = dayOpen ? pickableSessions(event.startsAt, event.endsAt) : [];
   const alreadyPicked = application
     ? pickable.filter((start) =>
         application.sessions.some(({ startsAt }) => Date.parse(startsAt) === Date.parse(start)),
