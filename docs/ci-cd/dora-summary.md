@@ -4,12 +4,56 @@ DORA metrics of the `CI` workflow on `main` for the runs created from 20.10 to 0
 
 ## DORA Metrics
 
-| Metric | Result | Category |
-|---|---|---|
-| Deployment frequency | 27 per week | Hourly to daily → 22.7% |
-| Change lead time | mean 30 h 10 min, median 5 h 23 min | Under a day → 24.4% |
-| Change fail rate | 6.9% (6 of 87) | 4–8% → 36.2% |
-| Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min | Under a day → 56.5% |
+| Metric | Formula | Result | Category |
+|---|---|---|---|
+| Deployment frequency | green `main` runs ÷ weeks: 81 ÷ 3 | 27 per week | Hourly to daily → 22.7% |
+| Change lead time | from the first commit of a PR to the completion of the first green `main` run that contains it; mean and median of 89 PRs | mean 30 h 10 min, median 5 h 23 min | Under a day → 24.4% |
+| Change fail rate | red `main` runs ÷ completed `main` runs × 100%: 6 ÷ 87; the 7 cancelled runs count as neither | 6.9% | 4–8% → 36.2% |
+| Failed deployment recovery time | from a red `main` run to the next green one; mean and median of 4 incidents | mean 4 h 10 min, median 1 h 11 min | Under a day → 56.5% |
+
+### Queue and Execution in the Lead Time
+
+Each PR's lead time is split into the time before its green `main` run started, the run's queue and its execution (`shares_percent` and `change_lead_time.items` in the [evidence](evidence/dora-metrics-2026-10-20-to-2026-11-09.json)).
+
+| Part | Share of the lead time | Per PR: mean | Per PR: median |
+|---|---|---|---|
+| Before the run: the PR is open, waits for review or for the merge | 99.74% | 30 h 5 min | 5 h 20 min |
+| Queue | 0.08% | 1.5 min | 0.1 min |
+| Execution | 0.18% | 3.3 min | 2.7 min |
+
+Of the time a change spends in CI, 31.5% is the queue. The mean is pulled up by a few long waits, up to 23.6 min; the median is 0.1 min.
+
+## Paired Analysis
+
+**Speed.** 27 deployments a week and a median lead time of 5 h 23 min look fast, but the mean is 30 h 10 min: 21 of 89 PRs took more than a day, 4 of them more than a week (the longest, #362, 8 d 23 h). The pipeline is not what holds them: 99.74% of the lead time passes before the green run starts.
+
+**Stability.** 6 of 87 runs were red (6.9%), and the median return to green was 1 h 11 min. None of the six was a defect in the product code that passed the PR checks: four came from setting up the staging image publish (№157, №159–№161), one was a hung reliability test (№202) and one a flaky e2e test (№207).
+
+**Together.** Frequent merges did not cost stability: `main` turned red on pipeline changes and on tests, not on the features merged. Speed and stability follow the same rhythm. 49 of 81 deployments were on a Saturday or a Sunday, 7 of 21 days had none, and all six red runs fell on the busy weekends of 31.10–01.11 and 08.11. The longest recovery, 14 h 14 min after №207, started on Sunday afternoon and ended on Monday morning. So the lead time is set before the merge, and the recovery time by how soon someone notices a red `main`.
+
+### Runs per Day
+
+Green runs on `main` (bars) and red runs (line) by the UTC day the run was created:
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 1000
+    height: 420
+    xAxis:
+      labelFontSize: 12
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#2da44e, #cf222e"
+---
+xychart-beta
+    title "CI runs on main, 20.10–09.11.2026"
+    x-axis ["20.10", "21.10", "22.10", "23.10", "24.10", "25.10", "26.10", "27.10", "28.10", "29.10", "30.10", "31.10", "01.11", "02.11", "03.11", "04.11", "05.11", "06.11", "07.11", "08.11", "09.11"]
+    y-axis "Runs" 0 --> 12
+    bar [1, 0, 0, 6, 6, 9, 3, 3, 5, 0, 0, 5, 10, 6, 5, 0, 0, 0, 9, 10, 3]
+    line [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 0, 0, 0, 0, 0, 0, 2, 0]
+```
 
 ## CI Benchmarks
 
