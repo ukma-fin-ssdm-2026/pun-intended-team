@@ -210,8 +210,8 @@ function ReportSentDialog({ person, onDone }: { person: ReportedPerson; onDone: 
 export type ReportStep = 'closed' | 'form' | 'sent';
 
 type Props = {
-  // The match (05, 07), or a post's author on Т3.
-  person: ReportedPerson;
+  // The match (05, 07), or a post's author on Т3; without one there is nothing to report.
+  person?: ReportedPerson;
   step: ReportStep;
   onStepChange: (step: ReportStep) => void;
   // "Зрозуміло" on Д3.1; the prototype opens Т2 Метчі.
@@ -221,6 +221,7 @@ type Props = {
 // One modal for both steps, so sending the report swaps the sheet for the dialog without closing and reopening it.
 // A backdrop tap closes either step, as in the prototype.
 export function ReportFlow({ person, step, onStepChange, onDone }: Props) {
+  if (!person) return null;
   return (
     <Overlay
       visible={step !== 'closed'}
