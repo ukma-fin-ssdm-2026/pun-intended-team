@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
+import { sessionStart } from '../../dist/core/catalog/services/session-start.js';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
 import type { Clock } from '../../dist/core/import/adapters/clock.js';
 import type { EventProvider } from '../../dist/core/import/adapters/event-provider.js';
@@ -1177,6 +1178,34 @@ describe('EventImportService.importFrom, duplicates across providers', () => {
 
     assert.equal(report.updated, 1);
     assert.equal(repository.findOtherProvidersEvents.mock.callCount(), 0);
+  });
+});
+
+// ADR-006, decision 5: Karabas writes a running show's start as today, so a run's first day moves on every run.
+describe('EventImportService.importFrom, a run of shows', () => {
+  /** A museum open 10:00–14:00 every day until 1 May, as saved on 15 October. */
+  const savedRun = theSavedEvent({ startsAt: '2026-10-15T07:00:00.000Z', endsAt: '2027-05-01T11:00:00.000Z' });
+  /** The same run read a day later: its first day is now 16 October. */
+  const nextDay = anImportedEvent({ startsAt: '2026-10-16T07:00:00.000Z', endsAt: '2027-05-01T11:00:00.000Z' });
+
+  test('moves the first day forward as an update, keeping the start of a later day’s session', async () => {
+    const { run, repository } = makeService([{}], [{ event: nextDay }]);
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(savedRun));
+
+    const report = await run();
+
+    const [id, changes] = repository.updateEvent.mock.calls[0]?.arguments ?? [];
+    assert.equal(id, savedRun.id);
+    assert.deepEqual([changes?.startsAt, changes?.endsAt], [nextDay.startsAt, nextDay.endsAt]);
+    assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
+    assert.equal(repository.findOtherProvidersEvents.mock.callCount(), 0);
+    // A session of 1 November, after the clocks went back, opened before the run: the moved event still gives its
+    // start, so the session keeps its (event, start) key and its applications.
+    const opened = sessionStart(savedRun, '2026-11-01');
+    assert.deepEqual(opened, new Date('2026-11-01T08:00:00.000Z'));
+    const moved = { startsAt: changes?.startsAt ?? '', endsAt: changes?.endsAt ?? '' };
+    assert.deepEqual(sessionStart(moved, '2026-11-01'), opened);
+    assert.equal(sessionStart(moved, '2026-10-15'), undefined, 'the day that has passed is no longer a day of it');
   });
 });
 
