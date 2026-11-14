@@ -78,12 +78,16 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
     return rows.map(toApplication);
   }
 
-  async withdraw(id: string, from: ApplicationStatus[]): Promise<Application | undefined> {
-    const { count } = await this.prisma.application.updateMany({
+  async withdraw(id: string, from: ApplicationStatus[], tx: Transaction): Promise<Application | undefined> {
+    const client = tx as unknown as Prisma.TransactionClient;
+    const { count } = await client.application.updateMany({
       where: { id, status: { in: from } },
       data: { status: 'withdrawn' },
     });
-    return count === 0 ? undefined : this.findById(id);
+    if (count === 0) {
+      return undefined;
+    }
+    return toApplication(await client.application.findUniqueOrThrow({ where: { id }, include: withDaysAndPlans }));
   }
 }
 

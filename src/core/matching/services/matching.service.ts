@@ -10,7 +10,7 @@ import { ModerationService } from '../../moderation/services/moderation.service.
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
-import type { Application } from '../types/application.ts';
+import type { Application, ApplicationStatus } from '../types/application.ts';
 import type { Match, MatchSource } from '../types/match.ts';
 import type { Exclusion, Pairing, PoolMember } from '../types/matching.ts';
 import { instantPartner } from './instant-match.ts';
@@ -74,6 +74,17 @@ export class MatchingService implements OnModuleInit {
     });
     this.logProposals(proposed);
     return proposed.length > 0;
+  }
+
+  /**
+   * Withdraws the application if its status is still one of `from`, under the event lock, so a round that has read
+   * the pool never proposes it meanwhile (rule 7). Undefined if the status changed.
+   */
+  async withdraw(application: Application, from: ApplicationStatus[]): Promise<Application | undefined> {
+    return this.transactions.run(async (tx) => {
+      await this.matchesRepository.lockEvent(application.eventId, tx);
+      return this.applicationsRepository.withdraw(application.id, from, tx);
+    });
   }
 
   /**

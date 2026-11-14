@@ -10,7 +10,7 @@ import type { Job, JobHandler } from '../../dist/core/jobs/types/job.js';
 import type { ApplicationsRepository } from '../../dist/core/matching/repositories/applications.repository.js';
 import type { MatchesRepository } from '../../dist/core/matching/repositories/matches.repository.js';
 import { MatchingService } from '../../dist/core/matching/services/matching.service.js';
-import type { Application } from '../../dist/core/matching/types/application.js';
+import type { Application, ApplicationStatus } from '../../dist/core/matching/types/application.js';
 import type { Match, NewMatch } from '../../dist/core/matching/types/match.js';
 import type { ModerationService } from '../../dist/core/moderation/services/moderation.service.js';
 import type { MatchingExclusions } from '../../dist/core/moderation/types/report.js';
@@ -85,6 +85,12 @@ function makeService({ pool = [NEWCOMER, WAITING] }: { pool?: Application[] } = 
       calls.push('pool');
       return Promise.resolve(pool);
     }),
+    withdraw: mock.fn<(id: string, from: ApplicationStatus[], tx: Transaction) => Promise<Application | undefined>>(
+      (id) => {
+        calls.push('withdraw');
+        return Promise.resolve(anApplication({ id, status: 'withdrawn' }));
+      },
+    ),
   };
   const eventSessionsService = {
     getByIds: mock.fn(() =>
@@ -320,6 +326,23 @@ describe('MatchingService.matchOnApply', () => {
     await service.matchOnApply(anApplication({ sessionIds: [SESSION_ID, LATER_SESSION_ID] }));
 
     assert.equal(matchesRepository.propose.mock.callCount(), 0);
+  });
+});
+
+// matching.md, rule 7
+describe('MatchingService.withdraw', () => {
+  test('withdraws the application under the event lock', async () => {
+    const { service, calls, applicationsRepository } = makeService();
+
+    const withdrawn = await service.withdraw(NEWCOMER, ['in_pool', 'paused']);
+
+    assert.deepEqual(calls, ['lock', 'withdraw']);
+    assert.deepEqual(applicationsRepository.withdraw.mock.calls[0]?.arguments, [
+      NEWCOMER.id,
+      ['in_pool', 'paused'],
+      TX,
+    ]);
+    assert.equal(withdrawn?.status, 'withdrawn');
   });
 });
 

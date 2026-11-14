@@ -16,5 +16,5 @@ export abstract class ApplicationsRepository {
   abstract findByUserWithStatus(userId: string, statuses: ApplicationStatus[]): Promise<Application[]>;
 
   /** Withdraws the application if its status is still one of `from`; undefined if it changed meanwhile. */
-  abstract withdraw(id: string, from: ApplicationStatus[]): Promise<Application | undefined>;
+  abstract withdraw(id: string, from: ApplicationStatus[], tx: Transaction): Promise<Application | undefined>;
 }

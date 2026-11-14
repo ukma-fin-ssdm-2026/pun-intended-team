@@ -83,7 +83,7 @@ export class ApplicationsService {
     const withdrawn =
       application.status === 'withdrawn'
         ? application
-        : WITHDRAWABLE.includes(application.status) && (await this.applicationsRepository.withdraw(id, WITHDRAWABLE));
+        : WITHDRAWABLE.includes(application.status) && (await this.matchingService.withdraw(application, WITHDRAWABLE));
     if (!withdrawn) {
       throw new DomainError('CONFLICT', 'Only an application waiting in the pool can be withdrawn');
     }
