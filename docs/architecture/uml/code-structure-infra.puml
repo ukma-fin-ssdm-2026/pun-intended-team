@@ -1,0 +1,159 @@
+@startuml code-structure-infra
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure (src/infra/): implementations bound in InfraModule (API process)
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+left to right direction
+
+package "core: repositories and adapters (methods on code-structure-core-*)" as CORE {
+  abstract class AccountsRepository <<other diagram>>
+  abstract class VerificationCodesRepository <<other diagram>>
+  abstract class SessionsRepository <<other diagram>>
+  abstract class ProfilesRepository <<other diagram>>
+  abstract class InterestsRepository <<other diagram>>
+  abstract class EventsRepository <<other diagram>>
+  abstract class EventSessionsRepository <<other diagram>>
+  abstract class CategoriesRepository <<other diagram>>
+  abstract class VenuesRepository <<other diagram>>
+  abstract class OrganizationsRepository <<other diagram>>
+  abstract class ImportRunsRepository <<other diagram>>
+  abstract class ListingsRepository <<other diagram>>
+  abstract class ApplicationsRepository <<other diagram>>
+  abstract class MatchesRepository <<other diagram>>
+  abstract class ReportCasesRepository <<other diagram>>
+  abstract class AuditLogRepository <<other diagram>>
+  abstract class BackupRunsRepository <<other diagram>>
+  abstract class TransactionRunner <<other diagram>>
+  abstract class DatabaseProbe <<other diagram>>
+  abstract class AccessTokens <<other diagram>>
+  abstract class GoogleIdTokens <<other diagram>>
+  abstract class PasswordHasher <<other diagram>>
+  abstract class CodeHasher <<other diagram>>
+  abstract class MessagingProvider <<other diagram>>
+  abstract class JobQueue <<other diagram>>
+}
+
+package "infra (InfraModule, global)" as INFRA {
+  package prisma {
+    class PrismaService
+    class PersonalDataCipher {
+      +encrypt(text)
+      +decrypt(stored)
+      +hash(text)
+    }
+    class PrismaAccountsRepository
+    class PrismaVerificationCodesRepository
+    class PrismaSessionsRepository
+    class PrismaProfilesRepository
+    class PrismaInterestsRepository
+    class PrismaEventsRepository
+    class PrismaEventSessionsRepository
+    class PrismaCategoriesRepository
+    class PrismaVenuesRepository
+    class PrismaOrganizationsRepository
+    class PrismaImportRunsRepository
+    class PrismaListingsRepository
+    class PrismaApplicationsRepository
+    class PrismaMatchesRepository
+    class PrismaReportCasesRepository
+    class PrismaAuditLogRepository
+    class PrismaBackupRunsRepository
+    class PrismaTransactionRunner
+    class PrismaDatabaseProbe
+    note as PRISMA_NOTE
+      Every Prisma class takes PrismaService,
+      which connects as nearby_main
+      (arrows left out)
+    end note
+  }
+  package auth {
+    class JoseAccessTokens
+    class JoseGoogleIdTokens
+    class Argon2PasswordHasher
+    class HmacCodeHasher
+  }
+  package messaging {
+    class ConsoleMessagingProvider
+    class DisabledMessagingProvider
+    class FallbackMessagingProvider
+    interface CodeSender {
+      +send(phone, code)
+    }
+    class TelegramGatewaySender
+    class TurboSmsSender
+    note as MESSAGING_NOTE
+      MESSAGING_PROVIDER picks one:
+      disabled, console, or telegram:
+      FallbackMessagingProvider with
+      Telegram Gateway first, then
+      TurboSMS when it is configured
+    end note
+  }
+  package jobs {
+    class PgBossJobQueue {
+      +whenStarted()
+    }
+  }
+}
+
+' infra implements the abstract classes of core
+AccountsRepository <|.. PrismaAccountsRepository
+VerificationCodesRepository <|.. PrismaVerificationCodesRepository
+SessionsRepository <|.. PrismaSessionsRepository
+ProfilesRepository <|.. PrismaProfilesRepository
+InterestsRepository <|.. PrismaInterestsRepository
+EventsRepository <|.. PrismaEventsRepository
+EventSessionsRepository <|.. PrismaEventSessionsRepository
+CategoriesRepository <|.. PrismaCategoriesRepository
+VenuesRepository <|.. PrismaVenuesRepository
+OrganizationsRepository <|.. PrismaOrganizationsRepository
+ImportRunsRepository <|.. PrismaImportRunsRepository
+ListingsRepository <|.. PrismaListingsRepository
+ApplicationsRepository <|.. PrismaApplicationsRepository
+MatchesRepository <|.. PrismaMatchesRepository
+ReportCasesRepository <|.. PrismaReportCasesRepository
+AuditLogRepository <|.. PrismaAuditLogRepository
+BackupRunsRepository <|.. PrismaBackupRunsRepository
+TransactionRunner <|.. PrismaTransactionRunner
+DatabaseProbe <|.. PrismaDatabaseProbe
+AccessTokens <|.. JoseAccessTokens
+GoogleIdTokens <|.. JoseGoogleIdTokens
+PasswordHasher <|.. Argon2PasswordHasher
+CodeHasher <|.. HmacCodeHasher
+MessagingProvider <|.. ConsoleMessagingProvider
+MessagingProvider <|.. DisabledMessagingProvider
+MessagingProvider <|.. FallbackMessagingProvider
+JobQueue <|.. PgBossJobQueue
+
+' personal data is encrypted, and phones hashed, before it is stored
+PrismaAccountsRepository --> PersonalDataCipher
+PrismaProfilesRepository --> PersonalDataCipher
+PrismaVerificationCodesRepository --> PersonalDataCipher
+
+' the fallback provider tries each code sender in turn
+FallbackMessagingProvider --> CodeSender
+CodeSender <|.. TelegramGatewaySender
+CodeSender <|.. TurboSmsSender
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Implementations have the methods of the abstract class they implement
+  Grey boxes: abstract classes of core, with their methods on code-structure-core-*
+  The import process binds its own: see code-structure-import
+endlegend
+
+@enduml

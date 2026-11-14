@@ -1,0 +1,201 @@
+@startuml code-structure-core-users
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure (src/core/), users: identity, profiles, moderation
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+
+package "core (business logic)" as CORE {
+  package identity {
+    class AuthService {
+      +register(phone)
+      +verify(phone, code)
+      +registerWithGoogle(idToken)
+      +completeRegistration(accountId, dateOfBirth)
+      +setPassword(accountId, sessionId, password, currentPassword)
+      +requestPasswordReset(phone)
+      +resetPassword(phone, code, password)
+      +signIn(phone, password)
+      +signInWithGoogle(idToken)
+      +linkGoogle(accountId, idToken)
+      +issueGuestToken()
+      +authenticate(accessToken)
+    }
+    class AccountsService {
+      +getDateOfBirth(accountId)
+      +findStanding(accountId)
+      +ban(accountId)
+      +stats()
+    }
+    class SessionsService {
+      +start(accountId, role)
+      +refresh(refreshToken)
+      +end(sessionId)
+      +endAll(accountId, exceptSessionId)
+      +isActive(sessionId, accountId)
+    }
+    abstract class AccountsRepository {
+      +findById(accountId)
+      +findByPhone(phone)
+      +findPasswordCredential(phone)
+      +create(account)
+      +createWithGoogle(subject)
+      +activate(accountId, dateOfBirth)
+      +delete(accountId)
+      +findPasswordHash(accountId)
+      +setPasswordHash(accountId, passwordHash)
+      +findByGoogleSubject(subject)
+      +findGoogleSubject(accountId)
+      +linkGoogle(accountId, subject)
+      +updateLockout(accountId, change)
+      +findDateOfBirth(accountId)
+      +setStatus(accountId, status)
+      +countByStatus(status)
+    }
+    abstract class VerificationCodesRepository {
+      +findLatest(phone, purpose)
+      +createWithinLimit(code, limit)
+      +saveDelivery(id, delivery)
+      +delete(id)
+      +addAttempt(id)
+      +markUsed(id, usedAt)
+    }
+    abstract class SessionsRepository {
+      +create(session)
+      +findById(id)
+      +rotate(id, currentHash, next)
+      +revoke(id, revokedAt)
+      +revokeAll(accountId, revokedAt, exceptId)
+    }
+    abstract class AccessTokens {
+      +issue(caller, lifetimeSeconds)
+      +verify(token)
+    }
+    abstract class GoogleIdTokens {
+      +verify(idToken)
+    }
+    abstract class PasswordHasher {
+      +hash(password)
+      +verify(hash, password)
+    }
+    abstract class CodeHasher {
+      +hash(phone, code)
+      +matches(phone, code, hash)
+    }
+  }
+  package profiles {
+    class ProfilesService {
+      +getSummaries(accountIds)
+      +findAccountId(username)
+      +listInterests()
+      +isComplete(accountId)
+      +getOwn(accountId)
+      +create(accountId, input)
+      +update(accountId, changes)
+      +replaceInterests(accountId, interestIds)
+      +replaceLinkedAccounts(accountId, linkedAccounts)
+    }
+    abstract class ProfilesRepository {
+      +findSummaries(accountIds)
+      +findByAccountId(accountId)
+      +findAccountIdByUsername(username)
+      +isUsernameTaken(username, exceptAccountId)
+      +create(accountId, profile)
+      +update(accountId, changes)
+      +replaceInterests(accountId, interestIds)
+      +replaceLinkedAccounts(accountId, linkedAccounts)
+    }
+    abstract class InterestsRepository {
+      +findAll()
+    }
+  }
+  package moderation {
+    class ModerationService {
+      +report(reporterId, username, reason, comment)
+      +reportListing(reporterId, listingId, reason, comment)
+      +listCases(status, page)
+      +getCase(id)
+      +ban(caseId, adminId)
+      +removeListing(caseId, adminId)
+      +dismiss(caseId, adminId)
+      +stats()
+    }
+    class OrganizationReviewService {
+      +list(page)
+      +decide(accountId, decision, adminId)
+    }
+    abstract class ReportCasesRepository {
+      +addAccountReport(accountId, report)
+      +addListingReport(listingId, report)
+      +findPage(status, page)
+      +findById(id)
+      +resolve(id, resolution, resolvedById, resolvedAt)
+      +countOpen()
+    }
+    abstract class AuditLogRepository {
+      +record(entry)
+    }
+  }
+}
+
+' other modules' classes, shown with their methods on their own diagram
+class ListingsService <<other diagram>>
+class NotificationsService <<other diagram>>
+class OrganizationsService <<other diagram>>
+class ApplicationsService <<other diagram>>
+class StatsService <<other diagram>>
+
+' services call services and reach storage and adapters through abstract classes
+AuthService --> AccountsRepository
+AuthService --> VerificationCodesRepository
+AuthService --> PasswordHasher
+AuthService --> CodeHasher
+AuthService --> AccessTokens
+AuthService --> GoogleIdTokens
+AuthService --> NotificationsService
+AuthService --> SessionsService
+AccountsService --> AccountsRepository
+AccountsService --> SessionsService
+SessionsService --> SessionsRepository
+SessionsService --> AccountsRepository
+SessionsService --> AccessTokens
+ProfilesService --> ProfilesRepository
+ProfilesService --> InterestsRepository
+ProfilesService --> AccountsService
+ModerationService --> ReportCasesRepository
+ModerationService --> AuditLogRepository
+ModerationService --> ProfilesService
+ModerationService --> AccountsService
+ModerationService --> ListingsService
+OrganizationReviewService --> OrganizationsService
+OrganizationReviewService --> ProfilesService
+OrganizationReviewService --> AuditLogRepository
+ListingsService --> ProfilesService
+ApplicationsService --> ProfilesService
+StatsService --> AccountsService
+StatsService --> ModerationService
+
+' layout only
+CodeHasher -[hidden]-> SessionsRepository
+GoogleIdTokens -[hidden]-> AccessTokens
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Abstract classes (italic) are implemented in infra: see code-structure-infra
+  Grey boxes: classes of other modules, shown with their methods on their own diagram
+endlegend
+
+@enduml
