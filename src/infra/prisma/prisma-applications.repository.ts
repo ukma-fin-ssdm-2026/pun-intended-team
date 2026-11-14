@@ -3,27 +3,12 @@ import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../core/common/domain-error.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { ApplicationsRepository } from '../../core/matching/repositories/applications.repository.ts';
-import {
-  afterEventPlans,
-  type Application,
-  type ApplicationRecord,
-  type ApplicationStatus,
-} from '../../core/matching/types/application.ts';
-import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
-import type { AfterEventPlan, Application as ApplicationRow } from './generated/client.ts';
+import type { Application, ApplicationRecord, ApplicationStatus } from '../../core/matching/types/application.ts';
+import { toApplication, withDaysAndPlans } from './application-rows.ts';
+import { toDesiredCompany } from './desired-company.ts';
 import { PrismaService } from './prisma.service.ts';
 import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
-
-const withDaysAndPlans = {
-  sessions: { select: { sessionId: true } },
-  afterEventPlans: { select: { plan: true } },
-} as const;
-
-type ApplicationWithDaysAndPlans = ApplicationRow & {
-  sessions: { sessionId: string }[];
-  afterEventPlans: { plan: AfterEventPlan }[];
-};
 
 @Injectable()
 export class PrismaApplicationsRepository implements ApplicationsRepository {
@@ -90,19 +75,4 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
     }
     return toApplication(await client.application.findUniqueOrThrow({ where: { id }, include: withDaysAndPlans }));
   }
-}
-
-function toApplication(row: ApplicationWithDaysAndPlans): Application {
-  return {
-    id: row.id,
-    userId: row.userId,
-    eventId: row.eventId,
-    sessionIds: row.sessions.map(({ sessionId }) => sessionId),
-    desiredCompany: toCommunicationFormat[row.desiredCompany],
-    afterEventPlans: row.afterEventPlans
-      .map(({ plan }) => plan)
-      .sort((a, b) => afterEventPlans.indexOf(a) - afterEventPlans.indexOf(b)),
-    status: row.status,
-    createdAt: row.createdAt.toISOString(),
-  };
 }

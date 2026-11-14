@@ -1,13 +1,13 @@
 // Written with the help of Claude
 import type { Transaction } from '../../common/transaction.ts';
-import type { Match, NewMatch } from '../types/match.ts';
+import type { Match, MatchRecord, MatchStatus, NewMatch } from '../types/match.ts';
 
 export abstract class MatchesRepository {
   abstract count(): Promise<number>;
 
   /**
-   * Holds the event's matching lock until `tx` ends. The instant match and the rounds take it before they read the
-   * pool, so no application is proposed twice (matching.md, rule 7).
+   * Holds the event's matching lock until `tx` ends. Every step that reads or changes the pool or a proposal takes it
+   * first, so no application is proposed twice and no answer crosses a round (matching.md, rule 7).
    */
   abstract lockEvent(eventId: string, tx: Transaction): Promise<void>;
 
@@ -19,4 +19,28 @@ export abstract class MatchesRepository {
    * either application has left the pool meanwhile.
    */
   abstract propose(match: NewMatch, tx: Transaction): Promise<Match>;
+
+  abstract findById(id: string, tx?: Transaction): Promise<MatchRecord | undefined>;
+
+  /** The user's matches with one of the statuses. */
+  abstract findByUser(userId: string, statuses: MatchStatus[]): Promise<MatchRecord[]>;
+
+  /** The application's match with one of the statuses; an application has at most one open match. */
+  abstract findByApplication(
+    applicationId: string,
+    statuses: MatchStatus[],
+    tx: Transaction,
+  ): Promise<MatchRecord | undefined>;
+
+  /** Moves the match from `from` to `to`. Throws, rolling `tx` back, when its status changed meanwhile. */
+  abstract setStatus(id: string, from: MatchStatus, to: MatchStatus, tx: Transaction): Promise<void>;
+
+  /**
+   * Declines the pending match on behalf of `userId`: an Exclusion keeps the two apart at the event, and both
+   * applications return to the pool (matching.md, rule 5).
+   */
+  abstract decline(match: MatchRecord, userId: string, tx: Transaction): Promise<void>;
+
+  /** Cancels the pending match because `applicationId` is withdrawn, and returns the other one to the pool (A5). */
+  abstract cancelForWithdrawal(match: MatchRecord, applicationId: string, tx: Transaction): Promise<void>;
 }
