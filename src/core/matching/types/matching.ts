@@ -15,3 +15,6 @@ export interface Pairing {
   b: string;
   score: number;
 }
+
+/** Why a proposal was cancelled before both users answered. */
+export type MatchCancelReason = 'event_cancelled' | 'participant_banned' | 'participant_withdrew';

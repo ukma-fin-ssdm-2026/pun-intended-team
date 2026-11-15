@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../core/common/domain-error.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { ApplicationsRepository } from '../../core/matching/repositories/applications.repository.ts';
 import {
   afterEventPlans,
@@ -9,7 +10,7 @@ import {
   type ApplicationStatus,
 } from '../../core/matching/types/application.ts';
 import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
-import type { AfterEventPlan, Application as ApplicationRow } from './generated/client.ts';
+import type { AfterEventPlan, Application as ApplicationRow, Prisma } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 import { violatedIndex } from './violated-index.ts';
 
@@ -73,6 +74,43 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       data: { status: 'withdrawn' },
     });
     return count === 0 ? undefined : this.findById(id);
+  }
+
+  async findBySessions(sessionIds: string[], statuses: ApplicationStatus[], tx?: Transaction): Promise<Application[]> {
+    const rows = await this.client(tx).application.findMany({
+      where: { status: { in: statuses }, sessions: { some: { sessionId: { in: sessionIds } } } },
+      include: withDaysAndPlans,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toApplication);
+  }
+
+  async cancel(ids: string[], from: ApplicationStatus[], tx?: Transaction): Promise<void> {
+    await this.client(tx).application.updateMany({
+      where: { id: { in: ids }, status: { in: from } },
+      data: { status: 'cancelled' },
+    });
+  }
+
+  async removeDays(ids: string[], sessionIds: string[], tx?: Transaction): Promise<void> {
+    await this.client(tx).applicationSession.deleteMany({
+      where: { applicationId: { in: ids }, sessionId: { in: sessionIds } },
+    });
+  }
+
+  async moveDay(fromSessionId: string, toSessionId: string, tx?: Transaction): Promise<void> {
+    const client = this.client(tx);
+    const waiting = await client.applicationSession.findMany({ where: { sessionId: fromSessionId } });
+    // An application that waits on both keeps its one row for the new session.
+    await client.applicationSession.createMany({
+      data: waiting.map(({ applicationId }) => ({ applicationId, sessionId: toSessionId })),
+      skipDuplicates: true,
+    });
+    await client.applicationSession.deleteMany({ where: { sessionId: fromSessionId } });
+  }
+
+  private client(tx?: Transaction): Prisma.TransactionClient {
+    return (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
   }
 }
 
