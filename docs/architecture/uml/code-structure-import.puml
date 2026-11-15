@@ -1,0 +1,141 @@
+@startuml code-structure-import
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure: the import process (CMP-03), src/import/ with core/import and ImportInfraModule
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+
+package "src/import/ (no HTTP)" as PROC {
+  class ImportAppModule {
+    +once()
+    +worker()
+  }
+}
+
+package "core/import (ImportModule; ImportScheduleModule in worker() only)" as CORE {
+  class ImportScheduleService {
+    +handle(providerId)
+  }
+  class EventImportService {
+    +run(options)
+    +runProvider(providerId, options)
+    +importFrom(provider)
+  }
+  class SavedVenues {
+    +find(name, address, location)
+    +add(venue)
+    +replace(venue)
+  }
+  abstract class EventProvider {
+    +fetch()
+    +normalize(raw)
+  }
+  abstract class Geocoder {
+    +locate(venue)
+  }
+  abstract class Clock {
+    +now()
+  }
+  abstract class ImportedEventsRepository {
+    +findCategories()
+    +failUnfinishedRuns(provider)
+    +startRun(provider)
+    +lastRunStart(provider)
+    +finishRun(runId, status, details)
+    +lastCompleteRun(provider)
+    +saveSkipped(runId, raw, reason)
+    +findVenues()
+    +updateVenueLocation(id, location)
+    +createVenue(venue)
+    +findEvent(provider, externalId)
+    +findOtherProvidersEvents(provider, venueId, startsAt)
+    +createEvent(event)
+    +updateEvent(id, fields)
+    +cancelUnseen(provider, seenExternalIds, range)
+  }
+  note as PROVIDERS_NOTE
+    The providers are injected as one array
+    under the EVENT_PROVIDERS token
+  end note
+}
+
+abstract class JobQueue <<other diagram>>
+
+package "infra (ImportInfraModule, global)" as INFRA {
+  package "prisma " as IMPORT_PRISMA {
+    class ImportPrismaService
+    class PrismaImportedEventsRepository
+  }
+  package providers {
+    class ArtWizardEventProvider
+    class KarabasEventProvider
+    interface HttpClient {
+      +get(url, headers)
+    }
+    class PoliteHttpClient
+  }
+  package geocoding {
+    class NominatimGeocoder
+  }
+  class PgBossJobQueue <<other diagram>>
+  note as BINDINGS_NOTE
+    Connects as nearby_import, with no key files.
+    Clock is bound to the system time (no class).
+    PgBossJobQueue only with withJobQueue(),
+    which worker() loads
+  end note
+}
+
+package "infra/stubs (unit test only, bound nowhere)" as STUBS {
+  class StubImportedEventsRepository
+}
+
+' the process loads the import's modules
+ImportAppModule --> EventImportService : once()
+ImportAppModule --> ImportScheduleService : worker()
+
+' services call ports and each other
+ImportScheduleService --> EventImportService
+ImportScheduleService --> EventProvider
+ImportScheduleService --> JobQueue
+EventImportService --> EventProvider
+EventImportService --> ImportedEventsRepository
+EventImportService --> Geocoder
+EventImportService --> Clock
+EventImportService --> SavedVenues : new per run
+
+' infra implements the abstract classes of core
+ImportedEventsRepository <|.. PrismaImportedEventsRepository
+ImportedEventsRepository <|.. StubImportedEventsRepository
+EventProvider <|.. ArtWizardEventProvider
+EventProvider <|.. KarabasEventProvider
+Geocoder <|.. NominatimGeocoder
+JobQueue <|.. PgBossJobQueue
+
+' the adapters reach the network through one polite client per site
+PrismaImportedEventsRepository --> ImportPrismaService
+ArtWizardEventProvider --> HttpClient
+KarabasEventProvider --> HttpClient
+NominatimGeocoder --> HttpClient
+HttpClient <|.. PoliteHttpClient
+
+legend right
+  Solid arrow: calls (constructor injection; from ImportAppModule: loads)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Implementations have the methods of the abstract class they implement
+  Grey boxes: shown on code-structure-core-operations and code-structure-infra
+endlegend
+
+@enduml

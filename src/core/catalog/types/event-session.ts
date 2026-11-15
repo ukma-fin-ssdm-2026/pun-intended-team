@@ -19,6 +19,9 @@ export interface EventSessionRecord extends Omit<EventSession, 'cutoffAt'> {
   event: Pick<Event, 'startsAt' | 'endsAt'>;
 }
 
+/** A session an application waits on; `created` when this application opened it, so its rounds are still to plan. */
+export type OpenedSession<Session = EventSession> = Session & { created: boolean };
+
 /** A session that starts at another time on its day. */
 export interface MovedSession {
   /** The session that was moved; cancelled when `intoSessionId` is set. */

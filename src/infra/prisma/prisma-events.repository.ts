@@ -6,15 +6,15 @@ import { addDays, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import type { Page, PageRequest } from '../../core/common/page.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { eventInclude, toEvent } from './catalog-rows.ts';
-import type { Prisma } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 
 @Injectable()
 export class PrismaEventsRepository implements EventsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string, tx?: Transaction): Promise<Event | undefined> {
-    const event = await this.client(tx).event.findUnique({ where: { id }, include: eventInclude });
+    const event = await clientOf(this.prisma, tx).event.findUnique({ where: { id }, include: eventInclude });
     return event ? toEvent(event) : undefined;
   }
 
@@ -55,7 +55,7 @@ export class PrismaEventsRepository implements EventsRepository {
     { startsAt, endsAt, ...changes }: EventChanges & { status?: EventStatus },
     tx?: Transaction,
   ): Promise<Event> {
-    const event = await this.client(tx).event.update({
+    const event = await clientOf(this.prisma, tx).event.update({
       where: { id },
       data: {
         ...changes,
@@ -65,10 +65,6 @@ export class PrismaEventsRepository implements EventsRepository {
       include: eventInclude,
     });
     return toEvent(event);
-  }
-
-  private client(tx?: Transaction): Prisma.TransactionClient {
-    return (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
   }
 }
 

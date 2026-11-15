@@ -1,12 +1,14 @@
 // Written with the help of Claude
-// AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications; reviewed by
-// Daryna Halytska.
+// AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications and matches;
+// reviewed by Daryna Halytska.
 import type { ImageSource } from 'expo-image';
-import { useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadMyApplications } from '@/api/applications';
+import { loadMyMatches } from '@/api/matches';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCover } from '@/components/ui/event-cover';
@@ -15,10 +17,13 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate, formatShortDay } from '@/dates';
 import { useMyApplications } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
+import { useMyMatches } from '@/hooks/use-matches';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { matchingPhase, openSessions, type Application } from '@/state/applications';
+import { matchHref, type Match } from '@/state/matches';
+import { useSession } from '@/state/session';
 import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 64 in the iPhone 14 frame (17 px below its status bar), 52 at the bottom, of which the list
@@ -121,6 +126,46 @@ function SearchCard({ application }: { application: Application }) {
   );
 }
 
+const matchStatus: Record<Match['status'], { title: string; note: (match: Match) => string; coral?: boolean }> = {
+  proposed: {
+    title: 'Є пропозиція',
+    note: (match) => `${match.partner.displayName} · встигни відповісти до ${formatEventDate(match.validUntil)}`,
+    coral: true,
+  },
+  accepted: { title: 'Згоду надіслано', note: (match) => `${match.partner.displayName} ще думає` },
+  mutual: { title: 'Це взаємно!', note: () => 'Контакти відкрито', coral: true },
+  expired: { title: 'Час вийшов', note: () => 'Пропозиція вже не діє' },
+  declined: { title: 'Не цього разу', note: () => 'Шукаємо далі' },
+  cancelled: { title: 'Пропозицію скасовано', note: () => 'Шукаємо далі' },
+};
+
+// The card of an application with a match: a proposal, an answer that waits for the other, or a mutual match.
+function MatchedCard({ application, match }: { application: Application; match: Match }) {
+  const router = useRouter();
+  const { data: event } = useEvent(application.eventId);
+  const status = matchStatus[match.status];
+  return (
+    <MatchCard
+      event={{
+        title: event?.title ?? ' ',
+        dateLabel: match.days.length > 0 ? daysLabel(match.days, event?.startTimeKnown ?? true) : '',
+        cover: findMockEvent(application.eventId)?.cover,
+      }}
+      onPress={match.status === 'expired' ? undefined : () => router.push(matchHref(match))}
+      status={
+        <>
+          <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
+            <Text className="font-inter-bold text-title text-text-secondary">
+              {match.partner.displayName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+          <StatusText title={status.title} note={status.note(match)} coral={status.coral} />
+        </>
+      }
+    />
+  );
+}
+
 function EmptyState({ onPick }: { onPick: () => void }) {
   return (
     <View className="flex-1 items-center justify-center px-5" style={{ paddingBottom: 120 }}>
@@ -150,7 +195,18 @@ export default function MatchesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { applications, loading, error, reload } = useMyApplications();
+  const { matches } = useMyMatches();
+  const { signedIn, isGuest } = useSession();
+  const enabled = signedIn && !isGuest;
   useStatusBarStyle('light');
+  // A round may have proposed a match since the tab was last open; the loads share a request already in flight.
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled) return;
+      void loadMyApplications();
+      void loadMyMatches();
+    }, [enabled]),
+  );
 
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const count = applications.length;
@@ -206,9 +262,14 @@ export default function MatchesScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: tabBarSpace + LIST_BOTTOM_GAP }}>
         {header}
         <View className="gap-3.5 px-5">
-          {applications.map((application) => (
-            <SearchCard key={application.id} application={application} />
-          ))}
+          {applications.map((application) => {
+            const match = matches.find(({ applicationId }) => applicationId === application.id);
+            return match ? (
+              <MatchedCard key={application.id} application={application} match={match} />
+            ) : (
+              <SearchCard key={application.id} application={application} />
+            );
+          })}
         </View>
       </ScrollView>
     </View>

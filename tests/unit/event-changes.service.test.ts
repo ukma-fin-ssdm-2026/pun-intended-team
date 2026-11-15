@@ -19,7 +19,7 @@ import { NOW, useFixedClock } from './fixtures/clock.ts';
 import { sessionAt, sessionStates, sessionsServiceOver, type StoredSession } from './fixtures/event-sessions.ts';
 
 const TX = { transaction: true } as unknown as Transaction;
-const OPEN = ['proposed', 'accepted_a', 'accepted_b'];
+const PENDING = ['proposed', 'accepted_a', 'accepted_b'];
 
 interface StoredMatch {
   id: string;
@@ -35,6 +35,7 @@ interface World {
   applications: Application[];
   matches: StoredMatch[];
   inbox: NewNotification[];
+  locked?: boolean;
 }
 
 function anApplication(id: string, sessionIds: string[], status: ApplicationStatus = 'in_pool', userId = ACCOUNT_ID) {
@@ -56,6 +57,7 @@ function makeService(world: World) {
   const applicationsRepository: Pick<ApplicationsRepository, 'findBySessions' | 'cancel' | 'removeDays' | 'moveDay'> = {
     findBySessions: (sessionIds, statuses, tx) => {
       inTransaction(tx);
+      assert.ok(world.locked, 'applications are read only under the event lock');
       return Promise.resolve(
         world.applications
           .filter(
@@ -89,13 +91,26 @@ function makeService(world: World) {
       return Promise.resolve();
     },
   };
-  const matchesRepository: Pick<MatchesRepository, 'cancelOpen'> = {
-    cancelOpen: (applicationIds, reason, tx) => {
+  const matchesRepository: Pick<MatchesRepository, 'lockEvent' | 'cancelPending'> = {
+    lockEvent: (eventId, tx) => {
       inTransaction(tx);
+      assert.equal(eventId, EVENT_ID);
+      world.locked = true;
+      return Promise.resolve();
+    },
+    cancelPending: (applicationIds, reason, tx) => {
+      inTransaction(tx);
+      assert.ok(world.locked, 'proposals change only under the event lock');
       for (const match of world.matches) {
         const theirs = applicationIds.includes(match.applicationAId) || applicationIds.includes(match.applicationBId);
-        if (theirs && OPEN.includes(match.status)) {
+        if (theirs && PENDING.includes(match.status)) {
           Object.assign(match, { status: 'cancelled', cancelReason: reason });
+          for (const other of world.applications) {
+            const inMatch = other.id === match.applicationAId || other.id === match.applicationBId;
+            if (inMatch && !applicationIds.includes(other.id) && other.status === 'paired') {
+              other.status = 'in_pool';
+            }
+          }
         }
       }
       return Promise.resolve();
@@ -281,6 +296,28 @@ const cases: Case[] = [
     },
   },
   {
+    name: 'a pending proposal of an application left without a day: cancelled, and the partner who keeps a day returns to the pool',
+    change: 'rescheduled',
+    world: {
+      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
+      applications: [
+        anApplication('later', ['s27'], 'paired'),
+        anApplication('partner', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
+      ],
+      matches: [{ id: 'proposed', applicationAId: 'later', applicationBId: 'partner', status: 'accepted_b' }],
+    },
+    after: {
+      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['later cancelled s27', 'partner in_pool s18'],
+      matches: ['proposed cancelled event_cancelled'],
+      inbox: [
+        `user event_changed:rescheduled:later:${iso(RUN_ON_27)}>none`,
+        `other event_changed:rescheduled:partner:${iso(RUN_ON_27)}>none`,
+      ],
+    },
+  },
+  {
     name: 'a day that is gone while the other day is over: the application is cancelled',
     change: 'rescheduled',
     world: {
@@ -389,7 +426,6 @@ describe('EventChangesService.handle', () => {
             eventId: EVENT_ID,
             applicationId: 'both',
             change: 'rescheduled',
-            applicationStatus: 'in_pool',
             sessions: [{ from: iso(RUN_ON_27), to: null }],
           },
         },
@@ -400,7 +436,6 @@ describe('EventChangesService.handle', () => {
             eventId: EVENT_ID,
             applicationId: 'later',
             change: 'rescheduled',
-            applicationStatus: 'cancelled',
             sessions: [{ from: iso(RUN_ON_27), to: null }],
           },
         },

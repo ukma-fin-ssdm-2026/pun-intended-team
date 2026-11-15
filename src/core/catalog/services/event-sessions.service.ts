@@ -6,7 +6,7 @@ import { kyivDate } from '../../common/kyiv-time.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { EventSessionsRepository } from '../repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
-import type { EventSession, EventSessionRecord, SessionChanges } from '../types/event-session.ts';
+import type { EventSession, EventSessionRecord, OpenedSession, SessionChanges } from '../types/event-session.ts';
 import { sessionAhead, sessionCutoff, sessionStart } from './session-start.ts';
 
 @Injectable()
@@ -21,7 +21,7 @@ export class EventSessionsService {
    * must take applications and lie within the catalog window, or none is opened: a run of shows until May takes
    * applications for the coming four weeks only.
    */
-  async open(eventId: string, days?: string[]): Promise<EventSession[]> {
+  async open(eventId: string, days?: string[], tx?: Transaction): Promise<OpenedSession[]> {
     const event = await this.eventsRepository.findById(eventId);
     if (!event) {
       throw new DomainError('NOT_FOUND', 'Event not found');
@@ -50,7 +50,9 @@ export class EventSessionsService {
     if (starts.some((startsAt) => sessionCutoff(event, startsAt) <= now)) {
       throw new DomainError('APPLICATIONS_CLOSED', 'A picked session no longer takes applications');
     }
-    const sessions = (await this.eventSessionsRepository.findOrCreateMany(event.id, starts)).map(withCutoff);
+    const sessions = (await this.eventSessionsRepository.findOrCreateMany(event.id, starts, tx)).map(
+      ({ created, ...session }) => ({ ...withCutoff(session), created }),
+    );
     if (sessions.some(({ status }) => status === 'cancelled')) {
       throw new DomainError('EVENT_CANCELLED', 'A cancelled event takes no applications');
     }

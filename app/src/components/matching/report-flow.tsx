@@ -10,7 +10,6 @@ import { reportListing, reportUser, type ReportReason } from '@/api/reports';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
-import { mockPerson } from '@/mocks/matching';
 import { colors, shadows } from '@/styles/tokens';
 
 export const reportReasons: { value: ReportReason; label: string }[] = [
@@ -31,6 +30,11 @@ export type ReportedPerson = {
   username?: string;
   listingId?: string;
 };
+
+// A user of the API, whose name comes in one form only: the handle stands in for the forms the copy declines.
+export function reportedUser({ displayName, username }: { displayName: string; username: string }): ReportedPerson {
+  return { name: displayName, accusative: `@${username}`, instrumental: `@${username}`, username };
+}
 
 const nextSteps = (person: ReportedPerson): { icon: IconName; text: string }[] => [
   { icon: 'report-shield', text: 'Модератор розгляне скаргу протягом доби' },
@@ -206,7 +210,7 @@ function ReportSentDialog({ person, onDone }: { person: ReportedPerson; onDone: 
 export type ReportStep = 'closed' | 'form' | 'sent';
 
 type Props = {
-  // The match by default (05, 07); a post's author on Т3.
+  // The match (05, 07), or a post's author on Т3; without one there is nothing to report.
   person?: ReportedPerson;
   step: ReportStep;
   onStepChange: (step: ReportStep) => void;
@@ -216,7 +220,8 @@ type Props = {
 
 // One modal for both steps, so sending the report swaps the sheet for the dialog without closing and reopening it.
 // A backdrop tap closes either step, as in the prototype.
-export function ReportFlow({ person = mockPerson, step, onStepChange, onDone }: Props) {
+export function ReportFlow({ person, step, onStepChange, onDone }: Props) {
+  if (!person) return null;
   return (
     <Overlay
       visible={step !== 'closed'}

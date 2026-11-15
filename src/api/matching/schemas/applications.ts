@@ -24,7 +24,7 @@ const AfterEventPlans = z
   .refine((plans) => new Set(plans).size === plans.length, { message: 'Each plan may appear once' })
   .describe('What the user would do together after the event; an empty list means only the event');
 
-const ApplicationSession = z
+export const ApplicationSession = z
   .object({
     startsAt: z.iso
       .datetime({ offset: true })

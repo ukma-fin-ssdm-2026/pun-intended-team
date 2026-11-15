@@ -77,6 +77,13 @@ export interface ReportCaseDetails extends ReportCase {
   reports: (Omit<ReportRecord, 'reporterId'> & { reporter: CaseAccount })[];
 }
 
+/** Who of a pool must not be matched (FR-020). */
+export interface MatchingExclusions {
+  /** `[reporter, reported]`: one of the two reported the other. */
+  reported: [string, string][];
+  banned: string[];
+}
+
 export interface AuditEntry {
   actorId: string;
   action: string;

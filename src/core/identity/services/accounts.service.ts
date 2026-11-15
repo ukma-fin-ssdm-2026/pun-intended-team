@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../common/transaction.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import type { Account } from '../types/account.ts';
 import { SessionsService } from './sessions.service.ts';
@@ -16,6 +17,16 @@ export class AccountsService {
     return this.accountsRepository.findDateOfBirth(accountId);
   }
 
+  /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
+  async getDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
+    return this.accountsRepository.findDatesOfBirth(accountIds);
+  }
+
+  /** The account's verified phone number; null without one, as with Google sign-in, or for an unknown account. */
+  async getPhone(accountId: string): Promise<string | null> {
+    return (await this.accountsRepository.findById(accountId))?.phone ?? null;
+  }
+
   /** The account's role and status; undefined for an unknown account. */
   async findStanding(accountId: string): Promise<Pick<Account, 'role' | 'status'> | undefined> {
     const account = await this.accountsRepository.findById(accountId);
@@ -26,6 +37,11 @@ export class AccountsService {
   async ban(accountId: string): Promise<void> {
     await this.accountsRepository.setStatus(accountId, 'banned');
     await this.sessionsService.endAll(accountId);
+  }
+
+  /** The banned ones of `accountIds`. */
+  async findBanned(accountIds: string[], tx?: Transaction): Promise<string[]> {
+    return this.accountsRepository.findIdsWithStatus(accountIds, 'banned', tx);
   }
 
   async stats(): Promise<{ users: number }> {

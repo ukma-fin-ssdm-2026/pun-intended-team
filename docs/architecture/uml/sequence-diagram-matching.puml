@@ -44,7 +44,7 @@ SRV -> DB : match → mutual; inbox rows (match_mutual)
 
 == Contact reveal ==
 
-APP -> SRV : GET /matches/{id}
+APP -> SRV : GET /matches/{id}/contacts
 SRV -> DB : check mutual + safety notice acknowledged
 SRV --> APP : contact details (FR-019)
 

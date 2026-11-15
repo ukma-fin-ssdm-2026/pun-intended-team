@@ -20,8 +20,8 @@ interface ChangedDay {
 /**
  * What a cancelled or moved event means for its applicants (HLD I3, matching.md rule 10). Consumes `event.changed`:
  * the catalog brings the sessions in line with the event, and the applications follow their sessions. An application
- * left without a day that is still ahead is cancelled with its open proposals; one that keeps a day loses only the
- * days that are gone. Every applicant whose days changed is told once.
+ * left without a day that is still ahead is cancelled with its pending proposal, whose other side returns to the pool
+ * if it keeps a day; one that keeps a day loses only the days that are gone. Every applicant whose days changed is told once.
  */
 @Injectable()
 export class EventChangesService implements OnModuleInit {
@@ -44,6 +44,8 @@ export class EventChangesService implements OnModuleInit {
    */
   async handle({ eventId }: EventChangedPayload, now = new Date()): Promise<void> {
     await this.transactions.run(async (tx) => {
+      // Under the event's lock, so no round or answer reads the pool while it changes (matching.md, rule 7).
+      await this.matchesRepository.lockEvent(eventId, tx);
       const changes = await this.eventSessionsService.reconcile(eventId, tx, now);
       if (changes.cancelled.length > 0 || changes.moved.length > 0) {
         await this.follow(eventId, changes, now, tx);
@@ -81,7 +83,7 @@ export class EventChangesService implements OnModuleInit {
 
     if (cancelled.size > 0) {
       await this.applicationsRepository.cancel([...cancelled], ACTIVE_STATUSES, tx);
-      await this.matchesRepository.cancelOpen([...cancelled], 'event_cancelled', tx);
+      await this.matchesRepository.cancelPending([...cancelled], 'event_cancelled', tx);
     }
     if (trimmed.length > 0) {
       await this.applicationsRepository.removeDays(
@@ -110,7 +112,6 @@ export class EventChangesService implements OnModuleInit {
             eventId,
             applicationId: application.id,
             change,
-            applicationStatus: cancelled.has(application.id) ? 'cancelled' : application.status,
             sessions: days,
           },
           dedupeKey:
