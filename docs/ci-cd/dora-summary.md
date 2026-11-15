@@ -80,6 +80,13 @@ xychart-beta
 | Change fail rate | Reliability tests hung until the timeout (№202) | A started process is left open | Stop the started APIs in `after`; `--test-force-exit` | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red | @Vlad-Re |
 
+## What Pain Did These Metrics Show?
+
+1. **Changes wait for people, not for CI.** 99.7% of the lead time passes before the `main` run starts, while a run takes 2.7 min (median). 21 of 89 PRs took more than a day, 4 more than a week: large PRs wait for review.
+2. **We work in bursts.** 49 of 81 deployments were on a Saturday or a Sunday, and 7 of 21 days had none.
+3. **Nobody watches a red `main`.** The longest incident, after №207, lasted 14 h 14 min, from Sunday afternoon to Monday morning. We do not record when someone noticed a red run, so "noticing is the bottleneck" is a hypothesis, not a measurement.
+4. **The stability numbers rest on a small sample.** There were 6 failures and 4 incidents, and the one after №207 makes up 86% of the total recovery time, so the mean of 4 h 10 min says little; the median of 1 h 11 min is closer to a typical incident.
+
 ## Bonuses
 
 ### 1. Automatic metrics
