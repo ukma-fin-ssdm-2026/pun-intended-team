@@ -3,6 +3,8 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import { DAY_MS, HOUR_SECONDS } from '../../common/durations.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
+import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { AccessTokens } from '../adapters/access-tokens.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
 import { SessionsRepository } from '../repositories/sessions.repository.ts';
@@ -27,6 +29,8 @@ export class SessionsService {
     private readonly sessionsRepository: SessionsRepository,
     private readonly accountsRepository: AccountsRepository,
     private readonly accessTokens: AccessTokens,
+    private readonly notificationsService: NotificationsService,
+    private readonly transactions: TransactionRunner,
   ) {}
 
   async start(accountId: string, role: AccountRole): Promise<SessionTokens> {
@@ -60,7 +64,7 @@ export class SessionsService {
     const current = sameHash(session.tokenHash, presented);
     const retryOf = current ? undefined : rotationRetried(session, presented, now);
     if ((!current && !retryOf) || account?.status !== 'active') {
-      await this.sessionsRepository.revoke(session.id, now);
+      await this.revoke(session.id, now);
       throw invalidRefreshToken();
     }
     const next = newSecret();
@@ -81,12 +85,18 @@ export class SessionsService {
   }
 
   async end(sessionId: string): Promise<void> {
-    await this.sessionsRepository.revoke(sessionId, new Date());
+    await this.revoke(sessionId, new Date());
   }
 
-  /** Ends every session of the account, or every one but `exceptSessionId`. */
+  /**
+   * Ends every session of the account, or every one but `exceptSessionId`. Their devices stop getting pushes in the
+   * same transaction, as when one session ends.
+   */
   async endAll(accountId: string, exceptSessionId?: string): Promise<void> {
-    await this.sessionsRepository.revokeAll(accountId, new Date(), exceptSessionId);
+    await this.transactions.run(async (tx) => {
+      await this.sessionsRepository.revokeAll(accountId, new Date(), exceptSessionId, tx);
+      await this.notificationsService.removeDevices(accountId, exceptSessionId, tx);
+    });
   }
 
   /** Checked on every request, so a sign-out or ban takes effect before the access token expires (SEC-005). */
@@ -98,6 +108,14 @@ export class SessionsService {
       !session.revokedAt &&
       session.expiresAt > new Date()
     );
+  }
+
+  /** Ends the session, and with it the pushes to its device, in one transaction (data model, DeviceToken). */
+  private async revoke(sessionId: string, now: Date): Promise<void> {
+    await this.transactions.run(async (tx) => {
+      await this.sessionsRepository.revoke(sessionId, now, tx);
+      await this.notificationsService.removeDevice(sessionId, tx);
+    });
   }
 
   private async tokens(

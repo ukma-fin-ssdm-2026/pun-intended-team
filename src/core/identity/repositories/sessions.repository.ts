@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Transaction } from '../../common/transaction.ts';
 import type { Session, SessionRecord, SessionRotation } from '../types/session.ts';
 
 export abstract class SessionsRepository {
@@ -12,8 +13,8 @@ export abstract class SessionsRepository {
    */
   abstract rotate(id: string, currentHash: string, next: SessionRotation): Promise<boolean>;
 
-  abstract revoke(id: string, revokedAt: Date): Promise<void>;
+  abstract revoke(id: string, revokedAt: Date, tx?: Transaction): Promise<void>;
 
   /** Revokes every session of the account but `exceptId`. */
-  abstract revokeAll(accountId: string, revokedAt: Date, exceptId?: string): Promise<void>;
+  abstract revokeAll(accountId: string, revokedAt: Date, exceptId?: string, tx?: Transaction): Promise<void>;
 }
