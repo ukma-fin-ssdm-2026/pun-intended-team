@@ -72,7 +72,7 @@ xychart-beta
 | Metric | Problem | Root cause | Action | Owner |
 |---|---|---|---|---|
 | Change lead time | 21 of 89 PRs over a day, up to 9 days | Large PRs (up to 100 commits) | Split features into PRs of at most a day's work | @viktoriyabaran |
-| Change lead time | 98.9% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
+| Change lead time | 99.7% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
 | Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
 | Deployment frequency | No deployment on 7 of 21 days | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
 | Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI | @OLEGkn-coder |
@@ -105,7 +105,7 @@ node scripts/ci-metrics/collect.mjs --metrics --out ci-metrics-out/period --note
 | Change fail rate | 6.9% (6 of 87) | 6.9% (6 of 87) |
 | Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min | mean 4 h 10 min, median 1 h 11 min (4 incidents) |
 
-The numbers match under the two readings the hand count used: an incident is the series of red runs up to the next green one, and the lead time is counted per PR and ends with the first green run after the merge. The 98.9% share of the lead time before the merge in the Improvement Backlog the script does not reproduce: it gets 99.7%.
+The numbers match under the two readings the hand count used: an incident is the series of red runs up to the next green one, and the lead time is counted per PR and ends with the first green run after the merge.
 
 ### 2. Improvement with a measured effect
 
