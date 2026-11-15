@@ -1,0 +1,162 @@
+@startuml code-structure-core-events
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure (src/core/), events: catalog, listings, matching
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+
+package "core (business logic)" as CORE {
+  package catalog {
+    class EventsService {
+      +stats()
+      +list(query, page)
+      +find(id)
+      +getById(id)
+      +create(accountId, input)
+      +update(accountId, id, input)
+      +cancel(accountId, id)
+    }
+    class EventSessionsService {
+      +open(eventId, days)
+      +getByIds(ids)
+    }
+    class CategoriesService {
+      +findActive(id)
+      +findAll()
+      +listActive()
+      +getById(id)
+      +create(input)
+      +update(id, changes)
+      +delete(id)
+    }
+    class OrganizationsService {
+      +getOwn(accountId)
+      +request(accountId, request)
+      +find(accountId)
+      +listRequests(page)
+      +decide(accountId, decision, adminId)
+    }
+    class ImportFreshnessService {
+      +lastUpdatedAt()
+    }
+    abstract class EventsRepository {
+      +findById(id)
+      +findPublished(filter, page)
+      +countPublishedEndingAfter(instant)
+      +create(event)
+      +update(id, changes)
+    }
+    abstract class EventSessionsRepository {
+      +findOrCreateMany(eventId, starts)
+      +findByIds(ids)
+    }
+    abstract class CategoriesRepository {
+      +findById(id)
+      +findAll()
+      +create(category)
+      +update(id, changes)
+      +delete(id)
+    }
+    abstract class VenuesRepository {
+      +findById(id)
+    }
+    abstract class OrganizationsRepository {
+      +findByAccountId(accountId)
+      +create(accountId, request)
+      +resubmit(accountId, request)
+      +findPage(page)
+      +decide(accountId, decision, adminId, at)
+    }
+    abstract class ImportRunsRepository {
+      +freshness()
+    }
+  }
+  package listings {
+    class ListingsService {
+      +list(page)
+      +getById(id)
+      +create(accountId, input)
+      +remove(accountId, id)
+      +findByIds(ids)
+      +removeReported(id)
+    }
+    abstract class ListingsRepository {
+      +findActiveById(id)
+      +findByIds(ids)
+      +findActive(fromDate, page)
+      +create(listing)
+      +markRemoved(id)
+    }
+  }
+  package matching {
+    class ApplicationsService {
+      +apply(userId, input)
+      +listMine(userId)
+      +getOwn(userId, id)
+      +withdraw(userId, id)
+    }
+    class MatchingService {
+      +stats()
+    }
+    abstract class ApplicationsRepository {
+      +create(application)
+      +findById(id)
+      +findByUserAndEvent(userId, eventId)
+      +findByUserWithStatus(userId, statuses)
+      +withdraw(id, from)
+    }
+    abstract class MatchesRepository {
+      +count()
+    }
+  }
+}
+
+' other modules' classes, shown with their methods on their own diagram
+class ProfilesService <<other diagram>>
+class ModerationService <<other diagram>>
+class OrganizationReviewService <<other diagram>>
+class StatsService <<other diagram>>
+
+' services call services and reach storage and adapters through abstract classes
+ModerationService --> ListingsService
+OrganizationReviewService --> OrganizationsService
+EventsService --> EventsRepository
+EventsService --> OrganizationsRepository
+EventsService --> VenuesRepository
+EventsService --> CategoriesService
+EventSessionsService --> EventsRepository
+EventSessionsService --> EventSessionsRepository
+CategoriesService --> CategoriesRepository
+OrganizationsService --> OrganizationsRepository
+ImportFreshnessService --> ImportRunsRepository
+ListingsService --> ListingsRepository
+ListingsService --> CategoriesService
+ListingsService --> EventsService
+ListingsService --> ProfilesService
+ApplicationsService --> ApplicationsRepository
+ApplicationsService --> EventSessionsService
+ApplicationsService --> ProfilesService
+MatchingService --> MatchesRepository
+StatsService --> EventsService
+StatsService --> MatchingService
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Abstract classes (italic) are implemented in infra: see code-structure-infra
+  Grey boxes: classes of other modules, shown with their methods on their own diagram
+endlegend
+
+@enduml

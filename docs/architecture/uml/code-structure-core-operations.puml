@@ -1,0 +1,90 @@
+@startuml code-structure-core-operations
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure (src/core/), operations: admin, system, notifications, jobs, common
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+
+package "core (business logic)" as CORE {
+  package admin {
+    class StatsService {
+      +get()
+    }
+    class BackupsService {
+      +status(now)
+      +history(now)
+    }
+    abstract class BackupRunsRepository {
+      +recent(limit)
+      +lastSucceededAt()
+    }
+  }
+  package system {
+    class HealthService {
+      +check()
+    }
+    abstract class DatabaseProbe {
+      +ping()
+    }
+  }
+  package notifications {
+    class NotificationsService {
+      +sendCode(phone, code)
+    }
+    abstract class MessagingProvider {
+      +sendCode(phone, code)
+    }
+  }
+  package jobs {
+    abstract class JobQueue {
+      +enqueue(name, payload, options, tx)
+      +register(name, handler, options)
+      +schedule(name, cron, payload, key)
+    }
+  }
+  package common {
+    abstract class TransactionRunner {
+      +run(work)
+    }
+    class DomainError
+  }
+}
+
+' other modules' classes, shown with their methods on their own diagram
+class AccountsService <<other diagram>>
+class EventsService <<other diagram>>
+class MatchingService <<other diagram>>
+class ModerationService <<other diagram>>
+class AuthService <<other diagram>>
+
+' services call services and reach storage and adapters through abstract classes
+AuthService --> NotificationsService
+StatsService --> AccountsService
+StatsService --> EventsService
+StatsService --> MatchingService
+StatsService --> ModerationService
+StatsService --> BackupsService
+BackupsService --> BackupRunsRepository
+HealthService --> DatabaseProbe
+NotificationsService --> MessagingProvider
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Abstract classes (italic) are implemented in infra: see code-structure-infra
+  Grey boxes: classes of other modules, shown with their methods on their own diagram
+endlegend
+
+@enduml

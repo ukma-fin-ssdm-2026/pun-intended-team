@@ -8,35 +8,48 @@ The main server (CMP-02) is split into three layers. **`src/api/`** handles HTTP
 
 The catalog module as the example; every other module follows the same pattern.
 
-How the classes depend on each other: [code structure diagram](../uml/rendered/code-structure.svg) (source: [`uml/code-structure.puml`](../uml/code-structure.puml)).
+**Diagrams.** How the modules and classes depend on each other (sources in [`uml/`](../uml/)):
+
+- [Modules](../uml/rendered/code-structure.svg) ([source](../uml/code-structure.puml)): the overview. The layers and the import process, one box per module, which modules call which, and which infra package implements each module's ports. No classes.
+- [API](../uml/rendered/code-structure-api.svg) ([source](../uml/code-structure-api.puml)): every controller with its handlers, the guard and the rest of `api/common`, and the services each controller calls.
+- [Core: users](../uml/rendered/code-structure-core-users.svg) ([source](../uml/code-structure-core-users.puml)): identity, profiles and moderation, with their services, repositories and adapters.
+- [Core: events](../uml/rendered/code-structure-core-events.svg) ([source](../uml/code-structure-core-events.puml)): catalog, listings and matching.
+- [Core: operations](../uml/rendered/code-structure-core-operations.svg) ([source](../uml/code-structure-core-operations.puml)): admin, system, notifications, jobs and `core/common`.
+- [Infra](../uml/rendered/code-structure-infra.svg) ([source](../uml/code-structure-infra.puml)): what `InfraModule` binds to each repository and adapter, by infra package.
+- [Import](../uml/rendered/code-structure-import.svg) ([source](../uml/code-structure-import.puml)): the import process, `core/import`, what `ImportInfraModule` binds, and the stub.
+
+Together they show every class in `src/` with its public methods, except types, Nest module classes (the overview's boxes) and plain helper functions. A class is drawn with its methods on one diagram; other diagrams show it as a grey box. CI does not check that they are current: after a structural change, update the sources and re-render them with `npm run docs:diagrams` (needs Docker).
 
 ```
 src/
   api/                          HTTP only
     main.ts, app.module.ts
-    common/                     endpoint, auth, api-exception, filter, adapter, openapi, registry, routes, tags, config
+    common/                     endpoint, auth, api-exception, filter, adapter, openapi, registry, routes, tags, config, security-headers
       schemas/                  common.ts, errors.ts
     catalog/
       catalog-api.module.ts     imports core's CatalogModule, declares the controllers
-      controllers/              events, categories, admin-categories
-      schemas/                  events.ts, categories.ts
+      controllers/              events, categories, admin-categories, organizations
+      schemas/                  events.ts, categories.ts, organizations.ts
     system/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts
+    common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts, age.ts, durations.ts
     catalog/
-      catalog.module.ts         provides + exports EventsService, CategoriesService
-      repositories/             events, categories, venues, organizations (abstract: what core needs from storage)
-      services/                 events.service.ts, categories.service.ts, category-name.ts (how a category name is saved)
-      types/                    event, category, venue, organization
+      catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, ImportFreshnessService
+      repositories/             events, event-sessions, categories, venues, organizations, import-runs (abstract: what core needs from storage)
+      services/                 events.service.ts, event-sessions.service.ts, categories.service.ts, organizations.service.ts, import-freshness.service.ts,
+                                category-name.ts (how a category name is saved), session-start.ts (when an event's session on a day starts)
+      types/                    event, event-session, category, venue, organization, import-freshness
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
     system/                     HealthService behind /health; adapters/database-probe.ts (abstract: does the database answer)
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
-      adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue)
+      import-schedule.module.ts provides ImportScheduleService: the import.run handler and a daily schedule per provider; only the long-running process loads it
+      adapters/                 event-provider.ts (abstract: one external listing service), geocoder.ts (abstract: coordinates of a venue), clock.ts (abstract: the time now)
       repositories/             imported-events (the import's storage, role nearby_import: reads categories, writes events, venues, runs, skipped records)
-      services/                 event-import.service.ts, venue-match.ts (when two providers' venues are one)
+      services/                 event-import.service.ts, import-schedule.service.ts, venue-match.ts (when two providers' venues are one),
+                                event-match.ts (when two providers' events are one)
       types/                    import (ImportedEvent.categorySlug: the providers' adapters map genres to category slugs, which never change)
   infra/                        data access and external services
     infra.module.ts             binds every repository to its implementation
@@ -68,15 +81,15 @@ src/
 11. **ESLint enforces rules 1, 7 and 9** with `no-restricted-imports` in `eslint.config.mjs`.
 12. **Abstract classes only where `core` depends on something outside it.** Nest injects by class, since TypeScript interfaces do not exist at runtime: an abstract class is both the interface and the injection token. Repositories (rule 7) and the adapters of HLD I5 (rule 13) are abstract classes owned by `core`. Services are injected as concrete classes, by `api` and by other modules alike; a service gets an abstract class only when it needs a second implementation. An injected class is a value import, not `import type`, because the class is the token. In tests, a service is replaced with `{ provide: EventsService, useValue: fake }`, the fake typed as `Pick<EventsService, …>`.
 
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`) are defined in `core` and implemented in `infra`. `EventProvider`, `MessagingProvider`, `GoogleIdTokens` and `JobQueue` exist; `PushProvider` comes with notifications.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. `EventProvider`, `Geocoder`, `MessagingProvider`, `GoogleIdTokens` and the `JobQueue` port exist; `PushProvider` comes with notifications. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
 
 14. **Transactions across modules** (HLD I2, I3) are explicit. A service starts one with `TransactionRunner.run(async (tx) => …)` (an abstract class in `core/common`, implemented with Prisma in `infra/prisma/`) and passes `tx` to every repository method, `notify(…, tx)` and `JobQueue.enqueue(…, tx)` that must join it. A repository method that can join takes `tx?: Transaction` and uses `tx ?? this.prisma`. Details: [database access](database-access.md#transactions). `@nestjs-cls/transactional` (implicit, no `tx` parameter) was considered and not adopted: an explicit `tx` keeps every transaction visible in signatures and needs no request context in job handlers.
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. `EventProvider`, `Geocoder`, `MessagingProvider` and `GoogleIdTokens` exist; `PushProvider` comes with notifications. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
+
+15. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. Without flags it runs until stopped and takes the `import.run` jobs (HLD I3) through `ImportScheduleModule`, with the job queue of `ImportInfraModule.withJobQueue()`; `--once` (`npm run import:events`) makes one run without the job queue and exits.
 
 ## Planned
 
-15. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
-16. **`src/import/`**: the import service (CMP-03) starts its own `core` module and `ImportInfraModule` without HTTP (`NestFactory.createApplicationContext`), and without the API's `InfraModule`: it connects as `nearby_import` and needs no key file. Without flags it runs until stopped and takes the `import.run` jobs (HLD I3) through `ImportScheduleModule`, with the job queue of `ImportInfraModule.withJobQueue()`; `--once` (`npm run import:events`) makes one run without the job queue and exits.
+16. **Remove `infra/stubs/`** once the unit test of the import catalog no longer needs it.
 
 ## AI Usage Note
 
