@@ -2,6 +2,10 @@
 
 DORA metrics of the `CI` workflow on `main` for the runs created from 20.10 to 09.11.2026 (UTC, 3 weeks). These are rows №117–№210 of [`metrics-raw.md`](metrics-raw.md), which holds the full history from 12.09 to 11.11. The per-PR lead times and the recovery incidents of the period are in [`evidence/dora-metrics-2026-10-20-to-2026-11-09.json`](evidence/dora-metrics-2026-10-20-to-2026-11-09.json).
 
+## Working Definitions
+
+We use the lab's definition: a **deployment** is a green run of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) on `main`, and a **failure** is a red one. `CI` is the only workflow that runs on a push to `main`: the API docs, the staging deployment and the image publication are jobs inside it, so a red job in any of them makes the commit red. Cancelled runs count as neither. DORA measures deployments to production; ours are green CI runs, so all four numbers are an approximation. Bonus 5 recomputes them with the image publication as the deployment.
+
 ## DORA Metrics
 
 | Metric | Formula | Result | Category |
