@@ -34,7 +34,7 @@ Two test layers, each aimed at what the other cannot reach cheaply. Coverage mea
 4. **Left out is not untested.** Validation rules in schemas still get tests; coverage cannot show whether they have them.
 5. **Categories, not file names.** A new file falls under its category; a file that fits none is measured. The patterns are in [`mcr.config.mjs`](../../../mcr.config.mjs).
 6. **Thresholds** — a run of all tests (`npm run test:coverage`, in CI) fails below 90% of lines or 80% of branches. The unit report alone has no threshold. Coverage is raised with tests, not by leaving files out.
-7. **Reports are not committed** — `npm run test:coverage:unit` and `npm run test:coverage` write a single HTML file to `coverage/index.html`. CI publishes the report of all tests from every run on `main` as the `coverage-report` artifact of the `E2E tests` job.
+7. **Reports are not committed** — `npm run test:coverage:unit` and `npm run test:coverage` write a single HTML file to `coverage/index.html`. The coverage gate fails the `E2E tests` job in CI, whose log prints the summary.
 
 ### Writing a unit test
 

@@ -18,7 +18,7 @@ Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreS
 
 ## Coverage
 
-MCR, 1 November 2026, a local run. The report of all tests from every run on `main` is the `coverage-report` artifact of its `E2E tests` job:
+MCR, 1 November 2026, a local run. Reports are not committed: `npm run test:coverage` writes one to `coverage/index.html`.
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|

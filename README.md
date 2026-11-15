@@ -155,8 +155,6 @@ npm run test:coverage        # all tests with coverage
 
 The coverage commands use [monocart-coverage-reports](https://github.com/cenfun/monocart-coverage-reports), print a summary and write a single-file HTML report to `coverage/index.html`, which is not committed. Coverage measures only code that makes decisions when it runs; what is left out and why is in the [testing mechanism](docs/architecture/mechanisms/testing.md). Blank and comment lines are not counted.
 
-CI publishes the report of all tests from every run on `main`: it is the `coverage-report` artifact of the `E2E tests` job, on the run's page, kept for 30 days. Reports are not committed.
-
 How testing will grow, the current coverage and what is not covered yet are in the [testing strategy](docs/testing/testing-strategy.md).
 
 The fault-injection tests in [`tests/reliability/`](tests/reliability/) start the API against a fake Postgres that accepts the connection and stops answering, and check that requests end with `503` within their time limit ([reliability report](docs/reliability/reliability-report.md)).
