@@ -14,8 +14,13 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
+import type { MessagingProvider } from '../../dist/core/notifications/adapters/messaging-provider.js';
+import { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import { PgBossJobQueue } from '../../dist/infra/jobs/pg-boss-job-queue.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
+import { PrismaNotificationsRepository } from '../../dist/infra/prisma/prisma-notifications.repository.js';
+import { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
+import { PrismaTransactionRunner } from '../../dist/infra/prisma/prisma-transaction-runner.js';
 import { ARTWIZARD_CATEGORY_SLUGS } from '../../dist/infra/providers/artwizard-event-provider.js';
 import { KARABAS_SECTIONS } from '../../dist/infra/providers/karabas-event-provider.js';
 
@@ -3123,6 +3128,238 @@ describe('PUT /api/v1/me/profile/interests', () => {
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
+  });
+});
+
+// The inbox (notifications.md). No sender exists yet (#372), so the tests call notify() on the run's database, as a
+// module would, and the running API delivers the jobs.
+describe('Notifications', () => {
+  let prisma: PrismaService;
+  let transactions: PrismaTransactionRunner;
+  let jobs: PgBossJobQueue;
+  let notifications: NotificationsService;
+
+  /** Notifies the account in a transaction of its own, rolled back when `commit` is false; returns the new row. */
+  async function notifyInTransaction(accountId: string, dedupeKey: string, commit = true) {
+    const rollback = new Error('rollback');
+    let created: Awaited<ReturnType<NotificationsService['notify']>>;
+    await transactions
+      .run(async (tx) => {
+        created = await notifications.notify(accountId, 'report_received', {}, dedupeKey, tx);
+        if (!commit) {
+          throw rollback;
+        }
+      })
+      .catch((error: unknown) => {
+        if (error !== rollback) {
+          throw error;
+        }
+      });
+    return created;
+  }
+
+  /** A notification for the account, committed; returns its id. */
+  async function notified(accountId: string): Promise<string> {
+    const created = await notifyInTransaction(accountId, `e2e:${randomUUID()}`);
+    assert.ok(created, 'notify stored nothing');
+    return created.id;
+  }
+
+  const rowsWithKey = (dedupeKey: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ id: string }>('SELECT id FROM notifications WHERE dedupe_key = $1', [
+        dedupeKey,
+      ]);
+      return rows;
+    });
+
+  const deliveryJobsOf = (notificationId: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ id: string }>(
+        `SELECT id FROM pgboss.job WHERE name = 'notifications.deliver' AND data->>'notificationId' = $1`,
+        [notificationId],
+      );
+      return rows;
+    });
+
+  before(async () => {
+    // PrismaService reads its connection string from the environment when it is created.
+    const ownUrl = process.env.MAIN_DATABASE_URL;
+    process.env.MAIN_DATABASE_URL = mainDatabaseUrl();
+    try {
+      prisma = new PrismaService();
+    } finally {
+      process.env.MAIN_DATABASE_URL = ownUrl;
+    }
+    transactions = new PrismaTransactionRunner(prisma);
+    // Registers no handler: the API's own queue runs notifications.deliver.
+    jobs = new PgBossJobQueue(mainDatabaseUrl());
+    jobs.onApplicationBootstrap();
+    await jobs.whenStarted();
+    notifications = new NotificationsService({} as MessagingProvider, new PrismaNotificationsRepository(prisma), jobs);
+  });
+
+  after(async () => {
+    await jobs?.onModuleDestroy();
+    await prisma?.$disconnect();
+  });
+
+  describe('notify', () => {
+    test('stores the row and its delivery job when the transaction commits', async () => {
+      const { token } = await newAccount();
+      const dedupeKey = `e2e:${randomUUID()}`;
+
+      const created = await notifyInTransaction(accountIdOf(token), dedupeKey);
+
+      assert.ok(created);
+      assert.deepEqual(await rowsWithKey(dedupeKey), [{ id: created.id }]);
+      assert.equal((await deliveryJobsOf(created.id)).length, 1);
+    });
+
+    // notifications.md, rule 1; job queue, rule 1.
+    test('leaves neither the row nor its job when the transaction rolls back', async () => {
+      const { token } = await newAccount();
+      const dedupeKey = `e2e:${randomUUID()}`;
+
+      const created = await notifyInTransaction(accountIdOf(token), dedupeKey, false);
+
+      assert.ok(created, 'notify returned nothing inside the transaction');
+      assert.deepEqual(await rowsWithKey(dedupeKey), []);
+      assert.deepEqual(await deliveryJobsOf(created.id), []);
+    });
+
+    test('a repeated dedupe key stores one row and one job, without an error', async () => {
+      const { token } = await newAccount();
+      const accountId = accountIdOf(token);
+      const dedupeKey = `e2e:${randomUUID()}`;
+      const first = await notifyInTransaction(accountId, dedupeKey);
+
+      const second = await notifyInTransaction(accountId, dedupeKey);
+
+      assert.ok(first);
+      assert.equal(second, undefined);
+      assert.deepEqual(await rowsWithKey(dedupeKey), [{ id: first.id }]);
+      assert.equal((await deliveryJobsOf(first.id)).length, 1);
+    });
+
+    test('the API delivers the job: without push the row ends up skipped', async () => {
+      const { token } = await newAccount();
+      const id = await notified(accountIdOf(token));
+      const until = Date.now() + 15_000;
+
+      let status: string | undefined;
+      while (status !== 'skipped' && Date.now() < until) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const { rows } = await withDatabase((client) =>
+          client.query<{ push_status: string }>('SELECT push_status FROM notifications WHERE id = $1', [id]),
+        );
+        status = rows[0]?.push_status;
+      }
+
+      assert.equal(status, 'skipped');
+    });
+  });
+
+  describe('GET /api/v1/me/notifications', () => {
+    test('lists only the caller’s own notifications, newest first', async () => {
+      const { token } = await newAccount();
+      const other = await newAccount();
+      const older = await notified(accountIdOf(token));
+      const newer = await notified(accountIdOf(token));
+      const othersId = await notified(accountIdOf(other.token));
+
+      const res = await call('GET', '/api/v1/me/notifications', { token });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(
+        res.body.items.map(({ id }: { id: string }) => id),
+        [newer, older],
+      );
+      assert.ok(!res.body.items.some(({ id }: { id: string }) => id === othersId));
+      assert.deepEqual(Object.keys(res.body.items[0]).sort(), ['createdAt', 'id', 'payload', 'readAt', 'type']);
+      assert.equal(res.body.items[0].type, 'report_received');
+      assert.deepEqual(res.body.items[0].payload, {});
+      assert.equal(res.body.items[0].readAt, null);
+      assert.deepEqual(res.body.page, { limit: 20, offset: 0, hasMore: false });
+    });
+
+    test('pages with limit and offset', async () => {
+      const { token } = await newAccount();
+      const older = await notified(accountIdOf(token));
+      const newer = await notified(accountIdOf(token));
+
+      const first = await call('GET', '/api/v1/me/notifications?limit=1', { token });
+      const second = await call('GET', '/api/v1/me/notifications?limit=1&offset=1', { token });
+
+      assert.deepEqual(
+        first.body.items.map(({ id }: { id: string }) => id),
+        [newer],
+      );
+      assert.equal(first.body.page.hasMore, true);
+      assert.deepEqual(
+        second.body.items.map(({ id }: { id: string }) => id),
+        [older],
+      );
+      assert.equal(second.body.page.hasMore, false);
+    });
+
+    test('rejects a guest token with 401', async () => {
+      assertRejected(await call('GET', '/api/v1/me/notifications', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+    });
+
+    test('rejects a limit above 20 with 400', async () => {
+      assertInvalid(await call('GET', '/api/v1/me/notifications?limit=21', { token: tokens.user }), 'query', 'limit');
+    });
+  });
+
+  describe('POST /api/v1/notifications/{id}/read', () => {
+    test('marks the caller’s own notification read, and reading it again keeps the first time', async () => {
+      const { token } = await newAccount();
+      const id = await notified(accountIdOf(token));
+
+      const read = await call('POST', `/api/v1/notifications/${id}/read`, { token });
+      const again = await call('POST', `/api/v1/notifications/${id}/read`, { token });
+
+      assert.equal(read.status, 200, JSON.stringify(read.body));
+      assert.equal(read.body.id, id);
+      assert.ok(read.body.readAt, 'readAt is not set');
+      assert.equal(again.status, 200, JSON.stringify(again.body));
+      assert.equal(again.body.readAt, read.body.readAt);
+      const list = await call('GET', '/api/v1/me/notifications', { token });
+      assert.equal(list.body.items[0].readAt, read.body.readAt);
+    });
+
+    // SEC-001: someone else's notification is a 404, as one that does not exist, and stays unread.
+    test('cannot mark someone else’s notification read', async () => {
+      const owner = await newAccount();
+      const { token } = await newAccount();
+      const id = await notified(accountIdOf(owner.token));
+
+      const res = await call('POST', `/api/v1/notifications/${id}/read`, { token });
+
+      assertRejected(res, 404, 'NOT_FOUND');
+      const list = await call('GET', '/api/v1/me/notifications', { token: owner.token });
+      assert.equal(list.body.items[0].readAt, null);
+    });
+
+    test('rejects a guest token with 401', async () => {
+      const { token } = await newAccount();
+      const id = await notified(accountIdOf(token));
+
+      assertRejected(
+        await call('POST', `/api/v1/notifications/${id}/read`, { token: tokens.guest }),
+        401,
+        'UNAUTHENTICATED',
+      );
+    });
+
+    test('rejects an id that is not a UUID with 400', async () => {
+      assertInvalid(
+        await call('POST', '/api/v1/notifications/not-a-uuid/read', { token: tokens.user }),
+        'params',
+        'id',
+      );
+    });
   });
 });
 
