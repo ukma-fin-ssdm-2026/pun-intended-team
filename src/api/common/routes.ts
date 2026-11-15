@@ -34,6 +34,7 @@ export const Routes = {
   notifications: {
     mine: '/api/v1/me/notifications',
     read: '/api/v1/notifications/{id}/read',
+    pushToken: '/api/v1/me/push-token',
   },
   listings: {
     list: '/api/v1/listings',

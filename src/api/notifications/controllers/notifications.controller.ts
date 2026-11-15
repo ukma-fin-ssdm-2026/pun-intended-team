@@ -11,10 +11,12 @@ import {
   Notification,
   NotificationIdParams,
   NotificationsPage,
+  RegisterPushTokenBody,
 } from '../schemas/notifications.ts';
 
 const ListNotificationsRequest = { query: ListNotificationsQuery } satisfies RequestSchemas;
 const ReadNotificationRequest = { params: NotificationIdParams } satisfies RequestSchemas;
+const RegisterPushTokenRequest = { body: RegisterPushTokenBody } satisfies RequestSchemas;
 
 @Controller()
 export class NotificationsController {
@@ -59,5 +61,49 @@ export class NotificationsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Notification> {
     return this.notificationsService.markRead(account.accountId, params.id);
+  }
+
+  // Not MCP tools (mcp: false): an agent has no device to get pushes on.
+  @Endpoint({
+    method: 'put',
+    path: Routes.notifications.pushToken,
+    operationId: 'registerPushToken',
+    summary: 'Register this device for push',
+    description:
+      'Register the Expo push token of the device this session runs on. One token per session: a new one ' +
+      'replaces the last, and a token registered before by another account or session moves to this one. The ' +
+      'token is removed when the session ends (sign-out, a ban, a refresh with a stolen token).',
+    tags: ['Notifications'],
+    access: 'user',
+    mcp: false,
+    request: RegisterPushTokenRequest,
+    responses: {
+      204: { description: 'The device gets the caller’s pushes' },
+    },
+  })
+  async registerPushToken(
+    @Input() { body }: RouteInput<typeof RegisterPushTokenRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<void> {
+    await this.notificationsService.registerDevice(account.accountId, account.sessionId, body);
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.notifications.pushToken,
+    operationId: 'removePushToken',
+    summary: 'Stop push on this device',
+    description:
+      'Remove the push token of this session, e.g. when the user turns push off. Removing it again, or when none ' +
+      'was registered, also answers 204.',
+    tags: ['Notifications'],
+    access: 'user',
+    mcp: false,
+    responses: {
+      204: { description: 'The device gets no more pushes' },
+    },
+  })
+  async removePushToken(@CurrentAccount() account: AccountCaller): Promise<void> {
+    await this.notificationsService.removeDevice(account.sessionId);
   }
 }

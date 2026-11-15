@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { z } from 'zod';
+import { devicePlatforms } from '../../../core/notifications/types/device-token.ts';
 import { notificationTypes } from '../../../core/notifications/types/notification.ts';
 import { DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
 
@@ -40,5 +41,26 @@ export const NotificationIdParams = z.object({
 
 export const ListNotificationsQuery = PageQuery;
 
+const RegisterPushTokenFields = z.strictObject({
+  pushToken: z
+    .string()
+    .max(200)
+    .regex(/^Expo(nent)?PushToken\[[^\]]+\]$/, 'An Expo push token: ExponentPushToken[…]')
+    .describe('The Expo push token of the app on this device, from getExpoPushTokenAsync; never returned'),
+  platform: z.enum(devicePlatforms).describe('ios or android'),
+});
+
+export const registerPushTokenExample: RegisterPushTokenBody = {
+  pushToken: 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]',
+  platform: 'android',
+};
+
+export const RegisterPushTokenBody = RegisterPushTokenFields.meta({
+  id: 'RegisterPushTokenBody',
+  description: 'The push token of the device this session runs on',
+  example: registerPushTokenExample,
+});
+
 export type Notification = z.infer<typeof NotificationFields>;
+export type RegisterPushTokenBody = z.input<typeof RegisterPushTokenFields>;
 export type NotificationsPage = z.infer<typeof NotificationsPage>;

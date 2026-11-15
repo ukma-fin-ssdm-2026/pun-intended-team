@@ -204,7 +204,7 @@ One row of the signed-in user's inbox ([notifications](../architecture/mechanism
 | `readAt` | date-time or `null` | When the caller first marked it read |
 | `createdAt` | date-time | |
 
-The push status and the dedupe key stay inside the server.
+The push status, the dedupe key and the device push tokens stay inside the server.
 
 Related to: Account (the recipient).
 
@@ -343,8 +343,12 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 |---|---|---|---|---|
 | `GET` | `/api/v1/me/notifications` | Signed-in user | `200` a page of the caller's notifications | `400`, `401` |
 | `POST` | `/api/v1/notifications/{id}/read` | The recipient | `200` the notification | `400`, `401`, `404` |
+| `PUT` | `/api/v1/me/push-token` | Signed-in user | `204` | `400`, `401` |
+| `DELETE` | `/api/v1/me/push-token` | Signed-in user | `204` | `401` |
 
-`GET /me/notifications` lists the caller's notifications, read and unread, newest first, in pages of `limit` (at most 20) from `offset`, as the feeds are ([pagination](#pagination)): the inbox keeps growing, unlike the lists of applications and matches. The app polls it when it opens and while it stays open (HLD I1). Read sets `readAt`; reading again changes nothing and keeps the first time. Someone else's notification is a `404`, as one that does not exist (SEC-001). There is no push yet: every notification is stored with its push skipped, so the inbox is the only channel.
+`GET /me/notifications` lists the caller's notifications, read and unread, newest first, in pages of `limit` (at most 20) from `offset`, as the feeds are ([pagination](#pagination)): the inbox keeps growing, unlike the lists of applications and matches. The app polls it when it opens and while it stays open (HLD I1). Read sets `readAt`; reading again changes nothing and keeps the first time. Someone else's notification is a `404`, as one that does not exist (SEC-001).
+
+`PUT /me/push-token` takes `{ pushToken, platform }`: the Expo push token of the app on this device (`ExponentPushToken[…]`; anything else is a `400`) and `ios` or `android`. The token belongs to the session of the access token, one per session: a new token replaces the session's last one, and a token another account or session registered moves to this one, as when someone else signs in on the same phone; neither is an error. The token is personal data and is never returned: both endpoints answer `204` with no body. `DELETE /me/push-token` removes the session's token, and answers `204` also when there is none. A session's token goes when the session ends: on sign-out, on a ban, and on a refresh with a stolen or replayed token; an expired session keeps it, since nothing cleans up expired sessions yet, so its device still gets the account's pushes. Each notification is pushed to every registered device of the account ([notifications](../architecture/mechanisms/notifications.md#interface)); without one, its push is skipped and the inbox is the only channel, as it always is on the web.
 
 ### Admin
 

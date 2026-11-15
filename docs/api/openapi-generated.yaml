@@ -1820,6 +1820,30 @@ components:
       description: >-
         What the notification is about; the app picks the text by it.
         `report_received`: a report was filed
+    RegisterPushTokenBody:
+      type: object
+      properties:
+        pushToken:
+          type: string
+          maxLength: 200
+          pattern: ^Expo(nent)?PushToken\[[^\]]+\]$
+          description: >-
+            The Expo push token of the app on this device, from
+            getExpoPushTokenAsync; never returned
+        platform:
+          type: string
+          enum:
+            - ios
+            - android
+          description: ios or android
+      required:
+        - pushToken
+        - platform
+      additionalProperties: false
+      description: The push token of the device this session runs on
+      example:
+        pushToken: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+        platform: android
     InterestList:
       type: object
       properties:
@@ -4148,6 +4172,62 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No notification with this id in the caller’s inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/push-token:
+    put:
+      operationId: registerPushToken
+      summary: Register this device for push
+      description: >-
+        Register the Expo push token of the device this session runs on. One
+        token per session: a new one replaces the last, and a token registered
+        before by another account or session moves to this one. The token is
+        removed when the session ends (sign-out, a ban, a refresh with a stolen
+        token). Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPushTokenBody'
+      responses:
+        '204':
+          description: The device gets the caller’s pushes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: removePushToken
+      summary: Stop push on this device
+      description: >-
+        Remove the push token of this session, e.g. when the user turns push
+        off. Removing it again, or when none was registered, also answers 204.
+        Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      responses:
+        '204':
+          description: The device gets no more pushes
+        '401':
+          description: No access token, or an invalid or expired one
           content:
             application/json:
               schema:
