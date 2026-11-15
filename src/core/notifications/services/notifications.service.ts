@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
@@ -12,12 +12,16 @@ import type { Notification, NotificationPayload, NotificationType } from '../typ
 const DELIVER_JOB = 'notifications.deliver';
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit {
   constructor(
     private readonly messagingProvider: MessagingProvider,
     private readonly notificationsRepository: NotificationsRepository,
     private readonly jobs: JobQueue,
   ) {}
+
+  onModuleInit(): void {
+    this.jobs.register<{ notificationId: string }>(DELIVER_JOB, ({ payload }) => this.deliver(payload.notificationId));
+  }
 
   get sendsCodes(): boolean {
     return this.messagingProvider.sendsCodes;
@@ -59,5 +63,17 @@ export class NotificationsService {
       throw new DomainError('NOT_FOUND', 'Notification not found');
     }
     return notification;
+  }
+
+  /**
+   * Delivers a notification by push. Push is not built yet, so a pending one is marked skipped. The job may run
+   * again (job queue, rule 2): a notification that is gone or no longer pending is left as it is.
+   */
+  async deliver(notificationId: string): Promise<void> {
+    const notification = await this.notificationsRepository.findById(notificationId);
+    if (notification?.pushStatus !== 'pending') {
+      return;
+    }
+    await this.notificationsRepository.updatePushStatus(notificationId, 'pending', 'skipped');
   }
 }
