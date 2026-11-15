@@ -106,6 +106,8 @@ package "api/notifications" as API_notifications {
   class NotificationsController {
     +listMyNotifications()
     +readNotification()
+    +registerPushToken()
+    +removePushToken()
   }
 }
 package "api/admin" as API_admin {

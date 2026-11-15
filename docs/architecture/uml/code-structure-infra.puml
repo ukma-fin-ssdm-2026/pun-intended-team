@@ -36,6 +36,7 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class AuditLogRepository <<other diagram>>
   abstract class BackupRunsRepository <<other diagram>>
   abstract class NotificationsRepository <<other diagram>>
+  abstract class DeviceTokensRepository <<other diagram>>
   abstract class TransactionRunner <<other diagram>>
   abstract class DatabaseProbe <<other diagram>>
   abstract class AccessTokens <<other diagram>>
@@ -44,6 +45,7 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class CodeHasher <<other diagram>>
   abstract class MessagingProvider <<other diagram>>
   abstract class JobQueue <<other diagram>>
+  abstract class PushProvider <<other diagram>>
 }
 
 package "infra (InfraModule, global)" as INFRA {
@@ -72,6 +74,7 @@ package "infra (InfraModule, global)" as INFRA {
     class PrismaAuditLogRepository
     class PrismaBackupRunsRepository
     class PrismaNotificationsRepository
+    class PrismaDeviceTokensRepository
     class PrismaTransactionRunner
     class PrismaDatabaseProbe
     note as PRISMA_NOTE
@@ -103,6 +106,9 @@ package "infra (InfraModule, global)" as INFRA {
       TurboSMS when it is configured
     end note
   }
+  package push {
+    class ExpoPushProvider
+  }
   package jobs {
     class PgBossJobQueue {
       +whenStarted()
@@ -129,6 +135,7 @@ ReportCasesRepository <|.. PrismaReportCasesRepository
 AuditLogRepository <|.. PrismaAuditLogRepository
 BackupRunsRepository <|.. PrismaBackupRunsRepository
 NotificationsRepository <|.. PrismaNotificationsRepository
+DeviceTokensRepository <|.. PrismaDeviceTokensRepository
 TransactionRunner <|.. PrismaTransactionRunner
 DatabaseProbe <|.. PrismaDatabaseProbe
 AccessTokens <|.. JoseAccessTokens
@@ -139,6 +146,7 @@ MessagingProvider <|.. ConsoleMessagingProvider
 MessagingProvider <|.. DisabledMessagingProvider
 MessagingProvider <|.. FallbackMessagingProvider
 JobQueue <|.. PgBossJobQueue
+PushProvider <|.. ExpoPushProvider
 
 ' personal data is encrypted, and phones hashed, before it is stored
 PrismaAccountsRepository --> PersonalDataCipher
