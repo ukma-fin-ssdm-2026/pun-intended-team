@@ -101,7 +101,9 @@ describe('EventSessionsService.reconcile', () => {
     event: Event | undefined;
     sessions: StoredSession[];
     cancelled?: string[];
-    moved?: { sessionId: string; to: string; intoSessionId?: string }[];
+    moved?: { sessionId: string; to: string; intoSessionId: string }[];
+    /** The sessions moved to, "id" or "id created". */
+    movedTo?: string[];
     reopened?: string[];
     /** The sessions afterwards, as "id status start". */
     after: string[];
@@ -137,15 +139,26 @@ describe('EventSessionsService.reconcile', () => {
       name: 'another time on the same day moves the session',
       event: anEvent({ startsAt: '2026-10-22T20:00:00+03:00', endsAt: '2026-10-22T22:00:00+03:00' }),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      moved: [{ sessionId: 's1', to: iso('2026-10-22T20:00:00+03:00') }],
-      after: [`s1 scheduled ${iso('2026-10-22T20:00:00+03:00')}`],
+      moved: [{ sessionId: 's1', to: iso('2026-10-22T20:00:00+03:00'), intoSessionId: 'new1' }],
+      movedTo: ['new1 created'],
+      after: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso('2026-10-22T20:00:00+03:00')}`],
     },
     {
       name: 'a session that exists at the new time takes the place of the moved one',
       event: anEvent({ startsAt: '2026-10-22T20:00:00+03:00', endsAt: '2026-10-22T22:00:00+03:00' }),
       sessions: [sessionAt(CONCERT.startsAt, 's1'), sessionAt('2026-10-22T20:00:00+03:00', 's2')],
       moved: [{ sessionId: 's1', to: iso('2026-10-22T20:00:00+03:00'), intoSessionId: 's2' }],
+      movedTo: ['s2'],
       after: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `s2 scheduled ${iso('2026-10-22T20:00:00+03:00')}`],
+    },
+    {
+      name: 'moved back to its first time: the cancelled session there is scheduled again, not created',
+      event: anEvent(CONCERT),
+      sessions: [sessionAt(CONCERT.startsAt, 's1', 'cancelled'), sessionAt('2026-10-22T20:00:00+03:00', 'new1')],
+      moved: [{ sessionId: 'new1', to: iso(CONCERT.startsAt), intoSessionId: 's1' }],
+      reopened: ['s1'],
+      movedTo: ['s1'],
+      after: [`s1 scheduled ${iso(CONCERT.startsAt)}`, `new1 cancelled ${iso('2026-10-22T20:00:00+03:00')}`],
     },
     {
       name: 'an event moved to another day has its session cancelled',
@@ -197,7 +210,7 @@ describe('EventSessionsService.reconcile', () => {
       ],
     },
   ];
-  for (const { name, event, sessions, cancelled = [], moved = [], reopened = [], after } of cases) {
+  for (const { name, event, sessions, cancelled = [], moved = [], reopened = [], movedTo = [], after } of cases) {
     test(`${name}; a second call changes nothing`, async () => {
       const stored = sessions.map((session) => ({ ...session }));
       const service = sessionsServiceOver({ event, sessions: stored });
@@ -214,6 +227,10 @@ describe('EventSessionsService.reconcile', () => {
         moved,
       );
       assert.deepEqual(changes.reopened, reopened);
+      assert.deepEqual(
+        changes.movedTo.map(({ id, created }) => (created ? `${id} created` : id)),
+        movedTo,
+      );
       const state = () => sessionStates(stored);
       assert.deepEqual(state(), after);
 
@@ -221,7 +238,7 @@ describe('EventSessionsService.reconcile', () => {
 
       assert.deepEqual(
         { ...again, eventStatus: undefined },
-        { eventStatus: undefined, cancelled: [], moved: [], reopened: [] },
+        { eventStatus: undefined, cancelled: [], moved: [], reopened: [], movedTo: [] },
       );
       assert.deepEqual(state(), after);
     });

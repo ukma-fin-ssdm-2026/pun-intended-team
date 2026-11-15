@@ -10,6 +10,8 @@ import { NotificationsService } from '../../notifications/services/notifications
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
 import { ACTIVE_STATUSES, type Application } from '../types/application.ts';
+import { PENDING_STATUSES } from '../types/match.ts';
+import { MatchingService } from './matching.service.ts';
 
 /** A day of an application that changed: `to` is its new start, or null when the day is no longer on. */
 interface ChangedDay {
@@ -31,6 +33,7 @@ export class EventChangesService implements OnModuleInit {
     private readonly eventSessionsService: EventSessionsService,
     private readonly applicationsRepository: ApplicationsRepository,
     private readonly matchesRepository: MatchesRepository,
+    private readonly matchingService: MatchingService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -61,12 +64,6 @@ export class EventChangesService implements OnModuleInit {
       ACTIVE_STATUSES,
       tx,
     );
-    for (const { sessionId, intoSessionId } of changes.moved) {
-      if (intoSessionId !== undefined) {
-        await this.applicationsRepository.moveDay(sessionId, intoSessionId, tx);
-      }
-    }
-
     const daysLeft = (application: Application) =>
       application.sessionIds.filter((id) => !gone.has(id)).map((id) => moved.get(id)?.intoSessionId ?? id);
     const sessions = await this.eventSessionsService.getByIds([...new Set(applications.flatMap(daysLeft))], tx);
@@ -85,6 +82,24 @@ export class EventChangesService implements OnModuleInit {
       await this.applicationsRepository.cancel([...cancelled], ACTIVE_STATUSES, tx);
       await this.matchesRepository.cancelPending([...cancelled], 'event_cancelled', tx);
     }
+    // A proposal on a shared day that moved has its time limit from the old time: the two return to the pool for
+    // the rounds of the new one (matching.md, rule 4).
+    const voided = new Set<string>();
+    for (const application of applications.filter(({ id, status }) => status === 'paired' && !cancelled.has(id))) {
+      const match = await this.matchesRepository.findByApplication(application.id, PENDING_STATUSES, tx);
+      if (!match || voided.has(match.id)) {
+        continue;
+      }
+      const daysOfB = new Set(match.applicationB.sessionIds);
+      if (match.applicationA.sessionIds.some((id) => daysOfB.has(id) && moved.has(id))) {
+        voided.add(match.id);
+        await this.matchesRepository.cancelAndReturnBoth(match, 'event_changed', tx);
+      }
+    }
+    for (const { sessionId, intoSessionId } of changes.moved) {
+      await this.applicationsRepository.moveDay(sessionId, intoSessionId, tx);
+    }
+    await this.matchingService.scheduleRounds(changes.movedTo, tx);
     if (trimmed.length > 0) {
       await this.applicationsRepository.removeDays(
         trimmed.map(({ id }) => id),

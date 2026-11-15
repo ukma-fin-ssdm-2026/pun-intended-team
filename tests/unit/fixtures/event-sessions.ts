@@ -1,5 +1,4 @@
 // Written with the help of Claude
-import assert from 'node:assert/strict';
 import type { EventSessionsRepository } from '../../../dist/core/catalog/repositories/event-sessions.repository.js';
 import type { EventsRepository } from '../../../dist/core/catalog/repositories/events.repository.js';
 import { EventSessionsService } from '../../../dist/core/catalog/services/event-sessions.service.js';
@@ -39,7 +38,10 @@ export function sessionsServiceOver(world: {
         event: { startsAt: world.event?.startsAt ?? session.startsAt, endsAt: world.event?.endsAt ?? session.startsAt },
       }))
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
-  const eventSessionsRepository: Pick<EventSessionsRepository, 'findByEvent' | 'findByIds' | 'setStatus' | 'move'> = {
+  const eventSessionsRepository: Pick<
+    EventSessionsRepository,
+    'findByEvent' | 'findByIds' | 'setStatus' | 'findOrCreateMany'
+  > = {
     findByEvent: () => Promise.resolve(records()),
     findByIds: (ids) => Promise.resolve(records().filter(({ id }) => ids.includes(id))),
     setStatus: (ids, status) => {
@@ -48,11 +50,22 @@ export function sessionsServiceOver(world: {
       }
       return Promise.resolve();
     },
-    move: (id, startsAt) => {
-      const taken = world.sessions.some((session) => session.startsAt === startsAt.toISOString());
-      assert.equal(taken, false, 'the event has a session at the new start already');
-      world.sessions.find((session) => session.id === id)!.startsAt = startsAt.toISOString();
-      return Promise.resolve();
+    // A new session is called "new1", "new2", … in the order they are created.
+    findOrCreateMany: (_eventId, starts) => {
+      const created = new Set<string>();
+      for (const start of starts.map((startsAt) => startsAt.toISOString())) {
+        if (!world.sessions.some(({ startsAt }) => startsAt === start)) {
+          const id = `new${world.sessions.filter(({ id }) => id.startsWith('new')).length + 1}`;
+          world.sessions.push({ id, startsAt: start, status: 'scheduled' });
+          created.add(id);
+        }
+      }
+      const wanted = new Set(starts.map((startsAt) => startsAt.toISOString()));
+      return Promise.resolve(
+        records()
+          .filter(({ startsAt }) => wanted.has(startsAt))
+          .map((record) => ({ ...record, created: created.has(record.id) })),
+      );
     },
   };
   const eventsRepository: Pick<EventsRepository, 'findById'> = { findById: () => Promise.resolve(world.event) };

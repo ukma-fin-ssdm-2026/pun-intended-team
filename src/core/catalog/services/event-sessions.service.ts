@@ -72,14 +72,14 @@ export class EventSessionsService {
    * everything on a second call.
    */
   async reconcile(eventId: string, tx: Transaction, now = new Date()): Promise<SessionChanges> {
-    const changes: SessionChanges = { cancelled: [], moved: [], reopened: [] };
+    const changes: SessionChanges = { cancelled: [], moved: [], reopened: [], movedTo: [] };
     const event = await this.eventsRepository.findById(eventId, tx);
     if (!event) {
       return changes;
     }
     changes.eventStatus = event.status;
     const sessions = await this.eventSessionsRepository.findByEvent(eventId, tx);
-    const byStart = new Map(sessions.map((session) => [Date.parse(session.startsAt), session]));
+    const moves: { session: EventSessionRecord; to: Date }[] = [];
     for (const session of sessions) {
       const start = new Date(session.startsAt);
       if (!sessionAhead(event, start, now)) {
@@ -94,31 +94,46 @@ export class EventSessionsService {
       } else if (!target) {
         changes.cancelled.push({ sessionId: session.id, startsAt: session.startsAt });
       } else if (!kept) {
-        const existing = byStart.get(target.getTime());
-        byStart.set(target.getTime(), existing ?? session);
-        changes.moved.push({
-          sessionId: session.id,
-          from: session.startsAt,
-          to: target.toISOString(),
-          ...(existing && { intoSessionId: existing.id }),
-        });
+        moves.push({ session, to: target });
       }
     }
 
-    const merged = changes.moved.filter(({ intoSessionId }) => intoSessionId !== undefined);
-    const noLongerHeld = [...changes.cancelled, ...merged].map(({ sessionId }) => sessionId);
+    // A moved session's applications go to the session at the new time, a session of its own with its own rounds;
+    // the one at the old time is cancelled, so its round jobs do nothing (matching.md, rule 10).
+    const targets =
+      moves.length > 0
+        ? await this.eventSessionsRepository.findOrCreateMany(
+            eventId,
+            moves.map(({ to }) => to),
+            tx,
+          )
+        : [];
+    const byStart = new Map(targets.map((target) => [Date.parse(target.startsAt), target]));
+    for (const { session, to } of moves) {
+      const target = byStart.get(to.getTime())!;
+      changes.moved.push({
+        sessionId: session.id,
+        from: session.startsAt,
+        to: target.startsAt,
+        intoSessionId: target.id,
+      });
+    }
+    const movedTo = [...new Map(targets.map((target) => [target.id, target])).values()];
+    changes.movedTo = movedTo.map(({ created, ...target }) => ({
+      ...withCutoff({ ...target, status: 'scheduled' }),
+      created,
+    }));
+
+    const noLongerHeld = [...changes.cancelled, ...changes.moved].map(({ sessionId }) => sessionId);
     if (noLongerHeld.length > 0) {
       await this.eventSessionsRepository.setStatus(noLongerHeld, 'cancelled', tx);
     }
-    // A cancelled session that takes a moved one's place is scheduled again with it.
-    const scheduledAgain = [...changes.reopened, ...merged.map(({ intoSessionId }) => intoSessionId!)];
+    const scheduledAgain = [
+      ...changes.reopened,
+      ...movedTo.filter(({ status }) => status === 'cancelled').map(({ id }) => id),
+    ];
     if (scheduledAgain.length > 0) {
       await this.eventSessionsRepository.setStatus([...new Set(scheduledAgain)], 'scheduled', tx);
-    }
-    for (const { sessionId, to, intoSessionId } of changes.moved) {
-      if (intoSessionId === undefined) {
-        await this.eventSessionsRepository.move(sessionId, new Date(to), tx);
-      }
     }
     return changes;
   }

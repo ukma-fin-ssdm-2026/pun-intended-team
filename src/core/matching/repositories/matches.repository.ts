@@ -49,4 +49,7 @@ export abstract class MatchesRepository {
    * the pool unless it is among `applicationIds` too, as for a withdrawal (A5).
    */
   abstract cancelPending(applicationIds: string[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
+
+  /** Cancels the pending match for `reason` and returns both applications to the pool. */
+  abstract cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void>;
 }

@@ -140,6 +140,15 @@ export class PrismaMatchesRepository implements MatchesRepository {
     });
   }
 
+  async cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    const client = clientOf(this.prisma, tx);
+    await this.moveFrom(client, match.id, PENDING_STATUSES, { status: 'cancelled', cancelReason: reason });
+    await client.application.updateMany({
+      where: { id: { in: [match.applicationAId, match.applicationBId] }, status: 'paired' },
+      data: { status: 'in_pool' },
+    });
+  }
+
   private async moveFrom(
     client: Prisma.TransactionClient,
     id: string,

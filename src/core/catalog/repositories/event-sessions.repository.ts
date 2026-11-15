@@ -19,7 +19,4 @@ export abstract class EventSessionsRepository {
   abstract findByEvent(eventId: string, tx?: Transaction): Promise<EventSessionRecord[]>;
 
   abstract setStatus(ids: string[], status: SessionStatus, tx?: Transaction): Promise<void>;
-
-  /** Moves the session to another start; the event must have no session there. */
-  abstract move(id: string, startsAt: Date, tx?: Transaction): Promise<void>;
 }

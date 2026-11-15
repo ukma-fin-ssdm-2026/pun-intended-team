@@ -8,7 +8,7 @@ export type MatchSource = 'instant' | 'round' | 'open';
 export type MatchStatus = 'proposed' | 'accepted_a' | 'accepted_b' | 'mutual' | 'declined' | 'expired' | 'cancelled';
 
 /** Why a proposal was cancelled before both users answered. */
-export type MatchCancelReason = 'event_cancelled' | 'participant_banned' | 'participant_withdrew';
+export type MatchCancelReason = 'event_cancelled' | 'event_changed' | 'participant_banned' | 'participant_withdrew';
 
 /** A proposal still waiting for the answer of one or both. */
 export const PENDING_STATUSES: MatchStatus[] = ['proposed', 'accepted_a', 'accepted_b'];

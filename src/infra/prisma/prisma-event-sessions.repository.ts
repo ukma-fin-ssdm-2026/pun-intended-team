@@ -56,10 +56,6 @@ export class PrismaEventSessionsRepository implements EventSessionsRepository {
   async setStatus(ids: string[], status: SessionStatus, tx?: Transaction): Promise<void> {
     await clientOf(this.prisma, tx).eventSession.updateMany({ where: { id: { in: ids } }, data: { status } });
   }
-
-  async move(id: string, startsAt: Date, tx?: Transaction): Promise<void> {
-    await clientOf(this.prisma, tx).eventSession.update({ where: { id }, data: { startsAt } });
-  }
 }
 
 function toEventSession(row: EventSessionWithEvent): EventSessionRecord {

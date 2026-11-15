@@ -10,7 +10,9 @@ import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import type { ApplicationsRepository } from '../../dist/core/matching/repositories/applications.repository.js';
 import type { MatchesRepository } from '../../dist/core/matching/repositories/matches.repository.js';
 import { EventChangesService } from '../../dist/core/matching/services/event-changes.service.js';
+import type { MatchingService } from '../../dist/core/matching/services/matching.service.js';
 import type { Application, ApplicationStatus } from '../../dist/core/matching/types/application.js';
+import type { MatchRecord, MatchStatus } from '../../dist/core/matching/types/match.js';
 import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { NewNotification } from '../../dist/core/notifications/types/notification.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
@@ -35,6 +37,8 @@ interface World {
   applications: Application[];
   matches: StoredMatch[];
   inbox: NewNotification[];
+  /** The sessions whose rounds were planned, once per created session. */
+  roundsPlanned: string[];
   locked?: boolean;
 }
 
@@ -91,11 +95,42 @@ function makeService(world: World) {
       return Promise.resolve();
     },
   };
-  const matchesRepository: Pick<MatchesRepository, 'lockEvent' | 'cancelPending'> = {
+  const matchesRepository: Pick<
+    MatchesRepository,
+    'lockEvent' | 'cancelPending' | 'findByApplication' | 'cancelAndReturnBoth'
+  > = {
     lockEvent: (eventId, tx) => {
       inTransaction(tx);
       assert.equal(eventId, EVENT_ID);
       world.locked = true;
+      return Promise.resolve();
+    },
+    findByApplication: (applicationId, statuses, tx) => {
+      inTransaction(tx);
+      const match = world.matches.find(
+        ({ applicationAId, applicationBId, status }) =>
+          statuses.includes(status as MatchStatus) && [applicationAId, applicationBId].includes(applicationId),
+      );
+      const application = (id: string) => structuredClone(world.applications.find((stored) => stored.id === id)!);
+      return Promise.resolve(
+        match &&
+          ({
+            ...match,
+            applicationA: application(match.applicationAId),
+            applicationB: application(match.applicationBId),
+          } as unknown as MatchRecord),
+      );
+    },
+    cancelAndReturnBoth: (match, reason, tx) => {
+      inTransaction(tx);
+      const stored = world.matches.find(({ id }) => id === match.id)!;
+      assert.ok(PENDING.includes(stored.status), 'only a pending proposal is cancelled');
+      Object.assign(stored, { status: 'cancelled', cancelReason: reason });
+      for (const application of world.applications) {
+        if ([match.applicationAId, match.applicationBId].includes(application.id) && application.status === 'paired') {
+          application.status = 'in_pool';
+        }
+      }
       return Promise.resolve();
     },
     cancelPending: (applicationIds, reason, tx) => {
@@ -126,6 +161,13 @@ function makeService(world: World) {
       return Promise.resolve(!told);
     },
   };
+  const matchingService = {
+    scheduleRounds: mock.fn<MatchingService['scheduleRounds']>((sessions, tx) => {
+      inTransaction(tx);
+      world.roundsPlanned.push(...sessions.filter(({ created }) => created).map(({ id }) => id));
+      return Promise.resolve();
+    }),
+  };
   const transactions: TransactionRunner = { run: (work) => work(TX) };
   const jobs = { register: mock.fn<JobQueue['register']>() };
   const service = new EventChangesService(
@@ -134,6 +176,7 @@ function makeService(world: World) {
     sessionsServiceOver(world),
     applicationsRepository as ApplicationsRepository,
     matchesRepository as MatchesRepository,
+    matchingService as unknown as MatchingService,
     notificationsService as NotificationsService,
   );
   return { service, jobs };
@@ -166,7 +209,9 @@ const EXHIBITION_RUN = { startsAt: '2026-10-15T12:00:00+03:00', endsAt: '2026-11
 interface Case {
   name: string;
   change: 'cancelled' | 'republished' | 'rescheduled';
-  world: Omit<World, 'inbox'> & { inbox?: NewNotification[] };
+  world: Omit<World, 'inbox' | 'roundsPlanned'>;
+  /** The sessions whose rounds the change planned. */
+  rounds?: string[];
   after: ReturnType<typeof stateOf>;
 }
 
@@ -226,19 +271,64 @@ const cases: Case[] = [
     },
   },
   {
-    name: 'another time on the same day: the session moves, the application stays, the applicant is told',
+    name: 'another time on the same day: the applications go to a new session with its own rounds, and each is told',
     change: 'rescheduled',
     world: {
       event: anEvent(CONCERT_AT_20),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
       applications: [anApplication('waiting', ['s1'], 'paused')],
-      matches: [{ id: 'proposed', applicationAId: 'waiting', applicationBId: 'waiting', status: 'proposed' }],
+      matches: [],
     },
+    rounds: ['new1'],
     after: {
-      sessions: [`s1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
-      applications: ['waiting paused s1'],
-      matches: ['proposed proposed'],
+      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      applications: ['waiting paused new1'],
+      matches: [],
       inbox: [`user event_changed:rescheduled:waiting:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`],
+    },
+  },
+  {
+    name: 'a pending proposal on a shared day that moved: cancelled for the change, and both return to the pool',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
+      matches: [{ id: 'proposed', applicationAId: 'a', applicationBId: 'b', status: 'accepted_a' }],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      applications: ['a in_pool new1', 'b in_pool new1'],
+      matches: ['proposed cancelled event_changed'],
+      inbox: [
+        `user event_changed:rescheduled:a:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
+        `other event_changed:rescheduled:b:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
+      ],
+    },
+  },
+  {
+    name: 'a pending proposal whose shared day stays: kept, though another day of one side moved',
+    change: 'rescheduled',
+    world: {
+      event: anEvent({ ...RUN, startsAt: '2026-10-14T20:00:00+03:00' }),
+      sessions: [sessionAt(RUN.startsAt, 'past'), sessionAt(RUN_ON_18, 's18')],
+      applications: [
+        anApplication('a', ['past'], 'paired'),
+        anApplication('b', ['past', 's18'], 'paired', OTHER_ACCOUNT_ID),
+      ],
+      matches: [{ id: 'proposed', applicationAId: 'a', applicationBId: 'b', status: 'proposed' }],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: [
+        `past scheduled ${iso(RUN.startsAt)}`,
+        `s18 cancelled ${iso(RUN_ON_18)}`,
+        `new1 scheduled ${iso('2026-10-18T20:00:00+03:00')}`,
+      ],
+      applications: ['a paired past', 'b paired past+new1'],
+      matches: ['proposed proposed'],
+      inbox: [`other event_changed:rescheduled:b:${iso(RUN_ON_18)}>${iso('2026-10-18T20:00:00+03:00')}`],
     },
   },
   {
@@ -387,22 +477,29 @@ const cases: Case[] = [
   },
 ];
 
+/** The case whose name starts with `start`. */
+function caseNamed(start: string): Case {
+  return cases.find(({ name }) => name.startsWith(start))!;
+}
+
 describe('EventChangesService.handle', () => {
-  for (const { name, change, world: initial, after } of cases) {
+  for (const { name, change, world: initial, rounds = [], after } of cases) {
     test(`${name}; a second run changes nothing`, async () => {
-      const world: World = { inbox: [], ...structuredClone(initial) };
+      const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(initial) };
       const { service } = makeService(world);
 
       await service.handle({ eventId: EVENT_ID, change }, NOW);
       assert.deepEqual(stateOf(world), after);
+      assert.deepEqual(world.roundsPlanned, rounds);
 
       await service.handle({ eventId: EVENT_ID, change }, NOW);
       assert.deepEqual(stateOf(world), after);
+      assert.deepEqual(world.roundsPlanned, rounds, 'a second run plans no rounds');
     });
   }
 
   test('goes by the event as it is, not by the change the job names', async () => {
-    const world: World = { inbox: [], ...structuredClone(cases[0]!.world) };
+    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
     const { service } = makeService(world);
 
     await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
@@ -411,7 +508,11 @@ describe('EventChangesService.handle', () => {
   });
 
   test('tells the applicant what changed for their application', async () => {
-    const world: World = { inbox: [], ...structuredClone(cases[5]!.world) };
+    const world: World = {
+      inbox: [],
+      roundsPlanned: [],
+      ...structuredClone(caseNamed('a run that ends earlier').world),
+    };
     const { service } = makeService(world);
 
     await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
@@ -443,16 +544,28 @@ describe('EventChangesService.handle', () => {
     );
   });
 
-  test('a job after the same change again finds the applicant already told', async () => {
-    const world: World = { inbox: [], ...structuredClone(cases[2]!.world) };
+  test('moved to another time and back: the first session is scheduled again with its rounds, none planned twice', async () => {
+    const world: World = {
+      inbox: [],
+      roundsPlanned: [],
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: [anApplication('waiting', ['s1'])],
+      matches: [],
+    };
     const { service } = makeService(world);
     await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
 
-    // The same move once more, as if the first transaction's sessions had been put back.
-    world.sessions[0]!.startsAt = iso(CONCERT.startsAt);
+    world.event = anEvent(CONCERT);
     await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
 
-    assert.equal(world.inbox.length, 1);
+    assert.deepEqual(stateOf(world).sessions, [
+      `s1 scheduled ${iso(CONCERT.startsAt)}`,
+      `new1 cancelled ${iso(CONCERT_AT_20.startsAt)}`,
+    ]);
+    assert.deepEqual(stateOf(world).applications, ['waiting in_pool s1']);
+    assert.deepEqual(world.roundsPlanned, ['new1'], "s1's round jobs are still queued, so none are planned for it");
+    assert.equal(world.inbox.length, 2);
   });
 });
 
@@ -460,7 +573,7 @@ describe('EventChangesService.onModuleInit', () => {
   useFixedClock();
 
   test('registers the handler of event.changed, with the default retries', async () => {
-    const world: World = { inbox: [], ...structuredClone(cases[0]!.world) };
+    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
     const { service, jobs } = makeService(world);
 
     service.onModuleInit();
