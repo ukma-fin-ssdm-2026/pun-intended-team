@@ -5,8 +5,10 @@ import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../adapters/messaging-provider.ts';
+import { DeviceTokensRepository } from '../repositories/device-tokens.repository.ts';
 import { NotificationsRepository } from '../repositories/notifications.repository.ts';
 import type { CodeDelivery } from '../types/code-delivery.ts';
+import type { DeviceRegistration } from '../types/device-token.ts';
 import type { Notification, NotificationPayload, NotificationType } from '../types/notification.ts';
 
 const DELIVER_JOB = 'notifications.deliver';
@@ -16,6 +18,7 @@ export class NotificationsService implements OnModuleInit {
   constructor(
     private readonly messagingProvider: MessagingProvider,
     private readonly notificationsRepository: NotificationsRepository,
+    private readonly deviceTokensRepository: DeviceTokensRepository,
     private readonly jobs: JobQueue,
   ) {}
 
@@ -63,6 +66,24 @@ export class NotificationsService implements OnModuleInit {
       throw new DomainError('NOT_FOUND', 'Notification not found');
     }
     return notification;
+  }
+
+  /**
+   * Registers the device the session runs on for push. One device per session: a new token replaces the last one,
+   * and a token another account or session registered moves to this one, as when someone else signs in on the phone.
+   */
+  async registerDevice(accountId: string, sessionId: string, device: DeviceRegistration): Promise<void> {
+    await this.deviceTokensRepository.register({ accountId, sessionId, ...device });
+  }
+
+  /** Stops pushes to the device of the session: on sign-out, or when the session ends for any other reason. */
+  async removeDevice(sessionId: string, tx?: Transaction): Promise<void> {
+    await this.deviceTokensRepository.deleteBySession(sessionId, tx);
+  }
+
+  /** Stops pushes to the devices of every session of the account but `exceptSessionId`, as their sessions end. */
+  async removeDevices(accountId: string, exceptSessionId?: string, tx?: Transaction): Promise<void> {
+    await this.deviceTokensRepository.deleteByAccount(accountId, exceptSessionId, tx);
   }
 
   /**
