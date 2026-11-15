@@ -7,7 +7,8 @@ import { EventSessionsService } from '../../dist/core/catalog/services/event-ses
 import type { EventSessionsRepository } from '../../dist/core/catalog/repositories/event-sessions.repository.js';
 import type { EventsRepository } from '../../dist/core/catalog/repositories/events.repository.js';
 import type { Event } from '../../dist/core/catalog/types/event.js';
-import type { EventSession, EventSessionRecord } from '../../dist/core/catalog/types/event-session.js';
+import type { EventSession, EventSessionRecord, OpenedSession } from '../../dist/core/catalog/types/event-session.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import { anEvent, EVENT_ID } from './fixtures/catalog.ts';
 import { useFixedClock } from './fixtures/clock.ts';
 
@@ -26,7 +27,9 @@ function makeService(event: Event | null = anEvent(), status: EventSession['stat
         ids.map((id) => ({ id, eventId: EVENT_ID, startsAt: '2026-10-22T16:00:00.000Z', status, event: times })),
       ),
     ),
-    findOrCreateMany: mock.fn((eventId: string, starts: Date[]): Promise<EventSessionRecord[]> =>
+    findOrCreateMany: mock.fn<
+      (eventId: string, starts: Date[], tx?: Transaction) => Promise<OpenedSession<EventSessionRecord>[]>
+    >((eventId, starts) =>
       Promise.resolve(
         starts.map((startsAt, index) => ({
           id: index === 0 ? SESSION_ID : `${SESSION_ID}-${index}`,
@@ -34,6 +37,7 @@ function makeService(event: Event | null = anEvent(), status: EventSession['stat
           startsAt: startsAt.toISOString(),
           status,
           event: times,
+          created: true,
         })),
       ),
     ),
@@ -63,8 +67,18 @@ describe('EventSessionsService.open', () => {
       startsAt: '2026-10-22T16:00:00.000Z',
       cutoffAt: '2026-10-22T15:00:00.000Z',
       status: 'scheduled',
+      created: true,
     });
     assert.equal(eventSessionsRepository.findOrCreateMany.mock.callCount(), 1);
+  });
+
+  test('opens the sessions in the transaction it is given', async () => {
+    const { service, eventSessionsRepository } = makeService();
+    const tx = {} as Transaction;
+
+    await service.open(EVENT_ID, undefined, tx);
+
+    assert.equal(eventSessionsRepository.findOrCreateMany.mock.calls[0]?.arguments[2], tx);
   });
 
   test('opens the session on the chosen day of a multi-day event', async () => {

@@ -1,4 +1,5 @@
 // Written with the help of Claude
+import type { Transaction } from '../../common/transaction.ts';
 import type {
   Account,
   AccountRecord,
@@ -50,7 +51,13 @@ export abstract class AccountsRepository {
   /** The account's date of birth as YYYY-MM-DD; undefined for an unknown account. */
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
 
+  /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
+  abstract findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>>;
+
   abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
 
   abstract countByStatus(status: AccountStatus): Promise<number>;
+
+  /** The ones of `accountIds` that have the status. */
+  abstract findIdsWithStatus(accountIds: string[], status: AccountStatus, tx?: Transaction): Promise<string[]>;
 }

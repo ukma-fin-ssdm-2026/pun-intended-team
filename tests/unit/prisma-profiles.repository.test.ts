@@ -128,6 +128,28 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
   });
 });
 
+describe('PrismaProfilesRepository.findByAccountIds', () => {
+  test('reads the profiles of the accounts with their interests and networks', async () => {
+    const { repository, prisma } = makeRepository({ found: [aRow()] });
+
+    const profiles = await repository.findByAccountIds([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+
+    assert.deepEqual(
+      profiles.map(({ accountId, interestIds, linkedAccounts }) => ({ accountId, interestIds, linkedAccounts })),
+      [
+        {
+          accountId: ACCOUNT_ID,
+          interestIds: [INTEREST_ID],
+          linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
+        },
+      ],
+    );
+    assert.deepEqual(prisma.profile.findMany.mock.calls[0]?.arguments[0]?.where, {
+      accountId: { in: [ACCOUNT_ID, OTHER_ACCOUNT_ID] },
+    });
+  });
+});
+
 describe('PrismaProfilesRepository.findSummaries', () => {
   test('asks only for the given accounts and their public names', async () => {
     const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena' };

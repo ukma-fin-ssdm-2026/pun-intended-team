@@ -1,35 +1,23 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../core/common/domain-error.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { ApplicationsRepository } from '../../core/matching/repositories/applications.repository.ts';
-import {
-  afterEventPlans,
-  type Application,
-  type ApplicationRecord,
-  type ApplicationStatus,
-} from '../../core/matching/types/application.ts';
-import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
-import type { AfterEventPlan, Application as ApplicationRow } from './generated/client.ts';
+import type { Application, ApplicationRecord, ApplicationStatus } from '../../core/matching/types/application.ts';
+import { toApplication, withDaysAndPlans } from './application-rows.ts';
+import { toDesiredCompany } from './desired-company.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
-
-const withDaysAndPlans = {
-  sessions: { select: { sessionId: true } },
-  afterEventPlans: { select: { plan: true } },
-} as const;
-
-type ApplicationWithDaysAndPlans = ApplicationRow & {
-  sessions: { sessionId: string }[];
-  afterEventPlans: { plan: AfterEventPlan }[];
-};
 
 @Injectable()
 export class PrismaApplicationsRepository implements ApplicationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(application: ApplicationRecord): Promise<Application> {
+  async create(application: ApplicationRecord, tx?: Transaction): Promise<Application> {
+    const client = clientOf(this.prisma, tx);
     try {
-      const row = await this.prisma.application.create({
+      const row = await client.application.create({
         data: {
           userId: application.userId,
           eventId: application.eventId,
@@ -47,6 +35,15 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       }
       throw error;
     }
+  }
+
+  async findPool(sessionIds: string[], tx: Transaction): Promise<Application[]> {
+    const rows = await clientOf(this.prisma, tx).application.findMany({
+      where: { status: 'in_pool', sessions: { some: { sessionId: { in: sessionIds } } } },
+      include: withDaysAndPlans,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toApplication);
   }
 
   async findById(id: string): Promise<Application | undefined> {
@@ -67,26 +64,15 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
     return rows.map(toApplication);
   }
 
-  async withdraw(id: string, from: ApplicationStatus[]): Promise<Application | undefined> {
-    const { count } = await this.prisma.application.updateMany({
+  async withdraw(id: string, from: ApplicationStatus[], tx: Transaction): Promise<Application | undefined> {
+    const client = clientOf(this.prisma, tx);
+    const { count } = await client.application.updateMany({
       where: { id, status: { in: from } },
       data: { status: 'withdrawn' },
     });
-    return count === 0 ? undefined : this.findById(id);
+    if (count === 0) {
+      return undefined;
+    }
+    return toApplication(await client.application.findUniqueOrThrow({ where: { id }, include: withDaysAndPlans }));
   }
-}
-
-function toApplication(row: ApplicationWithDaysAndPlans): Application {
-  return {
-    id: row.id,
-    userId: row.userId,
-    eventId: row.eventId,
-    sessionIds: row.sessions.map(({ sessionId }) => sessionId),
-    desiredCompany: toCommunicationFormat[row.desiredCompany],
-    afterEventPlans: row.afterEventPlans
-      .map(({ plan }) => plan)
-      .sort((a, b) => afterEventPlans.indexOf(a) - afterEventPlans.indexOf(b)),
-    status: row.status,
-    createdAt: row.createdAt.toISOString(),
-  };
 }

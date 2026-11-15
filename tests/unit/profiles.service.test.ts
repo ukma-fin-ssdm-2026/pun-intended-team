@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
 import type { InterestsRepository } from '../../dist/core/profiles/repositories/interests.repository.js';
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
@@ -15,7 +16,7 @@ import type {
   ProfileChanges,
   ProfileSummary,
 } from '../../dist/core/profiles/types/profile.js';
-import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
+import { ACCOUNT_ID, OTHER_ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
 import { TODAY, useFixedClock } from './fixtures/clock.ts';
 
 describe('ageOn', () => {
@@ -75,6 +76,7 @@ function makeService() {
   const profilesRepository = {
     findSummaries: mock.fn((): Promise<ProfileSummary[]> => Promise.resolve([aProfileSummary()])),
     findByAccountId: mock.fn((): Promise<Profile | undefined> => Promise.resolve(aProfile())),
+    findByAccountIds: mock.fn((): Promise<Profile[]> => Promise.resolve([aProfile()])),
     isUsernameTaken: mock.fn((): Promise<boolean> => Promise.resolve(false)),
     create: mock.fn((_accountId: string, profile: NewProfile) => Promise.resolve(aProfile(profile))),
     update: mock.fn((_accountId: string, changes: ProfileChanges) => Promise.resolve(aProfile(changes))),
@@ -88,13 +90,17 @@ function makeService() {
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
   const accountsService = {
     getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve(DATE_OF_BIRTH)),
+    getDatesOfBirth: mock.fn((accountIds: string[]) =>
+      Promise.resolve(new Map(accountIds.map((accountId) => [accountId, DATE_OF_BIRTH]))),
+    ),
+    getPhone: mock.fn((): Promise<string | null> => Promise.resolve(PHONE)),
   };
   const service = new ProfilesService(
     profilesRepository as unknown as ProfilesRepository,
     interestsRepository as unknown as InterestsRepository,
     accountsService as unknown as AccountsService,
   );
-  return { service, profilesRepository, accountsService };
+  return { service, profilesRepository, interestsRepository, accountsService };
 }
 
 describe('ProfilesService.getSummaries', () => {
@@ -114,6 +120,130 @@ describe('ProfilesService.getSummaries', () => {
     const summaries = await service.getSummaries([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
 
     assert.deepEqual([...summaries], [[summary.accountId, summary]]);
+  });
+});
+
+describe('ProfilesService.getInterests', () => {
+  test('gives each account its chosen interests with their headings, in the order of the list', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountIds.mock.mockImplementation(() =>
+      Promise.resolve([
+        aProfile({ interestIds: [JAZZ.id, HIKING.id] }),
+        aProfile({ accountId: OTHER_ACCOUNT_ID, interestIds: [JAZZ.id] }),
+      ]),
+    );
+
+    const interests = await service.getInterests([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+
+    assert.deepEqual(
+      interests,
+      new Map([
+        [ACCOUNT_ID, [HIKING, JAZZ]],
+        [OTHER_ACCOUNT_ID, [JAZZ]],
+      ]),
+    );
+  });
+
+  test('reads each account once when the list repeats one, in the caller’s transaction', async () => {
+    const { service, profilesRepository, interestsRepository } = makeService();
+    const tx = {} as Transaction;
+
+    await service.getInterests([ACCOUNT_ID, ACCOUNT_ID], tx);
+
+    assert.deepEqual(profilesRepository.findByAccountIds.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
+    assert.deepEqual(interestsRepository.findAll.mock.calls[0]?.arguments, [tx]);
+  });
+});
+
+// FR-019: a proposal shows the profile without contacts.
+describe('ProfilesService.getPublicProfiles', () => {
+  useFixedClock();
+
+  test('gives the profile, age and interests, without the networks or the phone setting', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountIds.mock.mockImplementation(() =>
+      Promise.resolve([
+        aProfile({
+          description: 'Jazz and long walks',
+          occupation: 'Illustrator',
+          sharePhone: true,
+          interestIds: [JAZZ.id],
+          linkedAccounts: [TELEGRAM],
+        }),
+      ]),
+    );
+
+    const profiles = await service.getPublicProfiles([ACCOUNT_ID]);
+
+    assert.deepEqual(profiles.get(ACCOUNT_ID), {
+      accountId: ACCOUNT_ID,
+      username: 'Natalka.Park',
+      displayName: 'Natalka',
+      description: 'Jazz and long walks',
+      occupation: 'Illustrator',
+      age: ageOn(TODAY, DATE_OF_BIRTH),
+      interests: [JAZZ],
+    });
+  });
+
+  test('leaves out an account without a profile', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountIds.mock.mockImplementation(() => Promise.resolve([]));
+
+    const profiles = await service.getPublicProfiles([ACCOUNT_ID]);
+
+    assert.equal(profiles.size, 0);
+  });
+
+  test('reads the dates of birth of all the accounts at once', async () => {
+    const { service, profilesRepository, accountsService } = makeService();
+    profilesRepository.findByAccountIds.mock.mockImplementation(() =>
+      Promise.resolve([aProfile(), aProfile({ accountId: OTHER_ACCOUNT_ID })]),
+    );
+
+    await service.getPublicProfiles([ACCOUNT_ID, OTHER_ACCOUNT_ID, ACCOUNT_ID]);
+
+    assert.deepEqual(
+      accountsService.getDatesOfBirth.mock.calls.map(({ arguments: args }) => args),
+      [[[ACCOUNT_ID, OTHER_ACCOUNT_ID]]],
+    );
+    assert.equal(accountsService.getDateOfBirth.mock.callCount(), 0);
+  });
+});
+
+// FR-019: a mutual match sees the contacts.
+describe('ProfilesService.getContacts', () => {
+  test('gives the linked networks with their links and the phone when the user shares it', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ sharePhone: true, linkedAccounts: [TELEGRAM] })),
+    );
+
+    const contacts = await service.getContacts(ACCOUNT_ID);
+
+    assert.deepEqual(contacts, {
+      phone: PHONE,
+      linkedAccounts: [{ ...TELEGRAM, url: 'https://t.me/natalka' }],
+    });
+  });
+
+  test('keeps the phone back when the user does not share it', async () => {
+    const { service, profilesRepository, accountsService } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ sharePhone: false, linkedAccounts: [TELEGRAM] })),
+    );
+
+    const contacts = await service.getContacts(ACCOUNT_ID);
+
+    assert.equal(contacts.phone, null);
+    assert.equal(accountsService.getPhone.mock.callCount(), 0);
+  });
+
+  test('answers NOT_FOUND without a profile', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.getContacts(ACCOUNT_ID), isDomainError('NOT_FOUND'));
   });
 });
 

@@ -7,6 +7,7 @@ import {
   setApplicationsState,
   type Application,
 } from '@/state/applications';
+import { invalidateMatches } from '@/state/matches';
 
 import { apiClient } from './client';
 import { call, type ApiResult } from './public-client';
@@ -53,8 +54,13 @@ export function applyToEvent(eventId: string, answers: ApplicationAnswers, dates
   );
 }
 
-export function withdrawApplication(id: string) {
-  return saved(call(() => apiClient.POST('/api/v1/applications/{id}/withdraw', { params: { path: { id } } })));
+// Withdrawing a paired application also cancels its proposal.
+export async function withdrawApplication(id: string) {
+  const result = await saved(
+    call(() => apiClient.POST('/api/v1/applications/{id}/withdraw', { params: { path: { id } } })),
+  );
+  if (result.ok) invalidateMatches();
+  return result;
 }
 
 // The API cannot edit an application, so new answers withdraw it and apply again, for the newly picked `dates` or for

@@ -24,6 +24,13 @@ export const Routes = {
     byId: '/api/v1/applications/{id}',
     withdraw: '/api/v1/applications/{id}/withdraw',
   },
+  matches: {
+    mine: '/api/v1/me/matches',
+    byId: '/api/v1/matches/{id}',
+    accept: '/api/v1/matches/{id}/accept',
+    decline: '/api/v1/matches/{id}/decline',
+    contacts: '/api/v1/matches/{id}/contacts',
+  },
   listings: {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',

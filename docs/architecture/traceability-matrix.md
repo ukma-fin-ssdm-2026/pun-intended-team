@@ -120,7 +120,7 @@ Verification methods are the *Verification* fields of [`requirements.md` §4](..
 | Requirement | Component | Design decision | Verification method |
 |---|---|---|---|
 | FUNC-001 | CMP-02 | Pure `match()` function in the matching module, no I/O — reproducible by construction. Recorded in: [matching.md](mechanisms/matching.md) rule 8. | unit test over a seeded fixture asserting identical output across runs; second test with two seeds asserting the orderings differ. |
-| FUNC-002 | CMP-02, CMP-04 | Per-session advisory lock (CMP-04) taken by the matching module before reading the pool (high-level design §5 invariant). Recorded in: [matching.md](mechanisms/matching.md) rule 7; [HLD §5](high-level-design.md#5-architectural-invariants) (per-session advisory lock). | property test over randomly generated rounds asserting the result is a valid matching; concurrency test firing overlapping requests that all rank the same candidate first, asserting exactly one of them receives that candidate. |
+| FUNC-002 | CMP-02, CMP-04 | Per-event advisory lock (CMP-04) taken by the matching module before reading the pool (high-level design §5 invariant). Recorded in: [matching.md](mechanisms/matching.md) rule 7; [HLD §5](high-level-design.md#5-architectural-invariants) (per-session advisory lock). | property test over randomly generated rounds asserting the result is a valid matching; concurrency test firing overlapping requests that all rank the same candidate first, asserting exactly one of them receives that candidate. |
 
 ### 2.9 Safety
 | Requirement | Component | Design decision | Verification method |
