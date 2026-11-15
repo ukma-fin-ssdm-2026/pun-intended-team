@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import type { Venue } from '../../core/catalog/types/venue.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { ImportedEventsRepository } from '../../core/import/repositories/imported-events.repository.ts';
 import type {
   CompleteRun,
@@ -115,9 +116,9 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     return toImportedEventRow(row);
   }
 
-  async updateEvent(id: string, fields: ImportedEventFields): Promise<void> {
+  async updateEvent(id: string, fields: ImportedEventFields, tx?: Transaction): Promise<void> {
     // `source` in the filter keeps the import away from organization events, which it may not change.
-    await this.prisma.event.update({
+    await this.client(tx).event.update({
       where: { id, source: 'import' },
       data: { ...eventColumns(fields), status: 'published' },
     });
@@ -127,8 +128,9 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
     provider: string,
     seenExternalIds: string[],
     range: { from: string; to: string },
-  ): Promise<number> {
-    const { count } = await this.prisma.event.updateMany({
+    tx?: Transaction,
+  ): Promise<string[]> {
+    const cancelled = await this.client(tx).event.updateManyAndReturn({
       where: {
         source: 'import',
         provider,
@@ -137,8 +139,13 @@ export class PrismaImportedEventsRepository implements ImportedEventsRepository 
         startsAt: { gt: new Date(range.from), lte: new Date(range.to) },
       },
       data: { status: 'cancelled' },
+      select: { id: true },
     });
-    return count;
+    return cancelled.map(({ id }) => id);
+  }
+
+  private client(tx?: Transaction): Prisma.TransactionClient {
+    return (tx as unknown as Prisma.TransactionClient | undefined) ?? this.prisma;
   }
 }
 

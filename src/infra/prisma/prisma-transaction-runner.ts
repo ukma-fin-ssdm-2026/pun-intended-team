@@ -1,13 +1,14 @@
 // Written with the help of Claude
-import { Injectable } from '@nestjs/common';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { TransactionRunner } from '../../core/common/transaction-runner.ts';
-import { PrismaService } from './prisma.service.ts';
+import type { PrismaClient } from './generated/client.ts';
 
-/** A Prisma interactive transaction; a repository reads the `Transaction` it is given as the client of this. */
-@Injectable()
+/**
+ * A Prisma interactive transaction; a repository reads the `Transaction` it is given as the client of this. Built
+ * over the connection of its process: the API's as `nearby_main`, the import's as `nearby_import`.
+ */
 export class PrismaTransactionRunner extends TransactionRunner {
-  constructor(private readonly prisma: PrismaService) {
+  constructor(private readonly prisma: Pick<PrismaClient, '$transaction'>) {
     super();
   }
 

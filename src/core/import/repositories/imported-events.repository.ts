@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import type { Venue } from '../../catalog/types/venue.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import type {
   CompleteRun,
   ImportCategory,
@@ -62,15 +63,16 @@ export abstract class ImportedEventsRepository {
   abstract createEvent(event: Omit<ImportedEventRow, 'id' | 'status'>): Promise<ImportedEventRow>;
 
   /** Changes an imported event and publishes it, since the provider lists it. */
-  abstract updateEvent(id: string, fields: ImportedEventFields): Promise<void>;
+  abstract updateEvent(id: string, fields: ImportedEventFields, tx?: Transaction): Promise<void>;
 
   /**
    * Cancels the provider's published imported events that start after `from` and by `to` and are not among
-   * `seenExternalIds`; organization events are never touched. Returns how many it cancelled.
+   * `seenExternalIds`; organization events are never touched. Returns the ids of the events it cancelled.
    */
   abstract cancelUnseen(
     provider: string,
     seenExternalIds: string[],
     range: { from: string; to: string },
-  ): Promise<number>;
+    tx?: Transaction,
+  ): Promise<string[]>;
 }
