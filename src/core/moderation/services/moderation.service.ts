@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { ListingsService } from '../../listings/services/listings.service.ts';
 import type { Listing } from '../../listings/types/listing.ts';
@@ -10,6 +11,7 @@ import { AuditLogRepository } from '../repositories/audit-log.repository.ts';
 import { ReportCasesRepository } from '../repositories/report-cases.repository.ts';
 import type {
   CaseAccount,
+  MatchingExclusions,
   NewListingReport,
   NewReport,
   ReportCase,
@@ -127,6 +129,19 @@ export class ModerationService {
     }
     await this.audit(adminId, 'report_case.dismiss', 'report_case', caseId, 'dismissed');
     return this.getCase(caseId);
+  }
+
+  /**
+   * Who of a pool must not be matched: pairs where one reported the other, whatever came of the report, and banned
+   * users (FR-020, HLD I2).
+   */
+  async exclusionsFor(userIds: string[], tx?: Transaction): Promise<MatchingExclusions> {
+    const ids = [...new Set(userIds)];
+    const [reported, banned] = await Promise.all([
+      this.reportCasesRepository.findReportedPairs(ids, tx),
+      this.accountsService.findBanned(ids, tx),
+    ]);
+    return { reported, banned };
   }
 
   async stats(): Promise<{ openReports: number }> {

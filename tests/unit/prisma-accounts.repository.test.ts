@@ -80,3 +80,41 @@ describe('PrismaAccountsRepository.createWithGoogle', () => {
     });
   }
 });
+
+describe('PrismaAccountsRepository.findDatesOfBirth', () => {
+  test('gives the decrypted date of birth of each account that has one', async () => {
+    const findMany = mock.fn(() => Promise.resolve([{ id: ACCOUNT_ID, dateOfBirth: Buffer.from('sealed') }]));
+    const cipher = { decrypt: mock.fn(() => '2001-05-14') };
+    const repository = new PrismaAccountsRepository(
+      { account: { findMany } } as unknown as PrismaService,
+      cipher as unknown as PersonalDataCipher,
+    );
+
+    const dates = await repository.findDatesOfBirth([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+
+    assert.deepEqual([...dates], [[ACCOUNT_ID, '2001-05-14']]);
+    assert.deepEqual(findMany.mock.calls[0]?.arguments, [
+      {
+        where: { id: { in: [ACCOUNT_ID, OTHER_ACCOUNT_ID] }, dateOfBirth: { not: null } },
+        select: { id: true, dateOfBirth: true },
+      },
+    ]);
+  });
+});
+
+describe('PrismaAccountsRepository.findIdsWithStatus', () => {
+  test('gives the ids of the accounts with the status', async () => {
+    const findMany = mock.fn(() => Promise.resolve([{ id: OTHER_ACCOUNT_ID }]));
+    const repository = new PrismaAccountsRepository(
+      { account: { findMany } } as unknown as PrismaService,
+      {} as unknown as PersonalDataCipher,
+    );
+
+    const ids = await repository.findIdsWithStatus([ACCOUNT_ID, OTHER_ACCOUNT_ID], 'banned');
+
+    assert.deepEqual(ids, [OTHER_ACCOUNT_ID]);
+    assert.deepEqual(findMany.mock.calls[0]?.arguments, [
+      { where: { id: { in: [ACCOUNT_ID, OTHER_ACCOUNT_ID] }, status: 'banned' }, select: { id: true } },
+    ]);
+  });
+});

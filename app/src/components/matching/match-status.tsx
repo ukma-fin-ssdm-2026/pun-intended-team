@@ -4,23 +4,23 @@
 import { Text, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
-import { mockPerson, mockProposal } from '@/mocks/matching';
 import { colors } from '@/styles/tokens';
 
+// `name` is the other user's display name, in the nominative, so the copy needs no other forms of it.
 const copy = {
   accepted: {
     icon: 'status-check',
     title: 'Згоду надіслано!',
-    text: `Щойно ${mockPerson.name} теж погодиться, ви зможете разом піти на подію.`,
+    text: (name: string) => `Щойно ${name} теж погодиться, ви зможете разом піти на подію.`,
   },
   declined: {
     icon: 'status-close',
     title: 'Не цього разу',
-    text: `${mockPerson.name} про це не дізнається. А ми шукаємо тобі компанію далі.`,
+    text: (name: string) => `${name} про це не дізнається. А ми шукаємо тобі компанію далі.`,
   },
 } as const;
 
-export function MatchStatus({ answer }: { answer: keyof typeof copy }) {
+export function MatchStatus({ answer, name }: { answer: keyof typeof copy; name: string }) {
   const { icon, title, text } = copy[answer];
   return (
     <View className="items-center gap-3.5 px-2.5">
@@ -35,8 +35,7 @@ export function MatchStatus({ answer }: { answer: keyof typeof copy }) {
       <Text accessibilityRole="header" className="text-center font-inter-bold text-h1 text-text-on-dark">
         {title}
       </Text>
-      <Text className="text-center font-inter text-body text-text-on-dark-muted">{text}</Text>
-      <Text className="text-center font-inter-medium text-label text-text-on-dark opacity-80">{mockProposal.next}</Text>
+      <Text className="text-center font-inter text-body text-text-on-dark-muted">{text(name)}</Text>
     </View>
   );
 }
