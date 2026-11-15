@@ -69,6 +69,7 @@ xychart-beta
 |---|---|---|---|---|
 | Change lead time | 21 of 89 PRs over a day, up to 9 days | Large PRs (up to 100 commits) | Split features into PRs of at most a day's work | @viktoriyabaran |
 | Change lead time | 98.9% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
+| Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
 | Deployment frequency | No deployment on 7 of 21 days | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
 | Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI | @OLEGkn-coder |
 | Change fail rate | Flaky rate limit test (№207) | Not yet known | Flaky test hunt: 5 runs of the suite on one commit; quarantine with an issue | @viktoriyabaran |
@@ -95,16 +96,35 @@ node scripts/ci-metrics/collect.mjs --metrics --out ci-metrics-out/period --note
 
 The numbers match under the two readings the hand count used: an incident is the series of red runs up to the next green one, and the lead time is counted per PR and ends with the first green run after the merge. The 98.9% share of the lead time before the merge in the Improvement Backlog the script does not reproduce: it gets 99.7%.
 
-## Bonuses
+### 2. Improvement with a measured effect
 
-### 2. Fast and slow test suites
+**Action** (#454): `E2E tests` no longer waits for `CI passed`, so on `main` the two jobs run side by side ([`ci.yml`](../../.github/workflows/ci.yml)). `CI passed` already ran the same checks on the pull request, so on `main` it rarely fails; if it does, `E2E tests` still runs, and `Publish API image` still waits for both.
+
+**Metric:** the execution part of the change lead time, as the duration of a `main` run. Before, a run was `CI passed`, then `E2E tests`, then `Publish API image`; now it is the longer of the first two, then the publish. The durations are from the run pages. `Publish API image` exists since #459, so the last column leaves it out to compare runs before and after it.
+
+Before, runs of merged pull requests that change code, tests or configuration:
+
+| PR | Run | Total | `CI passed` | `E2E tests` | `Publish API image` | Total without the publish |
+|---|---|---|---|---|---|---|
+| #436 | [43469003455](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43469003455) | 4 min 30 s | 2 min 16 s | 2 min 9 s | — | 4 min 30 s |
+| #437 | [43475971213](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43475971213) | 5 min 47 s | 2 min 38 s | 3 min 3 s | — | 5 min 47 s |
+| #404 | [43601811569](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43601811569) | 4 min 34 s | 1 min 41 s | 2 min 49 s | — | 4 min 34 s |
+| #459 | [43619040962](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43619040962) | 10 min 21 s: about 4 min more than its jobs, as it was created in the same minute as the run of #458 | 1 min 38 s | 2 min 48 s | 1 min 31 s | 8 min 50 s |
+| #449 | [43627146940](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43627146940) | 5 min 33 s | 1 min 15 s | 2 min 27 s | 1 min 44 s | 3 min 49 s |
+
+After: TODO, the first runs after the merge of #454.
+
+| PR | Run | Total | `CI passed` | `E2E tests` | `Publish API image` | Total without the publish |
+|---|---|---|---|---|---|---|
+
+### 3. Fast and slow test suites
 
 In our CI, the lab's fast suite is the unit tests in the `CI passed` job, and its slow suite is the e2e tests in the `E2E tests` job.
 
 The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are split between these two jobs, so the duration of each shows on the run page:
 
 - **Unit tests**, in the `CI passed` job: `npm run test:unit`, next to lint, formatting, type checks, the spec check and the audit. No database. Runs on every pull request and push.
-- **E2E tests**, in the new `E2E tests` job: they are slow because they need the database, so the job starts a PostgreSQL 18 service, applies the Prisma migrations and then runs all tests with the coverage gate (`npm run test:coverage`: unit and e2e, 90% of lines, 80% of branches). Runs after a green `CI passed` on a push or a manual run on `main` or `staging`: after every merge to `main` and before every staging publish, which waits for it. Never on a pull request. No scheduled runs, to save billed Actions minutes.
+- **E2E tests**, in the new `E2E tests` job: they are slow because they need the database, so the job starts a PostgreSQL 18 service, applies the Prisma migrations and then runs all tests with the coverage gate (`npm run test:coverage`: unit and e2e, 90% of lines, 80% of branches). Runs on a push or a manual run on `main` or `staging`, since #454 side by side with `CI passed`: after every merge to `main` and before every staging publish, which waits for it. Never on a pull request. No scheduled runs, to save billed Actions minutes.
 
 `E2E tests` is not a required check, and `Deploy API docs` does not wait for it. The split is described in the [testing strategy](../testing/testing-strategy.md#unit-and-e2e-tests-in-ci).
 
