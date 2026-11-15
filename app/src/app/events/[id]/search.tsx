@@ -8,34 +8,20 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { withdrawApplication } from '@/api/applications';
 import { failureSnackbar } from '@/auth/messages';
 import { MatchingNav } from '@/components/matching/matching-nav';
+import { RoundPanel } from '@/components/matching/round-panel';
 import { LeavePoolDialog, SearchMenuSheet } from '@/components/matching/search-menu';
 import { SearchRadar } from '@/components/matching/search-radar';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
-import { formatEventDate, formatShortDay, formatUntil } from '@/dates';
+import { formatShortDay } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
-import { matchingPhase, openSessions } from '@/state/applications';
+import { openSessions } from '@/state/applications';
 import { colors } from '@/styles/tokens';
-
-const HOUR_MS = 60 * 60 * 1000;
-// How long before the session each round runs, as in the API (matching.md, policy).
-const ROUND_OFFSETS_MS = [7 * 24 * HOUR_MS, 3 * 24 * HOUR_MS, 24 * HOUR_MS, 6 * HOUR_MS];
-
-// The number of the next round among its day's rounds, from 1; one past the last when no round is left.
-function roundNumber(sessions: { startsAt: string }[], nextRoundAt: string | null): number {
-  if (!nextRoundAt) return ROUND_OFFSETS_MS.length + 1;
-  const next = Date.parse(nextRoundAt);
-  const day =
-    sessions.find(({ startsAt }) => ROUND_OFFSETS_MS.some((offset) => Date.parse(startsAt) - offset === next)) ??
-    sessions[0];
-  const start = Date.parse(day?.startsAt ?? nextRoundAt);
-  return ROUND_OFFSETS_MS.filter((offset) => start - offset < next).length + 1;
-}
 
 function WaitingItem({
   icon,
@@ -71,7 +57,7 @@ export default function CompanySearchScreen() {
   const { snackbar, show } = useSnackbar();
   useStatusBarStyle('light');
 
-  const { application, loaded } = useEventApplication(id);
+  const { application, loaded, reload } = useEventApplication(id);
   const { data: liveEvent } = useEvent(id);
   const mockEvent = findMockEvent(id);
   const event = liveEvent ?? mockEvent;
@@ -88,31 +74,6 @@ export default function CompanySearchScreen() {
   useEffect(() => {
     if (loaded && !application && !leaving) router.replace({ pathname: '/events/[id]', params: { id } });
   }, [loaded, application, leaving, router, id]);
-
-  const nextRoundAt = application?.nextRoundAt ?? null;
-  const phase = application ? matchingPhase(application) : 'rounds';
-  const round = roundNumber(picked, nextRoundAt);
-  const rounds = ROUND_OFFSETS_MS.length;
-  const pick = {
-    rounds: {
-      label: 'Наступний підбір',
-      value: nextRoundAt ? `${formatShortDay(nextRoundAt)} · ${formatUntil(nextRoundAt)}` : '',
-      progress: `Підбір ${round} з ${rounds}`,
-      note: 'останній за 6 год до події',
-    },
-    open: {
-      label: 'Відкритий підбір',
-      value: application ? `до ${formatEventDate(application.cutoffAt)}` : '',
-      progress: `Усі ${rounds} підбори минули`,
-      note: 'пару шукаємо одразу',
-    },
-    over: {
-      label: 'Підбір',
-      value: 'Підбір на цю подію завершено',
-      progress: `Усі ${rounds} підбори минули`,
-      note: '',
-    },
-  }[phase];
 
   const leave = async () => {
     if (!application) return;
@@ -156,33 +117,11 @@ export default function CompanySearchScreen() {
         </View>
       </View>
 
-      <View className="px-5 pt-10">
-        <View className="gap-3.5 rounded-[20px] bg-surface-background p-4">
-          <View className="flex-row items-center gap-3">
-            <View className="size-11 items-center justify-center rounded-[14px] bg-surface-card">
-              <Icon name="clock" size={22} color={colors.brand.coral} />
-            </View>
-            <View className="flex-1 gap-0.5">
-              <Text className="font-inter text-caption text-text-secondary">{pick.label}</Text>
-              <Text className="font-inter-medium text-body text-text-primary">{pick.value}</Text>
-            </View>
-          </View>
-          <View className="gap-2">
-            <View className="flex-row gap-1.5">
-              {Array.from({ length: rounds }, (_, index) => {
-                const number = index + 1;
-                const color =
-                  number < round ? 'bg-brand-ink' : number === round ? 'bg-brand-coral' : 'bg-border-default';
-                return <View key={number} className={`h-1.5 flex-1 rounded-[3px] ${color}`} />;
-              })}
-            </View>
-            <View className="flex-row justify-between">
-              <Text className="font-inter text-caption text-text-primary">{pick.progress}</Text>
-              <Text className="font-inter text-caption text-text-secondary">{pick.note}</Text>
-            </View>
-          </View>
+      {application && (
+        <View className="px-5 pt-14">
+          <RoundPanel application={application} onRoundDue={reload} />
         </View>
-      </View>
+      )}
 
       <View className="gap-3 px-5 pb-8 pt-6">
         <Text className="font-inter-semibold text-title text-text-primary">Поки чекаєш</Text>

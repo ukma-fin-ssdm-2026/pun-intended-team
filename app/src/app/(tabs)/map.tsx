@@ -19,6 +19,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { SearchField } from '@/components/ui/search-field';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
+import { useCategories } from '@/hooks/use-categories';
 import { useEvents, useVenueEvents } from '@/hooks/use-events';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { eventQuery, filterEvents, useCatalogFilters } from '@/state/catalog-filters';
@@ -68,6 +69,7 @@ export default function MapScreen() {
   // Every venue of the catalog window gets a pin, so the map loads the pages one after another.
   const query = eventQuery(filters);
   const events = useEvents(query);
+  const categories = useCategories();
   const { hasMore, loadMore, loadMoreFailed } = events;
   useEffect(() => {
     if (hasMore && !loadMoreFailed) loadMore();
@@ -193,7 +195,12 @@ export default function MapScreen() {
         )
       )}
 
-      <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersSheet
+        visible={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        events={events.data ?? []}
+        categories={categories.data ?? []}
+      />
     </View>
   );
 }

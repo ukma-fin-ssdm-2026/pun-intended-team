@@ -387,7 +387,7 @@ export interface paths {
         put?: never;
         /**
          * Ask for a match at an event
-         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `dates` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
+         * @description Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, `dates` lists the days the user can go, and a match lists the days both users share. The answer says when the next matching round runs, or that a match is proposed at once. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["applyToEvent"];
         delete?: never;
@@ -447,9 +447,109 @@ export interface paths {
         put?: never;
         /**
          * Leave the matching pool
-         * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+         * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your matches
+         * @description The caller’s proposals still waiting for answers and their mutual matches, soonest shared day first. A proposal past its `validUntil` shows as `expired`. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one of your matches
+         * @description One of the caller’s matches, whatever its status, with the other user’s profile but no contacts. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getMatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a proposed match
+         * @description Accept the proposal. Once the other user accepts too, the match is `mutual` and both see the contacts. Accepting again changes nothing. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["acceptMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a proposed match
+         * @description Decline the proposal, even after accepting it. Both users return to the pool and are never proposed to each other again at this event. Declining again changes nothing; a mutual match can no longer be declined. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["declineMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/matches/{id}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the contacts of a mutual match
+         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getMatchContacts"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1465,6 +1565,176 @@ export interface components {
          */
         ApplicationList: components["schemas"]["Application"][];
         /**
+         * @example [
+         *       {
+         *         "id": "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+         *         "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
+         *         "applicationId": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
+         *         "status": "proposed",
+         *         "days": [
+         *           {
+         *             "startsAt": "2026-10-24T16:00:00.000Z",
+         *             "cutoffAt": "2026-10-24T15:00:00.000Z"
+         *           }
+         *         ],
+         *         "validUntil": "2026-10-22T09:00:00.000Z",
+         *         "partner": {
+         *           "username": "olena_k",
+         *           "displayName": "Olena",
+         *           "description": "Cinema, galleries and long walks.",
+         *           "occupation": "Illustrator",
+         *           "age": 24,
+         *           "interests": [
+         *             {
+         *               "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *               "name": "Книги",
+         *               "group": "Книги й комікси"
+         *             }
+         *           ],
+         *           "desiredCompany": "company",
+         *           "afterEventPlans": [
+         *             "walk",
+         *             "coffee"
+         *           ]
+         *         },
+         *         "createdAt": "2026-10-21T09:00:00.000Z"
+         *       }
+         *     ]
+         */
+        MatchList: components["schemas"]["Match"][];
+        /**
+         * @description A proposed match as one of the two users sees it
+         * @example {
+         *       "id": "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+         *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
+         *       "applicationId": "4c8e2a6d-0b3f-4d5e-9a7c-1e3f5b7d9a11",
+         *       "status": "proposed",
+         *       "days": [
+         *         {
+         *           "startsAt": "2026-10-24T16:00:00.000Z",
+         *           "cutoffAt": "2026-10-24T15:00:00.000Z"
+         *         }
+         *       ],
+         *       "validUntil": "2026-10-22T09:00:00.000Z",
+         *       "partner": {
+         *         "username": "olena_k",
+         *         "displayName": "Olena",
+         *         "description": "Cinema, galleries and long walks.",
+         *         "occupation": "Illustrator",
+         *         "age": 24,
+         *         "interests": [
+         *           {
+         *             "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *             "name": "Книги",
+         *             "group": "Книги й комікси"
+         *           }
+         *         ],
+         *         "desiredCompany": "company",
+         *         "afterEventPlans": [
+         *           "walk",
+         *           "coffee"
+         *         ]
+         *       },
+         *       "createdAt": "2026-10-21T09:00:00.000Z"
+         *     }
+         */
+        Match: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            eventId: string;
+            /**
+             * Format: uuid
+             * @description The caller’s own application
+             */
+            applicationId: string;
+            status: components["schemas"]["MatchStatus"];
+            /** @description The days both can go, soonest first: one for a single-day event; the two pick one of them */
+            days: components["schemas"]["ApplicationSession"][];
+            /**
+             * Format: date-time
+             * @description Until then the proposal waits for both answers: 24 hours, or until the next round or the cutoff
+             */
+            validUntil: string;
+            /** @description The other user’s public profile and answers, without contacts (FR-019) */
+            partner: {
+                username: string;
+                displayName: string;
+                description: string;
+                occupation: string;
+                /** @description Whole years */
+                age: number;
+                interests: components["schemas"]["Interest"][];
+                /**
+                 * @description What kind of company they are looking for at this event
+                 * @enum {string}
+                 */
+                desiredCompany: "friends" | "dating" | "company";
+                /** @description What they would do together after the event; empty: only the event */
+                afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /**
+         * @description As the caller sees it. `proposed`: waiting for the caller’s answer; whether the other has accepted stays hidden. `accepted`: the caller accepted and waits for the other. `mutual`: both accepted, the contacts are open. `declined`: one of the two declined. `expired`: not answered in time. `cancelled`: one of the two withdrew, the event was cancelled or a user was banned
+         * @enum {string}
+         */
+        MatchStatus: "proposed" | "accepted" | "mutual" | "declined" | "expired" | "cancelled";
+        /**
+         * @description An interest from the fixed list users pick from
+         * @example {
+         *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *       "name": "Книги",
+         *       "group": "Книги й комікси"
+         *     }
+         */
+        Interest: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description The heading the interest is shown under */
+            group: string;
+        };
+        /**
+         * @description How to reach the other user of a mutual match (FR-019)
+         * @example {
+         *       "phone": null,
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "olena_k",
+         *           "url": "https://t.me/olena_k"
+         *         }
+         *       ]
+         *     }
+         */
+        MatchContacts: {
+            /** @description Only if they share it; null while sign-in is Google-only */
+            phone: string | null;
+            linkedAccounts: components["schemas"]["LinkedAccount"][];
+        };
+        /**
+         * @description A social network the user shares with a mutual match
+         * @example {
+         *       "network": "telegram",
+         *       "username": "olena_k",
+         *       "url": "https://t.me/olena_k"
+         *     }
+         */
+        LinkedAccount: {
+            network: components["schemas"]["SocialNetwork"];
+            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
+            username: string;
+            /** @description The profile link a mutual match opens */
+            url: string;
+        };
+        /**
+         * @description A social network whose handle a mutual match sees
+         * @enum {string}
+         */
+        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
+        /**
          * @example {
          *       "items": [
          *         {
@@ -1775,21 +2045,6 @@ export interface components {
             items: components["schemas"]["Interest"][];
         };
         /**
-         * @description An interest from the fixed list users pick from
-         * @example {
-         *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Книги",
-         *       "group": "Книги й комікси"
-         *     }
-         */
-        Interest: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @description The heading the interest is shown under */
-            group: string;
-        };
-        /**
          * @description The signed-in user’s own profile
          * @example {
          *       "username": "olena_k",
@@ -1837,26 +2092,6 @@ export interface components {
             /** @description True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three */
             isComplete: boolean;
         };
-        /**
-         * @description A social network the user shares with a mutual match
-         * @example {
-         *       "network": "telegram",
-         *       "username": "olena_k",
-         *       "url": "https://t.me/olena_k"
-         *     }
-         */
-        LinkedAccount: {
-            network: components["schemas"]["SocialNetwork"];
-            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
-            username: string;
-            /** @description The profile link a mutual match opens */
-            url: string;
-        };
-        /**
-         * @description A social network whose handle a mutual match sees
-         * @enum {string}
-         */
-        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -3334,8 +3569,255 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `CONFLICT`: the application is no longer waiting in the pool. */
+            /** @description `CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyMatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending and mutual matches */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchList"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Match id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The match */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Match"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No match with this id, or the caller is not one of its two users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acceptMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Match id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The match, `accepted` or `mutual` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Match"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No match with this id, or the caller is not one of its two users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the proposal is no longer waiting for answers: declined, expired, cancelled or mutual. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    declineMatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Match id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The declined match */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Match"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No match with this id, or the caller is not one of its two users */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the proposal is no longer waiting for answers: declined, expired, cancelled or mutual. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMatchContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Match id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other user’s contacts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchContacts"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No mutual match with this id that the caller is part of */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

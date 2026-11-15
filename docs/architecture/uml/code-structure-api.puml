@@ -1,0 +1,165 @@
+@startuml code-structure-api
+/'
+  AI Usage Note
+  Drafted with Claude from the code in src/.
+'/
+title Nearby — Code Structure (src/api/): controllers
+
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+hide circle
+skinparam class {
+  BackgroundColor<<other diagram>> #F4F4F4
+  BorderColor<<other diagram>> #A0A0A0
+  FontColor<<other diagram>> #707070
+}
+
+package "api/common" as API_common {
+  class AuthGuard {
+    +canActivate(context)
+  }
+  class ApiExceptionFilter {
+    +catch(exception, host)
+  }
+  class ApiException
+  class ApiExpressAdapter
+}
+package "api/identity" as API_identity {
+  class AuthController {
+    +registerWithGoogle()
+    +completeRegistration()
+    +signInWithGoogle()
+    +getGuestToken()
+    +refreshSession()
+    +signOut()
+  }
+}
+package "api/profiles" as API_profiles {
+  class ProfilesController {
+    +listInterests()
+    +getMyProfile()
+    +createMyProfile()
+    +updateMyProfile()
+    +replaceMyInterests()
+    +replaceMyLinkedAccounts()
+  }
+}
+package "api/catalog" as API_catalog {
+  class EventsController {
+    +listEvents()
+    +getEvent()
+    +createEvent()
+    +updateEvent()
+    +cancelEvent()
+  }
+  class CategoriesController {
+    +listCategories()
+  }
+  class AdminCategoriesController {
+    +listCategories()
+    +getCategory()
+    +createCategory()
+    +updateCategory()
+    +deleteCategory()
+  }
+  class OrganizationsController {
+    +getMyOrganization()
+    +requestOrganizationStatus()
+  }
+}
+package "api/listings" as API_listings {
+  class ListingsController {
+    +listListings()
+    +getListing()
+    +createListing()
+    +deleteListing()
+  }
+}
+package "api/matching" as API_matching {
+  class ApplicationsController {
+    +applyToEvent()
+    +listMyApplications()
+    +getApplication()
+    +withdrawApplication()
+  }
+}
+package "api/moderation" as API_moderation {
+  class ReportsController {
+    +createReport()
+  }
+  class AdminReportCasesController {
+    +listReportCases()
+    +getReportCase()
+    +banReportedUser()
+    +removeReportedListing()
+    +dismissReportCase()
+  }
+  class AdminOrganizationsController {
+    +listOrganizations()
+    +approveOrganization()
+    +rejectOrganization()
+  }
+}
+package "api/admin" as API_admin {
+  class AdminStatsController {
+    +getStats()
+  }
+  class AdminBackupsController {
+    +listBackups()
+  }
+}
+package "api/system" as API_system {
+  class SystemController {
+    +getHealth()
+  }
+}
+
+package "core services (methods on code-structure-core-*)" as CORE {
+  class AuthService <<other diagram>>
+  class SessionsService <<other diagram>>
+  class ProfilesService <<other diagram>>
+  class ModerationService <<other diagram>>
+  class OrganizationReviewService <<other diagram>>
+  class EventsService <<other diagram>>
+  class CategoriesService <<other diagram>>
+  class OrganizationsService <<other diagram>>
+  class ImportFreshnessService <<other diagram>>
+  class ListingsService <<other diagram>>
+  class ApplicationsService <<other diagram>>
+  class StatsService <<other diagram>>
+  class BackupsService <<other diagram>>
+  class HealthService <<other diagram>>
+}
+
+' the guard checks every request's token; the filter turns errors into ErrorResponse
+AuthGuard --> AuthService
+
+' controllers call the services their core module exports
+AuthController --> AuthService
+AuthController --> SessionsService
+ProfilesController --> ProfilesService
+EventsController --> EventsService
+EventsController --> ImportFreshnessService
+CategoriesController --> CategoriesService
+AdminCategoriesController --> CategoriesService
+OrganizationsController --> OrganizationsService
+ListingsService <-- ListingsController
+ApplicationsService <-- ApplicationsController
+ModerationService <-- ReportsController
+ModerationService <-- AdminReportCasesController
+OrganizationReviewService <-- AdminOrganizationsController
+StatsService <-- AdminStatsController
+BackupsService <-- AdminBackupsController
+HealthService <-- SystemController
+
+legend right
+  Solid arrow: calls (constructor injection)
+  Dashed arrow: implements
+  ESLint rejects any other import across these boxes
+  Controller methods: the handlers, named by their operationId; inputs come from @Input()
+  Grey boxes: core services, shown with their methods on code-structure-core-*
+endlegend
+
+@enduml

@@ -21,6 +21,7 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
 import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, pickableSessions } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
+import { useApplicationMatch } from '@/hooks/use-matches';
 import { useEvent } from '@/hooks/use-event';
 import { useProfile } from '@/hooks/use-profile';
 import { plural } from '@/plural';
@@ -28,6 +29,7 @@ import { openSessions } from '@/state/applications';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
+import { matchHref } from '@/state/matches';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -170,6 +172,8 @@ export default function EventScreen() {
   const [expanded, setExpanded] = useState(false);
   const profile = useProfile();
   const { application, reload: reloadApplications } = useEventApplication(id);
+  // A paired application has a proposal or a mutual match; the button opens it instead of the search screen.
+  const { match } = useApplicationMatch(application?.id);
   // A multi-day event asks for the days first, then opens 03 for them.
   const [step, setStep] = useState<'day' | 'request' | null>(null);
   // The days picked for a multi-day event; none for a single-day one.
@@ -245,6 +249,7 @@ export default function EventScreen() {
 
   const onAction = () => {
     if (isGuest) setDialogOpen(true);
+    else if (match) router.push(matchHref(match));
     else if (inPool) openSearch();
     else if (profileIncomplete) setProfileDialogOpen(true);
     else if (multiDay) setStep('day');
@@ -380,7 +385,11 @@ export default function EventScreen() {
         className="absolute bottom-0 left-0 right-0 items-center bg-surface-card px-5"
         style={{ paddingTop: ACTION_BAR_TOP, paddingBottom: bottomPadding }}
       >
-        <Button label={inPool ? 'Стежити за метчингом' : 'Знайти мені метч'} variant="dark" onPress={onAction} />
+        <Button
+          label={match ? 'Відкрити метч' : inPool ? 'Стежити за метчингом' : 'Знайти мені метч'}
+          variant="dark"
+          onPress={onAction}
+        />
       </View>
 
       <DayPickerSheet
