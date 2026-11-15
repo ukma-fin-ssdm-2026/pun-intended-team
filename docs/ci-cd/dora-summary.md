@@ -4,7 +4,7 @@ DORA metrics of the `CI` workflow on `main` for the runs created from 20.10 to 0
 
 ## Working Definitions
 
-We use the lab's definition: a **deployment** is a green run of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) on `main`, and a **failure** is a red one. `CI` is the only workflow that runs on a push to `main`: the API docs, the staging deployment and the image publication are jobs inside it, so a red job in any of them makes the commit red. Cancelled runs count as neither. DORA measures deployments to production; ours are green CI runs, so all four numbers are an approximation. Bonus 5 recomputes them with the image publication as the deployment.
+We use the lab's definition: a **deployment** is a green run of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) on `main`, and a **failure** is a red one. `CI` is the only workflow that runs on a push to `main`, so it is the only one counted. In the period, the image publication and the staging deployment were jobs of `CI` on `main` too, and a red job in any of them made the commit red (№159–№161); since then the staging jobs run only on the `staging` branch. Cancelled runs count as neither. DORA measures deployments to production; ours are green CI runs, so all four numbers are an approximation. Bonus 5 recomputes them with the image publication as the deployment.
 
 ## DORA Metrics
 
