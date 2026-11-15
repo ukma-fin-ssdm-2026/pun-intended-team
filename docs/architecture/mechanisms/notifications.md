@@ -11,6 +11,28 @@
 3. Every sender checks current state before sending (e.g. no reminder for a withdrawn user or a cancelled event).
 4. Notifications is its own module: reached only through its interface, owns its own tables, reads no other module's tables.
 
+## Interface
+
+A module notifies through `NotificationsService` ([`notifications.service.ts`](../../../src/core/notifications/services/notifications.service.ts)), never through the table:
+
+```ts
+await this.transactions.run(async (tx) => {
+  // ...the change that causes the notification...
+  await this.notifications.notify(reporterId, 'report_received', {}, `report_received:${report.id}`, tx);
+});
+```
+
+- **`tx` is required** (rule 1): the row and its `notifications.deliver` job commit or roll back with the change, as any job does ([job queue](job-queue.md), rule 1).
+- **`dedupeKey`** is chosen by the sender, one per notification it means to send, such as `<type>:<id of what it is about>`. A sender that runs again, for example a retried job, passes the same key: nothing more is stored or enqueued, and `notify` returns `undefined`. The insert uses `ON CONFLICT DO NOTHING`, so a repeat does not abort the caller's transaction.
+- **`payload`** is plain JSON with the details the app needs for the type; never contact details (data model). A type with no details has `{}`.
+- **`notifications.deliver`** takes `{ notificationId }`. It reads the row first and does nothing when it is gone or no longer `pending`, so a repeated job changes nothing. Until push exists it sets `push_status` to `skipped`.
+
+The user reads the inbox with `GET /me/notifications` and marks a row read with `POST /notifications/{id}/read` ([API design](../../api/api-design.md#notifications)).
+
+## Not Done
+
+Push delivery (`PushProvider` for Expo Push, HLD I5) and device tokens, the first sender (report received, SAFE-003) and the app's inbox screen. Until then every row is `skipped` and the inbox is the only channel.
+
 ## Catalogue
 
 | Notification | Trigger | Channel |

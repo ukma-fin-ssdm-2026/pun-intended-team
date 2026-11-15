@@ -41,9 +41,20 @@ package "core (business logic)" as CORE {
   package notifications {
     class NotificationsService {
       +sendCode(phone, code)
+      +notify(accountId, type, payload, dedupeKey, tx)
+      +listMine(accountId, page)
+      +markRead(accountId, id)
+      +deliver(notificationId)
     }
     abstract class MessagingProvider {
       +sendCode(phone, code)
+    }
+    abstract class NotificationsRepository {
+      +create(notification, tx)
+      +findById(id, tx)
+      +findByAccount(accountId, page, tx)
+      +markRead(accountId, id, tx)
+      +updatePushStatus(id, from, to, tx)
     }
   }
   package jobs {
@@ -78,6 +89,8 @@ StatsService --> BackupsService
 BackupsService --> BackupRunsRepository
 HealthService --> DatabaseProbe
 NotificationsService --> MessagingProvider
+NotificationsService --> NotificationsRepository
+NotificationsService --> JobQueue
 
 legend right
   Solid arrow: calls (constructor injection)

@@ -80,7 +80,7 @@ Catalog reads require a guest or user token (`/auth/guest`); responses are pagin
 
 Modules call each other only through their exported NestJS services and never read another module's tables. Examples:
 
-- `notifications.notify(userId, type, payload, tx)` — writes the inbox row in the caller's transaction and enqueues delivery
+- `notifications.notify(userId, type, payload, dedupeKey, tx)` — writes the inbox row in the caller's transaction and enqueues delivery; a repeated `dedupeKey` writes and enqueues nothing
 - `notifications.sendCode(contact, code)` — synchronous, the only direct send (SEC-008)
 - `moderation.exclusionsFor(userIds)` — of a pool, the pairs where one reported the other, whatever came of the report, and the banned users, for FR-020
 - `catalog.getByIds(sessionIds)` — start, cutoff and status of sessions, for rounds and proposals

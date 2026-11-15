@@ -35,6 +35,7 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class ReportCasesRepository <<other diagram>>
   abstract class AuditLogRepository <<other diagram>>
   abstract class BackupRunsRepository <<other diagram>>
+  abstract class NotificationsRepository <<other diagram>>
   abstract class TransactionRunner <<other diagram>>
   abstract class DatabaseProbe <<other diagram>>
   abstract class AccessTokens <<other diagram>>
@@ -70,6 +71,7 @@ package "infra (InfraModule, global)" as INFRA {
     class PrismaReportCasesRepository
     class PrismaAuditLogRepository
     class PrismaBackupRunsRepository
+    class PrismaNotificationsRepository
     class PrismaTransactionRunner
     class PrismaDatabaseProbe
     note as PRISMA_NOTE
@@ -126,6 +128,7 @@ MatchesRepository <|.. PrismaMatchesRepository
 ReportCasesRepository <|.. PrismaReportCasesRepository
 AuditLogRepository <|.. PrismaAuditLogRepository
 BackupRunsRepository <|.. PrismaBackupRunsRepository
+NotificationsRepository <|.. PrismaNotificationsRepository
 TransactionRunner <|.. PrismaTransactionRunner
 DatabaseProbe <|.. PrismaDatabaseProbe
 AccessTokens <|.. JoseAccessTokens
