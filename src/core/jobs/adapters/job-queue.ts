@@ -15,6 +15,9 @@ export abstract class JobQueue {
     tx?: Transaction,
   ): Promise<void>;
 
+  /** Adds one job per payload in a single insert, to run as soon as a worker is free; `tx` as for `enqueue`. */
+  abstract enqueueMany<Payload extends object>(name: string, payloads: Payload[], tx?: Transaction): Promise<void>;
+
   /**
    * Sets the handler of the jobs called `name`. A module calls it in `onModuleInit`; one handler per name. `options`
    * apply to every job of the name, also to the ones another process enqueues.
