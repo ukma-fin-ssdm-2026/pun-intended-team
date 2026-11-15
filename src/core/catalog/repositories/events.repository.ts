@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import type { Page, PageRequest } from '../../common/page.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../types/event.ts';
 
 /**
@@ -7,7 +8,7 @@ import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from 
  * InfraModule decides which implementation services get.
  */
 export abstract class EventsRepository {
-  abstract findById(id: string): Promise<Event | undefined>;
+  abstract findById(id: string, tx?: Transaction): Promise<Event | undefined>;
 
   /** Published events that overlap the filter's dates, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
@@ -17,5 +18,5 @@ export abstract class EventsRepository {
 
   abstract create(event: EventRecord): Promise<Event>;
 
-  abstract update(id: string, changes: EventChanges & { status?: EventStatus }): Promise<Event>;
+  abstract update(id: string, changes: EventChanges & { status?: EventStatus }, tx?: Transaction): Promise<Event>;
 }
