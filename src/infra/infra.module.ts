@@ -25,6 +25,7 @@ import { AuditLogRepository } from '../core/moderation/repositories/audit-log.re
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
+import { NotificationsRepository } from '../core/notifications/repositories/notifications.repository.ts';
 import { DatabaseProbe } from '../core/system/adapters/database-probe.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { loadGoogleSettings } from './auth/google-settings.ts';
@@ -52,6 +53,7 @@ import { PrismaImportRunsRepository } from './prisma/prisma-import-runs.reposito
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
+import { PrismaNotificationsRepository } from './prisma/prisma-notifications.repository.ts';
 import { PrismaOrganizationsRepository } from './prisma/prisma-organizations.repository.ts';
 import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
 import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
@@ -79,6 +81,7 @@ const repositories = [
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
   { provide: BackupRunsRepository, useClass: PrismaBackupRunsRepository },
   { provide: ImportRunsRepository, useClass: PrismaImportRunsRepository },
+  { provide: NotificationsRepository, useClass: PrismaNotificationsRepository },
 ];
 
 const adapters = [
