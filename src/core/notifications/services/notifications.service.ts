@@ -5,13 +5,18 @@ import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../adapters/messaging-provider.ts';
+import { PushProvider } from '../adapters/push-provider.ts';
 import { DeviceTokensRepository } from '../repositories/device-tokens.repository.ts';
 import { NotificationsRepository } from '../repositories/notifications.repository.ts';
 import type { CodeDelivery } from '../types/code-delivery.ts';
 import type { DeviceRegistration } from '../types/device-token.ts';
 import type { Notification, NotificationPayload, NotificationType } from '../types/notification.ts';
+import { PUSH_BATCH_LIMIT, type PushTicket } from '../types/push.ts';
+import { pushContent } from './push-content.ts';
 
 const DELIVER_JOB = 'notifications.deliver';
+// Expo's code for a token whose app was removed or which changed; it will not work again.
+const DEVICE_NOT_REGISTERED = 'DeviceNotRegistered';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -19,6 +24,7 @@ export class NotificationsService implements OnModuleInit {
     private readonly messagingProvider: MessagingProvider,
     private readonly notificationsRepository: NotificationsRepository,
     private readonly deviceTokensRepository: DeviceTokensRepository,
+    private readonly pushProvider: PushProvider,
     private readonly jobs: JobQueue,
   ) {}
 
@@ -87,14 +93,37 @@ export class NotificationsService implements OnModuleInit {
   }
 
   /**
-   * Delivers a notification by push. Push is not built yet, so a pending one is marked skipped. The job may run
-   * again (job queue, rule 2): a notification that is gone or no longer pending is left as it is.
+   * Pushes a pending notification to every device of the account (HLD I5): `sent` when one device took it, `failed`
+   * when all refused it, `skipped` without a device. A refused message is not tried again; a token Expo no longer
+   * knows is removed. When a request fails as a whole, the job fails and is retried with the row still pending, so a
+   * device may get the push twice (notifications.md). A repeated job finds the row no longer pending and does nothing.
    */
   async deliver(notificationId: string): Promise<void> {
     const notification = await this.notificationsRepository.findById(notificationId);
     if (notification?.pushStatus !== 'pending') {
       return;
     }
-    await this.notificationsRepository.updatePushStatus(notificationId, 'pending', 'skipped');
+    const devices = await this.deviceTokensRepository.findByAccount(notification.accountId);
+    if (devices.length === 0) {
+      await this.notificationsRepository.updatePushStatus(notificationId, 'pending', 'skipped');
+      return;
+    }
+    const content = pushContent(notification);
+    const tickets: PushTicket[] = [];
+    for (let start = 0; start < devices.length; start += PUSH_BATCH_LIMIT) {
+      const batch = devices.slice(start, start + PUSH_BATCH_LIMIT);
+      tickets.push(...(await this.pushProvider.send(batch.map(({ pushToken }) => ({ to: pushToken, ...content })))));
+    }
+    const unregistered = devices
+      .filter((_, index) => {
+        const ticket = tickets[index];
+        return ticket?.status === 'error' && ticket.error === DEVICE_NOT_REGISTERED;
+      })
+      .map(({ pushToken }) => pushToken);
+    if (unregistered.length > 0) {
+      await this.deviceTokensRepository.deleteByPushTokens(unregistered);
+    }
+    const delivered = tickets.some(({ status }) => status === 'ok');
+    await this.notificationsRepository.updatePushStatus(notificationId, 'pending', delivered ? 'sent' : 'failed');
   }
 }
