@@ -15,9 +15,11 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import type { MessagingProvider } from '../../dist/core/notifications/adapters/messaging-provider.js';
+import type { PushProvider } from '../../dist/core/notifications/adapters/push-provider.js';
 import { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import { PgBossJobQueue } from '../../dist/infra/jobs/pg-boss-job-queue.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
+import { PrismaDeviceTokensRepository } from '../../dist/infra/prisma/prisma-device-tokens.repository.js';
 import { PrismaNotificationsRepository } from '../../dist/infra/prisma/prisma-notifications.repository.js';
 import { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { PrismaTransactionRunner } from '../../dist/infra/prisma/prisma-transaction-runner.js';
@@ -3196,7 +3198,14 @@ describe('Notifications', () => {
     jobs = new PgBossJobQueue(mainDatabaseUrl());
     jobs.onApplicationBootstrap();
     await jobs.whenStarted();
-    notifications = new NotificationsService({} as MessagingProvider, new PrismaNotificationsRepository(prisma), jobs);
+    // Sends nothing itself: the API's own queue delivers, so the push provider is never called here.
+    notifications = new NotificationsService(
+      {} as MessagingProvider,
+      new PrismaNotificationsRepository(prisma),
+      new PrismaDeviceTokensRepository(prisma),
+      {} as PushProvider,
+      jobs,
+    );
   });
 
   after(async () => {
@@ -3360,6 +3369,163 @@ describe('Notifications', () => {
         'id',
       );
     });
+  });
+});
+
+// A device's Expo push token, tied to the session that registered it (data model, issue #372). The API never returns it.
+describe('Push tokens', () => {
+  const path = '/api/v1/me/push-token';
+
+  /** A token in the Expo format, of its own for every test. */
+  const newPushToken = () => `ExponentPushToken[${randomUUID()}]`;
+
+  const sessionIdOf = (token: string): string =>
+    JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString()).sid;
+
+  const devicesWithToken = (pushToken: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ account_id: string; refresh_token_id: string; platform: string }>(
+        'SELECT account_id, refresh_token_id, platform FROM device_tokens WHERE push_token = $1',
+        [pushToken],
+      );
+      return rows;
+    });
+
+  const devicesOfSession = (sessionId: string) =>
+    withDatabase(async (client) => {
+      const { rows } = await client.query<{ push_token: string }>(
+        'SELECT push_token FROM device_tokens WHERE refresh_token_id = $1',
+        [sessionId],
+      );
+      return rows.map(({ push_token }) => push_token);
+    });
+
+  async function register(token: string, pushToken: string, platform = 'android'): Promise<Response> {
+    const res = await call('PUT', path, { token, body: { pushToken, platform } });
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    return res;
+  }
+
+  test('ties the token to the caller’s account, session and platform', async () => {
+    const { token } = await newAccount();
+    const pushToken = newPushToken();
+
+    await register(token, pushToken);
+
+    assert.deepEqual(await devicesWithToken(pushToken), [
+      { account_id: accountIdOf(token), refresh_token_id: sessionIdOf(token), platform: 'android' },
+    ]);
+  });
+
+  test('returns the token in no response', async () => {
+    const { token } = await newAccount();
+    const pushToken = newPushToken();
+
+    const responses = [
+      await register(token, pushToken),
+      await register(token, pushToken),
+      await call('GET', '/api/v1/me/notifications', { token }),
+      await call('GET', '/api/v1/me/profile', { token }),
+      await call('DELETE', path, { token }),
+    ];
+
+    for (const res of responses) {
+      assert.equal(JSON.stringify(res.body ?? null).includes(pushToken), false, JSON.stringify(res.body));
+    }
+  });
+
+  test('moves a token registered again to the new account and session, without an error', async () => {
+    const first = await newAccount();
+    const second = await newAccount();
+    const pushToken = newPushToken();
+    await register(first.token, pushToken);
+
+    await register(second.token, pushToken);
+
+    assert.deepEqual(await devicesWithToken(pushToken), [
+      { account_id: accountIdOf(second.token), refresh_token_id: sessionIdOf(second.token), platform: 'android' },
+    ]);
+  });
+
+  test('keeps one token per session: a new token replaces the old one', async () => {
+    const { token } = await newAccount();
+    const old = newPushToken();
+    const current = newPushToken();
+    await register(token, old);
+
+    await register(token, current, 'ios');
+
+    assert.deepEqual(await devicesOfSession(sessionIdOf(token)), [current]);
+  });
+
+  test('DELETE removes the token of the session, and answers 204 again when there is none', async () => {
+    const { token } = await newAccount();
+    const pushToken = newPushToken();
+    await register(token, pushToken);
+
+    const removed = await call('DELETE', path, { token });
+    const again = await call('DELETE', path, { token });
+
+    assert.equal(removed.status, 204, JSON.stringify(removed.body));
+    assert.equal(again.status, 204, JSON.stringify(again.body));
+    assert.deepEqual(await devicesWithToken(pushToken), []);
+  });
+
+  test('sign-out removes the token of the session and keeps the other sessions’ tokens', async () => {
+    const { subject, token } = await newAccount();
+    const other = await newSession(subject);
+    const pushToken = newPushToken();
+    const otherPushToken = newPushToken();
+    await register(token, pushToken);
+    await register(other.accessToken, otherPushToken);
+
+    const res = await call('POST', '/api/v1/auth/sign-out', { token });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.deepEqual(await devicesWithToken(pushToken), []);
+    assert.equal((await devicesWithToken(otherPushToken)).length, 1);
+  });
+
+  test('a ban removes the tokens of every session of the account', async () => {
+    const reported = await newProfile();
+    const pushToken = newPushToken();
+    await register(reported.token, pushToken);
+
+    await reportAndResolve(reported.username, reported.accountId, 'ban');
+
+    assert.deepEqual(await devicesWithToken(pushToken), []);
+  });
+
+  test('a refresh with a wrong secret ends the session and removes its token', async () => {
+    const { subject } = await newAccount();
+    const session = await newSession(subject);
+    const pushToken = newPushToken();
+    await register(session.accessToken, pushToken);
+    const sessionId = session.refreshToken.split('.')[0];
+
+    const res = await call('POST', '/api/v1/auth/refresh', {
+      body: { refreshToken: `${sessionId}.${randomBytes(32).toString('base64url')}` },
+    });
+
+    assertRejected(res, 401, 'INVALID_REFRESH_TOKEN');
+    assert.deepEqual(await devicesWithToken(pushToken), []);
+  });
+
+  test('rejects a token that is not an Expo push token with 400', async () => {
+    const { token } = await newAccount();
+
+    assertInvalid(
+      await call('PUT', path, { token, body: { pushToken: 'fcm-token', platform: 'android' } }),
+      'body',
+      'pushToken',
+    );
+  });
+
+  test('rejects a guest token with 401', async () => {
+    const body = { pushToken: newPushToken(), platform: 'android' };
+
+    assertRejected(await call('PUT', path, { token: tokens.guest, body }), 401, 'UNAUTHENTICATED');
+    assertRejected(await call('DELETE', path, { token: tokens.guest }), 401, 'UNAUTHENTICATED');
   });
 });
 
