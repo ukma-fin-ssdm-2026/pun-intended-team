@@ -5,6 +5,7 @@ import {
   eventSessions,
   sessionCutoff,
   formatEventDate,
+  formatNearDate,
   formatSessionDay,
   formatTimeRange,
   formatUntil,
@@ -51,6 +52,20 @@ describe('formatUntil', () => {
     ['2026-10-27T10:00:00Z', 'через 7 днів'],
   ])('says how far %s is', (iso, label) => {
     expect(formatUntil(iso, now)).toBe(label);
+  });
+});
+
+describe('formatNearDate', () => {
+  // 23:30 in Kyiv on 20 October.
+  const now = new Date('2026-10-20T20:30:00Z');
+
+  test.each([
+    ['2026-10-20T20:45:00Z', 'сьогодні, 23:45'],
+    ['2026-10-20T21:30:00Z', 'завтра, 00:30'],
+    ['2026-10-21T16:00:00Z', 'завтра, 19:00'],
+    ['2026-10-22T16:00:00Z', 'Чт, 22 жовт · 19:00'],
+  ])('names the day of %s by Kyiv time', (iso, label) => {
+    expect(formatNearDate(iso, now)).toBe(label);
   });
 });
 

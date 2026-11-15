@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../core/common/transaction.ts';
 import type { Page, PageRequest } from '../../core/common/page.ts';
 import { ReportCasesRepository } from '../../core/moderation/repositories/report-cases.repository.ts';
 import type {
@@ -11,6 +12,7 @@ import type {
 } from '../../core/moderation/types/report.ts';
 import type { Report as ReportRow, ReportCase as ReportCaseRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 // One open case per account and per listing (FR-026).
@@ -83,6 +85,20 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
 
   async countOpen(): Promise<number> {
     return this.prisma.reportCase.count({ where: { status: 'open' } });
+  }
+
+  async findReportedPairs(accountIds: string[], tx?: Transaction): Promise<[string, string][]> {
+    const rows = await clientOf(this.prisma, tx).report.findMany({
+      where: { reporterId: { in: accountIds }, case: { targetAccountId: { in: accountIds } } },
+      select: { reporterId: true, case: { select: { targetAccountId: true } } },
+    });
+    const pairs = new Map<string, [string, string]>();
+    for (const { reporterId, case: reportCase } of rows) {
+      if (reportCase.targetAccountId) {
+        pairs.set(`${reporterId} ${reportCase.targetAccountId}`, [reporterId, reportCase.targetAccountId]);
+      }
+    }
+    return [...pairs.values()];
   }
 
   private async addReport(target: CaseTarget, report: NewReportRow): Promise<string> {

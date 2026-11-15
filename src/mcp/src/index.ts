@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T17:08:58.938Z
+ * Generated on: 2026-11-14T21:28:08.115Z
  */
 
 import { existsSync } from 'node:fs';
@@ -346,7 +346,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["applyToEvent", {
     name: "applyToEvent",
     title: "Ask for a match at an event",
-    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match picks one of them. The answer says when the next matching round runs. Needs a signed-in account; a guest token gets 401.
+    description: `Join the matching pool of the event with the answers to the matching questions. A single-day event has one session; for an event that runs on several days, \`dates\` lists the days the user can go, and a match lists the days both users share. The answer says when the next matching round runs, or that a match is proposed at once. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"dates":{"type":"array","items":{"type":"string","format":"date"},"minItems":1,"maxItems":366,"description":"The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several days. Each lies within the catalog window: today and the next 28 days"},"desiredCompany":{"type":"string","enum":["friends","dating","company"],"description":"What kind of company the user is looking for at this event"},"afterEventPlans":{"type":"array","items":{"type":"string","enum":["walk","coffee","dinner"],"description":"Something to do together after the event"},"maxItems":3,"description":"What the user would do together after the event; an empty list means only the event"}},"required":["desiredCompany","afterEventPlans"],"additionalProperties":false,"examples":[{"desiredCompany":"company","afterEventPlans":["walk","coffee"]}],"description":"The JSON request body."}},"required":["id"]},
     method: "post",
@@ -391,7 +391,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["withdrawApplication", {
     name: "withdrawApplication",
     title: "Leave the matching pool",
-    description: `Withdraw one of the caller’s applications; withdrawing it again changes nothing. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
+    description: `Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
     method: "post",
@@ -402,6 +402,81 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Matching"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyMatches", {
+    name: "listMyMatches",
+    title: "List your matches",
+    description: `The caller’s proposals still waiting for answers and their mutual matches, soonest shared day first. A proposal past its \`validUntil\` shows as \`expired\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "get",
+    pathTemplate: "/api/v1/me/matches",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["getMatch", {
+    name: "getMatch",
+    title: "Get one of your matches",
+    description: `One of the caller’s matches, whatever its status, with the other user’s profile but no contacts. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/matches/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["acceptMatch", {
+    name: "acceptMatch",
+    title: "Accept a proposed match",
+    description: `Accept the proposal. Once the other user accepts too, the match is \`mutual\` and both see the contacts. Accepting again changes nothing. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/matches/{id}/accept",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["declineMatch", {
+    name: "declineMatch",
+    title: "Decline a proposed match",
+    description: `Decline the proposal, even after accepting it. Both users return to the pool and are never proposed to each other again at this event. Declining again changes nothing; a mutual match can no longer be declined. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/matches/{id}/decline",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["getMatchContacts", {
+    name: "getMatchContacts",
+    title: "Get the contacts of a mutual match",
+    description: `How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is \`404\`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/matches/{id}/contacts",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],
   ["adminListOrganizations", {
     name: "adminListOrganizations",

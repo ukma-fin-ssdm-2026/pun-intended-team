@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { AccountsRepository } from '../../core/identity/repositories/accounts.repository.ts';
 import type {
   Account,
@@ -12,6 +13,7 @@ import type {
 import type { Account as AccountRow } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 @Injectable()
@@ -140,12 +142,28 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
   }
 
+  async findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
+    const rows = await this.prisma.account.findMany({
+      where: { id: { in: accountIds }, dateOfBirth: { not: null } },
+      select: { id: true, dateOfBirth: true },
+    });
+    return new Map(rows.map(({ id, dateOfBirth }) => [id, this.cipher.decrypt(dateOfBirth!)]));
+  }
+
   async setStatus(accountId: string, status: AccountStatus): Promise<void> {
     await this.prisma.account.update({ where: { id: accountId }, data: { status } });
   }
 
   async countByStatus(status: AccountStatus): Promise<number> {
     return this.prisma.account.count({ where: { status } });
+  }
+
+  async findIdsWithStatus(accountIds: string[], status: AccountStatus, tx?: Transaction): Promise<string[]> {
+    const rows = await clientOf(this.prisma, tx).account.findMany({
+      where: { id: { in: accountIds }, status },
+      select: { id: true },
+    });
+    return rows.map(({ id }) => id);
   }
 
   private findAuthMethod(accountId: string, type: 'password' | 'google') {

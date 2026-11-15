@@ -103,7 +103,7 @@ Organizational:
 | Change lead time | 6 PRs waited more than a day after their last commit, #298 7 days | PRs wait for review | Review within one working day | @DarynaHalytska |
 | Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
 | Deployment frequency | No deployment on 7 of 21 days; 49 of 81 on weekends | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
-| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI (#453, done; see below) | @OLEGkn-coder |
+| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports (#453, done; see below) | @OLEGkn-coder |
 | Change fail rate | 4 of 6 red runs were new publish and deploy jobs (№157, №159–№161) | Their settings are outside the repository, and a PR cannot run them | A checklist of those settings in `staging.md`, checked before the merge; the image build names an empty build variable | @viktoriyabaran |
 | Change fail rate | Flaky rate limit test (№207) | Unknown; not a port clash, as the log has no `EADDRINUSE` | Flaky test hunt: 5 runs of the suite on one commit; the tests assert all three statuses; quarantine with an issue | @viktoriyabaran |
 | Change fail rate | Reliability tests hung until the timeout (№202) | A wait without a time limit in `database-timeouts.reliability.test.ts` | `--test-timeout` for the reliability tests; `stopApi` kills an API that does not exit in a few seconds | @OLEGkn-coder |
@@ -111,16 +111,16 @@ Organizational:
 | Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR fixes or reverts it, and nothing else is merged meanwhile | @viktoriyabaran |
 | Recovery time | 1 h 58 min to green after №157 | A pipeline change was first run on `main` with nobody watching | The author of a pipeline change watches its first `main` run and re-runs it once the setting is fixed | @OLEGkn-coder |
 
-### Implemented: Coverage Reports from CI
+### Implemented: Stop Committing Coverage Reports
 
-**Action** (#453): the coverage reports in `docs/testing/coverage/` are no longer committed, and `npm run docs:coverage` is gone. The `E2E tests` job uploads the report of all tests from every `main` run as the `coverage-report` artifact, kept for 30 days ([`ci.yml`](../../.github/workflows/ci.yml)).
+**Action** (#453): the coverage reports in `docs/testing/coverage/` are no longer committed, and `npm run docs:coverage` is gone. The coverage gate still fails `E2E tests` in CI, and `npm run test:coverage` writes a report to `coverage/index.html` locally.
 
-**Metric:** deployment frequency. Each committed report is one generated HTML file, so two pull requests that regenerated it conflicted: the second one waited for a merge of `main`, a new report and a new CI run before it could be merged.
+**Metric:** the rework that the committed reports caused, which held back deployment frequency. Each report was one generated HTML file, so two pull requests that regenerated it conflicted: the second one waited for a merge of `main`, a new report and a new CI run before it could be merged. Once the reports are not committed, this rework is gone, so both counts after the merge are 0.
 
 | | Pull requests that changed the reports | Merges of `main` into a branch that had to redo them |
 |---|---|---|
 | Before, 20.10–09.11 | 25 of 88 | 9 |
-| After the merge of #453 | TODO | TODO |
+| After the merge of #453 | 0 | 0 |
 
 ## Bonuses
 

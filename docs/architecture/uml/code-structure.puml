@@ -3,7 +3,7 @@
   AI Usage Note
   Drafted with Claude from the code in src/.
 '/
-title Nearby — Code Structure (src/): selected modules, not all of them
+title Nearby — Code Structure (src/): modules
 
 skinparam shadowing false
 skinparam packageStyle rectangle
@@ -11,195 +11,103 @@ skinparam classAttributeIconSize 0
 hide empty members
 hide circle
 
-package "api (HTTP)" as API {
-  class AuthGuard
-  class EventsController
-  class CategoriesController
-  class AdminCategoriesController
-  class ListingsController
+package "api (HTTP), started by src/api/main.ts" as API {
+  class "common (AuthGuard)" as A_COMMON
+  class "identity" as A_ID
+  class "profiles" as A_PR
+  class "catalog" as A_CA
+  class "listings" as A_LI
+  class "matching" as A_MA
+  class "moderation" as A_MO
+  class "admin" as A_AD
+  class "system" as A_SY
 }
 
 package "core (business logic)" as CORE {
-  package identity {
-    class AuthService {
-      +authenticate(accessToken)
-    }
-    class SessionsService {
-      +isActive(sessionId, accountId)
-    }
-    abstract class AccessTokens {
-      +verify(token)
-    }
-    abstract class SessionsRepository {
-      +create(session)
-      +findById(id)
-      +rotate(id, currentHash, next)
-      +revoke(id, revokedAt)
-      +revokeAll(accountId, revokedAt, exceptId)
-    }
-  }
-
-  package listings {
-    class ListingsService {
-      +list(page)
-      +getById(id)
-      +create(accountId, input)
-      +remove(accountId, id)
-    }
-    abstract class ListingsRepository {
-      +findActive(fromDate, page)
-      +findActiveById(id)
-      +findByIds(ids)
-      +create(listing)
-      +markRemoved(id)
-    }
-  }
-
-  package catalog {
-    class EventsService {
-      +list(query, page)
-      +find(id)
-      +getById(id)
-      +create(accountId, input)
-      +update(accountId, id, changes)
-      +cancel(accountId, id)
-    }
-    class CategoriesService {
-      +findActive(id)
-      +findAll()
-      +listActive()
-      +getById(id)
-      +create(input)
-      +update(id, changes)
-      +delete(id)
-    }
-    abstract class EventsRepository {
-      +findById(id)
-      +findPublished(filter, page)
-      +countPublishedEndingAfter(instant)
-      +create(event)
-      +update(id, changes)
-    }
-    abstract class CategoriesRepository {
-      +findById(id)
-      +findAll()
-      +create(category)
-      +update(id, changes)
-      +delete(id)
-    }
-    abstract class VenuesRepository {
-      +findById(id)
-    }
-    abstract class OrganizationsRepository {
-      +findByAccountId(accountId)
-    }
-  }
-
-  package profiles {
-    class ProfilesService {
-      +getSummaries(accountIds)
-    }
-    abstract class ProfilesRepository {
-      +findSummaries(accountIds)
-    }
-  }
+  class "admin" as C_AD
+  class "moderation" as C_MO
+  class "matching" as C_MA
+  class "listings" as C_LI
+  class "profiles" as C_PR
+  class "catalog" as C_CA
+  class "identity" as C_ID
+  class "notifications" as C_NO
+  class "system" as C_SY
+  class "import" as C_IM
+  class "jobs (port only)" as C_JO
+  class "common (TransactionRunner)" as C_COMMON
 }
 
-package "infra (bound in InfraModule)" as INFRA {
-  package "prisma" {
-    class PrismaSessionsRepository
-    class PrismaCategoriesRepository
-    class PrismaProfilesRepository
-    class PrismaListingsRepository
-    class PrismaEventsRepository
-    class PrismaVenuesRepository
-    class PrismaOrganizationsRepository
-  }
+package "infra (data access and external services)" as INFRA {
+  class "prisma: every repository,\nTransactionRunner, DatabaseProbe" as I_PRISMA
+  class "auth" as I_AUTH
+  class "messaging" as I_MSG
+  class "jobs" as I_JOBS
+  class "providers" as I_PROV
+  class "geocoding" as I_GEO
+  class "stubs (unit test only)" as I_STUBS
+  note as BINDINGS
+    **InfraModule** (API process): prisma (nearby_main),
+    auth, messaging, jobs
+    **ImportInfraModule** (import process): prisma
+    (nearby_import), providers, geocoding, and jobs
+    with withJobQueue()
+  end note
 }
 
-package "import (bound in ImportInfraModule, process src/import/)" as IMPORT {
-  package "core/import" {
-    class EventImportService {
-      +run()
-      +importFrom(provider)
-    }
-    abstract class EventProvider {
-      +fetch()
-      +normalize(raw)
-    }
-    abstract class Geocoder {
-      +locate(venue)
-    }
-    abstract class ImportedEventsRepository {
-      +findCategories()
-      +failUnfinishedRuns(provider)
-      +startRun(provider)
-      +finishRun(runId, status, details)
-      +lastCompleteRun(provider)
-      +saveSkipped(runId, raw, reason)
-      +findVenues()
-      +updateVenueLocation(id, location)
-      +createVenue(venue)
-      +findEvent(provider, externalId)
-      +createEvent(event)
-      +updateEvent(id, fields)
-      +cancelUnseen(provider, seenExternalIds, range)
-    }
-  }
-  package "infra" as IMPORT_INFRA {
-    class ArtWizardEventProvider
-    class KarabasEventProvider
-    class NominatimGeocoder
-    class PrismaImportedEventsRepository
-  }
+package "import process (CMP-03), src/import/" as PROC {
+  class "ImportAppModule\nonce(), worker()" as IMPORT_APP
 }
 
-' api calls core services
-AuthGuard --> AuthService
-EventsController --> EventsService
-CategoriesController --> CategoriesService
-AdminCategoriesController --> CategoriesService
-ListingsController --> ListingsService
+' api modules call their core module
+A_COMMON --> C_ID
+A_ID --> C_ID
+A_PR --> C_PR
+A_CA --> C_CA
+A_LI --> C_LI
+A_MA --> C_MA
+A_MO --> C_MO
+A_AD --> C_AD
+A_SY --> C_SY
 
-' other modules call the same exported services
-ListingsService --> EventsService
-ListingsService --> CategoriesService
-ListingsService --> ProfilesService
+' the import process loads only the import module
+IMPORT_APP --> C_IM : loads
 
-' services reach storage through repositories
-AuthService --> AccessTokens
-AuthService --> SessionsService
-SessionsService --> SessionsRepository
-ListingsService --> ListingsRepository
-EventsService --> CategoriesService
-EventsService --> EventsRepository
-EventsService --> VenuesRepository
-EventsService --> OrganizationsRepository
-CategoriesService --> CategoriesRepository
-ProfilesService --> ProfilesRepository
+' core modules call each other's exported services
+C_AD --> C_MO
+C_AD --> C_MA
+C_AD --> C_CA
+C_AD --> C_ID
+C_MO --> C_LI
+C_MO --> C_PR
+C_MO --> C_CA
+C_MO --> C_ID
+C_MA --> C_CA
+C_MA --> C_PR
+C_LI --> C_CA
+C_LI --> C_PR
+C_PR --> C_ID
+C_ID --> C_NO
+C_IM --> C_JO
 
-' infra implements core repositories
-SessionsRepository <|.. PrismaSessionsRepository
-ListingsRepository <|.. PrismaListingsRepository
-EventsRepository <|.. PrismaEventsRepository
-CategoriesRepository <|.. PrismaCategoriesRepository
-VenuesRepository <|.. PrismaVenuesRepository
-OrganizationsRepository <|.. PrismaOrganizationsRepository
-ProfilesRepository <|.. PrismaProfilesRepository
+' keep infra under core
+C_NO -[hidden]-> I_MSG
 
-' the import runs as its own process, with its own infra bindings
-EventImportService --> EventProvider
-EventImportService --> Geocoder
-EventImportService --> ImportedEventsRepository
-EventProvider <|.. ArtWizardEventProvider
-EventProvider <|.. KarabasEventProvider
-Geocoder <|.. NominatimGeocoder
-ImportedEventsRepository <|.. PrismaImportedEventsRepository
+' infra implements the ports of core
+CORE <|.. I_PRISMA
+C_ID <|.. I_AUTH
+C_NO <|.. I_MSG
+C_JO <|.. I_JOBS
+C_IM <|.. I_PROV
+C_IM <|.. I_GEO
+C_IM <|.. I_STUBS
 
 legend right
   Solid arrow: calls (constructor injection)
   Dashed arrow: implements
   ESLint rejects any other import across these boxes
+  Classes and methods: code-structure-api, -core-users, -core-events,
+  -core-operations, -infra and -import
 endlegend
 
 @enduml

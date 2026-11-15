@@ -23,6 +23,7 @@ const queueNames = {
   delayed: `test.delayed.${suffix}`,
   retried: `test.retried.${suffix}`,
   scheduled: `test.scheduled.${suffix}`,
+  defaults: `test.defaults.${suffix}`,
 };
 
 interface Payload {
@@ -137,6 +138,25 @@ after(async () => {
     await admin.query('DELETE FROM pgboss.queue WHERE name = ANY($1)', [names]);
     await admin.end();
   }
+});
+
+describe('PgBossJobQueue', () => {
+  test('starts with a handler and the default polling interval, as the API runs it', async () => {
+    const withDefaults = new PgBossJobQueue(process.env.MAIN_DATABASE_URL ?? '');
+    withDefaults.register(queueNames.defaults, () => Promise.resolve());
+    // A start that fails is retried for ever, so it is given a limit, and the queue is stopped either way.
+    const timeLimit = new Promise((_resolve, reject) => {
+      setTimeout(() => reject(new Error('The queue did not start within 15 s')), 15_000).unref();
+    });
+
+    withDefaults.onApplicationBootstrap();
+
+    try {
+      await Promise.race([withDefaults.whenStarted(), timeLimit]);
+    } finally {
+      await withDefaults.onModuleDestroy();
+    }
+  });
 });
 
 describe('JobQueue.enqueue', () => {

@@ -11,7 +11,7 @@ import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
-import { mockCategories, mockDistricts, mockEvents } from '@/mocks/events';
+import { mockDistricts } from '@/mocks/events';
 import {
   filterEvents,
   resetFilters,
@@ -50,13 +50,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  // The catalog passes its live events and categories, so the sheet counts what it will show; the map, still on mock
-  // data, passes none.
-  events?: components['schemas']['Event'][];
-  categories?: components['schemas']['Category'][];
+  // The loaded events of the catalog or the map, so the sheet counts what it will show, and the live categories.
+  events: components['schemas']['Event'][];
+  categories: components['schemas']['Category'][];
 };
 
-export function FiltersSheet({ visible, onClose, events = mockEvents, categories = mockCategories }: Props) {
+export function FiltersSheet({ visible, onClose, events, categories }: Props) {
   const insets = useSafeAreaInsets();
   const filters = useCatalogFilters();
   const count = filterEvents(events, filters).length;

@@ -52,6 +52,11 @@ export function matchingPhase(application: Application, now = new Date()): 'roun
   return Date.parse(application.cutoffAt) > now.getTime() ? 'open' : 'over';
 }
 
+// After a change made elsewhere, such as an answer to a match: the next screen that asks loads them again.
+export function invalidateApplications() {
+  if (store.get().state.status === 'loaded') store.set({ state: { status: 'idle' } });
+}
+
 // On sign-in and sign-out, so the next account never sees the previous one's applications.
 export function clearApplications() {
   session += 1;
