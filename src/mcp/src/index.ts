@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T21:28:08.115Z
+ * Generated on: 2026-11-15T12:31:14.716Z
  */
 
 import { existsSync } from 'node:fs';
@@ -610,6 +610,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     requestBodyContentType: "application/json",
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyNotifications", {
+    name: "listMyNotifications",
+    title: "List your notifications",
+    description: `The caller’s inbox, newest first, read and unread alike. Needs a signed-in account; a guest token gets 401.
+(Tags: Notifications)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/me/notifications",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Notifications"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["readNotification", {
+    name: "readNotification",
+    title: "Mark a notification read",
+    description: `Mark one of the caller’s notifications read. Marking it again changes nothing and keeps \`readAt\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Notifications)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Notification id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/notifications/{id}/read",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Notifications"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],

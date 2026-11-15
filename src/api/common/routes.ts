@@ -31,6 +31,10 @@ export const Routes = {
     decline: '/api/v1/matches/{id}/decline',
     contacts: '/api/v1/matches/{id}/contacts',
   },
+  notifications: {
+    mine: '/api/v1/me/notifications',
+    read: '/api/v1/notifications/{id}/read',
+  },
   listings: {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',

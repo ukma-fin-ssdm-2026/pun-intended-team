@@ -5,6 +5,7 @@ export const tags = [
   { name: 'Events', description: 'Events users can go to together' },
   { name: 'Listings', description: '"Looking for company" posts' },
   { name: 'Matching', description: 'Asking for a match at an event and leaving the pool' },
+  { name: 'Notifications', description: 'The signed-in user’s inbox' },
   { name: 'Profiles', description: 'The signed-in user’s profile, filled in step by step during onboarding' },
   { name: 'Interests', description: 'The fixed list of interests users pick from' },
   { name: 'Categories', description: 'The event category directory' },
