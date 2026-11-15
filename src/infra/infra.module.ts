@@ -25,6 +25,7 @@ import { AuditLogRepository } from '../core/moderation/repositories/audit-log.re
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
+import { PushProvider } from '../core/notifications/adapters/push-provider.ts';
 import { DeviceTokensRepository } from '../core/notifications/repositories/device-tokens.repository.ts';
 import { NotificationsRepository } from '../core/notifications/repositories/notifications.repository.ts';
 import { DatabaseProbe } from '../core/system/adapters/database-probe.ts';
@@ -64,6 +65,7 @@ import { PrismaVenuesRepository } from './prisma/prisma-venues.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
+import { ExpoPushProvider } from './push/expo-push-provider.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: PrismaEventsRepository },
@@ -92,6 +94,7 @@ const adapters = [
   { provide: DatabaseProbe, useClass: PrismaDatabaseProbe },
   { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },
+  { provide: PushProvider, useFactory: () => new ExpoPushProvider() },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },
