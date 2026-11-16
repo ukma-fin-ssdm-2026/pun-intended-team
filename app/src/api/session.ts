@@ -10,6 +10,7 @@ import { clearProfile } from '@/state/profile';
 import { setRole, setSignedIn } from '@/state/session';
 
 import { publicClient } from './public-client';
+import { registerPushToken } from './push-token';
 import type { components } from './schema';
 
 type SessionTokens = components['schemas']['SessionTokensResponse'];
@@ -52,7 +53,8 @@ function roleOf(accessToken: string): string | undefined {
 }
 
 export async function startSession(tokens: SessionTokens) {
-  if (!account) {
+  const signingIn = !account;
+  if (signingIn) {
     clearProfile();
     clearApplications();
     clearMatches();
@@ -63,6 +65,8 @@ export async function startSession(tokens: SessionTokens) {
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
   setSignedIn(true);
   setRole(roleOf(tokens.accessToken));
+  // Once per sign-in, not on every renewal; the session that registered the token is the one this sign-in started.
+  if (signingIn) void registerPushToken();
 }
 
 async function endSession() {
@@ -98,6 +102,8 @@ export async function restoreSession() {
   account = { access: { value: '', expiresAt: 0 }, refreshToken };
   setSignedIn(true);
   renew(refreshToken).catch(() => undefined);
+  // The token can change between starts, and a session from before push existed has none.
+  void registerPushToken();
 }
 
 // At most three tries: once more after no answer, and once more at once after 409. A 409 means a refresh with this token,

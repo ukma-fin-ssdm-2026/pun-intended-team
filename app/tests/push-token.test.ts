@@ -132,6 +132,21 @@ describe('registering after sign-in', () => {
     expect(registerPushToken).toHaveBeenCalledTimes(1);
   });
 
+  test('registers the device when the app starts with a stored session, once though it renews', async () => {
+    jest.doMock('expo-secure-store', () => ({
+      getItemAsync: jest.fn(() => Promise.resolve('refresh-1')),
+      setItemAsync: jest.fn(() => Promise.resolve()),
+      deleteItemAsync: jest.fn(() => Promise.resolve()),
+    }));
+    const { restoreSession, registerPushToken, post } = loadSession();
+    post.mockResolvedValue({ data: { ...tokens, accessToken: 'access-2' }, response: { ok: true, status: 200 } });
+
+    await restoreSession();
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
   test('registers again after a sign-out and the next sign-in', async () => {
     const { startSession, signOut, registerPushToken, post } = loadSession();
     post.mockResolvedValue({ response: { ok: true, status: 204 } });
