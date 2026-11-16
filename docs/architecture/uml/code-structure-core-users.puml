@@ -170,6 +170,7 @@ AccountsService --> SessionsService
 SessionsService --> SessionsRepository
 SessionsService --> AccountsRepository
 SessionsService --> AccessTokens
+SessionsService --> NotificationsService
 ProfilesService --> ProfilesRepository
 ProfilesService --> InterestsRepository
 ProfilesService --> AccountsService

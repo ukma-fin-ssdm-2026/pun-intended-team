@@ -102,6 +102,14 @@ package "api/moderation" as API_moderation {
     +rejectOrganization()
   }
 }
+package "api/notifications" as API_notifications {
+  class NotificationsController {
+    +listMyNotifications()
+    +readNotification()
+    +registerPushToken()
+    +removePushToken()
+  }
+}
 package "api/admin" as API_admin {
   class AdminStatsController {
     +getStats()
@@ -130,6 +138,7 @@ package "core services (methods on code-structure-core-*)" as CORE {
   class ApplicationsService <<other diagram>>
   class StatsService <<other diagram>>
   class BackupsService <<other diagram>>
+  class NotificationsService <<other diagram>>
   class HealthService <<other diagram>>
 }
 
@@ -152,6 +161,7 @@ ModerationService <-- AdminReportCasesController
 OrganizationReviewService <-- AdminOrganizationsController
 StatsService <-- AdminStatsController
 BackupsService <-- AdminBackupsController
+NotificationsService <-- NotificationsController
 HealthService <-- SystemController
 
 legend right

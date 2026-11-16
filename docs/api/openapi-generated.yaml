@@ -17,6 +17,8 @@ tags:
     description: '"Looking for company" posts'
   - name: Matching
     description: Asking for a match at an event and leaving the pool
+  - name: Notifications
+    description: The signed-in user’s inbox
   - name: Profiles
     description: The signed-in user’s profile, filled in step by step during onboarding
   - name: Interests
@@ -1745,6 +1747,105 @@ components:
         comment: >-
           We agreed to meet at the entrance; she did not come and did not
           answer.
+    NotificationsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 2b4d6f8a-0c1e-4a3b-9d5f-7a9c1e3b5d70
+            type: report_received
+            payload: {}
+            readAt: null
+            createdAt: '2026-11-15T10:00:00.000Z'
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/NotificationType'
+        payload:
+          type: object
+          additionalProperties:
+            nullable: true
+          description: >-
+            Details by type, never contact details; `report_received` has none,
+            so `{}`
+        readAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When the caller first marked it read; null while unread
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - type
+        - payload
+        - readAt
+        - createdAt
+      description: One row of the caller’s inbox
+      example:
+        id: 2b4d6f8a-0c1e-4a3b-9d5f-7a9c1e3b5d70
+        type: report_received
+        payload: {}
+        readAt: null
+        createdAt: '2026-11-15T10:00:00.000Z'
+    NotificationType:
+      type: string
+      enum:
+        - match_proposed
+        - match_mutual
+        - respond_soon
+        - not_a_match
+        - continue_matching
+        - removed_from_matching
+        - no_match_found
+        - event_reminder
+        - event_changed
+        - report_received
+      description: >-
+        What the notification is about; the app picks the text by it.
+        `report_received`: a report was filed
+    RegisterPushTokenBody:
+      type: object
+      properties:
+        pushToken:
+          type: string
+          maxLength: 200
+          pattern: ^Expo(nent)?PushToken\[[^\]]+\]$
+          description: >-
+            The Expo push token of the app on this device, from
+            getExpoPushTokenAsync; never returned
+        platform:
+          type: string
+          enum:
+            - ios
+            - android
+          description: ios or android
+      required:
+        - pushToken
+        - platform
+      additionalProperties: false
+      description: The push token of the device this session runs on
+      example:
+        pushToken: ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]
+        platform: android
     InterestList:
       type: object
       properties:
@@ -3976,6 +4077,159 @@ paths:
             `REFERENCE_NOT_FOUND`: no user has this username, or no active
             listing has this id. `CANNOT_REPORT_SELF`: it is your own username
             or your own listing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/notifications:
+    get:
+      operationId: listMyNotifications
+      summary: List your notifications
+      description: >-
+        The caller’s inbox, newest first, read and unread alike. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/notifications/{id}/read:
+    post:
+      operationId: readNotification
+      summary: Mark a notification read
+      description: >-
+        Mark one of the caller’s notifications read. Marking it again changes
+        nothing and keeps `readAt`. Needs a signed-in account; a guest token
+        gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Notification id
+          required: true
+          description: Notification id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The notification, read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No notification with this id in the caller’s inbox
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/push-token:
+    put:
+      operationId: registerPushToken
+      summary: Register this device for push
+      description: >-
+        Register the Expo push token of the device this session runs on. One
+        token per session: a new one replaces the last, and a token registered
+        before by another account or session moves to this one. The token is
+        removed when the session ends (sign-out, a ban, a refresh with a stolen
+        token). Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterPushTokenBody'
+      responses:
+        '204':
+          description: The device gets the caller’s pushes
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: removePushToken
+      summary: Stop push on this device
+      description: >-
+        Remove the push token of this session, e.g. when the user turns push
+        off. Removing it again, or when none was registered, also answers 204.
+        Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      responses:
+        '204':
+          description: The device gets no more pushes
+        '401':
+          description: No access token, or an invalid or expired one
           content:
             application/json:
               schema:

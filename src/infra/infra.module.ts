@@ -25,6 +25,9 @@ import { AuditLogRepository } from '../core/moderation/repositories/audit-log.re
 import { ReportCasesRepository } from '../core/moderation/repositories/report-cases.repository.ts';
 import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
+import { PushProvider } from '../core/notifications/adapters/push-provider.ts';
+import { DeviceTokensRepository } from '../core/notifications/repositories/device-tokens.repository.ts';
+import { NotificationsRepository } from '../core/notifications/repositories/notifications.repository.ts';
 import { DatabaseProbe } from '../core/system/adapters/database-probe.ts';
 import { Argon2PasswordHasher } from './auth/argon2-password-hasher.ts';
 import { loadGoogleSettings } from './auth/google-settings.ts';
@@ -46,12 +49,14 @@ import { PrismaAuditLogRepository } from './prisma/prisma-audit-log.repository.t
 import { PrismaBackupRunsRepository } from './prisma/prisma-backup-runs.repository.ts';
 import { PrismaCategoriesRepository } from './prisma/prisma-categories.repository.ts';
 import { PrismaDatabaseProbe } from './prisma/prisma-database-probe.ts';
+import { PrismaDeviceTokensRepository } from './prisma/prisma-device-tokens.repository.ts';
 import { PrismaEventSessionsRepository } from './prisma/prisma-event-sessions.repository.ts';
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaImportRunsRepository } from './prisma/prisma-import-runs.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
+import { PrismaNotificationsRepository } from './prisma/prisma-notifications.repository.ts';
 import { PrismaOrganizationsRepository } from './prisma/prisma-organizations.repository.ts';
 import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
 import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
@@ -60,6 +65,7 @@ import { PrismaVenuesRepository } from './prisma/prisma-venues.repository.ts';
 import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-codes.repository.ts';
 import { PrismaService } from './prisma/prisma.service.ts';
 import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
+import { ExpoPushProvider } from './push/expo-push-provider.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: PrismaEventsRepository },
@@ -79,6 +85,8 @@ const repositories = [
   { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
   { provide: BackupRunsRepository, useClass: PrismaBackupRunsRepository },
   { provide: ImportRunsRepository, useClass: PrismaImportRunsRepository },
+  { provide: NotificationsRepository, useClass: PrismaNotificationsRepository },
+  { provide: DeviceTokensRepository, useClass: PrismaDeviceTokensRepository },
 ];
 
 const adapters = [
@@ -86,6 +94,7 @@ const adapters = [
   { provide: DatabaseProbe, useClass: PrismaDatabaseProbe },
   { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },
+  { provide: PushProvider, useFactory: () => new ExpoPushProvider() },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },

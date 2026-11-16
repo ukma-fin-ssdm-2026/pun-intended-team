@@ -41,9 +41,33 @@ package "core (business logic)" as CORE {
   package notifications {
     class NotificationsService {
       +sendCode(phone, code)
+      +notify(accountId, type, payload, dedupeKey, tx)
+      +listMine(accountId, page)
+      +markRead(accountId, id)
+      +registerDevice(accountId, sessionId, device)
+      +removeDevice(sessionId, tx)
+      +removeDevices(accountId, exceptSessionId, tx)
+      +deliver(notificationId)
     }
     abstract class MessagingProvider {
       +sendCode(phone, code)
+    }
+    abstract class NotificationsRepository {
+      +create(notification, tx)
+      +findById(id, tx)
+      +findByAccount(accountId, page, tx)
+      +markRead(accountId, id, tx)
+      +updatePushStatus(id, from, to, tx)
+    }
+    abstract class DeviceTokensRepository {
+      +register(device, tx)
+      +findByAccount(accountId, tx)
+      +deleteBySession(sessionId, tx)
+      +deleteByAccount(accountId, exceptSessionId, tx)
+      +deleteByPushTokens(pushTokens, tx)
+    }
+    abstract class PushProvider {
+      +send(messages)
     }
   }
   package jobs {
@@ -67,9 +91,11 @@ class EventsService <<other diagram>>
 class MatchingService <<other diagram>>
 class ModerationService <<other diagram>>
 class AuthService <<other diagram>>
+class SessionsService <<other diagram>>
 
 ' services call services and reach storage and adapters through abstract classes
 AuthService --> NotificationsService
+SessionsService --> NotificationsService
 StatsService --> AccountsService
 StatsService --> EventsService
 StatsService --> MatchingService
@@ -78,6 +104,10 @@ StatsService --> BackupsService
 BackupsService --> BackupRunsRepository
 HealthService --> DatabaseProbe
 NotificationsService --> MessagingProvider
+NotificationsService --> NotificationsRepository
+NotificationsService --> DeviceTokensRepository
+NotificationsService --> PushProvider
+NotificationsService --> JobQueue
 
 legend right
   Solid arrow: calls (constructor injection)

@@ -15,6 +15,7 @@ import { IdentityApiModule } from './identity/identity-api.module.ts';
 import { ListingsApiModule } from './listings/listings-api.module.ts';
 import { MatchingApiModule } from './matching/matching-api.module.ts';
 import { ModerationApiModule } from './moderation/moderation-api.module.ts';
+import { NotificationsApiModule } from './notifications/notifications-api.module.ts';
 import { ProfilesApiModule } from './profiles/profiles-api.module.ts';
 import { SystemApiModule } from './system/system-api.module.ts';
 
@@ -31,6 +32,7 @@ import { SystemApiModule } from './system/system-api.module.ts';
     MatchingApiModule,
     ProfilesApiModule,
     ModerationApiModule,
+    NotificationsApiModule,
     AdminApiModule,
   ],
   providers: [
