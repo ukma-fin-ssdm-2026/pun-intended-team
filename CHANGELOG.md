@@ -41,6 +41,7 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - An ArtWizard event listed twice by its API is imported once, and its venue address names the city once ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - A place that ArtWizard and Karabas both list, or that Karabas lists under two names, is one venue on the map, with its events together, and ArtWizard's coordinates are used where they are in Kyiv ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 - A failed import run is always recorded as failed, with the error that stopped it, and never counts as succeeded ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
+- The catalog's «Оновлено …» notice also shows when a provider's events have not been imported for more than 30 hours, e.g. while the import container is down; it used to show only after a failed run ([#443](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/443)).
 
 ### Refactoring
 
