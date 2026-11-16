@@ -24,7 +24,11 @@ const queueNames = {
   retried: `test.retried.${suffix}`,
   scheduled: `test.scheduled.${suffix}`,
   defaults: `test.defaults.${suffix}`,
+  batched: `test.batched.${suffix}`,
 };
+
+const BATCH_SIZE = 10;
+const BACKLOG = 30;
 
 interface Payload {
   label: string;
@@ -75,6 +79,7 @@ const committed = new Received();
 const rolledBack = new Received();
 const delayed = new Received();
 const retried = new Received();
+const batched = new Received();
 let retriedAttempts = 0;
 
 /** Enqueues in a transaction that is rolled back when `commit` is false. */
@@ -114,6 +119,9 @@ before(async () => {
   queue.register<Payload>(queueNames.committed, (job) => Promise.resolve(committed.record(job.payload)));
   queue.register<Payload>(queueNames.rolledBack, (job) => Promise.resolve(rolledBack.record(job.payload)));
   queue.register<Payload>(queueNames.delayed, (job) => Promise.resolve(delayed.record(job.payload)));
+  queue.register<Payload>(queueNames.batched, (job) => Promise.resolve(batched.record(job.payload)), {
+    batchSize: BATCH_SIZE,
+  });
   queue.schedule(queueNames.scheduled, '* * * * *', { label: 'tick' });
   queue.onApplicationBootstrap();
   await queue.whenStarted();
@@ -220,6 +228,19 @@ describe('JobQueue.enqueue', () => {
     await retried.arrival('retried');
 
     assert.equal(retriedAttempts, 2);
+  });
+
+  // One job per poll would take BACKLOG polling intervals (15 s); full batches are taken one after another.
+  test('runs a backlog of a queue with a batch size without waiting between full batches', async () => {
+    const labels = Array.from({ length: BACKLOG }, (_, index) => `batched ${index}`);
+    for (const label of labels) {
+      await queue.enqueue(queueNames.batched, { label });
+    }
+
+    const arrivals = await Promise.all(labels.map((label) => batched.arrival(label)));
+
+    assert.deepEqual([...batched.labels()].sort(), [...labels].sort());
+    assert.ok(Math.max(...arrivals) - Math.min(...arrivals) < 5_000, 'the backlog took 5 s or longer');
   });
 });
 
