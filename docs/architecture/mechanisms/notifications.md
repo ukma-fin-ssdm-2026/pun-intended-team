@@ -38,7 +38,7 @@ The user reads the inbox with `GET /me/notifications` and marks a row read with 
 
 ## Not Done
 
-Push receipts (Expo's delivery check about 15 minutes later), so a token whose receipt says `DeviceNotRegistered` stays until a later send; the FCM key in EAS, without which Android pushes do not arrive; whether Expo then refuses them in the ticket (`failed`) or only in the receipt (`sent`) is not checked yet; the first sender (report received, SAFE-003) and the app's inbox screen; a cleanup of expired sessions, so the device of a session that expired, rather than ended, still gets pushes.
+Push receipts (Expo's delivery check about 15 minutes later), so a token whose receipt says `DeviceNotRegistered` stays until a later send; the first sender (report received, SAFE-003); in the app, the registration of the push token after sign-in and the inbox screen, which still shows mock data; a cleanup of expired sessions, so the device of a session that expired, rather than ended, still gets pushes.
 
 ## Catalogue
 
