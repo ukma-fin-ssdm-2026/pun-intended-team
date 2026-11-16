@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * Browse the event catalog
-         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
+         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more than 30 hours ago (FR-014). Needs an access token: a guest token or a signed-in account.
          */
         get: operations["listEvents"];
         put?: never;
@@ -1106,7 +1106,7 @@ export interface components {
             page: components["schemas"]["PageInfo"];
             /**
              * Format: date-time
-             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same on every page and with every filter
+             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same when the last succeeded run of a provider finished more than 30 hours ago, as when the import has stopped running. The same on every page and with every filter
              */
             lastUpdatedAt: string | null;
         };
