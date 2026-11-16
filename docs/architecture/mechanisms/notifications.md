@@ -38,7 +38,7 @@ The user reads the inbox with `GET /me/notifications` and marks a row read with 
 
 ## Not Done
 
-Push receipts (Expo's delivery check about 15 minutes later), so a token whose receipt says `DeviceNotRegistered` stays until a later send; the first sender (report received, SAFE-003); in the app, the registration of the push token after sign-in and the inbox screen, which still shows mock data; a cleanup of expired sessions, so the device of a session that expired, rather than ended, still gets pushes.
+Push receipts (Expo's delivery check about 15 minutes later), so a token whose receipt says `DeviceNotRegistered` stays until a later send; in the app, the registration of the push token after sign-in and the inbox screen, which still shows mock data; a cleanup of expired sessions, so the device of a session that expired, rather than ended, still gets pushes.
 
 ## Catalogue
 
@@ -53,7 +53,7 @@ Push receipts (Expo's delivery check about 15 minutes later), so a token whose r
 | No match found | Open-mode cutoff passes, user still unpaired (FR-018) | Inbox + push |
 | Event reminder | 3 h before the event (FR-024) — after the last round (T-6h), before the cutoff (T-1h) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
-| Report received | Report filed (SAFE-003) | Inbox + push |
+| Report received | Report filed on a user or a listing (SAFE-003); also on a user already banned, so the reporter cannot tell the ban from it | Inbox + push |
 | Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback, paused for now ([authentication](authentication.md), rule 6); not an inbox row (stored as VerificationCode) |
 
 ## AI Usage Note
