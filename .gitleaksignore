@@ -8,3 +8,7 @@
 # the second for a scan of the current file.
 4d6be830d87ea47e582ab76983974dc31e279358:docs/api/quality-attributes.md:curl-auth-header:258
 docs/api/quality-attributes.md:curl-auth-header:262
+
+# False positive: the Firebase Android API key in app/google-services.json ships in every APK by design. It is
+# restricted to the app ua.nearby.app signed with the EAS certificate and to the Firebase Installations and FCM APIs.
+app/google-services.json:gcp-api-key:23
