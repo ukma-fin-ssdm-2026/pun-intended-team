@@ -2,6 +2,10 @@
 
 DORA metrics of the `CI` workflow on `main` for the runs created from 20.10 to 09.11.2026 (UTC, 3 weeks). These are rows №117–№210 of [`metrics-raw.md`](metrics-raw.md), which holds the full history from 12.09 to 11.11. The per-PR lead times and the recovery incidents of the period are in [`evidence/dora-metrics-2026-10-20-to-2026-11-09.json`](evidence/dora-metrics-2026-10-20-to-2026-11-09.json).
 
+## Working Definitions
+
+We use the lab's definition: a **deployment** is a green run of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) on `main`, and a **failure** is a red one. `CI` is the only workflow that runs on a push to `main`, so it is the only one counted. In the period, the image publication and the staging deployment were jobs of `CI` on `main` too, and a red job in any of them made the commit red (№159–№161); since then the staging jobs run only on the `staging` branch. Cancelled runs count as neither. DORA measures deployments to production; ours are green CI runs, so all four numbers are an approximation. Bonus 5 recomputes them with the image publication as the deployment.
+
 ## DORA Metrics
 
 | Metric | Formula | Result | Category |
@@ -99,8 +103,8 @@ Organizational:
 
 | Metric | Problem | Root cause | Action | Owner |
 |---|---|---|---|---|
-| Change lead time | 21 of 89 PRs took over a day, up to 9 days | Long-lived branches: 18 of the 21 had more than 24 h between their first and last commit | Split features into PRs of at most a day's work | @viktoriyabaran |
-| Change lead time | 6 PRs waited more than a day after their last commit, #298 7 days | PRs wait for review | Review within one working day | @DarynaHalytska |
+| Change lead time | 21 of 89 PRs over a day, up to 9 days | Large PRs (up to 100 commits) | Split features into PRs of at most a day's work | @viktoriyabaran |
+| Change lead time | 99.7% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
 | Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
 | Deployment frequency | No deployment on 7 of 21 days; 49 of 81 on weekends | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
 | Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports (#453, done; see below) | @OLEGkn-coder |
@@ -122,6 +126,13 @@ Organizational:
 | Before, 20.10–09.11 | 25 of 88 | 9 |
 | After the merge of #453 | 0 | 0 |
 
+## What Pain Did These Metrics Show?
+
+1. **Changes wait for people, not for CI.** 99.7% of the lead time passes before the `main` run starts, while a run takes 2.7 min (median). 21 of 89 PRs took more than a day, 4 more than a week: large PRs wait for review.
+2. **We work in bursts.** 49 of 81 deployments were on a Saturday or a Sunday, and 7 of 21 days had none.
+3. **Nobody watches a red `main`.** The longest incident, after №207, lasted 14 h 14 min, from Sunday afternoon to Monday morning. We do not record when someone noticed a red run, so "noticing is the bottleneck" is a hypothesis, not a measurement.
+4. **The stability numbers rest on a small sample.** There were 6 failures and 4 incidents, and the one after №207 makes up 86% of the total recovery time, so the mean of 4 h 10 min says little; the median of 1 h 11 min is closer to a typical incident.
+
 ## Bonuses
 
 ### 1. Automatic metrics
@@ -140,7 +151,7 @@ node scripts/ci-metrics/collect.mjs --metrics --out ci-metrics-out/period --note
 | Change fail rate | 6.9% (6 of 87) | 6.9% (6 of 87) |
 | Failed deployment recovery time | mean 4 h 10 min, median 1 h 11 min | mean 4 h 10 min, median 1 h 11 min (4 incidents) |
 
-The numbers match under the two readings the hand count used: an incident is the series of red runs up to the next green one, and the lead time is counted per PR and ends with the first green run after the merge. The 98.9% share of the lead time before the merge in the Improvement Backlog the script does not reproduce: it gets 99.7%.
+The numbers match under the two readings the hand count used: an incident is the series of red runs up to the next green one, and the lead time is counted per PR and ends with the first green run after the merge.
 
 ### 2. Improvement with a measured effect
 
