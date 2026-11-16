@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
 import type { ListingsService } from '../../dist/core/listings/services/listings.service.js';
 import type { Listing } from '../../dist/core/listings/types/listing.js';
@@ -10,6 +11,7 @@ import type { AuditLogRepository } from '../../dist/core/moderation/repositories
 import type { ReportCasesRepository } from '../../dist/core/moderation/repositories/report-cases.repository.js';
 import { ModerationService } from '../../dist/core/moderation/services/moderation.service.js';
 import type { ReportCaseRecord, ReportRecord } from '../../dist/core/moderation/types/report.js';
+import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
 import type { ProfileSummary } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
@@ -17,6 +19,8 @@ import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 const ADMIN_ID = 'a0000000-0000-4000-8000-000000000009';
 const CASE_ID = 'c0000000-0000-4000-8000-000000000001';
 const LISTING_ID = 'l0000000-0000-4000-8000-000000000001';
+const REPORT_ID = 'r0000000-0000-4000-8000-000000000002';
+const TX = {} as Transaction;
 
 /** An open case on OTHER_ACCOUNT_ID with one report by ACCOUNT_ID. */
 function aCase(overrides: Partial<ReportCaseRecord> = {}): ReportCaseRecord & { reports: ReportRecord[] } {
@@ -67,8 +71,8 @@ function aListing(overrides: Partial<Listing> = {}): Listing {
 /** Every dependency of ModerationService as a mock; a test changes only what it needs. */
 function makeService() {
   const reportCasesRepository = {
-    addAccountReport: mock.fn(() => Promise.resolve(CASE_ID)),
-    addListingReport: mock.fn(() => Promise.resolve(CASE_ID)),
+    addAccountReport: mock.fn(() => Promise.resolve({ caseId: CASE_ID, reportId: REPORT_ID })),
+    addListingReport: mock.fn(() => Promise.resolve({ caseId: CASE_ID, reportId: REPORT_ID })),
     findPage: mock.fn(),
     findById: mock.fn((): Promise<ReturnType<typeof aCase> | undefined> => Promise.resolve(aCase())),
     resolve: mock.fn(() => Promise.resolve(true)),
@@ -93,6 +97,8 @@ function makeService() {
     findByIds: mock.fn((ids: string[]): Promise<Listing[]> => Promise.resolve(ids.length > 0 ? [aListing()] : [])),
     removeReported: mock.fn(() => Promise.resolve()),
   };
+  const notificationsService = { notify: mock.fn(() => Promise.resolve(undefined)) };
+  const transactions = { run: mock.fn((work: (tx: Transaction) => Promise<unknown>) => work(TX)) };
 
   const service = new ModerationService(
     reportCasesRepository as unknown as ReportCasesRepository,
@@ -100,8 +106,18 @@ function makeService() {
     profilesService as unknown as ProfilesService,
     accountsService as unknown as AccountsService,
     listingsService as unknown as ListingsService,
+    notificationsService as unknown as NotificationsService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, reportCasesRepository, auditLogRepository, profilesService, accountsService, listingsService };
+  return {
+    service,
+    reportCasesRepository,
+    auditLogRepository,
+    profilesService,
+    accountsService,
+    listingsService,
+    notificationsService,
+  };
 }
 
 function isDomainError(code: string, field?: string) {
@@ -117,7 +133,40 @@ describe('ModerationService.report', () => {
     assert.deepEqual(reportCasesRepository.addAccountReport.mock.calls[0]?.arguments, [
       OTHER_ACCOUNT_ID,
       { reporterId: ACCOUNT_ID, reason: 'fake_profile', comment: null },
+      TX,
     ]);
+  });
+
+  // SAFE-003
+  test('tells the reporter the report was received, in the transaction that stores it', async () => {
+    const { service, notificationsService } = makeService();
+
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'no_show' });
+
+    assert.deepEqual(notificationsService.notify.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      'report_received',
+      {},
+      `report_received:${REPORT_ID}`,
+      TX,
+    ]);
+  });
+
+  test('tells the reporter of every report, also of another one on the same case', async () => {
+    const { service, reportCasesRepository, notificationsService } = makeService();
+    const secondReportId = 'r0000000-0000-4000-8000-000000000003';
+    reportCasesRepository.addAccountReport.mock.mockImplementationOnce(
+      () => Promise.resolve({ caseId: CASE_ID, reportId: secondReportId }),
+      1,
+    );
+
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'no_show' });
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'no_show', comment: 'More details' });
+
+    assert.deepEqual(
+      notificationsService.notify.mock.calls.map(({ arguments: [, , , dedupeKey] }) => dedupeKey),
+      [`report_received:${REPORT_ID}`, `report_received:${secondReportId}`],
+    );
   });
 
   test('records who reported whom, without the comment', async () => {
@@ -146,6 +195,26 @@ describe('ModerationService.report', () => {
     assert.equal(auditLogRepository.record.mock.calls[0]?.arguments[0].result, 'ignored: account not active');
   });
 
+  // SAFE-003: the reporter is told as for any report, so whether a notification comes does not give the ban away.
+  test('still tells the reporter the report was received when the user is banned', async () => {
+    const { service, accountsService, notificationsService } = makeService();
+    accountsService.findStanding.mock.mockImplementation(() => Promise.resolve({ role: 'user', status: 'banned' }));
+
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'other' });
+    await service.report(ACCOUNT_ID, { username: 'taras', reason: 'other' });
+
+    const calls = notificationsService.notify.mock.calls.map(({ arguments: args }) => args);
+    assert.deepEqual(
+      calls.map(([accountId, type, payload]) => [accountId, type, payload]),
+      [
+        [ACCOUNT_ID, 'report_received', {}],
+        [ACCOUNT_ID, 'report_received', {}],
+      ],
+    );
+    assert.ok(calls.every(([, , , dedupeKey]) => dedupeKey.startsWith('report_received:')));
+    assert.notEqual(calls[0]?.[3], calls[1]?.[3]);
+  });
+
   test('rejects a username no profile has and stores nothing', async () => {
     const { service, profilesService, reportCasesRepository } = makeService();
     profilesService.findAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
@@ -167,6 +236,20 @@ describe('ModerationService.report', () => {
     );
     assert.equal(reportCasesRepository.addAccountReport.mock.callCount(), 0);
   });
+
+  for (const [title, accountId] of [
+    ['an unknown username', undefined],
+    ['your own username', ACCOUNT_ID],
+  ] as const) {
+    test(`notifies no one when the report names ${title}`, async () => {
+      const { service, profilesService, notificationsService } = makeService();
+      profilesService.findAccountId.mock.mockImplementation(() => Promise.resolve(accountId));
+
+      await assert.rejects(service.report(ACCOUNT_ID, { username: 'someone', reason: 'other' }));
+
+      assert.equal(notificationsService.notify.mock.callCount(), 0);
+    });
+  }
 });
 
 // FR-028
@@ -179,9 +262,25 @@ describe('ModerationService.reportListing', () => {
     assert.deepEqual(reportCasesRepository.addListingReport.mock.calls[0]?.arguments, [
       LISTING_ID,
       { reporterId: ACCOUNT_ID, reason: 'other', comment: null },
+      TX,
     ]);
     assert.deepEqual(auditLogRepository.record.mock.calls[0]?.arguments, [
       { actorId: ACCOUNT_ID, action: 'report.create', targetType: 'listing', targetId: LISTING_ID, result: 'created' },
+    ]);
+  });
+
+  // SAFE-003
+  test('tells the reporter the report was received, in the transaction that stores it', async () => {
+    const { service, notificationsService } = makeService();
+
+    await service.reportListing(ACCOUNT_ID, { listingId: LISTING_ID, reason: 'other' });
+
+    assert.deepEqual(notificationsService.notify.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      'report_received',
+      {},
+      `report_received:${REPORT_ID}`,
+      TX,
     ]);
   });
 
@@ -210,6 +309,20 @@ describe('ModerationService.reportListing', () => {
     );
     assert.equal(reportCasesRepository.addListingReport.mock.callCount(), 0);
   });
+
+  for (const [title, reporterId, listings] of [
+    ['an unknown listing', ACCOUNT_ID, []],
+    ['your own listing', OTHER_ACCOUNT_ID, [aListing()]],
+  ] as const) {
+    test(`notifies no one when the report names ${title}`, async () => {
+      const { service, listingsService, notificationsService } = makeService();
+      listingsService.findByIds.mock.mockImplementation(() => Promise.resolve([...listings]));
+
+      await assert.rejects(service.reportListing(reporterId, { listingId: LISTING_ID, reason: 'other' }));
+
+      assert.equal(notificationsService.notify.mock.callCount(), 0);
+    });
+  }
 });
 
 describe('ModerationService.getCase', () => {
