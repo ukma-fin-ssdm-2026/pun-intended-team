@@ -80,7 +80,7 @@ Catalog reads require a guest or user token (`/auth/guest`); responses are pagin
 
 Modules call each other only through their exported NestJS services and never read another module's tables. Examples:
 
-- `notifications.notify(userId, type, payload, tx)` — writes the inbox row in the caller's transaction and enqueues delivery
+- `notifications.notify(notification, tx)` — writes the inbox row in the caller's transaction, once per `dedupeKey`; enqueuing delivery comes with push ([notifications](mechanisms/notifications.md), rule 5)
 - `notifications.sendCode(contact, code)` — synchronous, the only direct send (SEC-008)
 - `moderation.exclusionsFor(userIds)` — of a pool, the pairs where one reported the other, whatever came of the report, and the banned users, for FR-020
 - `catalog.getByIds(sessionIds)` — start, cutoff and status of sessions, for rounds and proposals
@@ -95,7 +95,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | `matching.cutoff` | matching | matching | `sessionId` | delayed, at the open-mode cutoff |
 | `matching.expire` | matching | matching | `matchId` | delayed, at `valid_until` — expires the proposal, applies strikes |
 | `notifications.deliver` | notifications | notifications | `notificationId` | immediate or delayed (reminders, "respond soon") |
-| `event.changed` | CMP-03, catalog | matching | `eventId`, `change` | immediate — closes pools, voids pending matches, notifies applicants |
+| `event.changed` | CMP-03, catalog | matching | `eventId`, `change` (cancelled / republished / rescheduled) | immediate — cancels or moves the coming sessions with their applications, voids the pending matches they affect, notifies applicants ([matching](mechanisms/matching.md), rule 10) |
 | `user.banned` | moderation | matching | `userId` | immediate — withdraws applications, voids pending matches |
 | `audit.record` | identity and the other modules below moderation | moderation | actor, action, target, result, IP address (not recorded yet) | immediate — moderation writes the AuditLog row (SEC-004) |
 | `import.run` | schedule | CMP-03 | `providerId` | daily at 02:00 UTC, one schedule per provider; never retried, and no run within 20 hours of the provider's last ([ADR-006](decisions/ADR-006.md), decision 11) |

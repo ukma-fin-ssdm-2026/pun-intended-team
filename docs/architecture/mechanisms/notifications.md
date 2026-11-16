@@ -10,6 +10,7 @@
 2. Push delivery is retried; each inbox row is pushed **at most once**.
 3. Every sender checks current state before sending (e.g. no reminder for a withdrawn user or a cancelled event).
 4. Notifications is its own module: reached only through its interface, owns its own tables, reads no other module's tables.
+5. **The inbox comes first, push is not built yet.** `NotificationsService.notify(notification, tx)` writes the inbox row in the caller's transaction. Its `dedupe_key` names the fact the user is told about, so a job that runs twice writes one row. Until push delivery exists, the row is written with `push_status` `skipped` and no `notifications.deliver` job is enqueued; nothing shows the inbox in the app yet either. Only the event-changed notification is written so far (matching, rule 10).
 
 ## Catalogue
 

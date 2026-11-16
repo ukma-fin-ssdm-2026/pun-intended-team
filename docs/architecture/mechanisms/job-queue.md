@@ -2,7 +2,7 @@
 
 ## Decision
 
-Background work goes through a **job queue inside PostgreSQL** ([ADR-002](../decisions/ADR-002.md)), built on [pg-boss](https://github.com/timgit/pg-boss). `core` knows only the abstract class `JobQueue` ([`job-queue.ts`](../../../src/core/jobs/adapters/job-queue.ts)); [`PgBossJobQueue`](../../../src/infra/jobs/pg-boss-job-queue.ts) implements it and `InfraModule` binds the two, like any other port ([code structure](code-structure.md), rules 7 and 12). The import's long-running process binds it too, in `ImportInfraModule.withJobQueue()`, as `nearby_import`. The jobs of the system are listed in the [job catalogue](../high-level-design.md#i3--job-catalogue-pg-boss-in-cmp-04).
+Background work goes through a **job queue inside PostgreSQL** ([ADR-002](../decisions/ADR-002.md)), built on [pg-boss](https://github.com/timgit/pg-boss). `core` knows only the abstract class `JobQueue` ([`job-queue.ts`](../../../src/core/jobs/adapters/job-queue.ts)); [`PgBossJobQueue`](../../../src/infra/jobs/pg-boss-job-queue.ts) implements it and `InfraModule` binds the two, like any other port ([code structure](code-structure.md), rules 7 and 12). The import binds it too, in `ImportInfraModule.withJobQueue()`, as `nearby_import`: the long-running process runs `import.run` on it, and a one-off run (`--once`) binds it with `sendOnly`, which only enqueues and runs no maintenance or schedules, to enqueue `event.changed`. The jobs of the system are listed in the [job catalogue](../high-level-design.md#i3--job-catalogue-pg-boss-in-cmp-04).
 
 ## Rules
 
@@ -39,7 +39,7 @@ await this.transactions.run(async (tx) => {
 });
 ```
 
-`options` is `{ delayMs }` or `{ runAt }`; leave it out to run the job as soon as a worker is free. A cron job is `this.jobs.schedule('identity.retention', '0 3 * * *')` in the same `onModuleInit`.
+`options` is `{ delayMs }` or `{ runAt }`; leave it out to run the job as soon as a worker is free. `enqueueMany(name, payloads, tx)` adds many jobs of one name in a single insert, as the import does for every event one run cancels. A cron job is `this.jobs.schedule('identity.retention', '0 3 * * *')` in the same `onModuleInit`.
 
 ## Testing
 
