@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { clearOwnEvents } from '@/state/organization-events';
 import { clearApplications } from '@/state/applications';
 import { clearMatches } from '@/state/matches';
+import { clearNotifications } from '@/state/notifications';
 import { clearProfile } from '@/state/profile';
 import { setRole, setSignedIn } from '@/state/session';
 
@@ -56,6 +57,7 @@ export async function startSession(tokens: SessionTokens) {
     clearApplications();
     clearMatches();
     clearOwnEvents();
+    clearNotifications();
   }
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
@@ -69,6 +71,7 @@ async function endSession() {
   clearApplications();
   clearMatches();
   clearOwnEvents();
+  clearNotifications();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }

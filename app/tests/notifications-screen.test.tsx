@@ -14,6 +14,8 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() }),
   useFocusEffect: () => {},
 }));
+// The Т5.1 sheet shows mock posts with photos Jest cannot load; the inbox does not use it.
+jest.mock('@/components/announcements/join-request-sheet', () => ({ JoinRequestSheet: () => null }));
 jest.mock('@/api/notifications', () => ({
   loadNotifications: jest.fn(() => Promise.resolve()),
   markNotificationRead: jest.fn(() => Promise.resolve()),
