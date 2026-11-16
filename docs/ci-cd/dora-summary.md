@@ -67,6 +67,38 @@ xychart-beta
 | Return of `main` to green | under 60 min | 59.2 min (median) | **70.5 min** (median) |
 | Workflow duration | under 10 min | 2.2 min (median) | **2.7 min** (median); 3.0 min with the queue |
 
+## Root Causes
+
+### Postmortems of the Red `main` Runs
+
+One short blameless postmortem per incident of 20.10–09.11: what broke, why the pull request checks let it through, and which check would have caught it. The causes are in the Note column of [`metrics-raw.md`](metrics-raw.md).
+
+| Runs | PR | What broke | Why the PR checks missed it | Check that would catch it | Back to green |
+|---|---|---|---|---|---|
+| №157 | #330 | `Publish API image`: GHCR refused the push (`denied`) | The job runs only on `main`, and the package's access is set in GitHub, not in the repository | A checklist in [`staging.md`](../operations/staging.md) of the settings outside the repository (package access, repository variables, environment rules), checked before a publish or deploy change is merged | 1 h 58 min: a re-run of the failed job, no code change |
+| №159–№161 | #333 | The web image build: `EXPO_PUBLIC_GOOGLE_CLIENT_ID` was empty (№159); GHCR refused the web image (№160); the `staging` environment did not allow `main` to deploy (№161) | Same: three settings outside the repository, in jobs a pull request never runs | The same checklist; the build stops at once with the name of an empty build variable | 23 min: re-runs, no code change; #335 then deployed staging only from the `staging` branch |
+| №202 | #411 | `Reliability tests` ran into the 10-minute job timeout | The log stops after the first test file, and `node --test` reports the files in order, so the second one, `database-timeouts.reliability.test.ts`, never ended: one of its waits has no time limit (`stopApi` waits for the API to exit, `close` of the fake database for its connections). The PR's own run was green, so it does not hang every time | A time limit per test and hook (`--test-timeout`), and `stopApi` kills the API if it does not exit in a few seconds, so a hang fails fast and names the hook | 3 min: the next merge was green |
+| №207 | #414 | e2e: the per-IP rate limit tests got 401 and 400 instead of 429 | Not a port clash: the log has no `EADDRINUSE`, though an API's start-up errors do reach it (the `TRUST_PROXY=true` one is there). So the API with the limit of 2 answered the third request without 429; why is still unknown. The PR changed only `CHANGELOG.md`, and the next run was green without a code change, so the test is flaky | Five runs of the suite on one commit (flaky test hunt), and the tests assert all three statuses, so the next failure shows which requests were counted | 14 h 14 min: red from Sunday afternoon, nobody noticed until Monday morning |
+
+None of the six red runs was a defect in the product code: four were the first runs of new pipeline jobs, two were tests.
+
+### Technical and Organizational Root Causes
+
+Technical:
+
+- **Pipeline jobs that a pull request cannot run.** The publish and deploy jobs run only on `main` or `staging`, and their settings live in GitHub, set by hand. All four pipeline failures came from this (№157, №159–№161, PRs #330, #333).
+- **Unreliable tests.** A reliability test file that waits without a time limit (№202) and a flaky rate limit test whose cause is not yet known (№207).
+- **Runner queue before a deadline.** On the evening of 01.11 runs waited 11–73 min for a runner (№167–№172); #352 moved the jobs to GitHub-hosted runners the same evening. The queue is 31.5% of the time in CI but only 0.08% of the lead time.
+- **Sequential jobs.** On `main`, `E2E tests` waited for `CI passed` (#454 changed it).
+
+Organizational:
+
+- **Long-lived branches.** 76% of the lead time of the 89 PRs passed between their first and last commit, 22% between the last commit and the merge. 18 of the 21 PRs that took over a day had more than 24 h between their first and last commit, e.g. #275 (8 days), #258 and #260 (7 days); #247 had 102 commits.
+- **PRs waiting for review.** 6 of 89 PRs waited more than a day after their last commit; #298, one commit, waited 7 days, and #362 38 h after its last commit.
+- **Work in bursts around deadlines.** 49 of 81 deployments were on a Saturday or a Sunday, and 7 of 21 days had none; all six red runs fell on the weekends of 31.10–01.11 and 08.11.
+- **Nobody watches `main`.** After №207 `main` stayed red for 14 h.
+- **Generated files in pull requests.** 25 of 88 PRs changed the committed coverage reports, and 9 merges of `main` into a branch had to redo them (#453 changed it).
+
 ## Improvement Backlog
 
 | Metric | Problem | Root cause | Action | Owner |
@@ -74,11 +106,25 @@ xychart-beta
 | Change lead time | 21 of 89 PRs over a day, up to 9 days | Large PRs (up to 100 commits) | Split features into PRs of at most a day's work | @viktoriyabaran |
 | Change lead time | 99.7% of lead time is before the merge | PRs wait for review | Review within one working day | @DarynaHalytska |
 | Change lead time | A `main` run takes 4–6 min | `E2E tests` waits for `CI passed`, whose checks already ran on the pull request | Run `E2E tests` side by side with `CI passed` (#454, done; see Bonuses) | @OLEGkn-coder |
-| Deployment frequency | No deployment on 7 of 21 days | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
-| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports; publish them from CI | @OLEGkn-coder |
-| Change fail rate | Flaky rate limit test (№207) | Not yet known | Flaky test hunt: 5 runs of the suite on one commit; quarantine with an issue | @viktoriyabaran |
-| Change fail rate | Reliability tests hung until the timeout (№202) | A started process is left open | Stop the started APIs in `after`; `--test-force-exit` | @OLEGkn-coder |
-| Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red | @Vlad-Re |
+| Deployment frequency | No deployment on 7 of 21 days; 49 of 81 on weekends | Work done in bursts around lab deadlines | Merge small PRs daily | @viktoriyabaran |
+| Deployment frequency | 25 of 88 PRs changed the committed coverage reports; 9 merges of `main` into a branch had to redo them | Generated reports conflict between PRs | Stop committing coverage reports (#453, done; see below) | @OLEGkn-coder |
+| Change fail rate | 4 of 6 red runs were new publish and deploy jobs (№157, №159–№161) | Their settings are outside the repository, and a PR cannot run them | A checklist of those settings in `staging.md`, checked before the merge; the image build names an empty build variable | @viktoriyabaran |
+| Change fail rate | Flaky rate limit test (№207) | Unknown; not a port clash, as the log has no `EADDRINUSE` | Flaky test hunt: 5 runs of the suite on one commit; the tests assert all three statuses; quarantine with an issue | @viktoriyabaran |
+| Change fail rate | Reliability tests hung until the timeout (№202) | A wait without a time limit in `database-timeouts.reliability.test.ts` | `--test-timeout` for the reliability tests; `stopApi` kills an API that does not exit in a few seconds | @OLEGkn-coder |
+| Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red (#455) | @Vlad-Re |
+| Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR fixes or reverts it, and nothing else is merged meanwhile | @viktoriyabaran |
+| Recovery time | 1 h 58 min to green after №157 | A pipeline change was first run on `main` with nobody watching | The author of a pipeline change watches its first `main` run and re-runs it once the setting is fixed | @OLEGkn-coder |
+
+### Implemented: Stop Committing Coverage Reports
+
+**Action** (#453): the coverage reports in `docs/testing/coverage/` are no longer committed, and `npm run docs:coverage` is gone. The coverage gate still fails `E2E tests` in CI, and `npm run test:coverage` writes a report to `coverage/index.html` locally.
+
+**Metric:** the rework that the committed reports caused, which held back deployment frequency. Each report was one generated HTML file, so two pull requests that regenerated it conflicted: the second one waited for a merge of `main`, a new report and a new CI run before it could be merged. Once the reports are not committed, this rework is gone, so both counts after the merge are 0.
+
+| | Pull requests that changed the reports | Merges of `main` into a branch that had to redo them |
+|---|---|---|
+| Before, 20.10–09.11 | 25 of 88 | 9 |
+| After the merge of #453 | 0 | 0 |
 
 ## What Pain Did These Metrics Show?
 
