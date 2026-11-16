@@ -1,15 +1,16 @@
 // Written with the help of Claude
-// AI Usage: notifications screen from the Figma "Т5 Сповіщення" frame, on mock data; reviewed by Daryna Halytska.
-import { Stack, useRouter, type Href } from 'expo-router';
-import { useState } from 'react';
+// AI Usage: notifications screen from the Figma "Т5 Сповіщення" frame, on the inbox from the API; reviewed by Daryna Halytska.
+import { Stack, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications';
 import { JoinRequestSheet } from '@/components/announcements/join-request-sheet';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { formatDateTime } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockMatchesTab } from '@/mocks/matching';
-import { readAllNotifications, useNotifications } from '@/state/notifications';
+import { notificationText, useNotificationsState, type Notification } from '@/state/notifications';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -19,145 +20,109 @@ const GAP_BELOW_STATUS_BAR = 9;
 
 type Tone = 'coral' | 'ink' | 'plain';
 
-type Notification = {
-  icon: IconName;
-  tone: Tone;
-  title: string;
-  time: string;
-  text: string;
-  unread?: boolean;
-  // Where the prototype goes; "Скаргу отримано" has no link.
-  href?: Href;
-  // "Не цього разу" returns to the Метчі tab instead of opening a new screen.
-  toMatches?: boolean;
-  // Т5.1 "Олена хоче піти з тобою" opens the Д4 sheet over the list.
-  joinRequest?: boolean;
-};
-
 const tiles: Record<Tone, { box: string; icon: string }> = {
   coral: { box: 'bg-brand-coral', icon: colors.text['on-dark'] },
   ink: { box: 'bg-brand-ink', icon: colors.text['on-dark'] },
   plain: { box: 'bg-surface-background', icon: colors.text.primary },
 };
 
+// The tile of each type, as in the Figma frame; the matching ones open the Метчі tab.
+const looks: Record<Notification['type'], { icon: IconName; tone: Tone; toMatches?: boolean }> = {
+  match_proposed: { icon: 'matches', tone: 'ink', toMatches: true },
+  match_mutual: { icon: 'check', tone: 'coral', toMatches: true },
+  respond_soon: { icon: 'bell', tone: 'ink', toMatches: true },
+  not_a_match: { icon: 'close', tone: 'plain', toMatches: true },
+  continue_matching: { icon: 'matches', tone: 'plain', toMatches: true },
+  removed_from_matching: { icon: 'close', tone: 'plain', toMatches: true },
+  no_match_found: { icon: 'close', tone: 'plain', toMatches: true },
+  event_reminder: { icon: 'bell', tone: 'plain' },
+  event_changed: { icon: 'calendar', tone: 'plain' },
+  report_received: { icon: 'shield', tone: 'plain' },
+};
+
+type Row = { key: string; icon: IconName; tone: Tone; title: string; time: string; text: string; unread: boolean };
+
+function NotificationRow({ row, onPress }: { row: Row; onPress: () => void }) {
+  const tile = tiles[row.tone];
+  return (
+    <Pressable accessibilityRole="link" onPress={onPress} className="flex-row items-start gap-3 py-3">
+      <View className={`size-11 items-center justify-center rounded-[14px] ${tile.box}`}>
+        <Icon name={row.icon} size={22} color={tile.icon} />
+      </View>
+      <View className="flex-1 gap-0.5">
+        <View className="flex-row items-center gap-2">
+          <Text className="flex-1 font-inter-medium text-body text-text-primary">{row.title}</Text>
+          <Text className="font-inter text-caption text-text-secondary">{row.time}</Text>
+        </View>
+        <Text className="font-inter text-caption text-text-secondary">{row.text}</Text>
+      </View>
+      {row.unread && <View accessibilityLabel="Непрочитане" className="size-2 rounded-full bg-brand-coral" />}
+    </Pressable>
+  );
+}
+
+function toRow(notification: Notification): Row {
+  const { icon, tone } = looks[notification.type];
+  return {
+    key: notification.id,
+    icon,
+    tone,
+    ...notificationText(notification),
+    time: formatDateTime(notification.createdAt),
+    unread: notification.readAt === null,
+  };
+}
+
 // Т5.1: shown on top of the new ones when the development switch is on.
-const joinRequest: Notification = {
+const joinRequest: Row = {
+  key: 'join-request',
   icon: 'matches',
   tone: 'ink',
   title: 'Олена хоче піти з тобою',
   time: 'щойно',
   text: 'Відгукнулася на твоє оголошення про настолки в антикафе.',
   unread: true,
-  joinRequest: true,
 };
-
-const fresh: Notification[] = [
-  {
-    icon: 'check',
-    tone: 'coral',
-    title: 'Це взаємно!',
-    time: '5 хв',
-    text: 'Максим теж прийняв метч на «Квартирник». Контакти відкрито.',
-    unread: true,
-    // The safety reminder (06) over Максим's mutual match (07).
-    href: { pathname: '/mutual', params: { person: 'maksym', safety: '1' } },
-  },
-  {
-    icon: 'matches',
-    tone: 'ink',
-    title: 'Новий метч',
-    time: '2 год',
-    text: 'Знайшли тобі компанію на «Джаз-вечір у Мистецькому Арсеналі».',
-    unread: true,
-    // A proposal opens by the id of a match from the API, which the mock notifications do not have.
-    toMatches: true,
-  },
-];
-
-const earlier: Notification[] = [
-  {
-    icon: 'calendar',
-    tone: 'plain',
-    title: 'Подію змінено',
-    time: 'вчора',
-    text: '«Кераміка для початківців» переноситься на 18:30.',
-    href: { pathname: '/events/[id]', params: { id: '7a2d4b5c-0002-4b00-8000-000000000006' } },
-  },
-  {
-    icon: 'bell',
-    tone: 'plain',
-    title: 'Нагадування',
-    time: '2 дні',
-    text: 'Завтра о 16:00 «Як читати сучасне мистецтво».',
-    href: { pathname: '/events/[id]', params: { id: mockMatchesTab.search.eventId } },
-  },
-  {
-    icon: 'close',
-    tone: 'plain',
-    title: 'Не цього разу',
-    time: '3 дні',
-    text: 'Пропозиція на «Нічний показ» не склалася. Шукаємо далі.',
-    toMatches: true,
-  },
-  {
-    icon: 'shield',
-    tone: 'plain',
-    title: 'Скаргу отримано',
-    time: '4 дні',
-    text: 'Дякуємо. Модератор розгляне її найближчим часом.',
-  },
-];
-
-function NotificationRow({ item, read, onPress }: { item: Notification; read: boolean; onPress?: () => void }) {
-  const tile = tiles[item.tone];
-  const content = (
-    <>
-      <View className={`size-11 items-center justify-center rounded-[14px] ${tile.box}`}>
-        <Icon name={item.icon} size={22} color={tile.icon} />
-      </View>
-      <View className="flex-1 gap-0.5">
-        <View className="flex-row items-center gap-2">
-          <Text className="flex-1 font-inter-medium text-body text-text-primary">{item.title}</Text>
-          <Text className="font-inter text-caption text-text-secondary">{item.time}</Text>
-        </View>
-        <Text className="font-inter text-caption text-text-secondary">{item.text}</Text>
-      </View>
-      {item.unread && !read && <View className="size-2 rounded-full bg-brand-coral" />}
-    </>
-  );
-  return onPress ? (
-    <Pressable accessibilityRole="link" onPress={onPress} className="flex-row items-start gap-3 py-3">
-      {content}
-    </Pressable>
-  ) : (
-    <View className="flex-row items-start gap-3 py-3">{content}</View>
-  );
-}
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const session = useSession();
-  // "Прочитати все" turns the screen into Т5.2.
-  const { allRead } = useNotifications();
+  const inbox = useNotificationsState();
   const [requestOpen, setRequestOpen] = useState(false);
   useStatusBarStyle('dark');
 
-  const open = (item: Notification) => {
-    if (item.joinRequest) return () => setRequestOpen(true);
-    if (item.toMatches) return () => router.dismissTo('/matches');
-    const href = item.href;
-    return href ? () => router.push(href) : undefined;
+  // The inbox is read when the screen opens (HLD I1); the web build has no push, so this is its only channel.
+  useEffect(() => {
+    void loadNotifications();
+  }, []);
+
+  const open = (notification: Notification) => () => {
+    void markNotificationRead(notification.id);
+    if (looks[notification.type].toMatches) router.dismissTo('/matches');
   };
 
-  const section = (label: string, items: Notification[]) => (
-    <View className="gap-1 px-5 pt-4">
-      <Text className="font-inter-medium text-label text-text-secondary">{label}</Text>
-      {items.map((item) => (
-        <NotificationRow key={item.title} item={item} read={allRead} onPress={open(item)} />
-      ))}
-    </View>
-  );
+  const notifications = inbox.notifications ?? [];
+  const fresh = notifications.filter(({ readAt }) => readAt === null);
+  const earlier = notifications.filter(({ readAt }) => readAt !== null);
+
+  const section = (label: string, items: Notification[], extra?: Row) =>
+    (items.length > 0 || extra) && (
+      <View className="gap-1 px-5 pt-4">
+        <Text className="font-inter-medium text-label text-text-secondary">{label}</Text>
+        {extra && <NotificationRow row={extra} onPress={() => setRequestOpen(true)} />}
+        {items.map((item) => (
+          <NotificationRow key={item.id} row={toRow(item)} onPress={open(item)} />
+        ))}
+      </View>
+    );
+
+  const message =
+    inbox.status === 'error'
+      ? 'Не вдалося завантажити сповіщення'
+      : inbox.status === 'loaded' && notifications.length === 0 && !session.joinRequest
+        ? 'Сповіщень поки немає'
+        : undefined;
 
   return (
     <View className="flex-1 bg-surface-card">
@@ -183,14 +148,15 @@ export default function NotificationsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Прочитати все"
-          onPress={readAllNotifications}
+          onPress={() => void markAllNotificationsRead()}
           className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
         >
           <Icon name="check" size={20} />
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: Math.max(34, insets.bottom) }}>
-        {section('Нові', session.joinRequest ? [joinRequest, ...fresh] : fresh)}
+        {message && <Text className="px-5 pt-8 text-center font-inter text-body text-text-secondary">{message}</Text>}
+        {section('Нові', fresh, session.joinRequest ? joinRequest : undefined)}
         {section('Раніше', earlier)}
       </ScrollView>
 

@@ -179,6 +179,7 @@ ModerationService --> AuditLogRepository
 ModerationService --> ProfilesService
 ModerationService --> AccountsService
 ModerationService --> ListingsService
+ModerationService --> NotificationsService
 OrganizationReviewService --> OrganizationsService
 OrganizationReviewService --> ProfilesService
 OrganizationReviewService --> AuditLogRepository

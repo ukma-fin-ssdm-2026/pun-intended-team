@@ -16,6 +16,12 @@ export interface NewListingReport {
   comment?: string;
 }
 
+/** A stored report and the case it joined or opened. */
+export interface AddedReport {
+  caseId: string;
+  reportId: string;
+}
+
 export const reportTargetTypes = ['account', 'listing'] as const;
 
 export type ReportTargetType = (typeof reportTargetTypes)[number];

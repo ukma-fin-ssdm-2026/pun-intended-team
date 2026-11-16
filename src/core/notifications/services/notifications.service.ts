@@ -15,6 +15,8 @@ import { PUSH_BATCH_LIMIT, type PushTicket } from '../types/push.ts';
 import { pushContent } from './push-content.ts';
 
 const DELIVER_JOB = 'notifications.deliver';
+// A matching round notifies many users at once; one job per poll would deliver one notification every 2 s.
+const DELIVER_BATCH_SIZE = 20;
 // Expo's code for a token whose app was removed or which changed; it will not work again.
 const DEVICE_NOT_REGISTERED = 'DeviceNotRegistered';
 
@@ -29,7 +31,9 @@ export class NotificationsService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.jobs.register<{ notificationId: string }>(DELIVER_JOB, ({ payload }) => this.deliver(payload.notificationId));
+    this.jobs.register<{ notificationId: string }>(DELIVER_JOB, ({ payload }) => this.deliver(payload.notificationId), {
+      batchSize: DELIVER_BATCH_SIZE,
+    });
   }
 
   get sendsCodes(): boolean {

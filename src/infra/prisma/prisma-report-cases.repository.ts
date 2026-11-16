@@ -4,19 +4,17 @@ import type { Transaction } from '../../core/common/transaction.ts';
 import type { Page, PageRequest } from '../../core/common/page.ts';
 import { ReportCasesRepository } from '../../core/moderation/repositories/report-cases.repository.ts';
 import type {
+  AddedReport,
   ReportCaseRecord,
   ReportCaseStatus,
   ReportReason,
   ReportRecord,
   ReportResolution,
 } from '../../core/moderation/types/report.ts';
-import type { Report as ReportRow, ReportCase as ReportCaseRow } from './generated/client.ts';
+import { Prisma, type Report as ReportRow, type ReportCase as ReportCaseRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 import { clientOf } from './transaction-client.ts';
-import { violatedIndex } from './violated-index.ts';
 
-// One open case per account and per listing (FR-026).
-const OPEN_CASE_INDEXES = new Set(['report_cases_open_target_account_key', 'report_cases_open_target_listing_key']);
 const MAX_ATTEMPTS = 3;
 
 type CaseTarget =
@@ -27,12 +25,12 @@ type NewReportRow = { reporterId: string; reason: ReportReason; comment: string 
 export class PrismaReportCasesRepository implements ReportCasesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addAccountReport(accountId: string, report: NewReportRow): Promise<string> {
-    return this.addReport({ targetType: 'account', targetAccountId: accountId }, report);
+  async addAccountReport(accountId: string, report: NewReportRow, tx?: Transaction): Promise<AddedReport> {
+    return this.addReport({ targetType: 'account', targetAccountId: accountId }, report, tx);
   }
 
-  async addListingReport(listingId: string, report: NewReportRow): Promise<string> {
-    return this.addReport({ targetType: 'listing', targetListingId: listingId }, report);
+  async addListingReport(listingId: string, report: NewReportRow, tx?: Transaction): Promise<AddedReport> {
+    return this.addReport({ targetType: 'listing', targetListingId: listingId }, report, tx);
   }
 
   async findPage(status: ReportCaseStatus, { limit, offset }: PageRequest): Promise<Page<ReportCaseRecord>> {
@@ -101,12 +99,12 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
     return [...pairs.values()];
   }
 
-  private async addReport(target: CaseTarget, report: NewReportRow): Promise<string> {
+  private async addReport(target: CaseTarget, report: NewReportRow, tx?: Transaction): Promise<AddedReport> {
     // A case can be resolved, or opened by a parallel first report, between the lookup and the write; try again then.
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const caseId = await this.addToOpenCase(target, report);
-      if (caseId) {
-        return caseId;
+      const added = await this.addToOpenCase(target, report, clientOf(this.prisma, tx));
+      if (added) {
+        return added;
       }
     }
     throw new Error(`Could not add the report on ${target.targetType} ${targetId(target)}: its case kept changing`);
@@ -116,32 +114,46 @@ export class PrismaReportCasesRepository implements ReportCasesRepository {
   private async addToOpenCase(
     target: CaseTarget,
     { reporterId, reason, comment }: NewReportRow,
-  ): Promise<string | undefined> {
-    const open = await this.prisma.reportCase.findFirst({
+    client: Prisma.TransactionClient,
+  ): Promise<AddedReport | undefined> {
+    const open = await client.reportCase.findFirst({
       where: { ...target, status: 'open' },
       select: { id: true },
     });
     if (open) {
       // FOR SHARE makes a resolution that commits first win: the report is then not written into the resolved case.
-      const added = await this.prisma.$executeRaw`
+      const [added] = await client.$queryRaw<{ id: string }[]>`
         INSERT INTO reports (case_id, reporter_id, reason, comment)
         SELECT id, ${reporterId}::uuid, ${reason}::text, ${comment}::text FROM report_cases
         WHERE id = ${open.id}::uuid AND status = 'open'
-        FOR SHARE`;
-      return added === 1 ? open.id : undefined;
+        FOR SHARE
+        RETURNING id`;
+      return added ? { caseId: open.id, reportId: added.id } : undefined;
     }
-    try {
-      const created = await this.prisma.reportCase.create({
-        data: { ...target, reports: { create: { reporterId, reason, comment } } },
-      });
-      return created.id;
-    } catch (error) {
-      if (OPEN_CASE_INDEXES.has(violatedIndex(error) ?? '')) {
-        return undefined;
-      }
-      throw error;
+    // ON CONFLICT rather than catching the unique violation of a parallel first report, which would abort the caller's
+    // transaction; the next attempt then finds the case that report opened.
+    const [opened] = await client.$queryRaw<{ id: string }[]>(openCaseSql(target));
+    if (!opened) {
+      return undefined;
     }
+    const created = await client.report.create({
+      data: { caseId: opened.id, reporterId, reason, comment },
+      select: { id: true },
+    });
+    return { caseId: opened.id, reportId: created.id };
   }
+}
+
+function openCaseSql(target: CaseTarget): Prisma.Sql {
+  return target.targetType === 'account'
+    ? Prisma.sql`
+        INSERT INTO report_cases (target_type, target_account_id) VALUES ('account', ${target.targetAccountId}::uuid)
+        ON CONFLICT (target_account_id) WHERE status = 'open' AND target_account_id IS NOT NULL DO NOTHING
+        RETURNING id`
+    : Prisma.sql`
+        INSERT INTO report_cases (target_type, target_listing_id) VALUES ('listing', ${target.targetListingId}::uuid)
+        ON CONFLICT (target_listing_id) WHERE status = 'open' AND target_listing_id IS NOT NULL DO NOTHING
+        RETURNING id`;
 }
 
 function targetId(target: CaseTarget): string {

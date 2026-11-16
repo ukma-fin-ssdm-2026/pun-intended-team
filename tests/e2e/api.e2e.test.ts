@@ -3372,6 +3372,98 @@ describe('Notifications', () => {
   });
 });
 
+// SAFE-003: the first sender of notifications (issue #372).
+describe('Report received notifications', () => {
+  const inboxOf = async (token: string) => {
+    const res = await call('GET', '/api/v1/me/notifications', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body.items as { type: string; payload: unknown; readAt: string | null }[];
+  };
+
+  test('tells the reporter of a user that the report was received, and no one else', async () => {
+    const reporter = await newAccount();
+    const target = await newProfile();
+
+    const res = await call('POST', '/api/v1/reports', {
+      token: reporter.token,
+      body: { username: target.username, reason: 'no_show' },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    const inbox = await inboxOf(reporter.token);
+    assert.deepEqual(
+      inbox.map(({ type, payload, readAt }) => ({ type, payload, readAt })),
+      [{ type: 'report_received', payload: {}, readAt: null }],
+    );
+    assert.deepEqual(await inboxOf(target.token), []);
+  });
+
+  test('tells the reporter of a listing that the report was received', async () => {
+    const author = await newProfile();
+    const listing = await call('POST', '/api/v1/listings', { token: author.token, body: newListing });
+    const reporter = await newAccount();
+
+    const res = await call('POST', '/api/v1/reports', {
+      token: reporter.token,
+      body: { listingId: listing.body.id, reason: 'offensive_messages' },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.deepEqual(
+      (await inboxOf(reporter.token)).map(({ type }) => type),
+      ['report_received'],
+    );
+    assert.deepEqual(await inboxOf(author.token), []);
+  });
+
+  test('tells the reporter of each report, also of a second one that joins the same case', async () => {
+    const reporter = await newAccount();
+    const target = await newProfile();
+
+    for (const comment of ['Did not come.', 'Did not answer either.']) {
+      const res = await call('POST', '/api/v1/reports', {
+        token: reporter.token,
+        body: { username: target.username, reason: 'no_show', comment },
+      });
+      assert.equal(res.status, 204, JSON.stringify(res.body));
+    }
+
+    assert.deepEqual(
+      (await inboxOf(reporter.token)).map(({ type }) => type),
+      ['report_received', 'report_received'],
+    );
+  });
+
+  test('tells the reporter also when the reported user is banned, so the ban stays private', async () => {
+    const target = await newProfile();
+    await reportAndResolve(target.username, target.accountId, 'ban');
+    const reporter = await newAccount();
+
+    const res = await call('POST', '/api/v1/reports', {
+      token: reporter.token,
+      body: { username: target.username, reason: 'other' },
+    });
+
+    assert.equal(res.status, 204, JSON.stringify(res.body));
+    assert.deepEqual(
+      (await inboxOf(reporter.token)).map(({ type }) => type),
+      ['report_received'],
+    );
+  });
+
+  test('tells no one about a report that is rejected', async () => {
+    const reporter = await newProfile();
+
+    const res = await call('POST', '/api/v1/reports', {
+      token: reporter.token,
+      body: { username: reporter.username, reason: 'other' },
+    });
+
+    assertRejected(res, 422, 'CANNOT_REPORT_SELF');
+    assert.deepEqual(await inboxOf(reporter.token), []);
+  });
+});
+
 // A device's Expo push token, tied to the session that registered it (data model, issue #372). The API never returns it.
 describe('Push tokens', () => {
   const path = '/api/v1/me/push-token';

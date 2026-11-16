@@ -190,6 +190,16 @@ describe('NotificationsService.removeDevices', () => {
 
 // HLD I5, notifications.md rule 2. Delivery is at-least-once (job queue, rule 2).
 describe('NotificationsService: the notifications.deliver handler', () => {
+  test('takes the jobs in batches, so a burst of notifications does not wait a poll for each', () => {
+    const mocks = makeService();
+
+    mocks.service.onModuleInit();
+
+    const call = mocks.jobs.register.mock.calls.find(({ arguments: [name] }) => name === DELIVER_JOB);
+    const options = call?.arguments[2] as { batchSize?: number } | undefined;
+    assert.ok((options?.batchSize ?? 1) > 1, `${DELIVER_JOB} takes one job at a time`);
+  });
+
   test('pushes the notification once to every device of the account and marks it sent', async () => {
     const mocks = makeService();
     const stored = withStoredNotification(mocks.repository, 'pending');

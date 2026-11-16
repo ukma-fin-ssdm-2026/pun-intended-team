@@ -21,4 +21,9 @@ export interface QueueOptions {
   retryLimit?: number;
   /** How long a job may run before it counts as failed. */
   timeoutSeconds?: number;
+  /**
+   * How many jobs a worker takes at once; while it gets full batches it takes the next at once, without waiting for
+   * the polling interval. A failed job fails the jobs taken with it, which are then retried too.
+   */
+  batchSize?: number;
 }

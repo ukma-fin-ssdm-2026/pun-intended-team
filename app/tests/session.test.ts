@@ -5,6 +5,8 @@ type Post = jest.Mock<(path: string, init: unknown) => Promise<unknown>>;
 
 // Each test loads the session module afresh, since it keeps the signed-in account in module state.
 jest.mock('@/api/public-client', () => ({ publicClient: { POST: jest.fn() } }));
+// Signing in registers the device for push, which these tests leave out.
+jest.mock('@/api/push-token', () => ({ registerPushToken: jest.fn(() => Promise.resolve()) }));
 
 function load() {
   const session = require('@/api/session') as typeof import('@/api/session');
