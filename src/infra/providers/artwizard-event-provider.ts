@@ -6,7 +6,7 @@ import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/c
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, ImportedEvent, NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
-import { priceOf } from './price.ts';
+import { type EventPrice, priceOf, UNKNOWN_PRICE } from './price.ts';
 import { coveredInstants, errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
 export const ARTWIZARD_API_URL = 'https://api.artwizard.io';
@@ -55,8 +55,7 @@ const RawEvent = z.object({
   status: z.string(),
   type: z.array(z.string()).default([]),
   picture_url: z.string().nullish(),
-  // Hryvnias: 0 and 0 for a free event, equal for one price, null for none. Read leniently, as a price that is not
-  // a number only leaves the price unknown.
+  // Hryvnias, read by artwizardPrice. Read leniently, as a price that is not a number only leaves the price unknown.
   price_from: z.unknown().optional(),
   price_to: z.unknown().optional(),
   location: z.object({
@@ -257,10 +256,20 @@ export class ArtWizardEventProvider extends EventProvider {
         ...times,
         imageUrl: picture_url || null,
         sourceUrl: `${ARTWIZARD_SITE_URL}/${city}/e/${encodeURIComponent(externalId)}`,
-        ...priceOf([price_from, price_to]),
+        ...artwizardPrice(price_from, price_to),
       },
     };
   }
+}
+
+/**
+ * The price of an ArtWizard event from `price_from` and `price_to`: equal for one price, lower and higher for a range.
+ * ArtWizard writes 0 to 0 for concerts and screenings that sell tickets too, and no field says that an event is free,
+ * so a price of 0 without a higher one is unknown, not free (ADR-006, decision 12). A range from 0 is kept.
+ */
+export function artwizardPrice(priceFrom: unknown, priceTo: unknown): EventPrice {
+  const price = priceOf([priceFrom, priceTo]);
+  return price.priceMin === 0 && price.priceMax === null ? UNKNOWN_PRICE : price;
 }
 
 /**

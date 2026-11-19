@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import { Logger } from '@nestjs/common';
 import {
   ArtWizardEventProvider,
+  artwizardPrice,
   quillText,
   venueAddress,
 } from '../../dist/infra/providers/artwizard-event-provider.js';
@@ -271,8 +272,8 @@ describe('ArtWizardEventProvider.normalize', () => {
         endTimeKnown: false,
         imageUrl: savedEvent('santimetri-20261103').picture_url,
         sourceUrl: 'https://artwizard.io/kyiv/e/santimetri-20261103',
-        // ArtWizard writes 0 to 0 for a free event.
-        priceMin: 0,
+        // 0 to 0 on ArtWizard, written for paid screenings too: unknown.
+        priceMin: null,
         priceMax: null,
       },
     );
@@ -639,7 +640,8 @@ describe('ArtWizardEventProvider.normalize, the price', () => {
       expected: { priceMin: 0, priceMax: 500 },
       title: 'a range from free, 0 to 500',
     },
-    { slug: 'santimetri-20261103', expected: { priceMin: 0, priceMax: null }, title: 'a free event, 0 to 0' },
+    // A film screening at Будинок Кіно, which sells tickets: ArtWizard's 0 to 0 does not mean free.
+    { slug: 'santimetri-20261103', expected: { priceMin: null, priceMax: null }, title: 'no price, 0 to 0' },
     {
       slug: 'overtown-sessions-20261107',
       expected: { priceMin: null, priceMax: null },
@@ -669,4 +671,33 @@ describe('ArtWizardEventProvider.normalize, the price', () => {
 
     assert.deepEqual(priceOfEvent(raw), { priceMin: null, priceMax: null });
   });
+});
+
+// ADR-006, decision 12
+describe('artwizardPrice', () => {
+  const rows: {
+    from: unknown;
+    to: unknown;
+    expected: { priceMin: number | null; priceMax: number | null };
+    title: string;
+  }[] = [
+    { from: 200, to: 200, expected: { priceMin: 200, priceMax: null }, title: 'one price from two equal ones' },
+    { from: 300, to: 700, expected: { priceMin: 300, priceMax: 700 }, title: 'a range' },
+    { from: 0, to: 500, expected: { priceMin: 0, priceMax: 500 }, title: 'a range from 0, as given' },
+    { from: 0, to: 0, expected: { priceMin: null, priceMax: null }, title: 'an unknown price for 0 to 0, never free' },
+    { from: 0, to: null, expected: { priceMin: null, priceMax: null }, title: 'an unknown price for 0 alone' },
+    {
+      from: 0.4,
+      to: 0.3,
+      expected: { priceMin: null, priceMax: null },
+      title: 'an unknown price for prices rounding to 0',
+    },
+    { from: null, to: null, expected: { priceMin: null, priceMax: null }, title: 'an unknown price for none' },
+    { from: 100, to: null, expected: { priceMin: 100, priceMax: null }, title: 'one price from price_from alone' },
+  ];
+  for (const { from, to, expected, title } of rows) {
+    test(`gives ${title}`, () => {
+      assert.deepEqual(artwizardPrice(from, to), expected);
+    });
+  }
 });
