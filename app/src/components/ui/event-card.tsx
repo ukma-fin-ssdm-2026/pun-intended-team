@@ -16,6 +16,8 @@ type Props = {
   // Already formatted for display, e.g. "Сб, 24 жовт · 19:00".
   dateLabel: string;
   place: string;
+  // Already formatted by `priceLabel`, e.g. "450 ₴"; without one, the price is unknown and the cover has no tag.
+  price?: string;
   // Without a cover image, or when it fails to load, the card shows the coral gradient, as the lecture card on the
   // Figma catalog.
   cover?: ImageSource;
@@ -28,7 +30,17 @@ type Props = {
 
 const accessibilityActions = [{ name: 'activate' }, { name: 'favorite', label: 'В обране' }];
 
-export function EventCard({ title, category, dateLabel, place, cover, favorite, onToggleFavorite, onPress }: Props) {
+export function EventCard({
+  title,
+  category,
+  dateLabel,
+  place,
+  price,
+  cover,
+  favorite,
+  onToggleFavorite,
+  onPress,
+}: Props) {
   const coverRef = useRef<View>(null);
 
   // A pressable card groups its content for screen readers, so the heart is offered as its action.
@@ -42,7 +54,7 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${title}, ${category}, ${dateLabel}, ${place}`}
+      accessibilityLabel={[title, category, dateLabel, place, price].filter(Boolean).join(', ')}
       accessibilityActions={accessibilityActions}
       onAccessibilityAction={onAccessibilityAction}
       onPress={onPress}
@@ -87,6 +99,16 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
             />
           </Glass>
         </Pressable>
+        {price ? (
+          <View
+            className="absolute bottom-2.5 right-2.5 rounded-full bg-surface-card/[0.96] px-3 py-[7px]"
+            style={{ boxShadow: shadows.price }}
+          >
+            <Text numberOfLines={1} className="font-inter-semibold text-price tracking-[-0.14px] text-brand-coral">
+              {price}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <View className="px-2 pt-3">

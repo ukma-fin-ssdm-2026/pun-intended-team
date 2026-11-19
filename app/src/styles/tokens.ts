@@ -46,6 +46,8 @@ export const typography = {
   button: { fontSize: 16, lineHeight: 20 },
   'button-sm': { fontSize: 12, lineHeight: 15 },
   tag: { fontSize: 11, lineHeight: 14 },
+  // The price on an event card's cover; Figma's line height is "auto", which Inter renders at about 1.21.
+  price: { fontSize: 14, lineHeight: 17 },
 };
 
 // CSS box-shadow strings; React Native supports them on iOS, Android and web (New Architecture).
@@ -56,6 +58,7 @@ export const shadows = {
   button: '0px 10px 24px -6px rgba(0, 0, 0, 0.22)',
   tabActive: '0px 0px 18px 2px rgba(223, 84, 74, 0.35), 0px 4px 10px rgba(223, 84, 74, 0.25)',
   toggleKnob: '0px 1px 3px rgba(0, 0, 0, 0.18)',
+  price: '0px 4px 14px rgba(18, 18, 18, 0.18)',
 };
 
 // The tab bar is not a rectangle, so its shadow follows the drawn shape instead of using box-shadow.

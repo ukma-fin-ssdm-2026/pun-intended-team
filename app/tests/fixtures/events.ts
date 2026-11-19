@@ -29,6 +29,8 @@ export function anEvent(id: string, title: string, venue = arsenal): Event {
     endsAt: '2026-11-10T21:00:00+02:00',
     startTimeKnown: true,
     endTimeKnown: true,
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'import',

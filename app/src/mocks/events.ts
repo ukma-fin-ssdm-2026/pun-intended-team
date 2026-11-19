@@ -9,6 +9,7 @@ type Event = components['schemas']['Event'];
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
 // The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
 // the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
+// Prices cover every case of the card's tag (`priceLabel`).
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
 
@@ -49,6 +50,9 @@ export const mockEvents: MockEvent[] = [
     endsAt: '2026-10-24T18:30:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // One price, as the Figma card: "450 ₴".
+    priceMin: 450,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'organization',
@@ -74,6 +78,9 @@ export const mockEvents: MockEvent[] = [
     endsAt: '2026-10-25T20:00:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // A range: "300–700 ₴".
+    priceMin: 300,
+    priceMax: 700,
     imageUrl: null,
     sourceUrl: null,
     source: 'import',
@@ -98,6 +105,9 @@ export const mockEvents: MockEvent[] = [
     endsAt: '2026-10-27T15:30:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // Free: "Безкоштовно".
+    priceMin: 0,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'organization',
@@ -121,6 +131,9 @@ export const mockEvents: MockEvent[] = [
     endsAt: '2026-10-30T21:30:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // The price is unknown: no tag.
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'import',
@@ -152,6 +165,9 @@ export const mockOtherEvents: MockEvent[] = [
     endsAt: '2026-10-25T18:00:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // A range from free: "0–500 ₴".
+    priceMin: 0,
+    priceMax: 500,
     imageUrl: null,
     sourceUrl: null,
     source: 'organization',
@@ -178,6 +194,9 @@ export const mockOtherEvents: MockEvent[] = [
     endsAt: '2026-10-29T18:30:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // Thousands, with a non-breaking space: "1 200–2 500 ₴".
+    priceMin: 1200,
+    priceMax: 2500,
     imageUrl: null,
     sourceUrl: null,
     source: 'import',
@@ -201,6 +220,9 @@ export const mockOtherEvents: MockEvent[] = [
     endsAt: '2026-10-30T17:00:00Z',
     startTimeKnown: true,
     endTimeKnown: true,
+    // One price written as a range of one, as ArtWizard does: "150 ₴".
+    priceMin: 150,
+    priceMax: 150,
     imageUrl: null,
     sourceUrl: null,
     source: 'organization',
@@ -225,6 +247,8 @@ export const mockOtherEvents: MockEvent[] = [
     startTimeKnown: false,
     endsAt: '2026-11-29T21:59:59.999Z',
     endTimeKnown: false,
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'import',

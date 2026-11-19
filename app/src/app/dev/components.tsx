@@ -17,8 +17,9 @@ import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
 import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
-import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
+import { findMockEvent, mockCategories, mockEvents, mockOtherEvents } from '@/mocks/events';
 import { mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
+import { priceLabel } from '@/price';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import {
   setAnnouncementsEmpty,
@@ -179,18 +180,25 @@ export default function ComponentsGallery() {
           category={mockEvents[0].category.name}
           dateLabel={formatEventDate(mockEvents[0].startsAt)}
           place="Поділ"
+          price={priceLabel(mockEvents[0].priceMin, mockEvents[0].priceMax)}
           cover={mockEvents[0].cover}
           favorite={favoriteIds.includes(mockEvents[0].id)}
           onToggleFavorite={() => toggleFavorite(mockEvents[0].id)}
         />
-        <EventCard
-          title={mockEvents[2].title}
-          category={mockEvents[2].category.name}
-          dateLabel={formatEventDate(mockEvents[2].startsAt)}
-          place={mockEvents[2].venue.name}
-          favorite={favoriteIds.includes(mockEvents[2].id)}
-          onToggleFavorite={() => toggleFavorite(mockEvents[2].id)}
-        />
+        {/* Every case of the price tag: free, a range, unknown, a range from free and the longest, in thousands. */}
+        {[mockEvents[2], mockEvents[1], mockEvents[3], ...mockOtherEvents.slice(0, 2)].map((event) => (
+          <EventCard
+            key={event.id}
+            title={event.title}
+            category={event.category.name}
+            dateLabel={formatEventDate(event.startsAt)}
+            place={event.venue.name}
+            price={priceLabel(event.priceMin, event.priceMax)}
+            cover={event.cover}
+            favorite={favoriteIds.includes(event.id)}
+            onToggleFavorite={() => toggleFavorite(event.id)}
+          />
+        ))}
         <EventCardSkeleton />
       </Section>
 

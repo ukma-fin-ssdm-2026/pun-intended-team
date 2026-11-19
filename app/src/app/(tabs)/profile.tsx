@@ -30,6 +30,7 @@ import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
+import { priceLabel } from '@/price';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
 // bottom 46 px. The page keeps 120 px under it for the tab bar.
@@ -105,6 +106,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           category={event.category.name}
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
+          price={priceLabel(event.priceMin, event.priceMax)}
           cover={event.cover}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
