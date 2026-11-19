@@ -3,7 +3,7 @@
 // (external-services.md). Android and iOS use venue-map.tsx.
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { Map as MapLibreMap, Marker } from 'maplibre-gl';
+import { Map as MapLibreMap, Marker, setWorkerUrl } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
@@ -17,6 +17,8 @@ const CITY_ZOOM = 10.5;
 const USER_ZOOM = 13;
 // "Ви тут" of Т1: the location blue with its 10 px halo at 25%.
 const LOCATION_BLUE = '#2E5CD4';
+
+setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 
 /** A venue pin of Т1 as a DOM element: the number of events in an ink circle, coral when selected. */
 function pinElement(name: string, count: number, selected: boolean, onPress: () => void): HTMLElement {
