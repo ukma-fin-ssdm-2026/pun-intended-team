@@ -3,7 +3,7 @@
   AI Usage Note
   Drafted with Claude from the code in src/.
 '/
-title Nearby — Code Structure (src/core/), operations: admin, system, notifications, jobs, common
+title Nearby — Code Structure (src/core/), operations: admin, system, notifications, images, jobs, common
 
 skinparam shadowing false
 skinparam packageStyle rectangle
@@ -70,6 +70,25 @@ package "core (business logic)" as CORE {
       +send(messages)
     }
   }
+  package images {
+    class ImagesService {
+      +prepare(kind, upload)
+      +save(ownerId, prepared, tx)
+      +getRefs(ids)
+      +getFile(id)
+      +remove(ids, tx)
+    }
+    abstract class ImagesRepository {
+      +create(image, tx)
+      +findRefs(ids)
+      +findFile(id)
+      +delete(ids, tx)
+    }
+    abstract class ImageProcessor {
+      +measure(content)
+      +encode(content, options)
+    }
+  }
   package jobs {
     abstract class JobQueue {
       +enqueue(name, payload, options, tx)
@@ -92,6 +111,8 @@ class MatchingService <<other diagram>>
 class ModerationService <<other diagram>>
 class AuthService <<other diagram>>
 class SessionsService <<other diagram>>
+class ProfilesService <<other diagram>>
+class ListingsService <<other diagram>>
 
 ' services call services and reach storage and adapters through abstract classes
 AuthService --> NotificationsService
@@ -108,6 +129,10 @@ NotificationsService --> NotificationsRepository
 NotificationsService --> DeviceTokensRepository
 NotificationsService --> PushProvider
 NotificationsService --> JobQueue
+ProfilesService --> ImagesService
+ListingsService --> ImagesService
+ImagesService --> ImagesRepository
+ImagesService --> ImageProcessor
 
 legend right
   Solid arrow: calls (constructor injection)

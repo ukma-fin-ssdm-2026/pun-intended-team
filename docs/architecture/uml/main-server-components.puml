@@ -34,13 +34,14 @@ component "Main Server (CMP-02)" {
     }
     package "Platform" as T3 {
       [notifications] as NO
+      [images] as IM
     }
   }
 
   package "Infrastructure" as L3 {
     [Prisma repositories] as REPO
     [Job queue client] as QUEUE
-    [Adapters\nPush · Messaging · Google] as ADP
+    [Adapters\nPush · Messaging · Google · Images] as ADP
   }
 }
 
