@@ -23,6 +23,19 @@ export function failureSnackbar(result: Extract<ApiResult<unknown>, { ok: false 
     : { tone: 'error', title: 'Щось пішло не так', note: 'Спробуй ще раз за хвилину' };
 }
 
+// An upload of a photo or a cover the API refused, or that was refused before it was sent.
+export function pictureFailureSnackbar(result: Extract<ApiResult<unknown>, { ok: false }>): SnackbarContent {
+  switch (result.code) {
+    case 'PAYLOAD_TOO_LARGE':
+      return { tone: 'error', title: 'Фото завелике', note: 'Обери фото до 10 МБ' };
+    case 'UNSUPPORTED_MEDIA_TYPE':
+    case 'INVALID_IMAGE':
+      return { tone: 'error', title: 'Не вдалося прочитати фото', note: 'Обери фото у форматі JPEG, PNG або WebP' };
+    default:
+      return failureSnackbar(result);
+  }
+}
+
 export const googleSnackbars = {
   // Expo Go, or a build without the Google client ids.
   unavailable: { tone: 'error', title: 'Вхід через Google недоступний', note: 'Ця збірка не налаштована для Google' },

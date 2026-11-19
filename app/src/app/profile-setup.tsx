@@ -7,7 +7,7 @@ import { View } from 'react-native';
 
 import { createProfile, replaceInterests, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
-import { failureSnackbar } from '@/auth/messages';
+import { failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
 import {
   FormatPicker,
   FormScreen,
@@ -15,9 +15,9 @@ import {
   useInterestChips,
   isValidUsername,
   MIN_INTERESTS,
-  ProfilePhoto,
   toggleInList,
 } from '@/components/profile/profile-form';
+import { picturesOf, ProfilePhoto, savePictures } from '@/components/profile/profile-pictures';
 import { InterestsSheet } from '@/components/profile/profile-sheets';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
@@ -38,6 +38,8 @@ export default function ProfileSetupScreen() {
   const [about, setAbout] = useState('');
   const [format, setFormat] = useState<CommunicationFormat | null>(null);
   const [interestIds, setInterestIds] = useState<string[]>([]);
+  // Held until "Далі" creates the profile, then sent.
+  const [pictures, setPictures] = useState(() => picturesOf(undefined));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const interests = useInterests();
@@ -70,12 +72,20 @@ export default function ProfileSetupScreen() {
       communicationFormat: format,
     });
     const saved = updated.ok ? await replaceInterests(interestIds) : updated;
-    setSaving(false);
     if (!saved.ok) {
+      setSaving(false);
       if (saved.code === 'USERNAME_TAKEN') setUsernameTaken(true);
       else show(failureSnackbar(saved));
       return;
     }
+    const sent = await savePictures(pictures);
+    setSaving(false);
+    if (sent && !sent.ok) {
+      // The rest is saved; "Далі" again sends only the pictures.
+      show(pictureFailureSnackbar(sent));
+      return;
+    }
+    setPictures(picturesOf(undefined));
     router.push('/profile-contacts');
   };
 
@@ -87,7 +97,7 @@ export default function ProfileSetupScreen() {
         backTo="/onboarding"
         action={{ label: 'Далі', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
-        <ProfilePhoto />
+        <ProfilePhoto pictures={pictures} onChange={setPictures} />
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
           <TextField
