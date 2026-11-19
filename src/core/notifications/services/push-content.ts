@@ -4,6 +4,10 @@ import type { PushMessage } from '../types/push.ts';
 
 // One line each, in Ukrainian, as the app speaks. Types whose senders are not built yet get the general line.
 const bodies: Partial<Record<NotificationType, (notification: Notification) => string>> = {
+  event_changed: ({ payload }) =>
+    payload.change === 'cancelled'
+      ? 'Подію, на яку ви подали заявку, скасовано.'
+      : 'Розклад події, на яку ви подали заявку, змінився.',
   report_received: () => 'Ми отримали вашу скаргу й розглянемо її.',
 };
 

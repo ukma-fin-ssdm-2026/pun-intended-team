@@ -14,7 +14,11 @@ const NotificationFields = z.object({
   type: NotificationType,
   payload: z
     .record(z.string(), z.unknown())
-    .describe('Details by type, never contact details; `report_received` has none, so `{}`'),
+    .describe(
+      'Details by type, never contact details; `report_received` has none, so `{}`. `event_changed`: `eventId`, ' +
+        '`applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that ' +
+        'changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on',
+    ),
   readAt: DateTime.nullable().describe('When the caller first marked it read; null while unread'),
   createdAt: DateTime,
 });
