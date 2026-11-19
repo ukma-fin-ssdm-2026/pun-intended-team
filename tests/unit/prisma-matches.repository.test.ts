@@ -191,10 +191,7 @@ describe('PrismaMatchesRepository.decline', () => {
         reason: 'declined',
       },
     });
-    assert.deepEqual(tx.application.updateMany.mock.calls[0]?.arguments[0], {
-      where: { id: { in: [APPLICATION_A, APPLICATION_B] }, status: 'paired' },
-      data: { status: 'in_pool' },
-    });
+    assertBothReturnedToPool(tx);
   });
 
   test('keeps out the user who declined, whichever side they are on', async () => {
