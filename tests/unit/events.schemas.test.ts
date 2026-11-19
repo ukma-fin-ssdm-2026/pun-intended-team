@@ -99,11 +99,14 @@ describe('Event', () => {
     assert.deepEqual([result.data?.priceMin, result.data?.priceMax], [null, null]);
   });
 
-  for (const field of ['priceMin', 'priceMax'] as const) {
+  const { priceMin: _min, ...withoutPriceMin } = eventExample;
+  const { priceMax: _max, ...withoutPriceMax } = eventExample;
+  const withoutPrice = [
+    { field: 'priceMin', event: withoutPriceMin },
+    { field: 'priceMax', event: withoutPriceMax },
+  ];
+  for (const { field, event } of withoutPrice) {
     test(`rejects an event without ${field} and points at it`, () => {
-      const event: Partial<typeof eventExample> = { ...eventExample };
-      delete event[field];
-
       const result = Event.safeParse(event);
 
       if (result.success) assert.fail('expected the event to be rejected');
