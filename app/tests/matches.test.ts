@@ -33,6 +33,8 @@ function aMatch(overrides: Partial<Match> = {}): Match {
       occupation: 'Ілюстраторка',
       age: 24,
       interests: [],
+      photo: null,
+      cover: null,
       desiredCompany: 'company',
       afterEventPlans: ['walk'],
     },
