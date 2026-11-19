@@ -26,7 +26,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
     - **A day that now starts at another time** — the applications move to the session at the new time: a new one, with its own rounds (rule 2), or one that exists already, also a cancelled one, which is scheduled again and keeps the round jobs it had. The session at the old time is cancelled, so its round jobs do nothing. A pending proposal on a day the two share that moved is cancelled with `cancel_reason` `event_changed`, since its `valid_until` followed the old time (rule 4); both return to the pool. A day moved to another date is the loss of that day, not a move: the applicant picked the date.
     - **Published again** — the cancelled sessions it still has are scheduled again, keeping their round jobs. Cancelled applications stay cancelled; users apply again, which a cancelled application allows.
     - **What does not change** — a run whose first day moves forward and an exhibition whose passed opening becomes its run keep the starts of their later days, so no job is enqueued for them (`sessionScheduleChanged`).
-    - Every applicant whose days changed gets one `event_changed` inbox row ([notifications](notifications.md)); a republished event tells no one.
+    - Every applicant whose days changed gets one `event_changed` notification, in the inbox and by push ([notifications](notifications.md)); its dedupe key names the application and the change, so a repeated job tells no one twice. A republished event tells no one.
 
 ## Policy (tunable, not architecture)
 
