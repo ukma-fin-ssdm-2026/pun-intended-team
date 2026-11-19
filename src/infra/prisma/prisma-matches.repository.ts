@@ -4,6 +4,7 @@ import type { Transaction } from '../../core/common/transaction.ts';
 import { MatchesRepository } from '../../core/matching/repositories/matches.repository.ts';
 import {
   type Match,
+  type MatchCancelReason,
   type MatchRecord,
   type MatchStatus,
   type NewMatch,
@@ -112,6 +113,58 @@ export class PrismaMatchesRepository implements MatchesRepository {
     });
     const otherId = match.applicationAId === applicationId ? match.applicationBId : match.applicationAId;
     await client.application.updateMany({ where: { id: otherId, status: 'paired' }, data: { status: 'in_pool' } });
+  }
+
+  async cancelPending(applicationIds: string[], reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    const client = clientOf(this.prisma, tx);
+    const pending = await client.match.findMany({
+      where: {
+        status: { in: PENDING_STATUSES },
+        OR: [{ applicationAId: { in: applicationIds } }, { applicationBId: { in: applicationIds } }],
+      },
+      select: { id: true, applicationAId: true, applicationBId: true },
+    });
+    if (pending.length === 0) {
+      return;
+    }
+    await client.match.updateMany({
+      where: { id: { in: pending.map(({ id }) => id) }, status: { in: PENDING_STATUSES } },
+      data: { status: 'cancelled', cancelReason: reason },
+    });
+    const others = pending
+      .flatMap(({ applicationAId, applicationBId }) => [applicationAId, applicationBId])
+      .filter((id) => !applicationIds.includes(id));
+    await client.application.updateMany({
+      where: { id: { in: others }, status: 'paired' },
+      data: { status: 'in_pool' },
+    });
+  }
+
+  async cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    const client = clientOf(this.prisma, tx);
+    await this.moveFrom(client, match.id, PENDING_STATUSES, { status: 'cancelled', cancelReason: reason });
+    await client.application.updateMany({
+      where: { id: { in: [match.applicationAId, match.applicationBId] }, status: 'paired' },
+      data: { status: 'in_pool' },
+    });
+  }
+
+  async cancelMutual(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    if (matches.length === 0) {
+      return;
+    }
+    const client = clientOf(this.prisma, tx);
+    await client.match.updateMany({
+      where: { id: { in: matches.map(({ id }) => id) }, status: 'mutual' },
+      data: { status: 'cancelled', cancelReason: reason },
+    });
+    await client.application.updateMany({
+      where: {
+        id: { in: matches.flatMap(({ applicationAId, applicationBId }) => [applicationAId, applicationBId]) },
+        status: 'paired',
+      },
+      data: { status: 'in_pool' },
+    });
   }
 
   private async moveFrom(

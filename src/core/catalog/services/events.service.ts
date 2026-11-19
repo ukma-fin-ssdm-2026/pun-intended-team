@@ -3,11 +3,15 @@ import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import { catalogWindow } from '../../common/catalog-window.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
+import { JobQueue } from '../../jobs/adapters/job-queue.ts';
+import { EVENT_CHANGED_JOB, type EventChange, type EventChangedPayload } from '../../jobs/types/event-changed.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
 import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
 import { VenuesRepository } from '../repositories/venues.repository.ts';
-import type { Event, EventQuery, NewEvent } from '../types/event.ts';
+import type { Event, EventChanges, EventQuery, EventStatus, NewEvent } from '../types/event.ts';
 import { CategoriesService } from './categories.service.ts';
+import { sessionScheduleChanged } from './session-start.ts';
 
 @Injectable()
 export class EventsService {
@@ -16,6 +20,8 @@ export class EventsService {
     private readonly organizationsRepository: OrganizationsRepository,
     private readonly venuesRepository: VenuesRepository,
     private readonly categoriesService: CategoriesService,
+    private readonly transactions: TransactionRunner,
+    private readonly jobs: JobQueue,
   ) {}
 
   async stats(): Promise<{ events: number }> {
@@ -53,7 +59,10 @@ export class EventsService {
     });
   }
 
-  /** Replaces every editable field. Anyone but the posting organization is told the event does not exist. */
+  /**
+   * Replaces every editable field. Anyone but the posting organization is told the event does not exist. When the
+   * new times change a session that is still ahead, matching is told in the same transaction (`event.changed`).
+   */
   async update(accountId: string, id: string, input: NewEvent): Promise<Event> {
     const event = await this.getOwned(accountId, id);
     await this.requireVerifiedOrganization(accountId);
@@ -62,15 +71,32 @@ export class EventsService {
     }
     await this.checkReferences(accountId, input);
     checkTimes(input.startsAt, input.endsAt);
-    return this.eventsRepository.update(id, input);
+    if (!sessionScheduleChanged(event, input, new Date())) {
+      return this.eventsRepository.update(id, input);
+    }
+    return this.changeAndTell(id, input, 'rescheduled');
   }
 
+  /** Cancels the event and tells matching in the same transaction; cancelling again changes nothing. */
   async cancel(accountId: string, id: string): Promise<Event> {
     const event = await this.getOwned(accountId, id);
     if (event.status === 'cancelled') {
       return event;
     }
-    return this.eventsRepository.update(id, { status: 'cancelled' });
+    return this.changeAndTell(id, { status: 'cancelled' }, 'cancelled');
+  }
+
+  /** The change and its `event.changed` job commit together, so applicants never miss one (job-queue.md, rule 1). */
+  private changeAndTell(
+    id: string,
+    changes: EventChanges & { status?: EventStatus },
+    change: EventChange,
+  ): Promise<Event> {
+    return this.transactions.run(async (tx) => {
+      const event = await this.eventsRepository.update(id, changes, tx);
+      await this.jobs.enqueue<EventChangedPayload>(EVENT_CHANGED_JOB, { eventId: id, change }, undefined, tx);
+      return event;
+    });
   }
 
   private async getOwned(accountId: string, id: string): Promise<Event> {

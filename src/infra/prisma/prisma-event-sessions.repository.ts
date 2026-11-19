@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { EventSessionsRepository } from '../../core/catalog/repositories/event-sessions.repository.ts';
-import type { EventSessionRecord, OpenedSession } from '../../core/catalog/types/event-session.ts';
+import type { EventSessionRecord, OpenedSession, SessionStatus } from '../../core/catalog/types/event-session.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
 import type { EventSession as EventSessionRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
@@ -42,6 +42,19 @@ export class PrismaEventSessionsRepository implements EventSessionsRepository {
       include: withEventTimes,
     });
     return rows.map(toEventSession);
+  }
+
+  async findByEvent(eventId: string, tx?: Transaction): Promise<EventSessionRecord[]> {
+    const rows = await clientOf(this.prisma, tx).eventSession.findMany({
+      where: { eventId },
+      include: withEventTimes,
+      orderBy: { startsAt: 'asc' },
+    });
+    return rows.map(toEventSession);
+  }
+
+  async setStatus(ids: string[], status: SessionStatus, tx?: Transaction): Promise<void> {
+    await clientOf(this.prisma, tx).eventSession.updateMany({ where: { id: { in: ids } }, data: { status } });
   }
 }
 

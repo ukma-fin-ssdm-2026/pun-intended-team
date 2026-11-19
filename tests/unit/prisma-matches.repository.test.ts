@@ -23,7 +23,11 @@ const PROPOSAL = {
  * A transaction client; `paired` is how many of the two applications were still waiting, `answered` how many matches
  * were still in the status an answer expects.
  */
-function aTransaction({ paired = 2, answered = 1 } = {}) {
+function aTransaction({
+  paired = 2,
+  answered = 1,
+  pending = [] as { id: string; applicationAId: string; applicationBId: string }[],
+} = {}) {
   const tx = {
     $executeRaw: mock.fn<(strings: TemplateStringsArray, ...values: unknown[]) => Promise<number>>(() =>
       Promise.resolve(0),
@@ -38,6 +42,7 @@ function aTransaction({ paired = 2, answered = 1 } = {}) {
     match: {
       updateMany: mock.fn<(args: unknown) => Promise<{ count: number }>>(() => Promise.resolve({ count: answered })),
       findFirst: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve(null)),
+      findMany: mock.fn<(args: unknown) => Promise<unknown[]>>(() => Promise.resolve(pending)),
       create: mock.fn((args: { data: Record<string, unknown> }) =>
         Promise.resolve({
           ...args.data,
@@ -55,6 +60,14 @@ function aTransaction({ paired = 2, answered = 1 } = {}) {
 }
 
 const repository = new PrismaMatchesRepository({} as unknown as PrismaService);
+
+/** Both applications of RECORD that were still paired went back to the pool. */
+function assertBothReturnedToPool(tx: ReturnType<typeof aTransaction>['tx']) {
+  assert.deepEqual(tx.application.updateMany.mock.calls[0]?.arguments[0], {
+    where: { id: { in: [APPLICATION_A, APPLICATION_B] }, status: 'paired' },
+    data: { status: 'in_pool' },
+  });
+}
 
 describe('PrismaMatchesRepository.lockEvent', () => {
   // FUNC-002
@@ -178,10 +191,7 @@ describe('PrismaMatchesRepository.decline', () => {
         reason: 'declined',
       },
     });
-    assert.deepEqual(tx.application.updateMany.mock.calls[0]?.arguments[0], {
-      where: { id: { in: [APPLICATION_A, APPLICATION_B] }, status: 'paired' },
-      data: { status: 'in_pool' },
-    });
+    assertBothReturnedToPool(tx);
   });
 
   test('keeps out the user who declined, whichever side they are on', async () => {
@@ -210,6 +220,77 @@ describe('PrismaMatchesRepository.cancelForWithdrawal', () => {
       where: { id: APPLICATION_B, status: 'paired' },
       data: { status: 'in_pool' },
     });
+  });
+});
+
+// matching.md, rule 10: what a changed event does to pending proposals.
+describe('PrismaMatchesRepository.cancelPending', () => {
+  test('cancels the pending proposals for the reason, and returns to the pool only the side not cancelled too', async () => {
+    const { tx, transaction } = aTransaction({
+      pending: [{ id: 'match-1', applicationAId: APPLICATION_A, applicationBId: APPLICATION_B }],
+    });
+
+    await repository.cancelPending([APPLICATION_A], 'event_cancelled', transaction);
+
+    assert.deepEqual(tx.match.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: ['match-1'] }, status: { in: ['proposed', 'accepted_a', 'accepted_b'] } },
+      data: { status: 'cancelled', cancelReason: 'event_cancelled' },
+    });
+    assert.deepEqual(tx.application.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: [APPLICATION_B] }, status: 'paired' },
+      data: { status: 'in_pool' },
+    });
+  });
+
+  test('changes nothing when there is no pending proposal', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelPending([APPLICATION_A], 'event_cancelled', transaction);
+
+    assert.equal(tx.match.updateMany.mock.callCount() + tx.application.updateMany.mock.callCount(), 0);
+  });
+});
+
+describe('PrismaMatchesRepository.cancelAndReturnBoth', () => {
+  test('cancels the pending proposal for the reason and returns both applications to the pool', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelAndReturnBoth(RECORD, 'event_changed', transaction);
+
+    assert.deepEqual(tx.match.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: RECORD.id, status: { in: ['proposed', 'accepted_a', 'accepted_b'] } },
+      data: { status: 'cancelled', cancelReason: 'event_changed' },
+    });
+    assertBothReturnedToPool(tx);
+  });
+
+  test('fails, rolling the change back, when the proposal was answered meanwhile', async () => {
+    const { transaction } = aTransaction({ answered: 0 });
+
+    await assert.rejects(repository.cancelAndReturnBoth(RECORD, 'event_changed', transaction), /changed/);
+  });
+});
+
+describe('PrismaMatchesRepository.cancelMutual', () => {
+  test('cancels only matches still mutual, for the reason, and returns their paired applications to the pool', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelMutual([{ ...RECORD, status: 'mutual' }], 'event_cancelled', transaction);
+
+    assert.deepEqual(tx.match.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: [RECORD.id] }, status: 'mutual' },
+      data: { status: 'cancelled', cancelReason: 'event_cancelled' },
+    });
+    assertBothReturnedToPool(tx);
+  });
+
+  test('changes nothing when there is no match', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelMutual([], 'event_cancelled', transaction);
+
+    assert.equal(tx.match.updateMany.mock.callCount(), 0);
+    assert.equal(tx.application.updateMany.mock.callCount(), 0);
   });
 });
 

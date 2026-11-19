@@ -90,7 +90,11 @@ const repositories = [
 ];
 
 const adapters = [
-  { provide: TransactionRunner, useClass: PrismaTransactionRunner },
+  {
+    provide: TransactionRunner,
+    useFactory: (prisma: PrismaService) => new PrismaTransactionRunner(prisma),
+    inject: [PrismaService],
+  },
   { provide: DatabaseProbe, useClass: PrismaDatabaseProbe },
   { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },

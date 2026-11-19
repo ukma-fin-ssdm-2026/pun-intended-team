@@ -1784,7 +1784,11 @@ components:
             nullable: true
           description: >-
             Details by type, never contact details; `report_received` has none,
-            so `{}`
+            so `{}`. `event_changed`: `eventId`, `applicationId`, `change`
+            (`cancelled` or `rescheduled`) and `sessions`, the days of the
+            application that changed as `{ from, to }`, where `to` is the new
+            start or null when the day is no longer on, and `match` `{ id,
+            cancelled }` when the application has a mutual match
         readAt:
           type: string
           nullable: true

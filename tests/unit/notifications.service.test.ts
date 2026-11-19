@@ -227,6 +227,61 @@ describe('NotificationsService: the notifications.deliver handler', () => {
     assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'report_received' });
   });
 
+  const moved = { from: '2026-10-22T16:00:00.000Z', to: '2026-10-22T17:00:00.000Z' };
+  const gone = { from: '2026-10-22T16:00:00.000Z', to: null };
+  const eventChanges: [string, Record<string, unknown>, { title: string; body: string }][] = [
+    [
+      'the event is cancelled',
+      { change: 'cancelled', sessions: [gone] },
+      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано.' },
+    ],
+    [
+      'the event is cancelled with a mutual match',
+      { change: 'cancelled', sessions: [gone], match: { id: 'm', cancelled: true } },
+      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.' },
+    ],
+    [
+      'the shared day of a mutual match is gone',
+      { change: 'rescheduled', sessions: [gone], match: { id: 'm', cancelled: true } },
+      {
+        title: 'Метч скасовано',
+        body: 'Цього дня подія не відбудеться, тож ваша зустріч скасована.',
+      },
+    ],
+    [
+      'the time moved',
+      { change: 'rescheduled', sessions: [moved] },
+      { title: 'Час події змінився', body: 'Перевір новий час події.' },
+    ],
+    [
+      'the time moved, and the mutual match stands',
+      { change: 'rescheduled', sessions: [moved], match: { id: 'm', cancelled: false } },
+      { title: 'Час події змінився', body: 'Перевір новий час події. Ваш метч у силі.' },
+    ],
+    [
+      'a day is gone',
+      { change: 'rescheduled', sessions: [moved, gone] },
+      { title: 'Розклад події змінився', body: 'Один із днів твоєї заявки скасовано. Перевір заявку.' },
+    ],
+  ];
+  for (const [name, payload, text] of eventChanges) {
+    test(`says with a title, in Ukrainian and with "ти", that ${name}`, async () => {
+      const mocks = makeService();
+      const stored = aNotification({
+        type: 'event_changed',
+        payload: { eventId: 'e', applicationId: 'a', ...payload },
+      });
+      mocks.repository.findById.mock.mockImplementation(() => Promise.resolve(stored));
+
+      await registeredHandler(mocks)(deliverJob);
+
+      const [message] = mocks.push.send.mock.calls[0]?.arguments[0] ?? [];
+      assert.ok(message);
+      assert.deepEqual({ title: message.title, body: message.body }, text);
+      assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'event_changed' });
+    });
+  }
+
   test('marks it skipped and pushes nothing when the account has no device', async () => {
     const mocks = makeService();
     const stored = withStoredNotification(mocks.repository, 'pending');

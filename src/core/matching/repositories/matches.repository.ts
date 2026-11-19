@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import type { Transaction } from '../../common/transaction.ts';
-import type { Match, MatchRecord, MatchStatus, NewMatch } from '../types/match.ts';
+import type { Match, MatchCancelReason, MatchRecord, MatchStatus, NewMatch } from '../types/match.ts';
 
 export abstract class MatchesRepository {
   abstract count(): Promise<number>;
@@ -43,4 +43,19 @@ export abstract class MatchesRepository {
 
   /** Cancels the pending match because `applicationId` is withdrawn, and returns the other one to the pool (A5). */
   abstract cancelForWithdrawal(match: MatchRecord, applicationId: string, tx: Transaction): Promise<void>;
+
+  /**
+   * Cancels the pending proposals of the applications for `reason`. The other side of such a proposal returns to
+   * the pool unless it is among `applicationIds` too, as for a withdrawal (A5).
+   */
+  abstract cancelPending(applicationIds: string[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
+
+  /** Cancels the pending match for `reason` and returns both applications to the pool. */
+  abstract cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void>;
+
+  /**
+   * Cancels the mutual matches for `reason`; one that is no longer mutual is left as it is. Their applications that
+   * are still `paired` return to the pool.
+   */
+  abstract cancelMutual(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
 }

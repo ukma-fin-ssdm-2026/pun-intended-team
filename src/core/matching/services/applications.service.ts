@@ -6,12 +6,17 @@ import { DomainError } from '../../common/domain-error.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
-import type { Application, ApplicationDetails, ApplicationStatus, NewApplication } from '../types/application.ts';
+import {
+  ACTIVE_STATUSES,
+  type Application,
+  type ApplicationDetails,
+  type ApplicationStatus,
+  type NewApplication,
+} from '../types/application.ts';
 import { canApply } from './application-status.ts';
 import { MatchingService } from './matching.service.ts';
 import { nextRoundAt } from './rounds.ts';
 
-const ACTIVE: ApplicationStatus[] = ['in_pool', 'paired', 'paused'];
 const WITHDRAWABLE: ApplicationStatus[] = ['in_pool', 'paused', 'paired'];
 
 @Injectable()
@@ -65,7 +70,7 @@ export class ApplicationsService {
 
   /** The user's active applications, soonest first day first. */
   async listMine(userId: string): Promise<ApplicationDetails[]> {
-    const applications = await this.applicationsRepository.findByUserWithStatus(userId, ACTIVE);
+    const applications = await this.applicationsRepository.findByUserWithStatus(userId, ACTIVE_STATUSES);
     const sessions = await this.eventSessionsService.getByIds(applications.flatMap(({ sessionIds }) => sessionIds));
     return applications
       .map((application) => withSessions(application, sessions))

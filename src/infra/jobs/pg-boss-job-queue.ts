@@ -16,6 +16,11 @@ const STOP_TIMEOUT_MS = 30_000;
 export interface PgBossJobQueueOptions {
   /** Seconds between two checks of an idle queue for new jobs (at least 0.5). */
   pollingIntervalSeconds?: number;
+  /**
+   * Only enqueues: no maintenance and no schedules run in this process, which leaves them to the long-running ones.
+   * For a process that ends after its work, such as the import's one-off run.
+   */
+  sendOnly?: boolean;
 }
 
 /**
@@ -99,6 +104,19 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
     });
   }
 
+  async enqueueMany<Payload extends object>(name: string, payloads: Payload[], tx?: Transaction): Promise<void> {
+    if (payloads.length === 0) {
+      return;
+    }
+    const boss = await this.#running();
+    await this.#ensureQueue(boss, name);
+    await boss.insert(
+      name,
+      payloads.map((data) => ({ data })),
+      tx && { db: fromPrisma(tx as unknown as PrismaTransactionLike) },
+    );
+  }
+
   async #running(): Promise<PgBoss> {
     const timeout = AbortSignal.timeout(ENQUEUE_WAIT_MS);
     return Promise.race([
@@ -116,6 +134,7 @@ export class PgBossJobQueue extends JobQueue implements OnApplicationBootstrap, 
       migrate: false,
       // Rebuilding bloated indexes needs their owner, which the application's role is not.
       reindex: false,
+      ...(this.options.sendOnly && { supervise: false, schedule: false }),
     });
     boss.on('error', (error) => this.#logger.error(error));
     try {
