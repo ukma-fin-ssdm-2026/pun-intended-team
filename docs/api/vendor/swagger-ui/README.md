@@ -5,9 +5,9 @@ Third-party code used by [`docs/api/index.html`](../../index.html), the Swagger 
 | | |
 |---|---|
 | Package | [`swagger-ui-dist`](https://www.npmjs.com/package/swagger-ui-dist) |
-| Version | 5.33.0 (the same version `package-lock.json` resolves for `@nestjs/swagger`, which serves the local `/api-docs`) |
-| Source | npm registry: `https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.33.0.tgz` |
-| Tarball integrity | `sha512-wpdK+m6BU5yj6pmUdMskZVTSWYG4DLglAx3sIhylloY37i8O37IrH+YEpqdXNfpaTGxILRBFzUqLF2jKqbfI7A==` |
+| Version | 5.34.1 (the same version `package-lock.json` resolves for `@nestjs/swagger`, which serves the local `/api-docs`) |
+| Source | npm registry: `https://registry.npmjs.org/swagger-ui-dist/-/swagger-ui-dist-5.34.1.tgz` |
+| Tarball integrity | `sha512-VSr8fXfI93obYaQicLJbLUKGRxDojj/SfRJDDLCioGTUBj4BK/Nj4eE9jCeCAnJxVLi7iS+08PbiZLyrQKBkJQ==` |
 | License | Apache-2.0, see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) |
 
 ## Files
