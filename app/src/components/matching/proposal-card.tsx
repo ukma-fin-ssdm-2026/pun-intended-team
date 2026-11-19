@@ -3,6 +3,7 @@
 import { Image, type ImageSource } from 'expo-image';
 import { ScrollView, Text, View } from 'react-native';
 
+import { ApiPicture } from '@/components/pictures/picture';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
@@ -35,6 +36,7 @@ type Props = {
   match: Match;
   // The caller's own interests, so the shared ones stand out.
   ownInterestIds: string[];
+  // Shown when the partner has no cover of their own.
   cover?: ImageSource | number;
 };
 
@@ -60,9 +62,14 @@ export function ProposalCard({ match, ownInterestIds, cover }: Props) {
         contentContainerClassName="grow px-2.5 pb-7 pt-2.5"
         showsVerticalScrollIndicator={false}
       >
-        {/* The avatar overlaps the bottom 44 px of the cover. The cover takes the room a short profile leaves. */}
+        {/* The avatar overlaps the bottom 44 px of the cover. The cover takes the room a short profile leaves, so it is
+            often taller than the area the partner picked, and shows more of their picture. */}
         <View className="min-h-[118px] grow overflow-hidden rounded-[20px]" style={{ marginBottom: -44 }}>
-          {cover ? (
+          {partner.cover ? (
+            <View className="absolute inset-0 bg-border-default">
+              <ApiPicture image={partner.cover} />
+            </View>
+          ) : cover ? (
             <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
           ) : (
             <CoralGradient preset="cover" />
@@ -70,10 +77,14 @@ export function ProposalCard({ match, ownInterestIds, cover }: Props) {
         </View>
 
         <View className="gap-3.5 px-2.5">
-          <View className="size-[88px] items-center justify-center rounded-full border-4 border-surface-card bg-surface-background">
-            <Text className="font-inter-bold text-display text-text-secondary">
-              {partner.displayName.charAt(0).toUpperCase()}
-            </Text>
+          <View className="size-[88px] items-center justify-center overflow-hidden rounded-full border-4 border-surface-card bg-surface-background">
+            {partner.photo ? (
+              <ApiPicture image={partner.photo} />
+            ) : (
+              <Text className="font-inter-bold text-display text-text-secondary">
+                {partner.displayName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
 
           <View className="gap-0.5">

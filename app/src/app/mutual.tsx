@@ -13,7 +13,7 @@ import { socialNetworks } from '@/components/profile/network-fields';
 import { useApiQuery } from '@/hooks/use-api-query';
 import { useEvent } from '@/hooks/use-event';
 import { useMatch } from '@/hooks/use-matches';
-import { useProfileInitial } from '@/hooks/use-profile';
+import { useProfile, useProfileInitial } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { isMatchPersonId, mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
@@ -53,6 +53,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
 
   const { match, loaded } = useMatch(id);
   const ownInitial = useProfileInitial();
+  const ownPhoto = useProfile().data?.photo;
   const { data: liveEvent } = useEvent(match?.eventId);
   const mutual = match?.status === 'mutual';
   const { data: contacts } = useApiQuery(mutual ? id : null, () => getMatchContacts(id));
@@ -78,6 +79,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
   const person: MutualPerson = {
     name: partner.displayName,
     initial: partner.displayName.charAt(0).toUpperCase(),
+    photo: partner.photo,
     contacts: contactsOf(contacts),
   };
   // The first day both can go; the two pick theirs.
@@ -96,6 +98,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
         title="Це взаємно!"
         person={person}
         ownInitial={ownInitial}
+        ownPhoto={ownPhoto}
         event={event}
         onBack={toMatches}
         onMore={() => setReport('form')}

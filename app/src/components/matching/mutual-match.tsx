@@ -6,7 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import type { ApiImage } from '@/api/images';
 import type { components } from '@/api/schema';
+import { ApiPicture } from '@/components/pictures/picture';
 import { EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
@@ -28,12 +30,16 @@ export type MutualTitle = (typeof mutualTitles)[number];
 
 const navButton = 'size-10 items-center justify-center rounded-[20px] bg-white/[0.14]';
 
-function Avatar({ initial, className = '' }: { initial: string; className?: string }) {
+function Avatar({ initial, photo, className = '' }: { initial: string; photo?: ApiImage | null; className?: string }) {
   return (
     <View
-      className={`size-[88px] items-center justify-center rounded-full border-4 border-brand-ink bg-surface-background ${className}`}
+      className={`size-[88px] items-center justify-center overflow-hidden rounded-full border-4 border-brand-ink bg-surface-background ${className}`}
     >
-      <Text className="font-inter-bold text-display text-text-secondary">{initial}</Text>
+      {photo ? (
+        <ApiPicture image={photo} />
+      ) : (
+        <Text className="font-inter-bold text-display text-text-secondary">{initial}</Text>
+      )}
     </View>
   );
 }
@@ -53,6 +59,7 @@ export type MutualContact = {
 export type MutualPerson = {
   name: string;
   initial: string;
+  photo?: ApiImage | null;
   instrumental?: string;
   genitive?: string;
   contacts: MutualContact[];
@@ -71,13 +78,14 @@ type HeroProps = {
   // The match, the caller's own initial and the event they go to together, on the day they share.
   person: MutualPerson;
   ownInitial: string;
+  ownPhoto?: ApiImage | null;
   event: MutualEvent;
   onBack?: () => void;
   onMore?: () => void;
 };
 
 // The gradient header; the component gallery shows it with each title.
-export function MutualMatchHero({ title, person, ownInitial, event, onBack, onMore }: HeroProps) {
+export function MutualMatchHero({ title, person, ownInitial, ownPhoto, event, onBack, onMore }: HeroProps) {
   const insets = useSafeAreaInsets();
   const when = formatSessionDay(event.startsAt, event.startTimeKnown);
   const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви йдете разом';
@@ -99,8 +107,8 @@ export function MutualMatchHero({ title, person, ownInitial, event, onBack, onMo
         </Pressable>
       </View>
       <View className="flex-row items-center">
-        <Avatar initial={ownInitial} className="-mr-5" />
-        <Avatar initial={person.initial} />
+        <Avatar initial={ownInitial} photo={ownPhoto} className="-mr-5" />
+        <Avatar initial={person.initial} photo={person.photo} />
         <View className="absolute left-[60px] top-[58px] size-9 items-center justify-center rounded-[18px] bg-brand-coral">
           <Icon name="mutual-check" size={20} color={colors.text['on-dark']} />
         </View>
@@ -147,7 +155,7 @@ type Props = HeroProps & {
   onEventPress: () => void;
 };
 
-export function MutualMatch({ title, person, ownInitial, event, onBack, onMore, onEventPress }: Props) {
+export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack, onMore, onEventPress }: Props) {
   const insets = useSafeAreaInsets();
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
   // "Написати в Telegram" in Figma: the first contact with a link.
@@ -160,6 +168,7 @@ export function MutualMatch({ title, person, ownInitial, event, onBack, onMore, 
           title={title}
           person={person}
           ownInitial={ownInitial}
+          ownPhoto={ownPhoto}
           event={event}
           onBack={onBack}
           onMore={onMore}
