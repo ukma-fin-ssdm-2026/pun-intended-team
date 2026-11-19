@@ -51,6 +51,8 @@ export function anEvent(overrides: Partial<Event> = {}): Event {
     startTimeKnown: true,
     endsAt: '2026-10-22T21:00:00+03:00',
     endTimeKnown: true,
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     source: 'organization',

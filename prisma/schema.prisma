@@ -284,8 +284,8 @@ model VerificationCode {
 }
 
 model RefreshToken {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId String    @map("account_id") @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId         String    @map("account_id") @db.Uuid
   tokenHash         String    @map("token_hash")
   previousTokenHash String?   @map("previous_token_hash")
   rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
@@ -423,6 +423,10 @@ model Event {
   endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
   startTimeKnown Boolean       @default(true) @map("start_time_known")
   endTimeKnown   Boolean       @default(true) @map("end_time_known")
+  /// Whole hryvnias. Both null: the price is unknown; price_min 0 and no price_max: free.
+  priceMin       Int?          @map("price_min")
+  /// Whole hryvnias, only together with price_min and not below it: the highest price of a range.
+  priceMax       Int?          @map("price_max")
   status         EventStatus   @default(published)
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)

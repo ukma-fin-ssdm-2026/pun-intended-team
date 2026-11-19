@@ -25,6 +25,10 @@ export interface Event {
    * Europe/Kyiv. Always true for an organization's event.
    */
   endTimeKnown: boolean;
+  /** The lowest ticket price in whole hryvnias; null when unknown, 0 when the event is free or starts from free. */
+  priceMin: number | null;
+  /** The highest price of a range in whole hryvnias; null for one price, a free event or an unknown price. */
+  priceMax: number | null;
   /** Set on imported events: the provider's image, linked, never copied. */
   imageUrl: string | null;
   /** Set on imported events: the event's page at the provider, for attribution and tickets. */

@@ -43,6 +43,8 @@ export function toEvent(row: EventRow): Event {
     startTimeKnown: row.startTimeKnown,
     endsAt: row.endsAt.toISOString(),
     endTimeKnown: row.endTimeKnown,
+    priceMin: row.priceMin,
+    priceMax: row.priceMax,
     imageUrl: row.imageUrl,
     sourceUrl: row.sourceUrl,
     source: row.source,
