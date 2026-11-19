@@ -233,6 +233,38 @@ const RUN_ON_18 = '2026-10-18T19:00:00+03:00';
 const RUN_ON_27 = '2026-10-27T19:00:00+02:00';
 const OPENING = '2026-10-14T17:00:00+03:00';
 const EXHIBITION_RUN = { startsAt: '2026-10-15T12:00:00+03:00', endsAt: '2026-11-10T23:59:59+02:00' };
+/** The run cut short to end on 20 October: its session on the 18th stays, the one on the 27th is gone. */
+const RUN_ENDING_ON_20 = { ...RUN, endsAt: '2026-10-20T21:00:00+03:00' };
+const RUN_SESSIONS = () => [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')];
+const RUN_SESSIONS_AFTER_ENDING_ON_20 = [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`];
+const CONCERT_SESSIONS_AFTER_MOVING_TO_20 = [
+  `s1 cancelled ${iso(CONCERT.startsAt)}`,
+  `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`,
+];
+const CONCERT_MOVED_TO_20 = `${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`;
+const RUN_ON_27_GONE = `${iso(RUN_ON_27)}>none`;
+
+/** Application `a` of the user and `b` of the other user, both with `status`. */
+function aPair(daysOfA: string[], daysOfB: string[], status: ApplicationStatus = 'paired') {
+  return [anApplication('a', daysOfA, status), anApplication('b', daysOfB, status, OTHER_ACCOUNT_ID)];
+}
+
+/** A match between `a` and `b` of `aPair`. */
+function aMatchOfPair(id: string, status: string, cancelReason?: string): StoredMatch {
+  return {
+    id,
+    applicationAId: 'a',
+    applicationBId: 'b',
+    status,
+    ...(cancelReason === undefined ? {} : { cancelReason }),
+  };
+}
+
+/** The inbox once both of `aPair` were told: `change` is `cancelled`, or `rescheduled` with its days. */
+function bothTold(change: 'cancelled' | 'rescheduled', days?: string): string[] {
+  const key = (applicationId: string) => `event_changed:${change}:${applicationId}${days ? `:${days}` : ''}`;
+  return [`user ${key('a')}`, `other ${key('b')}`];
+}
 
 interface Case {
   name: string;
@@ -280,14 +312,14 @@ const cases: Case[] = [
     world: {
       event: anEvent({ ...CONCERT, status: 'cancelled' }),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
-      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+      applications: aPair(['s1'], ['s1']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
     },
     after: {
       sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`],
       applications: ['a cancelled s1', 'b cancelled s1'],
       matches: ['mutual cancelled event_cancelled'],
-      inbox: ['user event_changed:cancelled:a', 'other event_changed:cancelled:b'],
+      inbox: bothTold('cancelled'),
     },
   },
   {
@@ -296,81 +328,63 @@ const cases: Case[] = [
     world: {
       event: anEvent(CONCERT_AT_20),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
-      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+      applications: aPair(['s1'], ['s1']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
     },
     rounds: ['new1'],
     after: {
-      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
       applications: ['a paired new1', 'b paired new1'],
       matches: ['mutual mutual'],
-      inbox: [
-        `user event_changed:rescheduled:a:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
-        `other event_changed:rescheduled:b:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
-      ],
+      inbox: bothTold('rescheduled', CONCERT_MOVED_TO_20),
     },
   },
   {
     name: 'a mutual match whose only shared day is cancelled: cancelled, and the side that keeps a day returns to the pool',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
-      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
-      applications: [
-        anApplication('a', ['s27'], 'paired'),
-        anApplication('b', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
-      ],
-      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
+      applications: aPair(['s27'], ['s18', 's27']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
     },
     after: {
-      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['a cancelled s27', 'b in_pool s18'],
       matches: ['mutual cancelled event_cancelled'],
-      inbox: [
-        `user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`,
-        `other event_changed:rescheduled:b:${iso(RUN_ON_27)}>none`,
-      ],
+      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
     },
   },
   {
     name: 'a mutual match that keeps a shared day ahead: kept, though another shared day is cancelled',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
-      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
-      applications: [
-        anApplication('a', ['s18', 's27'], 'paired'),
-        anApplication('b', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
-      ],
-      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
+      applications: aPair(['s18', 's27'], ['s18', 's27']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
     },
     after: {
-      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['a paired s18', 'b paired s18'],
       matches: ['mutual mutual'],
-      inbox: [
-        `user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`,
-        `other event_changed:rescheduled:b:${iso(RUN_ON_27)}>none`,
-      ],
+      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
     },
   },
   {
     name: 'a mutual match whose shared day is over: left as it is, though a later day of one side is cancelled',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      event: anEvent(RUN_ENDING_ON_20),
       sessions: [sessionAt(RUN.startsAt, 's14'), sessionAt(RUN_ON_27, 's27')],
-      applications: [
-        anApplication('a', ['s14', 's27'], 'paired'),
-        anApplication('b', ['s14'], 'paired', OTHER_ACCOUNT_ID),
-      ],
-      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+      applications: aPair(['s14', 's27'], ['s14']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
     },
     after: {
       sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
       applications: ['a cancelled s14+s27', 'b paired s14'],
       matches: ['mutual mutual'],
-      inbox: [`user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`],
+      inbox: [`user event_changed:rescheduled:a:${RUN_ON_27_GONE}`],
     },
   },
   {
@@ -379,19 +393,8 @@ const cases: Case[] = [
     world: {
       event: anEvent(CONCERT),
       sessions: [sessionAt(CONCERT.startsAt, 's1', 'cancelled')],
-      applications: [
-        anApplication('a', ['s1'], 'cancelled'),
-        anApplication('b', ['s1'], 'cancelled', OTHER_ACCOUNT_ID),
-      ],
-      matches: [
-        {
-          id: 'mutual',
-          applicationAId: 'a',
-          applicationBId: 'b',
-          status: 'cancelled',
-          cancelReason: 'event_cancelled',
-        },
-      ],
+      applications: aPair(['s1'], ['s1'], 'cancelled'),
+      matches: [aMatchOfPair('mutual', 'cancelled', 'event_cancelled')],
     },
     after: {
       sessions: [`s1 scheduled ${iso(CONCERT.startsAt)}`],
@@ -435,10 +438,10 @@ const cases: Case[] = [
     },
     rounds: ['new1'],
     after: {
-      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
       applications: ['waiting paused new1'],
       matches: [],
-      inbox: [`user event_changed:rescheduled:waiting:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`],
+      inbox: [`user event_changed:rescheduled:waiting:${CONCERT_MOVED_TO_20}`],
     },
   },
   {
@@ -447,18 +450,15 @@ const cases: Case[] = [
     world: {
       event: anEvent(CONCERT_AT_20),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
-      matches: [{ id: 'proposed', applicationAId: 'a', applicationBId: 'b', status: 'accepted_a' }],
+      applications: aPair(['s1'], ['s1']),
+      matches: [aMatchOfPair('proposed', 'accepted_a')],
     },
     rounds: ['new1'],
     after: {
-      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
       applications: ['a in_pool new1', 'b in_pool new1'],
       matches: ['proposed cancelled event_changed'],
-      inbox: [
-        `user event_changed:rescheduled:a:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
-        `other event_changed:rescheduled:b:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
-      ],
+      inbox: bothTold('rescheduled', CONCERT_MOVED_TO_20),
     },
   },
   {
@@ -467,11 +467,8 @@ const cases: Case[] = [
     world: {
       event: anEvent({ ...RUN, startsAt: '2026-10-14T20:00:00+03:00' }),
       sessions: [sessionAt(RUN.startsAt, 'past'), sessionAt(RUN_ON_18, 's18')],
-      applications: [
-        anApplication('a', ['past'], 'paired'),
-        anApplication('b', ['past', 's18'], 'paired', OTHER_ACCOUNT_ID),
-      ],
-      matches: [{ id: 'proposed', applicationAId: 'a', applicationBId: 'b', status: 'proposed' }],
+      applications: aPair(['past'], ['past', 's18']),
+      matches: [aMatchOfPair('proposed', 'proposed')],
     },
     rounds: ['new1'],
     after: {
@@ -521,8 +518,8 @@ const cases: Case[] = [
     name: 'a run that ends earlier: an application keeps the day that is left and loses the other; one with no day left is cancelled',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
-      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
       applications: [
         anApplication('both', ['s18', 's27']),
         anApplication('later', ['s27'], 'in_pool', OTHER_ACCOUNT_ID),
@@ -530,12 +527,12 @@ const cases: Case[] = [
       matches: [],
     },
     after: {
-      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['both in_pool s18', 'later cancelled s27'],
       matches: [],
       inbox: [
-        `user event_changed:rescheduled:both:${iso(RUN_ON_27)}>none`,
-        `other event_changed:rescheduled:later:${iso(RUN_ON_27)}>none`,
+        `user event_changed:rescheduled:both:${RUN_ON_27_GONE}`,
+        `other event_changed:rescheduled:later:${RUN_ON_27_GONE}`,
       ],
     },
   },
@@ -543,8 +540,8 @@ const cases: Case[] = [
     name: 'a pending proposal of an application left without a day: cancelled, and the partner who keeps a day returns to the pool',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
-      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
       applications: [
         anApplication('later', ['s27'], 'paired'),
         anApplication('partner', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
@@ -552,12 +549,12 @@ const cases: Case[] = [
       matches: [{ id: 'proposed', applicationAId: 'later', applicationBId: 'partner', status: 'accepted_b' }],
     },
     after: {
-      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['later cancelled s27', 'partner in_pool s18'],
       matches: ['proposed cancelled event_cancelled'],
       inbox: [
-        `user event_changed:rescheduled:later:${iso(RUN_ON_27)}>none`,
-        `other event_changed:rescheduled:partner:${iso(RUN_ON_27)}>none`,
+        `user event_changed:rescheduled:later:${RUN_ON_27_GONE}`,
+        `other event_changed:rescheduled:partner:${RUN_ON_27_GONE}`,
       ],
     },
   },
@@ -565,7 +562,7 @@ const cases: Case[] = [
     name: 'a day that is gone while the other day is over: the application is cancelled',
     change: 'rescheduled',
     world: {
-      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      event: anEvent(RUN_ENDING_ON_20),
       sessions: [sessionAt(RUN.startsAt, 's14'), sessionAt(RUN_ON_27, 's27')],
       applications: [anApplication('both', ['s14', 's27'])],
       matches: [],
@@ -574,7 +571,7 @@ const cases: Case[] = [
       sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
       applications: ['both cancelled s14+s27'],
       matches: [],
-      inbox: [`user event_changed:rescheduled:both:${iso(RUN_ON_27)}>none`],
+      inbox: [`user event_changed:rescheduled:both:${RUN_ON_27_GONE}`],
     },
   },
   {

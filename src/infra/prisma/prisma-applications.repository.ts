@@ -38,12 +38,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 
   async findPool(sessionIds: string[], tx: Transaction): Promise<Application[]> {
-    const rows = await clientOf(this.prisma, tx).application.findMany({
-      where: { status: 'in_pool', sessions: { some: { sessionId: { in: sessionIds } } } },
-      include: withDaysAndPlans,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
-    return rows.map(toApplication);
+    return this.findOnSessions(sessionIds, 'in_pool', tx);
   }
 
   async findById(id: string): Promise<Application | undefined> {
@@ -77,12 +72,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 
   async findBySessions(sessionIds: string[], statuses: ApplicationStatus[], tx?: Transaction): Promise<Application[]> {
-    const rows = await clientOf(this.prisma, tx).application.findMany({
-      where: { status: { in: statuses }, sessions: { some: { sessionId: { in: sessionIds } } } },
-      include: withDaysAndPlans,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
-    return rows.map(toApplication);
+    return this.findOnSessions(sessionIds, { in: statuses }, tx);
   }
 
   async cancel(ids: string[], from: ApplicationStatus[], tx?: Transaction): Promise<void> {
@@ -107,5 +97,19 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       skipDuplicates: true,
     });
     await client.applicationSession.deleteMany({ where: { sessionId: fromSessionId } });
+  }
+
+  /** The applications with the status that list one of the sessions among their days, the earliest first. */
+  private async findOnSessions(
+    sessionIds: string[],
+    status: ApplicationStatus | { in: ApplicationStatus[] },
+    tx?: Transaction,
+  ): Promise<Application[]> {
+    const rows = await clientOf(this.prisma, tx).application.findMany({
+      where: { status, sessions: { some: { sessionId: { in: sessionIds } } } },
+      include: withDaysAndPlans,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toApplication);
   }
 }

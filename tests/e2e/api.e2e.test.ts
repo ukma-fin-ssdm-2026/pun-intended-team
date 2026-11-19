@@ -2000,6 +2000,17 @@ describe('Applications', () => {
       });
 
     /** Enqueues the job as a producer would, outside the API. */
+    /** The organization moves the event to start at 18:00 on `day`; gives the new start. */
+    async function startAt18(eventId: string, day: string): Promise<string> {
+      const at18 = fromKyivWallClock(`${day}T18:00:00Z`).toISOString();
+      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
+        token: tokens.org,
+        body: { ...newEvent, startsAt: at18, endsAt: at21(day) },
+      });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      return at18;
+    }
+
     async function enqueueEventChanged(eventId: string, change: string): Promise<void> {
       const queue = new PgBossJobQueue(mainDatabaseUrl(), { sendOnly: true });
       queue.onApplicationBootstrap();
@@ -2096,13 +2107,7 @@ describe('Applications', () => {
       const waiting = await apply(first.token, eventId);
       const paired = await apply(second.token, eventId);
       assert.equal(paired.body.status, 'paired', 'the two are proposed to each other at once');
-      const at18 = fromKyivWallClock(`${day}T18:00:00Z`).toISOString();
-
-      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
-        token: tokens.org,
-        body: { ...newEvent, startsAt: at18, endsAt: at21(day) },
-      });
-      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      const at18 = await startAt18(eventId, day);
 
       const proposals = await eventually('Cancelling the proposal', async () => {
         const rows = await proposalsOf(waiting.body.id);
@@ -2172,13 +2177,7 @@ describe('Applications', () => {
       const day = inDays(17);
       const eventId = await newEventAt(at19(day), at21(day));
       const { first, second, matchId, applicationId } = await mutualMatchAt(eventId);
-      const at18 = fromKyivWallClock(`${day}T18:00:00Z`).toISOString();
-
-      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
-        token: tokens.org,
-        body: { ...newEvent, startsAt: at18, endsAt: at21(day) },
-      });
-      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      const at18 = await startAt18(eventId, day);
 
       const application = await eventually('Moving the application', async () => {
         const body = await applicationOf(first.token, applicationId);
