@@ -269,6 +269,32 @@ describe('PrismaMatchesRepository.cancelAndReturnBoth', () => {
   });
 });
 
+describe('PrismaMatchesRepository.cancelMutual', () => {
+  test('cancels only matches still mutual, for the reason, and returns their paired applications to the pool', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelMutual([{ ...RECORD, status: 'mutual' }], 'event_cancelled', transaction);
+
+    assert.deepEqual(tx.match.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: [RECORD.id] }, status: 'mutual' },
+      data: { status: 'cancelled', cancelReason: 'event_cancelled' },
+    });
+    assert.deepEqual(tx.application.updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: [APPLICATION_A, APPLICATION_B] }, status: 'paired' },
+      data: { status: 'in_pool' },
+    });
+  });
+
+  test('changes nothing when there is no match', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelMutual([], 'event_cancelled', transaction);
+
+    assert.equal(tx.match.updateMany.mock.callCount(), 0);
+    assert.equal(tx.application.updateMany.mock.callCount(), 0);
+  });
+});
+
 describe('PrismaMatchesRepository.findByApplication', () => {
   test('looks for the match on either side of the application', async () => {
     const { tx, transaction } = aTransaction();

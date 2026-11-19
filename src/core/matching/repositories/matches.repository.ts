@@ -52,4 +52,10 @@ export abstract class MatchesRepository {
 
   /** Cancels the pending match for `reason` and returns both applications to the pool. */
   abstract cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void>;
+
+  /**
+   * Cancels the mutual matches for `reason`; one that is no longer mutual is left as it is. Their applications that
+   * are still `paired` return to the pool.
+   */
+  abstract cancelMutual(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
 }

@@ -149,6 +149,24 @@ export class PrismaMatchesRepository implements MatchesRepository {
     });
   }
 
+  async cancelMutual(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    if (matches.length === 0) {
+      return;
+    }
+    const client = clientOf(this.prisma, tx);
+    await client.match.updateMany({
+      where: { id: { in: matches.map(({ id }) => id) }, status: 'mutual' },
+      data: { status: 'cancelled', cancelReason: reason },
+    });
+    await client.application.updateMany({
+      where: {
+        id: { in: matches.flatMap(({ applicationAId, applicationBId }) => [applicationAId, applicationBId]) },
+        status: 'paired',
+      },
+      data: { status: 'in_pool' },
+    });
+  }
+
   private async moveFrom(
     client: Prisma.TransactionClient,
     id: string,

@@ -98,7 +98,7 @@ function makeService(world: World) {
   };
   const matchesRepository: Pick<
     MatchesRepository,
-    'lockEvent' | 'cancelPending' | 'findByApplication' | 'cancelAndReturnBoth'
+    'lockEvent' | 'cancelPending' | 'findByApplication' | 'cancelAndReturnBoth' | 'cancelMutual'
   > = {
     lockEvent: (eventId, tx) => {
       inTransaction(tx);
@@ -130,6 +130,25 @@ function makeService(world: World) {
       for (const application of world.applications) {
         if ([match.applicationAId, match.applicationBId].includes(application.id) && application.status === 'paired') {
           application.status = 'in_pool';
+        }
+      }
+      return Promise.resolve();
+    },
+    cancelMutual: (matches, reason, tx) => {
+      inTransaction(tx);
+      assert.ok(world.locked, 'matches change only under the event lock');
+      for (const match of matches) {
+        const stored = world.matches.find(({ id }) => id === match.id)!;
+        if (stored.status === 'mutual') {
+          Object.assign(stored, { status: 'cancelled', cancelReason: reason });
+        }
+        for (const application of world.applications) {
+          if (
+            [match.applicationAId, match.applicationBId].includes(application.id) &&
+            application.status === 'paired'
+          ) {
+            application.status = 'in_pool';
+          }
         }
       }
       return Promise.resolve();
@@ -249,10 +268,136 @@ const cases: Case[] = [
       matches: [
         'proposed cancelled event_cancelled',
         'accepted cancelled event_cancelled',
-        'mutual mutual',
+        'mutual cancelled event_cancelled',
         'declined declined',
       ],
       inbox: ['user event_changed:cancelled:waiting', 'other event_changed:cancelled:paired'],
+    },
+  },
+  {
+    name: 'a mutual match on a cancelled event: cancelled for the event, and both are told',
+    change: 'cancelled',
+    world: {
+      event: anEvent({ ...CONCERT, status: 'cancelled' }),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
+      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+    },
+    after: {
+      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`],
+      applications: ['a cancelled s1', 'b cancelled s1'],
+      matches: ['mutual cancelled event_cancelled'],
+      inbox: ['user event_changed:cancelled:a', 'other event_changed:cancelled:b'],
+    },
+  },
+  {
+    name: 'a mutual match whose shared day moved to another time: kept on the new session, and both are told',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: [anApplication('a', ['s1'], 'paired'), anApplication('b', ['s1'], 'paired', OTHER_ACCOUNT_ID)],
+      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
+      applications: ['a paired new1', 'b paired new1'],
+      matches: ['mutual mutual'],
+      inbox: [
+        `user event_changed:rescheduled:a:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
+        `other event_changed:rescheduled:b:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`,
+      ],
+    },
+  },
+  {
+    name: 'a mutual match whose only shared day is cancelled: cancelled, and the side that keeps a day returns to the pool',
+    change: 'rescheduled',
+    world: {
+      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
+      applications: [
+        anApplication('a', ['s27'], 'paired'),
+        anApplication('b', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
+      ],
+      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+    },
+    after: {
+      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['a cancelled s27', 'b in_pool s18'],
+      matches: ['mutual cancelled event_cancelled'],
+      inbox: [
+        `user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`,
+        `other event_changed:rescheduled:b:${iso(RUN_ON_27)}>none`,
+      ],
+    },
+  },
+  {
+    name: 'a mutual match that keeps a shared day ahead: kept, though another shared day is cancelled',
+    change: 'rescheduled',
+    world: {
+      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      sessions: [sessionAt(RUN_ON_18, 's18'), sessionAt(RUN_ON_27, 's27')],
+      applications: [
+        anApplication('a', ['s18', 's27'], 'paired'),
+        anApplication('b', ['s18', 's27'], 'paired', OTHER_ACCOUNT_ID),
+      ],
+      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+    },
+    after: {
+      sessions: [`s18 scheduled ${iso(RUN_ON_18)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['a paired s18', 'b paired s18'],
+      matches: ['mutual mutual'],
+      inbox: [
+        `user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`,
+        `other event_changed:rescheduled:b:${iso(RUN_ON_27)}>none`,
+      ],
+    },
+  },
+  {
+    name: 'a mutual match whose shared day is over: left as it is, though a later day of one side is cancelled',
+    change: 'rescheduled',
+    world: {
+      event: anEvent({ ...RUN, endsAt: '2026-10-20T21:00:00+03:00' }),
+      sessions: [sessionAt(RUN.startsAt, 's14'), sessionAt(RUN_ON_27, 's27')],
+      applications: [
+        anApplication('a', ['s14', 's27'], 'paired'),
+        anApplication('b', ['s14'], 'paired', OTHER_ACCOUNT_ID),
+      ],
+      matches: [{ id: 'mutual', applicationAId: 'a', applicationBId: 'b', status: 'mutual' }],
+    },
+    after: {
+      sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['a cancelled s14+s27', 'b paired s14'],
+      matches: ['mutual mutual'],
+      inbox: [`user event_changed:rescheduled:a:${iso(RUN_ON_27)}>none`],
+    },
+  },
+  {
+    name: 'an event published again after a mutual match was cancelled: the match stays cancelled, nobody is told',
+    change: 'republished',
+    world: {
+      event: anEvent(CONCERT),
+      sessions: [sessionAt(CONCERT.startsAt, 's1', 'cancelled')],
+      applications: [
+        anApplication('a', ['s1'], 'cancelled'),
+        anApplication('b', ['s1'], 'cancelled', OTHER_ACCOUNT_ID),
+      ],
+      matches: [
+        {
+          id: 'mutual',
+          applicationAId: 'a',
+          applicationBId: 'b',
+          status: 'cancelled',
+          cancelReason: 'event_cancelled',
+        },
+      ],
+    },
+    after: {
+      sessions: [`s1 scheduled ${iso(CONCERT.startsAt)}`],
+      applications: ['a cancelled s1', 'b cancelled s1'],
+      matches: ['mutual cancelled event_cancelled'],
+      inbox: [],
     },
   },
   {
@@ -551,6 +696,27 @@ describe('EventChangesService.handle', () => {
         },
       ],
     );
+  });
+
+  test('tells both sides of a mutual match whether the match stands', async () => {
+    for (const [start, cancelled] of [
+      ['a mutual match on a cancelled event', true],
+      ['a mutual match whose shared day moved', false],
+    ] as const) {
+      const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(caseNamed(start).world) };
+      const { service } = makeService(world);
+
+      await service.handle({ eventId: EVENT_ID, change: 'cancelled' }, NOW);
+
+      assert.deepEqual(
+        world.inbox.map(({ accountId, payload }) => [accountId, payload.applicationId, payload.match]),
+        [
+          [ACCOUNT_ID, 'a', { id: 'mutual', cancelled }],
+          [OTHER_ACCOUNT_ID, 'b', { id: 'mutual', cancelled }],
+        ],
+        start,
+      );
+    }
   });
 
   test('moved to another time and back: the first session is scheduled again with its rounds, none planned twice', async () => {

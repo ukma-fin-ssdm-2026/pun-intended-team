@@ -7,7 +7,7 @@ export type MatchSource = 'instant' | 'round' | 'open';
 
 export type MatchStatus = 'proposed' | 'accepted_a' | 'accepted_b' | 'mutual' | 'declined' | 'expired' | 'cancelled';
 
-/** Why a proposal was cancelled before both users answered. */
+/** Why a match was cancelled: a proposal before both users answered, or a mutual match whose event was cancelled. */
 export type MatchCancelReason = 'event_cancelled' | 'event_changed' | 'participant_banned' | 'participant_withdrew';
 
 /** A proposal still waiting for the answer of one or both. */
