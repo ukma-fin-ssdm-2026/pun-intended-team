@@ -2,6 +2,7 @@
 import type { Transaction } from '../../common/transaction.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import type {
+  AddedReport,
   ReportCaseRecord,
   ReportCaseStatus,
   ReportReason,
@@ -10,17 +11,19 @@ import type {
 } from '../types/report.ts';
 
 export abstract class ReportCasesRepository {
-  /** Adds the report to the account's open case, or opens one; returns the case id. */
+  /** Adds the report to the account's open case, or opens one. */
   abstract addAccountReport(
     accountId: string,
     report: { reporterId: string; reason: ReportReason; comment: string | null },
-  ): Promise<string>;
+    tx?: Transaction,
+  ): Promise<AddedReport>;
 
-  /** Adds the report to the listing's open case, or opens one; returns the case id. */
+  /** Adds the report to the listing's open case, or opens one. */
   abstract addListingReport(
     listingId: string,
     report: { reporterId: string; reason: ReportReason; comment: string | null },
-  ): Promise<string>;
+    tx?: Transaction,
+  ): Promise<AddedReport>;
 
   /** Account and listing cases with the status, oldest first. */
   abstract findPage(status: ReportCaseStatus, page: PageRequest): Promise<Page<ReportCaseRecord>>;

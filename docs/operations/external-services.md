@@ -13,6 +13,8 @@ Services the API and the app depend on outside the repository. Amounts paid and 
 | Apple Maps (MapKit) | The venue map in the iOS app | — | — | Free, no key | — | Active with the first iOS build |
 | OpenFreeMap | Map tiles of the venue map in the web app ([`venue-map.web.tsx`](../../app/src/components/map/venue-map.web.tsx)) | — | — | Free, no registration or key; the public instance has no guaranteed availability | — | Active |
 | Expo (EAS) | Development builds of the app; keeps the Android signing keystore | Nearby (`nearby.ukma`, project `@nearbyukmas-team/nearby`) | — | Free plan | The app's `EXPO_PUBLIC_GOOGLE_*`, set in the EAS `development` environment | Active |
+| Expo Push | Push notifications to the app (HLD I5, [`expo-push-provider.ts`](../../src/infra/push/expo-push-provider.ts)) | Nearby (the Expo project above) | — | Free | — (the API sends without an Expo access token) | Active on Android; iOS has no push yet |
+| Firebase Cloud Messaging | Delivers Expo's pushes to Android phones | The Firebase project of the Google Cloud project above (`nearby-511918`) | — | Free | — (the app's [`google-services.json`](../../app/google-services.json); the FCM V1 service account key is uploaded to the EAS credentials of `ua.nearby.app`, never to the repository) | Active |
 
 ## Maps
 

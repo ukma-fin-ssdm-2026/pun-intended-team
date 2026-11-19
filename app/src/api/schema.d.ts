@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * Browse the event catalog
-         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
+         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more than 30 hours ago (FR-014). Needs an access token: a guest token or a signed-in account.
          */
         get: operations["listEvents"];
         put?: never;
@@ -736,6 +736,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your notifications
+         * @description The caller’s inbox, newest first, read and unread alike. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a notification read
+         * @description Mark one of the caller’s notifications read. Marking it again changes nothing and keeps `readAt`. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["readNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/push-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register this device for push
+         * @description Register the Expo push token of the device this session runs on. One token per session: a new one replaces the last, and a token registered before by another account or session moves to this one. The token is removed when the session ends (sign-out, a ban, a refresh with a stolen token). Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["registerPushToken"];
+        post?: never;
+        /**
+         * Stop push on this device
+         * @description Remove the push token of this session, e.g. when the user turns push off. Removing it again, or when none was registered, also answers 204. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["removePushToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/interests": {
         parameters: {
             query?: never;
@@ -1106,7 +1170,7 @@ export interface components {
             page: components["schemas"]["PageInfo"];
             /**
              * Format: date-time
-             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same on every page and with every filter
+             * @description Null while the imported events are current. While the latest import run of a provider failed, the catalog keeps serving the events of its last succeeded run, and this is when that run finished: the time of the "last updated" notice (FR-014). The same when the last succeeded run of a provider finished more than 30 hours ago, as when the import has stopped running. The same on every page and with every filter
              */
             lastUpdatedAt: string | null;
         };
@@ -2029,6 +2093,75 @@ export interface components {
             reason: "offensive_messages" | "no_show" | "fake_profile" | "unsafe_behaviour" | "other";
             /** @description What happened, in the reporter’s words */
             comment?: string;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "2b4d6f8a-0c1e-4a3b-9d5f-7a9c1e3b5d70",
+         *           "type": "report_received",
+         *           "payload": {},
+         *           "readAt": null,
+         *           "createdAt": "2026-11-15T10:00:00.000Z"
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        NotificationsPage: {
+            items: components["schemas"]["Notification"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description One row of the caller’s inbox
+         * @example {
+         *       "id": "2b4d6f8a-0c1e-4a3b-9d5f-7a9c1e3b5d70",
+         *       "type": "report_received",
+         *       "payload": {},
+         *       "readAt": null,
+         *       "createdAt": "2026-11-15T10:00:00.000Z"
+         *     }
+         */
+        Notification: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["NotificationType"];
+            /** @description Details by type, never contact details; `report_received` has none, so `{}` */
+            payload: {
+                [key: string]: unknown;
+            };
+            /**
+             * Format: date-time
+             * @description When the caller first marked it read; null while unread
+             */
+            readAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /**
+         * @description What the notification is about; the app picks the text by it. `report_received`: a report was filed
+         * @enum {string}
+         */
+        NotificationType: "match_proposed" | "match_mutual" | "respond_soon" | "not_a_match" | "continue_matching" | "removed_from_matching" | "no_match_found" | "event_reminder" | "event_changed" | "report_received";
+        /**
+         * @description The push token of the device this session runs on
+         * @example {
+         *       "pushToken": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+         *       "platform": "android"
+         *     }
+         */
+        RegisterPushTokenBody: {
+            /** @description The Expo push token of the app on this device, from getExpoPushTokenAsync; never returned */
+            pushToken: string;
+            /**
+             * @description ios or android
+             * @enum {string}
+             */
+            platform: "ios" | "android";
         };
         /**
          * @example {
@@ -4318,6 +4451,166 @@ export interface operations {
             };
             /** @description `REFERENCE_NOT_FOUND`: no user has this username, or no active listing has this id. `CANNOT_REPORT_SELF`: it is your own username or your own listing. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyNotifications: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    readNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Notification id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The notification, read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No notification with this id in the caller’s inbox */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    registerPushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RegisterPushTokenBody"];
+            };
+        };
+        responses: {
+            /** @description The device gets the caller’s pushes */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    removePushToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The device gets no more pushes */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

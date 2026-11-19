@@ -18,7 +18,7 @@ Tools: `node:test`, MCR (monocart-coverage-reports), fast-check, Docker PostgreS
 
 ## Coverage
 
-MCR, 1 November 2026 ([all tests](coverage/all/index.html), [unit tests](coverage/unit/index.html)):
+MCR, 1 November 2026, a local run. Reports are not committed: `npm run test:coverage` writes one to `coverage/index.html`.
 
 | Run | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
@@ -58,7 +58,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 | Tests | Job | Contains | Runs on |
 |---|---|---|---|
 | Unit tests | `CI passed` (required check) | `npm run test:unit`: [`tests/unit/`](../../tests/unit/), no database | every pull request and every push to `main` or `staging` |
-| E2E tests | `E2E tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main` or `staging`, after a green `CI passed`: after every merge to `main` and before every staging publish, which waits for it; never on a pull request |
+| E2E tests | `E2E tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main` or `staging`, side by side with `CI passed`: after every merge to `main` and before every staging publish, which waits for it; never on a pull request |
 
 The reliability tests keep their own job, `Reliability tests`, on every pull request; it needs no database.
 
@@ -86,4 +86,4 @@ The reliability tests keep their own job, `Reliability tests`, on every pull req
 
 ## AI Usage Note
 
-Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run and match the committed reports.
+Drafted with Claude Code from the repository's tests, CI workflow and requirements; edited and reviewed by Daryna Halytska. Coverage numbers come from a local run.

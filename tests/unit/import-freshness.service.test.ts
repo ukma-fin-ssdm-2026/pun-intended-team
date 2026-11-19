@@ -2,16 +2,22 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import type { ImportRunsRepository } from '../../dist/core/catalog/repositories/import-runs.repository.js';
-import { ImportFreshnessService } from '../../dist/core/catalog/services/import-freshness.service.js';
+import {
+  IMPORT_MAX_AGE_MS,
+  ImportFreshnessService,
+} from '../../dist/core/catalog/services/import-freshness.service.js';
 import type { ProviderImportStatus } from '../../dist/core/catalog/types/import-freshness.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { PrismaImportRunsRepository } from '../../dist/infra/prisma/prisma-import-runs.repository.js';
 
+// The morning after the runs of 2026-11-11 at about 02:00.
+const NOW = new Date('2026-11-11T10:00:00.000Z');
+
 // FR-014, REL-003
 describe('ImportFreshnessService.lastUpdatedAt', () => {
-  function lastUpdatedAt(providers: ProviderImportStatus[]): Promise<string | null> {
+  function lastUpdatedAt(providers: ProviderImportStatus[], now = NOW): Promise<string | null> {
     const repository = { freshness: mock.fn(() => Promise.resolve(providers)) };
-    return new ImportFreshnessService(repository as unknown as ImportRunsRepository).lastUpdatedAt();
+    return new ImportFreshnessService(repository as unknown as ImportRunsRepository).lastUpdatedAt(now);
   }
 
   test('is null while every provider’s latest run succeeded', async () => {
@@ -44,6 +50,25 @@ describe('ImportFreshnessService.lastUpdatedAt', () => {
 
     assert.equal(await lastUpdatedAt([artwizard, karabas]), '2026-11-09T02:00:31.000Z');
     assert.equal(await lastUpdatedAt([karabas, artwizard]), '2026-11-09T02:00:31.000Z');
+  });
+
+  // #443: a stopped import writes no failed run, so the age of the last success shows it.
+  test('is when the last succeeded run finished of a provider that has not succeeded for over 30 hours', async () => {
+    const stopped = new Date(NOW.getTime() - IMPORT_MAX_AGE_MS - 1000).toISOString();
+
+    assert.equal(
+      await lastUpdatedAt([
+        { provider: 'artwizard', lastSucceededAt: '2026-11-11T02:00:31.000Z', latestRunFailed: false },
+        { provider: 'karabas', lastSucceededAt: stopped, latestRunFailed: false },
+      ]),
+      stopped,
+    );
+  });
+
+  test('is null 30 hours after the last succeeded run, before the run is overdue', async () => {
+    const lastSucceededAt = new Date(NOW.getTime() - IMPORT_MAX_AGE_MS).toISOString();
+
+    assert.equal(await lastUpdatedAt([{ provider: 'karabas', lastSucceededAt, latestRunFailed: false }]), null);
   });
 
   test('is null for a failed provider that never succeeded, since there is no time to show', async () => {

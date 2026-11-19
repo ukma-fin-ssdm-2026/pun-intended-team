@@ -83,7 +83,8 @@ export const EventsPage = pageFields(Event)
     lastUpdatedAt: DateTime.nullable().describe(
       'Null while the imported events are current. While the latest import run of a provider failed, the catalog ' +
         'keeps serving the events of its last succeeded run, and this is when that run finished: the time of the ' +
-        '"last updated" notice (FR-014). The same on every page and with every filter',
+        '"last updated" notice (FR-014). The same when the last succeeded run of a provider finished more than 30 ' +
+        'hours ago, as when the import has stopped running. The same on every page and with every filter',
     ),
   })
   .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });

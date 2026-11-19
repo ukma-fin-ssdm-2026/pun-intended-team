@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# MapLibre worker, copied from node_modules by metro.config.js
+public/maplibre/

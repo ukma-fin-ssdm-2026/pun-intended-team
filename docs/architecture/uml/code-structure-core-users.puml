@@ -170,6 +170,7 @@ AccountsService --> SessionsService
 SessionsService --> SessionsRepository
 SessionsService --> AccountsRepository
 SessionsService --> AccessTokens
+SessionsService --> NotificationsService
 ProfilesService --> ProfilesRepository
 ProfilesService --> InterestsRepository
 ProfilesService --> AccountsService
@@ -178,6 +179,7 @@ ModerationService --> AuditLogRepository
 ModerationService --> ProfilesService
 ModerationService --> AccountsService
 ModerationService --> ListingsService
+ModerationService --> NotificationsService
 OrganizationReviewService --> OrganizationsService
 OrganizationReviewService --> ProfilesService
 OrganizationReviewService --> AuditLogRepository

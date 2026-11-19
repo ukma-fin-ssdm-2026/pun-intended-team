@@ -4,6 +4,8 @@ All notable changes to Nearby, the API and the app, are recorded here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-16
+
 ### Added
 
 - Real events: the catalog shows Kyiv events of the next four weeks, imported from ArtWizard and Karabas.
@@ -11,18 +13,16 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Organization verification: an account requests organization status with a name, a description and an official link (`PUT /me/organization`) and sees its status on the organization settings screen. Administrators verify or reject requests on the new Organizations page of the admin panel (`/admin/organizations`).
 - Time limits on the API's database calls: when the database does not answer in time, the request ends with 503 instead of never returning.
 - A Backups page in the admin panel lists the nightly backups of the last 30 days with their status, and the admin overview warns when a backup needs attention.
-- Asking for a match at an event: the user chooses the kind of company and the plans after the event, and for a multi-day event the days that suit them (`POST /events/{id}/applications`). A user with an incomplete profile is asked to complete it first. Applications for a day close an hour before it starts, or 2 hours before it ends if it lasts 3 hours or more. The Метчі tab lists the user's applications, and an application can be withdrawn.
-- Matching ([#375](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/375)): the users waiting at an event are paired in rounds a week, 3 days, a day and 6 hours before it, and at once on applying when two suit each other exceptionally well. A pair is scored by shared interests, the kind of company and the plans after the event; dating is paired only with dating, and only users with a day in common. Reported pairs, banned users and pairs declined at the event are never proposed. `GET /me/matches` lists the user's proposals and mutual matches, `POST /matches/{id}/accept` and `…/decline` answer a proposal, and `GET /matches/{id}/contacts` reveals the other user's networks once both accepted. In the app, the Метчі tab and the event page show the proposal, which the user accepts or declines, and a mutual match shows the contacts.
-- A real map on the map tab: one pin per Kyiv venue with upcoming events and their number. A pin opens the venue's events, and the filters and the search narrow the pins. The map starts at the user's location when it is allowed, otherwise it shows the whole city. Android needs `GOOGLE_MAPS_ANDROID_API_KEY` in the EAS environment.
-- Imported events that ArtWizard or Karabas no longer lists are shown as cancelled, and published again if they come back. A run that failed, read only part of the list, or got a list that looks broken cancels nothing ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
-- Imported events whose provider gives no end time say so (`endTimeKnown`), and the app shows only the start, «з 19:00», for them; a length written in a Karabas description, such as «Тривалість вистави – 1 год 20 хв», becomes the end time ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
-- A Karabas show that runs on many days, such as a play every evening until 29 November or a museum open daily until 1 May, is one event from today's show to its last one, and users can apply for any of its days within the next four weeks, not only its first show. The catalog and map filters «Завтра», «Ці вихідні» and picked days show it on each of its days ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
-- Exhibitions running now are in the catalog for every day they run, without an opening time; the app shows their dates only ([#417](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/417)).
+- Asking for a match at an event: the user picks the kind of company, the plans after the event and, for an event on several days, the days that suit them. The Метчі tab lists the user's applications, which can be withdrawn until a match is mutual.
+- Matching: users waiting at the same event are paired by shared interests, the kind of company and the plans after the event, in rounds before it. Each accepts or declines the proposal, and a mutual match shows the other's contacts.
+- A real map on the map tab: a pin for each Kyiv venue with upcoming events, showing how many. A pin opens the venue's events, and the filters and the search narrow the pins.
+- Notifications: the Сповіщення screen lists the user's notifications, and on Android they also arrive as pushes. The first one tells a user that their report was received.
+- Events that ArtWizard or Karabas no longer lists are shown as cancelled.
+- A show that runs on many days, such as a play every evening or a museum open daily, is one event, and users can ask for a match on any of its days.
+- An event without a known end time shows only its start, «з 19:00», and an exhibition running now shows only its dates.
+- When the latest events could not be imported, the catalog says when they were last updated: «Оновлено …».
 
 ### Changed
-
-- Withdrawing an application with a proposal still waiting for an answer cancels the proposal and returns the other user to the pool; an application with a mutual match can no longer be withdrawn.
-- The days of an event that runs on several days can be picked only within the next four weeks, the catalog's window. A later day is refused with `422 INVALID_SESSION_DAY`, and the app no longer offers it. Single-day events are not affected ([#416](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/416)).
 
 - Events, venues, organizations and listings are kept in the database, so they are no longer lost when the API restarts, and the app shows them instead of sample data: the catalog with its filters, the event page, the listings, and publishing, editing and cancelling an organization's events.
 - The `reportUser` operation, and the MCP tool of the same name, is now `createReport`, since it reports listings too.
@@ -35,12 +35,6 @@ All notable changes to Nearby, the API and the app, are recorded here.
 - Profile edit shows «Повторити» when the interests fail to load, instead of hiding «+ ще».
 - A short connection drop while the app renews the session no longer signs the user out.
 - A rollback after a failed deploy names the migrations the previous version does not know, instead of only reporting "rolled back".
-- Karabas events are imported for the whole four weeks, not only the first page of each section, about four days ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
-- A Karabas event that runs for several days with an end time, such as a museum open from 10:00 to 14:00 until 1 May, is recognised as a run of shows: its first day is imported, ending at that time, instead of lasting until midnight ([#410](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/410)).
-- Talks, board-game nights and wine tastings from the Karabas clubs page are no longer shown as Вечірки ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
-- An ArtWizard event listed twice by its API is imported once, and its venue address names the city once ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
-- A place that ArtWizard and Karabas both list, or that Karabas lists under two names, is one venue on the map, with its events together, and ArtWizard's coordinates are used where they are in Kyiv ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
-- A failed import run is always recorded as failed, with the error that stopped it, and never counts as succeeded ([#366](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/366)).
 
 ### Refactoring
 
@@ -86,7 +80,8 @@ The first release, deployed to staging: the API at <https://api.nearbystaging.ap
 - Only the auth service raises Google linking errors; the data layer reports what happened instead of repeating them. Technique: Extract Function and Change Function Declaration.
 - Registration and profiles share one age calculation. Technique: Move Function.
 
-[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/ukma-fin-ssdm-2026/pun-intended-team/releases/tag/v1.0.0

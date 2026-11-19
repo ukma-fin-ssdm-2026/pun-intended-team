@@ -2,6 +2,7 @@
 // The consumer of event.changed (matching.md, rule 10), over an event, its sessions, applications, proposals and the
 // inbox kept in memory, so that running a job twice shows whether the second run changes anything.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { describe, mock, test } from 'node:test';
 import type { Event } from '../../dist/core/catalog/types/event.js';
 import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
@@ -152,13 +153,21 @@ function makeService(world: World) {
     },
   };
   const notificationsService: Pick<NotificationsService, 'notify'> = {
-    notify: (notification, tx) => {
+    notify: (accountId, type, payload, dedupeKey, tx) => {
       inTransaction(tx);
-      const told = world.inbox.some(({ dedupeKey }) => dedupeKey === notification.dedupeKey);
-      if (!told) {
-        world.inbox.push(notification);
+      if (world.inbox.some((told) => told.dedupeKey === dedupeKey)) {
+        return Promise.resolve(undefined);
       }
-      return Promise.resolve(!told);
+      world.inbox.push({ accountId, type, payload, dedupeKey });
+      return Promise.resolve({
+        id: randomUUID(),
+        accountId,
+        type,
+        payload,
+        pushStatus: 'pending',
+        readAt: null,
+        createdAt: new Date().toISOString(),
+      });
     },
   };
   const matchingService = {

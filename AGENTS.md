@@ -32,7 +32,6 @@ npm run format:check
 npm run test:unit
 npm run test:e2e
 npm run docs:generate   # after any API change; commit the updated spec, CI fails on a stale one
-npm run docs:coverage   # after changing tests; commit docs/testing/coverage/
 ```
 
 ## Git

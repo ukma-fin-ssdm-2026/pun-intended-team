@@ -4,15 +4,19 @@ import { createHash } from 'node:crypto';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import { SessionsService } from '../../dist/core/identity/services/sessions.service.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { AccessTokens } from '../../dist/core/identity/adapters/access-tokens.js';
 import type { AccountsRepository } from '../../dist/core/identity/repositories/accounts.repository.js';
 import type { SessionsRepository } from '../../dist/core/identity/repositories/sessions.repository.js';
 import type { Account } from '../../dist/core/identity/types/account.js';
 import type { Session, SessionRecord } from '../../dist/core/identity/types/session.js';
+import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID, PHONE } from './fixtures/accounts.ts';
 import { NOW, useFixedClock } from './fixtures/clock.ts';
 
 const SESSION_ID = 'b0000000-0000-4000-8000-000000000001';
+const TX = {} as Transaction;
 const SECRET = 'c'.repeat(43);
 const SIGNED_TOKEN = 'signed-token';
 // SEC-005
@@ -57,13 +61,20 @@ function makeService() {
   };
   const accounts = { findById: mock.fn((): Promise<Account | undefined> => Promise.resolve(anAccount())) };
   const accessTokens = { issue: mock.fn(() => Promise.resolve(SIGNED_TOKEN)), verify: mock.fn() };
+  const notifications = {
+    removeDevice: mock.fn(() => Promise.resolve()),
+    removeDevices: mock.fn(() => Promise.resolve()),
+  };
+  const transactions = { run: mock.fn((work: (tx: Transaction) => Promise<unknown>) => work(TX)) };
 
   const service = new SessionsService(
     sessions as unknown as SessionsRepository,
     accounts as unknown as AccountsRepository,
     accessTokens as unknown as AccessTokens,
+    notifications as unknown as NotificationsService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, sessions, accounts, accessTokens };
+  return { service, sessions, accounts, accessTokens, notifications, transactions };
 }
 
 function isDomainError(code: string) {
@@ -164,7 +175,7 @@ describe('SessionsService.refresh', () => {
     sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(REFRESH_REUSE_MS + 1)));
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
     assert.equal(sessions.rotate.mock.callCount(), 0);
   });
 
@@ -173,7 +184,7 @@ describe('SessionsService.refresh', () => {
     sessions.findById.mock.mockImplementation(() => Promise.resolve(rotatedAgo(0)));
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${'o'.repeat(43)}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
   });
 
   test('ends the session of a banned account even for a retry within 60 s', async () => {
@@ -182,7 +193,7 @@ describe('SessionsService.refresh', () => {
     accounts.findById.mock.mockImplementation(() => Promise.resolve(anAccount({ status: 'banned' })));
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
   });
 
   const malformed = ['', 'not-a-token', `${SESSION_ID}.short`, `not-a-uuid.${SECRET}`, `${SESSION_ID}${SECRET}`];
@@ -218,8 +229,15 @@ describe('SessionsService.refresh', () => {
     const { service, sessions } = makeService();
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${'d'.repeat(43)}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
     assert.equal(sessions.rotate.mock.callCount(), 0);
+  });
+
+  test('removes the push token of the session it ends, in the same transaction', async () => {
+    const { service, notifications } = makeService();
+
+    await assert.rejects(service.refresh(`${SESSION_ID}.${'d'.repeat(43)}`), isDomainError('INVALID_REFRESH_TOKEN'));
+    assert.deepEqual(notifications.removeDevice.mock.calls[0]?.arguments, [SESSION_ID, TX]);
   });
 
   test('ends the session of an account that was banned', async () => {
@@ -227,16 +245,17 @@ describe('SessionsService.refresh', () => {
     accounts.findById.mock.mockImplementation(() => Promise.resolve(anAccount({ status: 'banned' })));
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('INVALID_REFRESH_TOKEN'));
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
   });
 
   // REL-08: e.g. the app's retry, while the refresh it gave up on is still running on a slow server.
   test('answers CONFLICT and keeps the session when a concurrent refresh rotated the token first', async () => {
-    const { service, sessions, accessTokens } = makeService();
+    const { service, sessions, accessTokens, notifications } = makeService();
     sessions.rotate.mock.mockImplementation(() => Promise.resolve(false));
 
     await assert.rejects(service.refresh(`${SESSION_ID}.${SECRET}`), isDomainError('CONFLICT'));
     assert.equal(sessions.revoke.mock.callCount(), 0);
+    assert.equal(notifications.removeDevice.mock.callCount(), 0);
     assert.equal(accessTokens.issue.mock.callCount(), 0);
   });
 });
@@ -249,7 +268,17 @@ describe('SessionsService.end', () => {
 
     await service.end(SESSION_ID);
 
-    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW]);
+    assert.deepEqual(sessions.revoke.mock.calls[0]?.arguments, [SESSION_ID, NOW, TX]);
+  });
+
+  // A device stops getting the account's pushes once its session ends (issue #372, data model).
+  test('removes the push token of the session in the transaction that revokes it', async () => {
+    const { service, notifications, transactions } = makeService();
+
+    await service.end(SESSION_ID);
+
+    assert.equal(transactions.run.mock.callCount(), 1);
+    assert.deepEqual(notifications.removeDevice.mock.calls[0]?.arguments, [SESSION_ID, TX]);
   });
 });
 
@@ -261,7 +290,16 @@ describe('SessionsService.endAll', () => {
 
     await service.endAll(ACCOUNT_ID, SESSION_ID);
 
-    assert.deepEqual(sessions.revokeAll.mock.calls[0]?.arguments, [ACCOUNT_ID, NOW, SESSION_ID]);
+    assert.deepEqual(sessions.revokeAll.mock.calls[0]?.arguments, [ACCOUNT_ID, NOW, SESSION_ID, TX]);
+  });
+
+  test('removes the push tokens of the sessions it ends, in the same transaction', async () => {
+    const { service, notifications, transactions } = makeService();
+
+    await service.endAll(ACCOUNT_ID, SESSION_ID);
+
+    assert.equal(transactions.run.mock.callCount(), 1);
+    assert.deepEqual(notifications.removeDevices.mock.calls[0]?.arguments, [ACCOUNT_ID, SESSION_ID, TX]);
   });
 });
 

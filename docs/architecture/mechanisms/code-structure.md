@@ -59,6 +59,7 @@ src/
     auth/                       adapters for the identity module: access tokens, Google ID tokens, password and code hashing, key files
     jobs/                       PgBossJobQueue: the job queue on pg-boss ([job queue](job-queue.md))
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
+    push/                       PushProvider implementation (expo-push-provider.ts)
     providers/                  one adapter per external event provider (artwizard-, karabas-event-provider.ts), the polite HTTP client they share, import-settings.ts
     geocoding/                  Geocoder implementation (nominatim-geocoder.ts)
   import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads IMPORT_DATABASE_URL and the import settings of .env.example
@@ -81,7 +82,7 @@ src/
 11. **ESLint enforces rules 1, 7 and 9** with `no-restricted-imports` in `eslint.config.mjs`.
 12. **Abstract classes only where `core` depends on something outside it.** Nest injects by class, since TypeScript interfaces do not exist at runtime: an abstract class is both the interface and the injection token. Repositories (rule 7) and the adapters of HLD I5 (rule 13) are abstract classes owned by `core`. Services are injected as concrete classes, by `api` and by other modules alike; a service gets an abstract class only when it needs a second implementation. An injected class is a value import, not `import type`, because the class is the token. In tests, a service is replaced with `{ provide: EventsService, useValue: fake }`, the fake typed as `Pick<EventsService, …>`.
 
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. `EventProvider`, `Geocoder`, `MessagingProvider`, `GoogleIdTokens` and the `JobQueue` port exist; `PushProvider` comes with notifications. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. All of them exist, and the `JobQueue` port. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
 
 14. **Transactions across modules** (HLD I2, I3) are explicit. A service starts one with `TransactionRunner.run(async (tx) => …)` (an abstract class in `core/common`, implemented with Prisma in `infra/prisma/`) and passes `tx` to every repository method, `notify(…, tx)` and `JobQueue.enqueue(…, tx)` that must join it. A repository method that can join takes `tx?: Transaction` and uses `tx ?? this.prisma`. Details: [database access](database-access.md#transactions). `@nestjs-cls/transactional` (implicit, no `tx` parameter) was considered and not adopted: an explicit `tx` keeps every transaction visible in signatures and needs no request context in job handlers.
 

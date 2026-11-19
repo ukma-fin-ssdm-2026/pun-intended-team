@@ -1,11 +1,14 @@
 // Written with the help of Claude
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
 import { ListingsService } from '../../listings/services/listings.service.ts';
 import type { Listing } from '../../listings/types/listing.ts';
+import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { AuditLogRepository } from '../repositories/audit-log.repository.ts';
 import { ReportCasesRepository } from '../repositories/report-cases.repository.ts';
@@ -28,6 +31,8 @@ export class ModerationService {
     private readonly profilesService: ProfilesService,
     private readonly accountsService: AccountsService,
     private readonly listingsService: ListingsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly transactions: TransactionRunner,
   ) {}
 
   /** Reports a user by username (FR-025); repeated reports on one user join its open case (FR-026). */
@@ -39,12 +44,21 @@ export class ModerationService {
     if (accountId === reporterId) {
       throw new DomainError('CANNOT_REPORT_SELF', 'You cannot report yourself', 'username');
     }
-    // A banned user has nothing left to review; the reporter is not told, so a ban stays private.
+    // A banned user has nothing left to review. The reporter is told as for any report, so a ban stays private; with no
+    // report stored, the notification gets a key of its own.
     if ((await this.accountsService.findStanding(accountId))?.status !== 'active') {
+      await this.transactions.run((tx) => this.notifyReceived(reporterId, randomUUID(), tx));
       await this.audit(reporterId, 'report.create', 'account', accountId, 'ignored: account not active');
       return;
     }
-    await this.reportCasesRepository.addAccountReport(accountId, { reporterId, reason, comment: comment || null });
+    await this.transactions.run(async (tx) => {
+      const { reportId } = await this.reportCasesRepository.addAccountReport(
+        accountId,
+        { reporterId, reason, comment: comment || null },
+        tx,
+      );
+      await this.notifyReceived(reporterId, reportId, tx);
+    });
     await this.audit(reporterId, 'report.create', 'account', accountId, 'created');
   }
 
@@ -57,8 +71,20 @@ export class ModerationService {
     if (listing.authorId === reporterId) {
       throw new DomainError('CANNOT_REPORT_SELF', 'You cannot report your own listing', 'listingId');
     }
-    await this.reportCasesRepository.addListingReport(listingId, { reporterId, reason, comment: comment || null });
+    await this.transactions.run(async (tx) => {
+      const { reportId } = await this.reportCasesRepository.addListingReport(
+        listingId,
+        { reporterId, reason, comment: comment || null },
+        tx,
+      );
+      await this.notifyReceived(reporterId, reportId, tx);
+    });
     await this.audit(reporterId, 'report.create', 'listing', listingId, 'created');
+  }
+
+  /** SAFE-003: tells the reporter the report was received, in the transaction that stores it. */
+  private async notifyReceived(reporterId: string, reportId: string, tx: Transaction): Promise<void> {
+    await this.notificationsService.notify(reporterId, 'report_received', {}, `report_received:${reportId}`, tx);
   }
 
   async listCases(status: ReportCaseStatus, page: PageRequest): Promise<Page<ReportCase>> {

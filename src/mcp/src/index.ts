@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.1.1
- * Generated on: 2026-11-14T21:28:08.115Z
+ * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
+ * Generated on: 2026-11-16T20:16:00.865Z
  */
 
 import { existsSync } from 'node:fs';
@@ -46,7 +46,7 @@ interface McpToolDefinition {
  * Server configuration
  */
 export const SERVER_NAME = "nearby-api-mcp";
-export const SERVER_VERSION = "1.1.1";
+export const SERVER_VERSION = "1.2.0";
 // Instructions sent to clients, from the OpenAPI info.description.
 export const SERVER_INSTRUCTIONS = "REST API of Nearby, an app for going to events and meeting people along the way.";
 // Base URL for the API, can be set via environment variable or determined from OpenAPI spec
@@ -181,7 +181,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listEvents", {
     name: "listEvents",
     title: "Browse the event catalog",
-    description: `Browse the event catalog: published events in the catalog window, soonest first. \`lastUpdatedAt\` is not null while the imported events are those of an earlier import run (FR-014). Needs an access token: a guest token or a signed-in account.
+    description: `Browse the event catalog: published events in the catalog window, soonest first. \`lastUpdatedAt\` is not null while the imported events are those of an earlier import run, or of a run more than 30 hours ago (FR-014). Needs an access token: a guest token or a signed-in account.
 (Tags: Events)`,
     inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue, e.g. after tapping its map pin"},"from":{"type":"string","format":"date","description":"First day, Kyiv time; earlier dates count as today"},"to":{"type":"string","format":"date","description":"Last day, Kyiv time; later dates count as the end of the catalog window"}}},
     method: "get",
@@ -610,6 +610,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     requestBodyContentType: "application/json",
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Moderation"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyNotifications", {
+    name: "listMyNotifications",
+    title: "List your notifications",
+    description: `The caller’s inbox, newest first, read and unread alike. Needs a signed-in account; a guest token gets 401.
+(Tags: Notifications)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/me/notifications",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Notifications"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["readNotification", {
+    name: "readNotification",
+    title: "Mark a notification read",
+    description: `Mark one of the caller’s notifications read. Marking it again changes nothing and keeps \`readAt\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Notifications)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Notification id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/notifications/{id}/read",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Notifications"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],

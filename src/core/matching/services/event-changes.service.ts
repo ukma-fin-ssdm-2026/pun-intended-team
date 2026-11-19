@@ -119,21 +119,15 @@ export class EventChangesService implements OnModuleInit {
         return move ? [{ from: move.from, to: move.to }] : [];
       });
       days.sort((a, b) => a.from.localeCompare(b.from));
+      const dedupeKey =
+        change === 'cancelled'
+          ? `event_changed:cancelled:${application.id}`
+          : `event_changed:rescheduled:${application.id}:${days.map(({ from, to }) => `${from}>${to ?? 'none'}`).join(',')}`;
       await this.notificationsService.notify(
-        {
-          accountId: application.userId,
-          type: 'event_changed',
-          payload: {
-            eventId,
-            applicationId: application.id,
-            change,
-            sessions: days,
-          },
-          dedupeKey:
-            change === 'cancelled'
-              ? `event_changed:cancelled:${application.id}`
-              : `event_changed:rescheduled:${application.id}:${days.map(({ from, to }) => `${from}>${to ?? 'none'}`).join(',')}`,
-        },
+        application.userId,
+        'event_changed',
+        { eventId, applicationId: application.id, change, sessions: days },
+        dedupeKey,
         tx,
       );
     }

@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes five main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status) and **Report Cases** (moderation), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes six main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status), **Report Cases** (moderation) and the signed-in user's **Notifications** (the inbox), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -190,6 +190,24 @@ Every report on one user or on one listing, grouped until an administrator resol
 
 Related to: Account (reported user or listing author, reporters, the administrator who resolved it), Listing (reported listing).
 
+### Notification
+
+**Base paths:** `/api/v1/me/notifications` (the caller's inbox), `/api/v1/notifications/{id}` (one of them)
+
+One row of the signed-in user's inbox ([notifications](../architecture/mechanisms/notifications.md)). Modules write it with `notify()` in the transaction of the change that causes it; the API only reads it and marks it read.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
+| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}` |
+| `readAt` | date-time or `null` | When the caller first marked it read |
+| `createdAt` | date-time | |
+
+The push status, the dedupe key and the device push tokens stay inside the server.
+
+Related to: Account (the recipient).
+
 ## 3. Endpoints
 
 Each endpoint lists every status it can return. `429` (rate limit) and `500` can come from any endpoint, so they are left out of the tables.
@@ -223,7 +241,7 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 
 `PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
 
-The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" notice (FR-014). It is `null` while the imported events are current. While the latest ended import run of a provider failed, a run still going not counting, the catalog keeps serving that provider's events of its last succeeded run, and `lastUpdatedAt` is when that run finished, from `import_runs` (HLD I4); the oldest such time if several providers failed. A failed provider that never succeeded has no events and gives no time. The app shows it as "Оновлено <date, time>" above the list. The value is the same on every page and with every filter. It is a field of the catalog page and not an endpoint of its own, so the catalog gets the one timestamp it shows with the request it already makes (catalog access, rule 1), and provider names stay inside the server.
+The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" notice (FR-014). It is `null` while the imported events are current. While the latest ended import run of a provider failed, a run still going not counting, the catalog keeps serving that provider's events of its last succeeded run, and `lastUpdatedAt` is when that run finished, from `import_runs` (HLD I4); the oldest such time if several providers failed. The same holds for a provider whose last succeeded run finished more than 30 hours ago (one daily run and some slack), since then the import has stopped running, e.g. its container is down, and no failed run is written. A failed provider that never succeeded has no events and gives no time. The app shows it as "Оновлено <date, time>" above the list. The value is the same on every page and with every filter. It is a field of the catalog page and not an endpoint of its own, so the catalog gets the one timestamp it shows with the request it already makes (catalog access, rule 1), and provider names stay inside the server.
 
 `GET /api/v1/events` query parameters (FR-007):
 
@@ -318,6 +336,19 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 | `POST` | `/api/v1/admin/report-cases/{id}/dismiss` | Administrator | `200` the resolved case | `400`, `401`, `404`, `409` |
 
 `POST /reports` takes `{ username, reason, comment? }` to report a user, matched in any letter case, or `{ listingId, reason, comment? }` to report someone else's active listing; a body with both or neither is a `400`. A report joins the open case of the reported user or listing, or opens one; after a case is resolved, the next report opens a new one. The case list is oldest first, open cases by default, `?status=resolved` for the others. Ban sets the account to `banned` and ends all its sessions, so its next request gets `401` and it cannot sign in again; remove-listing marks the listing `removed`, so it leaves the feed and `GET /listings/{id}` answers `404`, as after the author deletes it; dismiss closes the case without action. Ban works only on account cases and remove-listing only on listing cases; the other kind of case gets `409 CONFLICT`. Ban on a case already resolved as banned applies the ban again, so a ban that failed halfway can be retried; this also bans again a user who was unbanned in the database since, so after an unban the old case is left alone. Remove-listing on a case already resolved as removed removes the listing again in the same way. Otherwise all three answer `409 CONFLICT` for a resolved case. All three answer `409 CANNOT_RESOLVE_OWN_CASE` for a case about the calling administrator or their listing, and ban answers `409 CANNOT_BAN_ADMIN` for a reported administrator, whose role is removed in the database first. A report on a banned user is answered `204` like any other but not stored, so the reporter does not learn about the ban. Filed reports, bans, listing removals, dismissals and refused attempts each write a row to the audit log (SEC-004); the IP address is not recorded yet. There is no limit on reports yet: since every report counts (FR-026), one user can raise a case's `reportCount` by reporting again; a per-reporter limit is a known gap.
+
+### Notifications
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/me/notifications` | Signed-in user | `200` a page of the caller's notifications | `400`, `401` |
+| `POST` | `/api/v1/notifications/{id}/read` | The recipient | `200` the notification | `400`, `401`, `404` |
+| `PUT` | `/api/v1/me/push-token` | Signed-in user | `204` | `400`, `401` |
+| `DELETE` | `/api/v1/me/push-token` | Signed-in user | `204` | `401` |
+
+`GET /me/notifications` lists the caller's notifications, read and unread, newest first, in pages of `limit` (at most 20) from `offset`, as the feeds are ([pagination](#pagination)): the inbox keeps growing, unlike the lists of applications and matches. The app polls it when it opens and while it stays open (HLD I1). Read sets `readAt`; reading again changes nothing and keeps the first time. Someone else's notification is a `404`, as one that does not exist (SEC-001).
+
+`PUT /me/push-token` takes `{ pushToken, platform }`: the Expo push token of the app on this device (`ExponentPushToken[…]`; anything else is a `400`) and `ios` or `android`. The token belongs to the session of the access token, one per session: a new token replaces the session's last one, and a token another account or session registered moves to this one, as when someone else signs in on the same phone; neither is an error. The token is personal data and is never returned: both endpoints answer `204` with no body. `DELETE /me/push-token` removes the session's token, and answers `204` also when there is none. A session's token goes when the session ends: on sign-out, on a ban, and on a refresh with a stolen or replayed token; an expired session keeps it, since nothing cleans up expired sessions yet, so its device still gets the account's pushes. Each notification is pushed to every registered device of the account ([notifications](../architecture/mechanisms/notifications.md#interface)); without one, its push is skipped and the inbox is the only channel, as it always is on the web.
 
 ### Admin
 

@@ -661,6 +661,7 @@ model Notification {
 
   account Account @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@index([accountId])
   @@map("notifications")
 }
 
