@@ -398,6 +398,9 @@ describe('KarabasEventProvider.normalize', () => {
         imageUrl:
           'https://images.karabas.com/external/018e50bb-71e5-7428-9b44-4f503fcfd169/events/01a139fc-2110-78c5-9c54-a9d320ece9a2/2920259823_ImageBig639275816856307582.jpeg',
         sourceUrl: 'https://kyiv.karabas.com/lama-15/',
+        // An AggregateOffer from 890 to 3000.
+        priceMin: 890,
+        priceMax: 3000,
       },
     );
   });

@@ -306,6 +306,7 @@ export class EventImportService {
     venueId: string,
   ): Promise<Saved | { duplicateOf: ImportedEventRow }> {
     const { externalId, title, description, startsAt, endsAt, endTimeKnown, imageUrl, sourceUrl } = imported;
+    const { priceMin, priceMax } = imported;
     const startTimeKnown = imported.startTimeKnown ?? true;
     const fields: ImportedEventFields = {
       title,
@@ -318,6 +319,8 @@ export class EventImportService {
       endTimeKnown,
       imageUrl,
       sourceUrl,
+      priceMin,
+      priceMax,
     };
 
     const existing = await this.importedEventsRepository.findEvent(provider, externalId);
@@ -384,6 +387,8 @@ function sameLocation(a: Venue['location'], b: Venue['location']): boolean {
   return a.lat.toFixed(6) === b.lat.toFixed(6) && a.lng.toFixed(6) === b.lng.toFixed(6);
 }
 
+// Any difference updates the row. A new price, like a new description, changes nothing for applicants: only a
+// cancellation, a republishing or a new start is an `event.changed` (ADR-006, decision 10).
 function isSame(event: ImportedEventRow, fields: ImportedEventFields): boolean {
   return (
     event.title === fields.title &&
@@ -392,6 +397,8 @@ function isSame(event: ImportedEventRow, fields: ImportedEventFields): boolean {
     event.venueId === fields.venueId &&
     event.imageUrl === fields.imageUrl &&
     event.sourceUrl === fields.sourceUrl &&
+    event.priceMin === fields.priceMin &&
+    event.priceMax === fields.priceMax &&
     event.startTimeKnown === fields.startTimeKnown &&
     event.endTimeKnown === fields.endTimeKnown &&
     Date.parse(event.startsAt) === Date.parse(fields.startsAt) &&

@@ -51,6 +51,8 @@ function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent 
     endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
+    priceMin: 300,
+    priceMax: 700,
     ...overrides,
   };
 }
@@ -71,6 +73,8 @@ function theSavedEvent(overrides: Partial<ImportedEventRow> = {}): ImportedEvent
     endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
+    priceMin: 300,
+    priceMax: 700,
     status: 'published',
     ...overrides,
   };
@@ -144,6 +148,8 @@ describe('EventImportService.importFrom', () => {
       endTimeKnown: true,
       imageUrl: 'https://images.example/jazz.jpg',
       sourceUrl: 'https://tickets.example/jazz-evening/',
+      priceMin: 300,
+      priceMax: 700,
       provider: PROVIDER_ID,
       externalId: 'ext-1',
     });

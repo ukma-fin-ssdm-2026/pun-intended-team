@@ -72,6 +72,8 @@ export function toImportedEventRow(row: EventTableRow): ImportedEventRow {
     startTimeKnown: row.startTimeKnown,
     endsAt: row.endsAt.toISOString(),
     endTimeKnown: row.endTimeKnown,
+    priceMin: row.priceMin,
+    priceMax: row.priceMax,
     status: row.status,
   };
 }

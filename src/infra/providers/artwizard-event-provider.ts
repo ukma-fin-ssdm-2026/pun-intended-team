@@ -6,6 +6,7 @@ import { addDays, fromKyivWallClock, kyivDate, kyivEndOfDay } from '../../core/c
 import { EventProvider } from '../../core/import/adapters/event-provider.ts';
 import type { FetchResult, ImportedEvent, NormalizeResult } from '../../core/import/types/import.ts';
 import { type HttpClient, redactedUrl } from './http-client.ts';
+import { priceOf } from './price.ts';
 import { coveredInstants, errorMessage, fitDescription, fitTitle } from './provider-pages.ts';
 
 export const ARTWIZARD_API_URL = 'https://api.artwizard.io';
@@ -54,6 +55,10 @@ const RawEvent = z.object({
   status: z.string(),
   type: z.array(z.string()).default([]),
   picture_url: z.string().nullish(),
+  // Hryvnias: 0 and 0 for a free event, equal for one price, null for none. Read leniently, as a price that is not
+  // a number only leaves the price unknown.
+  price_from: z.unknown().optional(),
+  price_to: z.unknown().optional(),
   location: z.object({
     name_ua: z.string().trim().min(1),
     address_ua: z.string().trim().nullish(),
@@ -187,6 +192,7 @@ export class ArtWizardEventProvider extends EventProvider {
       return { skip: { externalId, reason: `Invalid record: ${parsed.error.issues[0]?.path.join('.') || 'event'}` } };
     }
     const { title, description, status, type, picture_url, location, event_occurrences_data } = parsed.data;
+    const { price_from, price_to } = parsed.data;
     if (status !== 'published') {
       return { skip: { externalId, reason: `Not published (status ${JSON.stringify(status)})` } };
     }
@@ -251,6 +257,7 @@ export class ArtWizardEventProvider extends EventProvider {
         ...times,
         imageUrl: picture_url || null,
         sourceUrl: `${ARTWIZARD_SITE_URL}/${city}/e/${encodeURIComponent(externalId)}`,
+        ...priceOf([price_from, price_to]),
       },
     };
   }

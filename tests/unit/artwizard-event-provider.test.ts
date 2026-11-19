@@ -271,6 +271,9 @@ describe('ArtWizardEventProvider.normalize', () => {
         endTimeKnown: false,
         imageUrl: savedEvent('santimetri-20261103').picture_url,
         sourceUrl: 'https://artwizard.io/kyiv/e/santimetri-20261103',
+        // ArtWizard writes 0 to 0 for a free event.
+        priceMin: 0,
+        priceMax: null,
       },
     );
     assert.ok(event.description.length > 0 && !event.description.includes('"insert"'));
