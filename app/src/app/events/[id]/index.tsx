@@ -318,9 +318,10 @@ export default function EventScreen() {
             <View className="h-1 w-10 rounded-sm bg-border-default" />
           </View>
 
-          {/* Figma fixes this block at 84 px: a two-line title runs 11 px into the gap below, so the next block starts
-              where it does in the frame. */}
-          <View className="h-[84px] items-start gap-2.5">
+          {/* The title is shown in full, so the block grows with it. Figma fixes the block at 84 px and lets a two-line
+              title run 11 px into the gap below; the minimum of the chip and two lines (95 px) with an 11 px pull keeps
+              "Про подію" where it is in the frame for one and two lines, and a longer title pushes it down. */}
+          <View className="-mb-[11px] min-h-[95px] items-start gap-2.5">
             <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
               <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
             </View>
