@@ -28,6 +28,8 @@ function aRow(overrides: Record<string, unknown> = {}) {
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
     linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
+    photoId: null,
+    coverId: null,
     ...overrides,
   };
 }
@@ -84,6 +86,8 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       sharePhone: true,
       interestIds: [INTEREST_ID],
       linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
+      photoId: null,
+      coverId: null,
     });
   });
 

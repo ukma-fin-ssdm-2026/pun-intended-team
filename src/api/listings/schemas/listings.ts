@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { ActiveCategoryId, Category } from '../../catalog/schemas/categories.ts';
 import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { Image } from '../../images/schemas/images.ts';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
 
@@ -18,6 +19,7 @@ const ListingFields = z.object({
   description: z.string(),
   date: CalendarDate,
   status: ListingStatus,
+  photo: Image.nullable().describe('Cut to 2:1, as the post card shows it'),
 });
 
 export const listingExample: Listing = {
@@ -29,6 +31,7 @@ export const listingExample: Listing = {
   description: 'Planning to go in the evening, happy to grab a coffee after.',
   date: '2026-10-17',
   status: 'active',
+  photo: null,
 };
 
 export const Listing = ListingFields.meta({

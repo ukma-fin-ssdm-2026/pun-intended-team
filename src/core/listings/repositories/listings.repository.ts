@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import type { Page, PageRequest } from '../../common/page.ts';
+import type { Transaction } from '../../common/transaction.ts';
 import type { Listing, ListingRecord } from '../types/listing.ts';
 
 export abstract class ListingsRepository {
@@ -14,4 +15,6 @@ export abstract class ListingsRepository {
   abstract create(listing: ListingRecord): Promise<Listing>;
 
   abstract markRemoved(id: string): Promise<void>;
+
+  abstract setPhoto(id: string, imageId: string | null, tx?: Transaction): Promise<Listing>;
 }

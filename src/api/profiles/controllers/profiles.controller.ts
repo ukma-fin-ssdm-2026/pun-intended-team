@@ -6,6 +6,7 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
+import { INVALID_IMAGE, UPLOAD_NOTE, UploadImageRequest, toCrop } from '../../images/schemas/images.ts';
 import {
   CreateProfileBody,
   InterestList,
@@ -165,5 +166,87 @@ export class ProfilesController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Profile> {
     return this.profilesService.replaceLinkedAccounts(account.accountId, body.linkedAccounts);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.profiles.photo,
+    operationId: 'uploadMyPhoto',
+    summary: 'Upload your photo',
+    description: `Set or replace the caller’s avatar: a square, shown as a circle, stored at up to 512 × 512. ${UPLOAD_NOTE}`,
+    tags: ['Profiles'],
+    access: 'user',
+    request: UploadImageRequest,
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+      422: INVALID_IMAGE,
+    },
+    mcp: false,
+  })
+  async uploadMyPhoto(
+    @Input() { query, file }: RouteInput<typeof UploadImageRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Profile> {
+    return this.profilesService.setImage(account.accountId, 'photo', { ...file, crop: toCrop(query) });
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.profiles.photo,
+    operationId: 'deleteMyPhoto',
+    summary: 'Delete your photo',
+    description: 'Remove the caller’s avatar; the initial is shown instead. Without a photo, nothing changes.',
+    tags: ['Profiles'],
+    access: 'user',
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+    },
+  })
+  async deleteMyPhoto(@CurrentAccount() account: AccountCaller): Promise<Profile> {
+    return this.profilesService.removeImage(account.accountId, 'photo');
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.profiles.cover,
+    operationId: 'uploadMyCover',
+    summary: 'Upload your cover',
+    description:
+      'Set or replace the picture behind the caller’s avatar. The crop has the shape of the profile header (390:200); ' +
+      `the whole picture is kept too, at up to 2560 px, so wider or taller screens can show more of it. ${UPLOAD_NOTE}`,
+    tags: ['Profiles'],
+    access: 'user',
+    request: UploadImageRequest,
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+      422: INVALID_IMAGE,
+    },
+    mcp: false,
+  })
+  async uploadMyCover(
+    @Input() { query, file }: RouteInput<typeof UploadImageRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Profile> {
+    return this.profilesService.setImage(account.accountId, 'cover', { ...file, crop: toCrop(query) });
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.profiles.cover,
+    operationId: 'deleteMyCover',
+    summary: 'Delete your cover',
+    description: 'Remove the caller’s cover; the default gradient is shown instead. Without a cover, nothing changes.',
+    tags: ['Profiles'],
+    access: 'user',
+    responses: {
+      200: { description: 'The updated profile', schema: Profile },
+      404: NO_PROFILE,
+    },
+  })
+  async deleteMyCover(@CurrentAccount() account: AccountCaller): Promise<Profile> {
+    return this.profilesService.removeImage(account.accountId, 'cover');
   }
 }

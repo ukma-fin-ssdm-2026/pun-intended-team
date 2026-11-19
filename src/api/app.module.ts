@@ -12,6 +12,7 @@ import { ApiExceptionFilter } from './common/api-exception.filter.ts';
 import { AuthGuard } from './common/auth.ts';
 import { authRateLimitPerMinute } from './common/config.ts';
 import { IdentityApiModule } from './identity/identity-api.module.ts';
+import { ImagesApiModule } from './images/images-api.module.ts';
 import { ListingsApiModule } from './listings/listings-api.module.ts';
 import { MatchingApiModule } from './matching/matching-api.module.ts';
 import { ModerationApiModule } from './moderation/moderation-api.module.ts';
@@ -31,6 +32,7 @@ import { SystemApiModule } from './system/system-api.module.ts';
     ListingsApiModule,
     MatchingApiModule,
     ProfilesApiModule,
+    ImagesApiModule,
     ModerationApiModule,
     NotificationsApiModule,
     AdminApiModule,

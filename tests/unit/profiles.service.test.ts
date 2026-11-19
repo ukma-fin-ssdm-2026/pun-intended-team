@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
+import type { ImagesService, PreparedImage } from '../../dist/core/images/services/images.service.js';
+import type { ImageRef } from '../../dist/core/images/types/image.js';
 import type { InterestsRepository } from '../../dist/core/profiles/repositories/interests.repository.js';
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
 import { ageOn } from '../../dist/core/common/age.js';
@@ -59,9 +62,20 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     sharePhone: false,
     interestIds: [],
     linkedAccounts: [],
+    photoId: null,
+    coverId: null,
     ...overrides,
   };
 }
+
+const OLD_PHOTO_ID = 'a0000000-0000-4000-8000-000000000001';
+const NEW_PHOTO_ID = 'a0000000-0000-4000-8000-000000000002';
+const PHOTO: ImageRef = { id: NEW_PHOTO_ID, width: 512, height: 512, crop: null };
+const UPLOAD = {
+  content: new Uint8Array([1, 2, 3]),
+  contentType: 'image/jpeg',
+  crop: { left: 0, top: 0, width: 1, height: 1 },
+};
 
 function aProfileSummary(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
   return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', ...overrides };
@@ -86,7 +100,24 @@ function makeService() {
     replaceLinkedAccounts: mock.fn((_accountId: string, linkedAccounts: LinkedAccount[]) =>
       Promise.resolve(aProfile({ linkedAccounts })),
     ),
+    setImage: mock.fn((_accountId: string, _slot: string, imageId: string | null) =>
+      Promise.resolve(aProfile({ photoId: imageId })),
+    ),
   };
+  const prepared = {
+    encoded: { content: new Uint8Array(), contentType: 'image/webp', width: 512, height: 512 },
+    crop: null,
+  };
+  const imagesService = {
+    prepare: mock.fn((): Promise<PreparedImage> => Promise.resolve(prepared)),
+    save: mock.fn((): Promise<ImageRef> => Promise.resolve(PHOTO)),
+    remove: mock.fn(() => Promise.resolve()),
+    getRefs: mock.fn((ids: (string | null)[]) =>
+      Promise.resolve(new Map(ids.includes(NEW_PHOTO_ID) ? [[NEW_PHOTO_ID, PHOTO]] : [])),
+    ),
+  };
+  const tx = {} as Transaction;
+  const transactions = { run: mock.fn(<T>(work: (tx: Transaction) => Promise<T>) => work(tx)) };
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
   const accountsService = {
     getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve(DATE_OF_BIRTH)),
@@ -99,8 +130,10 @@ function makeService() {
     profilesRepository as unknown as ProfilesRepository,
     interestsRepository as unknown as InterestsRepository,
     accountsService as unknown as AccountsService,
+    imagesService as unknown as ImagesService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, profilesRepository, interestsRepository, accountsService };
+  return { service, profilesRepository, interestsRepository, accountsService, imagesService, tx };
 }
 
 describe('ProfilesService.getSummaries', () => {
@@ -183,6 +216,8 @@ describe('ProfilesService.getPublicProfiles', () => {
       occupation: 'Illustrator',
       age: ageOn(TODAY, DATE_OF_BIRTH),
       interests: [JAZZ],
+      photo: null,
+      cover: null,
     });
   });
 
@@ -458,5 +493,53 @@ describe('ProfilesService.replaceLinkedAccounts', () => {
     profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
 
     await assert.rejects(service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM]), isDomainError('NOT_FOUND'));
+  });
+});
+
+describe('ProfilesService.setImage', () => {
+  test('crops the upload as an avatar, points the profile at it and deletes the old picture in one transaction', async () => {
+    const { service, profilesRepository, imagesService, tx } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ photoId: OLD_PHOTO_ID })),
+    );
+
+    const profile = await service.setImage(ACCOUNT_ID, 'photo', UPLOAD);
+
+    assert.deepEqual(imagesService.prepare.mock.calls[0]?.arguments, ['profilePhoto', UPLOAD]);
+    assert.equal(imagesService.save.mock.calls[0]?.arguments[2], tx);
+    assert.deepEqual(profilesRepository.setImage.mock.calls[0]?.arguments, [ACCOUNT_ID, 'photo', NEW_PHOTO_ID, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+    assert.deepEqual(profile.photo, PHOTO);
+  });
+
+  test('answers NOT_FOUND before the profile is created, without reading the picture', async () => {
+    const { service, profilesRepository, imagesService } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.setImage(ACCOUNT_ID, 'cover', UPLOAD), isDomainError('NOT_FOUND'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+});
+
+describe('ProfilesService.removeImage', () => {
+  test('clears the cover and deletes its picture', async () => {
+    const { service, profilesRepository, imagesService, tx } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ coverId: OLD_PHOTO_ID })),
+    );
+
+    await service.removeImage(ACCOUNT_ID, 'cover');
+
+    assert.deepEqual(profilesRepository.setImage.mock.calls[0]?.arguments, [ACCOUNT_ID, 'cover', null, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+  });
+
+  test('changes nothing without a picture', async () => {
+    const { service, profilesRepository, imagesService } = makeService();
+
+    await service.removeImage(ACCOUNT_ID, 'photo');
+
+    assert.equal(profilesRepository.setImage.mock.callCount(), 0);
+    assert.equal(imagesService.remove.mock.callCount(), 0);
   });
 });

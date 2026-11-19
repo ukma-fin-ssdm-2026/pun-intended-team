@@ -6,12 +6,24 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
+import { CropQuery, ImageFileBody, INVALID_IMAGE, UPLOAD_NOTE, toCrop } from '../../images/schemas/images.ts';
 import { CreateListingBody, ListListingsQuery, Listing, ListingIdParams, ListingsPage } from '../schemas/listings.ts';
 
 const ListListingsRequest = { query: ListListingsQuery } satisfies RequestSchemas;
 const GetListingRequest = { params: ListingIdParams } satisfies RequestSchemas;
 const CreateListingRequest = { body: CreateListingBody } satisfies RequestSchemas;
 const DeleteListingRequest = { params: ListingIdParams } satisfies RequestSchemas;
+const UploadListingPhotoRequest = {
+  params: ListingIdParams,
+  query: CropQuery,
+  file: ImageFileBody,
+} satisfies RequestSchemas;
+const DeleteListingPhotoRequest = { params: ListingIdParams } satisfies RequestSchemas;
+
+const NOT_OWN_LISTING = {
+  description: 'No active listing with this id, or it is not the caller’s own',
+  schema: ErrorResponse,
+};
 
 @Controller()
 export class ListingsController {
@@ -88,7 +100,7 @@ export class ListingsController {
     request: DeleteListingRequest,
     responses: {
       204: { description: 'The listing was removed' },
-      404: { description: 'No active listing with this id, or it is not the caller’s own', schema: ErrorResponse },
+      404: NOT_OWN_LISTING,
     },
   })
   async deleteListing(
@@ -96,5 +108,49 @@ export class ListingsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<void> {
     await this.listingsService.remove(account.accountId, params.id);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.listings.photo,
+    operationId: 'uploadListingPhoto',
+    summary: 'Add a photo to your listing',
+    description: `Set or replace the photo of the caller’s own listing, cut to 2:1 and stored at up to 1200 × 600. ${UPLOAD_NOTE}`,
+    tags: ['Listings'],
+    access: 'user',
+    request: UploadListingPhotoRequest,
+    responses: {
+      200: { description: 'The updated listing', schema: Listing },
+      404: NOT_OWN_LISTING,
+      422: INVALID_IMAGE,
+    },
+    mcp: false,
+  })
+  async uploadListingPhoto(
+    @Input() { params, query, file }: RouteInput<typeof UploadListingPhotoRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Listing> {
+    return this.listingsService.setPhoto(account.accountId, params.id, { ...file, crop: toCrop(query) });
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.listings.photo,
+    operationId: 'deleteListingPhoto',
+    summary: 'Remove the photo of your listing',
+    description: 'Remove the photo of the caller’s own listing. Without a photo, nothing changes.',
+    tags: ['Listings'],
+    access: 'user',
+    request: DeleteListingPhotoRequest,
+    responses: {
+      200: { description: 'The updated listing', schema: Listing },
+      404: NOT_OWN_LISTING,
+    },
+  })
+  async deleteListingPhoto(
+    @Input() { params }: RouteInput<typeof DeleteListingPhotoRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Listing> {
+    return this.listingsService.removePhoto(account.accountId, params.id);
   }
 }

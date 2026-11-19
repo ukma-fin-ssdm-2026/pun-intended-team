@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import type { Category } from '../../catalog/types/category.ts';
+import type { ImageRef } from '../../images/types/image.ts';
 import type { ProfileSummary } from '../../profiles/types/profile.ts';
 
 export type ListingStatus = 'active' | 'removed';
@@ -15,12 +16,14 @@ export interface Listing {
   /** Kyiv date, YYYY-MM-DD. */
   date: string;
   status: ListingStatus;
+  photoId: string | null;
 }
 
 /** A listing with what readers see of its author and category. */
 export interface ListingDetails extends Listing {
   author: ProfileSummary;
   category: Pick<Category, 'id' | 'name'>;
+  photo: ImageRef | null;
 }
 
 export interface NewListing {

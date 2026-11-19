@@ -1,4 +1,6 @@
 // Written with the help of Claude
+import type { ImageRef, WholeImageRef } from '../../images/types/image.ts';
+
 export type CommunicationFormat = 'friends' | 'dating' | 'company';
 
 export interface ProfileSummary {
@@ -39,10 +41,21 @@ export interface Profile extends ProfileSummary {
   sharePhone: boolean;
   interestIds: string[];
   linkedAccounts: LinkedAccount[];
+  photoId: string | null;
+  coverId: string | null;
+}
+
+/** The two pictures of a profile: the avatar and the cover behind it. */
+export type ProfileImageSlot = 'photo' | 'cover';
+
+export interface ProfileImages {
+  photo: ImageRef | null;
+  /** Kept whole, with the area the user picked. */
+  cover: WholeImageRef | null;
 }
 
 /** What the owner sees of their profile. */
-export interface ProfileDetails {
+export interface ProfileDetails extends ProfileImages {
   username: string;
   displayName: string;
   description: string;
@@ -58,7 +71,7 @@ export interface ProfileDetails {
 }
 
 /** What a proposed match sees of the other user: no contacts (FR-019). */
-export interface PublicProfile extends ProfileSummary {
+export interface PublicProfile extends ProfileSummary, ProfileImages {
   description: string;
   occupation: string;
   age: number;

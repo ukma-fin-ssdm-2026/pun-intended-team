@@ -8,6 +8,10 @@ import type { EventsService } from '../../dist/core/catalog/services/events.serv
 import type { Category } from '../../dist/core/catalog/types/category.js';
 import type { Event } from '../../dist/core/catalog/types/event.js';
 import type { Page, PageRequest } from '../../dist/core/common/page.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
+import type { ImagesService, PreparedImage } from '../../dist/core/images/services/images.service.js';
+import type { ImageRef } from '../../dist/core/images/types/image.js';
 import type { ListingsRepository } from '../../dist/core/listings/repositories/listings.repository.js';
 import type { Listing, ListingRecord, NewListing } from '../../dist/core/listings/types/listing.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
@@ -41,9 +45,18 @@ function aListing(overrides: Partial<Listing> = {}): Listing {
     description: 'Evening, coffee after.',
     date: '2026-10-22',
     status: 'active',
+    photoId: null,
     ...overrides,
   };
 }
+
+const OLD_PHOTO_ID = 'a0000000-0000-4000-8000-000000000001';
+const PHOTO: ImageRef = { id: 'a0000000-0000-4000-8000-000000000002', width: 1200, height: 600, crop: null };
+const UPLOAD = {
+  content: new Uint8Array([1, 2, 3]),
+  contentType: 'image/png',
+  crop: { left: 0, top: 0, width: 1, height: 0.5 },
+};
 
 /** The profile of ACCOUNT_ID as listing readers see it. */
 function anAuthor(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
@@ -60,6 +73,7 @@ function makeService() {
     create: mock.fn((record: ListingRecord): Promise<Listing> => Promise.resolve({ id: LISTING_ID, ...record })),
     markRemoved: mock.fn(() => Promise.resolve()),
     findByIds: mock.fn((): Promise<Listing[]> => Promise.resolve([aListing({ status: 'removed' })])),
+    setPhoto: mock.fn((_id: string, photoId: string | null) => Promise.resolve(aListing({ photoId }))),
   };
   const categoriesService = {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
@@ -72,13 +86,30 @@ function makeService() {
     ),
   };
 
+  const prepared = {
+    encoded: { content: new Uint8Array(), contentType: 'image/webp', width: 1200, height: 600 },
+    crop: null,
+  };
+  const imagesService = {
+    prepare: mock.fn((): Promise<PreparedImage> => Promise.resolve(prepared)),
+    save: mock.fn((): Promise<ImageRef> => Promise.resolve(PHOTO)),
+    remove: mock.fn(() => Promise.resolve()),
+    getRefs: mock.fn((ids: (string | null)[]) =>
+      Promise.resolve(new Map(ids.includes(PHOTO.id) ? [[PHOTO.id, PHOTO]] : [])),
+    ),
+  };
+  const tx = {} as Transaction;
+  const transactions = { run: mock.fn(<T>(work: (tx: Transaction) => Promise<T>) => work(tx)) };
+
   const service = new ListingsService(
     listingsRepository as unknown as ListingsRepository,
     categoriesService as unknown as CategoriesService,
     eventsService as unknown as EventsService,
     profilesService as unknown as ProfilesService,
+    imagesService as unknown as ImagesService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, listingsRepository, categoriesService, eventsService, profilesService };
+  return { service, listingsRepository, categoriesService, eventsService, profilesService, imagesService, tx };
 }
 
 function isDomainError(code: string) {
@@ -136,7 +167,7 @@ describe('ListingsService.create', () => {
     const result = await service.create(ACCOUNT_ID, input);
 
     assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments, [
-      { ...input, authorId: ACCOUNT_ID, status: 'active' },
+      { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null },
     ]);
     assert.deepEqual(result.author, anAuthor());
   });
@@ -266,5 +297,44 @@ describe('ListingsService.removeReported', () => {
     await service.removeReported(LISTING_ID);
 
     assert.deepEqual(listingsRepository.markRemoved.mock.calls[0]?.arguments, [LISTING_ID]);
+  });
+});
+
+describe('ListingsService.setPhoto', () => {
+  test('crops the upload to 2:1, points the listing at it and deletes the old photo in one transaction', async () => {
+    const { service, listingsRepository, imagesService, tx } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() =>
+      Promise.resolve(aListing({ photoId: OLD_PHOTO_ID })),
+    );
+
+    const listing = await service.setPhoto(ACCOUNT_ID, LISTING_ID, UPLOAD);
+
+    assert.deepEqual(imagesService.prepare.mock.calls[0]?.arguments, ['listingPhoto', UPLOAD]);
+    assert.deepEqual(listingsRepository.setPhoto.mock.calls[0]?.arguments, [LISTING_ID, PHOTO.id, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+    assert.deepEqual(listing.photo, PHOTO);
+  });
+
+  test('answers NOT_FOUND to someone who is not the author, without reading the picture', async () => {
+    const { service, listingsRepository, imagesService } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
+
+    await assert.rejects(service.setPhoto(OTHER_ACCOUNT_ID, LISTING_ID, UPLOAD), isDomainError('NOT_FOUND'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+});
+
+describe('ListingsService.removePhoto', () => {
+  test('clears the photo and deletes its picture', async () => {
+    const { service, listingsRepository, imagesService, tx } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() =>
+      Promise.resolve(aListing({ photoId: OLD_PHOTO_ID })),
+    );
+
+    const listing = await service.removePhoto(ACCOUNT_ID, LISTING_ID);
+
+    assert.deepEqual(listingsRepository.setPhoto.mock.calls[0]?.arguments, [LISTING_ID, null, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+    assert.equal(listing.photo, null);
   });
 });
