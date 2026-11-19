@@ -1960,10 +1960,11 @@ describe('Applications', () => {
       }
     }
 
+    // Without push_status: notifications.deliver may change it while a test reads the inbox.
     const inboxOf = (accountId: string) =>
       withDatabase(async (client) => {
-        const { rows } = await client.query<{ type: string; push_status: string; payload: Record<string, unknown> }>(
-          'SELECT type, push_status, payload FROM notifications WHERE account_id = $1 ORDER BY created_at',
+        const { rows } = await client.query<{ type: string; payload: Record<string, unknown> }>(
+          'SELECT type, payload FROM notifications WHERE account_id = $1 ORDER BY created_at',
           [accountId],
         );
         return rows;
@@ -2036,7 +2037,6 @@ describe('Applications', () => {
       const inbox = [
         {
           type: 'event_changed',
-          push_status: 'skipped',
           payload: {
             eventId,
             applicationId: applied.body.id,
