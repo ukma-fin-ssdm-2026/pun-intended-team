@@ -151,6 +151,7 @@ package "core (business logic)" as CORE {
       +cancelForWithdrawal(match, applicationId, tx)
       +cancelPending(applicationIds, reason, tx)
       +cancelAndReturnBoth(match, reason, tx)
+      +cancelMutual(matches, reason, tx)
     }
   }
 }
