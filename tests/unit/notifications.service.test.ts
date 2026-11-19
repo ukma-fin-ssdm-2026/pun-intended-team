@@ -227,6 +227,25 @@ describe('NotificationsService: the notifications.deliver handler', () => {
     assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'report_received' });
   });
 
+  for (const [change, says] of [
+    ['cancelled', /скасовано/],
+    ['rescheduled', /змінився/],
+  ] as const) {
+    test(`says in one Ukrainian line that the event was ${change}`, async () => {
+      const mocks = makeService();
+      const stored = aNotification({ type: 'event_changed', payload: { eventId: 'e', change, sessions: [] } });
+      mocks.repository.findById.mock.mockImplementation(() => Promise.resolve(stored));
+
+      await registeredHandler(mocks)(deliverJob);
+
+      const [message] = mocks.push.send.mock.calls[0]?.arguments[0] ?? [];
+      assert.ok(message);
+      assert.match(message.body, says);
+      assert.doesNotMatch(message.body, /\n/);
+      assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'event_changed' });
+    });
+  }
+
   test('marks it skipped and pushes nothing when the account has no device', async () => {
     const mocks = makeService();
     const stored = withStoredNotification(mocks.repository, 'pending');
