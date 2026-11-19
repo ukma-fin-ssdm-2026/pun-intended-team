@@ -2122,6 +2122,83 @@ describe('Applications', () => {
       }
     });
 
+    /** Two new users who apply to the event, are proposed to each other at once and both accept. */
+    async function mutualMatchAt(eventId: string) {
+      const first = await newCompleteProfile();
+      const second = await newCompleteProfile();
+      const applications = [await apply(first.token, eventId), await apply(second.token, eventId)];
+      assert.equal(applications[1]?.body.status, 'paired', 'the two are proposed to each other at once');
+      const [match] = (await call('GET', '/api/v1/me/matches', { token: first.token })).body;
+      for (const { token } of [first, second]) {
+        assert.equal((await call('POST', `/api/v1/matches/${match.id}/accept`, { token })).status, 200);
+      }
+      assert.equal((await call('GET', `/api/v1/matches/${match.id}`, { token: first.token })).body.status, 'mutual');
+      return { first, second, matchId: match.id as string, applicationId: applications[0]!.body.id as string };
+    }
+
+    test('a mutual match on a cancelled event is cancelled, both are told once, also when the job runs twice', async () => {
+      const day = inDays(16);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const { first, second, matchId, applicationId } = await mutualMatchAt(eventId);
+
+      assert.equal((await call('POST', `/api/v1/events/${eventId}/cancel`, { token: tokens.org })).status, 200);
+
+      const proposals = await eventually('Cancelling the match', async () => {
+        const rows = await proposalsOf(applicationId);
+        return rows[0]?.status === 'cancelled' ? rows : undefined;
+      });
+      assert.deepEqual(proposals, [{ status: 'cancelled', cancel_reason: 'event_cancelled' }]);
+      assert.equal((await call('GET', `/api/v1/matches/${matchId}`, { token: first.token })).body.status, 'cancelled');
+      assert.equal((await call('GET', `/api/v1/matches/${matchId}/contacts`, { token: first.token })).status, 404);
+      const told = async () =>
+        [...(await inboxOf(first.accountId)), ...(await inboxOf(second.accountId))].map(({ type, payload }) => [
+          type,
+          payload.change,
+          payload.match,
+        ]);
+      const inbox = [
+        ['event_changed', 'cancelled', { id: matchId, cancelled: true }],
+        ['event_changed', 'cancelled', { id: matchId, cancelled: true }],
+      ];
+      assert.deepEqual(await told(), inbox);
+
+      await enqueueEventChanged(eventId, 'cancelled');
+      await eventually('The second job', async () => ((await finishedJobsOf(eventId)) >= 2 ? true : undefined));
+      assert.deepEqual(await told(), inbox, 'the second job tells nobody again');
+      assert.deepEqual(await proposalsOf(applicationId), proposals);
+    });
+
+    test('a mutual match whose day moved to another time is kept, and both are told', async () => {
+      const day = inDays(17);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const { first, second, matchId, applicationId } = await mutualMatchAt(eventId);
+      const at18 = fromKyivWallClock(`${day}T18:00:00Z`).toISOString();
+
+      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
+        token: tokens.org,
+        body: { ...newEvent, startsAt: at18, endsAt: at21(day) },
+      });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+
+      const application = await eventually('Moving the application', async () => {
+        const body = await applicationOf(first.token, applicationId);
+        return body.sessions[0]?.startsAt === at18 ? body : undefined;
+      });
+      assert.equal(application.status, 'paired');
+      assert.deepEqual(await proposalsOf(applicationId), [{ status: 'mutual', cancel_reason: null }]);
+      const match = (await call('GET', `/api/v1/matches/${matchId}`, { token: second.token })).body;
+      assert.deepEqual(
+        match.days.map(({ startsAt }: { startsAt: string }) => startsAt),
+        [at18],
+      );
+      for (const { accountId } of [first, second]) {
+        assert.deepEqual(
+          (await inboxOf(accountId)).map(({ payload }) => [payload.change, payload.match]),
+          [['rescheduled', { id: matchId, cancelled: false }]],
+        );
+      }
+    });
+
     test('a moved day that only one side waits on leaves their pending proposal as it is', async () => {
       // 19:00 on two days; the second day's session is put at 18:00 by hand, as an earlier schedule would have it.
       const firstDay = inDays(14);
