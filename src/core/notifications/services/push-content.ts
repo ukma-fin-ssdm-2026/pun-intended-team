@@ -29,14 +29,14 @@ function eventChangedText(payload: NotificationPayload): PushText {
     return {
       title: 'Подію скасовано',
       body: match?.cancelled
-        ? 'Подію з твоєї заявки скасовано, тож зустріч із метчем не відбудеться.'
+        ? 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.'
         : 'Подію з твоєї заявки скасовано.',
     };
   }
   if (match?.cancelled) {
     return {
       title: 'Метч скасовано',
-      body: 'Подія більше не відбудеться у ваш спільний день, тож зустріч із метчем не відбудеться.',
+      body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.',
     };
   }
   const sessions = (payload.sessions ?? []) as { to: string | null }[];

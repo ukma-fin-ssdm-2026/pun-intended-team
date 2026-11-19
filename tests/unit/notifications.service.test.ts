@@ -238,14 +238,14 @@ describe('NotificationsService: the notifications.deliver handler', () => {
     [
       'the event is cancelled with a mutual match',
       { change: 'cancelled', sessions: [gone], match: { id: 'm', cancelled: true } },
-      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано, тож зустріч із метчем не відбудеться.' },
+      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.' },
     ],
     [
       'the shared day of a mutual match is gone',
       { change: 'rescheduled', sessions: [gone], match: { id: 'm', cancelled: true } },
       {
         title: 'Метч скасовано',
-        body: 'Подія більше не відбудеться у ваш спільний день, тож зустріч із метчем не відбудеться.',
+        body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.',
       },
     ],
     [
