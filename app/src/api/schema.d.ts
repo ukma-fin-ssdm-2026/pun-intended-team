@@ -1151,6 +1151,8 @@ export interface components {
          *           "startTimeKnown": true,
          *           "endsAt": "2026-10-17T21:30:00+03:00",
          *           "endTimeKnown": true,
+         *           "priceMin": 150,
+         *           "priceMax": null,
          *           "imageUrl": null,
          *           "sourceUrl": null,
          *           "source": "organization",
@@ -1197,6 +1199,8 @@ export interface components {
          *       "startTimeKnown": true,
          *       "endsAt": "2026-10-17T21:30:00+03:00",
          *       "endTimeKnown": true,
+         *       "priceMin": 150,
+         *       "priceMax": null,
          *       "imageUrl": null,
          *       "sourceUrl": null,
          *       "source": "organization",
@@ -1218,6 +1222,10 @@ export interface components {
             endsAt: string;
             /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */
             endTimeKnown: boolean;
+            /** @description The lowest ticket price in whole hryvnias. Null when the price is unknown: show no price. 0 with priceMax null or 0: the event is free */
+            priceMin: number | null;
+            /** @description The highest ticket price in whole hryvnias, when the tickets cost from priceMin to priceMax; never below priceMin. Null for one price, a free event or an unknown price */
+            priceMax: number | null;
             /** @description Imported events: the provider's image URL, shown as is; null for organization events */
             imageUrl: string | null;
             /** @description Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise */
@@ -1264,7 +1272,9 @@ export interface components {
          *       "categoryId": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
          *       "venueId": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
          *       "startsAt": "2026-10-25T19:00:00+03:00",
-         *       "endsAt": "2026-10-25T21:00:00+03:00"
+         *       "endsAt": "2026-10-25T21:00:00+03:00",
+         *       "priceMin": 300,
+         *       "priceMax": 700
          *     }
          */
         CreateEventBody: {
@@ -1292,6 +1302,16 @@ export interface components {
              * @description End time with an offset; must be after startsAt
              */
             endsAt: string;
+            /**
+             * @description The lowest ticket price in whole hryvnias; 0 for a free event. Omitted or null: the price is unknown
+             * @default null
+             */
+            priceMin: number | null;
+            /**
+             * @description The highest ticket price of a range in whole hryvnias; only together with priceMin, and not below it. Omitted or null for one price or a free event
+             * @default null
+             */
+            priceMax: number | null;
         };
         /**
          * @description The caller’s organization request and its status

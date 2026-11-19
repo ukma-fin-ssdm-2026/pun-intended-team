@@ -23,6 +23,10 @@ export interface ImportedEvent {
   imageUrl: string | null;
   /** The event's page at the provider: the attribution and the way to tickets. */
   sourceUrl: string | null;
+  /** The provider's lowest price in whole hryvnias (`Math.round`); null when the provider gives none. */
+  priceMin: number | null;
+  /** The provider's highest price in whole hryvnias, only when it is above `priceMin`; null otherwise. */
+  priceMax: number | null;
 }
 
 /** A venue as a provider gives it; without coordinates the import looks them up (`Geocoder`). */
@@ -115,6 +119,8 @@ export interface ImportedEventFields {
   endTimeKnown: boolean;
   imageUrl: string | null;
   sourceUrl: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
 }
 
 /** An imported event as the import stores it. */

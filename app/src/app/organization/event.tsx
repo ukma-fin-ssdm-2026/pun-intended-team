@@ -231,6 +231,9 @@ function EventForm({ existing }: Readonly<{ existing?: Event }>) {
       venueId,
       startsAt: kyivIso(day, startTime),
       endsAt: kyivIso(day, endTime),
+      // The form has no price field, and PUT replaces every field, so an edit sends back the price the event has.
+      priceMin: existing?.priceMin ?? null,
+      priceMax: existing?.priceMax ?? null,
     };
     setSaving(true);
     const result = existing ? await updateEvent(existing.id, body) : await createEvent(body);

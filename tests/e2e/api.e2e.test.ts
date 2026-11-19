@@ -1349,6 +1349,88 @@ describe('PUT /api/v1/events/{id}', () => {
   });
 });
 
+// The price tag of the event card (#423): whole hryvnias, read back from the catalog and the event page.
+describe('Event price', () => {
+  const day = inDays(3);
+  const pricedEvent = {
+    ...newEvent,
+    title: 'Film quiz night with tickets',
+    startsAt: `${day}T19:00:00+02:00`,
+    endsAt: `${day}T21:00:00+02:00`,
+    priceMin: 300,
+    priceMax: 700,
+  };
+
+  async function publish(body: object): Promise<string> {
+    const res = await call('POST', '/api/v1/events', { token: tokens.org, body });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body.id;
+  }
+
+  async function priceInCatalog(id: string): Promise<unknown> {
+    const query = `venueId=${filmClubVenue}&from=${day}&to=${day}&limit=20`;
+    const res = await call('GET', `/api/v1/events?${query}`, { token: tokens.guest });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const event = res.body.items.find((item: { id: string }) => item.id === id);
+    assert.ok(event, `${id} is not in the catalog`);
+    return [event.priceMin, event.priceMax];
+  }
+
+  async function priceOnPage(id: string): Promise<unknown> {
+    const res = await call('GET', `/api/v1/events/${id}`, { token: tokens.guest });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return [res.body.priceMin, res.body.priceMax];
+  }
+
+  test('publishes an event with a range and returns it from the catalog and the event page', async () => {
+    const id = await publish(pricedEvent);
+
+    assert.deepEqual(await priceInCatalog(id), [300, 700]);
+    assert.deepEqual(await priceOnPage(id), [300, 700]);
+  });
+
+  test('returns an event published without a price with both fields null', async () => {
+    const { priceMin: _min, priceMax: _max, ...body } = pricedEvent;
+
+    const id = await publish(body);
+
+    assert.deepEqual(await priceInCatalog(id), [null, null]);
+    assert.deepEqual(await priceOnPage(id), [null, null]);
+  });
+
+  test('replaces the price on PUT, and makes it unknown when an edit leaves it out', async () => {
+    const id = await publish(pricedEvent);
+
+    const free = await call('PUT', `/api/v1/events/${id}`, {
+      token: tokens.org,
+      body: { ...pricedEvent, priceMin: 0, priceMax: null },
+    });
+    assert.equal(free.status, 200, JSON.stringify(free.body));
+    assert.deepEqual([free.body.priceMin, free.body.priceMax], [0, null]);
+    assert.deepEqual(await priceInCatalog(id), [0, null]);
+
+    const { priceMin: _min, priceMax: _max, ...withoutPrice } = pricedEvent;
+    const unknown = await call('PUT', `/api/v1/events/${id}`, { token: tokens.org, body: withoutPrice });
+    assert.equal(unknown.status, 200, JSON.stringify(unknown.body));
+    assert.deepEqual(await priceOnPage(id), [null, null]);
+  });
+
+  const invalid = [
+    { price: { priceMin: -1, priceMax: null }, field: 'priceMin', title: 'a negative price' },
+    { price: { priceMin: 449.5, priceMax: null }, field: 'priceMin', title: 'a price that is not whole hryvnias' },
+    { price: { priceMin: null, priceMax: 700 }, field: 'priceMax', title: 'a highest price without a lowest one' },
+    { price: { priceMin: 700, priceMax: 300 }, field: 'priceMax', title: 'a highest price below the lowest' },
+  ];
+  for (const { price, field, title } of invalid) {
+    test(`rejects ${title} with 400 on POST and PUT`, async () => {
+      const body = { ...pricedEvent, ...price };
+
+      assertInvalid(await call('POST', '/api/v1/events', { token: tokens.org, body }), 'body', field);
+      assertInvalid(await call('PUT', `/api/v1/events/${filmNight}`, { token: tokens.org, body }), 'body', field);
+    });
+  }
+});
+
 describe('POST /api/v1/events/{id}/cancel', () => {
   test('cancels the organization’s own event', async () => {
     const created = await call('POST', '/api/v1/events', { token: tokens.org, body: newEvent });

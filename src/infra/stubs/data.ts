@@ -59,9 +59,11 @@ export const venues: Venue[] = [
 const inDays = (days: number) => addDays(kyivDate(), days);
 
 /** How an event row is stored: category and venue by id, joined on read. */
-export type StoredEvent = Omit<Event, 'category' | 'venue' | 'imageUrl' | 'sourceUrl'> & {
+export type StoredEvent = Omit<Event, 'category' | 'venue' | 'imageUrl' | 'sourceUrl' | 'priceMin' | 'priceMax'> & {
   imageUrl?: string | null;
   sourceUrl?: string | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
   categoryId: string;
   venueId: string;
   /** Set on imported events: the provider and its id for the record. */

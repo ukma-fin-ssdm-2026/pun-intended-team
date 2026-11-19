@@ -148,6 +148,7 @@ package "catalog" {
     source_url : text
     * starts_at : timestamptz
     * ends_at : timestamptz
+    price_min / price_max : integer
     * status : published | cancelled
   }
 

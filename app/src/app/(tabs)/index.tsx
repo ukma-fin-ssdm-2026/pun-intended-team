@@ -36,6 +36,7 @@ import {
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
+import { priceLabel } from '@/price';
 
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
 // the arrow after them opens the full list in the filters.
@@ -190,6 +191,7 @@ export default function CatalogScreen() {
                   category={event.category.name}
                   dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
                   place={event.venue.name}
+                  price={priceLabel(event.priceMin, event.priceMax)}
                   cover={coverOf(event.imageUrl)}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}

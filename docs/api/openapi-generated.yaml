@@ -418,6 +418,8 @@ components:
             startTimeKnown: true
             endsAt: '2026-10-17T21:30:00+03:00'
             endTimeKnown: true
+            priceMin: 150
+            priceMax: null
             imageUrl: null
             sourceUrl: null
             source: organization
@@ -460,6 +462,21 @@ components:
             False for an imported event whose provider gives no end: endsAt is
             then the end of its start day in Europe/Kyiv and only startsAt
             should be shown. Always true for an organization event
+        priceMin:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The lowest ticket price in whole hryvnias. Null when the price is
+            unknown: show no price. 0 with priceMax null or 0: the event is free
+        priceMax:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The highest ticket price in whole hryvnias, when the tickets cost
+            from priceMin to priceMax; never below priceMin. Null for one price,
+            a free event or an unknown price
         imageUrl:
           type: string
           nullable: true
@@ -486,6 +503,8 @@ components:
         - startTimeKnown
         - endsAt
         - endTimeKnown
+        - priceMin
+        - priceMax
         - imageUrl
         - sourceUrl
         - source
@@ -509,6 +528,8 @@ components:
         startTimeKnown: true
         endsAt: '2026-10-17T21:30:00+03:00'
         endTimeKnown: true
+        priceMin: 150
+        priceMax: null
         imageUrl: null
         sourceUrl: null
         source: organization
@@ -596,6 +617,25 @@ components:
           type: string
           format: date-time
           description: End time with an offset; must be after startsAt
+        priceMin:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 1000000
+          default: null
+          description: >-
+            The lowest ticket price in whole hryvnias; 0 for a free event.
+            Omitted or null: the price is unknown
+        priceMax:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 1000000
+          default: null
+          description: >-
+            The highest ticket price of a range in whole hryvnias; only together
+            with priceMin, and not below it. Omitted or null for one price or a
+            free event
       required:
         - title
         - description
@@ -612,6 +652,8 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
+        priceMin: 300
+        priceMax: 700
     Organization:
       type: object
       properties:
