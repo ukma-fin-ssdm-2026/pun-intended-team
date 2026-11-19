@@ -36,7 +36,7 @@ function eventChangedText(payload: NotificationPayload): PushText {
   if (match?.cancelled) {
     return {
       title: 'Метч скасовано',
-      body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.',
+      body: 'День, коли ви збиралися піти разом, скасовано. Зустрічі не буде :(',
     };
   }
   const sessions = (payload.sessions ?? []) as { to: string | null }[];
