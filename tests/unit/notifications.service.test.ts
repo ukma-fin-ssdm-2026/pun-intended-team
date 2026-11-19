@@ -245,7 +245,7 @@ describe('NotificationsService: the notifications.deliver handler', () => {
       { change: 'rescheduled', sessions: [gone], match: { id: 'm', cancelled: true } },
       {
         title: 'Метч скасовано',
-        body: 'День, коли ви збиралися піти разом, скасовано. Зустрічі не буде :(',
+        body: 'Цього дня подія не відбудеться, тож ваша зустріч скасована.',
       },
     ],
     [
