@@ -54,6 +54,10 @@ export interface NewEvent {
   venueId: string;
   startsAt: string;
   endsAt: string;
+  /** Null when the price is unknown. */
+  priceMin: number | null;
+  /** Null for one price or a free event; never set without `priceMin` nor below it. */
+  priceMax: number | null;
 }
 
 export type EventChanges = Partial<NewEvent>;
