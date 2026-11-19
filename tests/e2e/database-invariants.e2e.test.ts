@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // Integration tests of the database constraints: the indexes and checks of the database_invariants migration,
-// the normalized category name key, the failed sign-in checks of accounts and the unique (profile_id, app) of
-// linked_accounts. They write to the database directly, since the services check the same rules before a query and
+// the normalized category name key, the failed sign-in checks of accounts, the unique (profile_id, app) of
+// linked_accounts and the price checks of events. They write to the database directly, since the services check the same rules before a query and
 // no HTTP request reaches the constraint.
 // Each test runs in a transaction that is rolled back, so nothing stays in the database.
 // Run with `npm run test:e2e`; the database must have all migrations applied.
@@ -369,4 +369,39 @@ describe('matches_different_applications_check', () => {
 
       await assertViolates(insert, CHECK_VIOLATION, 'matches_different_applications_check');
     }));
+});
+
+describe('events_price_min_check and events_price_max_check', () => {
+  const setPrice = (db: pg.PoolClient, id: string, priceMin: number | null, priceMax: number | null) =>
+    db.query('UPDATE events SET price_min = $2, price_max = $3 WHERE id = $1', [id, priceMin, priceMax]);
+
+  test('rejects a negative price', () =>
+    inTransaction(async (db) => {
+      await assertViolates(setPrice(db, await anEvent(db), -1, null), CHECK_VIOLATION, 'events_price_min_check');
+    }));
+
+  test('rejects a highest price without a lowest one', () =>
+    inTransaction(async (db) => {
+      await assertViolates(setPrice(db, await anEvent(db), null, 700), CHECK_VIOLATION, 'events_price_max_check');
+    }));
+
+  test('rejects a highest price below the lowest', () =>
+    inTransaction(async (db) => {
+      await assertViolates(setPrice(db, await anEvent(db), 700, 300), CHECK_VIOLATION, 'events_price_max_check');
+    }));
+
+  const accepted = [
+    { priceMin: null, priceMax: null, title: 'an unknown price' },
+    { priceMin: 0, priceMax: null, title: 'a free event' },
+    { priceMin: 450, priceMax: 450, title: 'one price written twice' },
+    { priceMin: 300, priceMax: 700, title: 'a range' },
+  ];
+  for (const { priceMin, priceMax, title } of accepted) {
+    test(`accepts ${title}`, () =>
+      inTransaction(async (db) => {
+        const result = await setPrice(db, await anEvent(db), priceMin, priceMax);
+
+        assert.equal(result.rowCount, 1);
+      }));
+  }
 });

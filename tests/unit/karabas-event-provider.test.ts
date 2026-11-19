@@ -9,9 +9,11 @@ import {
   type KarabasRecord,
   durationFromDescription,
   karabasEnd,
+  karabasPrice,
   MAX_PAGES_PER_SECTION,
   nextPage,
 } from '../../dist/infra/providers/karabas-event-provider.js';
+import { jsonLdObjects } from '../../dist/infra/providers/provider-pages.js';
 import type { ImportedEvent } from '../../dist/core/import/types/import.js';
 import {
   PAGES_SAVED_AT,
@@ -802,4 +804,109 @@ describe('durationFromDescription', () => {
       ['Музей гітар та історії світової електромузичноі індустрії', 70],
     ]);
   });
+});
+
+// ADR-006, decision 12
+describe('KarabasEventProvider.normalize, the price', () => {
+  /** A saved event read straight from its page's JSON-LD, as if the concerts page had listed it. */
+  const savedRecord = (file: string, slug: string): KarabasRecord => {
+    const event = jsonLdObjects(savedPage(file)).find((object) => String(object.url).endsWith(`/${slug}/`));
+    assert.ok(event, slug);
+    return { section: '/concerts/', categorySlug: 'concerts', event: structuredClone(event) };
+  };
+  const priceOfRecord = (record: KarabasRecord) => {
+    const { priceMin, priceMax } = normalized(makeProvider({}).provider, record);
+    return { priceMin, priceMax };
+  };
+
+  const saved = [
+    {
+      file: 'karabas/kyiv-concerts.html',
+      slug: 'lama-15',
+      expected: { priceMin: 890, priceMax: 3000 },
+      title: 'a range from lowPrice and highPrice',
+    },
+    {
+      file: 'karabas/kyiv-clubs.html',
+      slug: 'psykholohichnyy-zakhid-doroslist-i-separatsiya',
+      expected: { priceMin: 600, priceMax: null },
+      title: 'one price from price',
+    },
+    {
+      file: 'karabas/kyiv-concerts-2026-11-07-page-1.html',
+      slug: 'kvytok-v-paryzh-muzychne-foye-nfu',
+      expected: { priceMin: 0, priceMax: null },
+      title: 'a free event from a price of 0',
+    },
+    {
+      file: 'karabas/kyiv-sport-2026-11-14.html',
+      slug: 'blahodiynyy-turnir-liha-profesiynoho-sambo-11-0',
+      expected: { priceMin: 500, priceMax: 8335 },
+      title: 'a range in thousands',
+    },
+  ];
+  for (const { file, slug, expected, title } of saved) {
+    test(`reads ${title}, from ${slug}`, () => {
+      assert.deepEqual(priceOfRecord(savedRecord(file, slug)), expected);
+    });
+  }
+
+  test('leaves the price unknown for an event without offers', () => {
+    const record = savedRecord('karabas/kyiv-concerts.html', 'lama-15');
+    delete record.event.offers;
+
+    assert.deepEqual(priceOfRecord(record), { priceMin: null, priceMax: null });
+  });
+
+  test('never reads the delivery cost in shippingDetails as the price', () => {
+    const record = savedRecord('karabas/kyiv-concerts.html', 'lama-15');
+    const { lowPrice: _low, highPrice: _high, ...offers } = record.event.offers as Record<string, unknown>;
+    record.event.offers = offers;
+
+    assert.ok('shippingDetails' in offers);
+    assert.deepEqual(priceOfRecord(record), { priceMin: null, priceMax: null });
+  });
+});
+
+describe('karabasPrice', () => {
+  const rows: { offers: unknown; expected: { priceMin: number | null; priceMax: number | null }; title: string }[] = [
+    {
+      offers: { '@type': 'AggregateOffer', priceCurrency: 'UAH', lowPrice: '299.50', highPrice: 349 },
+      expected: { priceMin: 300, priceMax: 349 },
+      title: 'rounds the prices of an AggregateOffer, given as strings or numbers',
+    },
+    {
+      offers: [
+        { '@type': 'Offer', priceCurrency: 'UAH', price: 400 },
+        { '@type': 'Offer', priceCurrency: 'UAH', price: 250 },
+      ],
+      expected: { priceMin: 250, priceMax: 400 },
+      title: 'spans a list of offers',
+    },
+    {
+      offers: { '@type': 'Offer', price: 450 },
+      expected: { priceMin: 450, priceMax: null },
+      title: 'takes an offer without a currency as hryvnias',
+    },
+    {
+      offers: [
+        { '@type': 'Offer', priceCurrency: 'EUR', price: 20 },
+        { '@type': 'Offer', priceCurrency: 'UAH', price: 900 },
+      ],
+      expected: { priceMin: 900, priceMax: null },
+      title: 'leaves out an offer in another currency',
+    },
+    {
+      offers: { '@type': 'Offer', priceCurrency: 'USD', price: 20 },
+      expected: { priceMin: null, priceMax: null },
+      title: 'gives an unknown price when no offer is in hryvnias',
+    },
+    { offers: undefined, expected: { priceMin: null, priceMax: null }, title: 'gives an unknown price without offers' },
+    { offers: 'sold out', expected: { priceMin: null, priceMax: null }, title: 'ignores offers that are not objects' },
+  ];
+  for (const { offers, expected, title } of rows) {
+    test(title, () => {
+      assert.deepEqual(karabasPrice(offers), expected);
+    });
+  }
 });

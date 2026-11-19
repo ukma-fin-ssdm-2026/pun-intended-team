@@ -617,3 +617,56 @@ describe('venueAddress', () => {
     });
   }
 });
+
+// ADR-006, decision 12
+describe('ArtWizardEventProvider.normalize, the price', () => {
+  // Each saved event with one occurrence in the window, so only its price decides the case.
+  const inWindow = (slug: string) => withOccurrences(slug, [['2026-11-05T19:00:00.000Z', '2026-11-05T21:00:00.000Z']]);
+  const priceOfEvent = (raw: unknown) => {
+    const { priceMin, priceMax } = normalized(raw);
+    return { priceMin, priceMax };
+  };
+
+  const saved = [
+    {
+      slug: 'prem-yerniy-pokaz-vermilyo--20261103',
+      expected: { priceMin: 200, priceMax: null },
+      title: 'one price, 200 to 200',
+    },
+    { slug: 'smik-vesillia-20261108', expected: { priceMin: 750, priceMax: 3500 }, title: 'a range, 750 to 3500' },
+    {
+      slug: 'muzichna-programa-14-18-zhovtnia-20261015',
+      expected: { priceMin: 0, priceMax: 500 },
+      title: 'a range from free, 0 to 500',
+    },
+    { slug: 'santimetri-20261103', expected: { priceMin: 0, priceMax: null }, title: 'a free event, 0 to 0' },
+    {
+      slug: 'overtown-sessions-20261107',
+      expected: { priceMin: null, priceMax: null },
+      title: 'no price, null to null',
+    },
+  ];
+  for (const { slug, expected, title } of saved) {
+    test(`reads ${title}, from ${slug}`, () => {
+      assert.deepEqual(priceOfEvent(inWindow(slug)), expected);
+    });
+  }
+
+  test('leaves the price unknown for an event without price fields', () => {
+    const { price_from: _from, price_to: _to, ...raw } = inWindow('smik-vesillia-20261108');
+
+    assert.deepEqual(priceOfEvent(raw), { priceMin: null, priceMax: null });
+  });
+
+  test('rounds a price to whole hryvnias', () => {
+    const raw = { ...inWindow('smik-vesillia-20261108'), price_from: 749.5, price_to: '3499,4' };
+
+    assert.deepEqual(priceOfEvent(raw), { priceMin: 750, priceMax: 3499 });
+  });
+
+  test('imports an event whose price is not a number, with the price unknown', () => {
+    const raw = { ...inWindow('smik-vesillia-20261108'), price_from: { amount: 750 }, price_to: 'безкоштовно' };
+
+    assert.deepEqual(priceOfEvent(raw), { priceMin: null, priceMax: null });
+  });
+});
