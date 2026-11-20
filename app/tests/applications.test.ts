@@ -24,6 +24,9 @@ function anApplication(overrides: Partial<Application> = {}): Application {
     cutoffAt: '2026-10-25T16:00:00.000Z',
     desiredCompany: 'company',
     afterEventPlans: ['walk'],
+    preferredGender: 'female',
+    ageMin: 20,
+    ageMax: 30,
     status: 'in_pool',
     nextRoundAt: '2026-10-18T17:00:00.000Z',
     createdAt: '2026-10-15T09:00:00.000Z',
@@ -68,7 +71,13 @@ describe('putApplication', () => {
 
 describe('changeAnswers', () => {
   const BEFORE_CUTOFF = new Date('2026-10-20T09:00:00.000Z');
-  const answers = { desiredCompany: 'dating' as const, afterEventPlans: [] };
+  const answers = {
+    desiredCompany: 'dating' as const,
+    afterEventPlans: [],
+    preferredGender: 'any' as const,
+    ageMin: 18,
+    ageMax: null,
+  };
 
   test('leaves an application with no day still open as it is', async () => {
     const { changeAnswers, post } = load();
@@ -114,7 +123,7 @@ describe('changeAnswers', () => {
     });
   });
 
-  test('applies again with the old answers when the new application is refused', async () => {
+  test('applies again with the old answers and preferences when the new application is refused', async () => {
     const { changeAnswers, post } = load();
     post
       .mockResolvedValueOnce(ok(anApplication({ status: 'withdrawn' })))
@@ -125,7 +134,7 @@ describe('changeAnswers', () => {
 
     expect(result).toMatchObject({ ok: false, code: 'APPLICATIONS_CLOSED' });
     expect(post.mock.calls[2]?.[1]).toMatchObject({
-      body: { desiredCompany: 'company', afterEventPlans: ['walk'] },
+      body: { desiredCompany: 'company', afterEventPlans: ['walk'], preferredGender: 'female', ageMin: 20, ageMax: 30 },
     });
   });
 

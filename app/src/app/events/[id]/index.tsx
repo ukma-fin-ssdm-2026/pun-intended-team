@@ -50,8 +50,15 @@ const GAP_ABOVE_ACTION = 28;
 // Figma text for the jazz evening.
 const DESCRIPTION_PREVIEW = 105;
 
-// Figma's first choice on 03: company for the evening, then a walk and coffee. The profile's format replaces the first.
-const FIGMA_ANSWERS: ApplicationAnswers = { desiredCompany: 'company', afterEventPlans: ['walk', 'coffee'] };
+// Figma's first choice on 03: company for the evening, then a walk and coffee, with anyone of any age. The profile's
+// format replaces the first.
+const FIGMA_ANSWERS: ApplicationAnswers = {
+  desiredCompany: 'company',
+  afterEventPlans: ['walk', 'coffee'],
+  preferredGender: 'any',
+  ageMin: 18,
+  ageMax: null,
+};
 
 // What the API refuses an application for, besides an incomplete profile and an application that already exists.
 const refusals: Record<string, SnackbarContent> = {
@@ -241,7 +248,13 @@ export default function EventScreen() {
   const profileIncomplete = profile.missing || profile.data?.isComplete === false;
   // With an application, 03 changes its answers; otherwise the format comes from the profile.
   const initialAnswers: ApplicationAnswers = application
-    ? { desiredCompany: application.desiredCompany, afterEventPlans: application.afterEventPlans }
+    ? {
+        desiredCompany: application.desiredCompany,
+        afterEventPlans: application.afterEventPlans,
+        preferredGender: application.preferredGender,
+        ageMin: application.ageMin,
+        ageMax: application.ageMax,
+      }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
   // Mock and organization events have no provider page.
   const sourceUrl = liveEvent?.sourceUrl;

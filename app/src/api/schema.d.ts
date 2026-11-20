@@ -1523,6 +1523,9 @@ export interface components {
          *         "walk",
          *         "coffee"
          *       ],
+         *       "preferredGender": "any",
+         *       "ageMin": 20,
+         *       "ageMax": 30,
          *       "status": "in_pool",
          *       "nextRoundAt": "2026-10-21T16:00:00.000Z",
          *       "createdAt": "2026-10-15T09:00:00.000Z"
@@ -1543,6 +1546,11 @@ export interface components {
             desiredCompany: components["schemas"]["CommunicationFormat"];
             /** @description What the user would do together after the event; empty: only the event */
             afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            preferredGender: components["schemas"]["GenderPreference"];
+            /** @description The youngest age of whom the user wants to go with, in whole years */
+            ageMin: number;
+            /** @description The oldest age of whom the user wants to go with; null: no upper bound */
+            ageMax: number | null;
             status: components["schemas"]["ApplicationStatus"];
             /**
              * Format: date-time
@@ -1576,6 +1584,11 @@ export interface components {
          */
         AfterEventPlan: "walk" | "coffee" | "dinner";
         /**
+         * @description Whom the user wants to go with: `any` accepts every gender, including `other`; `female` and `male` only that gender
+         * @enum {string}
+         */
+        GenderPreference: "any" | "female" | "male";
+        /**
          * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned
          * @enum {string}
          */
@@ -1586,7 +1599,10 @@ export interface components {
          *       "afterEventPlans": [
          *         "walk",
          *         "coffee"
-         *       ]
+         *       ],
+         *       "preferredGender": "any",
+         *       "ageMin": 20,
+         *       "ageMax": 30
          *     }
          */
         CreateApplicationBody: {
@@ -1599,6 +1615,22 @@ export interface components {
             desiredCompany: "friends" | "dating" | "company";
             /** @description What the user would do together after the event; an empty list means only the event */
             afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            /**
+             * @description Whom the user wants to go with; matching pairs two users only if each fits the other’s preferences
+             * @default any
+             * @enum {string}
+             */
+            preferredGender: "any" | "female" | "male";
+            /**
+             * @description The youngest age of whom the user wants to go with, 18 or more
+             * @default 18
+             */
+            ageMin: number;
+            /**
+             * @description The oldest age of whom the user wants to go with, at least ageMin; null or left out: no upper bound
+             * @default null
+             */
+            ageMax: number | null;
         };
         /**
          * @example [
@@ -1621,6 +1653,9 @@ export interface components {
          *           "walk",
          *           "coffee"
          *         ],
+         *         "preferredGender": "any",
+         *         "ageMin": 20,
+         *         "ageMax": 30,
          *         "status": "in_pool",
          *         "nextRoundAt": "2026-10-21T16:00:00.000Z",
          *         "createdAt": "2026-10-15T09:00:00.000Z"
@@ -2185,6 +2220,8 @@ export interface components {
          *       "description": "Cinema, galleries and long walks.",
          *       "occupation": "Student at Kyiv-Mohyla Academy",
          *       "communicationFormat": "friends",
+         *       "gender": "female",
+         *       "genderDescription": null,
          *       "sharePhone": true,
          *       "age": 28,
          *       "interests": [
@@ -2215,6 +2252,13 @@ export interface components {
              * @enum {string|null}
              */
             communicationFormat: "friends" | "dating" | "company" | null;
+            /**
+             * @description Null until the user picks one; matching needs it
+             * @enum {string|null}
+             */
+            gender: "female" | "male" | "other" | null;
+            /** @description The user’s own words for the gender `other`; null for any other gender */
+            genderDescription: string | null;
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone: boolean;
             /** @description Whole years, computed from the account’s date of birth; the date itself is never returned */
@@ -2222,7 +2266,7 @@ export interface components {
             interests: components["schemas"]["Interest"][];
             /** @description Revealed to a mutual match, in the order of SocialNetwork */
             linkedAccounts: components["schemas"]["LinkedAccount"][];
-            /** @description True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three */
+            /** @description True once communicationFormat, gender, at least one interest and at least one linked account are set; matching needs all four */
             isComplete: boolean;
         };
         /**
@@ -2254,9 +2298,17 @@ export interface components {
             /** @description What the user does, e.g. their studies or work; can be empty */
             occupation?: string;
             communicationFormat?: components["schemas"]["CommunicationFormat"];
+            gender?: components["schemas"]["Gender"];
+            /** @description The user’s own words for the gender `other`; required with it and refused with any other gender */
+            genderDescription?: string;
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone?: boolean;
         };
+        /**
+         * @description The user’s gender; `other` comes with `genderDescription`, the user’s own words for it
+         * @enum {string}
+         */
+        Gender: "female" | "male" | "other";
         /**
          * @example {
          *       "interestIds": [

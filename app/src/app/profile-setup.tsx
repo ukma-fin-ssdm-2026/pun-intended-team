@@ -11,6 +11,10 @@ import { failureSnackbar } from '@/auth/messages';
 import {
   FormatPicker,
   FormScreen,
+  GenderField,
+  genderFields,
+  isGenderComplete,
+  type GenderAnswer,
   InterestPicker,
   useInterestChips,
   isValidUsername,
@@ -36,6 +40,7 @@ export default function ProfileSetupScreen() {
   const [occupation, setOccupation] = useState('');
   const occupationPlaceholder = useRandomText('occupation');
   const [about, setAbout] = useState('');
+  const [gender, setGender] = useState<GenderAnswer>({ gender: null, description: '' });
   const [format, setFormat] = useState<CommunicationFormat | null>(null);
   const [interestIds, setInterestIds] = useState<string[]>([]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -48,7 +53,8 @@ export default function ProfileSetupScreen() {
   let usernameError: string | undefined;
   if (usernameTaken) usernameError = 'Цей нікнейм уже зайнятий';
   else if (username && !usernameValid) usernameError = 'Від 3 до 30 латинських літер, цифр, крапок або _';
-  const ready = !!name.trim() && usernameValid && !!format && interestIds.length >= MIN_INTERESTS;
+  const ready =
+    !!name.trim() && isGenderComplete(gender) && usernameValid && !!format && interestIds.length >= MIN_INTERESTS;
 
   const save = async () => {
     if (!format) return;
@@ -68,6 +74,7 @@ export default function ProfileSetupScreen() {
       description: about.trim(),
       occupation: occupation.trim(),
       communicationFormat: format,
+      ...genderFields(gender),
     });
     const saved = updated.ok ? await replaceInterests(interestIds) : updated;
     setSaving(false);
@@ -90,6 +97,7 @@ export default function ProfileSetupScreen() {
         <ProfilePhoto />
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
+          <GenderField value={gender} onChange={setGender} />
           <TextField
             label="Нікнейм"
             required

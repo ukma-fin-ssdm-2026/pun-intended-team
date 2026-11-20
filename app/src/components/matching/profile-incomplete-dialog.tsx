@@ -30,7 +30,7 @@ export function ProfileIncompleteDialog({ visible, onClose, onComplete }: Props)
             Спершу заповни профіль
           </Text>
           <Text className="text-center font-inter text-caption text-text-secondary">
-            Для метчингу потрібні формат спілкування, хоча б один інтерес і контакт, який побачить твій метч.
+            Для метчингу потрібні формат спілкування, гендер, хоча б один інтерес і контакт, який побачить твій метч.
           </Text>
         </View>
         <Button label="Заповнити профіль" variant="dark" onPress={onComplete} />

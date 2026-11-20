@@ -10,11 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
 import { RadioOption } from '@/components/ui/radio-option';
+import { RangeSlider } from '@/components/ui/range-slider';
 import type { ApplicationAnswers } from '@/api/applications';
+import { plural } from '@/plural';
 import { colors } from '@/styles/tokens';
 
 type CompanyType = ApplicationAnswers['desiredCompany'];
 type Plan = ApplicationAnswers['afterEventPlans'][number];
+type PreferredGender = ApplicationAnswers['preferredGender'];
 
 const companyTypes: { value: CompanyType; icon: IconName; title: string; note: string }[] = [
   { value: 'company', icon: 'ticket', title: 'Компанія на вечір', note: 'Сходити разом і поспілкуватися' },
@@ -32,6 +35,25 @@ const afterEventRows = [
   [planLabels.dinner, EVENT_ONLY],
 ];
 
+// "З ким хочеш піти?": anyone, or only women or only men.
+const genderChoices: { value: PreferredGender; label: string }[] = [
+  { value: 'any', label: 'Будь-хто' },
+  { value: 'female', label: 'Жінка' },
+  { value: 'male', label: 'Чоловік' },
+];
+
+// "Вік": 18 to 60, where 60 is "60+", sent as no upper bound.
+const AGE_MIN = 18;
+const AGE_TOP = 60;
+
+const ageText = (age: number) => (age >= AGE_TOP ? `${AGE_TOP}+` : String(age));
+
+// "20–30 років"; one age alone takes its own form: "21 рік", "60+ років".
+export function ageRangeLabel(low: number, high: number) {
+  if (low === high) return `${ageText(low)} ${low >= AGE_TOP ? 'років' : plural(low, ['рік', 'роки', 'років'])}`;
+  return `${ageText(low)}–${ageText(high)} років`;
+}
+
 const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
 
 // "Зона закриття / верх": the top 43 px of the screen stay the backdrop, or the status bar when it is taller.
@@ -40,10 +62,21 @@ const BUTTON_HEIGHT = 52;
 // "01 Шторка" spaces its blocks and the button 24 px apart.
 const SECTION_GAP = 24;
 
-function AfterEventChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+// A chip of 03: coral with a check when picked. The plans after the event are checkboxes, the genders radio buttons.
+function AnswerChip({
+  label,
+  selected,
+  onPress,
+  role = 'checkbox',
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  role?: 'checkbox' | 'radio';
+}) {
   return (
     <Pressable
-      accessibilityRole="checkbox"
+      accessibilityRole={role}
       accessibilityState={{ checked: selected }}
       onPress={onPress}
       className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-[18px] px-4 py-[9px] ${
@@ -85,6 +118,9 @@ export function CompanyRequestSheet({
   const [afterEvent, setAfterEvent] = useState(
     initial.afterEventPlans.length > 0 ? initial.afterEventPlans.map((plan) => planLabels[plan]) : [EVENT_ONLY],
   );
+  const [preferredGender, setPreferredGender] = useState<PreferredGender>(initial.preferredGender);
+  const [ageLow, setAgeLow] = useState(initial.ageMin);
+  const [ageHigh, setAgeHigh] = useState(initial.ageMax ?? AGE_TOP);
   const toggleAfterEvent = (label: string) =>
     setAfterEvent((current) => {
       if (current.includes(label)) return current.filter((value) => value !== label);
@@ -137,7 +173,7 @@ export function CompanyRequestSheet({
                 {afterEventRows.map((row) => (
                   <View key={row.join()} className="flex-row gap-2">
                     {row.map((label) => (
-                      <AfterEventChip
+                      <AnswerChip
                         key={label}
                         label={label}
                         selected={afterEvent.includes(label)}
@@ -146,6 +182,46 @@ export function CompanyRequestSheet({
                     ))}
                   </View>
                 ))}
+              </View>
+            </View>
+
+            {/* "01.4 З ким хочеш піти": both are hard filters, so the defaults leave nobody out. */}
+            <View className="gap-4">
+              <Text className="font-inter-semibold text-title text-text-primary">З ким хочеш піти?</Text>
+              <View accessibilityRole="radiogroup" className="flex-row gap-2">
+                {genderChoices.map((choice) => (
+                  <AnswerChip
+                    key={choice.value}
+                    role="radio"
+                    label={choice.label}
+                    selected={preferredGender === choice.value}
+                    onPress={() => setPreferredGender(choice.value)}
+                  />
+                ))}
+              </View>
+              <View className="gap-2.5">
+                <View className="flex-row items-center justify-between">
+                  <Text className="font-inter text-caption text-text-secondary">Вік</Text>
+                  <Text className="font-inter-semibold text-[14px] leading-[18px] text-text-primary">
+                    {ageRangeLabel(ageLow, ageHigh)}
+                  </Text>
+                </View>
+                <RangeSlider
+                  min={AGE_MIN}
+                  max={AGE_TOP}
+                  low={ageLow}
+                  high={ageHigh}
+                  onChange={(low, high) => {
+                    setAgeLow(low);
+                    setAgeHigh(high);
+                  }}
+                  labels={{ low: 'Вік від', high: 'Вік до' }}
+                  valueText={ageText}
+                />
+                <View className="flex-row justify-between">
+                  <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_MIN}</Text>
+                  <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_TOP}+</Text>
+                </View>
               </View>
             </View>
 
@@ -170,6 +246,9 @@ export function CompanyRequestSheet({
                 onSubmit({
                   desiredCompany: companyType,
                   afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
+                  preferredGender,
+                  ageMin: ageLow,
+                  ageMax: ageHigh >= AGE_TOP ? null : ageHigh,
                 })
               }
             />
