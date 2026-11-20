@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import EventScreen from '@/app/events/[id]';
 import { useEvent } from '@/hooks/use-event';
@@ -71,5 +72,23 @@ describe('EventScreen description', () => {
 
     expect(screen.queryByText('Читати далі')).toBeNull();
     expect(screen.queryByText('Читати менше')).toBeNull();
+  });
+});
+
+describe('EventScreen "Квитки та деталі"', () => {
+  test('opens the provider page of an imported event', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const sourceUrl = 'https://artwizard.eu/events/jazz';
+    await showEvent({ sourceUrl });
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Квитки та деталі' }));
+
+    expect(openURL).toHaveBeenCalledWith(sourceUrl);
+  });
+
+  test('is hidden for an event without a provider page', async () => {
+    await showEvent({ sourceUrl: null });
+
+    expect(screen.queryByText('Квитки та деталі')).toBeNull();
   });
 });

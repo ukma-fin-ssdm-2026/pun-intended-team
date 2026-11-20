@@ -4,7 +4,7 @@
 import { BlurTargetView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -240,6 +240,8 @@ export default function EventScreen() {
   const initialAnswers: ApplicationAnswers = application
     ? { desiredCompany: application.desiredCompany, afterEventPlans: application.afterEventPlans }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
+  // Mock and organization events have no provider page.
+  const sourceUrl = liveEvent?.sourceUrl;
   const cut = preview(event.description);
   const short = expanded ? undefined : cut;
   const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
@@ -322,8 +324,22 @@ export default function EventScreen() {
           {/* Figma fixes this block at 84 px: a two-line title runs 11 px into the gap below, so the next block starts
               where it does in the frame. */}
           <View className="h-[84px] items-start gap-2.5">
-            <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
-              <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
+            <View className="flex-row items-center gap-2.5">
+              <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
+                <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
+              </View>
+              {/* "квитки та деталі": an imported event links its page on ArtWizard or Karabas, where tickets are sold. */}
+              {sourceUrl && (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Квитки та деталі"
+                  onPress={() => void Linking.openURL(sourceUrl)}
+                  className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral-soft px-3.5 py-[7px] active:opacity-80"
+                >
+                  <Text className="font-inter-semibold text-button-sm text-brand-coral-dark">Квитки та деталі</Text>
+                  <Icon name="square-top-down" size={14} color={colors.brand['coral-dark']} />
+                </Pressable>
+              )}
             </View>
             <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
               {event.title}
