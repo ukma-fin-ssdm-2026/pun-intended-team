@@ -18,4 +18,19 @@ describe('actionBarPath', () => {
 
     expect(Number(notchStart)).toBeGreaterThanOrEqual(24);
   });
+
+  test('widens the flat bottom by half the extra button width on each side', () => {
+    // A 300 px button is 68 px wider than Figma's 232: the flat bottom runs 34 px further each way.
+    const path = actionBarPath(390, 96, 300);
+
+    expect(path).toContain('H314.22 ');
+    expect(path).toMatch(/C\S+ \S+ \S+ \S+ \S+ 62 H314\.22/);
+    expect(path).toContain(' 75.78 62 ');
+  });
+
+  test('keeps a wide button’s notch clear of the corners on a 393 px screen', () => {
+    const [, notchStart] = /H(\d+(?:\.\d+)?) C/.exec(actionBarPath(393, 96, 340)) ?? [];
+
+    expect(Number(notchStart)).toBeGreaterThanOrEqual(24);
+  });
 });

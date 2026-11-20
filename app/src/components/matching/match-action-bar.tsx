@@ -1,21 +1,13 @@
 // Written with the help of Claude
-// AI Usage: the event page's action bar from the Figma "таб бар новий" frame, with its pulsing "Знайти метч" button;
-// reviewed by Daryna Halytska.
+// AI Usage: the event page's action bar from the Figma "таб бар новий" frame, with its "Знайти метч" button; reviewed by
+// Daryna Halytska.
 import { Image, type ImageSource } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 
 import { shapeShadow } from '@/components/ui/shape-shadow';
-import { actionBarPath } from '@/components/ui/tab-bar-shape';
+import { ACTION_NOTCH_BUTTON_WIDTH, actionBarPath } from '@/components/ui/tab-bar-shape';
 import { actionBarShadow, colors, shadows } from '@/styles/tokens';
 
 const tail1: ImageSource = require('@/assets/images/match-orbit/tail-1.png');
@@ -28,10 +20,8 @@ const MIN_SAFE_AREA = 34;
 // The 66 px button rises 14 px above the bar's top edge, into the notch.
 const BUTTON_HEIGHT = 66;
 const BUTTON_LIFT = 14;
-const BUTTON_MIN_WIDTH = 232;
-// Figma pulses the button: 1 → 1.03 → 1 over 2.4 s, ease in and out, in a loop.
-const PULSE_SCALE = 1.03;
-const PULSE_HALF = { duration: 1200, easing: Easing.bezier(0.42, 0, 0.58, 1) };
+// The button keeps 20 px to the screen edges, as the other bottom buttons do.
+const SIDE_MARGIN = 20;
 
 const barShadow = shapeShadow(actionBarShadow);
 
@@ -82,16 +72,10 @@ type Props = {
 
 // The white bar with the notch at the bottom of the event page, and the coral button sitting in the notch.
 export function MatchActionBar({ label, onPress, bottomInset }: Props) {
-  const reduceMotion = useReducedMotion();
   const [width, setWidth] = useState(0);
+  // "Стежити за метчингом" is wider than "Знайти метч"; the notch is drawn around the button as it is laid out.
+  const [buttonWidth, setButtonWidth] = useState(ACTION_NOTCH_BUTTON_WIDTH);
   const height = BAR_ABOVE_SAFE_AREA + actionBarSafeArea(bottomInset);
-  const scale = useSharedValue(1);
-
-  useEffect(() => {
-    scale.set(reduceMotion ? 1 : withRepeat(withTiming(PULSE_SCALE, PULSE_HALF), -1, true));
-  }, [reduceMotion, scale]);
-
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <View
@@ -102,12 +86,13 @@ export function MatchActionBar({ label, onPress, bottomInset }: Props) {
       {width > 0 && (
         <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
           <Svg width={width} height={height}>
-            <Path d={actionBarPath(width, height)} fill={colors.surface.card} />
+            <Path d={actionBarPath(width, height, buttonWidth)} fill={colors.surface.card} />
           </Svg>
         </View>
       )}
-      <Animated.View
-        style={[{ position: 'absolute', top: -BUTTON_LIFT, maxWidth: width > 0 ? width - 40 : undefined }, pulseStyle]}
+      <View
+        style={{ position: 'absolute', top: -BUTTON_LIFT, maxWidth: width > 0 ? width - 2 * SIDE_MARGIN : undefined }}
+        onLayout={(event) => setButtonWidth(event.nativeEvent.layout.width)}
       >
         <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}>
           {({ pressed }) => (
@@ -115,7 +100,7 @@ export function MatchActionBar({ label, onPress, bottomInset }: Props) {
               className={`flex-row items-center justify-center gap-2 rounded-[40px] px-10 ${
                 pressed ? 'bg-brand-coral-dark' : 'bg-brand-coral'
               }`}
-              style={{ height: BUTTON_HEIGHT, minWidth: BUTTON_MIN_WIDTH, boxShadow: shadows.matchButton }}
+              style={{ height: BUTTON_HEIGHT, minWidth: ACTION_NOTCH_BUTTON_WIDTH, boxShadow: shadows.matchButton }}
             >
               <OrbitIcon />
               <Text
@@ -129,7 +114,7 @@ export function MatchActionBar({ label, onPress, bottomInset }: Props) {
             </View>
           )}
         </Pressable>
-      </Animated.View>
+      </View>
     </View>
   );
 }

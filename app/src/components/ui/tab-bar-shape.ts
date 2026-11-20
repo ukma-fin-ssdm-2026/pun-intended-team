@@ -77,13 +77,19 @@ const ACTION_SHOULDER: [number, number][] = [
   [ACTION_NOTCH_FLAT, ACTION_NOTCH_DEPTH],
 ];
 
-// The path of the action bar, in bar coordinates (0..width × 0..height). On a screen narrower than 390 px the
-// shoulders get steeper, so the notch never runs into the rounded corners.
-export function actionBarPath(width: number, height: number): string {
+// The width of "Кнопка / Знайти мені метч" the Figma notch is drawn around.
+export const ACTION_NOTCH_BUTTON_WIDTH = 232;
+
+// The path of the action bar, in bar coordinates (0..width × 0..height), around a button `buttonWidth` wide. A wider
+// button, such as "Стежити за метчингом", widens the flat bottom by as much on each side, so it keeps the Figma margins
+// to the shoulders. When the notch would run into the rounded corners, the shoulders get steeper instead.
+export function actionBarPath(width: number, height: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
   const c = width / 2;
-  const room = c - CORNER_RADIUS - ACTION_NOTCH_FLAT;
-  const squeeze = Math.min(1, room / (ACTION_NOTCH_HALF_WIDTH - ACTION_NOTCH_FLAT));
-  const dx = (offset: number) => ACTION_NOTCH_FLAT + (offset - ACTION_NOTCH_FLAT) * squeeze;
+  const extra = Math.max(0, (buttonWidth - ACTION_NOTCH_BUTTON_WIDTH) / 2);
+  const flat = ACTION_NOTCH_FLAT + extra;
+  const room = c - CORNER_RADIUS - flat;
+  const squeeze = Math.max(0, Math.min(1, room / (ACTION_NOTCH_HALF_WIDTH - ACTION_NOTCH_FLAT)));
+  const dx = (offset: number) => flat + (offset - ACTION_NOTCH_FLAT) * squeeze;
   const point = (side: -1 | 1, [offset, y]: [number, number]) => `${c + side * dx(offset)} ${y}`;
   const coords = (side: -1 | 1, points: [number, number][]) => points.map((p) => point(side, p)).join(' ');
   // Two cubic curves: three points each.
@@ -101,7 +107,7 @@ export function actionBarPath(width: number, height: number): string {
     `C0 ${k} ${k} 0 ${CORNER_RADIUS} 0`,
     `H${c - dx(ACTION_NOTCH_HALF_WIDTH)}`,
     ...curves(-1, ACTION_SHOULDER),
-    `H${c + ACTION_NOTCH_FLAT}`,
+    `H${c + flat}`,
     ...curves(1, rightShoulder),
     `H${width - CORNER_RADIUS}`,
     `C${width - k} 0 ${width} ${k} ${width} ${CORNER_RADIUS}`,

@@ -55,7 +55,7 @@ export const shadows = {
   // Figma DROP_SHADOW radius 24, spread −6; its CSS export shows half the radius in drop-shadow().
   button: '0px 10px 24px -6px rgba(0, 0, 0, 0.22)',
   tabActive: '0px 0px 18px 2px rgba(223, 84, 74, 0.35), 0px 4px 10px rgba(223, 84, 74, 0.25)',
-  // "Кнопка / Знайти мені метч" at the start of its pulse.
+  // "Кнопка / Знайти мені метч" of "таб бар новий".
   matchButton: '0px 0px 10px 0px rgba(223, 84, 74, 0.35), 0px 6px 26px 2px rgba(223, 84, 74, 0.45)',
   toggleKnob: '0px 1px 3px rgba(0, 0, 0, 0.18)',
 };
