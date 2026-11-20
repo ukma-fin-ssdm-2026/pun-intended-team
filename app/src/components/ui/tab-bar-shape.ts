@@ -80,10 +80,11 @@ const ACTION_SHOULDER: [number, number][] = [
 // The width of "Кнопка / Знайти мені метч" the Figma notch is drawn around.
 export const ACTION_NOTCH_BUTTON_WIDTH = 232;
 
-// The path of the action bar, in bar coordinates (0..width × 0..height), around a button `buttonWidth` wide. A wider
-// button, such as "Стежити за метчингом", widens the flat bottom by as much on each side, so it keeps the Figma margins
-// to the shoulders. When the notch would run into the rounded corners, the shoulders get steeper instead.
-export function actionBarPath(width: number, height: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
+// The notch around a button `buttonWidth` wide: where it leaves the top edge on each side, and the curves and flat
+// bottom between them, left to right. A wider button, such as "Стежити за метчингом", widens the flat bottom by as much
+// on each side, so it keeps the Figma margins to the shoulders. When the notch would run into the rounded corners, the
+// shoulders get steeper instead.
+function actionNotch(width: number, buttonWidth: number) {
   const c = width / 2;
   const extra = Math.max(0, (buttonWidth - ACTION_NOTCH_BUTTON_WIDTH) / 2);
   const flat = ACTION_NOTCH_FLAT + extra;
@@ -97,22 +98,35 @@ export function actionBarPath(width: number, height: number, buttonWidth = ACTIO
     `C${coords(side, points.slice(0, 3))}`,
     `C${coords(side, points.slice(3))}`,
   ];
-  const k = CORNER_RADIUS * (1 - KAPPA);
   // The right shoulder runs the same points in reverse: from the flat bottom up to the top edge.
   const rightShoulder: [number, number][] = [...ACTION_SHOULDER.slice(0, -1).reverse(), [ACTION_NOTCH_HALF_WIDTH, 0]];
+  return {
+    start: c - dx(ACTION_NOTCH_HALF_WIDTH),
+    commands: [...curves(-1, ACTION_SHOULDER), `H${c + flat}`, ...curves(1, rightShoulder)],
+  };
+}
 
-  const commands = [
+const roundPath = (commands: string[]) => commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
+
+// The path of the action bar, in bar coordinates (0..width × 0..height), around a button `buttonWidth` wide.
+export function actionBarPath(width: number, height: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
+  const notch = actionNotch(width, buttonWidth);
+  const k = CORNER_RADIUS * (1 - KAPPA);
+  return roundPath([
     `M0 ${height}`,
     `V${CORNER_RADIUS}`,
     `C0 ${k} ${k} 0 ${CORNER_RADIUS} 0`,
-    `H${c - dx(ACTION_NOTCH_HALF_WIDTH)}`,
-    ...curves(-1, ACTION_SHOULDER),
-    `H${c + flat}`,
-    ...curves(1, rightShoulder),
+    `H${notch.start}`,
+    ...notch.commands,
     `H${width - CORNER_RADIUS}`,
     `C${width - k} 0 ${width} ${k} ${width} ${CORNER_RADIUS}`,
     `V${height}`,
     'Z',
-  ];
-  return commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
+  ]);
+}
+
+// The notch alone, closed along the bar's top edge: filled white under the bar, so the page never shows through it.
+export function actionNotchFillPath(width: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
+  const notch = actionNotch(width, buttonWidth);
+  return roundPath([`M${notch.start} 0`, ...notch.commands, 'Z']);
 }
