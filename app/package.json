@@ -73,7 +73,8 @@
       "<rootDir>/tests/setup.ts"
     ],
     "moduleNameMapper": {
-      "\\.svg$": "<rootDir>/tests/svg-mock.tsx"
+      "\\.svg$": "<rootDir>/tests/svg-mock.tsx",
+      "^@/assets/(.*)$": "<rootDir>/assets/$1"
     }
   },
   "overrides": {

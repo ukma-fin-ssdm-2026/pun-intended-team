@@ -100,6 +100,7 @@ package "core (business logic)" as CORE {
       +findAccountId(username)
       +listInterests()
       +isComplete(accountId)
+      +getMatchingTraits(accountIds, day, tx)
       +getOwn(accountId)
       +create(accountId, input)
       +update(accountId, changes)

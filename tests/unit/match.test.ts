@@ -8,6 +8,7 @@ import fc from 'fast-check';
 import { match } from '../../dist/core/matching/services/match.js';
 import { canPair, pairScore } from '../../dist/core/matching/services/pair-score.js';
 import type { Exclusion, Pairing, PoolMember } from '../../dist/core/matching/types/matching.js';
+import { ACCEPTS_ANYONE } from './fixtures/matching.ts';
 
 const SEED = 42;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -25,6 +26,8 @@ const GROUPS = new Map([
 const COMPANIES = ['friends', 'company', 'dating'] as const;
 const PLANS = ['walk', 'coffee', 'dinner'] as const;
 const SESSION_IDS = ['day-1', 'day-2'];
+const GENDERS = ['female', 'male', 'other', null] as const;
+const GENDER_PREFERENCES = ['any', 'female', 'male'] as const;
 
 type MemberOverrides = Partial<Omit<PoolMember, 'interests'>> & { interests?: string[] };
 
@@ -36,6 +39,7 @@ function aMember({ interests = ['hiking', 'jazz'], ...overrides }: MemberOverrid
     desiredCompany: 'company',
     afterEventPlans: [],
     sessionIds: ['day-1'],
+    ...ACCEPTS_ANYONE,
     ...overrides,
   };
 }
@@ -69,6 +73,11 @@ const poolArbitrary = fc.uniqueArray(
       desiredCompany: fc.constantFrom(...COMPANIES),
       afterEventPlans: fc.subarray([...PLANS]),
       sessionIds: fc.subarray(SESSION_IDS, { minLength: 1 }),
+      gender: fc.constantFrom(...GENDERS),
+      age: fc.integer({ min: 18, max: 70 }),
+      preferredGender: fc.constantFrom(...GENDER_PREFERENCES),
+      ageMin: fc.integer({ min: 18, max: 40 }),
+      ageMax: fc.option(fc.integer({ min: 40, max: 70 }), { nil: null }),
     })
     .map((member) => aMember(member)),
   { selector: (member) => member.userId, maxLength: USER_IDS.length },
@@ -156,6 +165,19 @@ describe('match', () => {
 
     assert.deepEqual(alone, []);
     assert.deepEqual(pairKeys(withOther), ['u1+u2']);
+  });
+
+  // matching.md, policy: whom each wants to go with
+  test('never pairs two users who do not fit each other’s preferences, even when they score highest', () => {
+    const woman = aMember({ userId: 'W', gender: 'female', preferredGender: 'male' });
+    const womanForWomen = aMember({ userId: 'F', gender: 'female', preferredGender: 'female' });
+    const older = aMember({ userId: 'O', age: 45, interests: ['chess'] });
+    const young = aMember({ userId: 'Y', age: 20, ageMin: 40, ageMax: 50, interests: ['chess'] });
+
+    const pairings = match([woman, womanForWomen, older, young], [], SEED);
+
+    // W wants a man and F is a woman; Y wants 40 to 50 and O is 45, but O wants 18+ and Y is 20, so they fit.
+    assert.deepEqual(pairKeys(pairings), ['O+Y']);
   });
 
   // Property-based: fast-check makes up the pools, so these hold for any pool, not only the ones above.

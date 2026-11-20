@@ -52,7 +52,7 @@ export abstract class AccountsRepository {
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
 
   /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
-  abstract findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>>;
+  abstract findDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>>;
 
   abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
 

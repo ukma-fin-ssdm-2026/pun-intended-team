@@ -58,6 +58,22 @@ enum DesiredCompany {
   @@map("desired_company")
 }
 
+enum Gender {
+  female
+  male
+  other
+
+  @@map("gender")
+}
+
+enum GenderPreference {
+  any
+  female
+  male
+
+  @@map("gender_preference")
+}
+
 enum VerificationStatus {
   pending
   verified
@@ -284,8 +300,8 @@ model VerificationCode {
 }
 
 model RefreshToken {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId String    @map("account_id") @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId         String    @map("account_id") @db.Uuid
   tokenHash         String    @map("token_hash")
   previousTokenHash String?   @map("previous_token_hash")
   rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
@@ -308,6 +324,8 @@ model Profile {
   description         String?
   occupation          String?
   communicationFormat DesiredCompany? @map("communication_format")
+  gender              Gender?
+  genderDescription   String?         @map("gender_description")
   sharePhone          Boolean         @default(true) @map("share_phone")
   safetyNoticeAckAt   DateTime?       @map("safety_notice_ack_at") @db.Timestamptz(3)
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -491,6 +509,9 @@ model Application {
   userId          String            @map("user_id") @db.Uuid
   eventId         String            @map("event_id") @db.Uuid
   desiredCompany  DesiredCompany    @map("desired_company")
+  preferredGender GenderPreference  @default(any) @map("preferred_gender")
+  ageMin          Int               @default(18) @map("age_min")
+  ageMax          Int?              @map("age_max")
   status          ApplicationStatus @default(in_pool)
   noResponseCount Int               @default(0) @map("no_response_count")
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)

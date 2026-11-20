@@ -80,8 +80,12 @@ export async function changeAnswers(
   if (!withdrawn.ok) return withdrawn;
   const applied = await applyToEvent(application.eventId, answers, dates);
   if (!applied.ok && openDays.length > 0) {
-    const { desiredCompany, afterEventPlans } = application;
-    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, openDays);
+    const { desiredCompany, afterEventPlans, preferredGender, ageMin, ageMax } = application;
+    await applyToEvent(
+      application.eventId,
+      { desiredCompany, afterEventPlans, preferredGender, ageMin, ageMax },
+      openDays,
+    );
   }
   return applied;
 }

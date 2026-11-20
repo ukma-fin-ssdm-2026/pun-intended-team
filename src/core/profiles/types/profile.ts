@@ -1,6 +1,16 @@
 // Written with the help of Claude
 export type CommunicationFormat = 'friends' | 'dating' | 'company';
 
+/** The user's gender; "other" comes with the user's own words for it. */
+export const genders = ['female', 'male', 'other'] as const;
+
+export type Gender = (typeof genders)[number];
+
+/** Whom a user wants to go with: anyone, or only women or only men. */
+export const genderPreferences = ['any', 'female', 'male'] as const;
+
+export type GenderPreference = (typeof genderPreferences)[number];
+
 export interface ProfileSummary {
   accountId: string;
   username: string;
@@ -36,6 +46,10 @@ export interface Profile extends ProfileSummary {
   occupation: string;
   /** Null until the user picks one during onboarding. */
   communicationFormat: CommunicationFormat | null;
+  /** Null until the user picks one; profiles made before genders were asked have none. */
+  gender: Gender | null;
+  /** The user's own words for an "other" gender; null for any other. */
+  genderDescription: string | null;
   sharePhone: boolean;
   interestIds: string[];
   linkedAccounts: LinkedAccount[];
@@ -48,12 +62,14 @@ export interface ProfileDetails {
   description: string;
   occupation: string;
   communicationFormat: CommunicationFormat | null;
+  gender: Gender | null;
+  genderDescription: string | null;
   sharePhone: boolean;
   /** Whole years, computed from the account's date of birth; the date itself is never returned. */
   age: number;
   interests: Interest[];
   linkedAccounts: LinkedAccountDetails[];
-  /** True once matching has what it needs: a communication format, an interest and a network to reveal. */
+  /** True once matching has what it needs: a communication format, a gender, an interest and a network to reveal. */
   isComplete: boolean;
 }
 
@@ -83,5 +99,16 @@ export interface ProfileChanges {
   description?: string;
   occupation?: string;
   communicationFormat?: CommunicationFormat;
+  /** A new gender replaces the description: kept for "other", dropped for the others. */
+  gender?: Gender;
+  genderDescription?: string;
   sharePhone?: boolean;
+}
+
+/** What matching needs of a user in the pool, besides their answers to the event. */
+export interface MatchingTraits {
+  interests: Interest[];
+  gender: Gender | null;
+  /** Whole years on the day matching runs for. */
+  age: number;
 }

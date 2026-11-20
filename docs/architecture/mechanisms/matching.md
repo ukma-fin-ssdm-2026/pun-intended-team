@@ -26,6 +26,7 @@ Users apply to an **event session**. Matching runs in **scheduled rounds** ancho
 |---|---|
 | Round offsets | T-7d, T-3d, T-24h, T-6h |
 | Pair score | 0.7 × interests + 0.2 × the same kind of company + 0.1 × after-event plans, 0–1. Interests: shared interests count 1 and a heading both have without a shared interest under it counts 0.5, over all distinct interests of the two. Plans: shared plans over all distinct plans; neither wanting any counts as 1. Dating is paired only with dating, and only users with a day in common are paired |
+| Whom each wants to go with | A hard, mutual filter before the score: A and B are paired only if B's gender fits A's preferred gender and B's age is in A's range, and the same for A in B's. `any` accepts every gender, `other` and a profile without one included; `female` and `male` accept only that gender, so a user whose gender is `other` is paired only with those who accept anyone. The range is 18 to an upper bound or none ("60+"). Ages are whole years from the date of birth on the Kyiv day of the session matched for: the round's session, or the first day of an application asking for an instant match. The service loads gender and age into the pool, so `match` stays pure (rule 8). It applies to instant matches, rounds and open mode alike; the score does not change |
 | Instant-match threshold | 0.8 pair score |
 | Open-mode cutoff | T-1h; for a long session, 2 h before it ends |
 | Proposal lifetime cap | 24 h (team vote) |

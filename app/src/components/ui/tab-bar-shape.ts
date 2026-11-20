@@ -60,3 +60,81 @@ export function tabBarPath(width: number, center: number, height = BAR_HEIGHT): 
   ];
   return commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
 }
+
+// "Форма з вирізом" of "таб бар новий" (the event page's action bar): a wide notch, 62 px deep with a 170 px flat
+// bottom, that holds the "Знайти метч" button. Its points are offsets from the bar's centre, taken from Figma at
+// 390 px; the straight parts stretch with the screen width.
+const ACTION_NOTCH_DEPTH = 62;
+const ACTION_NOTCH_FLAT = 85.22;
+const ACTION_NOTCH_HALF_WIDTH = 163.35;
+// The shoulder from the top edge into the notch, as [x offset, y] pairs: two cubic curves.
+const ACTION_SHOULDER: [number, number][] = [
+  [130.2, 0],
+  [133.32, 25.11],
+  [112.01, 49.37],
+  [104.9, 57.46],
+  [95.27, ACTION_NOTCH_DEPTH],
+  [ACTION_NOTCH_FLAT, ACTION_NOTCH_DEPTH],
+];
+
+// The width of "Кнопка / Знайти мені метч" the Figma notch is drawn around.
+export const ACTION_NOTCH_BUTTON_WIDTH = 232;
+
+// "таб бар 2" leaves 2 px of straight top edge between the rounded corner and a notch widened for a longer label.
+const ACTION_NOTCH_MIN_EDGE = 2;
+
+// The notch around a button `buttonWidth` wide: where it leaves the top edge on each side, and the curves and flat
+// bottom between them, left to right. A wider button, such as "Стежити за метчингом" in "таб бар 2", moves the flat
+// bottom and the lower curve out by half the extra width, so the button keeps the Figma margins to them. When the notch
+// would then come closer than 2 px to the rounded corner, the upper curve is drawn in towards the lower one, as "таб бар
+// 2" does at 390 px.
+function actionNotch(width: number, buttonWidth: number) {
+  const c = width / 2;
+  const extra = Math.max(0, (buttonWidth - ACTION_NOTCH_BUTTON_WIDTH) / 2);
+  const shifted: [number, number][] = ACTION_SHOULDER.map(([offset, y]) => [offset + extra, y]);
+  // The upper curve: from the top edge [start, its two control points] to where the lower curve begins.
+  const [lowerStart] = shifted[2] ?? [0];
+  const start = ACTION_NOTCH_HALF_WIDTH + extra;
+  const limit = c - CORNER_RADIUS - ACTION_NOTCH_MIN_EDGE;
+  const squeeze = start > limit ? Math.max(0, (limit - lowerStart) / (start - lowerStart)) : 1;
+  const drawIn = (offset: number) => lowerStart + (offset - lowerStart) * squeeze;
+  const shoulder: [number, number][] = shifted.map(([offset, y], index) => [index < 2 ? drawIn(offset) : offset, y]);
+  const point = (side: -1 | 1, [offset, y]: [number, number]) => `${c + side * offset} ${y}`;
+  const coords = (side: -1 | 1, points: [number, number][]) => points.map((p) => point(side, p)).join(' ');
+  // Two cubic curves: three points each.
+  const curves = (side: -1 | 1, points: [number, number][]) => [
+    `C${coords(side, points.slice(0, 3))}`,
+    `C${coords(side, points.slice(3))}`,
+  ];
+  // The right shoulder runs the same points in reverse: from the flat bottom up to the top edge.
+  const rightShoulder: [number, number][] = [...shoulder.slice(0, -1).reverse(), [drawIn(start), 0]];
+  return {
+    start: c - drawIn(start),
+    commands: [...curves(-1, shoulder), `H${c + ACTION_NOTCH_FLAT + extra}`, ...curves(1, rightShoulder)],
+  };
+}
+
+const roundPath = (commands: string[]) => commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
+
+// The path of the action bar, in bar coordinates (0..width × 0..height), around a button `buttonWidth` wide.
+export function actionBarPath(width: number, height: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
+  const notch = actionNotch(width, buttonWidth);
+  const k = CORNER_RADIUS * (1 - KAPPA);
+  return roundPath([
+    `M0 ${height}`,
+    `V${CORNER_RADIUS}`,
+    `C0 ${k} ${k} 0 ${CORNER_RADIUS} 0`,
+    `H${notch.start}`,
+    ...notch.commands,
+    `H${width - CORNER_RADIUS}`,
+    `C${width - k} 0 ${width} ${k} ${width} ${CORNER_RADIUS}`,
+    `V${height}`,
+    'Z',
+  ]);
+}
+
+// The notch alone, closed along the bar's top edge: filled white under the bar, so the page never shows through it.
+export function actionNotchFillPath(width: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
+  const notch = actionNotch(width, buttonWidth);
+  return roundPath([`M${notch.start} 0`, ...notch.commands, 'Z']);
+}

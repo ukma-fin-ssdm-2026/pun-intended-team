@@ -4,7 +4,12 @@ import { Image, type ImageSource } from 'expo-image';
 import { Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import type { components } from '@/api/schema';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
+import { useEvents } from '@/hooks/use-events';
+
+type Event = components['schemas']['Event'];
 
 const jazz: ImageSource = require('@/assets/images/events/jazz-evening.png');
 const kvartyrnyk: ImageSource = require('@/assets/images/events/kvartyrnyk.png');
@@ -22,7 +27,8 @@ const gradientTransforms: Record<number, string> = {
   170: 'matrix(14.546 26.918 -13.026 30.148 3.3794 -12.478)',
 };
 
-type Tile = { label: string; column: number; top: number; height: number; image?: ImageSource };
+// `eventId` marks a tile showing a catalog event instead of the bundled picture.
+type Tile = { label: string; column: number; top: number; height: number; image?: ImageSource; eventId?: string };
 
 // "00 Колаж подій": three columns of 122 px tiles, partly above and below the 600 px frame.
 const tiles: Tile[] = [
@@ -55,30 +61,52 @@ function TileShade({ id }: { id: string }) {
   );
 }
 
+// The catalog's events fill the tiles in order, those with an image first. While they load, when the catalog cannot be
+// reached, or for the tiles left over, the bundled pictures and gradients stay, so the screen is never empty.
+function withEvents(events: Event[] | undefined): Tile[] {
+  const picked = [...(events ?? [])].sort((a, b) => Number(!a.imageUrl) - Number(!b.imageUrl));
+  return tiles.map((tile, index) => {
+    const event = picked[index];
+    return event ? { ...tile, label: event.title, image: coverOf(event.imageUrl), eventId: event.id } : tile;
+  });
+}
+
 export function EventsCollage() {
   const { width } = useWindowDimensions();
+  const { data } = useEvents();
   const start = (width - COLLAGE_WIDTH) / 2;
   return (
     <View className="absolute left-0 top-0 h-[600px] w-full overflow-hidden" style={{ pointerEvents: 'none' }}>
-      {tiles.map((tile, index) => (
-        <View
-          key={tile.label}
-          className="absolute overflow-hidden rounded-[20px]"
-          style={{ left: start + tile.column * COLUMN_STEP, top: tile.top, width: TILE_WIDTH, height: tile.height }}
-        >
-          {tile.image ? (
-            <Image source={tile.image} contentFit="cover" style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <CoralGradient
-              frame={{ width: TILE_WIDTH, height: tile.height, transform: gradientTransforms[tile.height] }}
-            />
-          )}
-          <TileShade id={`collage-shade-${index}`} />
-          <Text className="absolute bottom-3 left-3 w-[100px] font-inter-semibold text-tag text-white">
-            {tile.label}
-          </Text>
-        </View>
-      ))}
+      {withEvents(data).map((tile, index) => {
+        const gradient = (
+          <CoralGradient
+            frame={{ width: TILE_WIDTH, height: tile.height, transform: gradientTransforms[tile.height] }}
+          />
+        );
+        return (
+          <View
+            key={tile.eventId ?? tile.label}
+            className="absolute overflow-hidden rounded-[20px]"
+            style={{ left: start + tile.column * COLUMN_STEP, top: tile.top, width: TILE_WIDTH, height: tile.height }}
+          >
+            {/* An event's linked image falls back to the tile's gradient when it fails to load. */}
+            {tile.eventId ? (
+              <EventCover cover={tile.image} fallback={gradient} />
+            ) : tile.image ? (
+              <Image source={tile.image} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            ) : (
+              gradient
+            )}
+            <TileShade id={`collage-shade-${index}`} />
+            <Text
+              numberOfLines={3}
+              className="absolute bottom-3 left-3 w-[100px] font-inter-semibold text-tag text-white"
+            >
+              {tile.label}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
