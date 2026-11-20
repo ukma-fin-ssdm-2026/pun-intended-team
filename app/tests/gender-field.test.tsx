@@ -30,7 +30,7 @@ describe('GenderField', () => {
     const input = screen.getByLabelText('Свій гендер');
     await fireEvent(input, 'blur');
 
-    expect(input.props.placeholder).toBe('Введи свою відповідь');
+    expect(input.props.placeholder).toBe('Як ти себе визначаєш?');
     expect(screen.getByText('Впиши, як ти себе визначаєш')).toBeTruthy();
   });
 

@@ -365,7 +365,7 @@ export function GenderField({
           <View className={`h-[52px] justify-center rounded-2xl border-[1.5px] bg-surface-background px-4 ${border}`}>
             <TextInput
               accessibilityLabel="Свій гендер"
-              placeholder="Введи свою відповідь"
+              placeholder="Як ти себе визначаєш?"
               placeholderTextColor={colors.text.secondary}
               value={value.description}
               onChangeText={(description) => onChange({ ...value, description })}
