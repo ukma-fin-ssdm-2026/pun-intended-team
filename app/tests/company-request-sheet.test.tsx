@@ -101,6 +101,14 @@ async function drag(handle: 'low' | 'high', translationX: number) {
   );
 }
 
+// Figma "03 Запит на компанію" no longer has the "1-2-3" steps between the answers and the button.
+test('CompanyRequestSheet shows no steps block', async () => {
+  await openSheet();
+
+  expect(screen.queryByText('Гайда на подію!')).toBeNull();
+  expect(screen.queryByText('Підберемо тобі компанію')).toBeNull();
+});
+
 describe('CompanyRequestSheet age slider', () => {
   test('dragging the max handle from "60+" gives a bounded range', async () => {
     const onSubmit = await openSheet();

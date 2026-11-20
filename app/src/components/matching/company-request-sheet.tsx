@@ -56,8 +56,6 @@ export function ageRangeLabel(low: number, high: number | null) {
   return `${low}–${high} років`;
 }
 
-const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
-
 // "Зона закриття / верх": the top 43 px of the screen stay the backdrop, or the status bar when it is taller.
 const TOP_CLOSE_ZONE = 43;
 const BUTTON_HEIGHT = 52;
@@ -234,19 +232,6 @@ export function CompanyRequestSheet({
                     <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_TOP}+</Text>
                   </View>
                 </View>
-              </View>
-
-              <View className="flex-row gap-2 rounded-[18px] bg-surface-background px-3 py-3.5">
-                {steps.map((step, index) => (
-                  <View key={step} className="flex-1 items-center gap-1.5">
-                    <View className="size-6 items-center justify-center rounded-xl bg-brand-coral">
-                      <Text className="font-inter-semibold text-tag text-text-on-dark">{index + 1}</Text>
-                    </View>
-                    <Text className="text-center font-inter text-[12px] leading-[18px] text-text-secondary">
-                      {step}
-                    </Text>
-                  </View>
-                ))}
               </View>
             </ScrollView>
 
