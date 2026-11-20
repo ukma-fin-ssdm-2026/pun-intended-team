@@ -103,6 +103,26 @@ async function drag(handle: 'low' | 'high', translationX: number) {
   );
 }
 
+// Figma 03: the sheet sits at the bottom of the screen. The overlay aligns it there; a wrapper between them that grows
+// to the full height, such as gesture handler's root view with its default flex: 1, would pin it to the top instead.
+test('CompanyRequestSheet stays at the bottom of the overlay', async () => {
+  await openSheet();
+
+  const growing: string[] = [];
+  let node = screen.getByText('Що ти шукаєш?').parent;
+  while (node) {
+    // Jest leaves NativeWind's classes as they are, so both the classes and the styles are read.
+    const style = StyleSheet.flatten(node.props.style) ?? {};
+    const classes: string[] = node.props.className?.split(' ') ?? [];
+    if (style.justifyContent === 'flex-end' || classes.includes('justify-end')) break;
+    if (style.flex === 1 || (style.flexGrow ?? 0) > 0 || classes.includes('flex-1')) growing.push(String(node.type));
+    node = node.parent;
+  }
+
+  expect(node).toBeTruthy();
+  expect(growing).toEqual([]);
+});
+
 // Figma "03 Запит на компанію" no longer has the "1-2-3" steps between the answers and the button.
 test('CompanyRequestSheet shows no steps block', async () => {
   await openSheet();

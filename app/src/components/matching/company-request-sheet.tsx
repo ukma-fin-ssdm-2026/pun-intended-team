@@ -132,8 +132,10 @@ export function CompanyRequestSheet({
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
-      {/* A modal is outside the app's gesture root on Android; the age handles need one of their own. */}
-      <GestureHandlerRootView>
+      {/* A modal is outside the app's gesture root on Android; the age handles need one of their own. It takes the
+          height of the sheet instead of its default flex: 1, so the overlay keeps the sheet at the bottom and the
+          backdrop above it stays tappable. */}
+      <GestureHandlerRootView style={{ flexShrink: 1 }}>
         {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
         <Animated.View
           entering={SlideInDown.duration(250)}
