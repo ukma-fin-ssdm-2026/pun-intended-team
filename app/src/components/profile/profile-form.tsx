@@ -7,6 +7,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { components } from '@/api/schema';
+import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
@@ -113,10 +114,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
         {children}
       </ScrollView>
 
-      <View
-        className="absolute bottom-0 left-0 right-0 bg-surface-card px-5"
-        style={{ paddingTop: ACTION_TOP, paddingBottom: actionBottom }}
-      >
+      <BottomActionFade id="form-action-fade">
         <Button
           label={action.label}
           variant="dark"
@@ -124,7 +122,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
           disabled={action.disabled}
           loading={action.loading}
         />
-      </View>
+      </BottomActionFade>
     </View>
   );
 }

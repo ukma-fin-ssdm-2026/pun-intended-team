@@ -1,10 +1,11 @@
 // Written with the help of Claude
 // AI Usage: company request sheet from the Figma "03 Запит на компанію" screen; reviewed by Daryna Halytska.
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { actionFadeBottom, BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
@@ -33,8 +34,11 @@ const afterEventRows = [
 
 const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
 
-// "01 Шторка" has a 34 px bottom padding; a larger bottom inset replaces it.
-const SHEET_BOTTOM = 34;
+// "Зона закриття / верх": the top 43 px of the screen stay the backdrop, or the status bar when it is taller.
+const TOP_CLOSE_ZONE = 43;
+const BUTTON_HEIGHT = 52;
+// "01 Шторка" spaces its blocks and the button 24 px apart.
+const SECTION_GAP = 24;
 
 function AfterEventChip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   return (
@@ -76,6 +80,7 @@ export function CompanyRequestSheet({
   onSubmit,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const [companyType, setCompanyType] = useState<CompanyType>(initial.desiredCompany);
   const [afterEvent, setAfterEvent] = useState(
     initial.afterEventPlans.length > 0 ? initial.afterEventPlans.map((plan) => planLabels[plan]) : [EVENT_ONLY],
@@ -90,75 +95,85 @@ export function CompanyRequestSheet({
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
       {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
-        <View
-          className="gap-6 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom) }}
-        >
-          <View className="items-center">
+      <Animated.View
+        entering={SlideInDown.duration(250)}
+        accessibilityViewIsModal
+        style={{ maxHeight: height - Math.max(TOP_CLOSE_ZONE, insets.top) }}
+      >
+        {/* A tall sheet scrolls under its button, which stays pinned over a white fade. */}
+        <View className="shrink rounded-t-[28px] bg-surface-card pt-3">
+          <View className="items-center pb-6">
             <View className="h-1 w-10 rounded-sm bg-border-default" />
           </View>
+          <ScrollView
+            className="shrink"
+            contentContainerClassName="gap-6 px-5"
+            contentContainerStyle={{ paddingBottom: SECTION_GAP + BUTTON_HEIGHT + actionFadeBottom(insets.bottom) }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="gap-1.5">
+              <Text className="font-inter text-caption text-text-secondary">{eventLabel}</Text>
+              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
+                Що ти шукаєш?
+              </Text>
+            </View>
 
-          <View className="gap-1.5">
-            <Text className="font-inter text-caption text-text-secondary">{eventLabel}</Text>
-            <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-              Що ти шукаєш?
-            </Text>
-          </View>
+            <View accessibilityRole="radiogroup" className="gap-2.5">
+              {companyTypes.map((option) => (
+                <RadioOption
+                  key={option.value}
+                  icon={option.icon}
+                  title={option.title}
+                  note={option.note}
+                  selected={companyType === option.value}
+                  onPress={() => setCompanyType(option.value)}
+                />
+              ))}
+            </View>
 
-          <View accessibilityRole="radiogroup" className="gap-2.5">
-            {companyTypes.map((option) => (
-              <RadioOption
-                key={option.value}
-                icon={option.icon}
-                title={option.title}
-                note={option.note}
-                selected={companyType === option.value}
-                onPress={() => setCompanyType(option.value)}
-              />
-            ))}
-          </View>
+            <View className="gap-2.5">
+              <Text className="font-inter-semibold text-title text-text-primary">Продовжимо після події?</Text>
+              <View className="gap-2">
+                {afterEventRows.map((row) => (
+                  <View key={row.join()} className="flex-row gap-2">
+                    {row.map((label) => (
+                      <AfterEventChip
+                        key={label}
+                        label={label}
+                        selected={afterEvent.includes(label)}
+                        onPress={() => toggleAfterEvent(label)}
+                      />
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </View>
 
-          <View className="gap-2.5">
-            <Text className="font-inter-semibold text-title text-text-primary">Продовжимо після події?</Text>
-            <View className="gap-2">
-              {afterEventRows.map((row) => (
-                <View key={row.join()} className="flex-row gap-2">
-                  {row.map((label) => (
-                    <AfterEventChip
-                      key={label}
-                      label={label}
-                      selected={afterEvent.includes(label)}
-                      onPress={() => toggleAfterEvent(label)}
-                    />
-                  ))}
+            <View className="flex-row gap-2 rounded-[18px] bg-surface-background px-3 py-3.5">
+              {steps.map((step, index) => (
+                <View key={step} className="flex-1 items-center gap-1.5">
+                  <View className="size-6 items-center justify-center rounded-xl bg-brand-coral">
+                    <Text className="font-inter-semibold text-tag text-text-on-dark">{index + 1}</Text>
+                  </View>
+                  <Text className="text-center font-inter text-[12px] leading-[18px] text-text-secondary">{step}</Text>
                 </View>
               ))}
             </View>
-          </View>
+          </ScrollView>
 
-          <View className="flex-row gap-2 rounded-[18px] bg-surface-background px-3 py-3.5">
-            {steps.map((step, index) => (
-              <View key={step} className="flex-1 items-center gap-1.5">
-                <View className="size-6 items-center justify-center rounded-xl bg-brand-coral">
-                  <Text className="font-inter-semibold text-tag text-text-on-dark">{index + 1}</Text>
-                </View>
-                <Text className="text-center font-inter text-[12px] leading-[18px] text-text-secondary">{step}</Text>
-              </View>
-            ))}
-          </View>
-
-          <Button
-            label={submitLabel}
-            variant="dark"
-            loading={submitting}
-            onPress={() =>
-              onSubmit({
-                desiredCompany: companyType,
-                afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
-              })
-            }
-          />
+          <BottomActionFade id="request-action-fade">
+            <Button
+              label={submitLabel}
+              variant="dark"
+              loading={submitting}
+              onPress={() =>
+                onSubmit({
+                  desiredCompany: companyType,
+                  afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
+                })
+              }
+            />
+          </BottomActionFade>
         </View>
       </Animated.View>
     </Overlay>
