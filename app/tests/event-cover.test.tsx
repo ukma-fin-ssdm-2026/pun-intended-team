@@ -2,7 +2,7 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { act, render, screen } from '@testing-library/react-native';
 
-import { coverOf, EventCover } from '@/components/ui/event-cover';
+import { coverOf, EventCover, eventCoverOf } from '@/components/ui/event-cover';
 
 // The props EventCover hands to expo-image, and the gradient, as plain views to look for.
 jest.mock('expo-image', () => {
@@ -47,5 +47,28 @@ describe('EventCover', () => {
     await render(<EventCover cover={coverOf(null)} />);
 
     expect(screen.getByTestId('gradient-cover')).toBeTruthy();
+  });
+});
+
+describe('eventCoverOf', () => {
+  const bundled = require('../assets/images/events/jazz-evening.png');
+
+  test('shows the image an API event links to', async () => {
+    await render(<EventCover cover={eventCoverOf({ imageUrl: IMAGE_URL })} />);
+
+    expect(screen.getByTestId('cover-image').props.source).toEqual({ uri: IMAGE_URL });
+  });
+
+  test('shows the gradient for an event with neither a cover nor an image', async () => {
+    await render(<EventCover cover={eventCoverOf({ imageUrl: null })} />);
+
+    expect(screen.queryByTestId('cover-image')).toBeNull();
+    expect(screen.getByTestId('gradient-cover')).toBeTruthy();
+  });
+
+  // Checked on the helper: under Jest a bundled image is a `{ testUri }` stub, not the module number the app gets.
+  test("keeps a mock event's bundled cover", () => {
+    expect(eventCoverOf({ cover: bundled, imageUrl: null })).toBe(bundled);
+    expect(eventCoverOf({ cover: bundled, imageUrl: IMAGE_URL })).toBe(bundled);
   });
 });

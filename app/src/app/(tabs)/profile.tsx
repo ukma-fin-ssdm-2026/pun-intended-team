@@ -17,6 +17,7 @@ import { signOut } from '@/api/session';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { EventCard } from '@/components/ui/event-card';
+import { eventCoverOf } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
@@ -105,7 +106,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           category={event.category.name}
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
-          cover={event.cover}
+          cover={eventCoverOf(event)}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
           // The button opens the event page too, as on the catalog cards.
