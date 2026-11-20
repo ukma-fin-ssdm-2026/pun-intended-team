@@ -1,6 +1,8 @@
 // Written with the help of Claude
 import { describe, expect, jest, test } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { State } from 'react-native-gesture-handler';
+import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import type { ApplicationAnswers } from '@/api/applications';
 import { ageRangeLabel, CompanyRequestSheet } from '@/components/matching/company-request-sheet';
@@ -80,17 +82,73 @@ describe('CompanyRequestSheet "З ким хочеш піти?"', () => {
   });
 });
 
+// The 350 px slider of the 390 px frame: the handles travel 326 px over 42 years, about 7.76 px a year.
+const SLIDER_WIDTH = 350;
+const PX_PER_YEAR = (SLIDER_WIDTH - 24) / (60 - 18);
+
+async function layOutSlider() {
+  await fireEvent(screen.getByTestId('range-slider'), 'layout', { nativeEvent: { layout: { width: SLIDER_WIDTH } } });
+}
+
+async function drag(handle: 'low' | 'high', translationX: number) {
+  await act(() =>
+    fireGestureHandler(getByGestureTestId(`range-slider-${handle}`), [
+      { state: State.BEGAN, translationX: 0 },
+      { state: State.ACTIVE, translationX: translationX / 2 },
+      { state: State.ACTIVE, translationX },
+      { state: State.END, translationX },
+    ]),
+  );
+}
+
+describe('CompanyRequestSheet age slider', () => {
+  test('dragging the max handle from "60+" gives a bounded range', async () => {
+    const onSubmit = await openSheet();
+    await layOutSlider();
+
+    await drag('high', -30 * PX_PER_YEAR);
+    await submit();
+
+    expect(screen.getByText('18–30 років')).toBeTruthy();
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ ageMin: 18, ageMax: 30 }));
+  });
+
+  test('dragging the max handle back to the end sends no upper bound', async () => {
+    const onSubmit = await openSheet({ ...ANYONE, ageMin: 25, ageMax: 30 });
+    await layOutSlider();
+
+    await drag('high', 400);
+    await submit();
+
+    expect(screen.getByText('25–60+ років')).toBeTruthy();
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ ageMin: 25, ageMax: null }));
+  });
+
+  test('dragging the min handle stops at the max handle', async () => {
+    const onSubmit = await openSheet({ ...ANYONE, ageMin: 20, ageMax: 30 });
+    await layOutSlider();
+
+    await drag('low', 300);
+    await submit();
+
+    expect(screen.getByText('30 років')).toBeTruthy();
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ ageMin: 30, ageMax: 30 }));
+  });
+});
+
 describe('ageRangeLabel', () => {
-  const cases: [number, number, string][] = [
+  const cases: [number, number | null, string][] = [
     [20, 30, '20–30 років'],
-    [18, 60, '18–60+ років'],
+    [18, null, '18–60+ років'],
+    [25, null, '25–60+ років'],
+    [60, null, '60+ років'],
     [21, 21, '21 рік'],
     [23, 23, '23 роки'],
-    [60, 60, '60+ років'],
+    [30, 30, '30 років'],
   ];
 
   for (const [low, high, label] of cases) {
-    test(`${low} to ${high} reads "${label}"`, () => {
+    test(`${low} to ${high ?? 'no upper bound'} reads "${label}"`, () => {
       expect(ageRangeLabel(low, high)).toBe(label);
     });
   }

@@ -1,7 +1,8 @@
 // Written with the help of Claude
 // AI Usage: company request sheet from the Figma "03 Запит на компанію" screen; reviewed by Daryna Halytska.
 import { useState } from 'react';
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -48,10 +49,11 @@ const AGE_TOP = 60;
 
 const ageText = (age: number) => (age >= AGE_TOP ? `${AGE_TOP}+` : String(age));
 
-// "20–30 років"; one age alone takes its own form: "21 рік", "60+ років".
-export function ageRangeLabel(low: number, high: number) {
-  if (low === high) return `${ageText(low)} ${low >= AGE_TOP ? 'років' : plural(low, ['рік', 'роки', 'років'])}`;
-  return `${ageText(low)}–${ageText(high)} років`;
+// "20–30 років", "25–60+ років" without an upper bound (`high` null); one age alone takes its own form: "21 рік".
+export function ageRangeLabel(low: number, high: number | null) {
+  if (high === null) return low >= AGE_TOP ? `${AGE_TOP}+ років` : `${low}–${AGE_TOP}+ років`;
+  if (low === high) return `${low} ${plural(low, ['рік', 'роки', 'років'])}`;
+  return `${low}–${high} років`;
 }
 
 const steps = ['Підберемо тобі компанію', 'Ознайомитесь із профілями', 'Гайда на подію!'];
@@ -61,6 +63,7 @@ const TOP_CLOSE_ZONE = 43;
 const BUTTON_HEIGHT = 52;
 // "01 Шторка" spaces its blocks and the button 24 px apart.
 const SECTION_GAP = 24;
+const SIDE_PADDING = 20;
 
 // A chip of 03: coral with a check when picked. The plans after the event are checkboxes, the genders radio buttons.
 function AnswerChip({
@@ -119,8 +122,9 @@ export function CompanyRequestSheet({
     initial.afterEventPlans.length > 0 ? initial.afterEventPlans.map((plan) => planLabels[plan]) : [EVENT_ONLY],
   );
   const [preferredGender, setPreferredGender] = useState<PreferredGender>(initial.preferredGender);
-  const [ageLow, setAgeLow] = useState(initial.ageMin);
-  const [ageHigh, setAgeHigh] = useState(initial.ageMax ?? AGE_TOP);
+  const [ageMin, setAgeMin] = useState(initial.ageMin);
+  // Null: no upper bound, the max handle at "60+".
+  const [ageMax, setAgeMax] = useState(initial.ageMax);
   const toggleAfterEvent = (label: string) =>
     setAfterEvent((current) => {
       if (current.includes(label)) return current.filter((value) => value !== label);
@@ -130,131 +134,141 @@ export function CompanyRequestSheet({
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
-      {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-      <Animated.View
-        entering={SlideInDown.duration(250)}
-        accessibilityViewIsModal
-        style={{ maxHeight: height - Math.max(TOP_CLOSE_ZONE, insets.top) }}
-      >
-        {/* A tall sheet scrolls under its button, which stays pinned over a white fade. */}
-        <View className="shrink rounded-t-[28px] bg-surface-card pt-3">
-          <View className="items-center pb-6">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
-          <ScrollView
-            className="shrink"
-            contentContainerClassName="gap-6 px-5"
-            contentContainerStyle={{ paddingBottom: SECTION_GAP + BUTTON_HEIGHT + actionFadeBottom(insets.bottom) }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View className="gap-1.5">
-              <Text className="font-inter text-caption text-text-secondary">{eventLabel}</Text>
-              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-                Що ти шукаєш?
-              </Text>
+      {/* A modal is outside the app's gesture root on Android; the age handles need one of their own. */}
+      <GestureHandlerRootView>
+        {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
+        <Animated.View
+          entering={SlideInDown.duration(250)}
+          accessibilityViewIsModal
+          style={{ maxHeight: height - Math.max(TOP_CLOSE_ZONE, insets.top) }}
+        >
+          {/* A tall sheet scrolls under its button, which stays pinned over a white fade. */}
+          <View className="shrink rounded-t-[28px] bg-surface-card pt-3">
+            <View className="items-center pb-6">
+              <View className="h-1 w-10 rounded-sm bg-border-default" />
             </View>
-
-            <View accessibilityRole="radiogroup" className="gap-2.5">
-              {companyTypes.map((option) => (
-                <RadioOption
-                  key={option.value}
-                  icon={option.icon}
-                  title={option.title}
-                  note={option.note}
-                  selected={companyType === option.value}
-                  onPress={() => setCompanyType(option.value)}
-                />
-              ))}
-            </View>
-
-            <View className="gap-2.5">
-              <Text className="font-inter-semibold text-title text-text-primary">Продовжимо після події?</Text>
-              <View className="gap-2">
-                {afterEventRows.map((row) => (
-                  <View key={row.join()} className="flex-row gap-2">
-                    {row.map((label) => (
-                      <AnswerChip
-                        key={label}
-                        label={label}
-                        selected={afterEvent.includes(label)}
-                        onPress={() => toggleAfterEvent(label)}
-                      />
-                    ))}
-                  </View>
-                ))}
+            {/* Gesture handler's scroll view, so a drag that starts on an age handle stays with the handle. NativeWind maps
+              className only on React Native's own components, hence the plain styles. */}
+            <ScrollView
+              style={{ flexShrink: 1 }}
+              contentContainerStyle={{
+                gap: SECTION_GAP,
+                paddingHorizontal: SIDE_PADDING,
+                paddingBottom: SECTION_GAP + BUTTON_HEIGHT + actionFadeBottom(insets.bottom),
+              }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View className="gap-1.5">
+                <Text className="font-inter text-caption text-text-secondary">{eventLabel}</Text>
+                <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
+                  Що ти шукаєш?
+                </Text>
               </View>
-            </View>
 
-            {/* "01.4 З ким хочеш піти": both are hard filters, so the defaults leave nobody out. */}
-            <View className="gap-4">
-              <Text className="font-inter-semibold text-title text-text-primary">З ким хочеш піти?</Text>
-              <View accessibilityRole="radiogroup" className="flex-row gap-2">
-                {genderChoices.map((choice) => (
-                  <AnswerChip
-                    key={choice.value}
-                    role="radio"
-                    label={choice.label}
-                    selected={preferredGender === choice.value}
-                    onPress={() => setPreferredGender(choice.value)}
+              <View accessibilityRole="radiogroup" className="gap-2.5">
+                {companyTypes.map((option) => (
+                  <RadioOption
+                    key={option.value}
+                    icon={option.icon}
+                    title={option.title}
+                    note={option.note}
+                    selected={companyType === option.value}
+                    onPress={() => setCompanyType(option.value)}
                   />
                 ))}
               </View>
+
               <View className="gap-2.5">
-                <View className="flex-row items-center justify-between">
-                  <Text className="font-inter text-caption text-text-secondary">Вік</Text>
-                  <Text className="font-inter-semibold text-[14px] leading-[18px] text-text-primary">
-                    {ageRangeLabel(ageLow, ageHigh)}
-                  </Text>
-                </View>
-                <RangeSlider
-                  min={AGE_MIN}
-                  max={AGE_TOP}
-                  low={ageLow}
-                  high={ageHigh}
-                  onChange={(low, high) => {
-                    setAgeLow(low);
-                    setAgeHigh(high);
-                  }}
-                  labels={{ low: 'Вік від', high: 'Вік до' }}
-                  valueText={ageText}
-                />
-                <View className="flex-row justify-between">
-                  <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_MIN}</Text>
-                  <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_TOP}+</Text>
+                <Text className="font-inter-semibold text-title text-text-primary">Продовжимо після події?</Text>
+                <View className="gap-2">
+                  {afterEventRows.map((row) => (
+                    <View key={row.join()} className="flex-row gap-2">
+                      {row.map((label) => (
+                        <AnswerChip
+                          key={label}
+                          label={label}
+                          selected={afterEvent.includes(label)}
+                          onPress={() => toggleAfterEvent(label)}
+                        />
+                      ))}
+                    </View>
+                  ))}
                 </View>
               </View>
-            </View>
 
-            <View className="flex-row gap-2 rounded-[18px] bg-surface-background px-3 py-3.5">
-              {steps.map((step, index) => (
-                <View key={step} className="flex-1 items-center gap-1.5">
-                  <View className="size-6 items-center justify-center rounded-xl bg-brand-coral">
-                    <Text className="font-inter-semibold text-tag text-text-on-dark">{index + 1}</Text>
-                  </View>
-                  <Text className="text-center font-inter text-[12px] leading-[18px] text-text-secondary">{step}</Text>
+              {/* "01.4 З ким хочеш піти": both are hard filters, so the defaults leave nobody out. */}
+              <View className="gap-4">
+                <Text className="font-inter-semibold text-title text-text-primary">З ким хочеш піти?</Text>
+                <View accessibilityRole="radiogroup" className="flex-row gap-2">
+                  {genderChoices.map((choice) => (
+                    <AnswerChip
+                      key={choice.value}
+                      role="radio"
+                      label={choice.label}
+                      selected={preferredGender === choice.value}
+                      onPress={() => setPreferredGender(choice.value)}
+                    />
+                  ))}
                 </View>
-              ))}
-            </View>
-          </ScrollView>
+                <View className="gap-2.5">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="font-inter text-caption text-text-secondary">Вік</Text>
+                    <Text className="font-inter-semibold text-[14px] leading-[18px] text-text-primary">
+                      {ageRangeLabel(ageMin, ageMax)}
+                    </Text>
+                  </View>
+                  <RangeSlider
+                    min={AGE_MIN}
+                    max={AGE_TOP}
+                    low={ageMin}
+                    high={ageMax ?? AGE_TOP}
+                    onChange={(low, high) => {
+                      setAgeMin(low);
+                      setAgeMax(high >= AGE_TOP ? null : high);
+                    }}
+                    labels={{ low: 'Вік від', high: 'Вік до' }}
+                    valueText={ageText}
+                  />
+                  <View className="flex-row justify-between">
+                    <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_MIN}</Text>
+                    <Text className="font-inter text-[12px] leading-4 text-text-secondary">{AGE_TOP}+</Text>
+                  </View>
+                </View>
+              </View>
 
-          <BottomActionFade id="request-action-fade">
-            <Button
-              label={submitLabel}
-              variant="dark"
-              loading={submitting}
-              onPress={() =>
-                onSubmit({
-                  desiredCompany: companyType,
-                  afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
-                  preferredGender,
-                  ageMin: ageLow,
-                  ageMax: ageHigh >= AGE_TOP ? null : ageHigh,
-                })
-              }
-            />
-          </BottomActionFade>
-        </View>
-      </Animated.View>
+              <View className="flex-row gap-2 rounded-[18px] bg-surface-background px-3 py-3.5">
+                {steps.map((step, index) => (
+                  <View key={step} className="flex-1 items-center gap-1.5">
+                    <View className="size-6 items-center justify-center rounded-xl bg-brand-coral">
+                      <Text className="font-inter-semibold text-tag text-text-on-dark">{index + 1}</Text>
+                    </View>
+                    <Text className="text-center font-inter text-[12px] leading-[18px] text-text-secondary">
+                      {step}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+
+            <BottomActionFade id="request-action-fade">
+              <Button
+                label={submitLabel}
+                variant="dark"
+                loading={submitting}
+                onPress={() =>
+                  onSubmit({
+                    desiredCompany: companyType,
+                    afterEventPlans: plans.filter((plan) => afterEvent.includes(planLabels[plan])),
+                    preferredGender,
+                    ageMin,
+                    ageMax,
+                  })
+                }
+              />
+            </BottomActionFade>
+          </View>
+        </Animated.View>
+      </GestureHandlerRootView>
     </Overlay>
   );
 }
