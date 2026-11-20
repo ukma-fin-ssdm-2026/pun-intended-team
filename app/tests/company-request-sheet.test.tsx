@@ -1,11 +1,13 @@
 // Written with the help of Claude
 import { describe, expect, jest, test } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { State } from 'react-native-gesture-handler';
 import { fireGestureHandler, getByGestureTestId } from 'react-native-gesture-handler/jest-utils';
 
 import type { ApplicationAnswers } from '@/api/applications';
 import { ageRangeLabel, CompanyRequestSheet } from '@/components/matching/company-request-sheet';
+import { activeTrackFrame, handleOffset } from '@/components/ui/range-slider';
 
 const ANYONE: ApplicationAnswers = {
   desiredCompany: 'company',
@@ -141,6 +143,36 @@ describe('CompanyRequestSheet age slider', () => {
 
     expect(screen.getByText('30 років')).toBeTruthy();
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ ageMin: 30, ageMax: 30 }));
+  });
+});
+
+// "Обраний діапазон": coral from the centre of the min handle to the centre of the max one.
+describe('active track', () => {
+  const frame = (low: number, high: number) =>
+    activeTrackFrame(handleOffset(low, 18, 60, SLIDER_WIDTH), handleOffset(high, 18, 60, SLIDER_WIDTH));
+
+  test('runs from 28 px, 77 px wide, for 20–30 on the 350 px Figma slider', () => {
+    const { left, width } = frame(20, 30);
+
+    expect(Math.round(left)).toBe(28);
+    expect(Math.abs(width - 77)).toBeLessThan(1);
+  });
+
+  test('reaches the centre of the end handle at "60+"', () => {
+    const { left, width } = frame(25, 60);
+
+    expect(left + width).toBeCloseTo(SLIDER_WIDTH - 12, 5);
+  });
+
+  test('has no length when both handles are on one age', () => {
+    expect(frame(30, 30).width).toBe(0);
+  });
+
+  test('is drawn coral over the grey track', async () => {
+    await openSheet({ ...ANYONE, ageMin: 20, ageMax: 30 });
+
+    const style = StyleSheet.flatten(screen.getByTestId('range-slider-active').props.style);
+    expect(style).toMatchObject({ position: 'absolute', backgroundColor: '#DF544A', height: 4 });
   });
 });
 

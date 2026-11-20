@@ -41,6 +41,18 @@ export function moved(
   return handle === 'low' ? [Math.min(clamped, high), high] : [low, Math.max(clamped, low)];
 }
 
+// A handle's offset from the left edge for `value`, on a slider `width` px wide.
+export function handleOffset(value: number, min: number, max: number, width: number): number {
+  'worklet';
+  return ((value - min) / (max - min)) * Math.max(1, width - THUMB);
+}
+
+// "Обраний діапазон": from the centre of the low handle to the centre of the high one, given their offsets.
+export function activeTrackFrame(lowX: number, highX: number): { left: number; width: number } {
+  'worklet';
+  return { left: lowX + THUMB / 2, width: Math.max(0, highX - lowX) };
+}
+
 // Whole steps between `min` and `max`. Each handle follows the finger or the mouse (react-native-gesture-handler, so it
 // works the same on iOS, Android and the web) and takes the drag from the scroll view around it from the first touch;
 // with a screen reader it moves one step at a time. The low handle never passes the high one.
@@ -55,10 +67,9 @@ export function RangeSlider({ min, max, low, high, onChange, labels, valueText }
   const dragging = useSharedValue<Handle | null>(null);
 
   useEffect(() => {
-    const offset = (value: number) => ((value - min) / (max - min)) * travel;
-    if (dragging.get() !== 'low') lowX.set(offset(low));
-    if (dragging.get() !== 'high') highX.set(offset(high));
-  }, [low, high, min, max, travel, lowX, highX, dragging]);
+    if (dragging.get() !== 'low') lowX.set(handleOffset(low, min, max, width));
+    if (dragging.get() !== 'high') highX.set(handleOffset(high, min, max, width));
+  }, [low, high, min, max, width, lowX, highX, dragging]);
 
   const report = (handle: Handle, value: number) => onChange(...moved(handle, value, low, high, min, max));
 
@@ -94,7 +105,7 @@ export function RangeSlider({ min, max, low, high, onChange, labels, valueText }
 
   const lowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: lowX.value }] }));
   const highStyle = useAnimatedStyle(() => ({ transform: [{ translateX: highX.value }] }));
-  const rangeStyle = useAnimatedStyle(() => ({ left: lowX.value + THUMB / 2, width: highX.value - lowX.value }));
+  const rangeStyle = useAnimatedStyle(() => activeTrackFrame(lowX.value, highX.value));
 
   const thumb = (handle: Handle) => {
     const value = handle === 'low' ? low : high;
@@ -139,9 +150,20 @@ export function RangeSlider({ min, max, low, high, onChange, labels, valueText }
         className="absolute left-0 right-0 rounded-sm bg-border-default"
         style={{ top: (THUMB - TRACK) / 2, height: TRACK }}
       />
+      {/* "Обраний діапазон" between the handles. Plain styles: NativeWind maps className only on React Native's own
+          components, not on Animated.View. */}
       <Animated.View
-        className="absolute rounded-sm bg-brand-coral"
-        style={[{ top: (THUMB - TRACK) / 2, height: TRACK }, rangeStyle]}
+        testID="range-slider-active"
+        style={[
+          {
+            position: 'absolute',
+            top: (THUMB - TRACK) / 2,
+            height: TRACK,
+            borderRadius: TRACK / 2,
+            backgroundColor: colors.brand.coral,
+          },
+          rangeStyle,
+        ]}
       />
       {thumb('low')}
       {thumb('high')}
