@@ -80,18 +80,26 @@ const ACTION_SHOULDER: [number, number][] = [
 // The width of "Кнопка / Знайти мені метч" the Figma notch is drawn around.
 export const ACTION_NOTCH_BUTTON_WIDTH = 232;
 
+// "таб бар 2" leaves 2 px of straight top edge between the rounded corner and a notch widened for a longer label.
+const ACTION_NOTCH_MIN_EDGE = 2;
+
 // The notch around a button `buttonWidth` wide: where it leaves the top edge on each side, and the curves and flat
-// bottom between them, left to right. A wider button, such as "Стежити за метчингом", widens the flat bottom by as much
-// on each side, so it keeps the Figma margins to the shoulders. When the notch would run into the rounded corners, the
-// shoulders get steeper instead.
+// bottom between them, left to right. A wider button, such as "Стежити за метчингом" in "таб бар 2", moves the flat
+// bottom and the lower curve out by half the extra width, so the button keeps the Figma margins to them. When the notch
+// would then come closer than 2 px to the rounded corner, the upper curve is drawn in towards the lower one, as "таб бар
+// 2" does at 390 px.
 function actionNotch(width: number, buttonWidth: number) {
   const c = width / 2;
   const extra = Math.max(0, (buttonWidth - ACTION_NOTCH_BUTTON_WIDTH) / 2);
-  const flat = ACTION_NOTCH_FLAT + extra;
-  const room = c - CORNER_RADIUS - flat;
-  const squeeze = Math.max(0, Math.min(1, room / (ACTION_NOTCH_HALF_WIDTH - ACTION_NOTCH_FLAT)));
-  const dx = (offset: number) => flat + (offset - ACTION_NOTCH_FLAT) * squeeze;
-  const point = (side: -1 | 1, [offset, y]: [number, number]) => `${c + side * dx(offset)} ${y}`;
+  const shifted: [number, number][] = ACTION_SHOULDER.map(([offset, y]) => [offset + extra, y]);
+  // The upper curve: from the top edge [start, its two control points] to where the lower curve begins.
+  const [lowerStart] = shifted[2] ?? [0];
+  const start = ACTION_NOTCH_HALF_WIDTH + extra;
+  const limit = c - CORNER_RADIUS - ACTION_NOTCH_MIN_EDGE;
+  const squeeze = start > limit ? Math.max(0, (limit - lowerStart) / (start - lowerStart)) : 1;
+  const drawIn = (offset: number) => lowerStart + (offset - lowerStart) * squeeze;
+  const shoulder: [number, number][] = shifted.map(([offset, y], index) => [index < 2 ? drawIn(offset) : offset, y]);
+  const point = (side: -1 | 1, [offset, y]: [number, number]) => `${c + side * offset} ${y}`;
   const coords = (side: -1 | 1, points: [number, number][]) => points.map((p) => point(side, p)).join(' ');
   // Two cubic curves: three points each.
   const curves = (side: -1 | 1, points: [number, number][]) => [
@@ -99,10 +107,10 @@ function actionNotch(width: number, buttonWidth: number) {
     `C${coords(side, points.slice(3))}`,
   ];
   // The right shoulder runs the same points in reverse: from the flat bottom up to the top edge.
-  const rightShoulder: [number, number][] = [...ACTION_SHOULDER.slice(0, -1).reverse(), [ACTION_NOTCH_HALF_WIDTH, 0]];
+  const rightShoulder: [number, number][] = [...shoulder.slice(0, -1).reverse(), [drawIn(start), 0]];
   return {
-    start: c - dx(ACTION_NOTCH_HALF_WIDTH),
-    commands: [...curves(-1, ACTION_SHOULDER), `H${c + flat}`, ...curves(1, rightShoulder)],
+    start: c - drawIn(start),
+    commands: [...curves(-1, shoulder), `H${c + ACTION_NOTCH_FLAT + extra}`, ...curves(1, rightShoulder)],
   };
 }
 

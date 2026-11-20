@@ -35,6 +35,15 @@ describe('actionBarPath', () => {
   });
 });
 
+// "Форма з вирізом" of "таб бар 2", around the 266 px "Стежити за метчингом", moved out of the export's 18 px padding.
+const FIGMA_WIDE_PATH =
+  'M0 96 V24 C0 10.74 10.74 0 24 0 H26 C51.82 0 49.39 25.11 65.99 49.37 C73.1 57.46 82.73 62 92.78 62 ' +
+  'H297.22 C307.27 62 316.9 57.46 324.01 49.37 C340.61 25.11 338.18 0 364 0 H366 C379.26 0 390 10.74 390 24 V96 Z';
+
+test('actionBarPath draws the "таб бар 2" shape around a 266 px button at 390 px', () => {
+  expect(actionBarPath(390, 96, 266)).toBe(FIGMA_WIDE_PATH);
+});
+
 describe('actionNotchFillPath', () => {
   test('closes the Figma notch along the top edge, so it can be filled white', () => {
     expect(actionNotchFillPath(390)).toBe(

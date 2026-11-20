@@ -20,6 +20,8 @@ const MIN_SAFE_AREA = 34;
 // The 66 px button rises 14 px above the bar's top edge, into the notch.
 const BUTTON_HEIGHT = 66;
 const BUTTON_LIFT = 14;
+// "Кнопка / Знайти мені метч" of "таб бар 2": "Стежити за метчингом" alone, centred on a 266 px pill.
+const LABEL_BUTTON_WIDTH = 266;
 // The button keeps 20 px to the screen edges, as the other bottom buttons do.
 const SIDE_MARGIN = 20;
 
@@ -66,15 +68,18 @@ function GlowPoint({ left, top, size }: { left: number; top: number; size: numbe
 type Props = {
   // "Знайти метч", or the state labels "Стежити за метчингом" and "Відкрити метч".
   label: string;
+  // "таб бар новий": "Знайти метч" with the orbit icon. "таб бар 2": the other labels alone, on a wider pill.
+  icon?: boolean;
   onPress: () => void;
   bottomInset: number;
 };
 
 // The white bar with the notch at the bottom of the event page, and the coral button sitting in the notch.
-export function MatchActionBar({ label, onPress, bottomInset }: Props) {
+export function MatchActionBar({ label, icon = false, onPress, bottomInset }: Props) {
   const [width, setWidth] = useState(0);
-  // "Стежити за метчингом" is wider than "Знайти метч"; the notch is drawn around the button as it is laid out.
-  const [buttonWidth, setButtonWidth] = useState(ACTION_NOTCH_BUTTON_WIDTH);
+  const minButtonWidth = icon ? ACTION_NOTCH_BUTTON_WIDTH : LABEL_BUTTON_WIDTH;
+  // The notch is drawn around the button as it is laid out, so a longer label widens both.
+  const [buttonWidth, setButtonWidth] = useState(minButtonWidth);
   const height = BAR_ABOVE_SAFE_AREA + actionBarSafeArea(bottomInset);
 
   return (
@@ -103,12 +108,12 @@ export function MatchActionBar({ label, onPress, bottomInset }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}>
           {({ pressed }) => (
             <View
-              className={`flex-row items-center justify-center gap-2 rounded-[40px] px-10 ${
+              className={`flex-row items-center justify-center gap-2 rounded-[40px] ${icon ? 'px-10' : 'px-6'} ${
                 pressed ? 'bg-brand-coral-dark' : 'bg-brand-coral'
               }`}
-              style={{ height: BUTTON_HEIGHT, minWidth: ACTION_NOTCH_BUTTON_WIDTH, boxShadow: shadows.matchButton }}
+              style={{ height: BUTTON_HEIGHT, minWidth: minButtonWidth, boxShadow: shadows.matchButton }}
             >
-              <OrbitIcon />
+              {icon && <OrbitIcon />}
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit

@@ -430,6 +430,7 @@ export default function EventScreen() {
 
       <MatchActionBar
         label={match ? 'Відкрити метч' : inPool ? 'Стежити за метчингом' : 'Знайти метч'}
+        icon={!match && !inPool}
         onPress={onAction}
         bottomInset={insets.bottom}
       />
