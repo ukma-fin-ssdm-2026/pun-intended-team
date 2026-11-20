@@ -142,8 +142,8 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
   }
 
-  async findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
-    const rows = await this.prisma.account.findMany({
+  async findDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>> {
+    const rows = await clientOf(this.prisma, tx).account.findMany({
       where: { id: { in: accountIds }, dateOfBirth: { not: null } },
       select: { id: true, dateOfBirth: true },
     });

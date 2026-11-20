@@ -41,7 +41,14 @@ const LATER_SESSION: EventSession = {
 
 const TX = {} as Transaction;
 
-const INPUT: NewApplication = { eventId: EVENT_ID, desiredCompany: 'company', afterEventPlans: ['walk'] };
+const INPUT: NewApplication = {
+  eventId: EVENT_ID,
+  desiredCompany: 'company',
+  afterEventPlans: ['walk'],
+  preferredGender: 'female',
+  ageMin: 20,
+  ageMax: null,
+};
 
 function anApplication(overrides: Partial<Application> = {}): Application {
   return {
@@ -51,6 +58,9 @@ function anApplication(overrides: Partial<Application> = {}): Application {
     sessionIds: [SESSION_ID],
     desiredCompany: 'company',
     afterEventPlans: ['walk'],
+    preferredGender: 'any',
+    ageMin: 18,
+    ageMax: null,
     status: 'in_pool',
     createdAt: NOW.toISOString(),
     ...overrides,
@@ -127,6 +137,9 @@ describe('ApplicationsService.apply', () => {
       sessionIds: [SESSION_ID, LATER_SESSION_ID],
       desiredCompany: 'company',
       afterEventPlans: ['walk'],
+      preferredGender: 'female',
+      ageMin: 20,
+      ageMax: null,
     });
     assert.equal(application.eventId, EVENT_ID);
     assert.deepEqual(application.sessions, [

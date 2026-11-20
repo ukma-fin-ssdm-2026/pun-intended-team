@@ -925,6 +925,17 @@ components:
           description: >-
             What the user would do together after the event; empty: only the
             event
+        preferredGender:
+          $ref: '#/components/schemas/GenderPreference'
+        ageMin:
+          type: integer
+          description: The youngest age of whom the user wants to go with, in whole years
+        ageMax:
+          type: integer
+          nullable: true
+          description: >-
+            The oldest age of whom the user wants to go with; null: no upper
+            bound
         status:
           $ref: '#/components/schemas/ApplicationStatus'
         nextRoundAt:
@@ -944,6 +955,9 @@ components:
         - cutoffAt
         - desiredCompany
         - afterEventPlans
+        - preferredGender
+        - ageMin
+        - ageMax
         - status
         - nextRoundAt
         - createdAt
@@ -961,6 +975,9 @@ components:
         afterEventPlans:
           - walk
           - coffee
+        preferredGender: any
+        ageMin: 20
+        ageMax: 30
         status: in_pool
         nextRoundAt: '2026-10-21T16:00:00.000Z'
         createdAt: '2026-10-15T09:00:00.000Z'
@@ -998,6 +1015,15 @@ components:
         - coffee
         - dinner
       description: Something to do together after the event
+    GenderPreference:
+      type: string
+      enum:
+        - any
+        - female
+        - male
+      description: >-
+        Whom the user wants to go with: `any` accepts every gender, including
+        `other`; `female` and `male` only that gender
     ApplicationStatus:
       type: string
       enum:
@@ -1043,6 +1069,31 @@ components:
           description: >-
             What the user would do together after the event; an empty list means
             only the event
+        preferredGender:
+          type: string
+          enum:
+            - any
+            - female
+            - male
+          default: any
+          description: >-
+            Whom the user wants to go with; matching pairs two users only if
+            each fits the other’s preferences
+        ageMin:
+          type: integer
+          minimum: 18
+          maximum: 120
+          default: 18
+          description: The youngest age of whom the user wants to go with, 18 or more
+        ageMax:
+          type: integer
+          nullable: true
+          minimum: 18
+          maximum: 120
+          default: null
+          description: >-
+            The oldest age of whom the user wants to go with, at least ageMin;
+            null or left out: no upper bound
       required:
         - desiredCompany
         - afterEventPlans
@@ -1052,6 +1103,9 @@ components:
         afterEventPlans:
           - walk
           - coffee
+        preferredGender: any
+        ageMin: 20
+        ageMax: 30
     ApplicationList:
       type: array
       items:
@@ -1069,6 +1123,9 @@ components:
           afterEventPlans:
             - walk
             - coffee
+          preferredGender: any
+          ageMin: 20
+          ageMax: 30
           status: in_pool
           nextRoundAt: '2026-10-21T16:00:00.000Z'
           createdAt: '2026-10-15T09:00:00.000Z'
@@ -1881,6 +1938,21 @@ components:
             - company
             - null
           description: Null until the user picks one
+        gender:
+          type: string
+          nullable: true
+          enum:
+            - female
+            - male
+            - other
+            - null
+          description: Null until the user picks one; matching needs it
+        genderDescription:
+          type: string
+          nullable: true
+          description: >-
+            The user’s own words for the gender `other`; null for any other
+            gender
         sharePhone:
           type: boolean
           description: Whether the phone number is revealed on a mutual match
@@ -1901,14 +1973,16 @@ components:
         isComplete:
           type: boolean
           description: >-
-            True once communicationFormat, at least one interest and at least
-            one linked account are set; matching needs all three
+            True once communicationFormat, gender, at least one interest and at
+            least one linked account are set; matching needs all four
       required:
         - username
         - displayName
         - description
         - occupation
         - communicationFormat
+        - gender
+        - genderDescription
         - sharePhone
         - age
         - interests
@@ -1921,6 +1995,8 @@ components:
         description: Cinema, galleries and long walks.
         occupation: Student at Kyiv-Mohyla Academy
         communicationFormat: friends
+        gender: female
+        genderDescription: null
         sharePhone: true
         age: 28
         interests:
@@ -1978,6 +2054,15 @@ components:
           description: What the user does, e.g. their studies or work; can be empty
         communicationFormat:
           $ref: '#/components/schemas/CommunicationFormat'
+        gender:
+          $ref: '#/components/schemas/Gender'
+        genderDescription:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: >-
+            The user’s own words for the gender `other`; required with it and
+            refused with any other gender
         sharePhone:
           type: boolean
           description: Whether the phone number is revealed on a mutual match
@@ -1985,6 +2070,15 @@ components:
       description: Only the fields to change; at least one
       example:
         communicationFormat: friends
+    Gender:
+      type: string
+      enum:
+        - female
+        - male
+        - other
+      description: >-
+        The user’s gender; `other` comes with `genderDescription`, the user’s
+        own words for it
     ReplaceInterestsBody:
       type: object
       properties:

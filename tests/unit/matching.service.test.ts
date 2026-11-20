@@ -16,7 +16,7 @@ import type { Match, MatchRecord, MatchStatus, NewMatch } from '../../dist/core/
 import type { ModerationService } from '../../dist/core/moderation/services/moderation.service.js';
 import type { MatchingExclusions } from '../../dist/core/moderation/types/report.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
-import type { Interest } from '../../dist/core/profiles/types/profile.js';
+import type { Interest, MatchingTraits } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 import { EVENT_ID } from './fixtures/catalog.ts';
 import { NOW, useFixedClock } from './fixtures/clock.ts';
@@ -50,6 +50,9 @@ function anApplication(overrides: Partial<Application> = {}): Application {
     sessionIds: [SESSION_ID],
     desiredCompany: 'company',
     afterEventPlans: [],
+    preferredGender: 'any',
+    ageMin: 18,
+    ageMax: null,
     status: 'in_pool',
     createdAt: NOW.toISOString(),
     ...overrides,
@@ -59,8 +62,12 @@ function anApplication(overrides: Partial<Application> = {}): Application {
 const NEWCOMER = anApplication();
 const WAITING = anApplication({ userId: OTHER_ACCOUNT_ID });
 
-/** The pool is `pool`; every user in it likes jazz and nobody is excluded. */
-function makeService({ pool = [NEWCOMER, WAITING] }: { pool?: Application[] } = {}) {
+/** The pool is `pool`; every user in it likes jazz, is a 25-year-old woman unless `traits` says otherwise, and nobody
+ * is excluded. */
+function makeService({
+  pool = [NEWCOMER, WAITING],
+  traits = () => ({ interests: [JAZZ], gender: 'female', age: 25 }),
+}: { pool?: Application[]; traits?: (userId: string) => MatchingTraits } = {}) {
   const calls: string[] = [];
   const matchesRepository = {
     count: mock.fn(() => Promise.resolve(3)),
@@ -111,8 +118,10 @@ function makeService({ pool = [NEWCOMER, WAITING] }: { pool?: Application[] } = 
     ),
   };
   const profilesService = {
-    getInterests: mock.fn((userIds: string[]) =>
-      Promise.resolve(new Map(userIds.map((userId): [string, Interest[]] => [userId, [JAZZ]]))),
+    getMatchingTraits: mock.fn<
+      (userIds: string[], day: string, tx?: Transaction) => Promise<Map<string, MatchingTraits>>
+    >((userIds) =>
+      Promise.resolve(new Map(userIds.map((userId): [string, MatchingTraits] => [userId, traits(userId)]))),
     ),
   };
   const moderationService = {
@@ -246,8 +255,41 @@ describe('MatchingService.matchOnApply', () => {
 
     await service.matchOnApply(NEWCOMER);
 
-    assert.equal(profilesService.getInterests.mock.calls[0]?.arguments[1], TX);
+    assert.equal(profilesService.getMatchingTraits.mock.calls[0]?.arguments[2], TX);
     assert.equal(eventSessionsService.getByIds.mock.calls[0]?.arguments[1], TX);
+  });
+
+  test('takes the ages on the Kyiv day of the first day the application waits on', async () => {
+    const { service, profilesService } = makeService();
+
+    await service.matchOnApply(anApplication({ sessionIds: [LATER_SESSION_ID, SESSION_ID] }));
+
+    assert.equal(profilesService.getMatchingTraits.mock.calls[0]?.arguments[1], '2026-10-25');
+  });
+
+  // matching.md, policy: whom each wants to go with
+  test('proposes nothing when the partner is not whom the newcomer wants to go with', async () => {
+    const newcomer = anApplication({ preferredGender: 'male' });
+    const { service, matchesRepository } = makeService({
+      pool: [newcomer, WAITING],
+      traits: (userId) => ({ interests: [JAZZ], gender: userId === ACCOUNT_ID ? 'male' : 'female', age: 25 }),
+    });
+
+    const proposed = await service.matchOnApply(newcomer);
+
+    assert.equal(proposed, false);
+    assert.equal(matchesRepository.propose.mock.callCount(), 0);
+  });
+
+  test('proposes nothing when the newcomer is outside the age range the partner asked for', async () => {
+    const { service, matchesRepository } = makeService({
+      pool: [NEWCOMER, anApplication({ userId: OTHER_ACCOUNT_ID, ageMin: 30, ageMax: 40 })],
+    });
+
+    const proposed = await service.matchOnApply(NEWCOMER);
+
+    assert.equal(proposed, false);
+    assert.equal(matchesRepository.propose.mock.callCount(), 0);
   });
 
   test('reads the pool of every day the application waits on', async () => {
@@ -321,7 +363,9 @@ describe('MatchingService.matchOnApply', () => {
 
   test('leaves out a user without a profile', async () => {
     const { service, profilesService, matchesRepository } = makeService();
-    profilesService.getInterests.mock.mockImplementation(() => Promise.resolve(new Map([[ACCOUNT_ID, [JAZZ]]])));
+    profilesService.getMatchingTraits.mock.mockImplementation(() =>
+      Promise.resolve(new Map([[ACCOUNT_ID, { interests: [JAZZ], gender: 'female' as const, age: 25 }]])),
+    );
 
     await service.matchOnApply(NEWCOMER);
 
@@ -442,6 +486,27 @@ describe('MatchingService.runRound', () => {
         .sort(),
     );
     assert.ok(proposals.every(({ source }) => source === 'round'));
+  });
+
+  test('takes the ages on the Kyiv day of the session', async () => {
+    const { service, profilesService } = makeService();
+
+    await service.runRound(LATER_SESSION_ID);
+
+    assert.equal(profilesService.getMatchingTraits.mock.calls[0]?.arguments[1], '2026-10-26');
+  });
+
+  // matching.md, policy: whom each wants to go with, mutually
+  test('never proposes a pair where one is not whom the other wants to go with', async () => {
+    const man = anApplication({ userId: THIRD_ACCOUNT_ID, preferredGender: 'female' });
+    const { service, matchesRepository } = makeService({
+      pool: [anApplication({ preferredGender: 'female' }), man],
+      traits: (userId) => ({ interests: [JAZZ], gender: userId === THIRD_ACCOUNT_ID ? 'male' : 'female', age: 25 }),
+    });
+
+    await service.runRound(SESSION_ID);
+
+    assert.equal(matchesRepository.propose.mock.callCount(), 0);
   });
 
   test('ends a proposal at the next round on a day the two share', async () => {

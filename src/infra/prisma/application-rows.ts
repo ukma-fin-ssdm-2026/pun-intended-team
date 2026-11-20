@@ -24,6 +24,9 @@ export function toApplication(row: ApplicationWithDaysAndPlans): Application {
     afterEventPlans: row.afterEventPlans
       .map(({ plan }) => plan)
       .sort((a, b) => afterEventPlans.indexOf(a) - afterEventPlans.indexOf(b)),
+    preferredGender: row.preferredGender,
+    ageMin: row.ageMin,
+    ageMax: row.ageMax,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };

@@ -1,8 +1,8 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { afterEventPlans } from '../../../core/matching/types/application.ts';
+import { afterEventPlans, MIN_PREFERRED_AGE } from '../../../core/matching/types/application.ts';
 import { CalendarDate, Id } from '../../common/schemas/common.ts';
-import { CommunicationFormat } from '../../profiles/schemas/profiles.ts';
+import { CommunicationFormat, GenderPreference } from '../../profiles/schemas/profiles.ts';
 
 export const AfterEventPlan = z
   .enum(afterEventPlans)
@@ -23,6 +23,11 @@ const AfterEventPlans = z
   .max(afterEventPlans.length)
   .refine((plans) => new Set(plans).size === plans.length, { message: 'Each plan may appear once' })
   .describe('What the user would do together after the event; an empty list means only the event');
+
+// Above any real age: the app's slider tops out at 60, "60+", which it sends as no upper bound.
+const MAX_PREFERRED_AGE = 120;
+
+const PreferredAge = z.number().int().min(MIN_PREFERRED_AGE).max(MAX_PREFERRED_AGE);
 
 export const ApplicationSession = z
   .object({
@@ -52,6 +57,13 @@ const ApplicationFields = z.object({
   afterEventPlans: z
     .array(AfterEventPlan)
     .describe('What the user would do together after the event; empty: only the event'),
+  preferredGender: GenderPreference,
+  ageMin: z.number().int().describe('The youngest age of whom the user wants to go with, in whole years'),
+  ageMax: z
+    .number()
+    .int()
+    .nullable()
+    .describe('The oldest age of whom the user wants to go with; null: no upper bound'),
   status: ApplicationStatus,
   nextRoundAt: z.iso
     .datetime({ offset: true })
@@ -72,6 +84,9 @@ export const applicationExample: Application = {
   cutoffAt: '2026-10-25T16:00:00.000Z',
   desiredCompany: 'company',
   afterEventPlans: ['walk', 'coffee'],
+  preferredGender: 'any',
+  ageMin: 20,
+  ageMax: 30,
   status: 'in_pool',
   nextRoundAt: '2026-10-21T16:00:00.000Z',
   createdAt: '2026-10-15T09:00:00.000Z',
@@ -92,24 +107,41 @@ export const ApplicationIdParams = z.object({
 // A year of days: the most sessions the app lists for one event.
 const MAX_DAYS = 366;
 
-const CreateApplicationFields = z.strictObject({
-  dates: z
-    .array(CalendarDate)
-    .min(1)
-    .max(MAX_DAYS)
-    .refine((dates) => new Set(dates).size === dates.length, { message: 'Each day may appear once' })
-    .optional()
-    .describe(
-      'The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several ' +
-        'days. Each lies within the catalog window: today and the next 28 days',
+const CreateApplicationFields = z
+  .strictObject({
+    dates: z
+      .array(CalendarDate)
+      .min(1)
+      .max(MAX_DAYS)
+      .refine((dates) => new Set(dates).size === dates.length, { message: 'Each day may appear once' })
+      .optional()
+      .describe(
+        'The Kyiv days the user can go on, any one of which suits them; needed only for an event that runs on several ' +
+          'days. Each lies within the catalog window: today and the next 28 days',
+      ),
+    desiredCompany: CommunicationFormat.describe('What kind of company the user is looking for at this event'),
+    afterEventPlans: AfterEventPlans,
+    preferredGender: GenderPreference.default('any').describe(
+      'Whom the user wants to go with; matching pairs two users only if each fits the other’s preferences',
     ),
-  desiredCompany: CommunicationFormat.describe('What kind of company the user is looking for at this event'),
-  afterEventPlans: AfterEventPlans,
-});
+    ageMin: PreferredAge.default(MIN_PREFERRED_AGE).describe(
+      'The youngest age of whom the user wants to go with, 18 or more',
+    ),
+    ageMax: PreferredAge.nullable()
+      .default(null)
+      .describe('The oldest age of whom the user wants to go with, at least ageMin; null or left out: no upper bound'),
+  })
+  .refine((body) => body.ageMax === null || body.ageMax >= body.ageMin, {
+    message: 'ageMax must be at least ageMin',
+    path: ['ageMax'],
+  });
 
 export const createApplicationExample: CreateApplicationBody = {
   desiredCompany: 'company',
   afterEventPlans: ['walk', 'coffee'],
+  preferredGender: 'any',
+  ageMin: 20,
+  ageMax: 30,
 };
 
 export const CreateApplicationBody = CreateApplicationFields.meta({

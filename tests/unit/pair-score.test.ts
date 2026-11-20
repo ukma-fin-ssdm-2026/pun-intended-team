@@ -1,8 +1,9 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { canPair, pairScore } from '../../dist/core/matching/services/pair-score.js';
+import { accepts, canPair, pairScore } from '../../dist/core/matching/services/pair-score.js';
 import type { PoolMember } from '../../src/core/matching/types/matching.ts';
+import { ACCEPTS_ANYONE } from './fixtures/matching.ts';
 
 const JAZZ = { id: 'jazz', group: 'music' };
 const INDIE = { id: 'indie', group: 'music' };
@@ -18,6 +19,7 @@ function aMember(overrides: Partial<PoolMember> = {}): PoolMember {
     desiredCompany: 'company',
     afterEventPlans: [],
     sessionIds: ['day-1'],
+    ...ACCEPTS_ANYONE,
     ...overrides,
   };
 }
@@ -61,11 +63,137 @@ describe('canPair', () => {
       b: { sessionIds: ['day-2'] },
       expected: false,
     },
+    {
+      title: 'pairs a woman and a man who each want the other’s gender',
+      a: { gender: 'female', preferredGender: 'male' },
+      b: { gender: 'male', preferredGender: 'female' },
+      expected: true,
+    },
+    {
+      title: 'does not pair when the first does not want the second’s gender',
+      a: { gender: 'female', preferredGender: 'female' },
+      b: { gender: 'male', preferredGender: 'any' },
+      expected: false,
+    },
+    {
+      title: 'does not pair when the second does not want the first’s gender',
+      a: { gender: 'male', preferredGender: 'any' },
+      b: { gender: 'female', preferredGender: 'female' },
+      expected: false,
+    },
+    {
+      title: 'does not pair when the second is outside the first’s age range',
+      a: { ageMin: 30, ageMax: 40 },
+      b: { age: 25 },
+      expected: false,
+    },
+    {
+      title: 'does not pair when the first is outside the second’s age range',
+      a: { age: 25 },
+      b: { ageMin: 30, ageMax: 40 },
+      expected: false,
+    },
   ];
 
   for (const { title, a, b, expected } of cases) {
     test(title, () => {
       assert.equal(canPair(aMember(a), aMember(b)), expected);
+    });
+  }
+});
+
+// matching.md, policy: whom a user wants to go with; canPair checks it both ways.
+describe('accepts', () => {
+  const cases: { title: string; member: Partial<PoolMember>; other: Partial<PoolMember>; expected: boolean }[] = [
+    { title: '"any" accepts a woman', member: { preferredGender: 'any' }, other: { gender: 'female' }, expected: true },
+    { title: '"any" accepts a man', member: { preferredGender: 'any' }, other: { gender: 'male' }, expected: true },
+    { title: '"any" accepts "other"', member: { preferredGender: 'any' }, other: { gender: 'other' }, expected: true },
+    {
+      title: '"any" accepts a profile without a gender yet',
+      member: { preferredGender: 'any' },
+      other: { gender: null },
+      expected: true,
+    },
+    {
+      title: '"female" accepts a woman',
+      member: { preferredGender: 'female' },
+      other: { gender: 'female' },
+      expected: true,
+    },
+    {
+      title: '"female" refuses a man',
+      member: { preferredGender: 'female' },
+      other: { gender: 'male' },
+      expected: false,
+    },
+    {
+      title: '"female" refuses "other"',
+      member: { preferredGender: 'female' },
+      other: { gender: 'other' },
+      expected: false,
+    },
+    { title: '"male" accepts a man', member: { preferredGender: 'male' }, other: { gender: 'male' }, expected: true },
+    {
+      title: '"male" refuses a woman',
+      member: { preferredGender: 'male' },
+      other: { gender: 'female' },
+      expected: false,
+    },
+    {
+      title: '"male" refuses "other"',
+      member: { preferredGender: 'male' },
+      other: { gender: 'other' },
+      expected: false,
+    },
+    {
+      title: '"male" refuses a profile without a gender',
+      member: { preferredGender: 'male' },
+      other: { gender: null },
+      expected: false,
+    },
+    {
+      title: 'accepts exactly the youngest age',
+      member: { ageMin: 25, ageMax: 30 },
+      other: { age: 25 },
+      expected: true,
+    },
+    { title: 'accepts exactly the oldest age', member: { ageMin: 25, ageMax: 30 }, other: { age: 30 }, expected: true },
+    {
+      title: 'refuses a year below the range',
+      member: { ageMin: 25, ageMax: 30 },
+      other: { age: 24 },
+      expected: false,
+    },
+    {
+      title: 'refuses a year above the range',
+      member: { ageMin: 25, ageMax: 30 },
+      other: { age: 31 },
+      expected: false,
+    },
+    {
+      title: 'accepts any age above the youngest without an upper bound ("60+")',
+      member: { ageMin: 60, ageMax: null },
+      other: { age: 87 },
+      expected: true,
+    },
+  ];
+
+  for (const { title, member, other, expected } of cases) {
+    test(title, () => {
+      assert.equal(accepts(aMember(member), aMember(other)), expected);
+    });
+  }
+});
+
+// A user whose gender is "other" goes only with those who accept anyone.
+describe('canPair with the gender "other"', () => {
+  test('pairs with someone who accepts anyone', () => {
+    assert.equal(canPair(aMember({ gender: 'other' }), aMember({ preferredGender: 'any' })), true);
+  });
+
+  for (const preferredGender of ['female', 'male'] as const) {
+    test(`does not pair with someone who wants "${preferredGender}"`, () => {
+      assert.equal(canPair(aMember({ gender: 'other' }), aMember({ gender: preferredGender, preferredGender })), false);
     });
   }
 });

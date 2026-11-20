@@ -36,7 +36,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 ## 3. Functional Requirements (FR)
 **Registration & Profile**
 - FR-001: The system shall allow a user to register an account and authenticate on subsequent visits.
-- FR-002: The system shall allow a user to create and edit a profile, including age, description, photo, interests, and desired communication format (friends / dating / company for an event). (US-003)
+- FR-002: The system shall allow a user to create and edit a profile, including age, gender (female / male / other, with the user's own description for other), description, photo, interests, and desired communication format (friends / dating / company for an event). (US-003)
 - FR-003: The system shall allow a registered user to request organization/venue status, and shall let that account publish events only after the team has verified it.
 - FR-004: A profile in progress shall be saved when the user leaves the screen and restored when they return. (US-003)
 - FR-005: Registration is verified by a one-time code sent to the phone number given at registration — through Telegram, or by SMS if Telegram delivery is not possible — and the account is activated once the user enters it.
@@ -55,7 +55,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 
 **Matching**
 - FR-016: The system shall allow a user to select an event they intend to attend. (US-009)
-- FR-017: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. Matching runs in scheduled rounds before the event; an exceptionally good pair is matched as soon as the second user selects the event. (US-009)
+- FR-017: The system shall match a user with another user who selected the same event, prioritizing the highest overlap of stated interests. Two users are matched only if each fits the gender (any / women / men) and age range the other asked for. Matching runs in scheduled rounds before the event; an exceptionally good pair is matched as soon as the second user selects the event. (US-009)
 - FR-018: The system shall correctly handle the case where no suitable match is currently available, without error: it shall tell the user when the next matching round runs and let them choose to keep waiting in the pool, select a different event (FR-016), or create a listing (FR-021). If no match is found by the matching cutoff before the event, the user shall be notified. (US-009)
 - FR-019: The system shall show each proposed match only the other participant's profile, without contact details; contact details shall be revealed to both participants only after both have explicitly approved the match, and shall not be revealed if either participant declines. (US-009)
 - FR-020: The matching algorithm shall exclude from a user's candidate set the user themselves, banned accounts, users they have reported, and candidates with whom a proposal for this event was declined or expired; these exclusions last until the event ends. If exclusion empties the set, FR-018 applies. (US-009)

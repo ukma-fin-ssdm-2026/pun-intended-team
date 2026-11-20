@@ -40,6 +40,9 @@ describe('ageOn', () => {
 });
 
 const DATE_OF_BIRTH = '2000-05-17';
+// The day of an event, and DATE_OF_BIRTH's 26th birthday.
+const EVENT_DAY = '2026-04-30';
+const BIRTHDAY_2026 = '2026-05-17';
 const HIKING: Interest = {
   id: 'f0000000-0000-4000-8000-000000000001',
   name: 'Походи в гори',
@@ -56,6 +59,8 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     description: '',
     occupation: '',
     communicationFormat: null,
+    gender: null,
+    genderDescription: null,
     sharePhone: false,
     interestIds: [],
     linkedAccounts: [],
@@ -123,35 +128,44 @@ describe('ProfilesService.getSummaries', () => {
   });
 });
 
-describe('ProfilesService.getInterests', () => {
-  test('gives each account its chosen interests with their headings, in the order of the list', async () => {
+describe('ProfilesService.getMatchingTraits', () => {
+  test('gives each account its interests in the order of the list, its gender and its age on the day', async () => {
     const { service, profilesRepository } = makeService();
     profilesRepository.findByAccountIds.mock.mockImplementation(() =>
       Promise.resolve([
-        aProfile({ interestIds: [JAZZ.id, HIKING.id] }),
-        aProfile({ accountId: OTHER_ACCOUNT_ID, interestIds: [JAZZ.id] }),
+        aProfile({ interestIds: [JAZZ.id, HIKING.id], gender: 'female' }),
+        aProfile({ accountId: OTHER_ACCOUNT_ID, interestIds: [JAZZ.id], gender: null }),
       ]),
     );
 
-    const interests = await service.getInterests([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+    const traits = await service.getMatchingTraits([ACCOUNT_ID, OTHER_ACCOUNT_ID], EVENT_DAY);
 
     assert.deepEqual(
-      interests,
+      traits,
       new Map([
-        [ACCOUNT_ID, [HIKING, JAZZ]],
-        [OTHER_ACCOUNT_ID, [JAZZ]],
+        [ACCOUNT_ID, { interests: [HIKING, JAZZ], gender: 'female', age: ageOn(EVENT_DAY, DATE_OF_BIRTH) }],
+        [OTHER_ACCOUNT_ID, { interests: [JAZZ], gender: null, age: ageOn(EVENT_DAY, DATE_OF_BIRTH) }],
       ]),
     );
   });
 
+  test('counts a birthday on the day of the event', async () => {
+    const { service } = makeService();
+
+    const traits = await service.getMatchingTraits([ACCOUNT_ID], BIRTHDAY_2026);
+
+    assert.equal(traits.get(ACCOUNT_ID)?.age, 26);
+  });
+
   test('reads each account once when the list repeats one, in the caller’s transaction', async () => {
-    const { service, profilesRepository, interestsRepository } = makeService();
+    const { service, profilesRepository, interestsRepository, accountsService } = makeService();
     const tx = {} as Transaction;
 
-    await service.getInterests([ACCOUNT_ID, ACCOUNT_ID], tx);
+    await service.getMatchingTraits([ACCOUNT_ID, ACCOUNT_ID], EVENT_DAY, tx);
 
     assert.deepEqual(profilesRepository.findByAccountIds.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
     assert.deepEqual(interestsRepository.findAll.mock.calls[0]?.arguments, [tx]);
+    assert.deepEqual(accountsService.getDatesOfBirth.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
   });
 });
 
@@ -279,9 +293,21 @@ describe('ProfilesService.getOwn', () => {
 
 // FR-002
 describe('ProfilesService.isComplete', () => {
-  const complete = { communicationFormat: 'friends' as const, interestIds: [HIKING.id], linkedAccounts: [TELEGRAM] };
+  const complete = {
+    communicationFormat: 'friends' as const,
+    gender: 'male' as const,
+    interestIds: [HIKING.id],
+    linkedAccounts: [TELEGRAM],
+  };
   const cases = [
-    { title: 'is true with a format, an interest and a network', profile: aProfile(complete), result: true },
+    { title: 'is true with a format, a gender, an interest and a network', profile: aProfile(complete), result: true },
+    {
+      title: 'is true with the gender "other" and its description',
+      profile: aProfile({ ...complete, gender: 'other', genderDescription: 'Небінарна людина' }),
+      result: true,
+    },
+    // Profiles made before genders were asked: matching needs one.
+    { title: 'is false without a gender', profile: aProfile({ ...complete, gender: null }), result: false },
     {
       title: 'is false without a format',
       profile: aProfile({ ...complete, communicationFormat: null }),
@@ -343,6 +369,27 @@ describe('ProfilesService.update', () => {
     assert.equal(profile.username, 'Natalka.Park');
   });
 
+  test('saves the gender "other" with its description', async () => {
+    const { service, profilesRepository } = makeService();
+    const changes: ProfileChanges = { gender: 'other', genderDescription: 'Небінарна людина' };
+
+    const profile = await service.update(ACCOUNT_ID, changes);
+
+    assert.deepEqual(profilesRepository.update.mock.calls[0]?.arguments, [ACCOUNT_ID, changes]);
+    assert.equal(profile.genderDescription, 'Небінарна людина');
+  });
+
+  test('drops a description sent with a gender other than "other"', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await service.update(ACCOUNT_ID, { gender: 'female', genderDescription: 'Жінка' });
+
+    assert.deepEqual(profilesRepository.update.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      { gender: 'female', genderDescription: undefined },
+    ]);
+  });
+
   test('does not check the username when it is not changed', async () => {
     const { service, profilesRepository } = makeService();
 
@@ -378,13 +425,12 @@ describe('ProfilesService.update', () => {
 });
 
 describe('ProfilesService.replaceInterests', () => {
-  test('saves each interest once and completes a profile with a communication format and a network', async () => {
+  test('saves each interest once and completes a profile with a format, a gender and a network', async () => {
     const { service, profilesRepository } = makeService();
-    profilesRepository.findByAccountId.mock.mockImplementation(() =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM] })),
-    );
+    const rest = { communicationFormat: 'friends' as const, gender: 'female' as const, linkedAccounts: [TELEGRAM] };
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(aProfile(rest)));
     profilesRepository.replaceInterests.mock.mockImplementation((_accountId: string, interestIds: string[]) =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM], interestIds })),
+      Promise.resolve(aProfile({ ...rest, interestIds })),
     );
 
     const profile = await service.replaceInterests(ACCOUNT_ID, [HIKING.id, JAZZ.id, HIKING.id]);
