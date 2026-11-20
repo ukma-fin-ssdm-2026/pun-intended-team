@@ -94,3 +94,18 @@ describe('EventScreen "Квитки та деталі"', () => {
     expect(screen.queryByText('Квитки та деталі')).toBeNull();
   });
 });
+
+// "02.1 Назва і категорія" takes the height of its title, so a one-line title leaves no gap above "Про подію".
+describe('EventScreen title block', () => {
+  for (const title of ['Я — Мамай', 'Джаз-вечір у Мистецькому Арсеналі з квартетом і гостями з Варшави']) {
+    test(`has no fixed height for "${title}"`, async () => {
+      await showEvent({ title });
+
+      const block = screen.getByRole('header', { name: title }).parent;
+      const classes: string[] = block?.props.className?.split(' ') ?? [];
+      expect(classes).toContain('gap-2.5');
+      expect(classes.filter((name) => /^h-/.test(name))).toEqual([]);
+      expect(block?.props.style?.height).toBeUndefined();
+    });
+  }
+});

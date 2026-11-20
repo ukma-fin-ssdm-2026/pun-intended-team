@@ -329,9 +329,9 @@ export default function EventScreen() {
               <View className="h-1 w-10 rounded-sm bg-border-default" />
             </View>
 
-            {/* Figma fixes this block at 84 px: a two-line title runs 11 px into the gap below, so the next block
-                starts where it does in the frame. */}
-            <View className="h-[84px] items-start gap-2.5">
+            {/* "02.1 Назва і категорія": as tall as its content, so a title of one, two or three lines is followed by the
+                sheet's 20 px gap to "Про подію"; the chips and the title are 10 px apart. */}
+            <View className="items-start gap-2.5">
               <View className="flex-row items-center gap-2.5">
                 <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
                   <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
