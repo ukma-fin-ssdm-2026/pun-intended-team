@@ -13,6 +13,7 @@ import { failureSnackbar } from '@/auth/messages';
 import { GuestDialog } from '@/components/guest-dialog';
 import { CompanyRequestSheet } from '@/components/matching/company-request-sheet';
 import { DayPickerSheet } from '@/components/matching/day-picker-sheet';
+import { actionBarReach, MatchActionBar } from '@/components/matching/match-action-bar';
 import { ProfileIncompleteDialog } from '@/components/matching/profile-incomplete-dialog';
 import { Button } from '@/components/ui/button';
 import { coverOf, EventCover } from '@/components/ui/event-cover';
@@ -43,10 +44,8 @@ const SHEET_OVERLAP = 28;
 const GLASS_BUTTON_SIZE = 40;
 // Scrolled up, the sheet stops this far below the buttons, so they always stand on the cover.
 const SHEET_GAP_BELOW_ACTIONS = 12;
-// "03 Дія": padding 16 / 20 / 34 / 20 around the 52 px button; a larger bottom inset replaces the 34 px.
-const ACTION_BAR_TOP = 16;
-const ACTION_BAR_BOTTOM = 34;
-const BUTTON_HEIGHT = 52;
+// The sheet's content ends this far above the button of the action bar.
+const GAP_ABOVE_ACTION = 28;
 // Longer descriptions are cut at the last word within 105 characters and end with "… Читати далі", which gives the
 // Figma text for the jazz evening.
 const DESCRIPTION_PREVIEW = 105;
@@ -248,11 +247,9 @@ export default function EventScreen() {
   const sourceUrl = liveEvent?.sourceUrl;
   const cut = preview(event.description);
   const short = expanded ? undefined : cut;
-  const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
   const actionsTop = Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR);
   const sheetStop = actionsTop + GLASS_BUTTON_SIZE + SHEET_GAP_BELOW_ACTIONS;
-  // 130 px in Figma: the 102 px action bar and the 28 px overlap.
-  const sheetBottomPadding = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding + SHEET_OVERLAP;
+  const sheetBottomPadding = actionBarReach(insets.bottom) + GAP_ABOVE_ACTION;
 
   const openSearch = () => router.push({ pathname: '/events/[id]/search', params: { id: event.id } });
 
@@ -418,16 +415,11 @@ export default function EventScreen() {
         />
       </View>
 
-      <View
-        className="absolute bottom-0 left-0 right-0 items-center bg-surface-card px-5"
-        style={{ paddingTop: ACTION_BAR_TOP, paddingBottom: bottomPadding }}
-      >
-        <Button
-          label={match ? 'Відкрити метч' : inPool ? 'Стежити за метчингом' : 'Знайти мені метч'}
-          variant="dark"
-          onPress={onAction}
-        />
-      </View>
+      <MatchActionBar
+        label={match ? 'Відкрити метч' : inPool ? 'Стежити за метчингом' : 'Знайти метч'}
+        onPress={onAction}
+        bottomInset={insets.bottom}
+      />
 
       <DayPickerSheet
         key={`days-${dayOpen}`}

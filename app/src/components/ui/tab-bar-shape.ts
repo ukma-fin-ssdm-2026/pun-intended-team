@@ -60,3 +60,53 @@ export function tabBarPath(width: number, center: number, height = BAR_HEIGHT): 
   ];
   return commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
 }
+
+// "Форма з вирізом" of "таб бар новий" (the event page's action bar): a wide notch, 62 px deep with a 170 px flat
+// bottom, that holds the "Знайти метч" button. Its points are offsets from the bar's centre, taken from Figma at
+// 390 px; the straight parts stretch with the screen width.
+const ACTION_NOTCH_DEPTH = 62;
+const ACTION_NOTCH_FLAT = 85.22;
+const ACTION_NOTCH_HALF_WIDTH = 163.35;
+// The shoulder from the top edge into the notch, as [x offset, y] pairs: two cubic curves.
+const ACTION_SHOULDER: [number, number][] = [
+  [130.2, 0],
+  [133.32, 25.11],
+  [112.01, 49.37],
+  [104.9, 57.46],
+  [95.27, ACTION_NOTCH_DEPTH],
+  [ACTION_NOTCH_FLAT, ACTION_NOTCH_DEPTH],
+];
+
+// The path of the action bar, in bar coordinates (0..width × 0..height). On a screen narrower than 390 px the
+// shoulders get steeper, so the notch never runs into the rounded corners.
+export function actionBarPath(width: number, height: number): string {
+  const c = width / 2;
+  const room = c - CORNER_RADIUS - ACTION_NOTCH_FLAT;
+  const squeeze = Math.min(1, room / (ACTION_NOTCH_HALF_WIDTH - ACTION_NOTCH_FLAT));
+  const dx = (offset: number) => ACTION_NOTCH_FLAT + (offset - ACTION_NOTCH_FLAT) * squeeze;
+  const point = (side: -1 | 1, [offset, y]: [number, number]) => `${c + side * dx(offset)} ${y}`;
+  const coords = (side: -1 | 1, points: [number, number][]) => points.map((p) => point(side, p)).join(' ');
+  // Two cubic curves: three points each.
+  const curves = (side: -1 | 1, points: [number, number][]) => [
+    `C${coords(side, points.slice(0, 3))}`,
+    `C${coords(side, points.slice(3))}`,
+  ];
+  const k = CORNER_RADIUS * (1 - KAPPA);
+  // The right shoulder runs the same points in reverse: from the flat bottom up to the top edge.
+  const rightShoulder: [number, number][] = [...ACTION_SHOULDER.slice(0, -1).reverse(), [ACTION_NOTCH_HALF_WIDTH, 0]];
+
+  const commands = [
+    `M0 ${height}`,
+    `V${CORNER_RADIUS}`,
+    `C0 ${k} ${k} 0 ${CORNER_RADIUS} 0`,
+    `H${c - dx(ACTION_NOTCH_HALF_WIDTH)}`,
+    ...curves(-1, ACTION_SHOULDER),
+    `H${c + ACTION_NOTCH_FLAT}`,
+    ...curves(1, rightShoulder),
+    `H${width - CORNER_RADIUS}`,
+    `C${width - k} 0 ${width} ${k} ${width} ${CORNER_RADIUS}`,
+    `V${height}`,
+    'Z',
+  ];
+  return commands.join(' ').replace(/-?\d+\.\d+/g, (n) => String(round(Number(n))));
+}

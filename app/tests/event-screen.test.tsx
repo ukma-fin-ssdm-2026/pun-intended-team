@@ -22,6 +22,8 @@ jest.mock('expo-blur', () => {
   const { View } = jest.requireActual<typeof import('react-native')>('react-native');
   return { BlurTargetView: View, BlurView: View };
 });
+// The bar's pulse needs reanimated's reduced-motion hook, which its Jest mock lacks.
+jest.mock('@/components/matching/match-action-bar', () => ({ MatchActionBar: () => null, actionBarReach: () => 0 }));
 jest.mock('@/hooks/use-event', () => ({ useEvent: jest.fn() }));
 jest.mock('@/hooks/use-applications', () => ({
   useEventApplication: () => ({ application: undefined, reload: () => {} }),
