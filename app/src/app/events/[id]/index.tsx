@@ -240,7 +240,8 @@ export default function EventScreen() {
   const initialAnswers: ApplicationAnswers = application
     ? { desiredCompany: application.desiredCompany, afterEventPlans: application.afterEventPlans }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
-  const short = expanded ? undefined : preview(event.description);
+  const cut = preview(event.description);
+  const short = expanded ? undefined : cut;
   const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
   // 130 px in Figma: the 102 px action bar and the 28 px overlap.
   const sheetBottomPadding = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding + SHEET_OVERLAP;
@@ -337,6 +338,15 @@ export default function EventScreen() {
                 <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
                   Читати далі
                 </Text>
+              )}
+              {/* Only a text long enough to be cut collapses back to its preview. */}
+              {expanded && cut && (
+                <>
+                  {' '}
+                  <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(false)}>
+                    Читати менше
+                  </Text>
+                </>
               )}
             </Text>
           </View>
