@@ -98,9 +98,15 @@ Build and install:
 
 Rebuild after adding a native package or changing `app.json`, `app.config.ts` or `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`. Otherwise run `npm start` and open the installed app, as with Expo Go.
 
-## Admin pages
+## Admin and Organization Pages
 
-Administrators review reports, ban users and manage categories at `/admin`, e.g. `http://localhost:8081/admin`, in a browser on a computer; on a phone the page asks to open it on a computer. To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the mock posts and matches go to the usernames `iryna`, `artem`, `maksym` and `olena`, so they reach the API only when an account has that username.
+Both are for a browser on a computer, and the web app opens them in place of the app:
+
+- An administrator lands on `/admin` (reports, users, categories). In the phone app an administrator uses the app as anyone else, with no way into the panel.
+- An organization is an account of its own that has sent an organization request; it has no personal profile. It lands on `/organization` (its events, venues and settings); the phone app only asks it to open Nearby on a computer. An organization signs up through "Для організацій" next to "Продовжити як гість" on the web onboarding; after the date of birth it opens the request instead of the profile setup.
+- An administrator that also has an organization, e.g. a local test account, gets a link between the two panels.
+
+To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the mock posts and matches go to the usernames `iryna`, `artem`, `maksym` and `olena`, so they reach the API only when an account has that username.
 
 ## Environment variables
 

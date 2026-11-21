@@ -3,6 +3,18 @@
 // tokens are valid for an hour, and a restarted app starts again from the button.
 let pendingIdToken: string | undefined;
 
+// Whether the last Google button was the one for organizations: a new account then sends its request on DО4 instead of
+// setting up a personal profile (В7).
+let forOrganization = false;
+
+export function setOrganizationSignUp(value: boolean) {
+  forOrganization = value;
+}
+
+export function isOrganizationSignUp(): boolean {
+  return forOrganization;
+}
+
 export function startGoogleRegistration(idToken: string) {
   pendingIdToken = idToken;
 }
