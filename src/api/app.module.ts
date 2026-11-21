@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { MINUTE_MS } from '../core/common/durations.ts';
 import { IdentityModule } from '../core/identity/identity.module.ts';
+import { isGoogleKeyFetchFailure } from '../infra/auth/jose-google-id-tokens.ts';
 import { InfraModule } from '../infra/infra.module.ts';
 import { isDatabaseTimeout } from '../infra/prisma/database-timeouts.ts';
 import { AdminApiModule } from './admin/admin-api.module.ts';
@@ -38,7 +39,11 @@ import { SystemApiModule } from './system/system-api.module.ts';
   providers: [
     {
       provide: APP_FILTER,
-      useFactory: (adapterHost: HttpAdapterHost) => new ApiExceptionFilter(adapterHost, isDatabaseTimeout),
+      useFactory: (adapterHost: HttpAdapterHost) =>
+        new ApiExceptionFilter(
+          adapterHost,
+          (exception) => isDatabaseTimeout(exception) || isGoogleKeyFetchFailure(exception),
+        ),
       inject: [HttpAdapterHost],
     },
     { provide: APP_GUARD, useClass: AuthGuard },

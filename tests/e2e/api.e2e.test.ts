@@ -3723,7 +3723,8 @@ describe('Event import', () => {
       return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
     const eventBlocks = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
-    const noEvents = saved('karabas/kyiv-sport-2026-11-07.html').toString().replace(eventBlocks, '');
+    // The site's own JSON-LD blocks stay: a page without any counts as a failed section (REL-14).
+    const noEvents = saved('karabas/kyiv-sport-2026-11-07-no-events.html').toString();
     const withoutEvent = (html: string, slug: string) =>
       html.replace(eventBlocks, (block) => (block.includes(`/${slug}/"`) ? '' : block));
     providerSite = createHttpServer((req, res) => {
