@@ -1,24 +1,24 @@
 // Written with the help of Claude
 // AI Usage: organization settings from the Figma "DО4 Організація · Налаштування" desktop frame with the DО4.1 dialog,
 // after the О4 screen reviewed by Daryna Halytska. The verification request (name, description, site) and its status
-// come from the API; the status block has no Figma frame.
+// come from the API; the status block has no Figma frame. Figma's Instagram field and notification switches are left out
+// until the API stores them.
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { deleteOrganizationLogo, uploadOrganizationLogo, type ApiImage } from '@/api/images';
-import { getMyOrganization, requestOrganizationStatus, type Organization } from '@/api/organizations';
+import { deleteOrganizationLogo, uploadOrganizationLogo } from '@/api/images';
+import { requestOrganizationStatus, type Organization } from '@/api/organizations';
 import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
-import { ApiPicture } from '@/components/pictures/picture';
+import { ApiPicture, Picture } from '@/components/pictures/picture';
 import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { signOut } from '@/api/session';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Button } from '@/components/ui/button';
-import { Icon, type IconName } from '@/components/ui/icon';
+import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
-import { Toggle } from '@/components/ui/toggle';
-import { useApiQuery } from '@/hooks/use-api-query';
-import { mockOrganizationSettings } from '@/mocks/organization';
+import { useOwnOrganization } from '@/hooks/use-own-organization';
+import type { PictureDraft } from '@/pictures/picked-picture';
 import { colors } from '@/styles/tokens';
 
 // FR-003: what the account sees of its request.
@@ -33,33 +33,6 @@ const statusText: Record<Organization['verificationStatus'] | 'none', { title: s
   revoked: { title: 'Підтвердження відкликано', note: 'Організація більше не може публікувати події.' },
 };
 
-function SettingRow({
-  icon,
-  title,
-  note,
-  value,
-  onValueChange,
-}: {
-  icon: IconName;
-  title: string;
-  note?: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}) {
-  return (
-    <View className="flex-row items-center gap-3 py-3">
-      <View className="size-9 items-center justify-center rounded-[11px] bg-surface-background">
-        <Icon name={icon} size={18} />
-      </View>
-      <View className="flex-1 gap-0.5">
-        <Text className="font-inter-medium text-body text-text-primary">{title}</Text>
-        {note && <Text className="font-inter text-caption text-text-secondary">{note}</Text>}
-      </View>
-      <Toggle value={value} onValueChange={onValueChange} accessibilityLabel={title} />
-    </View>
-  );
-}
-
 // "Картка": the 720 px column's white cards.
 function Card({ children }: { children: ReactNode }) {
   return <View className="w-full max-w-[720px] gap-3 rounded-[28px] bg-surface-card px-8 py-6">{children}</View>;
@@ -67,30 +40,38 @@ function Card({ children }: { children: ReactNode }) {
 
 export default function OrganizationSettingsScreen() {
   const router = useRouter();
-  const own = useApiQuery('my-organization', getMyOrganization);
+  const own = useOwnOrganization();
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
   const [site, setSite] = useState('');
-  const [instagram, setInstagram] = useState(mockOrganizationSettings.instagram);
   const [sending, setSending] = useState(false);
   const [requestError, setRequestError] = useState<string>();
-  // Figma: event changes and reminders on, nearby posts off.
-  const [changes, setChanges] = useState(true);
-  const [reminders, setReminders] = useState(true);
-  const [nearbyPosts, setNearbyPosts] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [shown, setShown] = useState<Organization>();
   // The logo is saved as soon as it is picked, apart from the request, so unsent edits of the fields stay.
-  const [savedLogo, setSavedLogo] = useState<ApiImage | null>();
+  const keepLogo = (organization: Organization) => {
+    setShown(organization);
+    own.set(organization);
+  };
   const [logoBusy, setLogoBusy] = useState(false);
   const [logoError, setLogoError] = useState<string>();
+  // The API keeps a logo only for an account that has sent its request: one picked before waits here and is saved
+  // right after the request.
+  const [logoDraft, setLogoDraft] = useState<PictureDraft>();
+  const saveLogo = async (draft: PictureDraft) => {
+    setLogoBusy(true);
+    setLogoError(undefined);
+    const result = await uploadOrganizationLogo(draft);
+    setLogoBusy(false);
+    if (result.ok) keepLogo(result.data);
+    else setLogoError(`Не вдалося зберегти логотип. ${failureMessage(result)}`);
+    return result.ok;
+  };
   const { start: pickLogo, cropper } = usePictureCropper(
     async (_kind, draft) => {
-      setLogoBusy(true);
       setLogoError(undefined);
-      const result = await uploadOrganizationLogo(draft);
-      setLogoBusy(false);
-      if (result.ok) setSavedLogo(result.data.logo);
-      else setLogoError(`Не вдалося зберегти логотип. ${failureMessage(result)}`);
+      if (own.data) await saveLogo(draft);
+      else setLogoDraft(draft);
     },
     (refusal) => {
       const { title, note } = pictureRefusalSnackbar(refusal);
@@ -99,7 +80,6 @@ export default function OrganizationSettingsScreen() {
   );
 
   // The fields take the request the account sent each time it arrives: on load and after sending.
-  const [shown, setShown] = useState<Organization>();
   if (own.data && own.data !== shown) {
     setShown(own.data);
     setName(own.data.name);
@@ -107,23 +87,24 @@ export default function OrganizationSettingsScreen() {
     setSite(own.data.officialLink ?? '');
   }
 
-  // 404: no request yet.
-  const status = own.data?.verificationStatus ?? (own.failure?.status === 404 ? 'none' : undefined);
+  const status = own.data?.verificationStatus ?? (own.none ? 'none' : undefined);
   const canSend = status === 'none' || status === 'pending' || status === 'rejected';
-  const logo = savedLogo === undefined ? own.data?.logo : savedLogo;
+  const logo = own.data?.logo;
 
-  // The API keeps a logo only for an account that has sent its request.
   const changeLogo = () => {
-    if (status === 'none') setLogoError('Спершу надішли заявку, потім додай логотип.');
-    else if (status) void pickLogo('organizationLogo');
+    if (status) void pickLogo('organizationLogo');
   };
 
   const removeLogo = async () => {
+    if (logoDraft) {
+      setLogoDraft(undefined);
+      return;
+    }
     setLogoBusy(true);
     setLogoError(undefined);
     const result = await deleteOrganizationLogo();
     setLogoBusy(false);
-    if (result.ok) setSavedLogo(null);
+    if (result.ok) keepLogo(result.data);
     else setLogoError(`Не вдалося прибрати логотип. ${failureMessage(result)}`);
   };
 
@@ -139,8 +120,10 @@ export default function OrganizationSettingsScreen() {
     const officialLink = /^https?:\/\//i.test(link) ? link : `https://${link}`;
     const result = await requestOrganizationStatus({ name: name.trim(), description: about.trim(), officialLink });
     setSending(false);
-    if (result.ok) own.setData(result.data);
-    else if (result.status === 0) setRequestError('Немає зʼєднання. Спробуй ще раз.');
+    if (result.ok) {
+      own.set(result.data);
+      if (logoDraft && (await saveLogo(logoDraft))) setLogoDraft(undefined);
+    } else if (result.status === 0) setRequestError('Немає зʼєднання. Спробуй ще раз.');
     else if (result.status === 400) setRequestError('Перевір дані: сайт має бути адресою, наприклад artarsenal.in.ua.');
     else if (result.status === 409) {
       setRequestError('Організацію вже підтверджено, змінити заявку не можна.');
@@ -163,7 +146,13 @@ export default function OrganizationSettingsScreen() {
           <View className="flex-row items-center gap-3.5">
             <View className="size-[72px]">
               <View className="size-[72px] items-center justify-center overflow-hidden rounded-[36px] bg-brand-coral-soft">
-                {logo ? <ApiPicture image={logo} /> : <Icon name="building" size={32} color={colors.brand.coral} />}
+                {logoDraft ? (
+                  <Picture source={{ uri: logoDraft.picture.uri }} size={logoDraft.picture} crop={logoDraft.crop} />
+                ) : logo ? (
+                  <ApiPicture image={logo} />
+                ) : (
+                  <Icon name="building" size={32} color={colors.brand.coral} />
+                )}
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -187,7 +176,7 @@ export default function OrganizationSettingsScreen() {
                 </Text>
                 <Text className="font-inter text-caption text-text-secondary">JPG або PNG, від 400×400 px</Text>
               </Pressable>
-              {logo && !logoBusy && (
+              {(logoDraft || logo) && !logoBusy && (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => void removeLogo()}
@@ -214,7 +203,6 @@ export default function OrganizationSettingsScreen() {
             keyboardType="url"
             editable={canSend}
           />
-          <TextField label="Instagram" value={instagram} onChangeText={setInstagram} autoCapitalize="none" />
 
           <View className="mt-3 gap-3 rounded-[20px] bg-surface-background p-4">
             <View className="gap-0.5">
@@ -226,7 +214,7 @@ export default function OrganizationSettingsScreen() {
                 </>
               ) : (
                 <Text className="font-inter text-caption text-text-secondary">
-                  {own.failure ? 'Не вдалося завантажити статус.' : 'Завантаження…'}
+                  {own.error ? 'Не вдалося завантажити статус.' : 'Завантаження…'}
                 </Text>
               )}
             </View>
@@ -248,37 +236,12 @@ export default function OrganizationSettingsScreen() {
               </View>
             ) : (
               !status &&
-              own.failure && (
+              own.error && (
                 <View className="self-start">
                   <Button label="Спробувати ще раз" variant="light" onPress={own.reload} />
                 </View>
               )
             )}
-          </View>
-        </Card>
-
-        <Card>
-          <View className="px-4 py-1">
-            <View className="pb-0.5 pt-3">
-              <Text className="font-inter-medium text-label text-text-secondary">Події</Text>
-            </View>
-            <SettingRow
-              icon="calendar"
-              title="Зміни в подіях"
-              note="Перенесення, скасування, нове місце"
-              value={changes}
-              onValueChange={setChanges}
-            />
-            <View className="h-px bg-border-default" />
-            <SettingRow
-              icon="clock"
-              title="Нагадування"
-              note="За день і за 2 години до події"
-              value={reminders}
-              onValueChange={setReminders}
-            />
-            <View className="h-px bg-border-default" />
-            <SettingRow icon="send" title="Нові оголошення поруч" value={nearbyPosts} onValueChange={setNearbyPosts} />
           </View>
         </Card>
 
