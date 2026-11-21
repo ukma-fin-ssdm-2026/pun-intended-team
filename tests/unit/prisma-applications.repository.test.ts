@@ -118,3 +118,45 @@ describe('PrismaApplicationsRepository.findPool', () => {
     );
   });
 });
+
+// FR-018
+describe('PrismaApplicationsRepository.findListed', () => {
+  test('reads the applications with one of the statuses and those with no match not yet dismissed', async () => {
+    const findMany = mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve([]));
+    const repository = new PrismaApplicationsRepository({ application: { findMany } } as unknown as PrismaService);
+
+    await repository.findListed(ACCOUNT_ID, ['in_pool', 'paired']);
+
+    const { where } = findMany.mock.calls[0]?.arguments[0] as { where: unknown };
+    assert.deepEqual(where, {
+      userId: ACCOUNT_ID,
+      OR: [{ status: { in: ['in_pool', 'paired'] } }, { status: 'no_match', dismissedAt: null }],
+    });
+  });
+});
+
+describe('PrismaApplicationsRepository.markNoMatch', () => {
+  test('moves only the applications still in the pool, in the transaction', async () => {
+    const updateMany = mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve({ count: 1 }));
+    const repository = new PrismaApplicationsRepository({} as unknown as PrismaService);
+
+    await repository.markNoMatch(['a', 'b'], { application: { updateMany } } as unknown as Transaction);
+
+    assert.deepEqual(updateMany.mock.calls[0]?.arguments[0], {
+      where: { id: { in: ['a', 'b'] }, status: 'in_pool' },
+      data: { status: 'no_match' },
+    });
+  });
+});
+
+describe('PrismaApplicationsRepository.dismiss', () => {
+  test('dismisses only an application with no match', async () => {
+    const updateMany = mock.fn<(args: { where: unknown }) => Promise<{ count: number }>>(() =>
+      Promise.resolve({ count: 0 }),
+    );
+    const repository = new PrismaApplicationsRepository({ application: { updateMany } } as unknown as PrismaService);
+
+    assert.equal(await repository.dismiss('a'), false);
+    assert.deepEqual(updateMany.mock.calls[0]?.arguments[0].where, { id: 'a', status: 'no_match' });
+  });
+});

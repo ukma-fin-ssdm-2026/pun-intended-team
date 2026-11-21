@@ -12,6 +12,7 @@ import { Application, ApplicationIdParams, ApplicationList, CreateApplicationBod
 const ApplyRequest = { params: EventIdParams, body: CreateApplicationBody } satisfies RequestSchemas;
 const GetApplicationRequest = { params: ApplicationIdParams } satisfies RequestSchemas;
 const WithdrawRequest = { params: ApplicationIdParams } satisfies RequestSchemas;
+const DismissRequest = { params: ApplicationIdParams } satisfies RequestSchemas;
 
 @Controller()
 export class ApplicationsController {
@@ -62,11 +63,13 @@ export class ApplicationsController {
     path: Routes.applications.mine,
     operationId: 'listMyApplications',
     summary: 'List your applications',
-    description: 'The caller’s active applications (in the pool, paired or paused), soonest first day first.',
+    description:
+      'The caller’s active applications (in the pool, paired or paused), and those that found no match until the ' +
+      'caller dismisses them; soonest first day first.',
     tags: ['Matching'],
     access: 'user',
     responses: {
-      200: { description: 'The active applications', schema: ApplicationList },
+      200: { description: 'The active applications and those with no match', schema: ApplicationList },
     },
   })
   async listMyApplications(@CurrentAccount() account: AccountCaller): Promise<Application[]> {
@@ -121,5 +124,29 @@ export class ApplicationsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Application> {
     return this.applicationsService.withdraw(account.accountId, params.id);
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.applications.dismiss,
+    operationId: 'dismissApplication',
+    summary: 'Dismiss an application with no match',
+    description:
+      'Take one of the caller’s applications that found no match by its cutoff out of `listMyApplications`. ' +
+      'Dismissing it again changes nothing; `getApplication` still returns it.',
+    tags: ['Matching'],
+    access: 'user',
+    request: DismissRequest,
+    responses: {
+      200: { description: 'The dismissed application', schema: Application },
+      404: { description: 'No application with this id, or it is not the caller’s own', schema: ErrorResponse },
+      409: { description: '`CONFLICT`: the application has another status than `no_match`.', schema: ErrorResponse },
+    },
+  })
+  async dismissApplication(
+    @Input() { params }: RouteInput<typeof DismissRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Application> {
+    return this.applicationsService.dismiss(account.accountId, params.id);
   }
 }

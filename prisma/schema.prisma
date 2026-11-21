@@ -528,6 +528,7 @@ model Application {
   ageMax          Int?              @map("age_max")
   status          ApplicationStatus @default(in_pool)
   noResponseCount Int               @default(0) @map("no_response_count")
+  dismissedAt     DateTime?         @map("dismissed_at") @db.Timestamptz(3)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 

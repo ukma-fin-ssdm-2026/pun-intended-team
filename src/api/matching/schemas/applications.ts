@@ -15,7 +15,7 @@ export const ApplicationStatus = z
     description:
       '`in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting ' +
       'for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. ' +
-      '`no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned',
+      '`no_match`: no match was found by the cutoff. `cancelled`: the event was cancelled or the user banned',
   });
 
 const AfterEventPlans = z
