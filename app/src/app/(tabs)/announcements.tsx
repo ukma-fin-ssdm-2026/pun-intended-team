@@ -14,6 +14,7 @@ import { PostCard } from '@/components/announcements/post-card';
 import { PostComposer } from '@/components/announcements/post-composer';
 import { ReportFlow, type ReportedPerson, type ReportStep } from '@/components/matching/report-flow';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
+import { OwnAvatar } from '@/components/profile/own-avatar';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
@@ -22,7 +23,7 @@ import { SearchField } from '@/components/ui/search-field';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useListings } from '@/hooks/use-listings';
-import { useProfile, useProfileInitial } from '@/hooks/use-profile';
+import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import type { Post } from '@/mocks/announcements';
 import { usePostRequests } from '@/state/post-requests';
@@ -113,7 +114,6 @@ function HeaderTabs({
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
-  const initial = useProfileInitial();
   const insets = useSafeAreaInsets();
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
@@ -247,9 +247,7 @@ export default function AnnouncementsScreen() {
             onPress={() => setComposing(true)}
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
-            <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-              <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
-            </View>
+            <OwnAvatar />
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
                 Що плануєш? Знайди компанію…

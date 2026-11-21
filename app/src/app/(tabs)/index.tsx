@@ -142,6 +142,7 @@ export default function CatalogScreen() {
         ) : (
           <CatalogHeader
             name={profile.data?.displayName}
+            photo={profile.data?.photo}
             // Figma hides the unread dot while the catalog loads.
             hasUnread={mockUser.hasUnreadNotifications && !loading}
             onNotificationsPress={() => router.push('/notifications')}

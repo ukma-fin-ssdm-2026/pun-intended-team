@@ -4,6 +4,8 @@
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import type { ApiImage } from '@/api/images';
+import { ApiPicture } from '@/components/pictures/picture';
 import { Icon } from '@/components/ui/icon';
 import { colors } from '@/styles/tokens';
 
@@ -13,12 +15,13 @@ const TOP_PADDING = 30;
 type Props = {
   // Signed-in user's display name, once the profile has loaded; a guest has none.
   name?: string;
+  photo?: ApiImage | null;
   hasUnread?: boolean;
   onNotificationsPress?: () => void;
   onAvatarPress: () => void;
 };
 
-export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, onAvatarPress }: Props) {
+export function CatalogHeader({ name, photo, hasUnread = false, onNotificationsPress, onAvatarPress }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -37,14 +40,16 @@ export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, o
               {hasUnread && <View className="absolute left-[26px] top-2.5 size-2 rounded-full bg-brand-coral" />}
             </Pressable>
           )}
-          {/* No photo yet: Figma shows an empty surface/background circle. */}
+          {/* Without a photo, Figma's empty surface/background circle. */}
           <Pressable
             accessibilityRole="button"
             // A guest has no notifications; a signed-in user's name may still be loading.
             accessibilityLabel={onNotificationsPress ? 'Профіль' : 'Увійти'}
             onPress={onAvatarPress}
-            className="size-12 rounded-full bg-surface-background active:opacity-80"
-          />
+            className="size-12 overflow-hidden rounded-full bg-surface-background active:opacity-80"
+          >
+            {photo && <ApiPicture image={photo} />}
+          </Pressable>
         </View>
       </View>
       <View className="gap-1.5">
