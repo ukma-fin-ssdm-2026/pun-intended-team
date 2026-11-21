@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: profile editor from the Figma "П1 Редагувати профіль" frame, on mock data; reviewed by Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { replaceInterests, replaceLinkedAccounts, updateProfile } from '@/api/profile';
@@ -27,6 +27,7 @@ import {
   NetworkFields,
   sameNetworks,
   toEntries,
+  type NetworkEntry,
 } from '@/components/profile/network-fields';
 import { InterestsSheet } from '@/components/profile/profile-sheets';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
@@ -34,21 +35,58 @@ import { Spinner } from '@/components/ui/spinner';
 import { TextField } from '@/components/ui/text-field';
 import { useInterests } from '@/hooks/use-interests';
 import { useProfile } from '@/hooks/use-profile';
+import { restoredDraftSnackbar, useProfileDraft, useStoredProfileDraft } from '@/state/profile-drafts';
 import { colors } from '@/styles/tokens';
 import { useRandomText } from '@/random-texts';
 
 type Profile = components['schemas']['Profile'];
 type UpdateProfileBody = components['schemas']['UpdateProfileBody'];
+type CommunicationFormat = components['schemas']['CommunicationFormat'];
+
+type EditDraft = {
+  name: string;
+  username: string;
+  occupation: string;
+  about: string;
+  format: CommunicationFormat | null;
+  gender: GenderAnswer;
+  interestIds: string[];
+  networks: NetworkEntry[];
+};
+
+function savedValues(profile: Profile): EditDraft {
+  return {
+    name: profile.displayName,
+    username: profile.username,
+    occupation: profile.occupation,
+    about: profile.description,
+    format: profile.communicationFormat,
+    // A profile made before genders were asked has none: the field starts empty and must be filled to save.
+    gender: { gender: profile.gender, description: profile.genderDescription ?? '' },
+    interestIds: profile.interests.map((interest) => interest.id),
+    networks: toEntries(profile.linkedAccounts),
+  };
+}
+
+// Picking interests in another order is no change.
+function sameValues(a: EditDraft, b: EditDraft): boolean {
+  const comparable = ({ interestIds, networks, ...rest }: EditDraft) =>
+    JSON.stringify({ ...rest, interestIds: [...interestIds].sort(), networks: filledNetworks(networks) });
+  return comparable(a) === comparable(b);
+}
 
 export default function ProfileEditScreen() {
   const profile = useProfile();
+  const stored = useStoredProfileDraft<EditDraft>('edit');
 
-  if (profile.data) return <ProfileForm profile={profile.data} />;
+  if (profile.data && stored.loaded) {
+    return <ProfileForm key={stored.version} profile={profile.data} draft={stored.draft} onReset={stored.drop} />;
+  }
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View className="flex-1 items-center justify-center gap-2 bg-surface-card px-5">
-        {profile.loading ? (
+        {profile.loading || profile.data ? (
           <Spinner size="lg" color={colors.brand.coral} />
         ) : (
           <>
@@ -63,25 +101,27 @@ export default function ProfileEditScreen() {
   );
 }
 
-// Mounted once the profile is loaded, so the fields start from it.
-function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
+// Mounted once the profile and the draft are loaded, so the fields start from the draft, or else from the profile.
+function ProfileForm({
+  profile,
+  draft,
+  onReset,
+}: Readonly<{ profile: Profile; draft?: Partial<EditDraft>; onReset: () => void }>) {
   const router = useRouter();
-  const [name, setName] = useState(profile.displayName);
-  const [username, setUsername] = useState(profile.username);
+  const saved = savedValues(profile);
+  const [initial] = useState(() => ({ ...saved, ...draft }));
+  const [name, setName] = useState(initial.name);
+  const [username, setUsername] = useState(initial.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
-  const [occupation, setOccupation] = useState(profile.occupation);
+  const [occupation, setOccupation] = useState(initial.occupation);
   const occupationPlaceholder = useRandomText('occupation');
-  const [about, setAbout] = useState(profile.description);
-  const [format, setFormat] = useState(profile.communicationFormat);
-  // A profile made before genders were asked has none: the field starts empty and must be filled to save.
-  const [gender, setGender] = useState<GenderAnswer>({
-    gender: profile.gender,
-    description: profile.genderDescription ?? '',
-  });
-  const savedInterestIds = profile.interests.map((interest) => interest.id);
-  const [interestIds, setInterestIds] = useState(savedInterestIds);
-  const savedNetworks = toEntries(profile.linkedAccounts);
-  const [networks, setNetworks] = useState(savedNetworks);
+  const [about, setAbout] = useState(initial.about);
+  const [format, setFormat] = useState(initial.format);
+  const [gender, setGender] = useState<GenderAnswer>(initial.gender);
+  const savedInterestIds = saved.interestIds;
+  const [interestIds, setInterestIds] = useState(initial.interestIds);
+  const savedNetworks = saved.networks;
+  const [networks, setNetworks] = useState(initial.networks);
   const [networkErrorsShown, setNetworkErrorsShown] = useState<ReturnType<typeof networkErrors>>({});
   const shared = filledNetworks(networks);
   const [pictures, setPictures] = useState(() => picturesOf(profile));
@@ -90,6 +130,12 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const interests = useInterests();
   const interestChipOptions = useInterestChips(interests.data ?? profile.interests, interestIds);
   const { snackbar, show, hide } = useSnackbar();
+  const values: EditDraft = { name, username, occupation, about, format, gender, interestIds, networks };
+  const discardDraft = useProfileDraft('edit', values, sameValues(values, saved));
+
+  useEffect(() => {
+    if (draft) show(restoredDraftSnackbar(onReset));
+  }, [draft, onReset, show]);
 
   const usernameValid = isValidUsername(username);
   let usernameError: string | undefined;
@@ -138,6 +184,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
       } else show(failureSnackbar(result));
       return;
     }
+    discardDraft();
     if (router.canGoBack()) router.back();
     else router.replace('/profile');
   };

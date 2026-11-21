@@ -2,34 +2,62 @@
 // AI Usage: second sign-up profile step from the Figma "В8 Заповнення профілю · Крок 2" frame, on mock data; reviewed
 // by Daryna Halytska.
 import { Stack } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { replaceLinkedAccounts } from '@/api/profile';
 import { failureSnackbar } from '@/auth/messages';
-import { filledNetworks, networkErrors, NetworkFields, toEntries } from '@/components/profile/network-fields';
+import {
+  filledNetworks,
+  networkErrors,
+  NetworkFields,
+  sameNetworks,
+  toEntries,
+  type NetworkEntry,
+} from '@/components/profile/network-fields';
 import { FormScreen } from '@/components/profile/profile-form';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { useProfile } from '@/hooks/use-profile';
 import { useSignIn } from '@/hooks/use-sign-in';
+import { restoredDraftSnackbar, useProfileDraft, useStoredProfileDraft } from '@/state/profile-drafts';
+
+type ContactsDraft = { networks: NetworkEntry[] };
 
 export default function ProfileContactsScreen() {
-  const signIn = useSignIn();
   const profile = useProfile();
+  const stored = useStoredProfileDraft<ContactsDraft>('contacts');
+  if (!stored.loaded) return <Stack.Screen options={{ headerShown: false }} />;
   // Back from the catalog or a second visit starts from what is saved.
-  const [networks, setNetworks] = useState(toEntries(profile.data?.linkedAccounts ?? []));
+  const saved = toEntries(profile.data?.linkedAccounts ?? []);
+  return <ContactsForm key={stored.version} saved={saved} draft={stored.draft} onReset={stored.drop} />;
+}
+
+function ContactsForm({
+  saved,
+  draft,
+  onReset,
+}: Readonly<{ saved: NetworkEntry[]; draft?: Partial<ContactsDraft>; onReset: () => void }>) {
+  const signIn = useSignIn();
+  const [networks, setNetworks] = useState(draft?.networks ?? saved);
   const [errors, setErrors] = useState<ReturnType<typeof networkErrors>>({});
   const [saving, setSaving] = useState(false);
   const { snackbar, show, hide } = useSnackbar();
   const shared = filledNetworks(networks);
+  const discardDraft = useProfileDraft('contacts', { networks }, sameNetworks(shared, filledNetworks(saved)));
+
+  useEffect(() => {
+    if (draft) show(restoredDraftSnackbar(onReset));
+  }, [draft, onReset, show]);
 
   const finish = async () => {
     hide();
     setSaving(true);
     const result = await replaceLinkedAccounts(shared);
     setSaving(false);
-    if (result.ok) signIn();
-    else if (result.fields?.length) setErrors(networkErrors(shared, result.fields));
+    if (result.ok) {
+      discardDraft();
+      signIn();
+    } else if (result.fields?.length) setErrors(networkErrors(shared, result.fields));
     else show(failureSnackbar(result));
   };
 

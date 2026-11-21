@@ -2,7 +2,7 @@
 // AI Usage: first sign-up profile step from the Figma "В7 Заповнення профілю" frame, connected to the API; reviewed by
 // Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { createProfile, replaceInterests, updateProfile } from '@/api/profile';
@@ -27,22 +27,54 @@ import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
 import { useInterests } from '@/hooks/use-interests';
 import { takeProfileSuggestion } from '@/state/google-registration';
+import { restoredDraftSnackbar, useProfileDraft, useStoredProfileDraft } from '@/state/profile-drafts';
 import { useRandomText } from '@/random-texts';
 
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
 
+type SetupDraft = {
+  name: string;
+  username: string;
+  occupation: string;
+  about: string;
+  gender: GenderAnswer;
+  format: CommunicationFormat | null;
+  interestIds: string[];
+};
+
 export default function ProfileSetupScreen() {
-  const router = useRouter();
+  // Read once: "Скинути" goes back to the Google name, not to empty fields.
   const [suggestion] = useState(takeProfileSuggestion);
-  const [name, setName] = useState(suggestion.displayName);
-  const [username, setUsername] = useState(suggestion.username);
+  const stored = useStoredProfileDraft<SetupDraft>('setup');
+  if (!stored.loaded) return <Stack.Screen options={{ headerShown: false }} />;
+  const empty: SetupDraft = {
+    name: suggestion.displayName,
+    username: suggestion.username,
+    occupation: '',
+    about: '',
+    gender: { gender: null, description: '' },
+    format: null,
+    interestIds: [],
+  };
+  return <SetupForm key={stored.version} empty={empty} draft={stored.draft} onReset={stored.drop} />;
+}
+
+function SetupForm({
+  empty,
+  draft,
+  onReset,
+}: Readonly<{ empty: SetupDraft; draft?: Partial<SetupDraft>; onReset: () => void }>) {
+  const router = useRouter();
+  const [initial] = useState(() => ({ ...empty, ...draft }));
+  const [name, setName] = useState(initial.name);
+  const [username, setUsername] = useState(initial.username);
   const [usernameTaken, setUsernameTaken] = useState(false);
-  const [occupation, setOccupation] = useState('');
+  const [occupation, setOccupation] = useState(initial.occupation);
   const occupationPlaceholder = useRandomText('occupation');
-  const [about, setAbout] = useState('');
-  const [gender, setGender] = useState<GenderAnswer>({ gender: null, description: '' });
-  const [format, setFormat] = useState<CommunicationFormat | null>(null);
-  const [interestIds, setInterestIds] = useState<string[]>([]);
+  const [about, setAbout] = useState(initial.about);
+  const [gender, setGender] = useState<GenderAnswer>(initial.gender);
+  const [format, setFormat] = useState<CommunicationFormat | null>(initial.format);
+  const [interestIds, setInterestIds] = useState<string[]>(initial.interestIds);
   // Held until "Далі" creates the profile, then sent.
   const [pictures, setPictures] = useState(() => picturesOf(undefined));
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -50,6 +82,12 @@ export default function ProfileSetupScreen() {
   const interests = useInterests();
   const interestChipOptions = useInterestChips(interests.data ?? [], interestIds);
   const { snackbar, show, hide } = useSnackbar();
+  const values: SetupDraft = { name, username, occupation, about, gender, format, interestIds };
+  const discardDraft = useProfileDraft('setup', values, JSON.stringify(values) === JSON.stringify(empty));
+
+  useEffect(() => {
+    if (draft) show(restoredDraftSnackbar(onReset));
+  }, [draft, onReset, show]);
 
   const usernameValid = isValidUsername(username);
   let usernameError: string | undefined;
@@ -93,6 +131,7 @@ export default function ProfileSetupScreen() {
       return;
     }
     setPictures(picturesOf(undefined));
+    discardDraft();
     router.push('/profile-contacts');
   };
 

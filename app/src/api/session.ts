@@ -7,6 +7,7 @@ import { clearApplications } from '@/state/applications';
 import { clearMatches } from '@/state/matches';
 import { clearNotifications } from '@/state/notifications';
 import { clearProfile } from '@/state/profile';
+import { clearProfileDrafts } from '@/state/profile-drafts';
 import { setRole, setSignedIn } from '@/state/session';
 
 import { publicClient } from './public-client';
@@ -77,6 +78,7 @@ async function endSession() {
   clearMatches();
   clearOwnEvents();
   clearNotifications();
+  await clearProfileDrafts();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }
