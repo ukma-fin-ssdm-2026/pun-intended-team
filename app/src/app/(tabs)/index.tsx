@@ -189,10 +189,7 @@ export default function CatalogScreen() {
             <View className="gap-4 px-5 pt-7">
               {lastUpdated && loadedEvents.length > 0 && (
                 // FR-014: an import failed, so the imported events are those of its last succeeded run.
-                <View className="flex-row items-center gap-2 self-start rounded-full bg-surface-card px-4 py-2">
-                  <Icon name="clock" size={16} />
-                  <Text className="font-inter text-caption text-text-secondary">{lastUpdated}</Text>
-                </View>
+                <Text className="self-end font-inter text-tag text-text-on-dark">{lastUpdated}</Text>
               )}
               {events.map((event) => (
                 <EventCard
