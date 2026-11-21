@@ -4,6 +4,7 @@ import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { EventSessionsService } from '../../catalog/services/event-sessions.service.ts';
 import type { EventSession, OpenedSession } from '../../catalog/types/event-session.ts';
 import { DomainError } from '../../common/domain-error.ts';
+import { kyivDate } from '../../common/kyiv-time.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
@@ -126,34 +127,43 @@ export class MatchingService implements OnModuleInit {
     this.logProposals(proposed);
   }
 
+  /**
+   * The pool of `sessionIds` with what each member needs for matching. Ages are taken on the first of those days in
+   * Kyiv: the round's day, or the first day of an application that asks for an instant match.
+   */
   private async readPool(eventId: string, sessionIds: string[], tx: Transaction): Promise<Pool> {
     const applications = await this.applicationsRepository.findPool(sessionIds, tx);
     const declined = await this.matchesRepository.findExcludedPairs(eventId, tx);
     const userIds = applications.map(({ userId }) => userId);
-    const [interests, moderation, sessions] = await Promise.all([
-      this.profilesService.getInterests(userIds, tx),
+    const sessions = await this.eventSessionsService.getByIds(
+      [...sessionIds, ...applications.flatMap((application) => application.sessionIds)],
+      tx,
+    );
+    const [traits, moderation] = await Promise.all([
+      this.profilesService.getMatchingTraits(userIds, matchingDay(sessionIds, sessions), tx),
       this.moderationService.exclusionsFor(userIds, tx),
-      this.eventSessionsService.getByIds(
-        applications.flatMap((application) => application.sessionIds),
-        tx,
-      ),
     ]);
     const now = new Date();
     const banned = new Set(moderation.banned);
     const members = new Map<string, PoolMember>();
     for (const application of applications) {
-      const memberInterests = interests.get(application.userId);
+      const memberTraits = traits.get(application.userId);
       const openDays = application.sessionIds.filter((id) => {
         const session = sessions.get(id);
         return session !== undefined && isOpen(session, now);
       });
-      if (memberInterests && openDays.length > 0 && !banned.has(application.userId)) {
+      if (memberTraits && openDays.length > 0 && !banned.has(application.userId)) {
         members.set(application.userId, {
           userId: application.userId,
-          interests: memberInterests,
+          interests: memberTraits.interests,
           desiredCompany: application.desiredCompany,
           afterEventPlans: application.afterEventPlans,
           sessionIds: openDays,
+          gender: memberTraits.gender,
+          age: memberTraits.age,
+          preferredGender: application.preferredGender,
+          ageMin: application.ageMin,
+          ageMax: application.ageMax,
         });
       }
     }
@@ -201,6 +211,12 @@ export class MatchingService implements OnModuleInit {
       );
     }
   }
+}
+
+/** The Kyiv day of the earliest of the sessions; today when none of them is known. */
+function matchingDay(sessionIds: string[], sessions: Map<string, EventSession>): string {
+  const starts = sessionIds.flatMap((id) => sessions.get(id)?.startsAt ?? []).sort((a, b) => a.localeCompare(b));
+  return kyivDate(starts[0]);
 }
 
 function isOpen(session: EventSession, now: Date): boolean {

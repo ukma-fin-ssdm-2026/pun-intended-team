@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import { Image, type ImageSource } from 'expo-image';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { CoralGradient } from '@/components/ui/coral-gradient';
 
@@ -8,6 +8,8 @@ type Props = {
   // A bundled image, or an imported event's `imageUrl` (see `coverOf`); without one, the coral gradient.
   cover?: ImageSource | number;
   gradient?: 'cover' | 'thumb';
+  // Drawn instead of the gradient preset, e.g. a collage tile's own gradient.
+  fallback?: ReactNode;
 };
 
 // An imported event's cover, linked from the provider: the server never copies or resizes it (ADR-006, decisions 6
@@ -23,13 +25,13 @@ export function eventCoverOf(event: { cover?: ImageSource; imageUrl: string | nu
 
 // An event's cover image filling its frame. One that fails to load, e.g. removed by the provider, shows the gradient,
 // as an event without one does.
-export function EventCover({ cover, gradient = 'cover' }: Props) {
+export function EventCover({ cover, gradient = 'cover', fallback }: Props) {
   // A bundled image is a module number, a linked one is known by its URL.
   const id = typeof cover === 'object' ? cover.uri : cover;
   const [failed, setFailed] = useState<string | number>();
 
   if (!cover || failed === id) {
-    return <CoralGradient preset={gradient} />;
+    return fallback ?? <CoralGradient preset={gradient} />;
   }
   return (
     <Image

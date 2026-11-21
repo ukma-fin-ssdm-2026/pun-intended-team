@@ -17,6 +17,9 @@ const RECORD = {
   sessionIds: [SESSION_ID, LATER_SESSION_ID],
   desiredCompany: 'company' as const,
   afterEventPlans: ['dinner' as const, 'walk' as const],
+  preferredGender: 'female' as const,
+  ageMin: 20,
+  ageMax: null,
 };
 
 function anApplicationRow(plans: string[]) {
@@ -25,6 +28,9 @@ function anApplicationRow(plans: string[]) {
     userId: ACCOUNT_ID,
     eventId: EVENT_ID,
     desiredCompany: 'casual',
+    preferredGender: 'female',
+    ageMin: 20,
+    ageMax: null,
     status: 'in_pool',
     noResponseCount: 0,
     createdAt: new Date('2026-10-15T09:00:00.000Z'),
@@ -53,12 +59,16 @@ describe('PrismaApplicationsRepository.create', () => {
       userId: ACCOUNT_ID,
       eventId: EVENT_ID,
       desiredCompany: 'casual',
+      preferredGender: 'female',
+      ageMin: 20,
+      ageMax: null,
       sessions: { create: [{ sessionId: SESSION_ID }, { sessionId: LATER_SESSION_ID }] },
       afterEventPlans: { create: [{ plan: 'dinner' }, { plan: 'walk' }] },
     });
     assert.deepEqual(created.sessionIds, [SESSION_ID, LATER_SESSION_ID]);
     assert.equal(created.desiredCompany, 'company');
     assert.deepEqual(created.afterEventPlans, ['walk', 'dinner']);
+    assert.deepEqual([created.preferredGender, created.ageMin, created.ageMax], ['female', 20, null]);
   });
 
   test('answers ALREADY_APPLIED when the active application index stops the write', async () => {

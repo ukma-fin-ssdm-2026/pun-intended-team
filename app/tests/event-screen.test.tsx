@@ -1,38 +1,118 @@
 // Written with the help of Claude
-import { describe, expect, jest, test } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import EventScreen from '@/app/events/[id]';
+import { useEvent } from '@/hooks/use-event';
 
 import { anEvent } from './fixtures/events';
 
-const LONG_TITLE = 'Благодійний концерт хорової капели НаУКМА «Почайна» пам’яті героїв-могилянців';
-const mockEvent = { ...anEvent('e1', LONG_TITLE), description: 'Концерт у Києво-Могилянській академії.' };
-
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'e1' }),
-  useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), setParams: jest.fn() }),
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+    canGoBack: () => true,
+    setParams: jest.fn(),
+  }),
 }));
-// The API client registers for push notifications on import, which Jest cannot do.
-jest.mock('@/api/push-token', () => ({ registerPushToken: jest.fn(() => Promise.resolve()) }));
-jest.mock('@/components/ui/event-cover', () => ({ EventCover: () => null, coverOf: () => undefined }));
-jest.mock('@/hooks/use-status-bar-style', () => ({ useStatusBarStyle: () => {} }));
-jest.mock('@/hooks/use-event', () => ({
-  useEvent: () => ({ data: mockEvent, loading: false, error: undefined, notFound: false, reload: () => {} }),
-}));
-jest.mock('@/hooks/use-profile', () => ({ useProfile: () => ({ data: undefined, missing: false, reload: () => {} }) }));
+jest.mock('expo-blur', () => {
+  const { View } = jest.requireActual<typeof import('react-native')>('react-native');
+  return { BlurTargetView: View, BlurView: View };
+});
+// The bar's pulse needs reanimated's reduced-motion hook, which its Jest mock lacks.
+jest.mock('@/components/matching/match-action-bar', () => ({ MatchActionBar: () => null, actionBarReach: () => 0 }));
+jest.mock('@/hooks/use-event', () => ({ useEvent: jest.fn() }));
 jest.mock('@/hooks/use-applications', () => ({
   useEventApplication: () => ({ application: undefined, reload: () => {} }),
 }));
-// The mock events bundle images that the Jest mapper cannot find; a live event never reaches them.
-jest.mock('@/mocks/events', () => ({ findMockEvent: () => undefined }));
 jest.mock('@/hooks/use-matches', () => ({ useApplicationMatch: () => ({ match: undefined }) }));
+jest.mock('@/hooks/use-profile', () => ({
+  useProfile: () => ({ data: undefined, missing: false, reload: () => {} }),
+}));
+jest.mock('@/mocks/events', () => ({ findMockEvent: () => undefined }));
+jest.mock('@/hooks/use-status-bar-style', () => ({ useStatusBarStyle: () => {} }));
+jest.mock('@/state/session', () => ({ useSession: () => ({ isGuest: false }) }));
+jest.mock('@/state/favorites', () => ({ useFavorite: () => false, toggleFavorite: () => {} }));
 
-describe('EventScreen', () => {
+// Over the 105 characters of the preview, so it is cut at the last word before them.
+const LONG_DESCRIPTION =
+  'Вечір камерного джазу в залах Мистецького Арсеналу: квартет виконає авторські композиції та імпровізації ' +
+  'на теми класичних стандартів.';
+
+async function showEvent(overrides: Partial<ReturnType<typeof anEvent>> = {}) {
+  jest.mocked(useEvent).mockReturnValue({
+    data: { ...anEvent('e1', 'Джаз-вечір'), ...overrides },
+    loading: false,
+    error: undefined,
+    notFound: false,
+    reload: () => {},
+  });
+  await render(<EventScreen />);
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe('EventScreen description', () => {
+  test('a long description expands with "Читати далі" and collapses with "Читати менше"', async () => {
+    await showEvent({ description: LONG_DESCRIPTION });
+
+    await fireEvent.press(screen.getByText('Читати далі'));
+
+    expect(screen.getByText(/на теми класичних стандартів/)).toBeTruthy();
+    await fireEvent.press(screen.getByText('Читати менше'));
+    expect(screen.queryByText(/на теми класичних стандартів/)).toBeNull();
+    expect(screen.getByText('Читати далі')).toBeTruthy();
+  });
+
+  test('a description that fits the preview has neither link', async () => {
+    await showEvent({ description: 'Камерний джаз у Мистецькому Арсеналі.' });
+
+    expect(screen.queryByText('Читати далі')).toBeNull();
+    expect(screen.queryByText('Читати менше')).toBeNull();
+  });
+});
+
+describe('EventScreen "Квитки та деталі"', () => {
+  test('opens the provider page of an imported event', async () => {
+    const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const sourceUrl = 'https://artwizard.eu/events/jazz';
+    await showEvent({ sourceUrl });
+
+    await fireEvent.press(screen.getByRole('link', { name: 'Квитки та деталі' }));
+
+    expect(openURL).toHaveBeenCalledWith(sourceUrl);
+  });
+
+  test('is hidden for an event without a provider page', async () => {
+    await showEvent({ sourceUrl: null });
+
+    expect(screen.queryByText('Квитки та деталі')).toBeNull();
+  });
+});
+
+// "02.1 Назва і категорія" takes the height of its title, so a one-line title leaves no gap above "Про подію".
+describe('EventScreen title block', () => {
+  for (const title of ['Я — Мамай', 'Джаз-вечір у Мистецькому Арсеналі з квартетом і гостями з Варшави']) {
+    test(`has no fixed height for "${title}"`, async () => {
+      await showEvent({ title });
+
+      const block = screen.getByRole('header', { name: title }).parent;
+      const classes: string[] = block?.props.className?.split(' ') ?? [];
+      expect(classes).toContain('gap-2.5');
+      expect(classes.filter((name) => /^h-/.test(name))).toEqual([]);
+      expect(block?.props.style?.height).toBeUndefined();
+    });
+  }
+
   test('shows the full title without a line limit', async () => {
-    await render(<EventScreen />);
+    const title = 'Благодійний концерт хорової капели НаУКМА «Почайна» пам’яті героїв-могилянців';
+    await showEvent({ title });
 
-    const title = screen.getByRole('header', { name: LONG_TITLE });
-    expect(title.props.numberOfLines).toBeUndefined();
+    expect(screen.getByRole('header', { name: title }).props.numberOfLines).toBeUndefined();
   });
 });

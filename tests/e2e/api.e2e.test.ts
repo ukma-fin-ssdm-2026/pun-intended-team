@@ -80,6 +80,7 @@ const stubProfiles = [
     displayName: 'Olena',
     description: 'Cinema, galleries and long walks.',
     communicationFormat: 'friends',
+    gender: 'female',
     interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
     telegram: 'olena_k',
   },
@@ -89,6 +90,7 @@ const stubProfiles = [
     displayName: 'Taras',
     description: null,
     communicationFormat: 'casual',
+    gender: 'male',
     interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
     telegram: 'taras_m',
   },
@@ -473,13 +475,14 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
       displayName,
       description,
       communicationFormat,
+      gender,
       interestIds,
       telegram,
     } of stubProfiles) {
       await client.query(
-        `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [accountId, username, displayName, description, communicationFormat],
+        `INSERT INTO profiles (account_id, username, display_name, description, communication_format, gender)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [accountId, username, displayName, description, communicationFormat, gender],
       );
       await client.query(`INSERT INTO linked_accounts (profile_id, app, username) VALUES ($1, 'telegram', $2)`, [
         accountId,
@@ -1520,10 +1523,14 @@ describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
 
   /** A new account whose profile has everything matching needs. */
-  async function newCompleteProfile(): Promise<{ token: string; accountId: string; username: string }> {
+  // Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
+  async function newCompleteProfile(
+    gender: 'female' | 'male' | 'other' = 'female',
+  ): Promise<{ token: string; accountId: string; username: string }> {
     const { token, accountId, username } = await newProfile();
+    const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
     for (const [method, path, body] of [
-      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends' }],
+      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
       ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
       [
         'PUT',
@@ -1632,6 +1639,18 @@ describe('Applications', () => {
 
   test('rejects a profile that matching cannot use yet with 422', async () => {
     const { token } = await newProfile();
+    assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  // Profiles made before genders were asked: everything else is set, and the app sends the user to add one.
+  test('rejects a profile without a gender with 422', async () => {
+    const { token } = await newCompleteProfile();
+    await withDatabase((client) =>
+      client.query('UPDATE profiles SET gender = NULL, gender_description = NULL WHERE account_id = $1', [
+        accountIdOf(token),
+      ]),
+    );
+
     assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
   });
 
@@ -1814,6 +1833,52 @@ describe('Applications', () => {
       ]),
     );
     assert.deepEqual(rows, [{ source: 'instant', score: '1.000' }]);
+  });
+
+  test('stores whom the caller wants to go with and returns it', async () => {
+    const { token } = await newCompleteProfile();
+
+    const res = await apply(token, soonEvent, { ...answers, preferredGender: 'male', ageMin: 20, ageMax: 30 });
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual([res.body.preferredGender, res.body.ageMin, res.body.ageMax], ['male', 20, 30]);
+    const read = await call('GET', `/api/v1/applications/${res.body.id}`, { token });
+    assert.deepEqual([read.body.preferredGender, read.body.ageMin, read.body.ageMax], ['male', 20, 30]);
+  });
+
+  test('takes left-out preferences as anyone of any age', async () => {
+    const { token } = await newCompleteProfile();
+
+    const res = await apply(token, soonEvent);
+
+    assert.deepEqual([res.body.preferredGender, res.body.ageMin, res.body.ageMax], ['any', 18, null]);
+  });
+
+  test('rejects an age range whose oldest age is below the youngest with 400', async () => {
+    const { token } = await newCompleteProfile();
+
+    assertInvalid(await apply(token, soonEvent, { ...answers, ageMin: 30, ageMax: 25 }), 'body', 'ageMax');
+  });
+
+  // matching.md, policy: a pair that would score 1 is not matched when one does not want the other's gender.
+  test('does not match users who do not fit each other’s gender preference', async () => {
+    const waiting = await newCompleteProfile('female');
+    const newcomer = await newCompleteProfile('other');
+    await apply(waiting.token, soonEvent, { ...answers, preferredGender: 'female' });
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
+  test('does not match users outside each other’s age range', async () => {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    await apply(waiting.token, soonEvent, { ...answers, ageMin: 30 });
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
   });
 
   test('leaves the caller in the pool when nobody suits them well enough', async () => {
@@ -3019,6 +3084,26 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(stored.rows[0]?.communication_format, 'casual');
   });
 
+  // Leaves the profile with a gender, which the interests tests need to complete it.
+  test('stores the gender "other" with its description, and drops the description for another gender', async () => {
+    const other = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { gender: 'other', genderDescription: ' Небінарна людина ' },
+    });
+    assert.equal(other.status, 200, JSON.stringify(other.body));
+    assert.deepEqual([other.body.gender, other.body.genderDescription], ['other', 'Небінарна людина']);
+
+    const female = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { gender: 'female' } });
+
+    assert.deepEqual([female.body.gender, female.body.genderDescription], ['female', null]);
+  });
+
+  test('rejects the gender "other" without a description with 400', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { gender: 'other' } });
+
+    assertInvalid(res, 'body', 'genderDescription');
+  });
+
   test('lets a user change the case of their own username', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
@@ -3172,7 +3257,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
-    assert.equal(first.body.isComplete, true, 'format, interests and a network are all set');
+    assert.equal(first.body.isComplete, true, 'format, gender, interests and a network are all set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,

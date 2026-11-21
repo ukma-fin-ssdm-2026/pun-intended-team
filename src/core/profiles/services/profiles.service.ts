@@ -16,6 +16,7 @@ import type {
   Interest,
   LinkedAccount,
   LinkedAccountDetails,
+  MatchingTraits,
   NewProfile,
   Profile,
   ProfileChanges,
@@ -59,13 +60,27 @@ export class ProfilesService {
     return profile !== undefined && isComplete(profile);
   }
 
-  /** The interests of each account, for scoring a pair; accounts without a profile are left out. */
-  async getInterests(accountIds: string[], tx?: Transaction): Promise<Map<string, Interest[]>> {
-    const [profiles, interestsOf] = await Promise.all([
-      this.profilesRepository.findByAccountIds([...new Set(accountIds)], tx),
+  /**
+   * What matching needs of each account in a pool: the interests to score a pair, the gender and the age on `day`
+   * (YYYY-MM-DD in Kyiv) to filter on. Accounts without a profile are left out.
+   */
+  async getMatchingTraits(accountIds: string[], day: string, tx?: Transaction): Promise<Map<string, MatchingTraits>> {
+    const ids = [...new Set(accountIds)];
+    const [profiles, interestsOf, datesOfBirth] = await Promise.all([
+      this.profilesRepository.findByAccountIds(ids, tx),
       this.interestsLookup(tx),
+      this.accountsService.getDatesOfBirth(ids, tx),
     ]);
-    return new Map(profiles.map((profile) => [profile.accountId, interestsOf(profile)]));
+    return new Map(
+      profiles.map((profile) => [
+        profile.accountId,
+        {
+          interests: interestsOf(profile),
+          gender: profile.gender,
+          age: ageFrom(profile.accountId, datesOfBirth.get(profile.accountId), day),
+        },
+      ]),
+    );
   }
 
   /** What a proposed match sees of each account; accounts without a profile are left out. */
@@ -116,14 +131,17 @@ export class ProfilesService {
     return this.withDetails(await this.profilesRepository.create(accountId, input));
   }
 
-  /** Every later onboarding step and the edit screen; only the fields sent change. */
+  /**
+   * Every later onboarding step and the edit screen; only the fields sent change. A gender of "other" needs the user's
+   * description of it, and any other gender drops the description.
+   */
   async update(accountId: string, changes: ProfileChanges): Promise<ProfileDetails> {
     const profile = await this.requireProfile(accountId);
     // Keeping one's own username (even in another case) is not a clash.
     if (changes.username !== undefined) {
       await this.requireFreeUsername(changes.username, accountId);
     }
-    return this.withDetails(await this.profilesRepository.update(profile.accountId, changes));
+    return this.withDetails(await this.profilesRepository.update(profile.accountId, withGender(changes)));
   }
 
   async replaceInterests(accountId: string, interestIds: string[]): Promise<ProfileDetails> {
@@ -213,6 +231,8 @@ export class ProfilesService {
       description: profile.description,
       occupation: profile.occupation,
       communicationFormat: profile.communicationFormat,
+      gender: profile.gender,
+      genderDescription: profile.genderDescription,
       sharePhone: profile.sharePhone,
       age,
       interests: interestsOf(profile),
@@ -247,12 +267,23 @@ export class ProfilesService {
   }
 }
 
-function ageFrom(accountId: string, dateOfBirth: string | undefined): number {
+function ageFrom(accountId: string, dateOfBirth: string | undefined, day = kyivDate()): number {
   // An account that has a profile always has a date of birth; a missing one is a data bug, so a 500.
   if (dateOfBirth === undefined) {
     throw new Error(`Profile of ${accountId} has no account date of birth`);
   }
-  return ageOn(kyivDate(), dateOfBirth);
+  return ageOn(day, dateOfBirth);
+}
+
+/**
+ * A gender is saved with its description: the user's words for "other", which the API requires with it, and none for
+ * any other gender.
+ */
+function withGender(changes: ProfileChanges): ProfileChanges {
+  if (changes.gender === undefined) {
+    return changes;
+  }
+  return { ...changes, genderDescription: changes.gender === 'other' ? changes.genderDescription : undefined };
 }
 
 function imageIdOf(profile: Profile, slot: ProfileImageSlot): string | null {
@@ -263,7 +294,12 @@ function withUrl({ network, username }: LinkedAccount): LinkedAccountDetails {
   return { network, username, url: socialNetworkUrl(network, username) };
 }
 
-/** A communication format, at least one interest and at least one linked network. */
+/** A communication format, a gender, at least one interest and at least one linked network. */
 function isComplete(profile: Profile): boolean {
-  return profile.communicationFormat !== null && profile.interestIds.length > 0 && profile.linkedAccounts.length > 0;
+  return (
+    profile.communicationFormat !== null &&
+    profile.gender !== null &&
+    profile.interestIds.length > 0 &&
+    profile.linkedAccounts.length > 0
+  );
 }

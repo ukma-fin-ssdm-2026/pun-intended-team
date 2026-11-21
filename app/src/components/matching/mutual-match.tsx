@@ -4,6 +4,7 @@ import type { ImageSource } from 'expo-image';
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import type { ApiImage } from '@/api/images';
@@ -214,13 +215,13 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
       </ScrollView>
 
       {write && (
-        <View className="absolute left-0 right-0 items-center" style={{ bottom: actionBottom }}>
+        <BottomActionFade id="mutual-action-fade" style={{ alignItems: 'center' }}>
           <Button
             label={`Написати в ${write.label}`}
             variant="dark"
             onPress={() => write.url && void Linking.openURL(write.url)}
           />
-        </View>
+        </BottomActionFade>
       )}
     </View>
   );

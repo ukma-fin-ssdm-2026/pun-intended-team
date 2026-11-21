@@ -297,6 +297,68 @@ describe('applications_user_id_event_id_active_key', () => {
     }));
 });
 
+describe('profiles_gender_description_check', () => {
+  const rejected = [
+    { label: 'the gender "other" without a description', gender: 'other', description: null },
+    { label: 'a description with the gender female', gender: 'female', description: 'Жінка' },
+    { label: 'a description without a gender', gender: null, description: 'Небінарна людина' },
+  ];
+
+  for (const { label, gender, description } of rejected) {
+    test(`rejects ${label}`, () =>
+      inTransaction(async (db) => {
+        const accountId = await aProfile(db);
+
+        const update = db.query('UPDATE profiles SET gender = $2, gender_description = $3 WHERE account_id = $1', [
+          accountId,
+          gender,
+          description,
+        ]);
+
+        await assertViolates(update, CHECK_VIOLATION, 'profiles_gender_description_check');
+      }));
+  }
+
+  test('accepts the gender "other" with a description', () =>
+    inTransaction(async (db) => {
+      const accountId = await aProfile(db);
+
+      await db.query(
+        `UPDATE profiles SET gender = 'other', gender_description = 'Небінарна людина' WHERE account_id = $1`,
+        [accountId],
+      );
+    }));
+});
+
+describe('applications_age_range_check', () => {
+  const rejected = [
+    { label: 'a youngest age under 18', ageMin: 17, ageMax: null },
+    { label: 'an oldest age below the youngest', ageMin: 30, ageMax: 25 },
+  ];
+
+  for (const { label, ageMin, ageMax } of rejected) {
+    test(`rejects ${label}`, () =>
+      inTransaction(async (db) => {
+        const applicationId = await anApplication(db, await anAccount(db), await anEvent(db));
+
+        const update = db.query('UPDATE applications SET age_min = $2, age_max = $3 WHERE id = $1', [
+          applicationId,
+          ageMin,
+          ageMax,
+        ]);
+
+        await assertViolates(update, CHECK_VIOLATION, 'applications_age_range_check');
+      }));
+  }
+
+  test('accepts a range without an upper bound', () =>
+    inTransaction(async (db) => {
+      const applicationId = await anApplication(db, await anAccount(db), await anEvent(db));
+
+      await db.query('UPDATE applications SET age_min = 60, age_max = NULL WHERE id = $1', [applicationId]);
+    }));
+});
+
 describe('report_cases_open_target_listing_key', () => {
   test('rejects a second open case about the same listing', () =>
     inTransaction(async (db) => {

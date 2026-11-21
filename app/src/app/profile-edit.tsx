@@ -10,6 +10,10 @@ import { failureSnackbar, pictureFailureSnackbar, pictureRefusalSnackbar } from 
 import {
   FormatPicker,
   FormScreen,
+  GenderField,
+  genderFields,
+  isGenderComplete,
+  type GenderAnswer,
   InterestPicker,
   useInterestChips,
   isValidUsername,
@@ -69,6 +73,11 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const occupationPlaceholder = useRandomText('occupation');
   const [about, setAbout] = useState(profile.description);
   const [format, setFormat] = useState(profile.communicationFormat);
+  // A profile made before genders were asked has none: the field starts empty and must be filled to save.
+  const [gender, setGender] = useState<GenderAnswer>({
+    gender: profile.gender,
+    description: profile.genderDescription ?? '',
+  });
   const savedInterestIds = profile.interests.map((interest) => interest.id);
   const [interestIds, setInterestIds] = useState(savedInterestIds);
   const savedNetworks = toEntries(profile.linkedAccounts);
@@ -86,7 +95,13 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   let usernameError: string | undefined;
   if (usernameTaken) usernameError = 'Цей нікнейм уже зайнятий';
   else if (username && !usernameValid) usernameError = 'Від 3 до 30 латинських літер, цифр, крапок або _';
-  const ready = !!name.trim() && usernameValid && !!format && interestIds.length >= MIN_INTERESTS && shared.length > 0;
+  const ready =
+    !!name.trim() &&
+    isGenderComplete(gender) &&
+    usernameValid &&
+    !!format &&
+    interestIds.length >= MIN_INTERESTS &&
+    shared.length > 0;
 
   // Only what changed is sent; "Зберегти" with no changes just returns to Т4.
   const save = async () => {
@@ -96,6 +111,10 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
     if (about.trim() !== profile.description) changes.description = about.trim();
     if (occupation.trim() !== profile.occupation) changes.occupation = occupation.trim();
     if (format && format !== profile.communicationFormat) changes.communicationFormat = format;
+    const genderChanged =
+      gender.gender !== profile.gender ||
+      (gender.gender === 'other' && gender.description.trim() !== profile.genderDescription);
+    if (genderChanged) Object.assign(changes, genderFields(gender));
     const interestsChanged =
       interestIds.length !== savedInterestIds.length || interestIds.some((id) => !savedInterestIds.includes(id));
 
@@ -139,6 +158,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
 
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
+          <GenderField value={gender} onChange={setGender} />
           {/* Not in Figma: the API needs a username. */}
           <TextField
             label="Нікнейм"

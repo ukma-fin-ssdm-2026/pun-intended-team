@@ -180,7 +180,7 @@ function EmptyState({ onPick }: { onPick: () => void }) {
         </View>
         <Text className="text-center font-inter-bold text-h1 text-text-primary">Поки без метчів</Text>
         <Text className="text-center font-inter text-body text-text-secondary">
-          Обери подію в каталозі й натисни «Знайти мені метч». Ми підберемо тобі компанію за інтересами.
+          Обери подію в каталозі й натисни «Знайти метч». Ми підберемо тобі компанію за інтересами.
         </Text>
         <View className="h-1.5" />
         <View className="w-full">

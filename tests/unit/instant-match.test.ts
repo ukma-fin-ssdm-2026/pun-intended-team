@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { INSTANT_MATCH_THRESHOLD, instantCandidate } from '../../dist/core/matching/services/instant-match.js';
 import type { Exclusion, PoolMember } from '../../dist/core/matching/types/matching.js';
+import { ACCEPTS_ANYONE } from './fixtures/matching.ts';
 
 const SEED = 42;
 const JAZZ = { id: 'jazz', group: 'music' };
@@ -14,6 +15,7 @@ function aMember(overrides: Partial<PoolMember> = {}): PoolMember {
     desiredCompany: 'company',
     afterEventPlans: [],
     sessionIds: ['day-1'],
+    ...ACCEPTS_ANYONE,
     ...overrides,
   };
 }
@@ -99,5 +101,24 @@ describe('instantCandidate', () => {
 
     assert.equal(new Set(runs).size, 1);
     assert.ok(bySeed.size > 1);
+  });
+
+  // matching.md, policy: whom each wants to go with
+  test('skips a high-scoring candidate who does not want the newcomer’s gender', () => {
+    const newcomer = aMember({ gender: 'male' });
+    const womenOnly = aMember({ userId: 'W', preferredGender: 'female' });
+
+    const best = instantCandidate(newcomer, [newcomer, womenOnly], [], SEED);
+
+    assert.equal(best, undefined);
+  });
+
+  test('skips a candidate outside the newcomer’s age range', () => {
+    const newcomer = aMember({ ageMin: 30, ageMax: 35 });
+    const younger = aMember({ userId: 'Y', age: 29 });
+
+    const best = instantCandidate(newcomer, [newcomer, younger], [], SEED);
+
+    assert.equal(best, undefined);
   });
 });

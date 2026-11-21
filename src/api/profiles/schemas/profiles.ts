@@ -1,12 +1,23 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { socialNetworks } from '../../../core/profiles/types/profile.ts';
+import { genderPreferences, genders, socialNetworks } from '../../../core/profiles/types/profile.ts';
 import { Id } from '../../common/schemas/common.ts';
 import { CoverImage, Image } from '../../images/schemas/images.ts';
 
 export const CommunicationFormat = z
   .enum(['friends', 'dating', 'company'])
   .meta({ id: 'CommunicationFormat', description: 'What the user is looking for when they go to an event' });
+
+export const Gender = z.enum(genders).meta({
+  id: 'Gender',
+  description: 'The user’s gender; `other` comes with `genderDescription`, the user’s own words for it',
+});
+
+export const GenderPreference = z.enum(genderPreferences).meta({
+  id: 'GenderPreference',
+  description:
+    'Whom the user wants to go with: `any` accepts every gender, including `other`; `female` and `male` only that gender',
+});
 
 export const SocialNetwork = z
   .enum(socialNetworks)
@@ -58,6 +69,11 @@ const ProfileFields = z.object({
   description: z.string(),
   occupation: z.string().describe('What the user does, e.g. their studies or work; can be empty'),
   communicationFormat: CommunicationFormat.nullable().describe('Null until the user picks one'),
+  gender: Gender.nullable().describe('Null until the user picks one; matching needs it'),
+  genderDescription: z
+    .string()
+    .nullable()
+    .describe('The user’s own words for the gender `other`; null for any other gender'),
   sharePhone: z.boolean().describe('Whether the phone number is revealed on a mutual match'),
   age: z
     .number()
@@ -68,7 +84,7 @@ const ProfileFields = z.object({
   isComplete: z
     .boolean()
     .describe(
-      'True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three',
+      'True once communicationFormat, gender, at least one interest and at least one linked account are set; matching needs all four',
     ),
   photo: Image.nullable().describe('The avatar, a square shown as a circle; null shows the initial'),
   cover: CoverImage.nullable().describe('The picture behind the avatar; null shows the default gradient'),
@@ -80,6 +96,8 @@ export const profileExample: Profile = {
   description: 'Cinema, galleries and long walks.',
   occupation: 'Student at Kyiv-Mohyla Academy',
   communicationFormat: 'friends',
+  gender: 'female',
+  genderDescription: null,
   sharePhone: true,
   age: 28,
   interests: [interestExample],
@@ -111,6 +129,13 @@ const Description = z.string().trim().max(500).describe('Free text about the use
 
 const Occupation = z.string().trim().max(100).describe('What the user does, e.g. their studies or work; can be empty');
 
+const GenderDescription = z
+  .string()
+  .trim()
+  .min(1)
+  .max(50)
+  .describe('The user’s own words for the gender `other`; required with it and refused with any other gender');
+
 const CreateProfileFields = z.strictObject({
   username: Username,
   displayName: DisplayName,
@@ -131,10 +156,16 @@ const UpdateProfileFields = z
     description: Description.optional(),
     occupation: Occupation.optional(),
     communicationFormat: CommunicationFormat.optional(),
+    gender: Gender.optional(),
+    genderDescription: GenderDescription.optional(),
     sharePhone: z.boolean().optional().describe('Whether the phone number is revealed on a mutual match'),
   })
   .refine((body) => Object.values(body).some((value) => value !== undefined), {
     message: 'Send at least one field to change',
+  })
+  .refine((body) => (body.gender === 'other') === (body.genderDescription !== undefined), {
+    message: 'The gender "other" needs genderDescription, and only it takes one',
+    path: ['genderDescription'],
   });
 
 export const UpdateProfileBody = UpdateProfileFields.meta({

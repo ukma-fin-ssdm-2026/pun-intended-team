@@ -80,10 +80,11 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
-  // An empty description or occupation is stored as null, as a new profile has it.
+  // An empty description or occupation is stored as null, as a new profile has it. A gender replaces the gender
+  // description with the one sent along, or none.
   async update(
     accountId: string,
-    { communicationFormat, description, occupation, ...changes }: ProfileChanges,
+    { communicationFormat, description, occupation, gender, genderDescription, ...changes }: ProfileChanges,
   ): Promise<Profile> {
     const row = await this.prisma.profile
       .update({
@@ -93,6 +94,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
           ...(description !== undefined && { description: description || null }),
           ...(occupation !== undefined && { occupation: occupation || null }),
           ...(communicationFormat && { communicationFormat: toDesiredCompany[communicationFormat] }),
+          ...(gender && { gender, genderDescription: genderDescription ?? null }),
         },
         include: withRelations,
       })
@@ -148,6 +150,8 @@ export class PrismaProfilesRepository implements ProfilesRepository {
       description: row.description ?? '',
       occupation: row.occupation ?? '',
       communicationFormat: row.communicationFormat && toCommunicationFormat[row.communicationFormat],
+      gender: row.gender,
+      genderDescription: row.genderDescription,
       sharePhone: row.sharePhone,
       interestIds: row.profileInterests.map(({ interestId }) => interestId),
       linkedAccounts: row.linkedAccounts

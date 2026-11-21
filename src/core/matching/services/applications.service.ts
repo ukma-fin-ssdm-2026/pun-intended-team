@@ -50,6 +50,9 @@ export class ApplicationsService {
           sessionIds: sessions.map(({ id }) => id),
           desiredCompany: input.desiredCompany,
           afterEventPlans: input.afterEventPlans,
+          preferredGender: input.preferredGender,
+          ageMin: input.ageMin,
+          ageMax: input.ageMax,
         },
         tx,
       );

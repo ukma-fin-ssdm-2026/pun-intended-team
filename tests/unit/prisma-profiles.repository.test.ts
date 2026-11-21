@@ -25,6 +25,8 @@ function aRow(overrides: Record<string, unknown> = {}) {
     description: 'Cinema and walks.',
     occupation: 'Student',
     communicationFormat: 'friends',
+    gender: 'other',
+    genderDescription: 'Небінарна людина',
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
     linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
@@ -83,6 +85,8 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       description: 'Cinema and walks.',
       occupation: 'Student',
       communicationFormat: 'friends',
+      gender: 'other',
+      genderDescription: 'Небінарна людина',
       sharePhone: true,
       interestIds: [INTEREST_ID],
       linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
@@ -233,6 +237,24 @@ describe('PrismaProfilesRepository.update', () => {
 
     const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
     assert.deepEqual(data, { description: null, occupation: null });
+  });
+
+  test('stores a gender with its description', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.update(ACCOUNT_ID, { gender: 'other', genderDescription: 'Небінарна людина' });
+
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
+    assert.deepEqual(data, { gender: 'other', genderDescription: 'Небінарна людина' });
+  });
+
+  test('clears the description of a gender sent without one', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.update(ACCOUNT_ID, { gender: 'female' });
+
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
+    assert.deepEqual(data, { gender: 'female', genderDescription: null });
   });
 
   test('leaves the format out when it is not changed', async () => {
