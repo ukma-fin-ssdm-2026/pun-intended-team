@@ -1,11 +1,22 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { EventsRepository } from '../../core/catalog/repositories/events.repository.ts';
-import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../../core/catalog/types/event.ts';
+import type {
+  Event,
+  EventChanges,
+  EventFilter,
+  EventOverview,
+  EventRecord,
+  EventSearch,
+  EventStatus,
+} from '../../core/catalog/types/event.ts';
 import { addDays, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import type { Page, PageRequest } from '../../core/common/page.ts';
-import { eventInclude, toEvent } from './catalog-rows.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
+import { eventInclude, organizationName, toEvent } from './catalog-rows.ts';
+import type { Prisma } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 
 @Injectable()
 export class PrismaEventsRepository implements EventsRepository {
@@ -36,6 +47,56 @@ export class PrismaEventsRepository implements EventsRepository {
     };
   }
 
+  async findByOrganization(
+    organizationId: string,
+    endingAfter: Date,
+    { limit, offset }: PageRequest,
+  ): Promise<Page<Event>> {
+    const rows = await this.prisma.event.findMany({
+      where: { organizationId, endsAt: { gt: endingAfter } },
+      include: eventInclude,
+      orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
+      skip: offset,
+      take: limit + 1,
+    });
+    return {
+      items: rows.slice(0, limit).map(toEvent),
+      page: { limit, offset, hasMore: rows.length > limit },
+    };
+  }
+
+  async search(
+    { period, search, source, status, organizationId, venueId, categoryId }: EventSearch,
+    now: Date,
+    { limit, offset }: PageRequest,
+  ): Promise<Page<EventOverview>> {
+    const order = period === 'upcoming' ? 'asc' : 'desc';
+    const rows = await this.prisma.event.findMany({
+      where: {
+        source,
+        status,
+        organizationId,
+        venueId,
+        categoryId,
+        title: search ? { contains: search, mode: 'insensitive' } : undefined,
+        endsAt: period === 'upcoming' ? { gt: now } : { lte: now },
+      },
+      include: overviewInclude,
+      orderBy: [{ startsAt: order }, { id: 'asc' }],
+      skip: offset,
+      take: limit + 1,
+    });
+    return {
+      items: rows.slice(0, limit).map(toEventOverview),
+      page: { limit, offset, hasMore: rows.length > limit },
+    };
+  }
+
+  async findOverview(id: string): Promise<EventOverview | undefined> {
+    const row = await this.prisma.event.findUnique({ where: { id }, include: overviewInclude });
+    return row ? toEventOverview(row) : undefined;
+  }
+
   async countPublishedEndingAfter(instant: Date): Promise<number> {
     return this.prisma.event.count({ where: { status: 'published', endsAt: { gt: instant } } });
   }
@@ -60,6 +121,18 @@ export class PrismaEventsRepository implements EventsRepository {
     });
     return toEvent(event);
   }
+
+  async setPhoto(id: string, photoId: string | null, tx?: Transaction): Promise<Event> {
+    return toEvent(
+      await clientOf(this.prisma, tx).event.update({ where: { id }, data: { photoId }, include: eventInclude }),
+    );
+  }
+}
+
+const overviewInclude = { ...eventInclude, ...organizationName } satisfies Prisma.EventInclude;
+
+function toEventOverview(row: Prisma.EventGetPayload<{ include: typeof overviewInclude }>): EventOverview {
+  return { ...toEvent(row), organization: row.organization };
 }
 
 /** The last millisecond of a Kyiv calendar date; noon UTC always falls on the same Kyiv date. */

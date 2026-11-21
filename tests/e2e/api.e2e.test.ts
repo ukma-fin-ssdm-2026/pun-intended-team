@@ -14,6 +14,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
 import sharp from 'sharp';
+import { ageOn } from '../../dist/core/common/age.js';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import type { MessagingProvider } from '../../dist/core/notifications/adapters/messaging-provider.js';
 import type { PushProvider } from '../../dist/core/notifications/adapters/push-provider.js';
@@ -1414,6 +1415,125 @@ describe('POST /api/v1/events/{id}/cancel', () => {
   });
 });
 
+describe('GET /api/v1/me/events', () => {
+  test('lists the organization’s events that have not ended, cancelled ones too, soonest first', async () => {
+    const upcoming = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, startsAt: `${inDays(3)}T19:00:00+03:00`, endsAt: `${inDays(3)}T21:00:00+03:00` },
+    });
+    const ended = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, startsAt: `${inDays(-1)}T19:00:00+03:00`, endsAt: `${inDays(-1)}T21:00:00+03:00` },
+    });
+    assert.equal(upcoming.status, 201, JSON.stringify(upcoming.body));
+    assert.equal(ended.status, 201, JSON.stringify(ended.body));
+
+    const res = await call('GET', '/api/v1/me/events', { token: tokens.org });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = res.body.items.map((event: { id: string }) => event.id);
+    assert.ok(ids.includes(upcoming.body.id));
+    assert.ok(ids.includes(cancelledFilmEvent));
+    assert.ok(!ids.includes(ended.body.id), 'an ended event is not listed');
+    assert.ok(!ids.includes(arsenalExhibition), 'an imported event is not listed');
+    const starts = res.body.items.map((event: { startsAt: string }) => Date.parse(event.startsAt));
+    assert.deepEqual(
+      starts,
+      [...starts].sort((a, b) => a - b),
+    );
+  });
+
+  test('is empty for an account that is not an organization', async () => {
+    const res = await call('GET', '/api/v1/me/events', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.items, []);
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(await call('GET', '/api/v1/me/events', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('Organization venues', () => {
+  const newVenue = {
+    name: 'Kyiv Film Studio yard',
+    address: '44 Peremohy Ave, Kyiv',
+    location: { lat: 50.4555, lng: 30.4407 },
+  };
+
+  test('lists only the organization’s own venues', async () => {
+    const res = await call('GET', '/api/v1/me/venues', { token: tokens.org });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = res.body.items.map((venue: { id: string }) => venue.id);
+    assert.ok(ids.includes(filmClubVenue));
+    assert.ok(!ids.includes(arsenalVenue), 'an imported venue is not listed');
+    assert.ok(!ids.includes(newGalleryHall), 'another organization’s venue is not listed');
+  });
+
+  test('is empty for an account that is not an organization', async () => {
+    const res = await call('GET', '/api/v1/me/venues', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.items, []);
+  });
+
+  test('adds a venue that the organization can then publish an event at', async () => {
+    const created = await call('POST', '/api/v1/me/venues', { token: tokens.org, body: newVenue });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.deepEqual({ ...created.body, id: undefined }, { ...newVenue, id: undefined });
+
+    assert.equal(created.headers.get('location'), `/api/v1/me/venues/${created.body.id}`);
+    const fetched = await call('GET', `/api/v1/me/venues/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(fetched.body, created.body);
+
+    const listed = await call('GET', '/api/v1/me/venues', { token: tokens.org });
+    assert.ok(listed.body.items.some((venue: { id: string }) => venue.id === created.body.id));
+    const others = await call('GET', '/api/v1/me/venues', { token: tokens.orgPending });
+    assert.ok(!others.body.items.some((venue: { id: string }) => venue.id === created.body.id));
+
+    const event = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, venueId: created.body.id },
+    });
+    assert.equal(event.status, 201, JSON.stringify(event.body));
+    assert.equal(event.body.venue.id, created.body.id);
+  });
+
+  test('answers 404 for another organization’s venue and an imported one', async () => {
+    for (const id of [newGalleryHall, arsenalVenue]) {
+      assertRejected(await call('GET', `/api/v1/me/venues/${id}`, { token: tokens.org }), 404, 'NOT_FOUND');
+    }
+  });
+
+  test('rejects an organization that is not verified, and a regular user, with 422', async () => {
+    for (const token of [tokens.orgPending, tokens.user]) {
+      assertRejected(
+        await call('POST', '/api/v1/me/venues', { token, body: newVenue }),
+        422,
+        'ORGANIZATION_NOT_VERIFIED',
+      );
+    }
+  });
+
+  test('rejects a point outside Kyiv with 422', async () => {
+    const body = { ...newVenue, location: { lat: 49.8419, lng: 24.0315 } };
+    assertRejected(await call('POST', '/api/v1/me/venues', { token: tokens.org, body }), 422, 'VENUE_OUTSIDE_CITY');
+  });
+
+  test('rejects a body without a name or location with 400, one details entry each', async () => {
+    const res = await call('POST', '/api/v1/me/venues', { token: tokens.org, body: { address: newVenue.address } });
+    assertInvalid(res, 'body', 'name');
+    assertInvalid(res, 'body', 'location');
+    assert.equal(res.body.error.details.length, 2, JSON.stringify(res.body.error.details));
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(
+      await call('POST', '/api/v1/me/venues', { token: tokens.guest, body: newVenue }),
+      401,
+      'UNAUTHENTICATED',
+    );
+  });
+});
+
 describe('GET /api/v1/listings', () => {
   test('returns a page of listings', async () => {
     const res = await call('GET', '/api/v1/listings', { token: tokens.user });
@@ -2730,7 +2850,7 @@ describe('Organization verification', () => {
 
     const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
 
-    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null };
+    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null, logo: null };
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(res.body, pending);
     assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);
@@ -2841,6 +2961,189 @@ describe('Organization verification', () => {
     assertRejected(await call('GET', '/api/v1/admin/organizations', { token: tokens.user }), 404, 'NOT_FOUND');
     assertRejected(await decide(accountId, 'approve', tokens.user), 404, 'NOT_FOUND');
     assertRejected(await call('GET', '/api/v1/me/organization', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+// FR-027: the admin panel lists every account, event, venue and organization.
+describe('Admin panel lists', () => {
+  const podilFilmClub = { accountId: stubAccounts.org.id, name: 'Podil Film Club' };
+
+  async function listAll(path: string): Promise<Response['body'][]> {
+    let items: Response['body'][] = [];
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const separator = path.includes('?') ? '&' : '?';
+      const page = await call('GET', `${path}${separator}offset=${offset}`, { token: tokens.admin });
+      assert.equal(page.status, 200, JSON.stringify(page.body));
+      items = [...items, ...page.body.items];
+      hasMore = page.body.page.hasMore;
+    }
+    return items;
+  }
+
+  test('lists an account with its profile, organization and age, never its phone or date of birth', async () => {
+    const items = await listAll('/api/v1/admin/accounts?search=OLENA_K');
+
+    assert.deepEqual(items, [
+      {
+        id: stubAccounts.user.id,
+        role: 'user',
+        status: 'active',
+        signInMethods: ['google'],
+        age: ageOn(kyivDate(), stubAccounts.user.dateOfBirth),
+        createdAt: items[0]?.createdAt,
+        profile: { username: 'olena_k', displayName: 'Olena' },
+        organization: null,
+      },
+    ]);
+  });
+
+  test('finds an account by its id, with its organization request', async () => {
+    const items = await listAll(`/api/v1/admin/accounts?search=${stubAccounts.org.id}`);
+
+    assert.deepEqual(
+      items.map(({ id, organization }) => ({ id, organization })),
+      [{ id: stubAccounts.org.id, organization: { name: 'Podil Film Club', verificationStatus: 'verified' } }],
+    );
+  });
+
+  test('lists only the administrators with role=admin, newest first', async () => {
+    const items = await listAll('/api/v1/admin/accounts?role=admin');
+
+    assert.ok(items.length > 0);
+    assert.ok(
+      items.every((item) => item.role === 'admin'),
+      JSON.stringify(items),
+    );
+    assert.ok(items.some((item) => item.id === stubAccounts.admin.id));
+    const created = items.map((item) => item.createdAt);
+    assert.deepEqual(created, [...created].sort().reverse());
+  });
+
+  test('gives an empty page when nothing matches the search', async () => {
+    const res = await call('GET', '/api/v1/admin/accounts?search=no-such-user-anywhere', { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { items: [], page: { limit: 20, offset: 0, hasMore: false } });
+  });
+
+  test('gives one account with its profile as other users see it', async () => {
+    const res = await call('GET', `/api/v1/admin/accounts/${stubAccounts.user.id}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.profile.username, 'olena_k');
+    assert.equal(res.body.profile.description, 'Cinema, galleries and long walks.');
+    assert.ok(res.body.profile.interests.some((interest: { id: string }) => interest.id === interestFilms));
+    assert.equal(res.body.organization, null);
+    assert.equal('dateOfBirth' in res.body, false);
+    assert.equal('phone' in res.body, false);
+  });
+
+  test('lists upcoming events in any status, with who added them', async () => {
+    const items = await listAll('/api/v1/admin/events');
+
+    const byId = new Map(items.map((item) => [item.id, item]));
+    assert.deepEqual(byId.get(cancelledFilmEvent)?.organization, podilFilmClub);
+    assert.equal(byId.get(cancelledFilmEvent)?.status, 'cancelled');
+    assert.equal(byId.get(arsenalExhibition)?.organization, null);
+    const starts = items.map((item) => item.startsAt);
+    assert.deepEqual(starts, [...starts].sort());
+  });
+
+  test('lists past events latest first, and filters events', async () => {
+    const pastEvent = randomUUID();
+    await withDatabase((client) =>
+      client.query(
+        `INSERT INTO events (id, category_id, venue_id, organization_id, source, title, description, starts_at, ends_at)
+         VALUES ($1, $2, $3, $4, 'organization', 'Last year''s film night', '', now() - interval '400 days',
+                 now() - interval '399 days')`,
+        [pastEvent, concerts, filmClubVenue, stubAccounts.org.id],
+      ),
+    );
+
+    const past = await listAll('/api/v1/admin/events?period=past');
+    const filtered = await listAll(
+      `/api/v1/admin/events?organizationId=${stubAccounts.org.id}&status=cancelled&search=SILENT`,
+    );
+
+    assert.ok(past.some((item) => item.id === pastEvent));
+    assert.ok(!past.some((item) => item.id === arsenalExhibition));
+    assert.deepEqual(
+      filtered.map((item) => item.id),
+      [cancelledFilmEvent],
+    );
+  });
+
+  test('gives one event, a cancelled one too', async () => {
+    const res = await call('GET', `/api/v1/admin/events/${cancelledFilmEvent}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'cancelled');
+    assert.deepEqual(res.body.organization, podilFilmClub);
+  });
+
+  test('lists venues, imported ones too, and filters them', async () => {
+    const arsenal = await listAll('/api/v1/admin/venues?search=lavrska');
+    const newGallery = await listAll(`/api/v1/admin/venues?organizationId=${stubAccounts.orgPending.id}`);
+
+    assert.deepEqual(
+      arsenal.map(({ id, source, organization }) => ({ id, source, organization })),
+      [{ id: arsenalVenue, source: 'import', organization: null }],
+    );
+    assert.deepEqual(
+      newGallery.map(({ id, organization }) => ({ id, organization })),
+      [{ id: newGalleryHall, organization: { accountId: stubAccounts.orgPending.id, name: 'New Gallery' } }],
+    );
+  });
+
+  test('gives one venue with the organization that owns it', async () => {
+    const res = await call('GET', `/api/v1/admin/venues/${filmClubVenue}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.name, 'Natalka Park lawn');
+    assert.deepEqual(res.body.organization, podilFilmClub);
+  });
+
+  test('filters organizations by name and status, and gives one organization', async () => {
+    const items = await listAll('/api/v1/admin/organizations?search=podil&status=verified');
+    const one = await call('GET', `/api/v1/admin/organizations/${stubAccounts.org.id}`, { token: tokens.admin });
+
+    assert.deepEqual(
+      items.map((item) => item.accountId),
+      [stubAccounts.org.id],
+    );
+    assert.equal(one.status, 200, JSON.stringify(one.body));
+    assert.equal(one.body.name, 'Podil Film Club');
+    assert.equal(one.body.account.id, stubAccounts.org.id);
+  });
+
+  test('answers 404 to an id that does not exist', async () => {
+    for (const path of ['accounts', 'events', 'venues', 'organizations']) {
+      const res = await call('GET', `/api/v1/admin/${path}/${randomUUID()}`, { token: tokens.admin });
+      assertRejected(res, 404, 'NOT_FOUND');
+    }
+  });
+
+  test('rejects an unknown filter value and an empty search with 400', async () => {
+    assertInvalid(await call('GET', '/api/v1/admin/accounts?role=owner', { token: tokens.admin }), 'query', 'role');
+    assertInvalid(await call('GET', '/api/v1/admin/events?period=soon', { token: tokens.admin }), 'query', 'period');
+    assertInvalid(await call('GET', '/api/v1/admin/venues?search=%20', { token: tokens.admin }), 'query', 'search');
+    assertInvalid(await call('GET', '/api/v1/admin/accounts/not-a-uuid', { token: tokens.admin }), 'params', 'id');
+  });
+
+  // SEC-001
+  test('answers a user who is not an administrator with 404, and a guest with 401', async () => {
+    for (const path of [
+      '/api/v1/admin/accounts',
+      `/api/v1/admin/accounts/${stubAccounts.user.id}`,
+      '/api/v1/admin/events',
+      `/api/v1/admin/events/${filmNight}`,
+      '/api/v1/admin/venues',
+      `/api/v1/admin/venues/${filmClubVenue}`,
+      `/api/v1/admin/organizations/${stubAccounts.org.id}`,
+    ]) {
+      assertRejected(await call('GET', path, { token: tokens.user }), 404, 'NOT_FOUND');
+      assertRejected(await call('GET', path, { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+    }
   });
 });
 
@@ -3422,11 +3725,116 @@ describe('PUT and DELETE /api/v1/me/profile/cover', () => {
   });
 });
 
+describe('Event covers', () => {
+  const upcoming = () => ({
+    ...newEvent,
+    startsAt: `${inDays(5)}T19:00:00+03:00`,
+    endsAt: `${inDays(5)}T21:00:00+03:00`,
+  });
+
+  test('an organization adds a cover cut to 2:1 and kept whole, which a guest sees in the catalog', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    assert.equal(created.body.photo, null);
+
+    const res = await upload(
+      `/api/v1/events/${created.body.id}/photo`,
+      await testPicture({ width: 400, height: 300 }),
+      {
+        token: tokens.org,
+      },
+    );
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const { photo } = res.body;
+    assert.deepEqual([photo.width, photo.height], [400, 300]);
+    assert.deepEqual(photo.crop, { left: 0, top: 50, width: 400, height: 200 });
+    const seen = await call('GET', `/api/v1/events/${created.body.id}`, { token: tokens.guest });
+    assert.deepEqual(seen.body.photo, photo);
+    assert.equal((await getImage(photo.id, tokens.guest)).status, 200);
+    const own = await call('GET', '/api/v1/me/events', { token: tokens.org });
+    assert.deepEqual(own.body.items.find((event: { id: string }) => event.id === created.body.id).photo, photo);
+  });
+
+  test('replacing and removing the cover deletes the old picture', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    const path = `/api/v1/events/${created.body.id}/photo`;
+    const first = await upload(path, await testPicture(), { token: tokens.org });
+    const second = await upload(path, await testPicture(), { token: tokens.org });
+
+    const removed = await call('DELETE', path, { token: tokens.org });
+
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.photo, null);
+    for (const { body } of [first, second]) {
+      assert.equal((await getImage(body.photo.id, tokens.org)).status, 404);
+    }
+  });
+
+  test('answers 404 to another organization and 422 for a cancelled event', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    const other = await upload(`/api/v1/events/${created.body.id}/photo`, await testPicture(), {
+      token: tokens.orgPending,
+    });
+    const cancelled = await upload(`/api/v1/events/${cancelledFilmEvent}/photo`, await testPicture(), {
+      token: tokens.org,
+    });
+
+    assertRejected(other, 404, 'NOT_FOUND');
+    assertRejected(cancelled, 422, 'EVENT_CANCELLED');
+  });
+});
+
+describe('Organization logos', () => {
+  /** A new account with a pending organization request. */
+  async function newOrganization(): Promise<string> {
+    const { token } = await newProfile();
+    const requested = await call('PUT', '/api/v1/me/organization', {
+      token,
+      body: {
+        name: 'Riverside Stage',
+        description: 'Open-air concerts.',
+        officialLink: 'https://riverside.example.org',
+      },
+    });
+    assert.equal(requested.status, 200, JSON.stringify(requested.body));
+    assert.equal(requested.body.logo, null);
+    return token;
+  }
+
+  test('a pending organization adds a square logo, which a guest may load', async () => {
+    const token = await newOrganization();
+
+    const res = await upload('/api/v1/me/organization/logo', await testPicture({ width: 400, height: 300 }), { token });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual([res.body.logo.width, res.body.logo.height], [300, 300]);
+    assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body.logo, res.body.logo);
+    assert.equal((await getImage(res.body.logo.id, tokens.guest)).status, 200);
+  });
+
+  test('removing the logo deletes its picture', async () => {
+    const token = await newOrganization();
+    const uploaded = await upload('/api/v1/me/organization/logo', await testPicture(), { token });
+
+    const removed = await call('DELETE', '/api/v1/me/organization/logo', { token });
+
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.logo, null);
+    assert.equal((await getImage(uploaded.body.logo.id, token)).status, 404);
+  });
+
+  test('answers 404 to an account without an organization request', async () => {
+    const { token } = await newProfile();
+
+    assertRejected(await upload('/api/v1/me/organization/logo', await testPicture(), { token }), 404, 'NOT_FOUND');
+  });
+});
+
 describe('GET /api/v1/images/{id}', () => {
-  test('answers 401 to a guest, 404 for an unknown id and 400 for an id that is not a UUID', async () => {
+  test('answers 404 to a guest for a picture of a person, 404 for an unknown id and 400 for an id that is not a UUID', async () => {
     const { token } = await newProfile();
     const uploaded = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
-    assert.equal((await getImage(uploaded.body.photo.id, tokens.guest)).status, 401);
+    assert.equal((await getImage(uploaded.body.photo.id, tokens.guest)).status, 404);
     assertRejected(await call('GET', `/api/v1/images/${randomUUID()}`, { token }), 404, 'NOT_FOUND');
     assertInvalid(await call('GET', '/api/v1/images/not-a-uuid', { token }), 'params', 'id');
   });

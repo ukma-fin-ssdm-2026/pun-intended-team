@@ -57,6 +57,17 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return rows.map((row) => this.toProfile(row));
   }
 
+  async findAccountIdsMatching(text: string, limit: number): Promise<string[]> {
+    const contains = { contains: text, mode: 'insensitive' } as const;
+    const rows = await this.prisma.profile.findMany({
+      where: { OR: [{ username: contains }, { displayName: contains }] },
+      select: { accountId: true },
+      orderBy: { accountId: 'asc' },
+      take: limit,
+    });
+    return rows.map(({ accountId }) => accountId);
+  }
+
   async findAccountIdByUsername(username: string): Promise<string | undefined> {
     const profile = await this.prisma.profile.findFirst({
       where: { username: { equals: username, mode: 'insensitive' } },

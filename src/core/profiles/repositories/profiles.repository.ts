@@ -20,6 +20,9 @@ export abstract class ProfilesRepository {
   /** Case-insensitive, like the unique index. */
   abstract findAccountIdByUsername(username: string): Promise<string | undefined>;
 
+  /** Accounts whose username or display name contains the text, in any case; at most `limit` of them. */
+  abstract findAccountIdsMatching(text: string, limit: number): Promise<string[]>;
+
   /** Usernames are unique regardless of case; `exceptAccountId` lets a user keep their own. */
   abstract isUsernameTaken(username: string, exceptAccountId?: string): Promise<boolean>;
 

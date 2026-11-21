@@ -118,3 +118,66 @@ describe('PrismaAccountsRepository.findIdsWithStatus', () => {
     ]);
   });
 });
+
+describe('PrismaAccountsRepository.findOverviews', () => {
+  const CREATED = new Date('2026-10-12T09:30:00Z');
+
+  function makeOverviewRepository() {
+    const findMany = mock.fn<(args: unknown) => Promise<unknown[]>>(() =>
+      Promise.resolve([
+        {
+          ...aPendingRow(ACCOUNT_ID),
+          status: 'active',
+          dateOfBirth: Buffer.from('sealed'),
+          createdAt: CREATED,
+          authMethods: [{ type: 'google' }, { type: 'password' }],
+        },
+        { ...aPendingRow(OTHER_ACCOUNT_ID), createdAt: CREATED, authMethods: [{ type: 'google' }] },
+      ]),
+    );
+    const cipher = { decrypt: mock.fn(() => '2001-05-14') };
+    const repository = new PrismaAccountsRepository(
+      { account: { findMany } } as unknown as PrismaService,
+      cipher as unknown as PersonalDataCipher,
+    );
+    return { repository, findMany };
+  }
+
+  test('gives each account with its sign-in methods and decrypted date of birth, never its phone', async () => {
+    const { repository } = makeOverviewRepository();
+
+    const { items, page } = await repository.findOverviews({}, { limit: 20, offset: 0 });
+
+    assert.deepEqual(items, [
+      {
+        id: ACCOUNT_ID,
+        role: 'user',
+        status: 'active',
+        signInMethods: ['google', 'password'],
+        dateOfBirth: '2001-05-14',
+        createdAt: CREATED.toISOString(),
+      },
+      {
+        id: OTHER_ACCOUNT_ID,
+        role: 'user',
+        status: 'pending',
+        signInMethods: ['google'],
+        dateOfBirth: null,
+        createdAt: CREATED.toISOString(),
+      },
+    ]);
+    assert.equal(page.hasMore, false);
+  });
+
+  test('filters by role, status and ids, newest first', async () => {
+    const { repository, findMany } = makeOverviewRepository();
+
+    await repository.findOverviews({ role: 'admin', status: 'active', ids: [ACCOUNT_ID] }, { limit: 20, offset: 40 });
+
+    const args = findMany.mock.calls[0]?.arguments[0] as Record<string, unknown>;
+    assert.deepEqual(args.where, { role: 'admin', status: 'active', id: { in: [ACCOUNT_ID] } });
+    assert.deepEqual(args.orderBy, [{ createdAt: 'desc' }, { id: 'asc' }]);
+    assert.equal(args.skip, 40);
+    assert.equal(args.take, 21);
+  });
+});

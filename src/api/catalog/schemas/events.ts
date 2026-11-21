@@ -1,7 +1,18 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { CalendarDate, DateTime, Id, PageQuery, pageExample, pageFields } from '../../common/schemas/common.ts';
+import {
+  CalendarDate,
+  DateTime,
+  Id,
+  PageQuery,
+  pageExample,
+  pageFields,
+  pageOf,
+  SearchText,
+} from '../../common/schemas/common.ts';
+import { EventPhoto } from '../../images/schemas/images.ts';
 import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
+import { OrganizationName } from './organizations.ts';
 
 export const EventSource = z
   .enum(['organization', 'import'])
@@ -17,6 +28,27 @@ const VenueFields = z.object({
 });
 
 export const Venue = VenueFields.meta({ id: 'Venue', description: 'Where an event takes place' });
+
+const VenueSource = z
+  .enum(['organization', 'import'])
+  .meta({ id: 'VenueSource', description: 'Who added the venue: an organization, which owns it, or the importer' });
+
+const AdminVenueFields = VenueFields.extend({ source: VenueSource, organization: OrganizationName });
+
+export const adminVenueExample: AdminVenue = {
+  id: '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05',
+  name: 'Natalka Park lawn',
+  address: 'Naberezhno-Luhova St, Kyiv',
+  location: { lat: 50.4825, lng: 30.5181 },
+  source: 'organization',
+  organization: { accountId: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c', name: 'Podil Film Club' },
+};
+
+export const AdminVenue = AdminVenueFields.meta({
+  id: 'AdminVenue',
+  description: 'A venue as administrators see it, with who added it',
+  example: adminVenueExample,
+});
 
 const EventFields = z.object({
   id: Id,
@@ -43,6 +75,7 @@ const EventFields = z.object({
     .string()
     .nullable()
     .describe("Imported events: the provider's image URL, shown as is; null for organization events"),
+  photo: EventPhoto.nullable().describe('The cover an organization uploaded; null for imported events and without one'),
   sourceUrl: z
     .string()
     .nullable()
@@ -67,6 +100,7 @@ export const eventExample: Event = {
   endsAt: '2026-10-17T21:30:00+03:00',
   endTimeKnown: true,
   imageUrl: null,
+  photo: null,
   sourceUrl: null,
   source: 'organization',
   status: 'published',
@@ -89,8 +123,37 @@ export const EventsPage = pageFields(Event)
   })
   .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });
 
+export const MyEventsPage = pageOf(Event, 'MyEventsPage', eventExample);
+
+export const ListMyEventsQuery = PageQuery;
+
 export const EventIdParams = z.object({
   id: Id.describe('Event id'),
+});
+
+const AdminEventFields = EventFields.extend({ organization: OrganizationName });
+
+const adminEventExample: AdminEvent = { ...eventExample, organization: adminVenueExample.organization };
+
+export const AdminEvent = AdminEventFields.meta({
+  id: 'AdminEvent',
+  description: 'An event as administrators see it: in any status, past or upcoming, with who added it',
+  example: adminEventExample,
+});
+
+export const AdminEventsPage = pageOf(AdminEvent, 'AdminEventsPage', adminEventExample);
+
+export const ListAdminEventsQuery = PageQuery.extend({
+  period: z
+    .enum(['upcoming', 'past'])
+    .default('upcoming')
+    .describe('`upcoming`: not ended yet, soonest first. `past`: ended, latest first'),
+  search: SearchText.optional().describe('Part of the title, in any case'),
+  source: EventSource.optional(),
+  status: EventStatus.optional(),
+  organizationId: Id.optional().describe('Only events of this organization, by its account id'),
+  venueId: Id.optional().describe('Only events at this venue'),
+  categoryId: Id.optional().describe('Only events of this category, active or not'),
 });
 
 export const ListEventsQuery = PageQuery.extend({
@@ -126,6 +189,11 @@ export const CreateEventBody = CreateEventFields.meta({
   example: createEventExample,
 });
 
+export type Venue = z.infer<typeof VenueFields>;
 export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
+export type MyEventsPage = z.infer<typeof MyEventsPage>;
+export type AdminVenue = z.infer<typeof AdminVenueFields>;
+export type AdminEvent = z.infer<typeof AdminEventFields>;
+export type AdminEventsPage = z.infer<typeof AdminEventsPage>;

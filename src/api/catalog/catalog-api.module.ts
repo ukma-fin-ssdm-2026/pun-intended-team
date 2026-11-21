@@ -2,12 +2,23 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from '../../core/catalog/catalog.module.ts';
 import { AdminCategoriesController } from './controllers/admin-categories.controller.ts';
+import { AdminEventsController } from './controllers/admin-events.controller.ts';
+import { AdminVenuesController } from './controllers/admin-venues.controller.ts';
 import { CategoriesController } from './controllers/categories.controller.ts';
 import { EventsController } from './controllers/events.controller.ts';
 import { OrganizationsController } from './controllers/organizations.controller.ts';
+import { VenuesController } from './controllers/venues.controller.ts';
 
 @Module({
   imports: [CatalogModule],
-  controllers: [EventsController, CategoriesController, AdminCategoriesController, OrganizationsController],
+  controllers: [
+    EventsController,
+    CategoriesController,
+    AdminCategoriesController,
+    OrganizationsController,
+    VenuesController,
+    AdminEventsController,
+    AdminVenuesController,
+  ],
 })
 export class CatalogApiModule {}

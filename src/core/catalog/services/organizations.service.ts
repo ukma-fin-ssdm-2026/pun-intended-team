@@ -2,28 +2,65 @@
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
+import { ImagesService } from '../../images/services/images.service.ts';
+import type { ImageUpload } from '../../images/types/image.ts';
 import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
-import type { Organization, OrganizationRequest, VerificationDecision } from '../types/organization.ts';
+import type {
+  Organization,
+  OrganizationRequest,
+  OrganizationSearch,
+  OrganizationWithLogo,
+  VerificationDecision,
+} from '../types/organization.ts';
 
 /** Organization status (FR-003): an account requests it, and an administrator verifies or rejects the request. */
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly organizationsRepository: OrganizationsRepository) {}
+  constructor(
+    private readonly organizationsRepository: OrganizationsRepository,
+    private readonly imagesService: ImagesService,
+    private readonly transactions: TransactionRunner,
+  ) {}
 
   /** The caller's organization with its verification status; NOT_FOUND before the first request. */
-  async getOwn(accountId: string): Promise<Organization> {
-    const organization = await this.organizationsRepository.findByAccountId(accountId);
-    if (!organization) {
-      throw new DomainError('NOT_FOUND', 'You have not requested organization status');
+  async getOwn(accountId: string): Promise<OrganizationWithLogo> {
+    return this.withLogo(await this.getStored(accountId));
+  }
+
+  /** Sets or replaces the logo, in any verification status. */
+  async setLogo(accountId: string, upload: ImageUpload): Promise<OrganizationWithLogo> {
+    const organization = await this.getStored(accountId);
+    const prepared = await this.imagesService.prepare('organizationLogo', upload);
+    const updated = await this.transactions.run(async (tx) => {
+      const image = await this.imagesService.save(accountId, prepared, tx);
+      const changed = await this.organizationsRepository.setLogo(accountId, image.id, tx);
+      await this.imagesService.remove([organization.logoId], tx);
+      return changed;
+    });
+    return this.withLogo(updated);
+  }
+
+  /** Without a logo, nothing changes. */
+  async removeLogo(accountId: string): Promise<OrganizationWithLogo> {
+    const organization = await this.getStored(accountId);
+    const { logoId } = organization;
+    if (logoId === null) {
+      return { ...organization, logo: null };
     }
-    return organization;
+    const updated = await this.transactions.run(async (tx) => {
+      const changed = await this.organizationsRepository.setLogo(accountId, null, tx);
+      await this.imagesService.remove([logoId], tx);
+      return changed;
+    });
+    return { ...updated, logo: null };
   }
 
   /**
    * Sends the request, which waits as pending for an administrator. A pending request is replaced, and a rejected one
    * can be sent again; a verified or revoked organization cannot change its request.
    */
-  async request(accountId: string, request: OrganizationRequest): Promise<Organization> {
+  async request(accountId: string, request: OrganizationRequest): Promise<OrganizationWithLogo> {
     const existing = await this.organizationsRepository.findByAccountId(accountId);
     // A parallel first request can create the row in between; this one then replaces it.
     const saved = existing
@@ -33,19 +70,48 @@ export class OrganizationsService {
     if (!saved) {
       throw new DomainError('CONFLICT', 'The organization is already verified, or its verification was revoked');
     }
-    return saved;
+    return this.withLogo(saved);
   }
 
-  async find(accountId: string): Promise<Organization | undefined> {
-    return this.organizationsRepository.findByAccountId(accountId);
+  async find(accountId: string): Promise<OrganizationWithLogo | undefined> {
+    const organization = await this.organizationsRepository.findByAccountId(accountId);
+    return organization && this.withLogo(organization);
   }
 
-  async listRequests(page: PageRequest): Promise<Page<Organization>> {
-    return this.organizationsRepository.findPage(page);
+  async listRequests(filter: OrganizationSearch, page: PageRequest): Promise<Page<OrganizationWithLogo>> {
+    const found = await this.organizationsRepository.findPage(filter, page);
+    return { ...found, items: await this.withLogos(found.items) };
+  }
+
+  /** By account id; accounts that are not organizations are left out. */
+  async findMany(accountIds: string[]): Promise<Map<string, Organization>> {
+    const organizations = await this.organizationsRepository.findByAccountIds([...new Set(accountIds)]);
+    return new Map(organizations.map((organization) => [organization.accountId, organization]));
   }
 
   /** Records an administrator's decision on a pending request; false when it is not pending. */
   async decide(accountId: string, decision: VerificationDecision, adminId: string): Promise<boolean> {
     return this.organizationsRepository.decide(accountId, decision, adminId, new Date());
+  }
+
+  private async getStored(accountId: string): Promise<Organization> {
+    const organization = await this.organizationsRepository.findByAccountId(accountId);
+    if (!organization) {
+      throw new DomainError('NOT_FOUND', 'You have not requested organization status');
+    }
+    return organization;
+  }
+
+  private async withLogo(organization: Organization): Promise<OrganizationWithLogo> {
+    const [withLogo] = await this.withLogos([organization]);
+    return withLogo!;
+  }
+
+  private async withLogos(organizations: Organization[]): Promise<OrganizationWithLogo[]> {
+    const logos = await this.imagesService.getRefs(organizations.map((organization) => organization.logoId));
+    return organizations.map((organization) => ({
+      ...organization,
+      logo: (organization.logoId !== null && logos.get(organization.logoId)) || null,
+    }));
   }
 }

@@ -55,6 +55,26 @@ export const CoverImage = z
     },
   });
 
+export const EventPhoto = z
+  .object({
+    id: Id.describe('Get the picture with getImage; a guest token may'),
+    width: z.number().int(),
+    height: z.number().int(),
+    crop: PixelArea.describe(
+      'The area the organization picked (2:1, the catalog card). The event page, almost square, shows more around it',
+    ),
+  })
+  .meta({
+    id: 'EventPhoto',
+    description: 'An event cover an organization uploaded: the whole picture and the area it picked',
+    example: {
+      id: '7b8c9d0e-1f2a-4b3c-9d4e-5f6a7b8c9d0e',
+      width: 2560,
+      height: 1707,
+      crop: { left: 0, top: 213, width: 2560, height: 1280 },
+    },
+  });
+
 const Fraction = z.coerce.number().min(0).max(1);
 
 /** The area the user picked in the preview, as fractions so the client need not know the stored size. */

@@ -1,7 +1,9 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
 import { ImagesService } from '../../../core/images/services/images.service.ts';
+import type { Caller } from '../../../core/identity/types/caller.ts';
 import type { ImageFile } from '../../../core/images/types/image.ts';
+import { CurrentCaller } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
@@ -20,20 +22,24 @@ export class ImagesController {
     summary: 'Get a picture',
     description:
       'The bytes of an uploaded picture, as WebP. Only through the API, never a public link (TM-14). ' +
+      'A guest token gets only event photos and organization logos, which the catalog shows. ' +
       'An image never changes: a new upload gets a new id, so clients may cache it for good.',
     tags: ['Images'],
-    access: 'user',
+    access: 'guest',
     request: GetImageRequest,
     responses: {
       200: {
         description: 'The picture',
         file: { contentTypes: [IMAGE_CONTENT_TYPE], cacheControl: 'private, max-age=31536000, immutable' },
       },
-      404: { description: 'No image with this id', schema: ErrorResponse },
+      404: { description: 'No image with this id, or a guest asked for a picture of a person', schema: ErrorResponse },
     },
     mcp: false,
   })
-  async getImage(@Input() { params }: RouteInput<typeof GetImageRequest>): Promise<ImageFile> {
-    return this.imagesService.getFile(params.id);
+  async getImage(
+    @Input() { params }: RouteInput<typeof GetImageRequest>,
+    @CurrentCaller() caller: Caller,
+  ): Promise<ImageFile> {
+    return this.imagesService.getFile(params.id, { guest: caller.kind !== 'account' });
   }
 }
