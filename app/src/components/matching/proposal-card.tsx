@@ -1,7 +1,9 @@
 // Written with the help of Claude
 // AI Usage: participant card from the Figma "05 Запропонований метч" frame; reviewed by Daryna Halytska.
 import { Image, type ImageSource } from 'expo-image';
-import { ScrollView, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
 import { ApiPicture } from '@/components/pictures/picture';
 import { CoralGradient } from '@/components/ui/coral-gradient';
@@ -31,6 +33,15 @@ const planLabels: Record<Partner['afterEventPlans'][number], string> = {
   coffee: 'кава',
   dinner: 'вечеря',
 };
+
+// Interest chips shown before "Ще".
+const SHOWN_INTERESTS = 5;
+// The chips come and go as the prototype's other transitions do: Smart Animate, 300 ms, ease in and out.
+const EASE_IN_OUT = Easing.bezier(0.42, 0, 0.58, 1);
+const CHIP_MS = 300;
+const chipFadeIn = FadeIn.duration(CHIP_MS).easing(EASE_IN_OUT);
+const chipFadeOut = FadeOut.duration(CHIP_MS).easing(EASE_IN_OUT);
+const chipMove = LinearTransition.duration(CHIP_MS).easing(EASE_IN_OUT);
 
 type Props = {
   match: Match;
@@ -126,25 +137,59 @@ export function ProposalCard({ match, ownInterestIds, cover }: Props) {
           {partner.interests.length === 0 && (
             <Text className="font-inter text-caption text-text-secondary">{placeholders.interests}</Text>
           )}
-          <View className="flex-row flex-wrap gap-1.5">
-            {partner.interests.map((interest) => {
-              const shared = own.has(interest.id);
-              return (
-                <View
-                  key={interest.id}
-                  className={`rounded-[14px] px-3 py-1.5 ${shared ? 'bg-brand-ink' : 'bg-surface-background'}`}
-                >
-                  <Text
-                    className={`font-inter-semibold text-tag ${shared ? 'text-text-on-dark' : 'text-text-secondary'}`}
-                  >
-                    {interest.name}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+          <InterestChips interests={partner.interests} own={own} />
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+type Interest = Partner['interests'][number];
+
+// The shared interests first and dark, then the others; past five, "Ще N" opens the rest and "Згорнути" closes them.
+function InterestChips({ interests, own }: { interests: Interest[]; own: Set<string> }) {
+  const [open, setOpen] = useState(false);
+  const sorted = [...interests].sort((a, b) => Number(own.has(b.id)) - Number(own.has(a.id)));
+  const hidden = sorted.length - SHOWN_INTERESTS;
+  const shown = open || hidden <= 0 ? sorted : sorted.slice(0, SHOWN_INTERESTS);
+
+  return (
+    <View className="flex-row flex-wrap gap-1.5">
+      {shown.map((interest, index) => {
+        const shared = own.has(interest.id);
+        return (
+          // NativeWind styles only React Native's own views, so the animated one wraps the chip.
+          <Animated.View
+            key={interest.id}
+            // Only the chips past the first five come and go.
+            entering={index >= SHOWN_INTERESTS ? chipFadeIn : undefined}
+            exiting={index >= SHOWN_INTERESTS ? chipFadeOut : undefined}
+          >
+            <View className={`rounded-[14px] px-3 py-1.5 ${shared ? 'bg-brand-ink' : 'bg-surface-background'}`}>
+              <Text className={`font-inter-semibold text-tag ${shared ? 'text-text-on-dark' : 'text-text-secondary'}`}>
+                {interest.name}
+              </Text>
+            </View>
+          </Animated.View>
+        );
+      })}
+      {hidden > 0 && (
+        <Animated.View layout={chipMove}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={open ? 'Згорнути інтереси' : 'Показати всі інтереси'}
+            onPress={() => setOpen(!open)}
+            hitSlop={6}
+            // The border sits inside the chip, so it is as tall as the others.
+            className="flex-row items-center gap-0.5 rounded-[14px] border border-brand-coral/40 py-[5px] pl-[11px] pr-[7px] active:opacity-60"
+          >
+            <Text className="font-inter-semibold text-tag text-brand-coral">{open ? 'Згорнути' : `Ще ${hidden}`}</Text>
+            <View style={{ transform: [{ rotate: open ? '-90deg' : '90deg' }] }}>
+              <Icon name="field-chevron" size={14} color={colors.brand.coral} />
+            </View>
+          </Pressable>
+        </Animated.View>
+      )}
     </View>
   );
 }
