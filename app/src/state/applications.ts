@@ -4,7 +4,7 @@ import { createStore } from '@/state/store';
 
 export type Application = components['schemas']['Application'];
 
-// What GET /me/applications returns; a withdrawn application drops out of the list.
+// What GET /me/applications returns, besides a no-match one not yet dismissed; a withdrawn application drops out.
 const ACTIVE: Application['status'][] = ['in_pool', 'paired', 'paused'];
 
 export type ApplicationsState =
@@ -39,6 +39,13 @@ function firstStart(application: Application): number {
   return Date.parse(application.sessions[0]?.startsAt ?? '');
 }
 
+// Takes a dismissed application out of the list.
+export function dropApplication(id: string, from = session) {
+  const current = store.get().state;
+  if (from !== session || current.status !== 'loaded') return;
+  store.set({ state: { status: 'loaded', applications: current.applications.filter((other) => other.id !== id) } });
+}
+
 // The days that still take part in matching; all of them once none does, so a finished application keeps its days.
 export function openSessions(application: Application, now = new Date()): Application['sessions'] {
   const open = application.sessions.filter(({ cutoffAt }) => Date.parse(cutoffAt) > now.getTime());
@@ -48,6 +55,7 @@ export function openSessions(application: Application, now = new Date()): Applic
 // Where matching stands for an application in the pool: a round is coming, the pool is in open mode after the last
 // round (matching.md, rule 3), or the cutoff has passed.
 export function matchingPhase(application: Application, now = new Date()): 'rounds' | 'open' | 'over' {
+  if (application.status === 'no_match') return 'over';
   if (application.nextRoundAt) return 'rounds';
   return Date.parse(application.cutoffAt) > now.getTime() ? 'open' : 'over';
 }

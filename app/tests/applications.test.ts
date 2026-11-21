@@ -166,6 +166,39 @@ describe('matchingPhase', () => {
     const { matchingPhase } = load();
     expect(matchingPhase(anApplication({ nextRoundAt: null, cutoffAt: '2026-10-25T11:00:00.000Z' }), now)).toBe('over');
   });
+
+  // FR-018
+  test('is over for an application that found no match', () => {
+    const { matchingPhase } = load();
+    expect(matchingPhase(anApplication({ status: 'no_match', nextRoundAt: null }), now)).toBe('over');
+  });
+});
+
+// FR-018
+describe('dismissApplication', () => {
+  test('takes the application off the list once the API dismisses it', async () => {
+    const { dismissApplication, setApplicationsState, applicationsState, post } = load();
+    const noMatch = anApplication({ status: 'no_match', nextRoundAt: null });
+    setApplicationsState({ status: 'loaded', applications: [noMatch, anApplication({ id: 'a2' })] });
+    post.mockResolvedValue(ok(noMatch));
+
+    const result = await dismissApplication('a1');
+
+    expect(result.ok).toBe(true);
+    expect(post).toHaveBeenCalledWith('/api/v1/applications/{id}/dismiss', { params: { path: { id: 'a1' } } });
+    expect(applicationsState().applications?.map(({ id }) => id)).toEqual(['a2']);
+  });
+
+  test('keeps the application when the API refuses', async () => {
+    const { dismissApplication, setApplicationsState, applicationsState, post } = load();
+    setApplicationsState({ status: 'loaded', applications: [anApplication()] });
+    post.mockResolvedValue(refused(409, 'CONFLICT'));
+
+    const result = await dismissApplication('a1');
+
+    expect(result.ok).toBe(false);
+    expect(applicationsState().applications?.map(({ id }) => id)).toEqual(['a1']);
+  });
 });
 
 describe('openSessions', () => {
