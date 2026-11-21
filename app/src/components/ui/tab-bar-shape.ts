@@ -132,9 +132,3 @@ export function actionBarPath(width: number, height: number, buttonWidth = ACTIO
     'Z',
   ]);
 }
-
-// The notch alone, closed along the bar's top edge: filled white under the bar, so the page never shows through it.
-export function actionNotchFillPath(width: number, buttonWidth = ACTION_NOTCH_BUTTON_WIDTH): string {
-  const notch = actionNotch(width, buttonWidth);
-  return roundPath([`M${notch.start} 0`, ...notch.commands, 'Z']);
-}

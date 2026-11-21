@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { describe, expect, test } from '@jest/globals';
 
-import { actionBarPath, actionNotchFillPath } from '@/components/ui/tab-bar-shape';
+import { actionBarPath } from '@/components/ui/tab-bar-shape';
 
 // "Форма з вирізом" of "таб бар новий", 390 × 96, moved out of the 18 px its export pads around the shadow.
 const FIGMA_PATH =
@@ -42,20 +42,4 @@ const FIGMA_WIDE_PATH =
 
 test('actionBarPath draws the "таб бар 2" shape around a 266 px button at 390 px', () => {
   expect(actionBarPath(390, 96, 266)).toBe(FIGMA_WIDE_PATH);
-});
-
-describe('actionNotchFillPath', () => {
-  test('closes the Figma notch along the top edge, so it can be filled white', () => {
-    expect(actionNotchFillPath(390)).toBe(
-      'M31.65 0 C64.8 0 61.68 25.11 82.99 49.37 C90.1 57.46 99.73 62 109.78 62 H280.22 ' +
-        'C290.27 62 299.9 57.46 307.01 49.37 C328.32 25.11 325.2 0 358.35 0 Z',
-    );
-  });
-
-  test('follows the bar’s notch for a wider button', () => {
-    const bar = actionBarPath(393, 96, 300);
-    const notch = actionNotchFillPath(393, 300);
-
-    expect(bar).toContain(notch.slice(1, -2).replace(/^[\d.]+ 0 /, ''));
-  });
 });

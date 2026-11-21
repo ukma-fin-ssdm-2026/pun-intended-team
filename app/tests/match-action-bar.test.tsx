@@ -3,9 +3,11 @@ import { describe, expect, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { MatchActionBar } from '@/components/matching/match-action-bar';
-import { actionNotchFillPath } from '@/components/ui/tab-bar-shape';
+import { actionBarPath } from '@/components/ui/tab-bar-shape';
 
 const WIDTH = 393;
+// 62 px above the 34 px safe area that a zero bottom inset gets.
+const HEIGHT = 96;
 
 async function renderBar(label: string, icon = false) {
   await render(<MatchActionBar label={label} icon={icon} onPress={() => {}} bottomInset={0} />);
@@ -14,7 +16,7 @@ async function renderBar(label: string, icon = false) {
   await fireEvent(bar, 'layout', { nativeEvent: { layout: { width: WIDTH } } });
 }
 
-// "таб бар новий": the notch is white under and around the button, so the page never shows through it.
+// "таб бар новий": the page shows through the notch around the button, as it does around the main tab bar's.
 describe('MatchActionBar', () => {
   // The 232 px "Знайти мені метч" of "таб бар новий", and the 266 px label-only pill of "таб бар 2".
   const states = [
@@ -24,13 +26,11 @@ describe('MatchActionBar', () => {
   ];
 
   for (const { label, icon, buttonWidth } of states) {
-    test(`fills the notch around "${label}" white`, async () => {
+    test(`leaves the notch around "${label}" open`, async () => {
       await renderBar(label, icon);
 
-      const fill = screen.getByTestId('action-notch-fill');
-      expect(fill.props.d).toBe(actionNotchFillPath(WIDTH, buttonWidth));
-      // react-native-svg passes colours on as ARGB numbers: 0xffffffff is opaque white.
-      expect(fill.props.fill).toEqual({ type: 0, payload: 0xffffffff });
+      expect(screen.getByTestId('action-bar').props.d).toBe(actionBarPath(WIDTH, HEIGHT, buttonWidth));
+      expect(screen.queryByTestId('action-notch-fill')).toBeNull();
     });
   }
 
@@ -41,7 +41,7 @@ describe('MatchActionBar', () => {
       nativeEvent: { layout: { width: 300 } },
     });
 
-    expect(screen.getByTestId('action-notch-fill').props.d).toBe(actionNotchFillPath(WIDTH, 300));
+    expect(screen.getByTestId('action-bar').props.d).toBe(actionBarPath(WIDTH, HEIGHT, 300));
   });
 
   test('shows the orbit icon with "Знайти метч" only', async () => {

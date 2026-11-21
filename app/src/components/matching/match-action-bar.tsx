@@ -7,7 +7,7 @@ import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { shapeShadow } from '@/components/ui/shape-shadow';
-import { ACTION_NOTCH_BUTTON_WIDTH, actionBarPath, actionNotchFillPath } from '@/components/ui/tab-bar-shape';
+import { ACTION_NOTCH_BUTTON_WIDTH, actionBarPath } from '@/components/ui/tab-bar-shape';
 import { actionBarShadow, colors, shadows } from '@/styles/tokens';
 
 const tail1: ImageSource = require('@/assets/images/match-orbit/tail-1.png');
@@ -89,17 +89,11 @@ export function MatchActionBar({ label, icon = false, onPress, bottomInset }: Pr
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {width > 0 && (
-        <>
-          {/* The notch is white too, under the bar and its shadow, so the page never shows around the button. */}
-          <Svg width={width} height={height} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
-            <Path testID="action-notch-fill" d={actionNotchFillPath(width, buttonWidth)} fill={colors.surface.card} />
+        <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
+          <Svg width={width} height={height}>
+            <Path testID="action-bar" d={actionBarPath(width, height, buttonWidth)} fill={colors.surface.card} />
           </Svg>
-          <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
-            <Svg width={width} height={height}>
-              <Path d={actionBarPath(width, height, buttonWidth)} fill={colors.surface.card} />
-            </Svg>
-          </View>
-        </>
+        </View>
       )}
       <View
         style={{ position: 'absolute', top: -BUTTON_LIFT, maxWidth: width > 0 ? width - 2 * SIDE_MARGIN : undefined }}
