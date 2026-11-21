@@ -40,15 +40,21 @@ export function CatalogHeader({ name, photo, hasUnread = false, onNotificationsP
               {hasUnread && <View className="absolute left-[26px] top-2.5 size-2 rounded-full bg-brand-coral" />}
             </Pressable>
           )}
-          {/* Without a photo, Figma's empty surface/background circle. */}
+          {/* Without a photo, the first letter of the name; a guest gets Figma's empty circle. */}
           <Pressable
             accessibilityRole="button"
             // A guest has no notifications; a signed-in user's name may still be loading.
             accessibilityLabel={onNotificationsPress ? 'Профіль' : 'Увійти'}
             onPress={onAvatarPress}
-            className="size-12 overflow-hidden rounded-full bg-surface-background active:opacity-80"
+            className="size-12 items-center justify-center overflow-hidden rounded-full bg-surface-background active:opacity-80"
           >
-            {photo && <ApiPicture image={photo} />}
+            {photo ? (
+              <ApiPicture image={photo} />
+            ) : (
+              <Text className="font-inter-semibold text-title text-text-secondary">
+                {name?.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </Pressable>
         </View>
       </View>
