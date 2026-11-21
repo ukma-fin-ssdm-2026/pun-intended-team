@@ -118,13 +118,18 @@ export class MatchesController {
     summary: 'Get the contacts of a mutual match',
     description:
       'How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the ' +
-      'answer is `404`, as for a match that does not exist (SEC-001).',
+      'answer is `404`, as for a match that does not exist (SEC-001). A mutual match answers `422` until the caller ' +
+      'has acknowledged the safety notice with `acknowledgeSafetyNotice` (SAFE-002).',
     tags: ['Matching'],
     access: 'user',
     request: MatchRequest,
     responses: {
       200: { description: 'The other user’s contacts', schema: MatchContacts },
       404: { description: 'No mutual match with this id that the caller is part of', schema: ErrorResponse },
+      422: {
+        description: '`SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety notice yet.',
+        schema: ErrorResponse,
+      },
     },
   })
   async getMatchContacts(

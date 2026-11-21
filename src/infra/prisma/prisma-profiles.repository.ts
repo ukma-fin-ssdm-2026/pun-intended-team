@@ -128,6 +128,15 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
+  async acknowledgeSafetyNotice(accountId: string, dontShowAgain: boolean): Promise<Profile> {
+    const row = await this.prisma.profile.update({
+      where: { accountId },
+      data: { safetyNotice: dontShowAgain ? 'hidden' : 'acknowledged' },
+      include: withRelations,
+    });
+    return this.toProfile(row);
+  }
+
   async setImage(
     accountId: string,
     slot: ProfileImageSlot,
@@ -160,6 +169,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
         .map(({ app, username }) => ({ network: app, username: this.cipher.decrypt(username) })),
       photoId: row.photoId,
       coverId: row.coverId,
+      safetyNotice: row.safetyNotice,
     };
   }
 }

@@ -1,12 +1,24 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { genderPreferences, genders, socialNetworks } from '../../../core/profiles/types/profile.ts';
+import {
+  genderPreferences,
+  genders,
+  safetyNoticeStates,
+  socialNetworks,
+} from '../../../core/profiles/types/profile.ts';
 import { Id } from '../../common/schemas/common.ts';
 import { CoverImage, Image } from '../../images/schemas/images.ts';
 
 export const CommunicationFormat = z
   .enum(['friends', 'dating', 'company'])
   .meta({ id: 'CommunicationFormat', description: 'What the user is looking for when they go to an event' });
+
+export const SafetyNoticeState = z.enum(safetyNoticeStates).meta({
+  id: 'SafetyNoticeState',
+  description:
+    'Where the user is with the safety notice: `not_acknowledged` holds the contacts of their matches back; ' +
+    '`acknowledged` has the app show it once on each mutual match; `hidden` after "don’t show again"',
+});
 
 export const Gender = z.enum(genders).meta({
   id: 'Gender',
@@ -88,6 +100,7 @@ const ProfileFields = z.object({
     ),
   photo: Image.nullable().describe('The avatar, a square shown as a circle; null shows the initial'),
   cover: CoverImage.nullable().describe('The picture behind the avatar; null shows the default gradient'),
+  safetyNotice: SafetyNoticeState,
 });
 
 export const profileExample: Profile = {
@@ -105,6 +118,7 @@ export const profileExample: Profile = {
   isComplete: true,
   photo: null,
   cover: null,
+  safetyNotice: 'acknowledged',
 };
 
 export const Profile = ProfileFields.meta({
@@ -186,6 +200,17 @@ export const ReplaceInterestsBody = ReplaceInterestsFields.meta({
   example: { interestIds: [interestExample.id] } satisfies ReplaceInterestsBody,
 });
 
+const AcknowledgeSafetyNoticeFields = z.strictObject({
+  dontShowAgain: z
+    .boolean()
+    .describe('True when the user ticked "don’t show again"; false keeps showing it on the next matches'),
+});
+
+export const AcknowledgeSafetyNoticeBody = AcknowledgeSafetyNoticeFields.meta({
+  id: 'AcknowledgeSafetyNoticeBody',
+  example: { dontShowAgain: false } satisfies AcknowledgeSafetyNoticeBody,
+});
+
 const NewLinkedAccount = z.strictObject({
   network: SocialNetwork,
   username: z
@@ -220,4 +245,5 @@ export type Profile = z.infer<typeof ProfileFields>;
 export type CreateProfileBody = z.input<typeof CreateProfileFields>;
 export type UpdateProfileBody = z.input<typeof UpdateProfileFields>;
 export type ReplaceInterestsBody = z.input<typeof ReplaceInterestsFields>;
+export type AcknowledgeSafetyNoticeBody = z.input<typeof AcknowledgeSafetyNoticeFields>;
 export type ReplaceLinkedAccountsBody = z.input<typeof ReplaceLinkedAccountsFields>;

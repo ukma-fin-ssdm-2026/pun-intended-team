@@ -2009,6 +2009,11 @@ describe('Applications', () => {
   const answer = (token: string, matchId: string, verb: 'accept' | 'decline') =>
     call('POST', `/api/v1/matches/${matchId}/${verb}`, { token });
 
+  async function acknowledgeSafetyNotice(token: string): Promise<void> {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+
   // FR-019, SEC-001, UC-001 steps 8–11
   test('shows a proposal without contacts, and the contacts once both users accept', async () => {
     const { waiting, newcomer, waited, match } = await aProposal();
@@ -2039,6 +2044,7 @@ describe('Applications', () => {
 
     const mutual = await answer(newcomer.token, match.id, 'accept');
     assert.equal(mutual.body.status, 'mutual');
+    await acknowledgeSafetyNotice(waiting.token);
     const contacts = await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token });
     assert.equal(contacts.status, 200, JSON.stringify(contacts.body));
     assert.deepEqual(contacts.body, {
@@ -2052,6 +2058,22 @@ describe('Applications', () => {
       409,
       'CONFLICT',
     );
+  });
+
+  // SAFE-002, FR-032, TC-39
+  test('holds the contacts of a mutual match back until the caller acknowledges the safety notice', async () => {
+    const { waiting, newcomer, match } = await aProposal();
+    await answer(waiting.token, match.id, 'accept');
+    assert.equal((await answer(newcomer.token, match.id, 'accept')).body.status, 'mutual');
+    const contactsOf = (token: string) => call('GET', `/api/v1/matches/${match.id}/contacts`, { token });
+
+    assertRejected(await contactsOf(waiting.token), 422, 'SAFETY_NOTICE_REQUIRED');
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
+
+    await acknowledgeSafetyNotice(waiting.token);
+    assert.equal((await contactsOf(waiting.token)).status, 200);
+    // Each user acknowledges for themselves.
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
   });
 
   // UC-001 A3, matching.md rule 5, FR-020
@@ -3245,6 +3267,40 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
     const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       body: { linkedAccounts: [{ network: 'telegram', username: 'guest_k' }] },
     });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
+// FR-032
+describe('POST /api/v1/me/profile/safety-notice', () => {
+  const acknowledge = (token: string, dontShowAgain: boolean) =>
+    call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain } });
+
+  test('moves from not_acknowledged to acknowledged, or to hidden with dontShowAgain, and back', async () => {
+    const { token } = await newProfile();
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'not_acknowledged');
+
+    const acknowledged = await acknowledge(token, false);
+    assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+    assert.equal(acknowledged.body.safetyNotice, 'acknowledged');
+
+    assert.equal((await acknowledge(token, true)).body.safetyNotice, 'hidden');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'hidden');
+    assert.equal((await acknowledge(token, false)).body.safetyNotice, 'acknowledged');
+  });
+
+  test('rejects a request without dontShowAgain with 400', async () => {
+    const { token } = await newProfile();
+    assertInvalid(await call('POST', '/api/v1/me/profile/safety-notice', { token, body: {} }), 'body', 'dontShowAgain');
+  });
+
+  test('answers 404 before the profile is created', async () => {
+    const { token } = await newAccount();
+    assertRejected(await acknowledge(token, false), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { body: { dontShowAgain: false } });
     assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });
