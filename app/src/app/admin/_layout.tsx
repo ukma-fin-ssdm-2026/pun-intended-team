@@ -10,7 +10,11 @@ import { colors } from '@/styles/tokens';
 const sections: { href: Href; path: string; label: string; icon: IconName }[] = [
   { href: '/admin', path: '/admin', label: 'Огляд', icon: 'home' },
   { href: '/admin/reports', path: '/admin/reports', label: 'Скарги', icon: 'shield' },
+  { href: '/admin/users', path: '/admin/users', label: 'Користувачі', icon: 'user' },
+  { href: '/admin/admins', path: '/admin/admins', label: 'Адміністратори', icon: 'status-check' },
   { href: '/admin/organizations', path: '/admin/organizations', label: 'Організації', icon: 'building' },
+  { href: '/admin/events', path: '/admin/events', label: 'Події', icon: 'calendar' },
+  { href: '/admin/venues', path: '/admin/venues', label: 'Місця', icon: 'pin' },
   { href: '/admin/categories', path: '/admin/categories', label: 'Категорії', icon: 'list' },
   { href: '/admin/backups', path: '/admin/backups', label: 'Резервні копії', icon: 'clock' },
 ];

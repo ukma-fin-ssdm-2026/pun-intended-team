@@ -1,11 +1,17 @@
 // Written with the help of Claude
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactNode } from 'react';
 
 import { approveOrganization, listOrganizations, type AdminOrganization } from '@/api/admin';
 import AdminOrganizations from '@/app/admin/organizations';
 
-jest.mock('expo-router', () => ({ useRouter: () => ({ setParams: jest.fn() }), useLocalSearchParams: () => ({}) }));
+let mockParams: Record<string, string> = {};
+jest.mock('expo-router', () => ({
+  Link: ({ children }: { children: ReactNode }) => children,
+  useRouter: () => ({ setParams: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
+}));
 jest.mock('@/api/admin', () => ({
   CASES_PAGE_SIZE: 20,
   listOrganizations: jest.fn(),
@@ -26,6 +32,7 @@ const pending: AdminOrganization = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
 });
 
 // FR-003
@@ -62,5 +69,17 @@ describe('AdminOrganizations', () => {
 
     expect(await screen.findByText('Підтверджено')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Підтвердити' })).toBeNull();
+  });
+
+  test('asks for the organizations of the search and status in the address', async () => {
+    mockParams = { search: 'river', status: 'pending', offset: '20' };
+    jest.mocked(listOrganizations).mockResolvedValue({
+      ok: true,
+      data: { items: [], page: { limit: 20, offset: 20, hasMore: false } },
+    });
+    await render(<AdminOrganizations />);
+
+    expect(await screen.findByText('Нічого не знайдено.')).toBeOnTheScreen();
+    expect(listOrganizations).toHaveBeenCalledWith({ search: 'river', status: 'pending' }, 20);
   });
 });

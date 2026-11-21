@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import { apiClient } from './client';
 import { call } from './public-client';
-import type { components } from './schema';
+import type { components, paths } from './schema';
 
 export type PlatformStats = components['schemas']['PlatformStats'];
 export type ReportCase = components['schemas']['ReportCase'];
@@ -11,6 +11,16 @@ export type CaseStatus = ReportCase['status'];
 export type AdminCategory = components['schemas']['AdminCategory'];
 export type BackupRun = components['schemas']['BackupRun'];
 export type AdminOrganization = components['schemas']['AdminOrganization'];
+export type AdminAccount = components['schemas']['AdminAccount'];
+export type AdminAccountDetails = components['schemas']['AdminAccountDetails'];
+export type AdminEvent = components['schemas']['AdminEvent'];
+export type AdminVenue = components['schemas']['AdminVenue'];
+
+type Filter<Query> = Omit<NonNullable<Query>, 'limit' | 'offset'>;
+export type AccountsFilter = Filter<paths['/api/v1/admin/accounts']['get']['parameters']['query']>;
+export type EventsFilter = Filter<paths['/api/v1/admin/events']['get']['parameters']['query']>;
+export type VenuesFilter = Filter<paths['/api/v1/admin/venues']['get']['parameters']['query']>;
+export type OrganizationsFilter = Filter<paths['/api/v1/admin/organizations']['get']['parameters']['query']>;
 
 export const CASES_PAGE_SIZE = 20;
 
@@ -44,10 +54,46 @@ export function dismissReportCase(id: string) {
   return call(() => apiClient.POST('/api/v1/admin/report-cases/{id}/dismiss', { params: { path: { id } } }));
 }
 
-export function listOrganizations(offset: number) {
+export function listOrganizations(filter: OrganizationsFilter, offset: number) {
   return call(() =>
-    apiClient.GET('/api/v1/admin/organizations', { params: { query: { limit: CASES_PAGE_SIZE, offset } } }),
+    apiClient.GET('/api/v1/admin/organizations', {
+      params: { query: { ...filter, limit: CASES_PAGE_SIZE, offset } },
+    }),
   );
+}
+
+export function getOrganization(accountId: string) {
+  return call(() => apiClient.GET('/api/v1/admin/organizations/{accountId}', { params: { path: { accountId } } }));
+}
+
+export function listAccounts(filter: AccountsFilter, offset: number) {
+  return call(() =>
+    apiClient.GET('/api/v1/admin/accounts', { params: { query: { ...filter, limit: CASES_PAGE_SIZE, offset } } }),
+  );
+}
+
+export function getAccount(id: string) {
+  return call(() => apiClient.GET('/api/v1/admin/accounts/{id}', { params: { path: { id } } }));
+}
+
+export function listAdminEvents(filter: EventsFilter, offset: number) {
+  return call(() =>
+    apiClient.GET('/api/v1/admin/events', { params: { query: { ...filter, limit: CASES_PAGE_SIZE, offset } } }),
+  );
+}
+
+export function getAdminEvent(id: string) {
+  return call(() => apiClient.GET('/api/v1/admin/events/{id}', { params: { path: { id } } }));
+}
+
+export function listAdminVenues(filter: VenuesFilter, offset: number) {
+  return call(() =>
+    apiClient.GET('/api/v1/admin/venues', { params: { query: { ...filter, limit: CASES_PAGE_SIZE, offset } } }),
+  );
+}
+
+export function getAdminVenue(id: string) {
+  return call(() => apiClient.GET('/api/v1/admin/venues/{id}', { params: { path: { id } } }));
 }
 
 export function approveOrganization(accountId: string) {
