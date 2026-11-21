@@ -1,10 +1,12 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import type { Page, PageRequest } from '../../core/common/page.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { ListingsRepository } from '../../core/listings/repositories/listings.repository.ts';
 import type { Listing, ListingRecord } from '../../core/listings/types/listing.ts';
 import type { Listing as ListingRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 
 @Injectable()
 export class PrismaListingsRepository implements ListingsRepository {
@@ -39,6 +41,10 @@ export class PrismaListingsRepository implements ListingsRepository {
   async markRemoved(id: string): Promise<void> {
     await this.prisma.listing.updateMany({ where: { id }, data: { status: 'removed' } });
   }
+
+  async setPhoto(id: string, imageId: string | null, tx?: Transaction): Promise<Listing> {
+    return toListing(await clientOf(this.prisma, tx).listing.update({ where: { id }, data: { photoId: imageId } }));
+  }
 }
 
 function toListing(row: ListingRow): Listing {
@@ -51,6 +57,7 @@ function toListing(row: ListingRow): Listing {
     description: row.description,
     date: row.date.toISOString().slice(0, 10),
     status: row.status,
+    photoId: row.photoId,
   };
 }
 

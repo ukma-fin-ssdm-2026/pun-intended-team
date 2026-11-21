@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { socialNetworks } from '../../../core/profiles/types/profile.ts';
 import { Id } from '../../common/schemas/common.ts';
+import { CoverImage, Image } from '../../images/schemas/images.ts';
 
 export const CommunicationFormat = z
   .enum(['friends', 'dating', 'company'])
@@ -69,6 +70,8 @@ const ProfileFields = z.object({
     .describe(
       'True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three',
     ),
+  photo: Image.nullable().describe('The avatar, a square shown as a circle; null shows the initial'),
+  cover: CoverImage.nullable().describe('The picture behind the avatar; null shows the default gradient'),
 });
 
 export const profileExample: Profile = {
@@ -82,6 +85,8 @@ export const profileExample: Profile = {
   interests: [interestExample],
   linkedAccounts: [linkedAccountExample],
   isComplete: true,
+  photo: null,
+  cover: null,
 };
 
 export const Profile = ProfileFields.meta({

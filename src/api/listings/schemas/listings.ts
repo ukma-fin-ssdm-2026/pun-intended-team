@@ -2,11 +2,12 @@
 import { z } from 'zod';
 import { ActiveCategoryId, Category } from '../../catalog/schemas/categories.ts';
 import { CalendarDate, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { Image } from '../../images/schemas/images.ts';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
 
 const ListingAuthor = z
-  .object({ username: z.string(), displayName: z.string() })
+  .object({ username: z.string(), displayName: z.string(), photo: Image.nullable() })
   .meta({ id: 'ListingAuthor', description: 'Who posted the listing; never their contacts' });
 
 const ListingFields = z.object({
@@ -18,17 +19,19 @@ const ListingFields = z.object({
   description: z.string(),
   date: CalendarDate,
   status: ListingStatus,
+  photo: Image.nullable().describe('Cut to 2:1, as the post card shows it'),
 });
 
 export const listingExample: Listing = {
   id: '9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09',
-  author: { username: 'olena_k', displayName: 'Olena' },
+  author: { username: 'olena_k', displayName: 'Olena', photo: null },
   category: { id: '1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02', name: 'Виставки' },
   eventId: null,
   title: 'Looking for company for an exhibition on Saturday',
   description: 'Planning to go in the evening, happy to grab a coffee after.',
   date: '2026-10-17',
   status: 'active',
+  photo: null,
 };
 
 export const Listing = ListingFields.meta({

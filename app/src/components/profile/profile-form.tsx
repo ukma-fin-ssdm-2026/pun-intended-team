@@ -8,8 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { components } from '@/api/schema';
 import { Button } from '@/components/ui/button';
-import { CoralGradient } from '@/components/ui/coral-gradient';
-import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -124,40 +122,6 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
           disabled={action.disabled}
           loading={action.loading}
         />
-      </View>
-    </View>
-  );
-}
-
-// "02 Фото": the default cover with "Обкладинка", and the empty avatar overlapping its bottom 48 px.
-export function ProfilePhoto() {
-  return (
-    <View className="px-5">
-      <View className="h-[108px] items-end overflow-hidden rounded-[22px] pr-3 pt-3" style={{ marginBottom: -48 }}>
-        <View className="absolute inset-0">
-          <CoralGradient preset="profileCover" />
-        </View>
-        {/* "Змінити обкладинку" has no prototype link; shown as in Figma. */}
-        <Glass
-          className="flex-row items-center gap-1.5 py-[7px] pl-2.5 pr-3"
-          radius={16}
-          fill="rgba(255, 255, 255, 0.16)"
-          border="rgba(255, 255, 255, 0.25)"
-          tone="light"
-        >
-          <View className="flex-row items-center gap-1.5">
-            <Icon name="gallery-edit" size={16} color={colors.text['on-dark']} />
-            <Text className="font-inter-semibold text-tag text-text-on-dark">Обкладинка</Text>
-          </View>
-        </Glass>
-      </View>
-      <View className="pl-4">
-        <View className="size-[92px] items-center justify-center rounded-full border-4 border-surface-card bg-surface-background">
-          <Icon name="camera" size={28} color={colors.text.secondary} />
-          <View className="absolute left-16 top-16 size-[30px] items-center justify-center rounded-[15px] border-[3px] border-surface-card bg-brand-coral">
-            <Text className="font-inter-semibold text-[18px] leading-6 text-text-on-dark">+</Text>
-          </View>
-        </View>
       </View>
     </View>
   );

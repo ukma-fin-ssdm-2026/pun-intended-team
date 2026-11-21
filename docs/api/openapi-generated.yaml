@@ -21,6 +21,8 @@ tags:
     description: The signed-in user’s inbox
   - name: Profiles
     description: The signed-in user’s profile, filled in step by step during onboarding
+  - name: Images
+    description: 'Uploaded pictures: profile photos, covers and listing photos'
   - name: Interests
     description: The fixed list of interests users pick from
   - name: Categories
@@ -168,6 +170,7 @@ components:
         - VALIDATION_ERROR
         - UNAUTHENTICATED
         - PAYLOAD_TOO_LARGE
+        - UNSUPPORTED_MEDIA_TYPE
         - RATE_LIMITED
         - INTERNAL_ERROR
         - SERVICE_UNAVAILABLE
@@ -199,6 +202,7 @@ components:
         - CANNOT_RESOLVE_OWN_CASE
         - CANNOT_BAN_ADMIN
         - CANNOT_DECIDE_OWN_REQUEST
+        - INVALID_IMAGE
       description: Machine-readable code; clients branch on it, not on the message
     ValidationIssue:
       type: object
@@ -785,6 +789,7 @@ components:
             author:
               username: olena_k
               displayName: Olena
+              photo: null
             category:
               id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
               name: Виставки
@@ -793,6 +798,7 @@ components:
             description: Planning to go in the evening, happy to grab a coffee after.
             date: '2026-10-17'
             status: active
+            photo: null
         page:
           limit: 20
           offset: 0
@@ -821,6 +827,27 @@ components:
           format: date
         status:
           $ref: '#/components/schemas/ListingStatus'
+        photo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - id
+            - width
+            - height
+          description: Cut to 2:1, as the post card shows it
+          example:
+            id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+            width: 512
+            height: 512
       required:
         - id
         - author
@@ -830,12 +857,14 @@ components:
         - description
         - date
         - status
+        - photo
       description: A "looking for company" post
       example:
         id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
         author:
           username: olena_k
           displayName: Olena
+          photo: null
         category:
           id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
           name: Виставки
@@ -844,6 +873,7 @@ components:
         description: Planning to go in the evening, happy to grab a coffee after.
         date: '2026-10-17'
         status: active
+        photo: null
     ListingAuthor:
       type: object
       properties:
@@ -851,10 +881,34 @@ components:
           type: string
         displayName:
           type: string
+        photo:
+          $ref: '#/components/schemas/Image'
       required:
         - username
         - displayName
+        - photo
       description: Who posted the listing; never their contacts
+    Image:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Get the picture with getImage
+        width:
+          type: integer
+        height:
+          type: integer
+      required:
+        - id
+        - width
+        - height
+      description: An uploaded picture, stored cropped
+      example:
+        id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+        width: 512
+        height: 512
     ListingStatus:
       type: string
       enum:
@@ -1095,6 +1149,8 @@ components:
               - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
                 name: Книги
                 group: Книги й комікси
+            photo: null
+            cover: null
             desiredCompany: company
             afterEventPlans:
               - walk
@@ -1146,6 +1202,73 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/Interest'
+            photo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: The avatar; null shows the initial
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+            cover:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+                crop:
+                  type: object
+                  properties:
+                    left:
+                      type: integer
+                    top:
+                      type: integer
+                    width:
+                      type: integer
+                    height:
+                      type: integer
+                  required:
+                    - left
+                    - top
+                    - width
+                    - height
+                  description: >-
+                    The area the user picked (390:200). A screen of another
+                    shape shows more of the picture around it, or less
+              required:
+                - id
+                - width
+                - height
+                - crop
+              description: null shows the default gradient
+              example:
+                id: 6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d
+                width: 2560
+                height: 1920
+                crop:
+                  left: 0
+                  top: 640
+                  width: 2560
+                  height: 1313
             desiredCompany:
               type: string
               enum:
@@ -1167,6 +1290,8 @@ components:
             - occupation
             - age
             - interests
+            - photo
+            - cover
             - desiredCompany
             - afterEventPlans
           description: >-
@@ -1204,6 +1329,8 @@ components:
             - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
               name: Книги
               group: Книги й комікси
+          photo: null
+          cover: null
           desiredCompany: company
           afterEventPlans:
             - walk
@@ -1903,6 +2030,73 @@ components:
           description: >-
             True once communicationFormat, at least one interest and at least
             one linked account are set; matching needs all three
+        photo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - id
+            - width
+            - height
+          description: The avatar, a square shown as a circle; null shows the initial
+          example:
+            id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+            width: 512
+            height: 512
+        cover:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+            crop:
+              type: object
+              properties:
+                left:
+                  type: integer
+                top:
+                  type: integer
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - left
+                - top
+                - width
+                - height
+              description: >-
+                The area the user picked (390:200). A screen of another shape
+                shows more of the picture around it, or less
+          required:
+            - id
+            - width
+            - height
+            - crop
+          description: The picture behind the avatar; null shows the default gradient
+          example:
+            id: 6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d
+            width: 2560
+            height: 1920
+            crop:
+              left: 0
+              top: 640
+              width: 2560
+              height: 1313
       required:
         - username
         - displayName
@@ -1914,6 +2108,8 @@ components:
         - interests
         - linkedAccounts
         - isComplete
+        - photo
+        - cover
       description: The signed-in user’s own profile
       example:
         username: olena_k
@@ -1932,6 +2128,8 @@ components:
             username: olena_k
             url: https://t.me/olena_k
         isComplete: true
+        photo: null
+        cover: null
     CreateProfileBody:
       type: object
       properties:
@@ -2972,6 +3170,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/images/{id}:
+    get:
+      operationId: getImage
+      summary: Get a picture
+      description: >-
+        The bytes of an uploaded picture, as WebP. Only through the API, never a
+        public link (TM-14). An image never changes: a new upload gets a new id,
+        so clients may cache it for good. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Images
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Image id, from the `id` of an Image or CoverImage
+          required: true
+          description: Image id, from the `id` of an Image or CoverImage
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The picture
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No image with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/listings:
     get:
       operationId: listListings
@@ -3134,6 +3381,176 @@ paths:
       responses:
         '204':
           description: The listing was removed
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings/{id}/photo:
+    put:
+      operationId: uploadListingPhoto
+      summary: Add a photo to your listing
+      description: >-
+        Set or replace the photo of the caller’s own listing, cut to 2:1 and
+        stored at up to 1200 × 600. Send the picture itself as the body, with
+        its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked
+        in the crop preview as fractions in the query. The server cuts the
+        largest area of the exact shape inside it, rotates the picture by its
+        EXIF orientation, drops its metadata (location included) and stores it
+        as WebP. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Left edge, a fraction of the picture’s width (0 to 1)
+          required: false
+          description: Left edge, a fraction of the picture’s width (0 to 1)
+          name: cropLeft
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Top edge, a fraction of the picture’s height (0 to 1)
+          required: false
+          description: Top edge, a fraction of the picture’s height (0 to 1)
+          name: cropTop
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Width, a fraction of the picture’s width
+          required: true
+          description: Width, a fraction of the picture’s width
+          name: cropWidth
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Height, a fraction of the picture’s height
+          required: true
+          description: Height, a fraction of the picture’s height
+          name: cropHeight
+          in: query
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: The updated listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: The file is larger than the limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: The Content-Type is not one of the accepted file types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is
+            broken, or has over 60 megapixels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteListingPhoto
+      summary: Remove the photo of your listing
+      description: >-
+        Remove the photo of the caller’s own listing. Without a photo, nothing
+        changes. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The updated listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Listing'
         '400':
           description: The request is invalid
           content:
@@ -4481,6 +4898,304 @@ paths:
           description: >-
             `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a
             username does not fit its social network; `details` names it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/photo:
+    put:
+      operationId: uploadMyPhoto
+      summary: Upload your photo
+      description: >-
+        Set or replace the caller’s avatar: a square, shown as a circle, stored
+        at up to 512 × 512. Send the picture itself as the body, with its
+        Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in
+        the crop preview as fractions in the query. The server cuts the largest
+        area of the exact shape inside it, rotates the picture by its EXIF
+        orientation, drops its metadata (location included) and stores it as
+        WebP. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Left edge, a fraction of the picture’s width (0 to 1)
+          required: false
+          description: Left edge, a fraction of the picture’s width (0 to 1)
+          name: cropLeft
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Top edge, a fraction of the picture’s height (0 to 1)
+          required: false
+          description: Top edge, a fraction of the picture’s height (0 to 1)
+          name: cropTop
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Width, a fraction of the picture’s width
+          required: true
+          description: Width, a fraction of the picture’s width
+          name: cropWidth
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Height, a fraction of the picture’s height
+          required: true
+          description: Height, a fraction of the picture’s height
+          name: cropHeight
+          in: query
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: The file is larger than the limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: The Content-Type is not one of the accepted file types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is
+            broken, or has over 60 megapixels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteMyPhoto
+      summary: Delete your photo
+      description: >-
+        Remove the caller’s avatar; the initial is shown instead. Without a
+        photo, nothing changes. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/cover:
+    put:
+      operationId: uploadMyCover
+      summary: Upload your cover
+      description: >-
+        Set or replace the picture behind the caller’s avatar. The crop has the
+        shape of the profile header (390:200); the whole picture is kept too, at
+        up to 2560 px, so wider or taller screens can show more of it. Send the
+        picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up
+        to 10 MB), and the area picked in the crop preview as fractions in the
+        query. The server cuts the largest area of the exact shape inside it,
+        rotates the picture by its EXIF orientation, drops its metadata
+        (location included) and stores it as WebP. Needs a signed-in account; a
+        guest token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Left edge, a fraction of the picture’s width (0 to 1)
+          required: false
+          description: Left edge, a fraction of the picture’s width (0 to 1)
+          name: cropLeft
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Top edge, a fraction of the picture’s height (0 to 1)
+          required: false
+          description: Top edge, a fraction of the picture’s height (0 to 1)
+          name: cropTop
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Width, a fraction of the picture’s width
+          required: true
+          description: Width, a fraction of the picture’s width
+          name: cropWidth
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Height, a fraction of the picture’s height
+          required: true
+          description: Height, a fraction of the picture’s height
+          name: cropHeight
+          in: query
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: The file is larger than the limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: The Content-Type is not one of the accepted file types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is
+            broken, or has over 60 megapixels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteMyCover
+      summary: Delete your cover
+      description: >-
+        Remove the caller’s cover; the default gradient is shown instead.
+        Without a cover, nothing changes. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
           content:
             application/json:
               schema:

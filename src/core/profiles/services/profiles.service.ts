@@ -4,7 +4,10 @@ import { ageOn } from '../../common/age.ts';
 import { DomainError } from '../../common/domain-error.ts';
 import { kyivDate } from '../../common/kyiv-time.ts';
 import type { Transaction } from '../../common/transaction.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { AccountsService } from '../../identity/services/accounts.service.ts';
+import { ImagesService } from '../../images/services/images.service.ts';
+import type { ImageUpload } from '../../images/types/image.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
 import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from './social-networks.ts';
@@ -17,9 +20,13 @@ import type {
   Profile,
   ProfileChanges,
   ProfileDetails,
+  ProfileImages,
+  ProfileImageSlot,
   ProfileSummary,
   PublicProfile,
 } from '../types/profile.ts';
+
+const imageKindOf = { photo: 'profilePhoto', cover: 'profileCover' } as const;
 
 @Injectable()
 export class ProfilesService {
@@ -27,6 +34,8 @@ export class ProfilesService {
     private readonly profilesRepository: ProfilesRepository,
     private readonly interestsRepository: InterestsRepository,
     private readonly accountsService: AccountsService,
+    private readonly imagesService: ImagesService,
+    private readonly transactions: TransactionRunner,
   ) {}
 
   /** Summaries by account id; accounts without a profile are left out. */
@@ -62,10 +71,11 @@ export class ProfilesService {
   /** What a proposed match sees of each account; accounts without a profile are left out. */
   async getPublicProfiles(accountIds: string[]): Promise<Map<string, PublicProfile>> {
     const ids = [...new Set(accountIds)];
-    const [profiles, interestsOf, datesOfBirth] = await Promise.all([
-      this.profilesRepository.findByAccountIds(ids),
+    const profiles = await this.profilesRepository.findByAccountIds(ids);
+    const [interestsOf, datesOfBirth, imagesOf] = await Promise.all([
       this.interestsLookup(),
       this.accountsService.getDatesOfBirth(ids),
+      this.imagesLookup(profiles),
     ]);
     return new Map(
       profiles.map((profile) => [
@@ -78,6 +88,7 @@ export class ProfilesService {
           occupation: profile.occupation,
           age: ageFrom(profile.accountId, datesOfBirth.get(profile.accountId)),
           interests: interestsOf(profile),
+          ...imagesOf(profile),
         },
       ]),
     );
@@ -148,6 +159,34 @@ export class ProfilesService {
     return this.withDetails(await this.profilesRepository.replaceLinkedAccounts(profile.accountId, handles));
   }
 
+  /** Replaces the avatar or the cover with an uploaded picture, cropped to the shape the slot needs. */
+  async setImage(accountId: string, slot: ProfileImageSlot, upload: ImageUpload): Promise<ProfileDetails> {
+    const profile = await this.requireProfile(accountId);
+    const prepared = await this.imagesService.prepare(imageKindOf[slot], upload);
+    const updated = await this.transactions.run(async (tx) => {
+      const image = await this.imagesService.save(accountId, prepared, tx);
+      const changed = await this.profilesRepository.setImage(accountId, slot, image.id, tx);
+      await this.imagesService.remove([imageIdOf(profile, slot)], tx);
+      return changed;
+    });
+    return this.withDetails(updated);
+  }
+
+  /** Back to the initial or the default gradient; nothing to remove is not an error. */
+  async removeImage(accountId: string, slot: ProfileImageSlot): Promise<ProfileDetails> {
+    const profile = await this.requireProfile(accountId);
+    const previous = imageIdOf(profile, slot);
+    if (previous === null) {
+      return this.withDetails(profile);
+    }
+    const updated = await this.transactions.run(async (tx) => {
+      const changed = await this.profilesRepository.setImage(accountId, slot, null, tx);
+      await this.imagesService.remove([previous], tx);
+      return changed;
+    });
+    return this.withDetails(updated);
+  }
+
   private async requireProfile(accountId: string): Promise<Profile> {
     const profile = await this.profilesRepository.findByAccountId(accountId);
     if (!profile) {
@@ -163,7 +202,11 @@ export class ProfilesService {
   }
 
   private async withDetails(profile: Profile): Promise<ProfileDetails> {
-    const [age, interestsOf] = await Promise.all([this.ageOf(profile.accountId), this.interestsLookup()]);
+    const [age, interestsOf, imagesOf] = await Promise.all([
+      this.ageOf(profile.accountId),
+      this.interestsLookup(),
+      this.imagesLookup([profile]),
+    ]);
     return {
       username: profile.username,
       displayName: profile.displayName,
@@ -175,11 +218,23 @@ export class ProfilesService {
       interests: interestsOf(profile),
       linkedAccounts: profile.linkedAccounts.map(withUrl),
       isComplete: isComplete(profile),
+      ...imagesOf(profile),
     };
   }
 
   private async ageOf(accountId: string): Promise<number> {
     return ageFrom(accountId, await this.accountsService.getDateOfBirth(accountId));
+  }
+
+  private async imagesLookup(profiles: Profile[]): Promise<(profile: Profile) => ProfileImages> {
+    const refs = await this.imagesService.getRefs(profiles.flatMap((profile) => [profile.photoId, profile.coverId]));
+    return (profile) => {
+      const cover = profile.coverId === null ? undefined : refs.get(profile.coverId);
+      return {
+        photo: (profile.photoId !== null && refs.get(profile.photoId)) || null,
+        cover: cover?.crop ? { ...cover, crop: cover.crop } : null,
+      };
+    };
   }
 
   /** The chosen interests of a profile, in the order of the list. */
@@ -198,6 +253,10 @@ function ageFrom(accountId: string, dateOfBirth: string | undefined): number {
     throw new Error(`Profile of ${accountId} has no account date of birth`);
   }
   return ageOn(kyivDate(), dateOfBirth);
+}
+
+function imageIdOf(profile: Profile, slot: ProfileImageSlot): string | null {
+  return slot === 'photo' ? profile.photoId : profile.coverId;
 }
 
 function withUrl({ network, username }: LinkedAccount): LinkedAccountDetails {

@@ -7,7 +7,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { deleteListing, type Listing } from '@/api/listings';
-import { failureMessage, failureSnackbar } from '@/auth/messages';
+import { failureMessage, failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
 import { DeletePostDialog } from '@/components/announcements/delete-post-dialog';
 import { listingToPost } from '@/components/announcements/listing-post';
 import { PostCard } from '@/components/announcements/post-card';
@@ -22,7 +22,7 @@ import { SearchField } from '@/components/ui/search-field';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useListings } from '@/hooks/use-listings';
-import { useProfile, useProfileInitial } from '@/hooks/use-profile';
+import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import type { Post } from '@/mocks/announcements';
 import { usePostRequests } from '@/state/post-requests';
@@ -113,7 +113,6 @@ function HeaderTabs({
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
-  const initial = useProfileInitial();
   const insets = useSafeAreaInsets();
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
@@ -142,10 +141,11 @@ export default function AnnouncementsScreen() {
     router.setParams({ compose: undefined });
   };
 
-  const onPublished = (listing: Listing) => {
+  const onPublished = (listing: Listing, photoFailure?: Parameters<typeof pictureFailureSnackbar>[0]) => {
     listings.setData(withListing(listings.data ?? [], listing));
     closeEditor();
-    show({ title: 'Допис опубліковано', note: 'Його вже видно в стрічці' });
+    if (photoFailure) show({ ...pictureFailureSnackbar(photoFailure), title: 'Допис опубліковано без фото' });
+    else show({ title: 'Допис опубліковано', note: 'Його вже видно в стрічці' });
   };
 
   // deleteListing never rejects: a failure comes back as a result and is shown in the snackbar. A post that is
@@ -246,9 +246,6 @@ export default function AnnouncementsScreen() {
             onPress={() => setComposing(true)}
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
-            <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-              <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
-            </View>
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
                 Що плануєш? Знайди компанію…

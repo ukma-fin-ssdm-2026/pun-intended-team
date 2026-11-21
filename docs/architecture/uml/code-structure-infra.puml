@@ -46,6 +46,8 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class MessagingProvider <<other diagram>>
   abstract class JobQueue <<other diagram>>
   abstract class PushProvider <<other diagram>>
+  abstract class ImagesRepository <<other diagram>>
+  abstract class ImageProcessor <<other diagram>>
 }
 
 package "infra (InfraModule, global)" as INFRA {
@@ -60,6 +62,7 @@ package "infra (InfraModule, global)" as INFRA {
     class PrismaVerificationCodesRepository
     class PrismaSessionsRepository
     class PrismaProfilesRepository
+    class PrismaImagesRepository
     class PrismaInterestsRepository
     class PrismaEventsRepository
     class PrismaEventSessionsRepository
@@ -109,6 +112,9 @@ package "infra (InfraModule, global)" as INFRA {
   package push {
     class ExpoPushProvider
   }
+  package images {
+    class SharpImageProcessor
+  }
   package jobs {
     class PgBossJobQueue {
       +whenStarted()
@@ -121,6 +127,8 @@ AccountsRepository <|.. PrismaAccountsRepository
 VerificationCodesRepository <|.. PrismaVerificationCodesRepository
 SessionsRepository <|.. PrismaSessionsRepository
 ProfilesRepository <|.. PrismaProfilesRepository
+ImagesRepository <|.. PrismaImagesRepository
+ImageProcessor <|.. SharpImageProcessor
 InterestsRepository <|.. PrismaInterestsRepository
 EventsRepository <|.. PrismaEventsRepository
 EventSessionsRepository <|.. PrismaEventSessionsRepository
