@@ -12,12 +12,13 @@ import { call } from './public-client';
 
 let request: { session: number; done: Promise<void> } | undefined;
 
-// The first page, newest first: one request at a time per session, however many screens ask.
+// The first page, newest first: one request at a time per session, however many screens ask. A loaded inbox stays
+// while it is read again.
 export function loadNotifications() {
   const from = notificationsSession();
   if (request?.session === from) return request.done;
   const done = (async () => {
-    setNotificationsState({ status: 'loading' }, from);
+    if (notificationsState().status !== 'loaded') setNotificationsState({ status: 'loading' }, from);
     const result = await call(() => apiClient.GET('/api/v1/me/notifications'));
     setNotificationsState(
       result.ok ? { status: 'loaded', notifications: result.data.items } : { status: 'error' },

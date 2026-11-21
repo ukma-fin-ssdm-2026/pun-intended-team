@@ -7,6 +7,7 @@ import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from '
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadNotifications } from '@/api/notifications';
 import { CatalogHeader } from '@/components/catalog-header';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,6 @@ import { useCategories } from '@/hooks/use-categories';
 import { useEvents } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockUser } from '@/mocks/user';
 import {
   eventQuery,
   filterEvents,
@@ -34,6 +34,7 @@ import {
   useCatalogFilters,
 } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
+import { unreadCount, useNotificationsState } from '@/state/notifications';
 import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -89,7 +90,16 @@ export default function CatalogScreen() {
   const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
   const lastUpdated = allEvents.lastUpdated;
+  const inbox = useNotificationsState();
+  const hasUnread = inbox.status === 'loaded' && unreadCount(inbox.notifications) > 0;
   useStatusBarStyle('light');
+
+  // Read again each time the catalog shows, so the dot follows what came in and what was read on Т5.
+  useFocusEffect(
+    useCallback(() => {
+      if (!isGuest) void loadNotifications();
+    }, [isGuest]),
+  );
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.
   useFocusEffect(
@@ -144,7 +154,7 @@ export default function CatalogScreen() {
             name={profile.data?.displayName}
             photo={profile.data?.photo}
             // Figma hides the unread dot while the catalog loads.
-            hasUnread={mockUser.hasUnreadNotifications && !loading}
+            hasUnread={hasUnread && !loading}
             onNotificationsPress={() => router.push('/notifications')}
             onAvatarPress={() => router.navigate('/profile')}
           />
