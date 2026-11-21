@@ -789,6 +789,7 @@ components:
             author:
               username: olena_k
               displayName: Olena
+              photo: null
             category:
               id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
               name: Виставки
@@ -863,6 +864,7 @@ components:
         author:
           username: olena_k
           displayName: Olena
+          photo: null
         category:
           id: 1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02
           name: Виставки
@@ -879,10 +881,34 @@ components:
           type: string
         displayName:
           type: string
+        photo:
+          $ref: '#/components/schemas/Image'
       required:
         - username
         - displayName
+        - photo
       description: Who posted the listing; never their contacts
+    Image:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Get the picture with getImage
+        width:
+          type: integer
+        height:
+          type: integer
+      required:
+        - id
+        - width
+        - height
+      description: An uploaded picture, stored cropped
+      example:
+        id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+        width: 512
+        height: 512
     ListingStatus:
       type: string
       enum:

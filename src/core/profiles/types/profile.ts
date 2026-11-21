@@ -7,6 +7,7 @@ export interface ProfileSummary {
   accountId: string;
   username: string;
   displayName: string;
+  photoId: string | null;
 }
 
 /** Social networks a user can share with a mutual match, in the order they are shown. */
@@ -41,7 +42,6 @@ export interface Profile extends ProfileSummary {
   sharePhone: boolean;
   interestIds: string[];
   linkedAccounts: LinkedAccount[];
-  photoId: string | null;
   coverId: string | null;
 }
 
@@ -71,7 +71,7 @@ export interface ProfileDetails extends ProfileImages {
 }
 
 /** What a proposed match sees of the other user: no contacts (FR-019). */
-export interface PublicProfile extends ProfileSummary, ProfileImages {
+export interface PublicProfile extends Omit<ProfileSummary, 'photoId'>, ProfileImages {
   description: string;
   occupation: string;
   age: number;

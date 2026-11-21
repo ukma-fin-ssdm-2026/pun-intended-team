@@ -138,20 +138,24 @@ export class ListingsService {
    * profile gives undefined: the account may never have finished onboarding, or its profile is gone.
    */
   private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails | undefined> {
-    const [authors, allCategories, photos] = await Promise.all([
+    const [authors, allCategories] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
-      this.imagesService.getRefs(listings.map((listing) => listing.photoId)),
     ]);
+    const photos = await this.imagesService.getRefs([
+      ...listings.map((listing) => listing.photoId),
+      ...[...authors.values()].map((author) => author.photoId),
+    ]);
+    const photoOf = (id: string | null) => (id !== null && photos.get(id)) || null;
     const categories = new Map(allCategories.map((category) => [category.id, category]));
     return (listing) => {
       const author = authors.get(listing.authorId);
       return (
         author && {
           ...listing,
-          author,
+          author: { ...author, photo: photoOf(author.photoId) },
           category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
-          photo: (listing.photoId !== null && photos.get(listing.photoId)) || null,
+          photo: photoOf(listing.photoId),
         }
       );
     };

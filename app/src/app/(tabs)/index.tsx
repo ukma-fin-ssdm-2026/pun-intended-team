@@ -35,7 +35,7 @@ import {
 } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { unreadCount, useNotificationsState } from '@/state/notifications';
-import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
+import { finishCatalogLoading, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // The catalog row fits "Усі" and two categories at the 390 px Figma width, one on narrower screens (down to 320 px);
@@ -148,15 +148,13 @@ export default function CatalogScreen() {
         </View>
 
         {isGuest ? (
-          <CatalogHeader onAvatarPress={openGuestDialog} />
+          <CatalogHeader />
         ) : (
           <CatalogHeader
             name={profile.data?.displayName}
-            photo={profile.data?.photo}
             // Figma hides the unread dot while the catalog loads.
             hasUnread={hasUnread && !loading}
             onNotificationsPress={() => router.push('/notifications')}
-            onAvatarPress={() => router.navigate('/profile')}
           />
         )}
 

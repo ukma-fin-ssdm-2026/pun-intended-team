@@ -1494,6 +1494,16 @@ describe('PUT and DELETE /api/v1/listings/{id}/photo', () => {
     assert.equal((await getImage(res.body.photo.id, tokens.org)).status, 404);
   });
 
+  test('shows the author’s profile photo to readers', async () => {
+    const { token } = await newProfile();
+    const photo = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const created = await call('POST', '/api/v1/listings', { token, body: newListing });
+
+    const read = await call('GET', `/api/v1/listings/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(read.body.author.photo, photo.body.photo);
+    assert.equal((await getImage(read.body.author.photo.id, tokens.org)).status, 200);
+  });
+
   test('answers 404 for someone else’s listing', async () => {
     const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
     const res = await upload(`/api/v1/listings/${created.body.id}/photo`, await testPicture(), { token: tokens.org });

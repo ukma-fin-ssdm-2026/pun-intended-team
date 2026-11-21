@@ -40,7 +40,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
   async findSummaries(accountIds: string[]): Promise<ProfileSummary[]> {
     return this.prisma.profile.findMany({
       where: { accountId: { in: accountIds } },
-      select: { accountId: true, username: true, displayName: true },
+      select: { accountId: true, username: true, displayName: true, photoId: true },
     });
   }
 

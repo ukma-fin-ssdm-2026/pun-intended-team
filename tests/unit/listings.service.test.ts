@@ -60,7 +60,7 @@ const UPLOAD = {
 
 /** The profile of ACCOUNT_ID as listing readers see it. */
 function anAuthor(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
-  return { accountId: ACCOUNT_ID, username: 'olena', displayName: 'Olena', ...overrides };
+  return { accountId: ACCOUNT_ID, username: 'olena', displayName: 'Olena', photoId: null, ...overrides };
 }
 
 /** Every dependency of ListingsService as a mock; a test changes only what it needs. */
@@ -127,8 +127,19 @@ describe('ListingsService.list', () => {
     const result = await service.list(PAGE);
 
     assert.deepEqual(listingsRepository.findActive.mock.calls[0]?.arguments, [TODAY, PAGE]);
-    assert.deepEqual(result.items[0]?.author, anAuthor());
+    assert.deepEqual(result.items[0]?.author, { ...anAuthor(), photo: null });
     assert.equal(result.items[0]?.category.name, aCategory().name);
+  });
+
+  test("adds the author's photo", async () => {
+    const { service, profilesService } = makeService();
+    profilesService.getSummaries.mock.mockImplementation(() =>
+      Promise.resolve(new Map([[ACCOUNT_ID, anAuthor({ photoId: PHOTO.id })]])),
+    );
+
+    const result = await service.list(PAGE);
+
+    assert.deepEqual(result.items[0]?.author.photo, PHOTO);
   });
 
   test('leaves out a listing whose author has no profile', async () => {
@@ -169,7 +180,7 @@ describe('ListingsService.create', () => {
     assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments, [
       { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null },
     ]);
-    assert.deepEqual(result.author, anAuthor());
+    assert.deepEqual(result.author, { ...anAuthor(), photo: null });
   });
 
   test('stores a listing without an event with eventId null and does not look one up', async () => {

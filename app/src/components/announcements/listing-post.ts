@@ -26,6 +26,7 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
     chips: [{ icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) }],
     eventId: eventId ?? undefined,
     apiPhoto: photo ?? undefined,
+    authorPhoto: author.photo ?? undefined,
     going: false,
     own: ownUsername === undefined ? undefined : ownUsername.toLowerCase() === author.username.toLowerCase(),
   };

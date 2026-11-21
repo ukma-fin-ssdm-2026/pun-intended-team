@@ -78,7 +78,7 @@ const UPLOAD = {
 };
 
 function aProfileSummary(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
-  return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', ...overrides };
+  return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', photoId: null, ...overrides };
 }
 
 function isDomainError(code: string) {

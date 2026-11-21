@@ -14,7 +14,6 @@ import { PostCard } from '@/components/announcements/post-card';
 import { PostComposer } from '@/components/announcements/post-composer';
 import { ReportFlow, type ReportedPerson, type ReportStep } from '@/components/matching/report-flow';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
-import { OwnAvatar } from '@/components/profile/own-avatar';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
@@ -247,7 +246,6 @@ export default function AnnouncementsScreen() {
             onPress={() => setComposing(true)}
             className="flex-row items-center gap-3 px-5 py-3.5"
           >
-            <OwnAvatar />
             <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
               <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
                 Що плануєш? Знайди компанію…

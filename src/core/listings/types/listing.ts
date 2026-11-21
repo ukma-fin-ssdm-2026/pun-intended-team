@@ -19,9 +19,14 @@ export interface Listing {
   photoId: string | null;
 }
 
+/** What readers see of a listing's author. */
+export interface ListingAuthor extends ProfileSummary {
+  photo: ImageRef | null;
+}
+
 /** A listing with what readers see of its author and category. */
 export interface ListingDetails extends Listing {
-  author: ProfileSummary;
+  author: ListingAuthor;
   category: Pick<Category, 'id' | 'name'>;
   photo: ImageRef | null;
 }

@@ -155,8 +155,8 @@ describe('PrismaProfilesRepository.findByAccountIds', () => {
 });
 
 describe('PrismaProfilesRepository.findSummaries', () => {
-  test('asks only for the given accounts and their public names', async () => {
-    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena' };
+  test('asks only for the given accounts, their public names and photo', async () => {
+    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena', photoId: null };
     const { repository, prisma } = makeRepository({ found: [summary] });
 
     assert.deepEqual(await repository.findSummaries([ACCOUNT_ID]), [summary]);

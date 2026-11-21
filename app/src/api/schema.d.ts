@@ -1498,7 +1498,8 @@ export interface components {
          *           "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *           "author": {
          *             "username": "olena_k",
-         *             "displayName": "Olena"
+         *             "displayName": "Olena",
+         *             "photo": null
          *           },
          *           "category": {
          *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1529,7 +1530,8 @@ export interface components {
          *       "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *       "author": {
          *         "username": "olena_k",
-         *         "displayName": "Olena"
+         *         "displayName": "Olena",
+         *         "photo": null
          *       },
          *       "category": {
          *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1580,7 +1582,25 @@ export interface components {
         ListingAuthor: {
             username: string;
             displayName: string;
+            photo: components["schemas"]["Image"];
         };
+        /**
+         * @description An uploaded picture, stored cropped
+         * @example {
+         *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+         *       "width": 512,
+         *       "height": 512
+         *     }
+         */
+        Image: {
+            /**
+             * Format: uuid
+             * @description Get the picture with getImage
+             */
+            id: string;
+            width: number;
+            height: number;
+        } | null;
         /** @enum {string} */
         ListingStatus: "active" | "removed";
         /**

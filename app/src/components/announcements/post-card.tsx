@@ -88,8 +88,12 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
-      <View className="size-11 items-center justify-center rounded-[22px] bg-surface-background">
-        <Text className="font-inter-semibold text-title text-text-secondary">{post.initial}</Text>
+      <View className="size-11 items-center justify-center overflow-hidden rounded-[22px] bg-surface-background">
+        {post.authorPhoto ? (
+          <ApiPicture image={post.authorPhoto} />
+        ) : (
+          <Text className="font-inter-semibold text-title text-text-secondary">{post.initial}</Text>
+        )}
       </View>
       <View className="flex-1 gap-2">
         <View className="flex-row items-center gap-1.5">

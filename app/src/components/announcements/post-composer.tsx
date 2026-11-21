@@ -9,7 +9,6 @@ import type { ApiResult } from '@/api/public-client';
 import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
 import { Picture } from '@/components/pictures/picture';
 import { usePictureCropper } from '@/components/pictures/picture-cropper';
-import { OwnAvatar } from '@/components/profile/own-avatar';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { kyivDay, tomorrow, weekendDays } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
@@ -132,7 +131,6 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
-      <OwnAvatar />
       <View className="flex-1 gap-3">
         {/* Figma's 1 px stroke lies inside the chip: the padding is 1 px less than its 5 / 10 / 12. */}
         <View className="flex-row items-center gap-1.5 self-start rounded-[14px] border border-border-default py-1 pl-[9px] pr-[11px]">

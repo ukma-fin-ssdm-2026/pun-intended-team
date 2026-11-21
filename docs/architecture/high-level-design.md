@@ -51,7 +51,7 @@ Modules sit in three tiers, defined by dependency direction rather than importan
 | matching | profiles (interests, contacts, safety acknowledgment), catalog (sessions), identity (phone number for the contact reveal), moderation (exclusions), notifications | `event.changed`, `user.banned` |
 | moderation | listings (remove), identity (revoke on ban), profiles (find the reported user by username, names in cases), notifications | `audit.record` |
 | admin | `stats()` of every other module | — |
-| listings | catalog (event and category references), profiles (author's name), images (photo) | — |
+| listings | catalog (event and category references), profiles (author's name and photo), images (photos) | — |
 | profiles | images (photo and cover) | — |
 | catalog | — | — |
 | identity | notifications (`sendCode`) | — |

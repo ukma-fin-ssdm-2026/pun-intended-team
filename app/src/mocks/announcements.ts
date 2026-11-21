@@ -22,6 +22,8 @@ export type Post = {
   photo?: ImageSource;
   // The photo of a listing from the API.
   apiPhoto?: ApiImage;
+  // The author's profile photo, for a post from the API.
+  authorPhoto?: ApiImage;
   going: boolean;
   // Only posts that come from the API have them: the heading of the post, and whether the signed-in user wrote it.
   title?: string;
