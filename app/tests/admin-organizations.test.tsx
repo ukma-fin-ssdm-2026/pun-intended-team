@@ -21,6 +21,7 @@ const pending: AdminOrganization = {
   officialLink: 'https://riverside.example.org',
   verificationStatus: 'pending',
   verifiedAt: null,
+  logo: null,
 };
 
 beforeEach(() => {

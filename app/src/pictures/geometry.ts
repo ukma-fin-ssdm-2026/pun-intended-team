@@ -3,7 +3,7 @@ export type Size = { width: number; height: number };
 export type Area = Size & { left: number; top: number };
 
 // Where each picture is shown, and the shape its crop has; the API cuts uploads to the same shapes.
-export type PictureKind = 'profilePhoto' | 'profileCover' | 'listingPhoto';
+export type PictureKind = 'profilePhoto' | 'profileCover' | 'listingPhoto' | 'eventPhoto' | 'organizationLogo';
 
 export const aspectRatios: Record<PictureKind, number> = {
   profilePhoto: 1,
@@ -11,6 +11,10 @@ export const aspectRatios: Record<PictureKind, number> = {
   profileCover: 390 / 200,
   // The photo of a post in "03.3 Допис", 294 × 150.
   listingPhoto: 2,
+  // The catalog card's cover; the event page shows more of the picture around it.
+  eventPhoto: 2,
+  // The circle of О4 "Змінити логотип".
+  organizationLogo: 1,
 };
 
 export function wholeArea({ width, height }: Size): Area {

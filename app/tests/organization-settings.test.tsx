@@ -17,6 +17,7 @@ const rejected: Organization = {
   officialLink: 'https://riverside.example.org',
   verificationStatus: 'rejected',
   verifiedAt: null,
+  logo: null,
 };
 
 beforeEach(() => {

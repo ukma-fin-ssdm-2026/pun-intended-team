@@ -30,6 +30,7 @@ export function anEvent(id: string, title: string, venue = arsenal): Event {
     startTimeKnown: true,
     endTimeKnown: true,
     imageUrl: null,
+    photo: null,
     sourceUrl: null,
     source: 'import',
     status: 'published',

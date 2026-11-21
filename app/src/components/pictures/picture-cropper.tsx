@@ -15,6 +15,8 @@ const titles: Record<PictureKind, string> = {
   profilePhoto: 'Фото профілю',
   profileCover: 'Обкладинка',
   listingPhoto: 'Фото до допису',
+  eventPhoto: 'Обкладинка події',
+  organizationLogo: 'Логотип',
 };
 
 const SIDE = 20;
@@ -175,9 +177,9 @@ function CropView({ kind, picture, onCancel, onDone }: Omit<Props, 'picture'> & 
   );
 }
 
-// The frame's outline: a circle for the avatar, a rectangle for the cover and a post photo.
+// The frame's outline: a circle for the avatar and the logo, a rectangle for the covers and a post photo.
 function hole(kind: PictureKind, left: number, top: number, width: number, height: number): string {
-  if (kind === 'profilePhoto') {
+  if (kind === 'profilePhoto' || kind === 'organizationLogo') {
     const r = width / 2;
     return `M${left} ${top + r}a${r} ${r} 0 1 0 ${width} 0a${r} ${r} 0 1 0 ${-width} 0Z`;
   }

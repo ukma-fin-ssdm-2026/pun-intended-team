@@ -13,6 +13,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import type { ApiEventPhoto } from '@/api/images';
 import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
@@ -93,7 +94,7 @@ function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab:
 }
 
 // A live event from the catalog or, until the screens that use them move to the API, a mock one.
-type SavedEvent = Omit<MockEvent, 'district' | 'organizer'>;
+type SavedEvent = Omit<MockEvent, 'district' | 'organizer' | 'photo'> & { photo?: ApiEventPhoto | null };
 
 function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: string) => void }) {
   return (
@@ -107,6 +108,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
           cover={eventCoverOf(event)}
+          photo={event.photo}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
           // The button opens the event page too, as on the catalog cards.
@@ -217,7 +219,7 @@ export default function ProfileScreen() {
   const favoriteIds = useFavoriteIds();
   const liveEvents = useEventsByIds(favoriteIds).data;
   const savedEvents = favoriteIds
-    .map((id) => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
+    .map((id): SavedEvent | undefined => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
     .filter((event): event is SavedEvent => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();

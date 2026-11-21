@@ -197,6 +197,7 @@ export default function CatalogScreen() {
                   dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
                   place={event.venue.name}
                   cover={coverOf(event.imageUrl)}
+                  photo={event.photo}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.

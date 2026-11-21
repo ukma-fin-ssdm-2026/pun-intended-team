@@ -10,7 +10,14 @@ type Event = components['schemas']['Event'];
 // The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
 // the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
-export type MockEvent = Event & { cover?: ImageSource; district: string; organizer: string; shortTitle?: string };
+// Mock events have bundled covers, never an uploaded photo.
+export type MockEvent = Omit<Event, 'photo'> & {
+  photo?: null;
+  cover?: ImageSource;
+  district: string;
+  organizer: string;
+  shortTitle?: string;
+};
 
 // Category ids are shared by the events below; the list is the catalog's categories, in the order of the chips.
 export const mockCategories: components['schemas']['Category'][] = [
