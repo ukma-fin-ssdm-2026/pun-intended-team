@@ -2,7 +2,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-import { clearOwnEvents } from '@/state/organization-events';
 import { clearApplications } from '@/state/applications';
 import { clearMatches } from '@/state/matches';
 import { clearNotifications } from '@/state/notifications';
@@ -59,7 +58,6 @@ export async function startSession(tokens: SessionTokens) {
     clearProfile();
     clearApplications();
     clearMatches();
-    clearOwnEvents();
     clearNotifications();
   }
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
@@ -75,7 +73,6 @@ async function endSession() {
   clearProfile();
   clearApplications();
   clearMatches();
-  clearOwnEvents();
   clearNotifications();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);

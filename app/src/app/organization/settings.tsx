@@ -1,13 +1,16 @@
 // Written with the help of Claude
-// AI Usage: organization settings from the Figma "О4 Організація · Налаштування" frame, on mock data; reviewed by Daryna
-// Halytska. The verification request (name, description, site) and its status come from the API; the status block has no
-// Figma frame.
+// AI Usage: organization settings from the Figma "DО4 Організація · Налаштування" desktop frame with the DО4.1 dialog,
+// after the О4 screen reviewed by Daryna Halytska. The verification request (name, description, site) and its status
+// come from the API; the status block has no Figma frame.
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState, type ReactNode } from 'react';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
+import { deleteOrganizationLogo, uploadOrganizationLogo, type ApiImage } from '@/api/images';
 import { getMyOrganization, requestOrganizationStatus, type Organization } from '@/api/organizations';
+import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
+import { ApiPicture } from '@/components/pictures/picture';
+import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { signOut } from '@/api/session';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Button } from '@/components/ui/button';
@@ -15,14 +18,8 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
 import { useApiQuery } from '@/hooks/use-api-query';
-import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockOrganizationSettings } from '@/mocks/organization';
 import { colors } from '@/styles/tokens';
-
-// "01 Навігація" starts 56 px from the top (9 px below the iPhone 14 status bar); "03 Вихід" has a 40 px bottom padding.
-const NAV_TOP = 56;
-const GAP_BELOW_STATUS_BAR = 9;
-const CONTENT_BOTTOM = 40;
 
 // FR-003: what the account sees of its request.
 const statusText: Record<Organization['verificationStatus'] | 'none', { title: string; note: string }> = {
@@ -63,9 +60,13 @@ function SettingRow({
   );
 }
 
+// "Картка": the 720 px column's white cards.
+function Card({ children }: { children: ReactNode }) {
+  return <View className="w-full max-w-[720px] gap-3 rounded-[28px] bg-surface-card px-8 py-6">{children}</View>;
+}
+
 export default function OrganizationSettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const own = useApiQuery('my-organization', getMyOrganization);
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
@@ -78,7 +79,24 @@ export default function OrganizationSettingsScreen() {
   const [reminders, setReminders] = useState(true);
   const [nearbyPosts, setNearbyPosts] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
-  useStatusBarStyle('dark');
+  // The logo is saved as soon as it is picked, apart from the request, so unsent edits of the fields stay.
+  const [savedLogo, setSavedLogo] = useState<ApiImage | null>();
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string>();
+  const { start: pickLogo, cropper } = usePictureCropper(
+    async (_kind, draft) => {
+      setLogoBusy(true);
+      setLogoError(undefined);
+      const result = await uploadOrganizationLogo(draft);
+      setLogoBusy(false);
+      if (result.ok) setSavedLogo(result.data.logo);
+      else setLogoError(`Не вдалося зберегти логотип. ${failureMessage(result)}`);
+    },
+    (refusal) => {
+      const { title, note } = pictureRefusalSnackbar(refusal);
+      setLogoError(`${title}. ${note}.`);
+    },
+  );
 
   // The fields take the request the account sent each time it arrives: on load and after sending.
   const [shown, setShown] = useState<Organization>();
@@ -92,6 +110,22 @@ export default function OrganizationSettingsScreen() {
   // 404: no request yet.
   const status = own.data?.verificationStatus ?? (own.failure?.status === 404 ? 'none' : undefined);
   const canSend = status === 'none' || status === 'pending' || status === 'rejected';
+  const logo = savedLogo === undefined ? own.data?.logo : savedLogo;
+
+  // The API keeps a logo only for an account that has sent its request.
+  const changeLogo = () => {
+    if (status === 'none') setLogoError('Спершу надішли заявку, потім додай логотип.');
+    else if (status) void pickLogo('organizationLogo');
+  };
+
+  const removeLogo = async () => {
+    setLogoBusy(true);
+    setLogoError(undefined);
+    const result = await deleteOrganizationLogo();
+    setLogoBusy(false);
+    if (result.ok) setSavedLogo(null);
+    else setLogoError(`Не вдалося прибрати логотип. ${failureMessage(result)}`);
+  };
 
   const sendRequest = async () => {
     const link = site.trim();
@@ -115,50 +149,61 @@ export default function OrganizationSettingsScreen() {
   };
 
   return (
-    <KeyboardAvoidingView className="flex-1 bg-surface-card" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View
-        className="flex-row items-center justify-between px-5 pb-4"
-        style={{ paddingTop: Math.max(NAV_TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Назад"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/organization'))}
-          className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
-        >
-          <Icon name="arrow-left" size={20} />
-        </Pressable>
-        <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-primary">
-          Налаштування
-        </Text>
-        <View className="size-10" />
-      </View>
+    <View className="flex-1">
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="items-center gap-6 px-10 pb-20 pt-12">
+        <View className="h-10 w-full max-w-[720px] justify-center">
+          <Text accessibilityRole="header" className="font-inter-bold text-[32px] text-text-primary">
+            Налаштування
+          </Text>
+        </View>
 
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: Math.max(CONTENT_BOTTOM, insets.bottom) }}
-      >
-        <View className="gap-3 px-5 pb-2 pt-1">
+        <Card>
           <Text className="font-inter-semibold text-title text-text-primary">Профіль організації</Text>
-          {/* "Змінити логотип" opens the system photo picker, which has no design. */}
+          {/* "Змінити логотип" opens the system photo picker and the crop preview, which have no design. */}
           <View className="flex-row items-center gap-3.5">
             <View className="size-[72px]">
-              <View className="size-[72px] items-center justify-center rounded-[36px] bg-brand-coral-soft">
-                <Icon name="building" size={32} color={colors.brand.coral} />
+              <View className="size-[72px] items-center justify-center overflow-hidden rounded-[36px] bg-brand-coral-soft">
+                {logo ? <ApiPicture image={logo} /> : <Icon name="building" size={32} color={colors.brand.coral} />}
               </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Змінити логотип"
+                disabled={logoBusy}
+                onPress={changeLogo}
                 className="absolute left-[46px] top-[46px] size-7 items-center justify-center rounded-[14px] border-2 border-surface-card bg-brand-coral"
               >
                 <Icon name="camera" size={14} color={colors.text['on-dark']} />
               </Pressable>
             </View>
-            <Pressable accessibilityRole="button" className="flex-1 gap-0.5">
-              <Text className="font-inter-medium text-label text-brand-coral">Змінити логотип</Text>
-              <Text className="font-inter text-caption text-text-secondary">JPG або PNG, від 400×400 px</Text>
-            </Pressable>
+            <View className="flex-1 gap-0.5">
+              <Pressable
+                accessibilityRole="button"
+                disabled={logoBusy}
+                onPress={changeLogo}
+                className="gap-0.5 self-start"
+              >
+                <Text className="font-inter-medium text-label text-brand-coral">
+                  {logoBusy ? 'Зберігаємо…' : 'Змінити логотип'}
+                </Text>
+                <Text className="font-inter text-caption text-text-secondary">JPG або PNG, від 400×400 px</Text>
+              </Pressable>
+              {logo && !logoBusy && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void removeLogo()}
+                  hitSlop={6}
+                  className="self-start"
+                >
+                  <Text className="font-inter text-caption text-text-secondary underline">Прибрати логотип</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
+          {logoError && (
+            <Text accessibilityRole="alert" className="font-inter text-caption text-brand-coral">
+              {logoError}
+            </Text>
+          )}
           <TextField label="Назва" value={name} onChangeText={setName} editable={canSend} />
           <TextField label="Опис" value={about} onChangeText={setAbout} editable={canSend} />
           <TextField
@@ -170,10 +215,8 @@ export default function OrganizationSettingsScreen() {
             editable={canSend}
           />
           <TextField label="Instagram" value={instagram} onChangeText={setInstagram} autoCapitalize="none" />
-        </View>
 
-        <View className="px-5 pt-4">
-          <View className="gap-3 rounded-[20px] bg-surface-background p-4">
+          <View className="mt-3 gap-3 rounded-[20px] bg-surface-background p-4">
             <View className="gap-0.5">
               <Text className="font-inter-medium text-label text-text-secondary">Підтвердження організації</Text>
               {status ? (
@@ -189,26 +232,33 @@ export default function OrganizationSettingsScreen() {
             </View>
             {requestError && <Text className="font-inter text-caption text-brand-coral">{requestError}</Text>}
             {canSend ? (
-              <Button
-                label={
-                  status === 'none'
-                    ? 'Надіслати на перевірку'
-                    : status === 'pending'
-                      ? 'Оновити заявку'
-                      : 'Надіслати ще раз'
-                }
-                variant="dark"
-                loading={sending}
-                onPress={() => void sendRequest()}
-              />
+              <View className="self-start">
+                <Button
+                  label={
+                    status === 'none'
+                      ? 'Надіслати на перевірку'
+                      : status === 'pending'
+                        ? 'Оновити заявку'
+                        : 'Надіслати ще раз'
+                  }
+                  variant="dark"
+                  loading={sending}
+                  onPress={() => void sendRequest()}
+                />
+              </View>
             ) : (
-              !status && own.failure && <Button label="Спробувати ще раз" variant="light" onPress={own.reload} />
+              !status &&
+              own.failure && (
+                <View className="self-start">
+                  <Button label="Спробувати ще раз" variant="light" onPress={own.reload} />
+                </View>
+              )
             )}
           </View>
-        </View>
+        </Card>
 
-        <View className="px-5 pt-4">
-          <View className="overflow-hidden rounded-[20px] bg-surface-card px-4 py-1">
+        <Card>
+          <View className="px-4 py-1">
             <View className="pb-0.5 pt-3">
               <Text className="font-inter-medium text-label text-text-secondary">Події</Text>
             </View>
@@ -230,14 +280,19 @@ export default function OrganizationSettingsScreen() {
             <View className="h-px bg-border-default" />
             <SettingRow icon="send" title="Нові оголошення поруч" value={nearbyPosts} onValueChange={setNearbyPosts} />
           </View>
-        </View>
+        </Card>
 
-        {/* "Вийти з акаунта" opens О4.1, as on Т4. */}
-        <View className="items-center px-5 pt-4">
-          <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
+        {/* "Вийти з акаунта" opens DО4.1. */}
+        <Card>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setSignOutOpen(true)}
+            hitSlop={8}
+            className="self-center"
+          >
             <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
           </Pressable>
-        </View>
+        </Card>
       </ScrollView>
 
       <SignOutDialog
@@ -253,6 +308,7 @@ export default function OrganizationSettingsScreen() {
           router.replace('/onboarding');
         }}
       />
-    </KeyboardAvoidingView>
+      {cropper}
+    </View>
   );
 }

@@ -22,7 +22,8 @@ export function SignOutDialog({ visible, icon, note, onClose, onSignOut }: Props
     <Overlay visible={visible} onClose={onClose} placement="center">
       <View
         accessibilityViewIsModal
-        className="gap-5 rounded-[28px] bg-surface-card px-5 pb-5 pt-7"
+        // DО4.1 is 400 px wide; a phone's dialog is narrower.
+        className="w-full max-w-[400px] gap-5 self-center rounded-[28px] bg-surface-card px-5 pb-5 pt-7"
         style={{ boxShadow: shadows.medium }}
       >
         <View className="items-center gap-2.5">

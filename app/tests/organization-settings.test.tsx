@@ -2,14 +2,31 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
+import { deleteOrganizationLogo, uploadOrganizationLogo } from '@/api/images';
 import { getMyOrganization, requestOrganizationStatus, type Organization } from '@/api/organizations';
 import OrganizationSettingsScreen from '@/app/organization/settings';
+import type { PictureDraft } from '@/pictures/picked-picture';
 
 jest.mock('expo-router', () => ({ useRouter: () => ({}), useFocusEffect: () => {} }));
 // The mock module loads event images that Jest cannot resolve.
 jest.mock('@/mocks/organization', () => ({ mockOrganizationSettings: { instagram: '@riverside' } }));
 jest.mock('@/api/session', () => ({ signOut: jest.fn() }));
 jest.mock('@/api/organizations', () => ({ getMyOrganization: jest.fn(), requestOrganizationStatus: jest.fn() }));
+jest.mock('@/api/images', () => ({ uploadOrganizationLogo: jest.fn(), deleteOrganizationLogo: jest.fn() }));
+// The gallery and the crop preview are native: picking hands back this draft at once.
+const draft: PictureDraft = {
+  picture: { uri: 'file:///logo.png', width: 400, height: 400, type: 'image/png' },
+  crop: { left: 0, top: 0, width: 400, height: 400 },
+};
+jest.mock('@/components/pictures/picture-cropper', () => ({
+  usePictureCropper: (onCropped: (kind: string, picked: PictureDraft) => void) => ({
+    start: async (kind: string) => onCropped(kind, draft),
+    cropper: null,
+  }),
+}));
+jest.mock('@/components/pictures/picture', () => ({ ApiPicture: () => null }));
+
+const logo = { id: '4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d', width: 400, height: 400 };
 
 const rejected: Organization = {
   name: 'Riverside Stage',
@@ -74,5 +91,31 @@ describe('OrganizationSettingsScreen', () => {
 
     expect(await screen.findByText('Підтверджено')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /Надіслати|Оновити/ })).toBeNull();
+  });
+
+  test('saves a picked logo at once and removes it again', async () => {
+    jest.mocked(getMyOrganization).mockResolvedValue({ ok: true, data: rejected });
+    jest.mocked(uploadOrganizationLogo).mockResolvedValue({ ok: true, data: { ...rejected, logo } });
+    jest.mocked(deleteOrganizationLogo).mockResolvedValue({ ok: true, data: rejected });
+    await render(<OrganizationSettingsScreen />);
+    await screen.findByText('Відхилено');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Змінити логотип' }));
+
+    await waitFor(() => expect(uploadOrganizationLogo).toHaveBeenCalledWith(draft));
+    await fireEvent.press(await screen.findByRole('button', { name: 'Прибрати логотип' }));
+    await waitFor(() => expect(deleteOrganizationLogo).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Прибрати логотип' })).toBeNull();
+  });
+
+  test('asks for the request before a logo', async () => {
+    jest.mocked(getMyOrganization).mockResolvedValue({ ok: false, status: 404, code: 'NOT_FOUND' });
+    await render(<OrganizationSettingsScreen />);
+    await screen.findByText('Не підтверджено');
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Змінити логотип' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Спершу надішли заявку, потім додай логотип.');
+    expect(uploadOrganizationLogo).not.toHaveBeenCalled();
   });
 });

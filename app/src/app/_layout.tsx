@@ -38,7 +38,7 @@ export default function RootLayout() {
   // stored session is read, so the first screen is the right one.
   if (!fontsLoaded || !restored) return null;
 
-  // The matching, organization and system state screens open with the prototype's 250 ms dissolve.
+  // The matching and system state screens open with the prototype's 250 ms dissolve.
   const dissolve = { headerShown: false, animation: 'fade', animationDuration: 250 } as const;
 
   return (
@@ -49,9 +49,7 @@ export default function RootLayout() {
         <Stack.Screen name="events/[id]/search" options={dissolve} />
         <Stack.Screen name="proposal" options={dissolve} />
         <Stack.Screen name="mutual" options={dissolve} />
-        <Stack.Screen name="organization/index" options={dissolve} />
-        <Stack.Screen name="organization/event" options={dissolve} />
-        <Stack.Screen name="organization/settings" options={dissolve} />
+        <Stack.Screen name="organization" options={{ headerShown: false, title: 'Nearby · Кабінет організації' }} />
         <Stack.Screen name="offline" options={dissolve} />
         <Stack.Screen name="update" options={dissolve} />
         <Stack.Screen name="too-many-attempts" options={dissolve} />

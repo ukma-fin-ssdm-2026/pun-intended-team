@@ -1,8 +1,7 @@
 // Written with the help of Claude
-// AI Usage: cancel event sheet from the Figma "О3 Організація · Скасувати подію" frame; reviewed by Daryna Halytska.
+// AI Usage: cancel event dialog from the Figma "DО3 Організація · Скасувати подію" desktop frame; the О3 sheet it
+// replaces was reviewed by Daryna Halytska.
 import { Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
@@ -15,8 +14,8 @@ const consequences: { icon: IconName; text: string }[] = [
   { icon: 'home', text: 'Подія зникне з каталогу і мапи' },
 ];
 
-// "01 Шторка" has a 34 px bottom padding; a larger bottom inset replaces it.
-const SHEET_BOTTOM = 34;
+// "01 Модальне вікно": 520 px wide, its Figma DROP_SHADOW as CSS.
+const DIALOG_SHADOW = '0px 24px 32px rgba(0, 0, 0, 0.25)';
 
 type Props = {
   visible: boolean;
@@ -24,7 +23,7 @@ type Props = {
   eventName: string;
   // "Так, скасувати подію", "Залишити" and the backdrop all return to О1 in the prototype.
   onClose: () => void;
-  // Cancels a real event; without it "Так, скасувати подію" only closes the sheet, as in the prototype.
+  // Cancels a real event; without it "Так, скасувати подію" only closes the dialog, as in the prototype.
   onConfirm?: () => void;
   // The request is running: the buttons wait.
   loading?: boolean;
@@ -32,20 +31,11 @@ type Props = {
   error?: string;
 };
 
-export function CancelEventSheet({ visible, eventName, onClose, onConfirm, loading = false, error }: Props) {
-  const insets = useSafeAreaInsets();
-
+export function CancelEventDialog({ visible, eventName, onClose, onConfirm, loading = false, error }: Props) {
   return (
-    <Overlay visible={visible} onClose={loading ? () => {} : onClose} placement="bottom">
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
-        <View
-          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom) }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
-
+    <Overlay visible={visible} onClose={loading ? () => {} : onClose} placement="center">
+      <View accessibilityViewIsModal className="w-full max-w-[520px] self-center">
+        <View className="gap-5 rounded-[28px] bg-surface-card px-5 pb-6 pt-3" style={{ boxShadow: DIALOG_SHADOW }}>
           <View className="items-center gap-2.5">
             <View className="size-14 items-center justify-center rounded-full bg-brand-coral">
               <Icon name="danger" size={26} color={colors.text['on-dark']} />
@@ -80,7 +70,7 @@ export function CancelEventSheet({ visible, eventName, onClose, onConfirm, loadi
           <Button label="Так, скасувати подію" loading={loading} onPress={onConfirm ?? onClose} />
           <Button label="Залишити" variant="light" disabled={loading} onPress={onClose} />
         </View>
-      </Animated.View>
+      </View>
     </Overlay>
   );
 }
