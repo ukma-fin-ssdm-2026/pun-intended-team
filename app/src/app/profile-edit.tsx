@@ -71,7 +71,11 @@ function savedValues(profile: Profile): EditDraft {
 // Picking interests in another order is no change.
 function sameValues(a: EditDraft, b: EditDraft): boolean {
   const comparable = ({ interestIds, networks, ...rest }: EditDraft) =>
-    JSON.stringify({ ...rest, interestIds: [...interestIds].sort(), networks: filledNetworks(networks) });
+    JSON.stringify({
+      ...rest,
+      interestIds: [...interestIds].sort((x, y) => x.localeCompare(y)),
+      networks: filledNetworks(networks),
+    });
   return comparable(a) === comparable(b);
 }
 
