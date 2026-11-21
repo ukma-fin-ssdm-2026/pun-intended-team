@@ -11,6 +11,7 @@ import { setRole, setSignedIn } from '@/state/session';
 
 import { publicClient } from './public-client';
 import { registerPushToken } from './push-token';
+import { RefreshFailedError } from './refresh-failed-error';
 import type { components } from './schema';
 
 type SessionTokens = components['schemas']['SessionTokensResponse'];
@@ -128,13 +129,16 @@ async function postRefresh(refreshToken: string) {
 // One renewal at a time: the API ends the session when a replaced refresh token comes back after 60 s.
 function renew(refreshToken: string): Promise<void> {
   renewal ??= postRefresh(refreshToken)
-    .then(async ({ data, response }) => {
+    .then(async ({ data, error, response }) => {
       if (data) {
         await startSession(data);
       } else if (response.status === 401) {
         await endSession();
       } else {
-        throw new Error('Could not renew the session');
+        throw new RefreshFailedError(
+          response.status,
+          (error as { error?: { code?: string } } | undefined)?.error?.code,
+        );
       }
     })
     .finally(() => {
