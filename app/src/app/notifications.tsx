@@ -99,7 +99,13 @@ export default function NotificationsScreen() {
 
   const open = (notification: Notification) => () => {
     void markNotificationRead(notification.id);
-    if (looks[notification.type].toMatches) router.dismissTo('/matches');
+    const { eventId } = notification.payload;
+    // "No match found" opens the search screen of its event, which shows what to do next.
+    if (notification.type === 'no_match_found' && typeof eventId === 'string') {
+      router.push({ pathname: '/events/[id]/search', params: { id: eventId } });
+    } else if (looks[notification.type].toMatches) {
+      router.dismissTo('/matches');
+    }
   };
 
   const notifications = inbox.notifications ?? [];

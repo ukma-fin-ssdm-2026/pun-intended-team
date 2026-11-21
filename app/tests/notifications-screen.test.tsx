@@ -9,9 +9,11 @@ import { setNotificationsState } from '@/state/notifications';
 
 type Notification = components['schemas']['Notification'];
 
+const mockRouter = { back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() };
+
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useRouter: () => ({ back: jest.fn(), push: jest.fn(), dismissTo: jest.fn() }),
+  useRouter: () => mockRouter,
   useFocusEffect: () => {},
 }));
 // The Т5.1 sheet shows mock posts with photos Jest cannot load; the inbox does not use it.
@@ -76,6 +78,27 @@ describe('NotificationsScreen', () => {
     await fireEvent.press(screen.getByText('Скаргу отримано'));
 
     expect(markNotificationRead).toHaveBeenCalledWith('n1');
+  });
+
+  // FR-018
+  test('opens the search screen of the event a "no match found" is about', async () => {
+    const notification = aNotification({ type: 'no_match_found', payload: { applicationId: 'a1', eventId: 'e1' } });
+    setNotificationsState({ status: 'loaded', notifications: [notification] });
+    await render(<NotificationsScreen />);
+
+    await fireEvent.press(screen.getByText('Метч не знайшовся'));
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/events/[id]/search', params: { id: 'e1' } });
+    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+  });
+
+  test('opens the Метчі tab from a matching notification without an event', async () => {
+    setNotificationsState({ status: 'loaded', notifications: [aNotification({ type: 'match_proposed' })] });
+    await render(<NotificationsScreen />);
+
+    await fireEvent.press(screen.getByText('Новий метч'));
+
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith('/matches');
   });
 
   test('reads every notification with "Прочитати все"', async () => {
