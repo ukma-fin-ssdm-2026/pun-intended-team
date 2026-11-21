@@ -7,6 +7,7 @@ export const tags = [
   { name: 'Matching', description: 'Asking for a match at an event and leaving the pool' },
   { name: 'Notifications', description: 'The signed-in user’s inbox' },
   { name: 'Profiles', description: 'The signed-in user’s profile, filled in step by step during onboarding' },
+  { name: 'Images', description: 'Uploaded pictures: profile photos, covers and listing photos' },
   { name: 'Interests', description: 'The fixed list of interests users pick from' },
   { name: 'Categories', description: 'The event category directory' },
   { name: 'Organizations', description: 'Organization status: an account requests it, administrators verify it' },

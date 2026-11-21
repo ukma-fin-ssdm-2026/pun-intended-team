@@ -17,9 +17,12 @@ import {
 } from '@nestjs/common';
 import type { HttpAdapterHost } from '@nestjs/core';
 import { ThrottlerException } from '@nestjs/throttler';
+import { errors } from 'jose';
 import { ApiExceptionFilter } from '../../dist/api/common/api-exception.filter.js';
 import { ApiException } from '../../dist/api/common/api-exception.js';
 import { DomainError, type DomainErrorCode } from '../../dist/core/common/domain-error.js';
+import { isGoogleKeyFetchFailure } from '../../dist/infra/auth/jose-google-id-tokens.js';
+import { isDatabaseTimeout } from '../../dist/infra/prisma/database-timeouts.js';
 import type { ErrorCode, ErrorResponse, ValidationIssue } from '../../src/api/common/schemas/errors.ts';
 
 const UNEXPECTED_MESSAGE = 'Something went wrong';
@@ -248,7 +251,7 @@ describe('ApiExceptionFilter', () => {
       assert.deepEqual(reply, {
         status: 503,
         body: anError('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable. Try again later'),
-        logged: [[`A dependency timed out: ${timeout.message}`, timeout.stack]],
+        logged: [[`A dependency is unavailable: ${timeout.message}`, timeout.stack]],
       });
     });
 
@@ -269,6 +272,36 @@ describe('ApiExceptionFilter', () => {
       const reply = runFilter(new ApiException('NOT_FOUND', 'Not found'), () => true);
 
       assert.deepEqual(reply, { status: 404, body: anError('NOT_FOUND', 'Not found'), logged: [] });
+    });
+  });
+
+  // REL-09: app.module.ts gives the filter the database timeout check and the Google key fetch check.
+  describe('a Google key fetch failure', () => {
+    const keyFetchFailure = new errors.JWKSTimeout();
+    const isUnavailable = (exception: unknown) => isDatabaseTimeout(exception) || isGoogleKeyFetchFailure(exception);
+
+    test('answers 503 SERVICE_UNAVAILABLE with the body of a database timeout, and logs the cause', () => {
+      const reply = runFilter(keyFetchFailure, isUnavailable);
+
+      assert.deepEqual(reply, {
+        status: 503,
+        body: anError('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable. Try again later'),
+        logged: [[`A dependency is unavailable: ${keyFetchFailure.message}`, keyFetchFailure.stack]],
+      });
+      assert.deepEqual(reply.body, runFilter(new Error('Query read timeout'), isUnavailable).body);
+    });
+
+    test('leaves a rejected Google token as it was', () => {
+      const reply = runFilter(
+        new DomainError('INVALID_GOOGLE_TOKEN', 'Google sign-in did not go through'),
+        isUnavailable,
+      );
+
+      assert.deepEqual(reply, {
+        status: 422,
+        body: anError('INVALID_GOOGLE_TOKEN', 'Google sign-in did not go through'),
+        logged: [],
+      });
     });
   });
 

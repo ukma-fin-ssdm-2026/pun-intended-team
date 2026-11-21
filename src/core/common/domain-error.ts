@@ -31,6 +31,7 @@ export const domainErrorCodes = [
   'CANNOT_RESOLVE_OWN_CASE',
   'CANNOT_BAN_ADMIN',
   'CANNOT_DECIDE_OWN_REQUEST',
+  'INVALID_IMAGE',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];

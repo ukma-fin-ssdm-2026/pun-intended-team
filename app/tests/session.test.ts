@@ -70,7 +70,8 @@ describe('renewing the session', () => {
     await startSession({ accessToken: 'access-1', tokenType: 'Bearer', refreshToken: 'refresh-1', expiresIn: 0 });
     post.mockResolvedValueOnce({ error: { error: { code: 'SERVICE_UNAVAILABLE' } }, response: { status: 503 } });
 
-    await expect(currentAccessToken()).rejects.toThrow();
+    // REL-12: with the status the API sent, so the screen does not read it as no connection.
+    await expect(currentAccessToken()).rejects.toMatchObject({ status: 503, code: 'SERVICE_UNAVAILABLE' });
     expect(post).toHaveBeenCalledTimes(1);
   });
 

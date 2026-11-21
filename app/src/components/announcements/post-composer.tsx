@@ -3,32 +3,38 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { uploadListingPhoto } from '@/api/images';
 import { createListing, type Listing } from '@/api/listings';
 import type { ApiResult } from '@/api/public-client';
-import { failureMessage } from '@/auth/messages';
+import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
+import { Picture } from '@/components/pictures/picture';
+import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { kyivDay, tomorrow, weekendDays } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
-import { useProfileInitial } from '@/hooks/use-profile';
 import { mockDraft } from '@/mocks/announcements';
+import type { PictureDraft } from '@/pictures/picked-picture';
 import { colors } from '@/styles/tokens';
 
-// "Фото", "Дата", "Подія з каталогу", "Категорія": no prototype links, shown as in Figma.
-const tools: IconName[] = ['gallery-edit', 'calendar', 'ticket', 'category-all'];
+// "Дата", "Подія з каталогу", "Категорія": no prototype links, shown as in Figma. "Фото" opens the gallery.
+const tools: IconName[] = ['calendar', 'ticket', 'category-all'];
+
+type Failure = Extract<ApiResult<unknown>, { ok: false }>;
 
 // The API's limits: the first line of the text is the title, the rest is the description.
 const TITLE_MAX = 120;
 const DESCRIPTION_MAX = 2000;
 
 type Props = {
-  // Called with the listing the API created: the feed shows it and the editor closes.
-  onPublished: (listing: Listing) => void;
+  // Called with the listing the API created: the feed shows it and the editor closes. `photoFailure`: the listing is
+  // posted, but its photo was not.
+  onPublished: (listing: Listing, photoFailure?: Failure) => void;
   // "+ Місце" opens Д2.1 Місце на мапі.
   onAddPlace: () => void;
 };
 
 // What the API's answer means for the author, in words.
-function publishFailure(failure: Extract<ApiResult<unknown>, { ok: false }>): string {
+function publishFailure(failure: Failure): string {
   switch (failure.code) {
     case 'LISTING_DATE_IN_PAST':
       return 'Ця дата вже минула. Обери іншу.';
@@ -59,12 +65,22 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
 }
 
 export function PostComposer({ onPublished, onAddPlace }: Props) {
-  const initial = useProfileInitial();
   const categories = useCategories();
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState<string>();
   const [error, setError] = useState<string>();
   const [publishing, setPublishing] = useState(false);
+  const [photo, setPhoto] = useState<PictureDraft>();
+  const { start: pickPhoto, cropper } = usePictureCropper(
+    (_kind, draft) => {
+      setPhoto(draft);
+      setError(undefined);
+    },
+    (refusal) => {
+      const { title, note } = pictureRefusalSnackbar(refusal);
+      setError(`${title}. ${note}.`);
+    },
+  );
 
   const today = kyivDay(new Date());
   const days = [
@@ -98,11 +114,14 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
     setError(undefined);
     setPublishing(true);
     const result = await createListing({ categoryId, title, description, date: day });
-    setPublishing(false);
     if (result.ok) {
-      onPublished(result.data);
+      const withPhoto = photo ? await uploadListingPhoto(result.data.id, photo) : undefined;
+      setPublishing(false);
+      if (withPhoto && !withPhoto.ok) onPublished(result.data, withPhoto);
+      else onPublished(withPhoto?.ok ? withPhoto.data : result.data);
       return;
     }
+    setPublishing(false);
     setError(publishFailure(result));
     if (result.code === 'REFERENCE_NOT_FOUND') {
       setCategoryId(undefined);
@@ -112,9 +131,6 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
-      <View className="size-10 items-center justify-center rounded-[20px] bg-brand-ink">
-        <Text className="font-inter-semibold text-title text-text-on-dark">{initial}</Text>
-      </View>
       <View className="flex-1 gap-3">
         {/* Figma's 1 px stroke lies inside the chip: the padding is 1 px less than its 5 / 10 / 12. */}
         <View className="flex-row items-center gap-1.5 self-start rounded-[14px] border border-border-default py-1 pl-[9px] pr-[11px]">
@@ -135,6 +151,21 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
           // Hides the browser focus ring, as in the other fields.
           style={{ outlineWidth: 0 }}
         />
+
+        {photo && (
+          <View className="overflow-hidden rounded-2xl" style={{ aspectRatio: 2 }}>
+            <Picture source={{ uri: photo.picture.uri }} size={photo.picture} crop={photo.crop} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Прибрати фото"
+              onPress={() => setPhoto(undefined)}
+              hitSlop={8}
+              className="absolute right-2 top-2 size-7 items-center justify-center rounded-full bg-[rgba(18,18,18,0.6)]"
+            >
+              <Icon name="close" size={14} color={colors.text['on-dark']} />
+            </Pressable>
+          </View>
+        )}
 
         <View className="gap-2">
           <Text className="font-inter text-caption text-text-secondary">Коли</Text>
@@ -194,6 +225,14 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
         <View className="h-px bg-border-default" />
 
         <View className="flex-row items-center gap-4">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={photo ? 'Змінити фото' : 'Додати фото'}
+            onPress={() => void pickPhoto('listingPhoto')}
+            hitSlop={8}
+          >
+            <Icon name="gallery-edit" size={20} color={colors.brand.coral} />
+          </Pressable>
           {tools.map((tool) => (
             <Icon key={tool} name={tool} size={20} color={colors.brand.coral} />
           ))}
@@ -211,6 +250,7 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
           </Pressable>
         </View>
       </View>
+      {cropper}
     </View>
   );
 }

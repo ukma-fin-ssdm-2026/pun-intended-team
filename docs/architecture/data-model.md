@@ -9,11 +9,11 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | Key function (Project-Description.md) | Entities |
 |---|---|
 | Registration and sign-in | Account, AuthMethod, VerificationCode, RefreshToken |
-| User profile | Profile, ProfilePhoto, LinkedAccount, Interest, ProfileInterest |
+| User profile | Profile, Image, LinkedAccount, Interest, ProfileInterest |
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
 | Event-based matching | Application, ApplicationSession, ApplicationAfterEventPlan, Match, Exclusion |
 | Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice_ack_at |
-| Listings | Listing |
+| Listings | Listing, Image |
 | Notifications | Notification, DeviceToken |
 | Reports and moderation | ReportCase, Report, AuditLog |
 
@@ -34,8 +34,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `occupation` (P) — studies or work, free text, `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `gender` (S; female / male / other, nullable: profiles made before it was asked have none and are incomplete until the user picks one) — matching filters on it ([matching](mechanisms/matching.md), policy), `gender_description` (S) — the user's own words for `other`, at most 50 characters; set only with `other`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002) |
-| **ProfilePhoto** | PK = FK `profile_id` | `content` (S, bytea), `content_type` — resized on upload; kept apart from Profile so that profile reads do not load the image |
+| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `occupation` (P) — studies or work, free text, `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `gender` (S; female / male / other, nullable: profiles made before it was asked have none and are incomplete until the user picks one) — matching filters on it ([matching](mechanisms/matching.md), policy), `gender_description` (S) — the user's own words for `other`, at most 50 characters; set only with `other`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002), `photo_id` and `cover_id` (FK → Image, UK, nullable) — the avatar and the cover behind it |
 | **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — the bare handle in a social network, revealed on a mutual match; a profile keeps at least one while sign-in is Google-only; UK (`profile_id`, `app`) |
 | **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it, `group_name` — the heading it is shown under, `group_position` — the order of its group; columns rather than a table, since groups have no data of their own |
 | **ProfileInterest** | PK (`profile_id`, `interest_id`) | junction table |
@@ -71,7 +70,13 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Listing** | PK `id` | `author_id` FK, `category_id` FK, `event_id` FK (optional), `title`, `description` (P), `date`, `status` (active / removed) |
+| **Listing** | PK `id` | `author_id` FK, `category_id` FK, `event_id` FK (optional), `title`, `description` (P), `date`, `status` (active / removed), `photo_id` (FK → Image, UK, nullable) |
+
+### images
+
+| Entity | Key | Main attributes |
+|---|---|---|
+| **Image** | PK `id` | `owner_id` FK → Account, `content` (S, bytea) — WebP, `content_type`, `width`, `height`, `crop_left`, `crop_top`, `crop_width`, `crop_height` — for a cover, kept whole, the area the user picked in pixels of the stored picture; null for pictures stored cropped. A new upload is a new row, so a picture never changes; the row being replaced is deleted. Kept apart from Profile and Listing so that their reads do not load the picture ([HLD §2.3](high-level-design.md#23-uploaded-pictures)). |
 
 ### moderation
 
@@ -103,7 +108,9 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Account — Profile | 1 : 0..1 | the profile shows the age computed from `Account.date_of_birth` |
 | Account — Organization | 1 : 0..1 | the account acts as an organization |
 | Account (admin) — Organization | 0..1 : 0..* | `verified_by`: the administrator who verified the organization |
-| Profile — ProfilePhoto | 1 : 0..1 | |
+| Account — Image | 1 : 0..* | the uploader; their pictures go with the account |
+| Profile — Image | 0..1 : 0..1 | `photo_id` and `cover_id`, each pointing at an image of its own |
+| Listing — Image | 0..1 : 0..1 | `photo_id` |
 | Profile — LinkedAccount | 1 : 0..* | at most one per app |
 | Profile — Interest | M : N | via ProfileInterest |
 | Organization — Event | 0..1 : 0..* | imported events have no organization |
@@ -145,6 +152,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | A gender description goes with the gender `other` only | CHECK (`(gender IS NOT DISTINCT FROM 'other') = (gender_description IS NOT NULL)`) on Profile |
 | An application's age range starts at 18 and does not end below its start | CHECK (`age_min >= 18 AND (age_max IS NULL OR age_max >= age_min)`) on Application |
 | An active account has a date of birth (SAFE-001) | CHECK (`status <> 'active' OR date_of_birth IS NOT NULL`) — the database checks only that the date exists; the date is encrypted, so the age of at least 18 is checked by the service (identity) before the status becomes `active` |
+| A cover's crop is all set or all null, and lies inside the picture | CHECK on Image; its shape (390:200) is set by the service (images) |
 | A failure count has the start of its window (SEC-007) | CHECK (`(failed_signins = 0) = (failed_signins_since IS NULL)`) and CHECK (`failed_signins >= 0`); the threshold of 5 is checked by the service (identity) |
 | Both applications of a Match belong to the same event and list at least one day in common | service (matching), under the per-event lock |
 | At least one shared contact (`share_phone` or a linked account) | service (profiles): a linked account, while sign-in is Google-only and there is no phone — spans two tables |
@@ -162,7 +170,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Verification code, refresh token | VerificationCode.code_hash, RefreshToken.token_hash | C | stored hashed; expiry and revocation (SEC-005, SEC-008) |
 | Phone number, linked-account usernames | Account.contact_identifier, VerificationCode.contact, LinkedAccount.username | S | column-level encryption (SEC-003); the phone number is looked up only through `contact_hash`; account and linked contacts are revealed only after mutual acceptance and safety acknowledgment (SEC-001, SAFE-002); VerificationCode.contact is never revealed |
 | Date of birth | Account.date_of_birth | S | encrypted at rest (SEC-003); other users see only the age, computed on the server |
-| Photo | ProfilePhoto.content | S | encrypted at rest with the database volume; served only through an authenticated API endpoint, never as a public link |
+| Profile photo, cover, listing photo | Image.content | S | encrypted at rest with the database volume; metadata, the camera location included, dropped on upload; served only to signed-in users through `GET /images/{id}`, never as a public link (TM-14) |
 | Communication format, per-event answers | Profile.communication_format, Application.desired_company, ApplicationAfterEventPlan.plan | S | reveal a "dating" preference; shown only to a proposed match |
 | Gender, whom the user wants to go with | Profile.gender, Profile.gender_description, Application.preferred_gender, Application.age_min, Application.age_max | S | encrypted at rest with the database volume, not column-encrypted: matching filters the pool on them, and SEC-003 asks column encryption of contact data, which these are not (TM-07, accepted); returned only to their owner, never to other users or a proposed match |
 | Google subject ID | AuthMethod.secret (type google) | P | never returned by the API |

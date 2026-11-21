@@ -15,37 +15,26 @@ type Props = {
   name?: string;
   hasUnread?: boolean;
   onNotificationsPress?: () => void;
-  onAvatarPress: () => void;
 };
 
-export function CatalogHeader({ name, hasUnread = false, onNotificationsPress, onAvatarPress }: Props) {
+export function CatalogHeader({ name, hasUnread = false, onNotificationsPress }: Props) {
   const insets = useSafeAreaInsets();
 
   return (
     <View className="gap-6 px-5" style={{ paddingTop: Math.max(TOP_PADDING, insets.top) }}>
-      <View className="flex-row items-center justify-between">
+      <View className="min-h-12 flex-row items-center justify-between">
         <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
-        <View className="flex-row items-center gap-3">
-          {onNotificationsPress && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={hasUnread ? 'Сповіщення, є нові' : 'Сповіщення'}
-              onPress={onNotificationsPress}
-              className="size-11 items-center justify-center active:opacity-70"
-            >
-              <Icon name="bell" color={colors.text['on-dark']} />
-              {hasUnread && <View className="absolute left-[26px] top-2.5 size-2 rounded-full bg-brand-coral" />}
-            </Pressable>
-          )}
-          {/* No photo yet: Figma shows an empty surface/background circle. */}
+        {onNotificationsPress && (
           <Pressable
             accessibilityRole="button"
-            // A guest has no notifications; a signed-in user's name may still be loading.
-            accessibilityLabel={onNotificationsPress ? 'Профіль' : 'Увійти'}
-            onPress={onAvatarPress}
-            className="size-12 rounded-full bg-surface-background active:opacity-80"
-          />
-        </View>
+            accessibilityLabel={hasUnread ? 'Сповіщення, є нові' : 'Сповіщення'}
+            onPress={onNotificationsPress}
+            className="size-11 items-center justify-center active:opacity-70"
+          >
+            <Icon name="bell" color={colors.text['on-dark']} />
+            {hasUnread && <View className="absolute left-[26px] top-2.5 size-2 rounded-full bg-brand-coral" />}
+          </Pressable>
+        )}
       </View>
       <View className="gap-1.5">
         {name && <Text className="font-inter text-caption text-text-on-dark-muted">Привіт, {name}</Text>}

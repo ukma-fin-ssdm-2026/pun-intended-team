@@ -13,6 +13,7 @@ import path from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import sharp from 'sharp';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import type { MessagingProvider } from '../../dist/core/notifications/adapters/messaging-provider.js';
 import type { PushProvider } from '../../dist/core/notifications/adapters/push-provider.js';
@@ -277,6 +278,54 @@ function assertInvalid(res: Response, location: string, field: string): void {
     ),
     JSON.stringify(res.body.error.details),
   );
+}
+
+/** A JPEG, left half red and right half blue, with a camera location in its metadata. */
+async function testPicture({ width = 400, height = 300, orientation = 1 } = {}): Promise<Buffer> {
+  const blue = await sharp({ create: { width: width / 2, height, channels: 3, background: 'blue' } })
+    .png()
+    .toBuffer();
+  return sharp({ create: { width, height, channels: 3, background: 'red' } })
+    .composite([{ input: blue, left: width / 2, top: 0 }])
+    .jpeg()
+    .withMetadata({ orientation, exif: { IFD0: { Copyright: 'e2e' }, IFD3: { GPSLatitudeRef: 'N' } } })
+    .toBuffer();
+}
+
+const wholePicture = 'cropLeft=0&cropTop=0&cropWidth=1&cropHeight=1';
+
+/** Sends the picture as the raw body, as the app does. */
+async function upload(
+  path: string,
+  picture: Buffer,
+  { token, contentType = 'image/jpeg', crop = wholePicture }: { token?: string; contentType?: string; crop?: string },
+): Promise<Response> {
+  const headers: Record<string, string> = { 'content-type': contentType };
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(`${baseUrl}${path}?${crop}`, { method: 'PUT', headers, body: new Uint8Array(picture) });
+  const text = await res.text();
+  return { status: res.status, headers: res.headers, body: text ? JSON.parse(text) : undefined };
+}
+
+/** GET /images/{id}: the status, headers and the decoded picture's metadata. */
+async function getImage(id: string, token: string) {
+  const res = await fetch(`${baseUrl}/api/v1/images/${id}`, { headers: { authorization: `Bearer ${token}` } });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return {
+    status: res.status,
+    headers: res.headers,
+    bytes,
+    metadata: res.ok ? await sharp(bytes).metadata() : undefined,
+  };
+}
+
+/** The colour of the pixel in the middle of the picture. */
+async function centreColour(picture: Uint8Array): Promise<number[]> {
+  const { data, info } = await sharp(picture).raw().toBuffer({ resolveWithObject: true });
+  const offset = (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * info.channels;
+  return [...data.subarray(offset, offset + 3)];
 }
 
 /** Signs in with Google and returns the new session's tokens. */
@@ -1424,6 +1473,49 @@ describe('DELETE /api/v1/listings/{id}', () => {
 
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('DELETE', '/api/v1/listings/not-a-uuid', { token: tokens.user }), 'params', 'id');
+  });
+});
+
+describe('PUT and DELETE /api/v1/listings/{id}/photo', () => {
+  test('adds a 2:1 photo to the caller’s own listing; readers see it, and removing it deletes the picture', async () => {
+    const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    const res = await upload(`/api/v1/listings/${created.body.id}/photo`, await testPicture(), { token: tokens.user });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(Object.keys(res.body.photo).sort(), ['height', 'id', 'width']);
+    assert.equal(res.body.photo.width, 2 * res.body.photo.height);
+
+    const read = await call('GET', `/api/v1/listings/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(read.body.photo, res.body.photo);
+    const image = await getImage(res.body.photo.id, tokens.org);
+    assert.equal(image.status, 200);
+    assert.equal(image.metadata?.width, 400);
+    assert.equal(image.metadata?.height, 200);
+
+    const removed = await call('DELETE', `/api/v1/listings/${created.body.id}/photo`, { token: tokens.user });
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.photo, null);
+    assert.equal((await getImage(res.body.photo.id, tokens.org)).status, 404);
+  });
+
+  test('shows the author’s profile photo to readers', async () => {
+    const { token } = await newProfile();
+    const photo = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const created = await call('POST', '/api/v1/listings', { token, body: newListing });
+
+    const read = await call('GET', `/api/v1/listings/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(read.body.author.photo, photo.body.photo);
+    assert.equal((await getImage(read.body.author.photo.id, tokens.org)).status, 200);
+  });
+
+  test('answers 404 for someone else’s listing', async () => {
+    const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    const res = await upload(`/api/v1/listings/${created.body.id}/photo`, await testPicture(), { token: tokens.org });
+    assertRejected(res, 404, 'NOT_FOUND');
+    assertRejected(
+      await call('DELETE', `/api/v1/listings/${created.body.id}/photo`, { token: tokens.org }),
+      404,
+      'NOT_FOUND',
+    );
   });
 });
 
@@ -3218,6 +3310,128 @@ describe('PUT /api/v1/me/profile/interests', () => {
   });
 });
 
+describe('PUT and DELETE /api/v1/me/profile/photo', () => {
+  test('stores the largest square inside the crop as WebP, without metadata', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual({ width: res.body.photo.width, height: res.body.photo.height }, { width: 300, height: 300 });
+    assert.equal(res.body.cover, null);
+
+    const image = await getImage(res.body.photo.id, tokens.user);
+    assert.equal(image.status, 200);
+    assert.equal(image.headers.get('content-type'), 'image/webp');
+    assert.equal(image.headers.get('cache-control'), 'private, max-age=31536000, immutable');
+    assert.equal(image.metadata?.format, 'webp');
+    assert.equal(image.metadata?.width, 300);
+    assert.equal(image.metadata?.exif, undefined);
+    assert.deepEqual((await call('GET', '/api/v1/me/profile', { token })).body.photo, res.body.photo);
+  });
+
+  test('cuts the picked area, after turning the picture by its EXIF orientation', async () => {
+    const { token } = await newProfile();
+    // Orientation 6 shows the 400 × 300 picture turned a quarter clockwise: 300 × 400, red on top.
+    const picture = await testPicture({ orientation: 6 });
+    const top = await upload('/api/v1/me/profile/photo', picture, {
+      token,
+      crop: 'cropLeft=0&cropTop=0&cropWidth=1&cropHeight=0.5',
+    });
+    assert.equal(top.status, 200, JSON.stringify(top.body));
+    const [red, green, blue] = await centreColour((await getImage(top.body.photo.id, token)).bytes);
+    assert.ok(red! > 200 && green! < 50 && blue! < 50, `expected red, got ${[red, green, blue]}`);
+  });
+
+  test('replacing the photo deletes the old picture', async () => {
+    const { token } = await newProfile();
+    const first = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const second = await upload('/api/v1/me/profile/photo', await testPicture(), { token, contentType: 'image/jpeg' });
+    assert.notEqual(second.body.photo.id, first.body.photo.id);
+    assert.equal((await getImage(first.body.photo.id, token)).status, 404);
+    assert.equal((await getImage(second.body.photo.id, token)).status, 200);
+  });
+
+  test('DELETE removes the photo and its picture; without one it changes nothing', async () => {
+    const { token } = await newProfile();
+    const uploaded = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const res = await call('DELETE', '/api/v1/me/profile/photo', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.photo, null);
+    assert.equal((await getImage(uploaded.body.photo.id, token)).status, 404);
+    assert.equal((await call('DELETE', '/api/v1/me/profile/photo', { token })).status, 200);
+  });
+
+  test('rejects a file that is not a picture with 422 INVALID_IMAGE', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', Buffer.from('not a picture'), { token });
+    assertRejected(res, 422, 'INVALID_IMAGE');
+  });
+
+  test('rejects another Content-Type with 415 and an empty body with 400', async () => {
+    const { token } = await newProfile();
+    const gif = await upload('/api/v1/me/profile/photo', Buffer.from('GIF89a'), { token, contentType: 'image/gif' });
+    assertRejected(gif, 415, 'UNSUPPORTED_MEDIA_TYPE');
+    assertInvalid(await upload('/api/v1/me/profile/photo', Buffer.alloc(0), { token }), 'body', '');
+  });
+
+  test('rejects a file over 10 MB with 413', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', Buffer.alloc(10 * 1024 * 1024 + 1), { token });
+    assertRejected(res, 413, 'PAYLOAD_TOO_LARGE');
+  });
+
+  test('rejects a crop past the edge of the picture with 400', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', await testPicture(), {
+      token,
+      crop: 'cropLeft=0.5&cropTop=0&cropWidth=0.6&cropHeight=1',
+    });
+    assertInvalid(res, 'query', 'cropWidth');
+  });
+
+  test('answers 404 without a profile, and 401 without a signed-in account', async () => {
+    const picture = await testPicture();
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, { token: tokens.admin }), 404, 'NOT_FOUND');
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, {}), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('PUT and DELETE /api/v1/me/profile/cover', () => {
+  test('keeps the whole picture with a 390:200 crop around the picked area', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/cover', await testPicture({ width: 800, height: 600 }), {
+      token,
+      crop: 'cropLeft=0&cropTop=0.25&cropWidth=1&cropHeight=0.5',
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const { width, height, crop } = res.body.cover;
+    assert.deepEqual({ width, height }, { width: 800, height: 600 });
+    assert.equal(crop.width, 585);
+    assert.equal(crop.height, 300);
+    assert.equal(crop.top, 150);
+    const image = await getImage(res.body.cover.id, token);
+    assert.equal(image.metadata?.width, 800);
+  });
+
+  test('DELETE goes back to the default cover', async () => {
+    const { token } = await newProfile();
+    await upload('/api/v1/me/profile/cover', await testPicture(), { token });
+    const res = await call('DELETE', '/api/v1/me/profile/cover', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.cover, null);
+  });
+});
+
+describe('GET /api/v1/images/{id}', () => {
+  test('answers 401 to a guest, 404 for an unknown id and 400 for an id that is not a UUID', async () => {
+    const { token } = await newProfile();
+    const uploaded = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    assert.equal((await getImage(uploaded.body.photo.id, tokens.guest)).status, 401);
+    assertRejected(await call('GET', `/api/v1/images/${randomUUID()}`, { token }), 404, 'NOT_FOUND');
+    assertInvalid(await call('GET', '/api/v1/images/not-a-uuid', { token }), 'params', 'id');
+  });
+});
+
 // The inbox (notifications.md). No sender exists yet (#372), so the tests call notify() on the run's database, as a
 // module would, and the running API delivers the jobs.
 describe('Notifications', () => {
@@ -3808,7 +4022,8 @@ describe('Event import', () => {
       return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
     const eventBlocks = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
-    const noEvents = saved('karabas/kyiv-sport-2026-11-07.html').toString().replace(eventBlocks, '');
+    // The site's own JSON-LD blocks stay: a page without any counts as a failed section (REL-14).
+    const noEvents = saved('karabas/kyiv-sport-2026-11-07-no-events.html').toString();
     const withoutEvent = (html: string, slug: string) =>
       html.replace(eventBlocks, (block) => (block.includes(`/${slug}/"`) ? '' : block));
     providerSite = createHttpServer((req, res) => {

@@ -1,7 +1,6 @@
 // Written with the help of Claude
 // AI Usage: Профіль tab from the Figma "Т4 Профіль" frame with the "П5 Вийти з акаунта" dialog, on mock data; reviewed
 // by Daryna Halytska.
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
@@ -14,9 +13,12 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
+import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
+import { eventCoverOf } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
@@ -25,7 +27,6 @@ import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
-import { mockProfile } from '@/mocks/profile';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { useSession } from '@/state/session';
@@ -105,7 +106,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           category={event.category.name}
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
-          cover={event.cover}
+          cover={eventCoverOf(event)}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
           // The button opens the event page too, as on the catalog cards.
@@ -235,8 +236,13 @@ export default function ProfileScreen() {
             marginBottom: -AVATAR_OVERLAP,
           }}
         >
-          <View className="absolute inset-0">
-            <Image source={mockProfile.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+          {/* The user's cover, or the default gradient once the profile shows there is none; light grey until then. */}
+          <View className="absolute inset-0 bg-border-default">
+            {profile.data?.cover ? (
+              <ApiPicture image={profile.data.cover} />
+            ) : (
+              profile.data && <CoralGradient preset="cover" />
+            )}
           </View>
           <CoverShade />
           <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
@@ -253,10 +259,14 @@ export default function ProfileScreen() {
         </View>
 
         <View className="pl-5">
-          <View className="size-[92px] items-center justify-center rounded-full border-4 border-surface-background bg-surface-card">
-            <Text className="font-inter-semibold text-title text-text-secondary">
-              {profile.data?.displayName.charAt(0).toUpperCase()}
-            </Text>
+          <View className="size-[92px] items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card">
+            {profile.data?.photo ? (
+              <ApiPicture image={profile.data.photo} />
+            ) : (
+              <Text className="font-inter-semibold text-title text-text-secondary">
+                {profile.data?.displayName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
         </View>
 

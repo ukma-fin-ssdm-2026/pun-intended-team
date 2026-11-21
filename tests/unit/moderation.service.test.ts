@@ -84,7 +84,9 @@ function makeService() {
     findAccountId: mock.fn((): Promise<string | undefined> => Promise.resolve(OTHER_ACCOUNT_ID)),
     getSummaries: mock.fn((): Promise<Map<string, ProfileSummary>> =>
       Promise.resolve(
-        new Map([[OTHER_ACCOUNT_ID, { accountId: OTHER_ACCOUNT_ID, username: 'taras', displayName: 'Taras' }]]),
+        new Map([
+          [OTHER_ACCOUNT_ID, { accountId: OTHER_ACCOUNT_ID, username: 'taras', displayName: 'Taras', photoId: null }],
+        ]),
       ),
     ),
   };

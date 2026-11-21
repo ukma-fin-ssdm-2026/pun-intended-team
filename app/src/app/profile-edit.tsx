@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { replaceInterests, replaceLinkedAccounts, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
-import { failureSnackbar } from '@/auth/messages';
+import { failureSnackbar, pictureFailureSnackbar, pictureRefusalSnackbar } from '@/auth/messages';
 import {
   FormatPicker,
   FormScreen,
@@ -18,9 +18,9 @@ import {
   useInterestChips,
   isValidUsername,
   MIN_INTERESTS,
-  ProfilePhoto,
   toggleInList,
 } from '@/components/profile/profile-form';
+import { picturesOf, ProfilePhoto, savePictures } from '@/components/profile/profile-pictures';
 import {
   filledNetworks,
   networkErrors,
@@ -84,6 +84,7 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
   const [networks, setNetworks] = useState(savedNetworks);
   const [networkErrorsShown, setNetworkErrorsShown] = useState<ReturnType<typeof networkErrors>>({});
   const shared = filledNetworks(networks);
+  const [pictures, setPictures] = useState(() => picturesOf(profile));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const interests = useInterests();
@@ -124,7 +125,12 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
     if (!sameNetworks(shared, savedNetworks) && result?.ok !== false) {
       result = await replaceLinkedAccounts(shared);
     }
+    const sent = result?.ok !== false ? await savePictures(pictures) : undefined;
     setSaving(false);
+    if (sent && !sent.ok) {
+      show(pictureFailureSnackbar(sent));
+      return;
+    }
     if (result && !result.ok) {
       if (result.code === 'USERNAME_TAKEN') setUsernameTaken(true);
       else if (result.fields?.some((field) => field.startsWith('linkedAccounts.'))) {
@@ -144,7 +150,11 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
         backTo="/profile"
         action={{ label: 'Зберегти', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
-        <ProfilePhoto />
+        <ProfilePhoto
+          pictures={pictures}
+          onChange={setPictures}
+          onRefused={(refusal) => show(pictureRefusalSnackbar(refusal))}
+        />
 
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />

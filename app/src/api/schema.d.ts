@@ -328,6 +328,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a picture
+         * @description The bytes of an uploaded picture, as WebP. Only through the API, never a public link (TM-14). An image never changes: a new upload gets a new id, so clients may cache it for good. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings": {
         parameters: {
             query?: never;
@@ -371,6 +391,30 @@ export interface paths {
          * @description Remove your listing. Needs a signed-in account; a guest token gets 401.
          */
         delete: operations["deleteListing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a photo to your listing
+         * @description Set or replace the photo of the caller’s own listing, cut to 2:1 and stored at up to 1200 × 600. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadListingPhoto"];
+        post?: never;
+        /**
+         * Remove the photo of your listing
+         * @description Remove the photo of the caller’s own listing. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteListingPhoto"];
         options?: never;
         head?: never;
         patch?: never;
@@ -888,6 +932,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload your photo
+         * @description Set or replace the caller’s avatar: a square, shown as a circle, stored at up to 512 × 512. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadMyPhoto"];
+        post?: never;
+        /**
+         * Delete your photo
+         * @description Remove the caller’s avatar; the initial is shown instead. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteMyPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload your cover
+         * @description Set or replace the picture behind the caller’s avatar. The crop has the shape of the profile header (390:200); the whole picture is kept too, at up to 2560 px, so wider or taller screens can show more of it. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadMyCover"];
+        post?: never;
+        /**
+         * Delete your cover
+         * @description Remove the caller’s cover; the default gradient is shown instead. Without a cover, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteMyCover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -999,7 +1091,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1406,7 +1498,8 @@ export interface components {
          *           "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *           "author": {
          *             "username": "olena_k",
-         *             "displayName": "Olena"
+         *             "displayName": "Olena",
+         *             "photo": null
          *           },
          *           "category": {
          *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1416,7 +1509,8 @@ export interface components {
          *           "title": "Looking for company for an exhibition on Saturday",
          *           "description": "Planning to go in the evening, happy to grab a coffee after.",
          *           "date": "2026-10-17",
-         *           "status": "active"
+         *           "status": "active",
+         *           "photo": null
          *         }
          *       ],
          *       "page": {
@@ -1436,7 +1530,8 @@ export interface components {
          *       "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *       "author": {
          *         "username": "olena_k",
-         *         "displayName": "Olena"
+         *         "displayName": "Olena",
+         *         "photo": null
          *       },
          *       "category": {
          *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1446,7 +1541,8 @@ export interface components {
          *       "title": "Looking for company for an exhibition on Saturday",
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
          *       "date": "2026-10-17",
-         *       "status": "active"
+         *       "status": "active",
+         *       "photo": null
          *     }
          */
         Listing: {
@@ -1464,12 +1560,47 @@ export interface components {
             /** Format: date */
             date: string;
             status: components["schemas"]["ListingStatus"];
+            /**
+             * @description Cut to 2:1, as the post card shows it
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
         };
         /** @description Who posted the listing; never their contacts */
         ListingAuthor: {
             username: string;
             displayName: string;
+            photo: components["schemas"]["Image"];
         };
+        /**
+         * @description An uploaded picture, stored cropped
+         * @example {
+         *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+         *       "width": 512,
+         *       "height": 512
+         *     }
+         */
+        Image: {
+            /**
+             * Format: uuid
+             * @description Get the picture with getImage
+             */
+            id: string;
+            width: number;
+            height: number;
+        } | null;
         /** @enum {string} */
         ListingStatus: "active" | "removed";
         /**
@@ -1690,6 +1821,8 @@ export interface components {
          *               "group": "Книги й комікси"
          *             }
          *           ],
+         *           "photo": null,
+         *           "cover": null,
          *           "desiredCompany": "company",
          *           "afterEventPlans": [
          *             "walk",
@@ -1728,6 +1861,8 @@ export interface components {
          *             "group": "Книги й комікси"
          *           }
          *         ],
+         *         "photo": null,
+         *         "cover": null,
          *         "desiredCompany": "company",
          *         "afterEventPlans": [
          *           "walk",
@@ -1764,6 +1899,53 @@ export interface components {
                 /** @description Whole years */
                 age: number;
                 interests: components["schemas"]["Interest"][];
+                /**
+                 * @description The avatar; null shows the initial
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                photo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+                /**
+                 * @description null shows the default gradient
+                 * @example {
+                 *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+                 *       "width": 2560,
+                 *       "height": 1920,
+                 *       "crop": {
+                 *         "left": 0,
+                 *         "top": 640,
+                 *         "width": 2560,
+                 *         "height": 1313
+                 *       }
+                 *     }
+                 */
+                cover: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                    /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                    crop: {
+                        left: number;
+                        top: number;
+                        width: number;
+                        height: number;
+                    };
+                } | null;
                 /**
                  * @description What kind of company they are looking for at this event
                  * @enum {string}
@@ -2238,7 +2420,9 @@ export interface components {
          *           "url": "https://t.me/olena_k"
          *         }
          *       ],
-         *       "isComplete": true
+         *       "isComplete": true,
+         *       "photo": null,
+         *       "cover": null
          *     }
          */
         Profile: {
@@ -2268,6 +2452,53 @@ export interface components {
             linkedAccounts: components["schemas"]["LinkedAccount"][];
             /** @description True once communicationFormat, gender, at least one interest and at least one linked account are set; matching needs all four */
             isComplete: boolean;
+            /**
+             * @description The avatar, a square shown as a circle; null shows the initial
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
+            /**
+             * @description The picture behind the avatar; null shows the default gradient
+             * @example {
+             *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+             *       "width": 2560,
+             *       "height": 1920,
+             *       "crop": {
+             *         "left": 0,
+             *         "top": 640,
+             *         "width": 2560,
+             *         "height": 1313
+             *       }
+             *     }
+             */
+            cover: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+                /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                crop: {
+                    left: number;
+                    top: number;
+                    width: number;
+                    height: number;
+                };
+            } | null;
         };
         /**
          * @description The first onboarding step; everything else is added with PATCH
@@ -3359,6 +3590,56 @@ export interface operations {
             };
         };
     };
+    getImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Image id, from the `id` of an Image or CoverImage */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": string;
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No image with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listListings: {
         parameters: {
             query?: {
@@ -3523,6 +3804,148 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadListingPhoto: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteListingPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
             };
             /** @description The request is invalid */
             400: {
@@ -4963,6 +5386,260 @@ export interface operations {
             };
             /** @description `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadMyPhoto: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadMyCover: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

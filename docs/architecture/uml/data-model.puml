@@ -76,13 +76,8 @@ package "profiles" {
     <color:#B71C1C>gender_description : text (S)</color>
     * share_phone : bool
     safety_notice_ack_at : timestamptz
-  }
-
-  entity "ProfilePhoto" as profile_photo {
-    * profile_id : uuid <<PK, FK>>
-    --
-    * <color:#B71C1C>content : bytea (S) photo</color>
-    * content_type : text
+    photo_id : uuid <<FK, UK>>
+    cover_id : uuid <<FK, UK>>
   }
 
   entity "LinkedAccount" as linked_account {
@@ -246,6 +241,20 @@ package "listings" {
     * <color:#1565C0>description : text (P)</color>
     * date : date
     * status : active | removed
+    photo_id : uuid <<FK, UK>>
+  }
+}
+
+package "images" {
+  entity "Image" as image {
+    * id : uuid <<PK>>
+    --
+    * owner_id : uuid <<FK>>
+    * <color:#B71C1C>content : bytea (S) WebP</color>
+    * content_type : text
+    * width : int
+    * height : int
+    crop_left, crop_top, crop_width, crop_height : int
   }
 }
 
@@ -326,7 +335,10 @@ account ||--o| profile
 account ||--o| organization : acts as
 
 ' ---- profiles ----
-profile ||--o| profile_photo
+account ||--o{ image : uploads
+profile |o--o| image : photo
+profile |o--o| image : cover
+listing |o--o| image : photo
 profile ||--o{ linked_account
 profile ||--o{ profile_interest
 interest ||--o{ profile_interest

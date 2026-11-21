@@ -108,4 +108,11 @@ describe('EventScreen title block', () => {
       expect(block?.props.style?.height).toBeUndefined();
     });
   }
+
+  test('shows the full title without a line limit', async () => {
+    const title = 'Благодійний концерт хорової капели НаУКМА «Почайна» пам’яті героїв-могилянців';
+    await showEvent({ title });
+
+    expect(screen.getByRole('header', { name: title }).props.numberOfLines).toBeUndefined();
+  });
 });

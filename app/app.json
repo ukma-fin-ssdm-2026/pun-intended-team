@@ -42,6 +42,14 @@
         {
           "locationWhenInUsePermission": "Nearby показує на мапі заклади поруч із тобою."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nearby бере з галереї фото для профілю й дописів.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

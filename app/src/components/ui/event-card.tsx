@@ -91,7 +91,10 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
 
       <View className="px-2 pt-3">
         <View className="gap-2">
-          <Text className="font-inter-semibold text-title text-text-primary">{title}</Text>
+          {/* Two lines at most, so a long title does not stretch the card; the label above keeps it in full. */}
+          <Text numberOfLines={2} className="font-inter-semibold text-title text-text-primary">
+            {title}
+          </Text>
           <View className="flex-row items-center gap-4">
             <View className="flex-row items-center gap-1.5">
               <Icon name="calendar" size={16} />

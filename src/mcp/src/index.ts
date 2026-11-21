@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
- * Generated on: 2026-11-20T17:59:26.178Z
+ * Generated on: 2026-11-21T15:29:48.864Z
  */
 
 import { existsSync } from 'node:fs';
@@ -336,6 +336,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
     method: "delete",
     pathTemplate: "/api/v1/listings/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["deleteListingPhoto", {
+    name: "deleteListingPhoto",
+    title: "Remove the photo of your listing",
+    description: `Remove the photo of the caller’s own listing. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
+    method: "delete",
+    pathTemplate: "/api/v1/listings/{id}/photo",
     executionParameters: [{"name":"id","in":"path"}],
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
@@ -728,6 +743,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     pathTemplate: "/api/v1/me/profile/linked-accounts",
     executionParameters: [],
     requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["deleteMyPhoto", {
+    name: "deleteMyPhoto",
+    title: "Delete your photo",
+    description: `Remove the caller’s avatar; the initial is shown instead. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "delete",
+    pathTemplate: "/api/v1/me/profile/photo",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["deleteMyCover", {
+    name: "deleteMyCover",
+    title: "Delete your cover",
+    description: `Remove the caller’s cover; the default gradient is shown instead. Without a cover, nothing changes. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "delete",
+    pathTemplate: "/api/v1/me/profile/cover",
+    executionParameters: [],
+    requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Profiles"],
     deprecated: false,

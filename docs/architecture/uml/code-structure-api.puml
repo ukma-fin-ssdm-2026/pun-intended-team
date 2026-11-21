@@ -44,6 +44,15 @@ package "api/profiles" as API_profiles {
     +updateMyProfile()
     +replaceMyInterests()
     +replaceMyLinkedAccounts()
+    +uploadMyPhoto()
+    +deleteMyPhoto()
+    +uploadMyCover()
+    +deleteMyCover()
+  }
+}
+package "api/images" as API_images {
+  class ImagesController {
+    +getImage()
   }
 }
 package "api/catalog" as API_catalog {
@@ -75,6 +84,8 @@ package "api/listings" as API_listings {
     +getListing()
     +createListing()
     +deleteListing()
+    +uploadListingPhoto()
+    +deleteListingPhoto()
   }
 }
 package "api/matching" as API_matching {
@@ -135,6 +146,7 @@ package "core services (methods on code-structure-core-*)" as CORE {
   class OrganizationsService <<other diagram>>
   class ImportFreshnessService <<other diagram>>
   class ListingsService <<other diagram>>
+  class ImagesService <<other diagram>>
   class ApplicationsService <<other diagram>>
   class StatsService <<other diagram>>
   class BackupsService <<other diagram>>
@@ -149,6 +161,7 @@ AuthGuard --> AuthService
 AuthController --> AuthService
 AuthController --> SessionsService
 ProfilesController --> ProfilesService
+ImagesController --> ImagesService
 EventsController --> EventsService
 EventsController --> ImportFreshnessService
 CategoriesController --> CategoriesService

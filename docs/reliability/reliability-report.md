@@ -16,11 +16,11 @@ Severity rates the consequence if the failure happens, not how likely it is. It 
 | [REL-06](scavenger-hunt.md#rel-06-a-failed-nightly-backup-skips-the-day) | A failed nightly backup skips the day without notice | Medium | The day has no backup and nobody is told. | Fixed (#398) |
 | [REL-07](scavenger-hunt.md#rel-07-profile-edit-hides-the-more-button-when-interests-fail-to-load) | Profile edit hides the "more" button when interests fail to load | Low | One optional list is missing and the rest of the screen works. | Fixed (#398) |
 | [REL-08](scavenger-hunt.md#rel-08-a-lost-refresh-response-ends-the-session) | A lost refresh response ends the session | Medium | The user is signed out of the account and has to sign in again. | Mitigated (#398) |
-| [REL-09](scavenger-hunt.md#rel-09-a-google-key-fetch-failure-answers-500) | A Google key fetch failure answers 500 instead of 503 | Low | Sign-in fails either way; only the status the app could retry on is wrong. | Open |
+| [REL-09](scavenger-hunt.md#rel-09-a-google-key-fetch-failure-answers-500) | A Google key fetch failure answers 500 instead of 503 | Low | Sign-in fails either way; only the status the app could retry on is wrong. | Fixed (#511) |
 | [REL-10](scavenger-hunt.md#rel-10-the-rollback-runs-old-code-on-a-migrated-database) | The automatic rollback runs the old image on migrated data | High | The API can run against a schema it does not match while the deploy reports a successful rollback. | Mitigated (#398) |
 | [REL-11](scavenger-hunt.md#rel-11-importfrom-loses-the-cause-when-finishrun-throws) | `importFrom()` loses the cause when `finishRun` throws | Low | The cause of a failed import is lost and the run stays marked `running`; no user is affected. | Open |
-| [REL-12](scavenger-hunt.md#rel-12-any-refresh-error-other-than-401-reads-as-no-connection) | Any refresh error other than 401 reads as "no connection" | Low | The message is misleading, but the user's data and session are not harmed. | Open |
-| [REL-14](scavenger-hunt.md#rel-14-karabas-pages-without-usable-json-ld-give-a-succeeded-run) | Karabas pages without usable JSON-LD give a succeeded run with 0 events | Medium | New and changed Karabas events stop arriving while every run is recorded as succeeded; the events imported earlier stay in the catalog. | Open |
+| [REL-12](scavenger-hunt.md#rel-12-any-refresh-error-other-than-401-reads-as-no-connection) | Any refresh error other than 401 reads as "no connection" | Low | The message is misleading, but the user's data and session are not harmed. | Fixed (#511) |
+| [REL-14](scavenger-hunt.md#rel-14-karabas-pages-without-usable-json-ld-give-a-succeeded-run) | Karabas pages without usable JSON-LD give a succeeded run with 0 events | Medium | New and changed Karabas events stop arriving while every run is recorded as succeeded; the events imported earlier stay in the catalog. | Mitigated (#511) |
 
 Each fix below starts from one question (§3.1 of the lecture): which is worse in this place, a wrong answer or no answer? A wrong answer being worse calls for failing fast, no answer being worse for failing safe. Where one call gets a timeout, retries and a fallback, they are stacked in the order of §3.5: the timeout on each attempt, bounded retries over it, and the way out once the retries are spent.
 
@@ -71,7 +71,7 @@ private unavailable(exception: unknown): ApiException | undefined {
     return undefined;
   }
   const error = exception as Error;
-  this.logger.error(`A dependency timed out: ${error.message}`, error.stack);
+  this.logger.error(`A dependency is unavailable: ${error.message}`, error.stack);
   return new ApiException('SERVICE_UNAVAILABLE', 'The service is temporarily unavailable. Try again later');
 }
 ```
@@ -102,7 +102,7 @@ The limits come from the environment, are checked at startup like the rest of th
 - **Timeouts on every external call.** A pool checkout, a statement and a lock wait each have an upper bound, so no request can wait on the database forever.
 - **Narrow error mapping.** [`isDatabaseTimeout`](../../src/infra/prisma/database-timeouts.ts) accepts only those timeout errors: the three pg messages above and `P2039` with `57014` or `55P03`. Any other database error, a refused connection or a bug stays a logged `500 INTERNAL_ERROR`, so real defects are not hidden behind a "try again later". The check lives in `infra`, which knows pg and Prisma. The existing `ApiExceptionFilter` gets it from `app.module.ts`, so `api` still does not import `infra` and the filter stays the only place that builds an error body.
 - **Input check at startup.** Each limit must be a positive integer of at most one day, so a typo stops the start instead of giving a pool that fails every call.
-- **Logging.** Every timeout is logged as an error with its cause and stack (`A dependency timed out: Query read timeout`). Before, nothing was thrown and nothing was logged.
+- **Logging.** Every timeout is logged as an error with its cause and stack (`A dependency is unavailable: Query read timeout`; "timed out" until #511 widened it to REL-09). Before, nothing was thrown and nothing was logged.
 
 ### Fail Fast or Fail Safe
 
@@ -698,6 +698,104 @@ Automatic.
 - **Mitigated, not fixed:** an outage longer than about 32 s (15 s, the 2 s wait, 15 s) still signs the user out, because the next refresh comes after the window.
 - **Two browser tabs** keep separate copies of one refresh token, so one can still end the other's session; this was already the case before.
 
+## REL-09: A Google Key Fetch Failure Answers 500
+
+**Fault:** `JoseGoogleIdTokens` rethrew the errors of a failed key fetch (`ERR_JWKS_TIMEOUT` among them), but `app.module.ts` gave the exception filter only the database timeout check, and a Google that could not be reached at all came through as fetch's own `TypeError`. **Failure:** a Google sign-in while Google's keys could not be fetched answered `500 INTERNAL_ERROR`, a bug of the API to the app, instead of a `503` it can retry.
+
+### Before
+
+```ts
+// src/infra/auth/jose-google-id-tokens.ts
+const KEY_FETCH_ERRORS = new Set(['ERR_JOSE_GENERIC', 'ERR_JWKS_TIMEOUT', 'ERR_JWKS_INVALID']);
+// ...
+if (error instanceof errors.JOSEError && !KEY_FETCH_ERRORS.has(error.code)) {
+  return undefined;
+}
+throw error;
+```
+
+```ts
+// src/api/app.module.ts: only database timeouts count as unavailability
+useFactory: (adapterHost: HttpAdapterHost) => new ApiExceptionFilter(adapterHost, isDatabaseTimeout),
+```
+
+### After
+
+```ts
+// src/infra/auth/jose-google-id-tokens.ts
+export function isGoogleKeyFetchFailure(error: unknown): boolean {
+  return error instanceof errors.JOSEError && KEY_FETCH_ERRORS.has(error.code);
+}
+
+// jose passes on fetch's own error when Google cannot be reached at all (refused, DNS): a key fetch failure too.
+private async key(...args: Parameters<JWTVerifyGetKey>): Promise<Awaited<ReturnType<JWTVerifyGetKey>>> {
+  try {
+    return await this.keys(...args);
+  } catch (error) {
+    if (error instanceof errors.JOSEError) {
+      throw error;
+    }
+    throw new errors.JOSEError("Google's keys could not be fetched", { cause: error });
+  }
+}
+```
+
+```ts
+// src/api/app.module.ts
+useFactory: (adapterHost: HttpAdapterHost) =>
+  new ApiExceptionFilter(
+    adapterHost,
+    (exception) => isDatabaseTimeout(exception) || isGoogleKeyFetchFailure(exception),
+  ),
+```
+
+```ts
+// src/api/common/api-exception.filter.ts, in unavailable(): true of both causes now
+this.logger.error(`A dependency is unavailable: ${error.message}`, error.stack);
+```
+
+### Patterns Applied
+
+- **Narrow error mapping**, as for REL-01: only the codes of `KEY_FETCH_ERRORS` count, and the set stays in the one file that knows jose. A bad signature, a wrong audience, an expired token or a key Google did not publish are still a rejected token, and any other error stays a logged `500`. `api` imports no jose; `core` is unchanged.
+- **One error body for unavailability.** The filter already built the `503` of a database timeout; it now gets a check that also accepts a key fetch failure, so the app sees the same answer for both.
+- **Logging.** The cause goes to the log as an error with its stack (`A dependency is unavailable: request timed out`), never to the body.
+
+### Fail Fast or Fail Safe
+
+The chosen reaction is to **fail fast**, as before; only the answer is now the right one.
+
+- A **safe failure** would sign the user in without a checked token, a wrong answer worse than none: it hands an account to whoever sent the token.
+- **Retries** are left to the client. jose already waits up to 5 s for the key set, and a sign-in is a request the user started, so a `503` the app can offer to repeat is better than holding it longer.
+
+### What the User Sees
+
+Before: `500 INTERNAL_ERROR` ("Something went wrong") while Google's keys could not be fetched.
+
+After, within jose's 5 s limit for the key set:
+
+```http
+HTTP/1.1 503 Service Unavailable
+
+{ "error": { "code": "SERVICE_UNAVAILABLE", "message": "The service is temporarily unavailable. Try again later" } }
+```
+
+A bad Google token still answers `422 INVALID_GOOGLE_TOKEN` on registration and `401 INVALID_CREDENTIALS` on sign-in.
+
+### Recovery
+
+Automatic. jose keeps no failed key set, so the next sign-in fetches the keys again and succeeds as soon as Google answers.
+
+### Verification
+
+- [`tests/reliability/google-keys.reliability.test.ts`](../../tests/reliability/google-keys.reliability.test.ts) (fault injection) starts the built API with `GOOGLE_JWKS_URL` on a local fake key server: one that never answers (`503` within jose's limit, cause logged), one that answers `500`, and one that is not there at all, all `503`; a token that is not a JWT keeps `INVALID_GOOGLE_TOKEN` and `INVALID_CREDENTIALS`. With the `app.module.ts` of before the fix, the three `503` tests fail.
+- [`tests/unit/jose-google-id-tokens.test.ts`](../../tests/unit/jose-google-id-tokens.test.ts): `isGoogleKeyFetchFailure` for each code of the set, and not for a bad signature, a wrong audience, an unknown key or a plain `Error`; an unreachable Google gives a key fetch error with fetch's error as its cause.
+- [`tests/unit/api-exception.filter.test.ts`](../../tests/unit/api-exception.filter.test.ts): a key fetch failure gets the body of a database timeout, and a rejected Google token keeps its own.
+
+### Open Issues
+
+- **No `Retry-After` header** on the `503`, as for REL-01.
+- **`ERR_JOSE_GENERIC` is jose's generic code.** In the API only the remote key set throws it to the filter (the access token check catches every jose error), so it means a key fetch failure here; a new jose call that rethrows it would answer `503` too.
+
 ## REL-10: The Rollback Runs Old Code on a Migrated Database
 
 **Fault:** the rollback in `deploy-staging.sh` restored the previous checkout and image only; the migrations `migrate` had applied stayed. **Failure:** the previous API version ran on a newer schema, while `deploy.log` said only "rolled back".
@@ -778,15 +876,190 @@ Manual, following "A version runs on a newer schema" in [staging](../operations/
 
 - **Mitigated, not fixed:** the old code can still fail on the newer schema. Closing it needs migrations the previous version can run on (expand first, remove in a later release), which is a rule for writing migrations, not a change to the script.
 
+## REL-12: Any Refresh Error Other Than 401 Reads as "No Connection"
+
+**Fault:** `renew` threw a plain `Error` for every answer other than 200 and 401, and `call()` turns any thrown error into status `0`. **Failure:** when the refresh endpoint answered, for example with `503`, the request that needed the renewal was never sent and the screens said "Could not reach the server." or "Немає зʼєднання", although the API had answered.
+
+### Before
+
+```ts
+// app/src/api/session.ts, in renew()
+} else if (response.status === 401) {
+  await endSession();
+} else {
+  throw new Error('Could not renew the session');
+}
+```
+
+```ts
+// app/src/api/public-client.ts, in call()
+} catch {
+  return { ok: false, status: 0 };
+}
+```
+
+### After
+
+```ts
+// app/src/api/refresh-failed-error.ts
+export class RefreshFailedError extends Error {
+  readonly status: number;
+  readonly code?: string;
+  // ...
+}
+```
+
+```ts
+// app/src/api/session.ts, in renew()
+} else {
+  throw new RefreshFailedError(
+    response.status,
+    (error as { error?: { code?: string } } | undefined)?.error?.code,
+  );
+}
+```
+
+```ts
+// app/src/api/public-client.ts
+} catch (error) {
+  return error instanceof RefreshFailedError ? refreshFailure(error) : { ok: false, status: 0 };
+}
+
+// The API answered the renewal, so this is not "no connection" (REL-12). Only 429 and 5xx keep their status: screens
+// read a 409 or 400 as a conflict or bad input of their own request, so any other answer is reported as 503.
+function refreshFailure({ status, code }: RefreshFailedError): Extract<ApiResult<never>, { ok: false }> {
+  return status === 429 || status >= 500 ? { ok: false, status, code } : { ok: false, status: 503 };
+}
+```
+
+The class has a file of its own because `public-client.ts` cannot import from `session.ts`, which imports it.
+
+### Patterns Applied
+
+- **Keep the cause.** The error carries the status and code the API sent, and status `0` is left for a request that got no answer.
+- **No new message for a screen to misread.** `5xx` and `429` reach the screens as they are. A `409` after its retry (REL-08) or a `400` is reported as `503`: the screens give those statuses a meaning of their own request ("Ця пропозиція вже не діє", "Категорія з такою назвою вже є"), and no screen branches on `503`.
+- **Unchanged around it:** the retries of `postRefresh` (REL-08), the single renewal (`renewal ??=`), and the end of the session on `401`.
+
+### Fail Fast or Fail Safe
+
+The chosen reaction is to **fail fast** with the true cause.
+
+- The session itself **fails safe**: only `401` ends it. A `5xx`, a `429` or a `409` keeps the refresh token, so the next request renews again; signing the user out over a busy server would lose the session for nothing.
+- For the message, a **wrong answer is worse** than a vague one: "check the internet" sends the user to look for a fault they do not have. A generic "Щось пішло не так" is less precise than a `409` of the refresh would be, but never points at the wrong cause.
+
+### What the User Sees
+
+Before: "Could not reach the server." (the hooks of `use-categories.ts`, `use-events.ts` and `use-event.ts`) or "Немає зʼєднання / Перевір інтернет" (`failureSnackbar`), while the API answered.
+
+After: the screen's own message for a failure with an answer, e.g. "Could not load categories." or "Щось пішло не так / Спробуй ще раз за хвилину". With no answer at all, the "no connection" messages stay as before.
+
+### Recovery
+
+Automatic. The user stays signed in with the same refresh token, and the next request renews the session.
+
+### Verification
+
+- [`app/tests/client.test.ts`](../../app/tests/client.test.ts) runs the real `apiClient` and `call()` with the refresh request stubbed: a refresh answered `503`, `500` or `429` gives that status and code, the request is not sent and the user stays signed in; `409` after its retry gives `503`; the next request after a `503` renews and is sent with the new token; `401` signs out; no answer on either try gives `0`; a `200` renewal sends the request with the new token. On the code before the fix, the four status tests fail.
+- [`app/tests/session.test.ts`](../../app/tests/session.test.ts): a refresh answered `503` rejects with that status and code, still without a second try.
+
+### Open Issues
+
+- **A timeout still reads as "no connection"**; see the Open Issues of [REL-02](#rel-02-app-requests-without-a-timeout).
+- **The status of a `409` or `400` refresh is not shown.** It is reported as `503`, so a screen cannot tell it from a busy server.
+
+## REL-14: Karabas Pages Without Usable JSON-LD Give a Succeeded Run
+
+**Fault:** `jsonLdObjects` gives an empty list for a page without JSON-LD and for one whose blocks do not parse, and `fetch` counted a section as failed only when the request threw or answered other than 200. **Failure:** if Karabas changed its markup, every section page answered 200 with no events, the run was recorded as `succeeded` with 0 events and the import exited with 0. New and changed Karabas events stopped arriving without any warning; the same happened unnoticed for a single section.
+
+### Before
+
+```ts
+// src/infra/providers/karabas-event-provider.ts, in readSection(): only an HTTP failure counts
+const response = await this.http.get(url);
+if (response.status !== 200) {
+  throw new Error(`answered ${response.status}`);
+}
+html = response.text;
+// ...
+const events = jsonLdObjects(html).filter(isEvent);
+```
+
+### After
+
+```ts
+// src/infra/providers/karabas-event-provider.ts, in readSection()
+html = response.text;
+jsonLd = readJsonLd(html);
+// Every saved section page has the site's Organization, CollectionPage and BreadcrumbList blocks besides its
+// events, and a section without events keeps them. A page where no block parses is a changed or broken page,
+// not an empty section, so it counts like a page that did not answer (REL-14).
+if (jsonLd.objects.length === 0) {
+  throw new Error(`answered 200 without JSON-LD that parses (${jsonLd.blocks} blocks)`);
+}
+// ... in the catch, as before:
+this.logger.warn(`GET ${url} failed: ${errorMessage(error)}`);
+return page === 1 ? 'failed' : 'incomplete';
+```
+
+```ts
+// src/infra/providers/provider-pages.ts: jsonLdObjects, which ArtWizard uses, gives the same as before
+export function jsonLdObjects(html: string): Record<string, unknown>[] {
+  return readJsonLd(html).objects;
+}
+```
+
+A page that is read but has some blocks that do not parse is warned about too (`GET … : 1 of 5 JSON-LD blocks are not JSON; skipped`).
+
+### Patterns Applied
+
+- **A check of the answer, not only of the status.** A `200` counts as read only when the page has JSON-LD that parses. The rule follows the saved pages: all nine carry four site blocks besides their events, and the sport pages list only one or two events, so a page with no events still has JSON-LD. The test fixture of an empty section is a saved page with its event blocks removed and its `ItemList` emptied, which is what such a page is expected to look like.
+- **The existing failure path.** A page without JSON-LD goes the same way as a page that answered `503`: a warning with the URL (never the page), `failed` on a section's first page, `incomplete` on a later one, and `No Karabas section page could be fetched` when every section failed.
+- **No change for the other caller.** `readJsonLd` is a separate function with the counts; `jsonLdObjects` keeps its return type and result for ArtWizard.
+
+### Fail Fast or Fail Safe
+
+The chosen reaction is to **fail fast** for the run and **fail safe** for the catalog.
+
+- For the run, a **wrong answer is worse**: "succeeded, 0 events" hid the change. Now a section without usable JSON-LD is a failure that is logged and counted, and a run where every section is so fails (`importFrom()` records it `failed`, the import exits non-zero).
+- For the catalog, **no answer is worse** than an old one: a failed or incomplete section makes the list incomplete, so nothing is cancelled, and a failed run keeps the events of the last good run (NFR REL-003, FR-014).
+
+### What the User Sees
+
+- **Users:** nothing new. The Karabas events of the last good run stay in the catalog.
+- **Operators:** before, a succeeded run with 0 events. After, a warning per section page without usable JSON-LD, the count of failed sections in the run's summary line, and a failed run when no section could be read.
+
+### Recovery
+
+Manual: the provider has to be fitted to the new markup. The next run after that imports again, and as soon as a section page has its JSON-LD back, it is read as before.
+
+### Verification
+
+[`tests/unit/karabas-event-provider.test.ts`](../../tests/unit/karabas-event-provider.test.ts), with three pages derived from the saved sport page of 2026-11-07 in [`tests/unit/fixtures/providers/karabas/`](../../tests/unit/fixtures/providers/karabas/) (no JSON-LD, every block cut short, no events):
+
+- every section without JSON-LD, or with only blocks that do not parse: `fetch` throws `No Karabas section page could be fetched`, with one warning per section naming its URL;
+- one section without JSON-LD: the other sections are imported, the summary counts 1 failed section, and the list is not complete;
+- a later page without usable JSON-LD: the first page's events are kept and the section is counted as not read to the end;
+- a page with the site blocks and no events: a complete list of 0 events and no warning;
+- a page with one block that does not parse: read, with a warning.
+
+On the provider before the fix, the five tests that expect a failure or a warning fail. The ArtWizard tests pass unchanged. The e2e import test now serves the unsaved Karabas sections the derived page without events, which keeps the site blocks.
+
+### Open Issues
+
+- **Mitigated, not fixed:** a page that keeps its JSON-LD but no longer gives events, e.g. renamed `@type`s or fields moved, is still read as a section with no events; each event that loses a field is skipped with its reason. A further step would compare the events found with the `numberOfItems` of the page's `CollectionPage` and warn when they differ.
+- **A succeeded run with 0 events is still possible** when every section really has none in the window, and is not told apart from the case above.
+- **Partly failed runs are not escalated.** A failed section is a warning and an incomplete list; nobody is alerted until every section fails.
+
 ## Reliability Tests
 
-The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was written: 31 tests in 6 files, all passing.
+The tests in [`tests/reliability/`](../../tests/reliability/) start the built API, or the app's request code, against fake dependencies, so none needs a database. They run with `npm run test:reliability` and as the CI job `Reliability tests` ([bonus 3](#reliability-tests-as-a-required-check)). When this report was last updated (#511): 35 tests in 7 files, all passing.
 
 | File | Type | Finding | What it proves |
 |---|---|---|---|
 | [`error-handling.reliability.test.ts`](../../tests/reliability/error-handling.reliability.test.ts) | Error handling | REL-01 | With a database that refuses the connection, the categories handler throws an error that is not a timeout. The API answers `500` with only the generic `INTERNAL_ERROR` body (no database address, Prisma message or stack), logs the cause, and keeps answering the next requests. |
 | [`database-timeouts.reliability.test.ts`](../../tests/reliability/database-timeouts.reliability.test.ts) | Fault injection | REL-01 | A fake Postgres that does not answer the startup or a query, or cancels the statement with `57014`: the API answers `503` within its limits, logs the cause, and gives its pool connections back. |
 | [`request-timeout.reliability.test.ts`](../../tests/reliability/request-timeout.reliability.test.ts) | Fault injection | REL-02 | The app's `fetchWithTimeout` against a fake API: no answer and a body that stops in the middle are aborted after 15 s and not before; a dropped connection fails at once. |
+| [`google-keys.reliability.test.ts`](../../tests/reliability/google-keys.reliability.test.ts) | Fault injection | REL-09 | A fake Google key server that never answers, answers `500` or is not there: a Google sign-in answers `503 SERVICE_UNAVAILABLE` and logs the cause; a token that is not a JWT keeps its own error. |
 | [`health-check.reliability.test.ts`](../../tests/reliability/health-check.reliability.test.ts) | Fault injection | REL-04 | A database that refuses the connection or never answers: `/health` answers `503 unhealthy` within its limit, and the Dockerfile's `HEALTHCHECK` command fails. |
 | [`database-timeout-settings.reliability.test.ts`](../../tests/reliability/database-timeout-settings.reliability.test.ts) | Boundary | REL-01 | The API starts with `DATABASE_STATEMENT_TIMEOUT_MS` empty or exactly one day, and stops with exit code 1 and a message naming the variable on `0`, `-1`, `abc`, one day and 1 ms, and `99999999999999999999`. This test found that a value too long for Node's timers started an API whose every database call failed; #405 fixed it. |
 | [`port-and-rate-limit-settings.reliability.test.ts`](../../tests/reliability/port-and-rate-limit-settings.reliability.test.ts) | Boundary | REL-05 | The API stops with exit code 1 and a message naming the variable on `PORT` `0`, `-1`, `abc`, `70000` and `1.5`, and on `AUTH_RATE_LIMIT_PER_MINUTE` `0`, `-5`, `abc` and `1.5`. With an empty limit the first sign-in request is not refused, and a limit of `1` starts the API. |
@@ -798,19 +1071,17 @@ All three types the lab asks for are there. The tests were also run against brok
 - `database-timeouts`: with the pool of before the fix, the two tests that wait for an answer hang until their 12 s guard; the other two check the error mapping and the pool and pass with it;
 - `health-check`: all four fail on the code before the REL-04 fix;
 - `error-handling`: both fail when the filter puts the error's message in the body;
+- `google-keys`: the three `503` tests fail with the `app.module.ts` before the REL-09 fix;
 - `request-timeout`: the no-answer test fails with a 10 s limit, and the stalled-body test when the timer is cleared once the headers arrive; the dropped-connection test was not checked this way;
 - `database-timeout-settings`: the two values above one day fail without the one-day check;
 - `port-and-rate-limit-settings`: on the `config.ts` before the fix, 10 of 11 fail; the limit of `1` starts the API either way.
 
-The fixes of REL-06, REL-07, REL-08 and REL-10 are covered by unit, e2e and app tests, listed in their sections.
+The fixes of REL-06, REL-07, REL-08, REL-10, REL-12 and REL-14 are covered by unit, e2e and app tests, listed in their sections.
 
 ## Open Findings
 
-- **REL-09** (Low): sign-in fails either way, so only the status is wrong. Proposed: pass a check for the key-fetch errors to `ApiExceptionFilter` in `app.module.ts` next to `isDatabaseTimeout`, so they answer `503`.
 - **REL-11** (Low): no user request is affected. Proposed: guard `finishRun` in the `catch` of `importFrom()`, log its error and rethrow the original one.
-- **REL-12** (Low): only the message is wrong. Proposed: let `renew` throw an error with the response status and let `call()` report that status instead of `0`.
-- **REL-14** (Medium): found after the fixes were chosen. Proposed: a warning for each section page with no events in its JSON-LD, and an error that fails the run when no section has any (fail fast). The events have to be counted before the catalog window filter, since a section can rightly have no events in the window (the unit test "leaves out the events after the catalog window").
-- **What is left of REL-08 and REL-10** is in their Open Issues: [REL-08](#rel-08-a-lost-refresh-response-ends-the-session) and [REL-10](#rel-10-the-rollback-runs-old-code-on-a-migrated-database).
+- **What is left of REL-08, REL-10 and REL-14** is in their Open Issues: [REL-08](#rel-08-a-lost-refresh-response-ends-the-session), [REL-10](#rel-10-the-rollback-runs-old-code-on-a-migrated-database) and [REL-14](#rel-14-karabas-pages-without-usable-json-ld-give-a-succeeded-run).
 
 ## Bonuses
 

@@ -10,6 +10,7 @@ import {
   type NewProfile,
   type Profile,
   type ProfileChanges,
+  type ProfileImageSlot,
   type ProfileSummary,
 } from '../../core/profiles/types/profile.ts';
 import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
@@ -39,7 +40,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
   async findSummaries(accountIds: string[]): Promise<ProfileSummary[]> {
     return this.prisma.profile.findMany({
       where: { accountId: { in: accountIds } },
-      select: { accountId: true, username: true, displayName: true },
+      select: { accountId: true, username: true, displayName: true, photoId: true },
     });
   }
 
@@ -127,6 +128,20 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
+  async setImage(
+    accountId: string,
+    slot: ProfileImageSlot,
+    imageId: string | null,
+    tx?: Transaction,
+  ): Promise<Profile> {
+    const row = await clientOf(this.prisma, tx).profile.update({
+      where: { accountId },
+      data: slot === 'photo' ? { photoId: imageId } : { coverId: imageId },
+      include: withRelations,
+    });
+    return this.toProfile(row);
+  }
+
   private toProfile(row: ProfileWithRelations): Profile {
     return {
       accountId: row.accountId,
@@ -143,6 +158,8 @@ export class PrismaProfilesRepository implements ProfilesRepository {
         .filter((linked): linked is { app: SocialNetwork; username: Uint8Array } => isSocialNetwork(linked.app))
         .sort((a, b) => socialNetworks.indexOf(a.app) - socialNetworks.indexOf(b.app))
         .map(({ app, username }) => ({ network: app, username: this.cipher.decrypt(username) })),
+      photoId: row.photoId,
+      coverId: row.coverId,
     };
   }
 }

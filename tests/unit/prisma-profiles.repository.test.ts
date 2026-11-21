@@ -30,6 +30,8 @@ function aRow(overrides: Record<string, unknown> = {}) {
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
     linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
+    photoId: null,
+    coverId: null,
     ...overrides,
   };
 }
@@ -88,6 +90,8 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       sharePhone: true,
       interestIds: [INTEREST_ID],
       linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
+      photoId: null,
+      coverId: null,
     });
   });
 
@@ -155,8 +159,8 @@ describe('PrismaProfilesRepository.findByAccountIds', () => {
 });
 
 describe('PrismaProfilesRepository.findSummaries', () => {
-  test('asks only for the given accounts and their public names', async () => {
-    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena' };
+  test('asks only for the given accounts, their public names and photo', async () => {
+    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena', photoId: null };
     const { repository, prisma } = makeRepository({ found: [summary] });
 
     assert.deepEqual(await repository.findSummaries([ACCOUNT_ID]), [summary]);

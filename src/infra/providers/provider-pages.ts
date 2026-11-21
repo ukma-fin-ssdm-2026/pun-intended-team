@@ -9,18 +9,26 @@ const DESCRIPTION_MAX = 5000;
 
 /** Every object in the page's `<script type="application/ld+json">` blocks; a block that is not JSON is ignored. */
 export function jsonLdObjects(html: string): Record<string, unknown>[] {
+  return readJsonLd(html).objects;
+}
+
+/** The objects `jsonLdObjects` gives, with the number of JSON-LD blocks on the page and of those that are not JSON. */
+export function readJsonLd(html: string): { objects: Record<string, unknown>[]; blocks: number; unparsable: number } {
   const $ = load(html);
-  return $('script[type="application/ld+json"]')
-    .toArray()
+  const scripts = $('script[type="application/ld+json"]').toArray();
+  let unparsable = 0;
+  const objects = scripts
     .flatMap((script) => {
       try {
         const parsed: unknown = JSON.parse($(script).text());
         return Array.isArray(parsed) ? (parsed as unknown[]) : [parsed];
       } catch {
+        unparsable++;
         return [];
       }
     })
     .filter((value): value is Record<string, unknown> => typeof value === 'object' && value !== null);
+  return { objects, blocks: scripts.length, unparsable };
 }
 
 /** The last non-empty path segment of a URL, e.g. `lama-15` for `https://kyiv.karabas.com/lama-15/`. */
