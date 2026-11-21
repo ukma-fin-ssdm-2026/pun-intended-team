@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { aspectRatios, type PictureKind } from '@/pictures/geometry';
-import { pickPicture, type PickedPicture, type PictureDraft } from '@/pictures/picked-picture';
+import { pickPicture, type PickedPicture, type PictureDraft, type PictureRefusal } from '@/pictures/picked-picture';
 
 const titles: Record<PictureKind, string> = {
   profilePhoto: 'Фото профілю',
@@ -185,12 +185,16 @@ function hole(kind: PictureKind, left: number, top: number, width: number, heigh
 }
 
 /** Gallery, then the crop preview: `start(kind)` opens them, `cropper` goes into the screen's tree. */
-export function usePictureCropper(onCropped: (kind: PictureKind, draft: PictureDraft) => void) {
+export function usePictureCropper(
+  onCropped: (kind: PictureKind, draft: PictureDraft) => void,
+  onRefused: (refusal: PictureRefusal) => void,
+) {
   const [cropping, setCropping] = useState<{ kind: PictureKind; picture: PickedPicture }>();
 
   const start = async (kind: PictureKind) => {
-    const picture = await pickPicture();
-    if (picture) setCropping({ kind, picture });
+    const picked = await pickPicture();
+    if (typeof picked === 'string') onRefused(picked);
+    else if (picked) setCropping({ kind, picture: picked });
   };
 
   const cropper = (

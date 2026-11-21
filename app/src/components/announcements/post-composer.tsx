@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { uploadListingPhoto } from '@/api/images';
 import { createListing, type Listing } from '@/api/listings';
 import type { ApiResult } from '@/api/public-client';
-import { failureMessage } from '@/auth/messages';
+import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
 import { Picture } from '@/components/pictures/picture';
 import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { Icon, type IconName } from '@/components/ui/icon';
@@ -73,7 +73,16 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
   const [error, setError] = useState<string>();
   const [publishing, setPublishing] = useState(false);
   const [photo, setPhoto] = useState<PictureDraft>();
-  const { start: pickPhoto, cropper } = usePictureCropper((_kind, draft) => setPhoto(draft));
+  const { start: pickPhoto, cropper } = usePictureCropper(
+    (_kind, draft) => {
+      setPhoto(draft);
+      setError(undefined);
+    },
+    (refusal) => {
+      const { title, note } = pictureRefusalSnackbar(refusal);
+      setError(`${title}. ${note}.`);
+    },
+  );
 
   const today = kyivDay(new Date());
   const days = [

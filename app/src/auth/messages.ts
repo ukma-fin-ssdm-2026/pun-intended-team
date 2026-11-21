@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import type { ApiResult } from '@/api/public-client';
 import type { SnackbarContent } from '@/components/ui/snackbar';
+import type { PictureRefusal } from '@/pictures/picked-picture';
 
 export const messages = {
   phone: 'Перевір номер: +380 і 9 цифр',
@@ -34,6 +35,13 @@ export function pictureFailureSnackbar(result: Extract<ApiResult<unknown>, { ok:
     default:
       return failureSnackbar(result);
   }
+}
+
+// A file from the gallery that cannot be uploaded, refused before the preview.
+export function pictureRefusalSnackbar(refusal: PictureRefusal): SnackbarContent {
+  return refusal === 'too-large'
+    ? { tone: 'error', title: 'Фото завелике', note: 'Обери фото до 10 МБ' }
+    : { tone: 'error', title: 'Це фото не відкрити', note: 'Обери фото у форматі JPEG, PNG або WebP' };
 }
 
 export const googleSnackbars = {

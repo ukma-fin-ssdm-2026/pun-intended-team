@@ -7,7 +7,7 @@ import { View } from 'react-native';
 
 import { createProfile, replaceInterests, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
-import { failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
+import { failureSnackbar, pictureFailureSnackbar, pictureRefusalSnackbar } from '@/auth/messages';
 import {
   FormatPicker,
   FormScreen,
@@ -97,7 +97,11 @@ export default function ProfileSetupScreen() {
         backTo="/onboarding"
         action={{ label: 'Далі', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
-        <ProfilePhoto pictures={pictures} onChange={setPictures} />
+        <ProfilePhoto
+          pictures={pictures}
+          onChange={setPictures}
+          onRefused={(refusal) => show(pictureRefusalSnackbar(refusal))}
+        />
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
           <TextField

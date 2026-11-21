@@ -16,7 +16,7 @@ import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
-import type { PictureDraft } from '@/pictures/picked-picture';
+import type { PictureDraft, PictureRefusal } from '@/pictures/picked-picture';
 import { colors } from '@/styles/tokens';
 
 /** The avatar or the cover as the form holds it: what is saved, and a change to save with the form. */
@@ -55,17 +55,18 @@ const SHEET_GONE_MS = 350;
 type Props = {
   pictures: ProfilePictures;
   onChange: (pictures: ProfilePictures) => void;
+  onRefused: (refusal: PictureRefusal) => void;
 };
 
 // "02 Фото": the cover with "Обкладинка", and the avatar overlapping its bottom 48 px. The default gradient and the
 // camera show while there is no picture. Not in Figma: the sheet to replace or remove a picture.
-export function ProfilePhoto({ pictures, onChange }: Props) {
+export function ProfilePhoto({ pictures, onChange, onRefused }: Props) {
   // The slot stays while the sheet fades out, so its text does not change on the way.
   const [menu, setMenu] = useState<{ slot: ProfileImageSlot; open: boolean }>();
   const { start, cropper } = usePictureCropper((kind, draft) => {
     const slot = slotOf(kind);
     onChange({ ...pictures, [slot]: { ...pictures[slot], change: draft } });
-  });
+  }, onRefused);
   const kindOf = { photo: 'profilePhoto', cover: 'profileCover' } as const;
   const open = (slot: ProfileImageSlot) =>
     shown(pictures[slot]) ? setMenu({ slot, open: true }) : void start(kindOf[slot]);

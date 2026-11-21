@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { replaceInterests, replaceLinkedAccounts, updateProfile } from '@/api/profile';
 import type { components } from '@/api/schema';
-import { failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
+import { failureSnackbar, pictureFailureSnackbar, pictureRefusalSnackbar } from '@/auth/messages';
 import {
   FormatPicker,
   FormScreen,
@@ -131,7 +131,11 @@ function ProfileForm({ profile }: Readonly<{ profile: Profile }>) {
         backTo="/profile"
         action={{ label: 'Зберегти', onPress: () => void save(), disabled: !ready, loading: saving }}
       >
-        <ProfilePhoto pictures={pictures} onChange={setPictures} />
+        <ProfilePhoto
+          pictures={pictures}
+          onChange={setPictures}
+          onRefused={(refusal) => show(pictureRefusalSnackbar(refusal))}
+        />
 
         <View className="gap-3 px-5 pt-4">
           <TextField label="Ім'я" required value={name} onChangeText={setName} maxLength={50} />
