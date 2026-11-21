@@ -589,7 +589,7 @@ export interface paths {
         };
         /**
          * Get the contacts of a mutual match
-         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). A mutual match answers `422` until the caller has acknowledged the safety notice with `acknowledgeSafetyNotice` (SAFE-002). Needs a signed-in account; a guest token gets 401.
          */
         get: operations["getMatchContacts"];
         put?: never;
@@ -932,6 +932,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/safety-notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge the safety notice
+         * @description Record that the caller read the safety notice the app shows on a mutual match (FR-032): `safetyNotice` becomes `acknowledged`, or `hidden` with `dontShowAgain`. Until the first acknowledgment, `getMatchContacts` holds the contacts back. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["acknowledgeSafetyNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/profile/photo": {
         parameters: {
             query?: never;
@@ -1091,7 +1111,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -2422,7 +2442,8 @@ export interface components {
          *       ],
          *       "isComplete": true,
          *       "photo": null,
-         *       "cover": null
+         *       "cover": null,
+         *       "safetyNotice": "acknowledged"
          *     }
          */
         Profile: {
@@ -2499,7 +2520,13 @@ export interface components {
                     height: number;
                 };
             } | null;
+            safetyNotice: components["schemas"]["SafetyNoticeState"];
         };
+        /**
+         * @description Where the user is with the safety notice: `not_acknowledged` holds the contacts of their matches back; `acknowledged` has the app show it once on each mutual match; `hidden` after "don’t show again"
+         * @enum {string}
+         */
+        SafetyNoticeState: "not_acknowledged" | "acknowledged" | "hidden";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -2568,6 +2595,15 @@ export interface components {
                 /** @description A nickname with or without "@", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE */
                 username: string;
             }[];
+        };
+        /**
+         * @example {
+         *       "dontShowAgain": false
+         *     }
+         */
+        AcknowledgeSafetyNoticeBody: {
+            /** @description True when the user ticked "don’t show again"; false keeps showing it on the next matches */
+            dontShowAgain: boolean;
         };
         /**
          * @description Whether the API and the dependencies it needs are up
@@ -4433,6 +4469,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety notice yet. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     adminListOrganizations: {
@@ -5386,6 +5431,57 @@ export interface operations {
             };
             /** @description `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acknowledgeSafetyNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeSafetyNoticeBody"];
+            };
+        };
+        responses: {
+            /** @description The profile with the new `safetyNotice` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -32,3 +32,8 @@ export function replaceInterests(interestIds: string[]) {
 export function replaceLinkedAccounts(linkedAccounts: NewLinkedAccount[]) {
   return saved(call(() => apiClient.PUT('/api/v1/me/profile/linked-accounts', { body: { linkedAccounts } })));
 }
+
+// Contacts of a match wait for it (SAFE-002); `dontShowAgain` hides the notice on the next matches.
+export function acknowledgeSafetyNotice(dontShowAgain: boolean) {
+  return saved(call(() => apiClient.POST('/api/v1/me/profile/safety-notice', { body: { dontShowAgain } })));
+}
