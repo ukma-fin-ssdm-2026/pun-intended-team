@@ -12,7 +12,7 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | User profile | Profile, Image, LinkedAccount, Interest, ProfileInterest |
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
 | Event-based matching | Application, ApplicationSession, ApplicationAfterEventPlan, Match, Exclusion |
-| Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice_ack_at |
+| Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice |
 | Listings | Listing, Image |
 | Notifications | Notification, DeviceToken |
 | Reports and moderation | ReportCase, Report, AuditLog |
@@ -34,7 +34,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `occupation` (P) — studies or work, free text, `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `gender` (S; female / male / other, nullable: profiles made before it was asked have none and are incomplete until the user picks one) — matching filters on it ([matching](mechanisms/matching.md), policy), `gender_description` (S) — the user's own words for `other`, at most 50 characters; set only with `other`, `share_phone` (default true), `safety_notice_ack_at` (FR-032, SAFE-002), `photo_id` and `cover_id` (FK → Image, UK, nullable) — the avatar and the cover behind it |
+| **Profile** | PK = FK `account_id` | `username` (P, UK, required, case-insensitive), `display_name` (P), `description` (P), `occupation` (P) — studies or work, free text, `communication_format` (S, nullable until picked during onboarding) — the default that pre-fills `Application.desired_company`; the API calls `casual` `company`, `gender` (S; female / male / other, nullable: profiles made before it was asked have none and are incomplete until the user picks one) — matching filters on it ([matching](mechanisms/matching.md), policy), `gender_description` (S) — the user's own words for `other`, at most 50 characters; set only with `other`, `share_phone` (default true), `safety_notice` (not_acknowledged / acknowledged / hidden, default not_acknowledged; FR-032, SAFE-002), `photo_id` and `cover_id` (FK → Image, UK, nullable) — the avatar and the cover behind it |
 | **LinkedAccount** | PK `id` | `profile_id` FK, `app` (telegram / instagram / … — enum defined in code), `username` (S, encrypted) — the bare handle in a social network, revealed on a mutual match; a profile keeps at least one while sign-in is Google-only; UK (`profile_id`, `app`) |
 | **Interest** | PK `id` | `name` (UK) — a fixed list seeded at launch; users pick from it, `group_name` — the heading it is shown under, `group_position` — the order of its group; columns rather than a table, since groups have no data of their own |
 | **ProfileInterest** | PK (`profile_id`, `interest_id`) | junction table |

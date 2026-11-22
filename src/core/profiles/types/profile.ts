@@ -13,6 +13,11 @@ export const genderPreferences = ['any', 'female', 'male'] as const;
 
 export type GenderPreference = (typeof genderPreferences)[number];
 
+/** Not acknowledged yet, so contacts are held back (SAFE-002); acknowledged; or hidden after "don't show again". */
+export const safetyNoticeStates = ['not_acknowledged', 'acknowledged', 'hidden'] as const;
+
+export type SafetyNoticeState = (typeof safetyNoticeStates)[number];
+
 export interface ProfileSummary {
   accountId: string;
   username: string;
@@ -57,6 +62,7 @@ export interface Profile extends ProfileSummary {
   interestIds: string[];
   linkedAccounts: LinkedAccount[];
   coverId: string | null;
+  safetyNotice: SafetyNoticeState;
 }
 
 /** The two pictures of a profile: the avatar and the cover behind it. */
@@ -84,6 +90,7 @@ export interface ProfileDetails extends ProfileImages {
   linkedAccounts: LinkedAccountDetails[];
   /** True once matching has what it needs: a communication format, a gender, an interest and a network to reveal. */
   isComplete: boolean;
+  safetyNotice: SafetyNoticeState;
 }
 
 /** What a proposed match sees of the other user: no contacts (FR-019). */

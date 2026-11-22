@@ -75,7 +75,7 @@ package "profiles" {
     <color:#B71C1C>gender : female | male | other (S)</color>
     <color:#B71C1C>gender_description : text (S)</color>
     * share_phone : bool
-    safety_notice_ack_at : timestamptz
+    * safety_notice : not_acknowledged | acknowledged | hidden
     photo_id : uuid <<FK, UK>>
     cover_id : uuid <<FK, UK>>
   }

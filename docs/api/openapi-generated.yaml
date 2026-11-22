@@ -187,6 +187,7 @@ components:
         - PROFILE_EXISTS
         - PROFILE_INCOMPLETE
         - ALREADY_APPLIED
+        - SAFETY_NOTICE_REQUIRED
         - CONTACT_REQUIRED
         - INVALID_SOCIAL_HANDLE
         - INVALID_CREDENTIALS
@@ -2169,6 +2170,8 @@ components:
               top: 640
               width: 2560
               height: 1313
+        safetyNotice:
+          $ref: '#/components/schemas/SafetyNoticeState'
       required:
         - username
         - displayName
@@ -2184,6 +2187,7 @@ components:
         - isComplete
         - photo
         - cover
+        - safetyNotice
       description: The signed-in user’s own profile
       example:
         username: olena_k
@@ -2206,6 +2210,17 @@ components:
         isComplete: true
         photo: null
         cover: null
+        safetyNotice: acknowledged
+    SafetyNoticeState:
+      type: string
+      enum:
+        - not_acknowledged
+        - acknowledged
+        - hidden
+      description: >-
+        Where the user is with the safety notice: `not_acknowledged` holds the
+        contacts of their matches back; `acknowledged` has the app show it once
+        on each mutual match; `hidden` after "don’t show again"
     CreateProfileBody:
       type: object
       properties:
@@ -2327,6 +2342,19 @@ components:
         linkedAccounts:
           - network: telegram
             username: '@olena_k'
+    AcknowledgeSafetyNoticeBody:
+      type: object
+      properties:
+        dontShowAgain:
+          type: boolean
+          description: >-
+            True when the user ticked "don’t show again"; false keeps showing it
+            on the next matches
+      required:
+        - dontShowAgain
+      additionalProperties: false
+      example:
+        dontShowAgain: false
     HealthResponse:
       type: object
       properties:
@@ -4054,8 +4082,9 @@ paths:
       description: >-
         How to reach the other user, once both accepted. Before that, and for a
         match that did not go ahead, the answer is `404`, as for a match that
-        does not exist (SEC-001). Needs a signed-in account; a guest token gets
-        401.
+        does not exist (SEC-001). A mutual match answers `422` until the caller
+        has acknowledged the safety notice with `acknowledgeSafetyNotice`
+        (SAFE-002). Needs a signed-in account; a guest token gets 401.
       tags:
         - Matching
       security:
@@ -4090,6 +4119,14 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No mutual match with this id that the caller is part of
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety
+            notice yet.
           content:
             application/json:
               schema:
@@ -4992,6 +5029,50 @@ paths:
           description: >-
             `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a
             username does not fit its social network; `details` names it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/profile/safety-notice:
+    post:
+      operationId: acknowledgeSafetyNotice
+      summary: Acknowledge the safety notice
+      description: >-
+        Record that the caller read the safety notice the app shows on a mutual
+        match (FR-032): `safetyNotice` becomes `acknowledged`, or `hidden` with
+        `dontShowAgain`. Until the first acknowledgment, `getMatchContacts`
+        holds the contacts back. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Profiles
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcknowledgeSafetyNoticeBody'
+      responses:
+        '200':
+          description: The profile with the new `safetyNotice`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The account has not created a profile yet
           content:
             application/json:
               schema:

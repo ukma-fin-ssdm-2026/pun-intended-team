@@ -106,6 +106,7 @@ function makeService(stored: MatchRecord | null = aMatch()) {
       Promise.resolve(new Map([[OTHER_ACCOUNT_ID, OTHER_PROFILE]])),
     ),
     getContacts: mock.fn<(accountId: string) => Promise<Contacts>>(() => Promise.resolve(CONTACTS)),
+    hasAcknowledgedSafetyNotice: mock.fn<(accountId: string) => Promise<boolean>>(() => Promise.resolve(true)),
   };
   const transactions = { run: mock.fn((work: (tx: Transaction) => Promise<unknown>) => work(TX)) };
   const service = new MatchesService(
@@ -295,5 +296,22 @@ describe('MatchesService.getContacts', () => {
     const { service } = makeService(aMatch({ status: 'mutual' }));
 
     await assert.rejects(service.getContacts(STRANGER_ID, 'match-1'), isDomainError('NOT_FOUND'));
+  });
+
+  // SAFE-002
+  test('holds the contacts back until the caller has acknowledged the safety notice', async () => {
+    const { service, profilesService } = makeService(aMatch({ status: 'mutual' }));
+    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
+
+    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('SAFETY_NOTICE_REQUIRED'));
+    assert.deepEqual(profilesService.hasAcknowledgedSafetyNotice.mock.calls[0]?.arguments, [ACCOUNT_ID]);
+    assert.equal(profilesService.getContacts.mock.callCount(), 0);
+  });
+
+  test('reports a match that is not mutual as missing, whether or not the notice was acknowledged', async () => {
+    const { service, profilesService } = makeService(aMatch({ status: 'accepted_a' }));
+    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
+
+    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('NOT_FOUND'));
   });
 });

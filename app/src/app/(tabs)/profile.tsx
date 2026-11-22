@@ -13,6 +13,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import { SafetySheet } from '@/components/matching/safety-sheet';
 import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
@@ -205,6 +206,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
   // Т4 shows "Про мене", П6 "Збережені"; С1 opens П6 with `saved`.
   const { saved } = useLocalSearchParams<{ saved?: string }>();
   const [chosenTab, setChosenTab] = useState<ProfileTab>('about');
@@ -293,6 +295,9 @@ export default function ProfileScreen() {
                 <Text className="font-inter-medium text-label text-text-primary">Адмін-панель</Text>
               </Pressable>
             )}
+            <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
+              <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
+            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
@@ -305,6 +310,7 @@ export default function ProfileScreen() {
         )}
       </ScrollView>
 
+      <SafetySheet visible={safetyOpen} onClose={() => setSafetyOpen(false)} onConfirm={() => setSafetyOpen(false)} />
       <SignOutDialog
         visible={signOutOpen}
         icon="user"

@@ -80,7 +80,7 @@ For this version the scope is Kyiv only, the interface ships in Ukrainian, and t
 - FR-031: The system shall allow a user to withdraw from an event they previously selected before a match occurs, removing them from that event's matching pool. (US-009)
 
 **Safety**
-- FR-032: On a user's first match the system shall show a safety notice — meet in a public place, tell someone where you are going, how to report — with an acknowledgment control. The notice remains reachable from the profile afterwards.
+- FR-032: On each of a user's matches the system shall show a safety notice — meet in a public place, tell someone where you are going, how to report — with an acknowledgment control and a "don't show again" option; after the user picks it, the notice is no longer shown on their matches. The notice remains reachable from the profile.
 
 **Platform Support**
 - FR-033: On a device or browser outside the supported set, the app shall display an unsupported-version notice instead of loading normally.

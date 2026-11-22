@@ -70,11 +70,17 @@ export class MatchesService {
     return this.view(userId, match);
   }
 
-  /** The other participant's contacts, only once the match is mutual; before that the match is reported missing (SEC-001). */
+  /**
+   * The other participant's contacts, only once the match is mutual; before that the match is reported missing
+   * (SEC-001). A mutual match still holds them back until the caller has acknowledged the safety notice (SAFE-002).
+   */
   async getContacts(userId: string, id: string): Promise<Contacts> {
     const match = await this.requireOwn(userId, id);
     if (match.status !== 'mutual') {
       throw new DomainError('NOT_FOUND', 'Match not found');
+    }
+    if (!(await this.profilesService.hasAcknowledgedSafetyNotice(userId))) {
+      throw new DomainError('SAFETY_NOTICE_REQUIRED', 'Acknowledge the safety notice first');
     }
     return this.profilesService.getContacts(sidesOf(match, userId)!.other.userId);
   }

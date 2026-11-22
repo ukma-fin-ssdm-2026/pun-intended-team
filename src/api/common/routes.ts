@@ -53,6 +53,7 @@ export const Routes = {
     linkedAccounts: '/api/v1/me/profile/linked-accounts',
     photo: '/api/v1/me/profile/photo',
     cover: '/api/v1/me/profile/cover',
+    safetyNotice: '/api/v1/me/profile/safety-notice',
   },
   interests: {
     list: '/api/v1/interests',
