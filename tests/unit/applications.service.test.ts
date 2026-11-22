@@ -74,9 +74,10 @@ function makeService({ complete = true, existing = [] as Application[], stored =
     ),
     findById: mock.fn((): Promise<Application | undefined> => Promise.resolve(stored)),
     findByUserAndEvent: mock.fn(() => Promise.resolve(existing)),
-    findByUserWithStatus: mock.fn<(userId: string, statuses: ApplicationStatus[]) => Promise<Application[]>>(() =>
+    findListed: mock.fn<(userId: string, statuses: ApplicationStatus[]) => Promise<Application[]>>(() =>
       Promise.resolve(existing),
     ),
+    dismiss: mock.fn<(id: string) => Promise<boolean>>(() => Promise.resolve(stored.status === 'no_match')),
   };
   const eventSessionsService = {
     open: mock.fn<(eventId: string, days?: string[], tx?: Transaction) => Promise<OpenedSession[]>>(() =>
@@ -213,14 +214,14 @@ describe('ApplicationsService.apply', () => {
 describe('ApplicationsService.listMine', () => {
   useFixedClock();
 
-  test('asks for the active applications and puts the soonest session first', async () => {
+  test('asks for the active applications and those with no match, and puts the soonest session first', async () => {
     const later = anApplication({ id: 'later', sessionIds: [LATER_SESSION_ID] });
     const sooner = anApplication({ id: 'sooner', status: 'paused' });
     const { service, applicationsRepository } = makeService({ existing: [later, sooner] });
 
     const applications = await service.listMine(ACCOUNT_ID);
 
-    assert.deepEqual(applicationsRepository.findByUserWithStatus.mock.calls[0]?.arguments, [
+    assert.deepEqual(applicationsRepository.findListed.mock.calls[0]?.arguments, [
       ACCOUNT_ID,
       ['in_pool', 'paired', 'paused'],
     ]);
@@ -306,5 +307,34 @@ describe('ApplicationsService.getOwn', () => {
     applicationsRepository.findById.mock.mockImplementation(() => Promise.resolve(undefined));
 
     await assert.rejects(service.getOwn(ACCOUNT_ID, APPLICATION_ID), isDomainError('NOT_FOUND'));
+  });
+});
+
+// FR-018
+describe('ApplicationsService.dismiss', () => {
+  useFixedClock();
+
+  test('dismisses the caller’s application with no match and gives it back', async () => {
+    const { service, applicationsRepository } = makeService({ stored: anApplication({ status: 'no_match' }) });
+
+    const application = await service.dismiss(ACCOUNT_ID, APPLICATION_ID);
+
+    assert.deepEqual(applicationsRepository.dismiss.mock.calls[0]?.arguments, [APPLICATION_ID]);
+    assert.equal(application.status, 'no_match');
+  });
+
+  test('refuses an application with another status', async () => {
+    const { service } = makeService();
+
+    await assert.rejects(service.dismiss(ACCOUNT_ID, APPLICATION_ID), isDomainError('CONFLICT'));
+  });
+
+  test('reports someone else’s application as missing', async () => {
+    const { service, applicationsRepository } = makeService({
+      stored: anApplication({ status: 'no_match', userId: OTHER_ACCOUNT_ID }),
+    });
+
+    await assert.rejects(service.dismiss(ACCOUNT_ID, APPLICATION_ID), isDomainError('NOT_FOUND'));
+    assert.equal(applicationsRepository.dismiss.mock.callCount(), 0);
   });
 });

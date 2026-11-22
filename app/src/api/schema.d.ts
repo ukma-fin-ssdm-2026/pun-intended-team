@@ -449,7 +449,7 @@ export interface paths {
         };
         /**
          * List your applications
-         * @description The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
+         * @description The caller’s active applications (in the pool, paired or paused), and those that found no match until the caller dismisses them; soonest first day first. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listMyApplications"];
         put?: never;
@@ -494,6 +494,26 @@ export interface paths {
          * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss an application with no match
+         * @description Take one of the caller’s applications that found no match by its cutoff out of `listMyApplications`. Dismissing it again changes nothing; `getApplication` still returns it. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["dismissApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1740,7 +1760,7 @@ export interface components {
          */
         GenderPreference: "any" | "female" | "male";
         /**
-         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned
+         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found by the cutoff. `cancelled`: the event was cancelled or the user banned
          * @enum {string}
          */
         ApplicationStatus: "in_pool" | "paired" | "paused" | "removed" | "withdrawn" | "no_match" | "cancelled";
@@ -4095,7 +4115,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The active applications */
+            /** @description The active applications and those with no match */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4214,6 +4234,65 @@ export interface operations {
                 };
             };
             /** @description `CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismissApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Application id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dismissed application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No application with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the application has another status than `no_match`. */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -4,6 +4,10 @@ All notable changes to Nearby, the API and the app, are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- Matching after the last round: a user who asks for a match close to the event, or comes back after a decline, gets a proposal at once if someone suitable is still waiting. A user still without a match at the cutoff is told so and can pick another event or post a listing.
+
 ## [1.2.0] - 2026-11-16
 
 ### Added

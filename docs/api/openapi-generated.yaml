@@ -1093,8 +1093,8 @@ components:
         `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`:
         a proposal went unanswered, waiting for the user to continue. `removed`:
         a second proposal went unanswered. `withdrawn`: the user left the pool.
-        `no_match`: no match was found before the event. `cancelled`: the event
-        was cancelled or the user banned
+        `no_match`: no match was found by the cutoff. `cancelled`: the event was
+        cancelled or the user banned
     CreateApplicationBody:
       type: object
       properties:
@@ -3775,16 +3775,16 @@ paths:
       operationId: listMyApplications
       summary: List your applications
       description: >-
-        The caller’s active applications (in the pool, paired or paused),
-        soonest first day first. Needs a signed-in account; a guest token gets
-        401.
+        The caller’s active applications (in the pool, paired or paused), and
+        those that found no match until the caller dismisses them; soonest first
+        day first. Needs a signed-in account; a guest token gets 401.
       tags:
         - Matching
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: The active applications
+          description: The active applications and those with no match
           content:
             application/json:
               schema:
@@ -3891,6 +3891,59 @@ paths:
           description: >-
             `CONFLICT`: the application has a mutual match, or is no longer
             waiting in the pool or for an answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/applications/{id}/dismiss:
+    post:
+      operationId: dismissApplication
+      summary: Dismiss an application with no match
+      description: >-
+        Take one of the caller’s applications that found no match by its cutoff
+        out of `listMyApplications`. Dismissing it again changes nothing;
+        `getApplication` still returns it. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Matching
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Application id
+          required: true
+          description: Application id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The dismissed application
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Application'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No application with this id, or it is not the caller’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`CONFLICT`: the application has another status than `no_match`.'
           content:
             application/json:
               schema:

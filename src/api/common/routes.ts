@@ -23,6 +23,7 @@ export const Routes = {
     mine: '/api/v1/me/applications',
     byId: '/api/v1/applications/{id}',
     withdraw: '/api/v1/applications/{id}/withdraw',
+    dismiss: '/api/v1/applications/{id}/dismiss',
   },
   matches: {
     mine: '/api/v1/me/matches',
