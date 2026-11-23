@@ -113,7 +113,7 @@ function GlassButton({
       onPress={onPress}
       className="active:opacity-80"
     >
-      {/* Dark glass, as the category label on the event cards, so the white icon shows on a white cover too. */}
+      {/* Dark glass, as the badges on the event card, so the white icon shows on a white cover too. */}
       <Glass
         className="size-10 items-center justify-center"
         radius={20}
@@ -316,9 +316,9 @@ export default function EventScreen() {
           <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
           <TopShade />
         </BlurTargetView>
-        {/* "1.3 Ціна", 16 px above the sheet, which scrolls over it. As on the card: no badge while the price is
-            unknown. */}
-        {price ? <PriceBadge price={price} className="absolute bottom-11 right-5" /> : null}
+        {/* "1.3 Ціна", 16 px above the sheet, which scrolls over it; the card shows no price. No badge while the price
+            is unknown. */}
+        {price ? <PriceBadge price={price} className="absolute bottom-11 right-5" blurTarget={coverRef} /> : null}
       </View>
 
       {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
