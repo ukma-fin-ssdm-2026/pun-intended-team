@@ -252,13 +252,13 @@ describe('PrismaMatchesRepository.cancelPending', () => {
 });
 
 describe('PrismaMatchesRepository.cancelAndReturnBoth', () => {
-  test('cancels the pending proposal for the reason and returns both applications to the pool', async () => {
+  test('cancels the pending proposals for the reason and returns both applications to the pool', async () => {
     const { tx, transaction } = aTransaction();
 
-    await repository.cancelAndReturnBoth(RECORD, 'event_changed', transaction);
+    await repository.cancelAndReturnBoth([RECORD], 'event_changed', transaction);
 
     assert.deepEqual(tx.match.updateMany.mock.calls[0]?.arguments[0], {
-      where: { id: RECORD.id, status: { in: ['proposed', 'accepted_a', 'accepted_b'] } },
+      where: { id: { in: [RECORD.id] }, status: { in: ['proposed', 'accepted_a', 'accepted_b'] } },
       data: { status: 'cancelled', cancelReason: 'event_changed' },
     });
     assertBothReturnedToPool(tx);
@@ -267,7 +267,16 @@ describe('PrismaMatchesRepository.cancelAndReturnBoth', () => {
   test('fails, rolling the change back, when the proposal was answered meanwhile', async () => {
     const { transaction } = aTransaction({ answered: 0 });
 
-    await assert.rejects(repository.cancelAndReturnBoth(RECORD, 'event_changed', transaction), /changed/);
+    await assert.rejects(repository.cancelAndReturnBoth([RECORD], 'event_changed', transaction), /changed/);
+  });
+
+  test('changes nothing when there is no match', async () => {
+    const { tx, transaction } = aTransaction();
+
+    await repository.cancelAndReturnBoth([], 'event_changed', transaction);
+
+    assert.equal(tx.match.updateMany.mock.callCount(), 0);
+    assert.equal(tx.application.updateMany.mock.callCount(), 0);
   });
 });
 
@@ -291,6 +300,32 @@ describe('PrismaMatchesRepository.cancelMutual', () => {
 
     assert.equal(tx.match.updateMany.mock.callCount(), 0);
     assert.equal(tx.application.updateMany.mock.callCount(), 0);
+  });
+});
+
+describe('PrismaMatchesRepository.findByApplications', () => {
+  test('looks for the matches of all the applications, on either side, in one query', async () => {
+    const { tx, transaction } = aTransaction();
+
+    const matches = await repository.findByApplications([APPLICATION_A, APPLICATION_B], ['mutual'], transaction);
+
+    assert.deepEqual(matches, []);
+    assert.equal(tx.match.findMany.mock.callCount(), 1);
+    const { where } = tx.match.findMany.mock.calls[0]?.arguments[0] as { where: unknown };
+    assert.deepEqual(where, {
+      status: { in: ['mutual'] },
+      OR: [
+        { applicationAId: { in: [APPLICATION_A, APPLICATION_B] } },
+        { applicationBId: { in: [APPLICATION_A, APPLICATION_B] } },
+      ],
+    });
+  });
+
+  test('reads nothing for no application', async () => {
+    const { tx, transaction } = aTransaction();
+
+    assert.deepEqual(await repository.findByApplications([], ['mutual'], transaction), []);
+    assert.equal(tx.match.findMany.mock.callCount(), 0);
   });
 });
 

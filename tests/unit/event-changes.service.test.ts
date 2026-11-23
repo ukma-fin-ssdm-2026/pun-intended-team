@@ -42,6 +42,8 @@ interface World {
   inbox: NewNotification[];
   /** The sessions whose rounds were planned, once per created session. */
   roundsPlanned: string[];
+  /** The repository calls that read or change matches, in order. */
+  queries: string[];
   locked?: boolean;
 }
 
@@ -100,7 +102,7 @@ function makeService(world: World) {
   };
   const matchesRepository: Pick<
     MatchesRepository,
-    'lockEvent' | 'cancelPending' | 'findByApplication' | 'cancelAndReturnBoth' | 'cancelMutual'
+    'lockEvent' | 'cancelPending' | 'findByApplications' | 'cancelAndReturnBoth' | 'cancelMutual'
   > = {
     lockEvent: (eventId, tx) => {
       inTransaction(tx);
@@ -108,30 +110,40 @@ function makeService(world: World) {
       world.locked = true;
       return Promise.resolve();
     },
-    findByApplication: (applicationId, statuses, tx) => {
+    findByApplications: (applicationIds, statuses, tx) => {
       inTransaction(tx);
-      const match = world.matches.find(
+      world.queries.push('findByApplications');
+      const matches = world.matches.filter(
         ({ applicationAId, applicationBId, status }) =>
-          statuses.includes(status as MatchStatus) && [applicationAId, applicationBId].includes(applicationId),
+          statuses.includes(status as MatchStatus) &&
+          (applicationIds.includes(applicationAId) || applicationIds.includes(applicationBId)),
       );
       const application = (id: string) => structuredClone(world.applications.find((stored) => stored.id === id)!);
       return Promise.resolve(
-        match &&
-          ({
-            ...match,
-            applicationA: application(match.applicationAId),
-            applicationB: application(match.applicationBId),
-          } as unknown as MatchRecord),
+        matches.map(
+          (match) =>
+            ({
+              ...match,
+              applicationA: application(match.applicationAId),
+              applicationB: application(match.applicationBId),
+            }) as unknown as MatchRecord,
+        ),
       );
     },
-    cancelAndReturnBoth: (match, reason, tx) => {
+    cancelAndReturnBoth: (matches, reason, tx) => {
       inTransaction(tx);
-      const stored = world.matches.find(({ id }) => id === match.id)!;
-      assert.ok(PENDING.includes(stored.status), 'only a pending proposal is cancelled');
-      Object.assign(stored, { status: 'cancelled', cancelReason: reason });
-      for (const application of world.applications) {
-        if ([match.applicationAId, match.applicationBId].includes(application.id) && application.status === 'paired') {
-          application.status = 'in_pool';
+      world.queries.push('cancelAndReturnBoth');
+      for (const match of matches) {
+        const stored = world.matches.find(({ id }) => id === match.id)!;
+        assert.ok(PENDING.includes(stored.status), 'only a pending proposal is cancelled');
+        Object.assign(stored, { status: 'cancelled', cancelReason: reason });
+        for (const application of world.applications) {
+          if (
+            [match.applicationAId, match.applicationBId].includes(application.id) &&
+            application.status === 'paired'
+          ) {
+            application.status = 'in_pool';
+          }
         }
       }
       return Promise.resolve();
@@ -290,7 +302,7 @@ function bothTold(change: 'cancelled' | 'rescheduled', days?: string): string[] 
 interface Case {
   name: string;
   change: 'cancelled' | 'republished' | 'rescheduled';
-  world: Omit<World, 'inbox' | 'roundsPlanned'>;
+  world: Omit<World, 'inbox' | 'roundsPlanned' | 'queries'>;
   /** The sessions whose rounds the change planned. */
   rounds?: string[];
   after: ReturnType<typeof stateOf>;
@@ -735,7 +747,7 @@ function caseNamed(start: string): Case {
 describe('EventChangesService.handle', () => {
   for (const { name, change, world: initial, rounds = [], after } of cases) {
     test(`${name}; a second run changes nothing`, async () => {
-      const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(initial) };
+      const world: World = { inbox: [], roundsPlanned: [], queries: [], ...structuredClone(initial) };
       const { service } = makeService(world);
 
       await service.handle(aJob(change), NOW);
@@ -749,7 +761,7 @@ describe('EventChangesService.handle', () => {
   }
 
   test('goes by the event as it is, not by the change the job names', async () => {
-    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
+    const world: World = { inbox: [], roundsPlanned: [], queries: [], ...structuredClone(cases[0]!.world) };
     const { service } = makeService(world);
 
     await service.handle(aJob('rescheduled'), NOW);
@@ -761,6 +773,7 @@ describe('EventChangesService.handle', () => {
     const world: World = {
       inbox: [],
       roundsPlanned: [],
+      queries: [],
       ...structuredClone(caseNamed('a run that ends earlier').world),
     };
     const { service } = makeService(world);
@@ -801,7 +814,7 @@ describe('EventChangesService.handle', () => {
       ['a mutual match on a cancelled event', true],
       ['a mutual match whose shared day moved', false],
     ] as const) {
-      const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(caseNamed(start).world) };
+      const world: World = { inbox: [], roundsPlanned: [], queries: [], ...structuredClone(caseNamed(start).world) };
       const { service } = makeService(world);
 
       await service.handle(aJob('cancelled'), NOW);
@@ -821,6 +834,7 @@ describe('EventChangesService.handle', () => {
     const world: World = {
       inbox: [],
       roundsPlanned: [],
+      queries: [],
       event: anEvent(CONCERT_AT_20),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
       applications: [anApplication('waiting', ['s1'])],
@@ -845,6 +859,7 @@ describe('EventChangesService.handle', () => {
     const world: World = {
       inbox: [],
       roundsPlanned: [],
+      queries: [],
       event: anEvent(CONCERT_AT_20),
       sessions: [sessionAt(CONCERT.startsAt, 's1')],
       applications: [anApplication('waiting', ['s1'])],
@@ -868,9 +883,38 @@ describe('EventChangesService.handle', () => {
   });
 });
 
-describe('EventChangesService.handle, time limit', () => {
+describe('EventChangesService.handle, a large event', () => {
+  test('reads and cancels the proposals of all applicants in a fixed number of queries', async () => {
+    const pairs = Array.from({ length: 200 }, (_, i) => i);
+    const world: World = {
+      inbox: [],
+      roundsPlanned: [],
+      queries: [],
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: pairs.flatMap((i) => [
+        anApplication(`a${i}`, ['s1'], 'paired'),
+        anApplication(`b${i}`, ['s1'], 'paired'),
+      ]),
+      matches: pairs.map((i) => ({
+        id: `m${i}`,
+        applicationAId: `a${i}`,
+        applicationBId: `b${i}`,
+        status: 'proposed',
+      })),
+    };
+    const { service } = makeService(world);
+
+    await service.handle(aJob('rescheduled'), NOW);
+
+    assert.deepEqual(world.queries, ['findByApplications', 'findByApplications', 'cancelAndReturnBoth']);
+    assert.ok(
+      world.matches.every(({ status, cancelReason }) => status === 'cancelled' && cancelReason === 'event_changed'),
+    );
+  });
+
   test('allows its transaction a minute, since it changes every applicant of the event at once', async () => {
-    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
+    const world: World = { inbox: [], roundsPlanned: [], queries: [], ...structuredClone(cases[0]!.world) };
     const { service, transactions } = makeService(world);
 
     await service.handle(aJob('cancelled'), NOW);
@@ -883,7 +927,7 @@ describe('EventChangesService.onModuleInit', () => {
   useFixedClock();
 
   test('registers the handler of event.changed, with the default retries', async () => {
-    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
+    const world: World = { inbox: [], roundsPlanned: [], queries: [], ...structuredClone(cases[0]!.world) };
     const { service, jobs } = makeService(world);
 
     service.onModuleInit();

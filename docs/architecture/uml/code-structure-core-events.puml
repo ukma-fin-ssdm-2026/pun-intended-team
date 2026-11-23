@@ -146,11 +146,12 @@ package "core (business logic)" as CORE {
       +findById(id, tx)
       +findByUser(userId, statuses)
       +findByApplication(applicationId, statuses, tx)
+      +findByApplications(applicationIds, statuses, tx)
       +setStatus(id, from, to, tx)
       +decline(match, userId, tx)
       +cancelForWithdrawal(match, applicationId, tx)
       +cancelPending(applicationIds, reason, tx)
-      +cancelAndReturnBoth(match, reason, tx)
+      +cancelAndReturnBoth(matches, reason, tx)
       +cancelMutual(matches, reason, tx)
     }
   }

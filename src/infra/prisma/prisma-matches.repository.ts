@@ -82,6 +82,20 @@ export class PrismaMatchesRepository implements MatchesRepository {
     return row ? toMatchRecord(row) : undefined;
   }
 
+  async findByApplications(applicationIds: string[], statuses: MatchStatus[], tx: Transaction): Promise<MatchRecord[]> {
+    if (applicationIds.length === 0) {
+      return [];
+    }
+    const rows = await clientOf(this.prisma, tx).match.findMany({
+      where: {
+        status: { in: statuses },
+        OR: [{ applicationAId: { in: applicationIds } }, { applicationBId: { in: applicationIds } }],
+      },
+      include: withApplications,
+    });
+    return rows.map(toMatchRecord);
+  }
+
   async setStatus(id: string, from: MatchStatus, to: MatchStatus, tx: Transaction): Promise<void> {
     await this.moveFrom(clientOf(this.prisma, tx), id, [from], { status: to });
   }
@@ -140,11 +154,23 @@ export class PrismaMatchesRepository implements MatchesRepository {
     });
   }
 
-  async cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void> {
+  async cancelAndReturnBoth(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void> {
+    if (matches.length === 0) {
+      return;
+    }
     const client = clientOf(this.prisma, tx);
-    await this.moveFrom(client, match.id, PENDING_STATUSES, { status: 'cancelled', cancelReason: reason });
+    const { count } = await client.match.updateMany({
+      where: { id: { in: matches.map(({ id }) => id) }, status: { in: PENDING_STATUSES } },
+      data: { status: 'cancelled', cancelReason: reason },
+    });
+    if (count !== matches.length) {
+      throw new Error('A match changed while it was being cancelled');
+    }
     await client.application.updateMany({
-      where: { id: { in: [match.applicationAId, match.applicationBId] }, status: 'paired' },
+      where: {
+        id: { in: matches.flatMap(({ applicationAId, applicationBId }) => [applicationAId, applicationBId]) },
+        status: 'paired',
+      },
       data: { status: 'in_pool' },
     });
   }

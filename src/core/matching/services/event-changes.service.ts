@@ -139,12 +139,13 @@ export class EventChangesService implements OnModuleInit {
     // A proposal on a shared day that moved has its time limit from the old time: the two return to the pool for
     // the rounds of the new one (matching.md, rule 4). One left without a shared day ahead could only become a match
     // with no day to go: the two return to the pool for the days they keep.
-    const voided = new Set<string>();
-    for (const application of applications.filter(({ id, status }) => status === 'paired' && !cancelled.has(id))) {
-      const match = await this.matchesRepository.findByApplication(application.id, PENDING_STATUSES, tx);
-      if (!match || voided.has(match.id)) {
-        continue;
-      }
+    const stillPaired = applications.filter(({ id, status }) => status === 'paired' && !cancelled.has(id));
+    const voided = new Map<MatchCancelReason, MatchRecord[]>();
+    for (const match of await this.matchesRepository.findByApplications(
+      stillPaired.map(({ id }) => id),
+      PENDING_STATUSES,
+      tx,
+    )) {
       const shared = sharedDays(match.applicationA.sessionIds, match.applicationB.sessionIds);
       const sharedLeft = sharedDays(daysLeft(match.applicationA), daysLeft(match.applicationB));
       let reason: MatchCancelReason | undefined;
@@ -154,9 +155,11 @@ export class EventChangesService implements OnModuleInit {
         reason = 'event_cancelled';
       }
       if (reason) {
-        voided.add(match.id);
-        await this.matchesRepository.cancelAndReturnBoth(match, reason, tx);
+        voided.set(reason, [...(voided.get(reason) ?? []), match]);
       }
+    }
+    for (const [reason, matches] of voided) {
+      await this.matchesRepository.cancelAndReturnBoth(matches, reason, tx);
     }
     for (const { sessionId, intoSessionId } of changes.moved) {
       await this.applicationsRepository.moveDay(sessionId, intoSessionId, tx);
@@ -203,14 +206,9 @@ export class EventChangesService implements OnModuleInit {
 
   /** The mutual matches of the paired applications, by id; an application has at most one (data model). */
   private async mutualMatchesOf(applications: Application[], tx: Transaction): Promise<Map<string, MatchRecord>> {
-    const matches = new Map<string, MatchRecord>();
-    for (const { id } of applications.filter(({ status }) => status === 'paired')) {
-      const match = await this.matchesRepository.findByApplication(id, ['mutual'], tx);
-      if (match) {
-        matches.set(match.id, match);
-      }
-    }
-    return matches;
+    const paired = applications.filter(({ status }) => status === 'paired').map(({ id }) => id);
+    const matches = await this.matchesRepository.findByApplications(paired, ['mutual'], tx);
+    return new Map(matches.map((match) => [match.id, match]));
   }
 }
 

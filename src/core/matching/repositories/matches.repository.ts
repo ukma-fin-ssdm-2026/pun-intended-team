@@ -32,6 +32,13 @@ export abstract class MatchesRepository {
     tx: Transaction,
   ): Promise<MatchRecord | undefined>;
 
+  /** The matches with one of the statuses of any of the applications, on either side; each match once. */
+  abstract findByApplications(
+    applicationIds: string[],
+    statuses: MatchStatus[],
+    tx: Transaction,
+  ): Promise<MatchRecord[]>;
+
   /** Moves the match from `from` to `to`. Throws, rolling `tx` back, when its status changed meanwhile. */
   abstract setStatus(id: string, from: MatchStatus, to: MatchStatus, tx: Transaction): Promise<void>;
 
@@ -50,8 +57,11 @@ export abstract class MatchesRepository {
    */
   abstract cancelPending(applicationIds: string[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
 
-  /** Cancels the pending match for `reason` and returns both applications to the pool. */
-  abstract cancelAndReturnBoth(match: MatchRecord, reason: MatchCancelReason, tx: Transaction): Promise<void>;
+  /**
+   * Cancels the pending matches for `reason` and returns both applications of each to the pool. Throws, rolling `tx`
+   * back, when one of them was answered meanwhile.
+   */
+  abstract cancelAndReturnBoth(matches: MatchRecord[], reason: MatchCancelReason, tx: Transaction): Promise<void>;
 
   /**
    * Cancels the mutual matches for `reason`; one that is no longer mutual is left as it is. Their applications that
