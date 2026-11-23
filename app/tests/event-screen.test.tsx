@@ -117,7 +117,7 @@ describe('EventScreen title block', () => {
   });
 });
 
-// "1.3 Ціна" on the cover follows the card's rule: `priceLabel`, and no badge for an unknown price.
+// "1.3 Ціна" on the cover, the only place with the price: `priceLabel`, and no badge for an unknown price.
 describe('EventScreen price', () => {
   test.each([
     { priceMin: 450, priceMax: null, label: '450 ₴' },

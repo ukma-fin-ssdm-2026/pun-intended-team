@@ -113,12 +113,12 @@ function GlassButton({
       onPress={onPress}
       className="active:opacity-80"
     >
+      {/* Dark glass, as the badges on the event card, so the white icon shows on a white cover too. */}
       <Glass
         className="size-10 items-center justify-center"
         radius={20}
-        fill="rgba(255, 255, 255, 0.22)"
-        border="rgba(255, 255, 255, 0.35)"
-        tone="light"
+        fill="rgba(18, 18, 18, 0.45)"
+        tone="dark"
         blurTarget={blurTarget}
       >
         <Icon name={icon} size={20} color={active ? colors.brand.coral : colors.text['on-dark']} filled={active} />
@@ -316,9 +316,6 @@ export default function EventScreen() {
           <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
           <TopShade />
         </BlurTargetView>
-        {/* "1.3 Ціна", 16 px above the sheet, which scrolls over it. As on the card: no badge while the price is
-            unknown. */}
-        {price ? <PriceBadge price={price} className="absolute bottom-11 right-5" /> : null}
       </View>
 
       {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
@@ -425,13 +422,17 @@ export default function EventScreen() {
 
       <View className="absolute left-5 right-5 flex-row items-center justify-between" style={{ top: actionsTop }}>
         <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
-        <GlassButton
-          icon="heart"
-          label="В обране"
-          active={favorite}
-          onPress={() => toggleFavorite(id)}
-          blurTarget={coverRef}
-        />
+        <View className="flex-row items-center gap-2">
+          {/* "1.3 Ціна", left of the heart; the card shows no price. No badge while the price is unknown. */}
+          {price ? <PriceBadge price={price} blurTarget={coverRef} /> : null}
+          <GlassButton
+            icon="heart"
+            label="В обране"
+            active={favorite}
+            onPress={() => toggleFavorite(id)}
+            blurTarget={coverRef}
+          />
+        </View>
       </View>
 
       <MatchActionBar

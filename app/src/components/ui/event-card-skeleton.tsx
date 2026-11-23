@@ -20,13 +20,7 @@ export function EventCardSkeleton() {
           fill="rgba(18, 18, 18, 0.45)"
           tone="dark"
         />
-        <Glass
-          className="absolute right-2.5 top-2.5 size-9"
-          radius={18}
-          fill="rgba(255, 255, 255, 0.28)"
-          border="rgba(255, 255, 255, 0.4)"
-          tone="light"
-        />
+        <Glass className="absolute right-2.5 top-2.5 size-9" radius={18} fill="rgba(18, 18, 18, 0.45)" tone="dark" />
       </View>
       <View className="gap-3.5 px-2 pt-3">
         <View className="gap-2">

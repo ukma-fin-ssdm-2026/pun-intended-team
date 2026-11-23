@@ -11,7 +11,6 @@ import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { mockOrganizer } from '@/mocks/organization';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { colors } from '@/styles/tokens';
-import { priceLabel } from '@/price';
 
 // "01 Навігація" starts 56 px from the top (9 px below the iPhone 14 status bar); "02 Організатор" has a 40 px bottom
 // padding.
@@ -88,7 +87,6 @@ export default function OrganizerScreen() {
             category={event.category.name}
             dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
             place={event.venue.name}
-            price={priceLabel(event.priceMin, event.priceMax)}
             cover={event.cover}
             favorite={favoriteIds.includes(event.id)}
             onToggleFavorite={() => toggleFavorite(event.id)}
