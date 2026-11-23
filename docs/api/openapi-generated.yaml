@@ -13,6 +13,10 @@ tags:
     description: Registration, sign-in methods and guest tokens
   - name: Events
     description: Events users can go to together
+  - name: Venues
+    description: >-
+      An organization’s own venues, where it publishes its events; all of them
+      for administrators
   - name: Listings
     description: '"Looking for company" posts'
   - name: Matching
@@ -32,7 +36,7 @@ tags:
   - name: Moderation
     description: Reports on users and listings, and how administrators resolve them
   - name: Admin
-    description: Platform statistics and database backups for administrators
+    description: Accounts, platform statistics and database backups for administrators
   - name: System
     description: Service endpoints
 components:
@@ -45,6 +49,483 @@ components:
         An access token from `/api/v1/auth/sign-in` or `/api/v1/auth/verify`, or
         a guest token from `/api/v1/auth/guest` for catalog reads.
   schemas:
+    AdminAccountsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccount'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+            role: user
+            status: active
+            signInMethods:
+              - google
+            age: 25
+            createdAt: '2026-10-12T09:30:00.000Z'
+            profile:
+              username: olena_k
+              displayName: Olena
+            organization: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    AdminAccount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        signInMethods:
+          type: array
+          items:
+            type: string
+            enum:
+              - google
+              - password
+          description: How the account signs in
+        age:
+          type: integer
+          nullable: true
+          description: Whole years; null while the account is pending
+        createdAt:
+          type: string
+          format: date-time
+          description: When the account was registered
+        profile:
+          type: object
+          nullable: true
+          properties:
+            username:
+              type: string
+            displayName:
+              type: string
+          required:
+            - username
+            - displayName
+          description: Null without a profile
+        organization:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+            verificationStatus:
+              type: string
+              enum:
+                - pending
+                - verified
+                - rejected
+                - revoked
+          required:
+            - name
+            - verificationStatus
+          description: Null when the account has not requested organization status
+      required:
+        - id
+        - role
+        - status
+        - signInMethods
+        - age
+        - createdAt
+        - profile
+        - organization
+      description: >-
+        An account as administrators see it in a list: without its phone number
+        and date of birth
+      example:
+        id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+        role: user
+        status: active
+        signInMethods:
+          - google
+        age: 25
+        createdAt: '2026-10-12T09:30:00.000Z'
+        profile:
+          username: olena_k
+          displayName: Olena
+        organization: null
+    AccountRole:
+      type: string
+      enum:
+        - user
+        - admin
+    AccountStatus:
+      type: string
+      enum:
+        - pending
+        - active
+        - banned
+      description: >-
+        `pending`: signed in with Google, has not given a date of birth yet.
+        `banned`: cannot sign in
+    PageInfo:
+      type: object
+      properties:
+        limit:
+          type: integer
+        offset:
+          type: integer
+        hasMore:
+          type: boolean
+          description: Whether another page follows
+      required:
+        - limit
+        - offset
+        - hasMore
+      example:
+        limit: 20
+        offset: 0
+        hasMore: false
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+              description: >-
+                Every invalid field, for validation errors and business rules
+                that can name them
+          required:
+            - code
+            - message
+      required:
+        - error
+      description: The body of every error response
+      example:
+        error:
+          code: VALIDATION_ERROR
+          message: The request is invalid
+          details:
+            - location: params
+              field: id
+              message: Invalid UUID
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHENTICATED
+        - PAYLOAD_TOO_LARGE
+        - UNSUPPORTED_MEDIA_TYPE
+        - RATE_LIMITED
+        - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
+        - NOT_FOUND
+        - CONFLICT
+        - REFERENCE_NOT_FOUND
+        - ORGANIZATION_NOT_VERIFIED
+        - EVENT_CANCELLED
+        - EVENT_ENDS_BEFORE_START
+        - VENUE_OUTSIDE_CITY
+        - APPLICATIONS_CLOSED
+        - INVALID_SESSION_DAY
+        - LISTING_DATE_IN_PAST
+        - USERNAME_TAKEN
+        - PROFILE_EXISTS
+        - PROFILE_INCOMPLETE
+        - ALREADY_APPLIED
+        - SAFETY_NOTICE_REQUIRED
+        - CONTACT_REQUIRED
+        - INVALID_SOCIAL_HANDLE
+        - INVALID_CREDENTIALS
+        - WRONG_PASSWORD
+        - INVALID_GOOGLE_TOKEN
+        - GOOGLE_ACCOUNT_TAKEN
+        - GOOGLE_ALREADY_LINKED
+        - INVALID_CODE
+        - PHONE_CODES_UNAVAILABLE
+        - INVALID_REFRESH_TOKEN
+        - UNDERAGE
+        - CANNOT_REPORT_SELF
+        - CANNOT_RESOLVE_OWN_CASE
+        - CANNOT_BAN_ADMIN
+        - CANNOT_DECIDE_OWN_REQUEST
+        - INVALID_IMAGE
+      description: Machine-readable code; clients branch on it, not on the message
+    ValidationIssue:
+      type: object
+      properties:
+        location:
+          $ref: '#/components/schemas/ValidationLocation'
+        field:
+          type: string
+        message:
+          type: string
+      required:
+        - location
+        - field
+        - message
+      description: One invalid field of the request
+    ValidationLocation:
+      type: string
+      enum:
+        - params
+        - query
+        - body
+      description: Part of the request the invalid field is in
+    AdminAccountDetails:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/AccountRole'
+        status:
+          $ref: '#/components/schemas/AccountStatus'
+        signInMethods:
+          type: array
+          items:
+            type: string
+            enum:
+              - google
+              - password
+          description: How the account signs in
+        age:
+          type: integer
+          nullable: true
+          description: Whole years; null while the account is pending
+        createdAt:
+          type: string
+          format: date-time
+          description: When the account was registered
+        profile:
+          type: object
+          nullable: true
+          properties:
+            username:
+              type: string
+            displayName:
+              type: string
+            description:
+              type: string
+            occupation:
+              type: string
+            interests:
+              type: array
+              items:
+                $ref: '#/components/schemas/Interest'
+            photo:
+              $ref: '#/components/schemas/Image'
+            cover:
+              $ref: '#/components/schemas/CoverImage'
+          required:
+            - username
+            - displayName
+            - description
+            - occupation
+            - interests
+            - photo
+            - cover
+          description: The profile as other users see it; null without a profile
+        organization:
+          type: object
+          nullable: true
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+              nullable: true
+            officialLink:
+              type: string
+              nullable: true
+            verificationStatus:
+              type: string
+              enum:
+                - pending
+                - verified
+                - rejected
+                - revoked
+              description: >-
+                pending: waits for an administrator; only a verified
+                organization publishes events
+            verifiedAt:
+              type: string
+              nullable: true
+              format: date-time
+              description: When an administrator verified it; null otherwise
+            logo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: A square shown as a circle; null shows the building icon
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+          required:
+            - name
+            - description
+            - officialLink
+            - verificationStatus
+            - verifiedAt
+            - logo
+          description: Null when the account has not requested organization status
+          example:
+            name: Мистецький Арсенал
+            description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+            officialLink: https://artarsenal.in.ua
+            verificationStatus: pending
+            verifiedAt: null
+            logo: null
+      required:
+        - id
+        - role
+        - status
+        - signInMethods
+        - age
+        - createdAt
+        - profile
+        - organization
+      description: >-
+        One account as administrators see it: its profile and its organization
+        request
+      example:
+        id: c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14
+        role: user
+        status: active
+        signInMethods:
+          - google
+        age: 25
+        createdAt: '2026-10-12T09:30:00.000Z'
+        profile:
+          username: olena_k
+          displayName: Olena
+          description: Cinema, galleries and long walks.
+          occupation: Student at Kyiv-Mohyla Academy
+          interests:
+            - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+              name: Книги
+              group: Книги й комікси
+          photo: null
+          cover: null
+        organization:
+          name: Мистецький Арсенал
+          description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+          officialLink: https://artarsenal.in.ua
+          verificationStatus: verified
+          verifiedAt: '2026-10-14T12:00:00.000Z'
+          logo: null
+    Interest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        group:
+          type: string
+          description: The heading the interest is shown under
+      required:
+        - id
+        - name
+        - group
+      description: An interest from the fixed list users pick from
+      example:
+        id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+        name: Книги
+        group: Книги й комікси
+    Image:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Get the picture with getImage
+        width:
+          type: integer
+        height:
+          type: integer
+      required:
+        - id
+        - width
+        - height
+      description: An uploaded picture, stored cropped
+      example:
+        id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+        width: 512
+        height: 512
+    CoverImage:
+      type: object
+      nullable: true
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Get the picture with getImage
+        width:
+          type: integer
+        height:
+          type: integer
+        crop:
+          type: object
+          properties:
+            left:
+              type: integer
+            top:
+              type: integer
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - left
+            - top
+            - width
+            - height
+          description: >-
+            The area the user picked (390:200). A screen of another shape shows
+            more of the picture around it, or less
+      required:
+        - id
+        - width
+        - height
+        - crop
+      description: 'The profile cover: the whole picture and the area the user picked'
+      example:
+        id: 6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d
+        width: 2560
+        height: 1920
+        crop:
+          left: 0
+          top: 640
+          width: 2560
+          height: 1313
     BackupHistory:
       type: object
       properties:
@@ -133,99 +614,6 @@ components:
         - durationSeconds
         - sizeBytes
         - reason
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: object
-          properties:
-            code:
-              $ref: '#/components/schemas/ErrorCode'
-            message:
-              type: string
-            details:
-              type: array
-              items:
-                $ref: '#/components/schemas/ValidationIssue'
-              description: >-
-                Every invalid field, for validation errors and business rules
-                that can name them
-          required:
-            - code
-            - message
-      required:
-        - error
-      description: The body of every error response
-      example:
-        error:
-          code: VALIDATION_ERROR
-          message: The request is invalid
-          details:
-            - location: params
-              field: id
-              message: Invalid UUID
-    ErrorCode:
-      type: string
-      enum:
-        - VALIDATION_ERROR
-        - UNAUTHENTICATED
-        - PAYLOAD_TOO_LARGE
-        - UNSUPPORTED_MEDIA_TYPE
-        - RATE_LIMITED
-        - INTERNAL_ERROR
-        - SERVICE_UNAVAILABLE
-        - NOT_FOUND
-        - CONFLICT
-        - REFERENCE_NOT_FOUND
-        - ORGANIZATION_NOT_VERIFIED
-        - EVENT_CANCELLED
-        - EVENT_ENDS_BEFORE_START
-        - APPLICATIONS_CLOSED
-        - INVALID_SESSION_DAY
-        - LISTING_DATE_IN_PAST
-        - USERNAME_TAKEN
-        - PROFILE_EXISTS
-        - PROFILE_INCOMPLETE
-        - ALREADY_APPLIED
-        - SAFETY_NOTICE_REQUIRED
-        - CONTACT_REQUIRED
-        - INVALID_SOCIAL_HANDLE
-        - INVALID_CREDENTIALS
-        - WRONG_PASSWORD
-        - INVALID_GOOGLE_TOKEN
-        - GOOGLE_ACCOUNT_TAKEN
-        - GOOGLE_ALREADY_LINKED
-        - INVALID_CODE
-        - PHONE_CODES_UNAVAILABLE
-        - INVALID_REFRESH_TOKEN
-        - UNDERAGE
-        - CANNOT_REPORT_SELF
-        - CANNOT_RESOLVE_OWN_CASE
-        - CANNOT_BAN_ADMIN
-        - CANNOT_DECIDE_OWN_REQUEST
-        - INVALID_IMAGE
-      description: Machine-readable code; clients branch on it, not on the message
-    ValidationIssue:
-      type: object
-      properties:
-        location:
-          $ref: '#/components/schemas/ValidationLocation'
-        field:
-          type: string
-        message:
-          type: string
-      required:
-        - location
-        - field
-        - message
-      description: One invalid field of the request
-    ValidationLocation:
-      type: string
-      enum:
-        - params
-        - query
-        - body
-      description: Part of the request the invalid field is in
     PlatformStats:
       type: object
       properties:
@@ -351,19 +739,226 @@ components:
       description: Only the fields to change
       example:
         isActive: false
-    CategoryList:
+    AdminEventsPage:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/Category'
+            $ref: '#/components/schemas/AdminEvent'
+        page:
+          $ref: '#/components/schemas/PageInfo'
       required:
         - items
+        - page
       example:
         items:
-          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
-            name: Концерти
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+              name: Концерти
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            startTimeKnown: true
+            endsAt: '2026-10-17T21:30:00+03:00'
+            endTimeKnown: true
+            priceMin: 150
+            priceMax: null
+            imageUrl: null
+            photo: null
+            sourceUrl: null
+            source: organization
+            status: published
+            organization:
+              accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    AdminEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        venue:
+          $ref: '#/components/schemas/Venue'
+        startsAt:
+          type: string
+          format: date-time
+        startTimeKnown:
+          type: boolean
+          description: >-
+            False when the provider gives no time of day: startsAt is then a
+            default opening time (12:00 Europe/Kyiv for exhibitions) that only
+            orders the event and its sessions; show the dates without a time.
+            Always true for an organization event
+        endsAt:
+          type: string
+          format: date-time
+        endTimeKnown:
+          type: boolean
+          description: >-
+            False for an imported event whose provider gives no end: endsAt is
+            then the end of its start day in Europe/Kyiv and only startsAt
+            should be shown. Always true for an organization event
+        priceMin:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The lowest ticket price in whole hryvnias. Null when the price is
+            unknown: show no price. 0 with priceMax null or 0: the event is free
+        priceMax:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The highest ticket price in whole hryvnias, when the tickets cost
+            from priceMin to priceMax; never below priceMin. Null for one price,
+            a free event or an unknown price
+        imageUrl:
+          type: string
+          nullable: true
+          description: >-
+            Imported events: the provider's image URL, shown as is; null for
+            organization events
+        photo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage; a guest token may
+            width:
+              type: integer
+            height:
+              type: integer
+            crop:
+              type: object
+              properties:
+                left:
+                  type: integer
+                top:
+                  type: integer
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - left
+                - top
+                - width
+                - height
+              description: >-
+                The area the organization picked (2:1, the catalog card). The
+                event page, almost square, shows more around it
+          required:
+            - id
+            - width
+            - height
+            - crop
+          description: >-
+            The cover an organization uploaded; null for imported events and
+            without one
+          example:
+            id: 7b8c9d0e-1f2a-4b3c-9d4e-5f6a7b8c9d0e
+            width: 2560
+            height: 1707
+            crop:
+              left: 0
+              top: 213
+              width: 2560
+              height: 1280
+        sourceUrl:
+          type: string
+          nullable: true
+          description: >-
+            Imported events: the event's page at the provider, to credit it and
+            to buy tickets; null otherwise
+        source:
+          $ref: '#/components/schemas/EventSource'
+        status:
+          $ref: '#/components/schemas/EventStatus'
+        organization:
+          type: object
+          nullable: true
+          properties:
+            accountId:
+              type: string
+              format: uuid
+              description: Get it with adminGetOrganization
+            name:
+              type: string
+          required:
+            - accountId
+            - name
+          description: The organization that added it; null for an imported one
+      required:
+        - id
+        - title
+        - description
+        - category
+        - venue
+        - startsAt
+        - startTimeKnown
+        - endsAt
+        - endTimeKnown
+        - priceMin
+        - priceMax
+        - imageUrl
+        - photo
+        - sourceUrl
+        - source
+        - status
+        - organization
+      description: >-
+        An event as administrators see it: in any status, past or upcoming, with
+        who added it
+      example:
+        id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+        title: 'Open-air film night: Shadows of Forgotten Ancestors'
+        description: Screening in the park, bring a blanket.
+        category:
+          id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+          name: Концерти
+        venue:
+          id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+          name: Natalka Park lawn
+          address: Naberezhno-Luhova St, Kyiv
+          location:
+            lat: 50.4825
+            lng: 30.5181
+        startsAt: '2026-10-17T19:00:00+03:00'
+        startTimeKnown: true
+        endsAt: '2026-10-17T21:30:00+03:00'
+        endTimeKnown: true
+        priceMin: 150
+        priceMax: null
+        imageUrl: null
+        photo: null
+        sourceUrl: null
+        source: organization
+        status: published
+        organization:
+          accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+          name: Podil Film Club
     Category:
       type: object
       properties:
@@ -379,6 +974,145 @@ components:
       example:
         id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
         name: Концерти
+    Venue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+      required:
+        - id
+        - name
+        - address
+        - location
+      description: Where an event takes place
+    EventSource:
+      type: string
+      enum:
+        - organization
+        - import
+      description: 'Who added the event: a verified organization or the importer'
+    EventStatus:
+      type: string
+      enum:
+        - published
+        - cancelled
+    AdminVenuesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminVenue'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+            name: Natalka Park lawn
+            address: Naberezhno-Luhova St, Kyiv
+            location:
+              lat: 50.4825
+              lng: 30.5181
+            source: organization
+            organization:
+              accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    AdminVenue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+            lng:
+              type: number
+          required:
+            - lat
+            - lng
+        source:
+          $ref: '#/components/schemas/VenueSource'
+        organization:
+          type: object
+          nullable: true
+          properties:
+            accountId:
+              type: string
+              format: uuid
+              description: Get it with adminGetOrganization
+            name:
+              type: string
+          required:
+            - accountId
+            - name
+          description: The organization that added it; null for an imported one
+      required:
+        - id
+        - name
+        - address
+        - location
+        - source
+        - organization
+      description: A venue as administrators see it, with who added it
+      example:
+        id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+        name: Natalka Park lawn
+        address: Naberezhno-Luhova St, Kyiv
+        location:
+          lat: 50.4825
+          lng: 30.5181
+        source: organization
+        organization:
+          accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+          name: Podil Film Club
+    VenueSource:
+      type: string
+      enum:
+        - organization
+        - import
+      description: 'Who added the venue: an organization, which owns it, or the importer'
+    CategoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+      required:
+        - items
+      example:
+        items:
+          - id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+            name: Концерти
     EventsPage:
       type: object
       properties:
@@ -423,7 +1157,10 @@ components:
             startTimeKnown: true
             endsAt: '2026-10-17T21:30:00+03:00'
             endTimeKnown: true
+            priceMin: 150
+            priceMax: null
             imageUrl: null
+            photo: null
             sourceUrl: null
             source: organization
             status: published
@@ -465,12 +1202,75 @@ components:
             False for an imported event whose provider gives no end: endsAt is
             then the end of its start day in Europe/Kyiv and only startsAt
             should be shown. Always true for an organization event
+        priceMin:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The lowest ticket price in whole hryvnias. Null when the price is
+            unknown: show no price. 0 with priceMax null or 0: the event is free
+        priceMax:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: >-
+            The highest ticket price in whole hryvnias, when the tickets cost
+            from priceMin to priceMax; never below priceMin. Null for one price,
+            a free event or an unknown price
         imageUrl:
           type: string
           nullable: true
           description: >-
             Imported events: the provider's image URL, shown as is; null for
             organization events
+        photo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage; a guest token may
+            width:
+              type: integer
+            height:
+              type: integer
+            crop:
+              type: object
+              properties:
+                left:
+                  type: integer
+                top:
+                  type: integer
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - left
+                - top
+                - width
+                - height
+              description: >-
+                The area the organization picked (2:1, the catalog card). The
+                event page, almost square, shows more around it
+          required:
+            - id
+            - width
+            - height
+            - crop
+          description: >-
+            The cover an organization uploaded; null for imported events and
+            without one
+          example:
+            id: 7b8c9d0e-1f2a-4b3c-9d4e-5f6a7b8c9d0e
+            width: 2560
+            height: 1707
+            crop:
+              left: 0
+              top: 213
+              width: 2560
+              height: 1280
         sourceUrl:
           type: string
           nullable: true
@@ -491,7 +1291,10 @@ components:
         - startTimeKnown
         - endsAt
         - endTimeKnown
+        - priceMin
+        - priceMax
         - imageUrl
+        - photo
         - sourceUrl
         - source
         - status
@@ -514,65 +1317,55 @@ components:
         startTimeKnown: true
         endsAt: '2026-10-17T21:30:00+03:00'
         endTimeKnown: true
+        priceMin: 150
+        priceMax: null
         imageUrl: null
+        photo: null
         sourceUrl: null
         source: organization
         status: published
-    Venue:
+    MyEventsPage:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        address:
-          type: string
-        location:
-          type: object
-          properties:
-            lat:
-              type: number
-            lng:
-              type: number
-          required:
-            - lat
-            - lng
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          $ref: '#/components/schemas/PageInfo'
       required:
-        - id
-        - name
-        - address
-        - location
-      description: Where an event takes place
-    EventSource:
-      type: string
-      enum:
-        - organization
-        - import
-      description: 'Who added the event: a verified organization or the importer'
-    EventStatus:
-      type: string
-      enum:
-        - published
-        - cancelled
-    PageInfo:
-      type: object
-      properties:
-        limit:
-          type: integer
-        offset:
-          type: integer
-        hasMore:
-          type: boolean
-          description: Whether another page follows
-      required:
-        - limit
-        - offset
-        - hasMore
+        - items
+        - page
       example:
-        limit: 20
-        offset: 0
-        hasMore: false
+        items:
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+              name: Концерти
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            startTimeKnown: true
+            endsAt: '2026-10-17T21:30:00+03:00'
+            endTimeKnown: true
+            priceMin: 150
+            priceMax: null
+            imageUrl: null
+            photo: null
+            sourceUrl: null
+            source: organization
+            status: published
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     CreateEventBody:
       type: object
       properties:
@@ -601,6 +1394,25 @@ components:
           type: string
           format: date-time
           description: End time with an offset; must be after startsAt
+        priceMin:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 1000000
+          default: null
+          description: >-
+            The lowest ticket price in whole hryvnias; 0 for a free event.
+            Omitted or null: the price is unknown
+        priceMax:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 1000000
+          default: null
+          description: >-
+            The highest ticket price of a range in whole hryvnias; only together
+            with priceMin, and not below it. Omitted or null for one price or a
+            free event
       required:
         - title
         - description
@@ -617,6 +1429,8 @@ components:
         venueId: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
         startsAt: '2026-10-25T19:00:00+03:00'
         endsAt: '2026-10-25T21:00:00+03:00'
+        priceMin: 300
+        priceMax: 700
     Organization:
       type: object
       properties:
@@ -643,12 +1457,34 @@ components:
           nullable: true
           format: date-time
           description: When an administrator verified it; null otherwise
+        logo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - id
+            - width
+            - height
+          description: A square shown as a circle; null shows the building icon
+          example:
+            id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+            width: 512
+            height: 512
       required:
         - name
         - description
         - officialLink
         - verificationStatus
         - verifiedAt
+        - logo
       description: The caller’s organization request and its status
       example:
         name: Мистецький Арсенал
@@ -656,6 +1492,7 @@ components:
         officialLink: https://artarsenal.in.ua
         verificationStatus: pending
         verifiedAt: null
+        logo: null
     OrganizationRequestBody:
       type: object
       properties:
@@ -685,6 +1522,70 @@ components:
         name: Мистецький Арсенал
         description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
         officialLink: https://artarsenal.in.ua
+    VenuesPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Venue'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+            name: Natalka Park lawn
+            address: Naberezhno-Luhova St, Kyiv
+            location:
+              lat: 50.4825
+              lng: 30.5181
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    CreateVenueBody:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: The venue’s name, as users will see it
+        address:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Street and building, as users will see it
+        location:
+          type: object
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+          required:
+            - lat
+            - lng
+          additionalProperties: false
+          description: Where the venue’s map pin stands; must be in Kyiv
+      required:
+        - name
+        - address
+        - location
+      additionalProperties: false
+      example:
+        name: Natalka Park lawn
+        address: Naberezhno-Luhova St, Kyiv
+        location:
+          lat: 50.4825
+          lng: 30.5181
     AccessTokenResponse:
       type: object
       properties:
@@ -889,27 +1790,6 @@ components:
         - displayName
         - photo
       description: Who posted the listing; never their contacts
-    Image:
-      type: object
-      nullable: true
-      properties:
-        id:
-          type: string
-          format: uuid
-          description: Get the picture with getImage
-        width:
-          type: integer
-        height:
-          type: integer
-      required:
-        - id
-        - width
-        - height
-      description: An uploaded picture, stored cropped
-      example:
-        id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
-        width: 512
-        height: 512
     ListingStatus:
       type: string
       enum:
@@ -1410,26 +2290,6 @@ components:
         are open. `declined`: one of the two declined. `expired`: not answered
         in time. `cancelled`: one of the two withdrew, the event was cancelled
         or a user was banned
-    Interest:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        group:
-          type: string
-          description: The heading the interest is shown under
-      required:
-        - id
-        - name
-        - group
-      description: An interest from the fixed list users pick from
-      example:
-        id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
-        name: Книги
-        group: Книги й комікси
     MatchContacts:
       type: object
       properties:
@@ -1499,6 +2359,7 @@ components:
             officialLink: https://artarsenal.in.ua
             verificationStatus: pending
             verifiedAt: null
+            logo: null
             accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
             account:
               id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
@@ -1534,6 +2395,27 @@ components:
           nullable: true
           format: date-time
           description: When an administrator verified it; null otherwise
+        logo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - id
+            - width
+            - height
+          description: A square shown as a circle; null shows the building icon
+          example:
+            id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+            width: 512
+            height: 512
         accountId:
           type: string
           format: uuid
@@ -1564,6 +2446,7 @@ components:
         - officialLink
         - verificationStatus
         - verifiedAt
+        - logo
         - accountId
         - account
       description: An organization request as an administrator reviews it
@@ -1573,6 +2456,7 @@ components:
         officialLink: https://artarsenal.in.ua
         verificationStatus: pending
         verifiedAt: null
+        logo: null
         accountId: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
         account:
           id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
@@ -2387,6 +3271,141 @@ components:
           database: up
   parameters: {}
 paths:
+  /api/v1/admin/accounts:
+    get:
+      operationId: adminListAccounts
+      summary: List accounts
+      description: >-
+        List accounts, newest first: users and administrators, with their
+        profile and organization status. The phone number and the date of birth
+        are never returned, only the age. Needs an administrator account; other
+        accounts get 404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: An account id, or part of a username or display name, in any case
+          required: false
+          description: An account id, or part of a username or display name, in any case
+          name: search
+          in: query
+        - schema:
+            type: string
+            enum:
+              - user
+              - admin
+            description: Only accounts with this role; `admin` lists the administrators
+          required: false
+          description: Only accounts with this role; `admin` lists the administrators
+          name: role
+          in: query
+        - schema:
+            type: string
+            enum:
+              - pending
+              - active
+              - banned
+            description: Only accounts in this status
+          required: false
+          description: Only accounts in this status
+          name: status
+          in: query
+      responses:
+        '200':
+          description: A page of accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/accounts/{id}:
+    get:
+      operationId: adminGetAccount
+      summary: Get an account
+      description: >-
+        Get one account with its profile, as other users see it, and its
+        organization request. Needs an administrator account; other accounts get
+        404.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id
+          required: true
+          description: Account id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccountDetails'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No account with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/admin/backups:
     get:
       operationId: adminListBackups
@@ -2684,6 +3703,295 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/events:
+    get:
+      operationId: adminListEvents
+      summary: List all events
+      description: >-
+        List every event, imported or added by an organization, published or
+        cancelled, upcoming or past. For the catalog users see, use listEvents.
+        Needs an administrator account; other accounts get 404.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            enum:
+              - upcoming
+              - past
+            default: upcoming
+            description: >-
+              `upcoming`: not ended yet, soonest first. `past`: ended, latest
+              first
+          required: false
+          description: >-
+            `upcoming`: not ended yet, soonest first. `past`: ended, latest
+            first
+          name: period
+          in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Part of the title, in any case
+          required: false
+          description: Part of the title, in any case
+          name: search
+          in: query
+        - schema:
+            $ref: '#/components/schemas/EventSource'
+          required: false
+          description: 'Who added the event: a verified organization or the importer'
+          name: source
+          in: query
+        - schema:
+            $ref: '#/components/schemas/EventStatus'
+          required: false
+          name: status
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events of this organization, by its account id
+          required: false
+          description: Only events of this organization, by its account id
+          name: organizationId
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events at this venue
+          required: false
+          description: Only events at this venue
+          name: venueId
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only events of this category, active or not
+          required: false
+          description: Only events of this category, active or not
+          name: categoryId
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/events/{id}:
+    get:
+      operationId: adminGetEvent
+      summary: Get any event
+      description: >-
+        Get one event in any status, past ones too, with who added it. Needs an
+        administrator account; other accounts get 404.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminEvent'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/venues:
+    get:
+      operationId: adminListVenues
+      summary: List all venues
+      description: >-
+        List every venue by name: the imported ones and those organizations
+        added. Needs an administrator account; other accounts get 404.
+      tags:
+        - Venues
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Part of the name or the address, in any case
+          required: false
+          description: Part of the name or the address, in any case
+          name: search
+          in: query
+        - schema:
+            type: string
+            enum:
+              - organization
+              - import
+          required: false
+          name: source
+          in: query
+        - schema:
+            type: string
+            format: uuid
+            description: Only venues of this organization, by its account id
+          required: false
+          description: Only venues of this organization, by its account id
+          name: organizationId
+          in: query
+      responses:
+        '200':
+          description: A page of venues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminVenuesPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/venues/{id}:
+    get:
+      operationId: adminGetVenue
+      summary: Get any venue
+      description: >-
+        Get one venue with the organization that owns it. Needs an administrator
+        account; other accounts get 404.
+      tags:
+        - Venues
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Venue id
+          required: true
+          description: Venue id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The venue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminVenue'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No venue with this id, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/categories:
     get:
       operationId: listCategories
@@ -2845,6 +4153,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/events:
+    get:
+      operationId: listMyEvents
+      summary: List your organization’s events
+      description: >-
+        List the events the caller’s organization has published that have not
+        ended, the cancelled ones too, soonest first. Empty for an account that
+        is not an organization. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyEventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/events/{id}:
     get:
       operationId: getEvent
@@ -2995,6 +4356,188 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/events/{id}/photo:
+    put:
+      operationId: uploadEventPhoto
+      summary: Add a cover to your event
+      description: >-
+        Set or replace the cover of one of the organization’s own events. The
+        crop is the catalog card’s 2:1 shape, and the whole picture is kept (up
+        to 2560 px), so the event page shows more around it. Send the picture
+        itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10
+        MB), and the area picked in the crop preview as fractions in the query.
+        The server cuts the largest area of the exact shape inside it, rotates
+        the picture by its EXIF orientation, drops its metadata (location
+        included) and stores it as WebP. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Left edge, a fraction of the picture’s width (0 to 1)
+          required: false
+          description: Left edge, a fraction of the picture’s width (0 to 1)
+          name: cropLeft
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Top edge, a fraction of the picture’s height (0 to 1)
+          required: false
+          description: Top edge, a fraction of the picture’s height (0 to 1)
+          name: cropTop
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Width, a fraction of the picture’s width
+          required: true
+          description: Width, a fraction of the picture’s width
+          name: cropWidth
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Height, a fraction of the picture’s height
+          required: true
+          description: Height, a fraction of the picture’s height
+          name: cropHeight
+          in: query
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: The updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: The file is larger than the limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: The Content-Type is not one of the accepted file types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `EVENT_CANCELLED`: a cancelled event keeps its cover.
+            `ORGANIZATION_NOT_VERIFIED`: as when publishing. `INVALID_IMAGE`:
+            the body is not a JPEG, PNG or WebP picture.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteEventPhoto
+      summary: Remove the cover of your event
+      description: >-
+        Remove the cover of one of the organization’s own events. Without a
+        cover, nothing changes. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Events
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Event id
+          required: true
+          description: Event id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No event with this id, or it is not one of the organization’s own
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `EVENT_CANCELLED`, `ORGANIZATION_NOT_VERIFIED`: as when adding a
+            cover.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/me/organization:
     get:
       operationId: getMyOrganization
@@ -3067,6 +4610,301 @@ paths:
           description: >-
             `CONFLICT`: the organization is already verified, or its
             verification was revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/organization/logo:
+    put:
+      operationId: uploadOrganizationLogo
+      summary: Add your organization’s logo
+      description: >-
+        Set or replace the logo of the caller’s organization, in any
+        verification status: a square shown as a circle, stored at up to 512 ×
+        512. The catalog shows it, so guests may load it. Send the picture
+        itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10
+        MB), and the area picked in the crop preview as fractions in the query.
+        The server cuts the largest area of the exact shape inside it, rotates
+        the picture by its EXIF orientation, drops its metadata (location
+        included) and stores it as WebP. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      x-mcp: false
+      parameters:
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Left edge, a fraction of the picture’s width (0 to 1)
+          required: false
+          description: Left edge, a fraction of the picture’s width (0 to 1)
+          name: cropLeft
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: 0
+            maximum: 1
+            description: Top edge, a fraction of the picture’s height (0 to 1)
+          required: false
+          description: Top edge, a fraction of the picture’s height (0 to 1)
+          name: cropTop
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Width, a fraction of the picture’s width
+          required: true
+          description: Width, a fraction of the picture’s width
+          name: cropWidth
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            maximum: 1
+            exclusiveMinimum: true
+            description: Height, a fraction of the picture’s height
+          required: true
+          description: Height, a fraction of the picture’s height
+          name: cropHeight
+          in: query
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: The organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The caller has not requested organization status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: The file is larger than the limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: The Content-Type is not one of the accepted file types
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is
+            broken, or has over 60 megapixels.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteOrganizationLogo
+      summary: Remove your organization’s logo
+      description: >-
+        Remove the logo of the caller’s organization. Without a logo, nothing
+        changes. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The caller has not requested organization status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/venues:
+    get:
+      operationId: listMyVenues
+      summary: List your organization’s venues
+      description: >-
+        List the venues the caller’s organization has added, by name. An
+        organization publishes events only at its own venues. Empty for an
+        account that is not an organization. Needs a signed-in account; a guest
+        token gets 401.
+      tags:
+        - Venues
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of venues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VenuesPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createVenue
+      summary: Add a venue
+      description: >-
+        Add a venue where the caller’s organization can publish events: a name,
+        an address and its point on the map, which must be in Kyiv. Needs a
+        signed-in account; a guest token gets 401.
+      tags:
+        - Venues
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVenueBody'
+      responses:
+        '201':
+          description: The added venue
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified
+            organization. `VENUE_OUTSIDE_CITY`: the location is not in Kyiv.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/venues/{id}:
+    get:
+      operationId: getMyVenue
+      summary: Get one of your organization’s venues
+      description: >-
+        Get one of your organization’s venues. Needs a signed-in account; a
+        guest token gets 401.
+      tags:
+        - Venues
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Venue id
+          required: true
+          description: Venue id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The venue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Venue'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No venue with this id, or it is not one of the organization’s own
           content:
             application/json:
               schema:
@@ -3298,9 +5136,10 @@ paths:
       summary: Get a picture
       description: >-
         The bytes of an uploaded picture, as WebP. Only through the API, never a
-        public link (TM-14). An image never changes: a new upload gets a new id,
-        so clients may cache it for good. Needs a signed-in account; a guest
-        token gets 401.
+        public link (TM-14). A guest token gets only event photos and
+        organization logos, which the catalog shows. An image never changes: a
+        new upload gets a new id, so clients may cache it for good. Needs an
+        access token: a guest token or a signed-in account.
       tags:
         - Images
       security:
@@ -3336,7 +5175,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No image with this id
+          description: No image with this id, or a guest asked for a picture of a person
           content:
             application/json:
               schema:
@@ -4190,8 +6029,8 @@ paths:
       summary: List organization requests
       description: >-
         List organization requests: pending ones first, oldest first, then the
-        verified, rejected and revoked ones. Needs an administrator account;
-        other accounts get 404.
+        verified, rejected and revoked ones. Filter them by name or status.
+        Needs an administrator account; other accounts get 404.
       tags:
         - Organizations
       security:
@@ -4217,6 +6056,27 @@ paths:
           description: Items to skip
           name: offset
           in: query
+        - schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+            description: Part of the organization’s name, in any case
+          required: false
+          description: Part of the organization’s name, in any case
+          name: search
+          in: query
+        - schema:
+            type: string
+            enum:
+              - pending
+              - verified
+              - rejected
+              - revoked
+            description: Only organizations in this status
+          required: false
+          description: Only organizations in this status
+          name: status
+          in: query
       responses:
         '200':
           description: A page of requests
@@ -4238,6 +6098,54 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Not found, or the caller is not an administrator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/admin/organizations/{accountId}:
+    get:
+      operationId: adminGetOrganization
+      summary: Get an organization request
+      description: >-
+        Get the organization request of one account, in any status, with the
+        account that sent it. Needs an administrator account; other accounts get
+        404.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Account id of the organization
+          required: true
+          description: Account id of the organization
+          name: accountId
+          in: path
+      responses:
+        '200':
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOrganization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            The account has not requested organization status, or the caller is
+            not an administrator
           content:
             application/json:
               schema:

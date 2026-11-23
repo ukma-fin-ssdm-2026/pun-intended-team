@@ -3,6 +3,10 @@
 export const tags = [
   { name: 'Auth', description: 'Registration, sign-in methods and guest tokens' },
   { name: 'Events', description: 'Events users can go to together' },
+  {
+    name: 'Venues',
+    description: 'An organization’s own venues, where it publishes its events; all of them for administrators',
+  },
   { name: 'Listings', description: '"Looking for company" posts' },
   { name: 'Matching', description: 'Asking for a match at an event and leaving the pool' },
   { name: 'Notifications', description: 'The signed-in user’s inbox' },
@@ -12,7 +16,7 @@ export const tags = [
   { name: 'Categories', description: 'The event category directory' },
   { name: 'Organizations', description: 'Organization status: an account requests it, administrators verify it' },
   { name: 'Moderation', description: 'Reports on users and listings, and how administrators resolve them' },
-  { name: 'Admin', description: 'Platform statistics and database backups for administrators' },
+  { name: 'Admin', description: 'Accounts, platform statistics and database backups for administrators' },
   { name: 'System', description: 'Service endpoints' },
 ] as const;
 

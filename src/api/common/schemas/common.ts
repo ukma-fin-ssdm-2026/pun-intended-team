@@ -5,6 +5,9 @@ export const Id = z.uuid();
 export const DateTime = z.iso.datetime({ offset: true });
 export const CalendarDate = z.iso.date();
 
+/** Free text an administrator searches a list for. */
+export const SearchText = z.string().trim().min(1).max(100);
+
 // Catalog access, rule 2: no page holds more than 20 items.
 const MAX_PAGE_SIZE = 20;
 

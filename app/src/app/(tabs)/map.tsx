@@ -13,6 +13,7 @@ import type { MapPoint } from '@/components/map/kyiv';
 import { VenueMap } from '@/components/map/venue-map';
 import { eventsLabel, matchesMapSearch, venuesOf } from '@/components/map/venue-pins';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
+import { ApiPicture } from '@/components/pictures/picture';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { IconButton } from '@/components/ui/icon-button';
@@ -163,7 +164,9 @@ export default function MapScreen() {
                       className="flex-row items-center gap-3 py-2.5"
                     >
                       <View className="size-11 items-center justify-center overflow-hidden rounded-xl bg-brand-coral-soft">
-                        {event.imageUrl ? (
+                        {event.photo ? (
+                          <ApiPicture image={event.photo} />
+                        ) : event.imageUrl ? (
                           <Image
                             source={{ uri: event.imageUrl }}
                             contentFit="cover"

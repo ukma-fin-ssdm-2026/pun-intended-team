@@ -89,6 +89,7 @@ function makeService() {
   const prepared = {
     encoded: { content: new Uint8Array(), contentType: 'image/webp', width: 1200, height: 600 },
     crop: null,
+    isPublic: false,
   };
   const imagesService = {
     prepare: mock.fn((): Promise<PreparedImage> => Promise.resolve(prepared)),

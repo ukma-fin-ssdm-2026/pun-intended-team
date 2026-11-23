@@ -46,6 +46,8 @@ export const typography = {
   button: { fontSize: 16, lineHeight: 20 },
   'button-sm': { fontSize: 12, lineHeight: 15 },
   tag: { fontSize: 11, lineHeight: 14 },
+  // The price badge on an event cover; Figma's line height is "auto", which Inter renders at about 1.21.
+  price: { fontSize: 14, lineHeight: 17 },
 };
 
 // CSS box-shadow strings; React Native supports them on iOS, Android and web (New Architecture).

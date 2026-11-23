@@ -6,9 +6,13 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
+import { CropQuery, ImageFileBody, INVALID_IMAGE, UPLOAD_NOTE, toCrop } from '../../images/schemas/images.ts';
 import { Organization, OrganizationRequestBody } from '../schemas/organizations.ts';
 
 const RequestOrganizationRequest = { body: OrganizationRequestBody } satisfies RequestSchemas;
+const UploadLogoRequest = { query: CropQuery, file: ImageFileBody } satisfies RequestSchemas;
+
+const NO_ORGANIZATION = { description: 'The caller has not requested organization status', schema: ErrorResponse };
 
 @Controller()
 export class OrganizationsController {
@@ -58,5 +62,47 @@ export class OrganizationsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Organization> {
     return this.organizationsService.request(account.accountId, body);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.organizations.logo,
+    operationId: 'uploadOrganizationLogo',
+    summary: 'Add your organization’s logo',
+    description:
+      'Set or replace the logo of the caller’s organization, in any verification status: a square shown as a circle, ' +
+      `stored at up to 512 × 512. The catalog shows it, so guests may load it. ${UPLOAD_NOTE}`,
+    tags: ['Organizations'],
+    access: 'user',
+    request: UploadLogoRequest,
+    responses: {
+      200: { description: 'The organization', schema: Organization },
+      404: NO_ORGANIZATION,
+      422: INVALID_IMAGE,
+    },
+    mcp: false,
+  })
+  async uploadOrganizationLogo(
+    @Input() { query, file }: RouteInput<typeof UploadLogoRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Organization> {
+    return this.organizationsService.setLogo(account.accountId, { ...file, crop: toCrop(query) });
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.organizations.logo,
+    operationId: 'deleteOrganizationLogo',
+    summary: 'Remove your organization’s logo',
+    description: 'Remove the logo of the caller’s organization. Without a logo, nothing changes.',
+    tags: ['Organizations'],
+    access: 'user',
+    responses: {
+      200: { description: 'The organization', schema: Organization },
+      404: NO_ORGANIZATION,
+    },
+  })
+  async deleteOrganizationLogo(@CurrentAccount() account: AccountCaller): Promise<Organization> {
+    return this.organizationsService.removeLogo(account.accountId);
   }
 }

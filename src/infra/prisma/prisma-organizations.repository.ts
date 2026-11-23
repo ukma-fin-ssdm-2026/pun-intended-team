@@ -1,10 +1,17 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import type { Page, PageRequest } from '../../core/common/page.ts';
+import type { Transaction } from '../../core/common/transaction.ts';
 import { OrganizationsRepository } from '../../core/catalog/repositories/organizations.repository.ts';
-import type { Organization, OrganizationRequest, VerificationDecision } from '../../core/catalog/types/organization.ts';
+import type {
+  Organization,
+  OrganizationRequest,
+  OrganizationSearch,
+  VerificationDecision,
+} from '../../core/catalog/types/organization.ts';
 import type { Organization as OrganizationRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
+import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
 
 const ORGANIZATION_KEY = 'organizations_pkey';
@@ -37,9 +44,10 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
     return count === 1 ? this.findByAccountId(accountId) : undefined;
   }
 
-  async findPage({ limit, offset }: PageRequest): Promise<Page<Organization>> {
+  async findPage({ search, status }: OrganizationSearch, { limit, offset }: PageRequest): Promise<Page<Organization>> {
     // The enum sorts in its declared order: pending, verified, rejected, revoked.
     const rows = await this.prisma.organization.findMany({
+      where: { verificationStatus: status, name: search ? { contains: search, mode: 'insensitive' } : undefined },
       orderBy: [{ verificationStatus: 'asc' }, { updatedAt: 'asc' }, { accountId: 'asc' }],
       skip: offset,
       take: limit + 1,
@@ -48,6 +56,17 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
       items: rows.slice(0, limit).map(toOrganization),
       page: { limit, offset, hasMore: rows.length > limit },
     };
+  }
+
+  async findByAccountIds(accountIds: string[]): Promise<Organization[]> {
+    const rows = await this.prisma.organization.findMany({ where: { accountId: { in: accountIds } } });
+    return rows.map(toOrganization);
+  }
+
+  async setLogo(accountId: string, logoId: string | null, tx?: Transaction): Promise<Organization> {
+    return toOrganization(
+      await clientOf(this.prisma, tx).organization.update({ where: { accountId }, data: { logoId } }),
+    );
   }
 
   async decide(accountId: string, decision: VerificationDecision, adminId: string, at: Date): Promise<boolean> {
@@ -70,5 +89,6 @@ function toOrganization(row: OrganizationRow): Organization {
     officialLink: row.officialLink,
     verificationStatus: row.verificationStatus,
     verifiedAt: row.verifiedAt?.toISOString() ?? null,
+    logoId: row.logoId,
   };
 }

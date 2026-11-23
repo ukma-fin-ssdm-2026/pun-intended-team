@@ -5,24 +5,26 @@ Owner: Oleh Moshenskyi (Prototype Lead).
 
 ## 1. Where the prototype stands
 
-State on 1 November 2026. The API runs on PostgreSQL for accounts, sessions, categories, profiles, interests and report cases; events and listings are still served from in-memory stubs, so changes to them last until the server restarts. The API and the web app run on [staging](https://nearbystaging.app).
+State on 23 November 2026, on `main` after release [1.2.0](../../CHANGELOG.md). Everything the API serves is kept in PostgreSQL; no part runs on in-memory stubs any more. The API and the web app run on [staging](https://nearbystaging.app).
 
 | Part | State | Issue |
 |---|---|---|
-| Event catalog: browse, get, publish, replace, cancel | Working, in memory | #142 |
-| Event import from the Concert.ua sample feed | Working, in memory | #211 |
-| Listings: browse, get, post, remove | Working, in memory | — |
-| Categories and administration of categories | Working, PostgreSQL | #144 |
-| Profiles: onboarding, edit, interests, linked accounts | Working, PostgreSQL | #141, #337 |
-| Sign-in with Google, JWT access tokens, refresh sessions | Working, PostgreSQL; phone and password routes paused by [ADR-004](../architecture/decisions/ADR-004.md) | #140, #212, #325 |
-| Events and listings in PostgreSQL | Planned | #310 |
-| Matching | The `match` algorithm and the interest score; no endpoints yet | #285 |
-| Reports, report cases and bans; platform statistics for administrators | Working, PostgreSQL | #323 |
-| Expo client | Google sign-in, the profile screens and sending a report use the API; administrators review reports, ban users and manage categories at `/admin` on the web; the catalog, map, matches and listings show test data | #143, #337, #323 |
-| Staging | API and web app on one server | #313, #332 |
-| Notifications | Not started | — |
+| Sign-in with Google, guest tokens, JWT access tokens, refresh sessions | Working; phone and password routes paused by [ADR-004](../architecture/decisions/ADR-004.md) | #140, #212, #325 |
+| Profiles: onboarding, edit, interests, linked accounts, photo and cover | Working | #141, #337 |
+| Event catalog: browse, get, publish, replace, cancel | Working | #142, #310 |
+| Event import from ArtWizard and Karabas | Working: Kyiv events of the next four weeks; events the source no longer lists show as cancelled | #364, #366 |
+| Categories and administration of categories | Working | #144 |
+| Listings: browse, get, post, remove, photo | Working | #310 |
+| Organization verification | Working: an account requests the status, administrators approve or reject it | #383 |
+| Matching: applications, rounds, proposals, accept and decline, contacts of a mutual match, matching after the last round | Working. Not built yet: expiring a proposal past `validUntil`, and handling an event that is changed or cancelled after people applied (#418, open) | #285, #409 |
+| Safety notice before a mutual match's contacts | Working | #495 |
+| Reports on users and listings, report cases, bans, platform statistics | Working | #323, #382 |
+| Notifications: inbox and Android pushes | Working for `report_received` and `no_match_found`; the other eight types have no sender yet (`event_changed` comes with #418) | #372 |
+| Nightly backups with an admin page | Working | #384 |
+| Expo client | Most screens use the API; the organizer page, part of О1, the districts filter, Д2.1 and the join request of Т5.1 still show mock data ([app README](../../app/README.md)) | #486 |
+| Staging | API, web app and PostgreSQL on one Hetzner server, deployed by CI | #313, #332 |
 
-34 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml) (auth 6, events 5, listings 4, categories 1, admin categories 5, profiles 5, interests 1, moderation 5, admin statistics 1, health 1). The `src/mcp/` server exposes all of them as tools except the auth operations.
+63 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml): auth 6, profiles 10, interests 1, events 5, categories 1, admin categories 5, listings 6, matching 10, organizations 2, admin organizations 3, moderation 6, notifications 4, images 1, admin statistics 1, admin backups 1, health 1. Twelve are marked `x-mcp: false` (the auth operations, uploads, images and push tokens); the generated [`src/mcp/`](../../src/mcp/) server has the other 51 as tools except `dismissApplication` and `acknowledgeSafetyNotice`, which it gets on the next `npm run mcp:generate`.
 
 Sections 2 to 5 describe the first working component, the profile, as it was delivered in Lab 5.
 
@@ -97,10 +99,10 @@ The SA-01 finding (#129) concerned the stub `sessions[accessToken]` lookup, whic
 
 ## 6. Known gaps and next steps
 
-- **Events and listings in PostgreSQL (#310):** they are the last parts on stubs; the Prisma models are already in the schema.
-- **Matching:** the `match` algorithm needs its endpoints, the matching rounds and the contact reveal.
-- **Expo client:** the catalog, map, matches and listings screens move from test data to the API.
-- **Not started:** notifications, and reports on listings (FR-028), which need listings in PostgreSQL.
+- **Event changes (#418):** applications, proposals and mutual matches of an event that is moved or cancelled, with the `event_changed` notification.
+- **Notifications:** senders for the remaining types, such as `match_proposed`, `match_mutual` and `event_reminder`, and expiring a proposal past `validUntil`.
+- **Expo client (#486):** the screens listed above move from mock data to the API, where the API has an endpoint.
+- **Load test on staging (#484):** the k6 scenario of PERF-001 at 500 concurrent sessions against staging.
 - [`quality-attributes.md`](../api/quality-attributes.md) still records the Lab 4 Swagger UI checks of `PATCH /events/{id}`; they are history of that lab and were left unchanged.
 
 ## AI Usage Note

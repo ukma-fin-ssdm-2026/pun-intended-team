@@ -11,11 +11,11 @@ import { colors } from '@/styles/tokens';
 
 type CountKey = Exclude<keyof PlatformStats, 'backup'>;
 
-const tiles: { key: CountKey; label: string; note: string }[] = [
-  { key: 'users', label: 'Користувачі', note: 'Активні акаунти, без заблокованих' },
-  { key: 'events', label: 'Події', note: 'Опубліковані, що ще не завершилися' },
-  { key: 'matches', label: 'Метчі', note: 'Запропоновано за весь час' },
-  { key: 'openReports', label: 'Відкриті скарги', note: 'Чекають на рішення' },
+const tiles: { key: CountKey; label: string }[] = [
+  { key: 'users', label: 'Активні користувачі' },
+  { key: 'events', label: 'Майбутні події' },
+  { key: 'matches', label: 'Метчі' },
+  { key: 'openReports', label: 'Відкриті скарги' },
 ];
 
 export default function AdminOverview() {
@@ -24,7 +24,7 @@ export default function AdminOverview() {
 
   return (
     <>
-      <PageHeader title="Огляд" note="Стан Nearby зараз." />
+      <PageHeader title="Огляд" />
       {stats.data?.backup?.overdue && <BackupWarning lastSucceededAt={stats.data.backup.lastSucceededAt} />}
       {stats.data ? (
         <View className="flex-row flex-wrap gap-5">
@@ -42,7 +42,6 @@ export default function AdminOverview() {
                 >
                   {value}
                 </Text>
-                <Text className="font-inter text-caption text-text-secondary">{tile.note}</Text>
               </Card>
             );
             return urgent ? (
@@ -79,7 +78,7 @@ function BackupWarning({ lastSucceededAt }: { lastSucceededAt: string | null }) 
     >
       <Icon name="danger" size={20} color={colors.brand.coral} />
       <Text className="flex-1 font-inter-medium text-label text-brand-coral-dark">
-        Резервне копіювання бази даних потребує уваги. {last}
+        Резервні копії потребують уваги. {last}
       </Text>
       <Icon name="arrow-right" size={18} color={colors.brand.coral} />
     </Pressable>

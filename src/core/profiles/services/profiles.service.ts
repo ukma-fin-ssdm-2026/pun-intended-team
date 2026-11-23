@@ -50,6 +50,11 @@ export class ProfilesService {
     return this.profilesRepository.findAccountIdByUsername(username);
   }
 
+  /** Accounts whose username or display name contains the text, in any case; at most `limit` of them. */
+  async searchAccountIds(text: string, limit: number): Promise<string[]> {
+    return this.profilesRepository.findAccountIdsMatching(text, limit);
+  }
+
   async listInterests(): Promise<Interest[]> {
     return this.interestsRepository.findAll();
   }

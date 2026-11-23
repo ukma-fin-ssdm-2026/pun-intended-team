@@ -35,8 +35,12 @@ An event in the city that users can go to together. It is posted by a verified o
 | `startsAt`, `endsAt` | date-time | |
 | `startTimeKnown` | boolean | False for an imported event whose provider gives no time of day, such as an ArtWizard exhibition run without opening hours: `startsAt` is then a default opening time, 12:00 in Europe/Kyiv, that only orders the event and its sessions, and a client shows the dates without a time. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
 | `endTimeKnown` | boolean | False for an imported event whose provider gives no end: `endsAt` is then the end of its start day in Europe/Kyiv, and a client shows only the start. Always true for an organization's event; not part of the `POST` and `PUT` bodies |
+| `photo` | `{ id, width, height, crop }` or `null` | The cover an organization uploaded: the whole picture and the 2:1 area it picked for the catalog card; a box of another shape shows more around it. `null` for imported events, which link `imageUrl` |
+| `priceMin`, `priceMax` | integer \| null | The ticket price in whole hryvnias. Both `null`: the price is unknown, and the card shows no price. `priceMin` alone: one price. `priceMin` 0 and `priceMax` `null` or 0: free. Both set: a range from `priceMin` to `priceMax`, which is never below it. An imported event takes them from its provider, rounded with `Math.round`; an ArtWizard event written as 0 to 0 gets an unknown price, since ArtWizard writes that for paid events too ([ADR-006](../architecture/decisions/ADR-006.md), decision 12). In the `POST` and `PUT` bodies they are optional, from 0 to 1 000 000; `priceMax` needs `priceMin` and must not be below it (`400` otherwise) |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
+
+The app shows the price as a tag on the event card (`priceLabel` in `app/src/price.ts`): "450 ₴" for one price, or for `priceMax` equal to `priceMin`; "300–700 ₴" for a range, with an en dash and no spaces around it, also from free ("0–500 ₴"); "Безкоштовно" for a free event; no tag for an unknown price. Thousands are separated with a non-breaking space ("1 200–2 500 ₴"), and the space before "₴" is non-breaking too.
 
 Related to: Category, Venue, Organization (none for imported events), Listing.
 
@@ -172,6 +176,7 @@ A regular account asks to become an organization; only a verified organization p
 | `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
 | `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
 | `verifiedAt` | date-time or `null` | Set when verified |
+| `logo` | `{ id, width, height }` or `null` | A square shown as a circle |
 | `accountId`, `account` | UUID, `{ id, username, displayName }` | Admin responses only: the account that sent the request |
 
 Related to: Account (the organization's account, the administrator who verified it), Event, Venue.
@@ -246,8 +251,13 @@ A sign-in starts a session (SEC-005). `refresh` renews it with the refresh token
 | `POST` | `/api/v1/events` | Verified organization | `201` the event + `Location` header | `400`, `401`, `422` |
 | `PUT` | `/api/v1/events/{id}` | The organization that posted it | `200` the updated event | `400`, `401`, `404`, `422` |
 | `POST` | `/api/v1/events/{id}/cancel` | The organization that posted it | `200` the event, now `cancelled` | `400`, `401`, `404` |
+| `PUT` | `/api/v1/events/{id}/photo` | The organization that posted it | `200` the event | `400`, `401`, `404`, `413`, `415`, `422` |
+| `DELETE` | `/api/v1/events/{id}/photo` | The organization that posted it | `200` the event | `400`, `401`, `404`, `422` |
+| `GET` | `/api/v1/me/events` | Signed-in user | `200` a page of the organization's events | `400`, `401` |
 
-`PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`), and every field is required. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
+`PUT /api/v1/events/{id}` **replaces** the editable fields (FR-010): its body is the same as `POST`'s (`title`, `description`, `categoryId`, `venueId`, `startsAt`, `endsAt`, and the optional `priceMin` and `priceMax`), and every other field is required. A price left out is `null`, so an edit that leaves it out makes the price unknown: the app sends back the price the event has. An event is not a draft that grows step by step, so the client sends the whole edited form and does not have to guess which fields it forgot to send; `status` and `source` cannot be sent, so an edit cannot cancel an event (that is `POST /events/{id}/cancel`). Only the organization that posted the event may edit it: anyone else, including another verified organization, gets the same `404` as for a missing event. A cancelled event cannot be edited (`422 EVENT_CANCELLED`). Missing or invalid fields give a `400` with one `details` entry per field.
+
+`GET /api/v1/me/events` lists the caller's own events that have not ended, published and cancelled, soonest first, with no catalog window (О1, FR-009). An account that is not an organization gets an empty page.
 
 The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" notice (FR-014). It is `null` while the imported events are current. While the latest ended import run of a provider failed, a run still going not counting, the catalog keeps serving that provider's events of its last succeeded run, and `lastUpdatedAt` is when that run finished, from `import_runs` (HLD I4); the oldest such time if several providers failed. The same holds for a provider whose last succeeded run finished more than 30 hours ago (one daily run and some slack), since then the import has stopped running, e.g. its container is down, and no failed run is written. A failed provider that never succeeded has no events and gives no time. The app shows it as "Оновлено <date, time>" above the list. The value is the same on every page and with every filter. It is a field of the catalog page and not an endpoint of its own, so the catalog gets the one timestamp it shows with the request it already makes (catalog access, rule 1), and provider names stay inside the server.
 
@@ -270,10 +280,23 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
 | `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
 | `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/organizations/{accountId}` | Administrator | `200` the request with its account | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
 | `POST` | `/api/v1/admin/organizations/{accountId}/reject` | Administrator | `200` the organization, now `rejected` | `400`, `401`, `404`, `409` |
+| `PUT` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `400`, `401`, `404`, `413`, `415`, `422` |
+| `DELETE` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `401`, `404` |
 
-`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+
+### Venues
+
+| Method | Path | Who | Success | Errors |
+|---|---|---|---|---|
+| `GET` | `/api/v1/me/venues` | Signed-in user | `200` a page of the organization's venues | `400`, `401` |
+| `GET` | `/api/v1/me/venues/{id}` | The organization that added it | `200` the venue | `400`, `401`, `404` |
+| `POST` | `/api/v1/me/venues` | Verified organization | `201` the venue + `Location` header | `400`, `401`, `422` |
+
+An organization publishes events only at its own venues (FR-009), so it adds them here. `POST` takes `{ name, address, location: { lat, lng } }`, all required: the name up to 100 characters, the address up to 200, and the point the organization placed on the map, which must be in Kyiv (`422 VENUE_OUTSIDE_CITY`). The list is ordered by name; an account that is not an organization gets an empty page. Another organization's venue and an imported one get `404`. Venues cannot be edited or deleted yet.
 
 ### Listings
 
@@ -320,9 +343,9 @@ A proposal moves both applications to `paired`. `GET /me/matches` lists the call
 | `PUT` | `/api/v1/me/profile/photo`, `/api/v1/me/profile/cover` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/me/profile/photo`, `/api/v1/me/profile/cover` | Signed-in user | `200` the updated profile | `401`, `404` |
 | `POST` | `/api/v1/me/profile/safety-notice` | Signed-in user | `200` the profile with the new `safetyNotice` | `400`, `401`, `404` |
-| `GET` | `/api/v1/images/{id}` | Signed-in user | `200` the picture, `image/webp` | `400`, `401`, `404` |
+| `GET` | `/api/v1/images/{id}` | Signed-in user; a guest for event covers and logos | `200` the picture, `image/webp` | `400`, `401`, `404` |
 
-**Pictures.** An upload sends the picture itself as the body with its `Content-Type` (`image/jpeg`, `image/png` or `image/webp`, up to 10 MB), not JSON or a form, and the area the user picked in the crop preview as fractions of the picture in the query: `cropLeft`, `cropTop`, `cropWidth`, `cropHeight`, measured after the EXIF rotation. The server cuts the largest area of the exact shape inside it, around its centre: a square for the photo, 390:200 for the cover, 2:1 for a listing. Another `Content-Type` is `415 UNSUPPORTED_MEDIA_TYPE`, a file that is not such a picture `422 INVALID_IMAGE`. A new upload replaces the old picture, which is deleted; `DELETE` without a picture changes nothing. Pictures are served only through `GET /images/{id}`, never as public links (TM-14); an id never changes its picture, so the response is cached for good (`Cache-Control: private, max-age=31536000, immutable`). How they are stored: [HLD §2.3](../architecture/high-level-design.md#23-uploaded-pictures).
+**Pictures.** An upload sends the picture itself as the body with its `Content-Type` (`image/jpeg`, `image/png` or `image/webp`, up to 10 MB), not JSON or a form, and the area the user picked in the crop preview as fractions of the picture in the query: `cropLeft`, `cropTop`, `cropWidth`, `cropHeight`, measured after the EXIF rotation. The server cuts the largest area of the exact shape inside it, around its centre: a square for the photo and an organization's logo, 390:200 for the cover, 2:1 for a listing and an event's cover. Another `Content-Type` is `415 UNSUPPORTED_MEDIA_TYPE`, a file that is not such a picture `422 INVALID_IMAGE`. A new upload replaces the old picture, which is deleted; `DELETE` without a picture changes nothing. Pictures are served only through `GET /images/{id}`, never as public links (TM-14). A guest token gets only event covers and organization logos, which the catalog shows, and `404` for a picture of a person; an id never changes its picture, so the response is cached for good (`Cache-Control: private, max-age=31536000, immutable`). How they are stored: [HLD §2.3](../architecture/high-level-design.md#23-uploaded-pictures).
 
 Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat`, `gender` with `genderDescription` for `other`, and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
 
@@ -373,8 +396,16 @@ A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the in
 |---|---|---|---|---|
 | `GET` | `/api/v1/admin/stats` | Administrator | `200` `{ users, events, matches, openReports, backup }` | `401`, `404` |
 | `GET` | `/api/v1/admin/backups` | Administrator | `200` `{ status, items }` | `401`, `404` |
+| `GET` | `/api/v1/admin/accounts` | Administrator | `200` a page of accounts | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/accounts/{id}` | Administrator | `200` the account with its profile and organization | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/events` | Administrator | `200` a page of events | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/events/{id}` | Administrator | `200` the event | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/venues` | Administrator | `200` a page of venues | `400`, `401`, `404` |
+| `GET` | `/api/v1/admin/venues/{id}` | Administrator | `200` the venue | `400`, `401`, `404` |
 
 `users` counts active accounts; `events` counts published events that have not ended; `matches` counts every match proposed; `openReports` counts open report cases (FR-030). `backup` is `{ lastSucceededAt, overdue }`: `overdue` when the last nightly backup failed or is more than 26 hours old; `null` where none has run. `/admin/backups` gives the same status and the last 30 nights, newest first. A failed night carries a reason code (`unreachable`, `auth_failed`, `timeout`, `locked`, `unreadable`, `failed`); hosts, users and error messages stay in the server log.
+
+The admin panel lists everything in pages of 20 ([pagination](#pagination)). Accounts come newest first, filtered by `role`, `status` and `search`: an account id, or part of a username or display name. An account shows its role, status, sign-in methods, age, registration time, profile and organization request; never its phone number or date of birth. Events come in any status, imported or not: `period=upcoming` (the default) lists those not ended, soonest first, `past` the ended ones, latest first; `search` (part of the title), `source`, `status`, `organizationId`, `venueId` and `categoryId` filter them. Venues come by name, imported ones too, filtered by `search` (part of the name or address), `source` and `organizationId`. Events and venues carry `organization: { accountId, name }`, `null` for imported ones. Searches ignore letter case; an empty `search` is a `400`.
 
 ### System
 
@@ -464,19 +495,20 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 
 | `code` | Endpoint | When |
 |---|---|---|
-| `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}` | The caller is not an organization, or its verification is not `verified` |
+| `ORGANIZATION_NOT_VERIFIED` | `POST /events`, `PUT /events/{id}`, `PUT` and `DELETE /events/{id}/photo`, `POST /me/venues` | The caller is not an organization, or its verification is not `verified` |
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, no user has the reported username, or no active listing has the reported id. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
+| `VENUE_OUTSIDE_CITY` | `POST /me/venues` | The venue's location is outside Kyiv |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
-| `EVENT_CANCELLED` | `PUT /events/{id}`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have listings posted for it or take applications |
+| `EVENT_CANCELLED` | `PUT /events/{id}`, `PUT` and `DELETE /events/{id}/photo`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have its cover changed, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
-| `INVALID_IMAGE` | `PUT /me/profile/photo`, `PUT /me/profile/cover`, `PUT /listings/{id}/photo` | The file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels |
+| `INVALID_IMAGE` | `PUT /me/profile/photo`, `PUT /me/profile/cover`, `PUT /listings/{id}/photo`, `PUT /events/{id}/photo`, `PUT /me/organization/logo` | The file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.

@@ -9,17 +9,22 @@ interface ImageKindSettings {
   /** The stored picture is scaled down to fit inside this box. */
   maxWidth: number;
   maxHeight: number;
+  /** Shown in the catalog, which guests browse; pictures of people stay with signed-in users. */
+  isPublic: boolean;
 }
 
 /**
  * The avatar is a square shown as a circle. The cover is cut to the Т4 profile header (390 × 200), and kept whole: the
  * proposal card and the desktop profile are wider, and a narrow phone is taller. A listing photo is cut to the post
- * card (about 2:1).
+ * card (about 2:1). An event photo is cut to the catalog card (about 2:1) and kept whole, since the event page is
+ * almost square. An organization's logo is a square shown as a circle.
  */
 export const imageKinds: Record<ImageKind, ImageKindSettings> = {
-  profilePhoto: { aspectRatio: 1, keepWhole: false, maxWidth: 512, maxHeight: 512 },
-  profileCover: { aspectRatio: 390 / 200, keepWhole: true, maxWidth: 2560, maxHeight: 2560 },
-  listingPhoto: { aspectRatio: 2, keepWhole: false, maxWidth: 1200, maxHeight: 600 },
+  profilePhoto: { aspectRatio: 1, keepWhole: false, maxWidth: 512, maxHeight: 512, isPublic: false },
+  profileCover: { aspectRatio: 390 / 200, keepWhole: true, maxWidth: 2560, maxHeight: 2560, isPublic: false },
+  listingPhoto: { aspectRatio: 2, keepWhole: false, maxWidth: 1200, maxHeight: 600, isPublic: false },
+  eventPhoto: { aspectRatio: 2, keepWhole: true, maxWidth: 2560, maxHeight: 2560, isPublic: true },
+  organizationLogo: { aspectRatio: 1, keepWhole: false, maxWidth: 512, maxHeight: 512, isPublic: true },
 };
 
 interface Size {

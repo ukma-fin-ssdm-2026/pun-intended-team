@@ -17,6 +17,7 @@ import {
   readJsonLd,
   slugOf,
 } from './provider-pages.ts';
+import { type EventPrice, priceOf } from './price.ts';
 
 export const KARABAS_BASE_URL = 'https://kyiv.karabas.com';
 
@@ -60,6 +61,7 @@ const RawEvent = z.object({
   image: z.object({ url: z.string() }).optional(),
   startDate: z.iso.datetime({ offset: true }),
   endDate: z.iso.datetime({ offset: true }).optional(),
+  offers: z.unknown().optional(),
   location: z.object({
     name: z.string().trim().min(1),
     address: z.object({
@@ -236,7 +238,7 @@ export class KarabasEventProvider extends EventProvider {
         },
       };
     }
-    const { url, name, description, image, startDate, endDate, location } = parsed.data;
+    const { url, name, description, image, startDate, endDate, offers, location } = parsed.data;
     const types = KARABAS_SECTIONS.find(({ path }) => path === record.section)?.types;
     const type = record.event['@type'];
     if (types && !types.includes(String(type))) {
@@ -269,9 +271,26 @@ export class KarabasEventProvider extends EventProvider {
         endTimeKnown: end.endTimeKnown,
         imageUrl: image?.url ?? null,
         sourceUrl: url,
+        ...karabasPrice(offers),
       },
     };
   }
+}
+
+/**
+ * The price of the event's `offers`: one `Offer` or `AggregateOffer`, or a list of them. An `AggregateOffer` gives a
+ * `lowPrice` and a `highPrice`, or a single `price`. Only offers in hryvnias count, and `shippingDetails`, the cost
+ * of delivering a ticket, is never a price.
+ */
+export function karabasPrice(offers: unknown): EventPrice {
+  const list = (Array.isArray(offers) ? offers : [offers]).filter(
+    (offer): offer is Record<string, unknown> => typeof offer === 'object' && offer !== null,
+  );
+  return priceOf(
+    list
+      .filter(({ priceCurrency }) => priceCurrency === undefined || priceCurrency === 'UAH')
+      .flatMap(({ price, lowPrice, highPrice }) => [price, lowPrice, highPrice]),
+  );
 }
 
 /**

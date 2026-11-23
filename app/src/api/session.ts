@@ -1,9 +1,9 @@
 // Written with the help of Claude
 import { deviceStorage as storage } from '@/device-storage';
-import { clearOwnEvents } from '@/state/organization-events';
 import { clearApplications } from '@/state/applications';
 import { clearMatches } from '@/state/matches';
 import { clearNotifications } from '@/state/notifications';
+import { clearOwnOrganization } from '@/state/organization';
 import { clearProfile } from '@/state/profile';
 import { setRole, setSignedIn } from '@/state/session';
 
@@ -41,14 +41,22 @@ function roleOf(accessToken: string): string | undefined {
   }
 }
 
-export async function startSession(tokens: SessionTokens) {
-  const signingIn = !account;
+// A sign-in starts clean even over another account's session, e.g. one a web page restored before someone signed in with
+// another Google account; that session is ended. A renewal keeps everything.
+export async function startSession(tokens: SessionTokens, renewal = false) {
+  const signingIn = !renewal;
   if (signingIn) {
+    const previous = account?.access.value;
+    if (previous) {
+      void publicClient
+        .POST('/api/v1/auth/sign-out', { headers: { Authorization: `Bearer ${previous}` } })
+        .catch(() => undefined);
+    }
     clearProfile();
     clearApplications();
     clearMatches();
-    clearOwnEvents();
     clearNotifications();
+    clearOwnOrganization();
   }
   account = { access: toToken(tokens.accessToken, tokens.expiresIn), refreshToken: tokens.refreshToken };
   await storage.set(REFRESH_TOKEN_KEY, tokens.refreshToken);
@@ -63,8 +71,8 @@ async function endSession() {
   clearProfile();
   clearApplications();
   clearMatches();
-  clearOwnEvents();
   clearNotifications();
+  clearOwnOrganization();
   await storage.remove(REFRESH_TOKEN_KEY).catch(() => undefined);
   setSignedIn(false);
 }
@@ -119,7 +127,7 @@ function renew(refreshToken: string): Promise<void> {
   renewal ??= postRefresh(refreshToken)
     .then(async ({ data, error, response }) => {
       if (data) {
-        await startSession(data);
+        await startSession(data, true);
       } else if (response.status === 401) {
         await endSession();
       } else {

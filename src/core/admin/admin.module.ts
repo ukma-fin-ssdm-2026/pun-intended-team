@@ -4,12 +4,14 @@ import { CatalogModule } from '../catalog/catalog.module.ts';
 import { IdentityModule } from '../identity/identity.module.ts';
 import { MatchingModule } from '../matching/matching.module.ts';
 import { ModerationModule } from '../moderation/moderation.module.ts';
+import { ProfilesModule } from '../profiles/profiles.module.ts';
+import { AccountsOverviewService } from './services/accounts-overview.service.ts';
 import { BackupsService } from './services/backups.service.ts';
 import { StatsService } from './services/stats.service.ts';
 
 @Module({
-  imports: [IdentityModule, CatalogModule, MatchingModule, ModerationModule],
-  providers: [StatsService, BackupsService],
-  exports: [StatsService, BackupsService],
+  imports: [IdentityModule, ProfilesModule, CatalogModule, MatchingModule, ModerationModule],
+  providers: [StatsService, BackupsService, AccountsOverviewService],
+  exports: [StatsService, BackupsService, AccountsOverviewService],
 })
 export class AdminModule {}

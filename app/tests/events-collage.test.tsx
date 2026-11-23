@@ -34,8 +34,7 @@ describe('EventsCollage', () => {
 
     await render(<EventsCollage />);
 
-    expect(screen.getByText('Джаз-вечір')).toBeTruthy();
-    expect(screen.getByText('Фестиваль')).toBeTruthy();
+    expect(screen.queryAllByTestId(/^collage-event-/)).toHaveLength(0);
   });
 
   test('shows catalog events, those with an image first, and keeps bundled tiles for the rest', async () => {
@@ -45,8 +44,9 @@ describe('EventsCollage', () => {
 
     await render(<EventsCollage />);
 
-    const labels = screen.getAllByText(/./).map((node) => node.props.children);
-    expect(labels.slice(0, 3)).toEqual(['Концерт у Кураж', 'Лекція без фото', 'Квартирник']);
-    expect(screen.queryByText('Джаз-вечір')).toBeNull();
+    const tiles = screen.getAllByTestId(/^collage-event-/).map((node) => node.props.testID);
+    expect(tiles).toEqual(['collage-event-e2', 'collage-event-e1']);
+    // The tiles show no titles.
+    expect(screen.queryByText('Концерт у Кураж')).toBeNull();
   });
 });

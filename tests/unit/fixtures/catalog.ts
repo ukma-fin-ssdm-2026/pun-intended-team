@@ -35,6 +35,7 @@ export function anOrganization(overrides: Partial<Organization> = {}): Organizat
     officialLink: 'https://natalka.park',
     verificationStatus: 'verified',
     verifiedAt: '2026-10-01T10:00:00.000Z',
+    logoId: null,
     ...overrides,
   };
 }
@@ -51,7 +52,10 @@ export function anEvent(overrides: Partial<Event> = {}): Event {
     startTimeKnown: true,
     endsAt: '2026-10-22T21:00:00+03:00',
     endTimeKnown: true,
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
+    photoId: null,
     sourceUrl: null,
     source: 'organization',
     status: 'published',
@@ -69,6 +73,8 @@ export function aNewEvent(overrides: Partial<NewEvent> = {}): NewEvent {
     venueId: VENUE_ID,
     startsAt: '2026-10-22T19:00:00+03:00',
     endsAt: '2026-10-22T21:00:00+03:00',
+    priceMin: null,
+    priceMax: null,
     ...overrides,
   };
 }
