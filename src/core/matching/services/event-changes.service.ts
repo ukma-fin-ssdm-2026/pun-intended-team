@@ -184,6 +184,7 @@ export class EventChangesService implements OnModuleInit {
           applicationId: application.id,
           change,
           sessions: days,
+          applicationCancelled: cancelled.has(application.id),
           ...(match && { match: { id: match.id, cancelled: ended.has(match.id) } }),
         },
         `event_changed:${jobId}:${application.id}`,

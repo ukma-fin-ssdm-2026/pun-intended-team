@@ -2053,6 +2053,7 @@ describe('Applications', () => {
             applicationId: applied.body.id,
             change: 'cancelled',
             sessions: [{ from: start, to: null }],
+            applicationCancelled: true,
           },
         },
       ];
@@ -2089,6 +2090,7 @@ describe('Applications', () => {
         applicationId: applied.body.id,
         change: 'rescheduled',
         sessions: [{ from: at19(day), to: at20 }],
+        applicationCancelled: false,
       });
       assert.deepEqual(await sessionsOf(eventId), [
         { status: 'cancelled', startsAt: at19(day) },

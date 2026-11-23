@@ -200,7 +200,7 @@ One row of the signed-in user's inbox ([notifications](../architecture/mechanism
 |---|---|---|
 | `id` | UUID | |
 | `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
-| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10) |
+| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10) |
 | `readAt` | date-time or `null` | When the caller first marked it read |
 | `createdAt` | date-time | |
 

@@ -259,8 +259,16 @@ describe('NotificationsService: the notifications.deliver handler', () => {
       { title: 'Час події змінився', body: 'Перевір новий час події. Ваш метч у силі.' },
     ],
     [
+      'the application is cancelled, since a time change left it no day',
+      { change: 'rescheduled', sessions: [gone], applicationCancelled: true },
+      {
+        title: 'Заявку скасовано',
+        body: 'Розклад події змінився, і в твоїй заявці не лишилося жодного дня. Можеш подати нову.',
+      },
+    ],
+    [
       'a day is gone',
-      { change: 'rescheduled', sessions: [moved, gone] },
+      { change: 'rescheduled', sessions: [moved, gone], applicationCancelled: false },
       { title: 'Розклад події змінився', body: 'Один із днів твоєї заявки скасовано. Перевір заявку.' },
     ],
   ];

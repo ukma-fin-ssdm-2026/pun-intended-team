@@ -761,6 +761,7 @@ describe('EventChangesService.handle', () => {
             applicationId: 'both',
             change: 'rescheduled',
             sessions: [{ from: iso(RUN_ON_27), to: null }],
+            applicationCancelled: false,
           },
         },
         {
@@ -771,6 +772,7 @@ describe('EventChangesService.handle', () => {
             applicationId: 'later',
             change: 'rescheduled',
             sessions: [{ from: iso(RUN_ON_27), to: null }],
+            applicationCancelled: true,
           },
         },
       ],

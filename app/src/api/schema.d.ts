@@ -2130,7 +2130,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             type: components["schemas"]["NotificationType"];
-            /** @description Details by type, never contact details; `report_received` has none, so `{}`. `event_changed`: `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on, and `match` `{ id, cancelled }` when the application has a mutual match */
+            /** @description Details by type, never contact details; `report_received` has none, so `{}`. `event_changed`: `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match */
             payload: {
                 [key: string]: unknown;
             };

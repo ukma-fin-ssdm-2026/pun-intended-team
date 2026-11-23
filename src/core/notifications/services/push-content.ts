@@ -20,8 +20,8 @@ export function pushContent(notification: Notification): Omit<PushMessage, 'to'>
 
 /**
  * With "ти", as the app's inbox. By what the change did to the application (matching.md, rule 10): the event was
- * cancelled, every changed day moved to another time, or a day is gone; and whether a mutual match was cancelled or
- * kept.
+ * cancelled, the application was cancelled since no day of it is left, every changed day moved to another time, or a
+ * day is gone; and whether a mutual match was cancelled or kept.
  */
 function eventChangedText(payload: NotificationPayload): PushText {
   const match = payload.match as { cancelled: boolean } | undefined;
@@ -37,6 +37,12 @@ function eventChangedText(payload: NotificationPayload): PushText {
     return {
       title: 'Метч скасовано',
       body: 'Цього дня подія не відбудеться, тож ваша зустріч скасована.',
+    };
+  }
+  if (payload.applicationCancelled === true) {
+    return {
+      title: 'Заявку скасовано',
+      body: 'Розклад події змінився, і в твоїй заявці не лишилося жодного дня. Можеш подати нову.',
     };
   }
   const sessions = (payload.sessions ?? []) as { to: string | null }[];
