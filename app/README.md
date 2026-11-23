@@ -139,9 +139,10 @@ The client steps of the "CI passed" job ([`ci.yml`](../.github/workflows/ci.yml)
 | Lint                 | `npm run lint`                                                       |
 | Types                | `npm run typecheck`                                                  |
 | Formatting           | `npx prettier --check .` (fix with `npm run format`)                 |
+| Tests                | `npm test`                                                           |
 | API types match spec | `npm run api:types`, then `git diff --exit-code src/api/schema.d.ts` |
 
-After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm run api:types` and commit the regenerated `src/api/schema.d.ts`; otherwise the last check fails in CI. The client's tests (`npm test`) do not run in CI yet, and its dependencies are not audited there.
+After any change to the API spec (`docs/api/openapi-generated.yaml`), run `npm run api:types` and commit the regenerated `src/api/schema.d.ts`; otherwise the last check fails in CI. The client's dependencies are not audited there yet.
 
 ## Project structure
 
