@@ -13,7 +13,15 @@ jest.mock('@/components/ui/event-cover', () => {
 
 const LONG_TITLE = 'Благодійний концерт хорової капели НаУКМА «Почайна» пам’яті героїв-могилянців';
 
-function renderCard({ title = 'Джаз-вечір у Мистецькому Арсеналі', price }: { title?: string; price?: string }) {
+function renderCard({
+  title = 'Джаз-вечір у Мистецькому Арсеналі',
+  price,
+  favorite = false,
+}: {
+  title?: string;
+  price?: string;
+  favorite?: boolean;
+}) {
   return render(
     <EventCard
       title={title}
@@ -21,7 +29,7 @@ function renderCard({ title = 'Джаз-вечір у Мистецькому А�
       dateLabel="Сб, 24 жовт · 19:00"
       place="Поділ"
       price={price}
-      favorite={false}
+      favorite={favorite}
       onToggleFavorite={() => {}}
     />,
   );
@@ -65,4 +73,14 @@ describe('EventCard', () => {
       'Джаз-вечір у Мистецькому Арсеналі, Концерт, Сб, 24 жовт · 19:00, Поділ',
     );
   });
+
+  test.each([false, true])(
+    'keeps the heart a button with its label and state when favorite is %s',
+    async (favorite) => {
+      await renderCard({ favorite });
+
+      const heart = screen.getByRole('button', { name: 'В обране' });
+      expect(heart.props.accessibilityState).toEqual({ selected: favorite });
+    },
+  );
 });

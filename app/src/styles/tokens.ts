@@ -46,7 +46,7 @@ export const typography = {
   button: { fontSize: 16, lineHeight: 20 },
   'button-sm': { fontSize: 12, lineHeight: 15 },
   tag: { fontSize: 11, lineHeight: 14 },
-  // The price on an event card's cover; Figma's line height is "auto", which Inter renders at about 1.21.
+  // The price badge on an event cover; Figma's line height is "auto", which Inter renders at about 1.21.
   price: { fontSize: 14, lineHeight: 17 },
 };
 
@@ -60,7 +60,6 @@ export const shadows = {
   // "Кнопка / Знайти мені метч" of "таб бар новий".
   matchButton: '0px 0px 10px 0px rgba(223, 84, 74, 0.35), 0px 6px 26px 2px rgba(223, 84, 74, 0.45)',
   toggleKnob: '0px 1px 3px rgba(0, 0, 0, 0.18)',
-  price: '0px 4px 14px rgba(18, 18, 18, 0.18)',
 };
 
 // The tab bar is not a rectangle, so its shadow follows the drawn shape instead of using box-shadow.

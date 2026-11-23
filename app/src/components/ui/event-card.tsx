@@ -1,14 +1,12 @@
 // Written with the help of Claude
 // AI Usage: event card from the Figma catalog; reviewed by Daryna Halytska.
-import { BlurTargetView } from 'expo-blur';
 import type { ImageSource } from 'expo-image';
-import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
 import type { ApiEventPhoto } from '@/api/images';
 import { EventCover } from '@/components/ui/event-cover';
-import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
+import { OverlayBadge, PriceBadge } from '@/components/ui/overlay-badge';
 import { colors, shadows } from '@/styles/tokens';
 
 type Props = {
@@ -45,8 +43,6 @@ export function EventCard({
   onToggleFavorite,
   onPress,
 }: Props) {
-  const coverRef = useRef<View>(null);
-
   // A pressable card groups its content for screen readers, so the heart is offered as its action.
   const onAccessibilityAction = ({ nativeEvent }: AccessibilityActionEvent) => {
     if (nativeEvent.actionName === 'activate') onPress?.();
@@ -66,19 +62,12 @@ export function EventCard({
       style={{ boxShadow: shadows.small }}
     >
       <View className="h-[170px] overflow-hidden rounded-2xl">
-        {/* What the glass blurs on Android; the glass itself stays outside. */}
-        <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
+        <View style={StyleSheet.absoluteFill}>
           <EventCover cover={cover} photo={photo} />
-        </BlurTargetView>
-        <Glass
-          className="absolute left-2.5 top-2.5 h-9 min-w-[72px] items-center justify-center px-4"
-          radius={18}
-          fill="rgba(18, 18, 18, 0.45)"
-          tone="dark"
-          blurTarget={coverRef}
-        >
-          <Text className="font-inter-semibold text-tag text-text-on-dark">{category}</Text>
-        </Glass>
+        </View>
+        <OverlayBadge className="absolute left-2.5 top-2.5 min-w-[72px] px-4">
+          <Text className="font-inter-semibold text-tag text-brand-coral">{category}</Text>
+        </OverlayBadge>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="В обране"
@@ -86,33 +75,12 @@ export function EventCard({
           onPress={onToggleFavorite}
           className="absolute right-2.5 top-2.5"
         >
-          <Glass
-            className="size-9 items-center justify-center"
-            radius={18}
-            fill="rgba(255, 255, 255, 0.28)"
-            border="rgba(255, 255, 255, 0.4)"
-            tone="light"
-            blurTarget={coverRef}
-          >
-            {/* Active: the same Solar heart filled and outlined in brand/coral, so the icon does not move when toggled. */}
-            <Icon
-              name="heart"
-              size={20}
-              color={favorite ? colors.brand.coral : colors.text['on-dark']}
-              filled={favorite}
-            />
-          </Glass>
+          <OverlayBadge className="size-9">
+            {/* Active: the same Solar heart filled in brand/coral, so the icon does not move when toggled. */}
+            <Icon name="heart" size={20} color={colors.brand.coral} filled={favorite} />
+          </OverlayBadge>
         </Pressable>
-        {price ? (
-          <View
-            className="absolute bottom-2.5 right-2.5 rounded-full bg-surface-card/[0.96] px-3 py-[7px]"
-            style={{ boxShadow: shadows.price }}
-          >
-            <Text numberOfLines={1} className="font-inter-semibold text-price tracking-[-0.14px] text-brand-coral">
-              {price}
-            </Text>
-          </View>
-        ) : null}
+        {price ? <PriceBadge price={price} className="absolute bottom-[9px] right-2.5" /> : null}
       </View>
 
       <View className="px-2 pt-3">
