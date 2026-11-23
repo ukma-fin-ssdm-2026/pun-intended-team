@@ -314,6 +314,49 @@ interface Case {
   after: ReturnType<typeof stateOf>;
 }
 
+/** What a case expects of the applications and matches; the sessions and the inbox follow from the scenario. */
+type Outcome = Pick<Case['after'], 'applications' | 'matches'>;
+
+/** `aPair` with `match` on the concert, which moves from 19:00 to 20:00 on its day: both are told of the move. */
+function concertMovedWithAMatch(name: string, match: StoredMatch, outcome: Outcome): Case {
+  return {
+    name,
+    change: 'rescheduled',
+    world: {
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: aPair(['s1'], ['s1']),
+      matches: [match],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
+      ...outcome,
+      inbox: bothTold('rescheduled', CONCERT_MOVED_TO_20),
+    },
+  };
+}
+
+/** `aPair` on `days` with `match`, when the run is cut short to end on 20 October: both lose the 27th. */
+function runEndingOn20WithAMatch(
+  name: string,
+  [daysOfA, daysOfB]: [string[], string[]],
+  match: StoredMatch,
+  outcome: Outcome,
+): Case {
+  return {
+    name,
+    change: 'rescheduled',
+    world: {
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
+      applications: aPair(daysOfA, daysOfB),
+      matches: [match],
+    },
+    after: { sessions: RUN_SESSIONS_AFTER_ENDING_ON_20, ...outcome, inbox: bothTold('rescheduled', RUN_ON_27_GONE) },
+  };
+}
+
 const cases: Case[] = [
   {
     name: 'a cancelled event: its session, active applications and open proposals are cancelled, each applicant told once',
@@ -361,55 +404,26 @@ const cases: Case[] = [
       inbox: bothTold('cancelled'),
     },
   },
-  {
-    name: 'a mutual match whose shared day moved to another time: kept on the new session, and both are told',
-    change: 'rescheduled',
-    world: {
-      event: anEvent(CONCERT_AT_20),
-      sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      applications: aPair(['s1'], ['s1']),
-      matches: [aMatchOfPair('mutual', 'mutual')],
-    },
-    rounds: ['new1'],
-    after: {
-      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
-      applications: ['a paired new1', 'b paired new1'],
-      matches: ['mutual mutual'],
-      inbox: bothTold('rescheduled', CONCERT_MOVED_TO_20),
-    },
-  },
-  {
-    name: 'a mutual match whose only shared day is cancelled: cancelled, and the side that keeps a day returns to the pool',
-    change: 'rescheduled',
-    world: {
-      event: anEvent(RUN_ENDING_ON_20),
-      sessions: RUN_SESSIONS(),
-      applications: aPair(['s27'], ['s18', 's27']),
-      matches: [aMatchOfPair('mutual', 'mutual')],
-    },
-    after: {
-      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
-      applications: ['a cancelled s27', 'b in_pool s18'],
-      matches: ['mutual cancelled event_cancelled'],
-      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
-    },
-  },
-  {
-    name: 'a mutual match that keeps a shared day ahead: kept, though another shared day is cancelled',
-    change: 'rescheduled',
-    world: {
-      event: anEvent(RUN_ENDING_ON_20),
-      sessions: RUN_SESSIONS(),
-      applications: aPair(['s18', 's27'], ['s18', 's27']),
-      matches: [aMatchOfPair('mutual', 'mutual')],
-    },
-    after: {
-      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
-      applications: ['a paired s18', 'b paired s18'],
-      matches: ['mutual mutual'],
-      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
-    },
-  },
+  concertMovedWithAMatch(
+    'a mutual match whose shared day moved to another time: kept on the new session, and both are told',
+    aMatchOfPair('mutual', 'mutual'),
+    { applications: ['a paired new1', 'b paired new1'], matches: ['mutual mutual'] },
+  ),
+  runEndingOn20WithAMatch(
+    'a mutual match whose only shared day is cancelled: cancelled, and the side that keeps a day returns to the pool',
+    [['s27'], ['s18', 's27']],
+    aMatchOfPair('mutual', 'mutual'),
+    { applications: ['a cancelled s27', 'b in_pool s18'], matches: ['mutual cancelled event_cancelled'] },
+  ),
+  runEndingOn20WithAMatch(
+    'a mutual match that keeps a shared day ahead: kept, though another shared day is cancelled',
+    [
+      ['s18', 's27'],
+      ['s18', 's27'],
+    ],
+    aMatchOfPair('mutual', 'mutual'),
+    { applications: ['a paired s18', 'b paired s18'], matches: ['mutual mutual'] },
+  ),
   {
     name: 'a mutual match whose shared day is over: left as it is with its applications, though a later day of one side is cancelled',
     change: 'rescheduled',
@@ -552,23 +566,11 @@ const cases: Case[] = [
       inbox: [`user waiting rescheduled ${iso(MUSEUM_DAY.startsAt)}>${iso(MUSEUM_DAY_SHORTENED.startsAt)}`],
     },
   },
-  {
-    name: 'a pending proposal on a shared day that moved: cancelled for the change, and both return to the pool',
-    change: 'rescheduled',
-    world: {
-      event: anEvent(CONCERT_AT_20),
-      sessions: [sessionAt(CONCERT.startsAt, 's1')],
-      applications: aPair(['s1'], ['s1']),
-      matches: [aMatchOfPair('proposed', 'accepted_a')],
-    },
-    rounds: ['new1'],
-    after: {
-      sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
-      applications: ['a in_pool new1', 'b in_pool new1'],
-      matches: ['proposed cancelled event_changed'],
-      inbox: bothTold('rescheduled', CONCERT_MOVED_TO_20),
-    },
-  },
+  concertMovedWithAMatch(
+    'a pending proposal on a shared day that moved: cancelled for the change, and both return to the pool',
+    aMatchOfPair('proposed', 'accepted_a'),
+    { applications: ['a in_pool new1', 'b in_pool new1'], matches: ['proposed cancelled event_changed'] },
+  ),
   {
     name: 'a pending proposal whose shared day stays: kept, though another day of one side moved',
     change: 'rescheduled',
@@ -676,22 +678,15 @@ const cases: Case[] = [
       inbox: bothTold('rescheduled', RUN_ON_27_GONE),
     },
   },
-  {
-    name: 'a pending proposal that keeps a shared day ahead: kept, though another shared day is cancelled',
-    change: 'rescheduled',
-    world: {
-      event: anEvent(RUN_ENDING_ON_20),
-      sessions: RUN_SESSIONS(),
-      applications: aPair(['s18', 's27'], ['s18', 's27']),
-      matches: [aMatchOfPair('proposed', 'proposed')],
-    },
-    after: {
-      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
-      applications: ['a paired s18', 'b paired s18'],
-      matches: ['proposed proposed'],
-      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
-    },
-  },
+  runEndingOn20WithAMatch(
+    'a pending proposal that keeps a shared day ahead: kept, though another shared day is cancelled',
+    [
+      ['s18', 's27'],
+      ['s18', 's27'],
+    ],
+    aMatchOfPair('proposed', 'proposed'),
+    { applications: ['a paired s18', 'b paired s18'], matches: ['proposed proposed'] },
+  ),
   {
     name: 'a day that is gone while the other day is over: the application is cancelled',
     change: 'rescheduled',
