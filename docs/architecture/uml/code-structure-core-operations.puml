@@ -79,7 +79,7 @@ package "core (business logic)" as CORE {
   }
   package common {
     abstract class TransactionRunner {
-      +run(work)
+      +run(work, options)
     }
     class DomainError
   }

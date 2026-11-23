@@ -2,6 +2,7 @@
 import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { EventSessionsService } from '../../catalog/services/event-sessions.service.ts';
 import type { SessionChanges } from '../../catalog/types/event-session.ts';
+import { MINUTE_MS } from '../../common/durations.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
@@ -13,6 +14,10 @@ import { MatchesRepository } from '../repositories/matches.repository.ts';
 import { ACTIVE_STATUSES, type Application } from '../types/application.ts';
 import { type MatchCancelReason, type MatchRecord, PENDING_STATUSES } from '../types/match.ts';
 import { MatchingService } from './matching.service.ts';
+
+// Every applicant of the event changes in one transaction, which for an event with hundreds of them takes longer than
+// the default 5 s (database-access.md, Transactions).
+const TRANSACTION_TIMEOUT_MS = MINUTE_MS;
 
 /** A day of an application that changed: `to` is its new start, or null when the day is no longer on. */
 interface ChangedDay {
@@ -50,14 +55,17 @@ export class EventChangesService implements OnModuleInit {
    * no one again, and every later change comes with a job of its own.
    */
   async handle({ id: jobId, payload: { eventId } }: Job<EventChangedPayload>, now = new Date()): Promise<void> {
-    await this.transactions.run(async (tx) => {
-      // Under the event's lock, so no round or answer reads the pool while it changes (matching.md, rule 7).
-      await this.matchesRepository.lockEvent(eventId, tx);
-      const changes = await this.eventSessionsService.reconcile(eventId, tx, now);
-      if (changes.cancelled.length > 0 || changes.moved.length > 0) {
-        await this.follow(eventId, jobId, changes, now, tx);
-      }
-    });
+    await this.transactions.run(
+      async (tx) => {
+        // Under the event's lock, so no round or answer reads the pool while it changes (matching.md, rule 7).
+        await this.matchesRepository.lockEvent(eventId, tx);
+        const changes = await this.eventSessionsService.reconcile(eventId, tx, now);
+        if (changes.cancelled.length > 0 || changes.moved.length > 0) {
+          await this.follow(eventId, jobId, changes, now, tx);
+        }
+      },
+      { timeoutMs: TRANSACTION_TIMEOUT_MS },
+    );
   }
 
   private async follow(

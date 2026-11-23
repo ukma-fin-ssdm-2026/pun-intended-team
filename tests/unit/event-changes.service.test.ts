@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { describe, mock, test } from 'node:test';
 import type { Event } from '../../dist/core/catalog/types/event.js';
+import { MINUTE_MS } from '../../dist/core/common/durations.js';
 import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
@@ -197,18 +198,18 @@ function makeService(world: World) {
       return Promise.resolve();
     }),
   };
-  const transactions: TransactionRunner = { run: (work) => work(TX) };
+  const transactions = { run: mock.fn<TransactionRunner['run']>((work) => work(TX)) };
   const jobs = { register: mock.fn<JobQueue['register']>() };
   const service = new EventChangesService(
     jobs as unknown as JobQueue,
-    transactions,
+    transactions as TransactionRunner,
     sessionsServiceOver(world),
     applicationsRepository as ApplicationsRepository,
     matchesRepository as MatchesRepository,
     matchingService as unknown as MatchingService,
     notificationsService as NotificationsService,
   );
-  return { service, jobs };
+  return { service, jobs, transactions };
 }
 
 interface ChangedDay {
@@ -864,6 +865,17 @@ describe('EventChangesService.handle', () => {
       world.inbox.map(({ dedupeKey }) => dedupeKey),
       ['event_changed:job-1:waiting', 'event_changed:job-2:waiting', 'event_changed:job-3:waiting'],
     );
+  });
+});
+
+describe('EventChangesService.handle, time limit', () => {
+  test('allows its transaction a minute, since it changes every applicant of the event at once', async () => {
+    const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
+    const { service, transactions } = makeService(world);
+
+    await service.handle(aJob('cancelled'), NOW);
+
+    assert.deepEqual(transactions.run.mock.calls[0]?.arguments[1], { timeoutMs: MINUTE_MS });
   });
 });
 

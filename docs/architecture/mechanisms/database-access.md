@@ -42,7 +42,7 @@ async create(proposal: MatchProposal, tx?: Transaction): Promise<Match> {
 }
 ```
 
-A transaction that takes longer than Prisma's interactive-transaction timeout is rolled back: by default 5 s to run and 2 s to wait for a connection (Prisma documentation). Keep `work` short, and do no calls to other services in it. Without `tx` a repository method runs on its own, as before.
+A transaction that takes longer than Prisma's interactive-transaction timeout is rolled back: by default 5 s to run and 2 s to wait for a connection (Prisma documentation). Keep `work` short, and do no calls to other services in it. A use case that changes many rows at once passes a longer limit, `run(work, { timeoutMs })`, and does its reads and writes in batches rather than one row at a time: `event.changed` changes every applicant of an event in one transaction and allows it a minute. Without `tx` a repository method runs on its own, as before.
 
 A repository that opens its own transaction for one method (`updateLockout`, `createWithinLimit`) is fine while the method is self-contained; a use case that spans several repositories or enqueues a job uses `TransactionRunner`.
 
