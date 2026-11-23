@@ -116,3 +116,22 @@ describe('EventScreen title block', () => {
     expect(screen.getByRole('header', { name: title }).props.numberOfLines).toBeUndefined();
   });
 });
+
+// "1.3 Ціна" on the cover follows the card's rule: `priceLabel`, and no badge for an unknown price.
+describe('EventScreen price', () => {
+  test.each([
+    { priceMin: 450, priceMax: null, label: '450 ₴' },
+    { priceMin: 300, priceMax: 700, label: '300–700 ₴' },
+    { priceMin: 0, priceMax: null, label: 'Безкоштовно' },
+  ])('shows "$label" on the cover', async ({ priceMin, priceMax, label }) => {
+    await showEvent({ priceMin, priceMax });
+
+    expect(screen.getByText(label)).toBeTruthy();
+  });
+
+  test('shows no price for an unknown price', async () => {
+    await showEvent({ priceMin: null, priceMax: null });
+
+    expect(screen.queryByText(/₴|Безкоштовно/)).toBeNull();
+  });
+});
