@@ -70,12 +70,12 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
           onPress={onToggleFavorite}
           className="absolute right-2.5 top-2.5"
         >
+          {/* Dark glass, as the category label, so the white heart shows on a white cover too. */}
           <Glass
             className="size-9 items-center justify-center"
             radius={18}
-            fill="rgba(255, 255, 255, 0.28)"
-            border="rgba(255, 255, 255, 0.4)"
-            tone="light"
+            fill="rgba(18, 18, 18, 0.45)"
+            tone="dark"
             blurTarget={coverRef}
           >
             {/* Active: the same Solar heart filled and outlined in brand/coral, so the icon does not move when toggled. */}

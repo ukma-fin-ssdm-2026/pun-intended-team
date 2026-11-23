@@ -111,12 +111,12 @@ function GlassButton({
       onPress={onPress}
       className="active:opacity-80"
     >
+      {/* Dark glass, as the category label on the event cards, so the white icon shows on a white cover too. */}
       <Glass
         className="size-10 items-center justify-center"
         radius={20}
-        fill="rgba(255, 255, 255, 0.22)"
-        border="rgba(255, 255, 255, 0.35)"
-        tone="light"
+        fill="rgba(18, 18, 18, 0.45)"
+        tone="dark"
         blurTarget={blurTarget}
       >
         <Icon name={icon} size={20} color={active ? colors.brand.coral : colors.text['on-dark']} filled={active} />
