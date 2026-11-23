@@ -259,6 +259,9 @@ const iso = (kyivTime: string) => new Date(kyivTime).toISOString();
 /** NOW is 12:00 in Kyiv on 15 October. */
 const CONCERT = { startsAt: '2026-10-22T19:00:00+03:00', endsAt: '2026-10-22T21:00:00+03:00' };
 const CONCERT_AT_20 = { startsAt: '2026-10-22T20:00:00+03:00', endsAt: '2026-10-22T22:00:00+03:00' };
+/** A museum day today from 10:00, changed at 12:00 to 12:30–14:00 (viktoriyabaran's example on #517). */
+const MUSEUM_DAY = { startsAt: '2026-10-15T10:00:00+03:00', endsAt: '2026-10-15T18:00:00+03:00' };
+const MUSEUM_DAY_SHORTENED = { startsAt: '2026-10-15T12:30:00+03:00', endsAt: '2026-10-15T14:00:00+03:00' };
 const CONCERT_TODAY = { startsAt: '2026-10-15T19:00:00+03:00', endsAt: '2026-10-15T21:00:00+03:00' };
 /** Moved to an hour ago, so its new session has started and its cutoff passed. */
 const CONCERT_EARLIER_TODAY = { startsAt: '2026-10-15T11:00:00+03:00', endsAt: '2026-10-15T13:00:00+03:00' };
@@ -530,6 +533,23 @@ const cases: Case[] = [
       applications: ['waiting paused new1'],
       matches: [],
       inbox: [`user waiting rescheduled ${CONCERT_MOVED_TO_20}`],
+    },
+  },
+  {
+    name: 'a museum day that started and now starts later: the applications go to the new session, though the old cutoff passed under the new times',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(MUSEUM_DAY_SHORTENED),
+      sessions: [sessionAt(MUSEUM_DAY.startsAt, 's1')],
+      applications: [anApplication('waiting', ['s1'])],
+      matches: [],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: [`s1 cancelled ${iso(MUSEUM_DAY.startsAt)}`, `new1 scheduled ${iso(MUSEUM_DAY_SHORTENED.startsAt)}`],
+      applications: ['waiting in_pool new1'],
+      matches: [],
+      inbox: [`user waiting rescheduled ${iso(MUSEUM_DAY.startsAt)}>${iso(MUSEUM_DAY_SHORTENED.startsAt)}`],
     },
   },
   {

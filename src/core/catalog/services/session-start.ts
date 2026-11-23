@@ -39,17 +39,28 @@ export function sessionCutoff(event: Pick<Event, 'startsAt' | 'endsAt'>, start: 
 
 /**
  * Whether a session starting at `start` is still ahead at `now`: it has not started, or it is a long one that still
- * takes applications. Only such sessions are changed when their event changes.
+ * takes applications.
  */
 export function sessionAhead(event: Pick<Event, 'startsAt' | 'endsAt'>, start: Date, now: Date): boolean {
   return start > now || sessionCutoff(event, start) > now;
 }
 
 /**
- * Whether changing the event's times from `previous` to `next` changes a session that may exist and is still ahead:
- * one of a day of `previous` that `next` starts at another time, or not at all. Days are checked from yesterday,
- * whose session may run past midnight, to the end of the catalog window, the last day a session can exist for.
- * A run whose first day moves forward keeps the starts of its later days, so nothing changes for it.
+ * Whether a stored session starting at `start` still changes with the event (matching.md, rule 10): it is ahead under
+ * the event's times, or the session its day starts at now is. Only the event's times as they are now decide, so the
+ * catalog and the import, which enqueue `event.changed`, and matching, which consumes it, decide alike.
+ */
+export function sessionInPlay(event: Pick<Event, 'startsAt' | 'endsAt'>, start: Date, now: Date): boolean {
+  const onItsDay = sessionStart(event, kyivDate(start));
+  return sessionAhead(event, start, now) || (onItsDay !== undefined && sessionAhead(event, onItsDay, now));
+}
+
+/**
+ * Whether changing the event's times from `previous` to `next` changes a session that may exist and is still in play
+ * under `next` (`sessionInPlay`): one of a day of `previous` that `next` starts at another time, or not at all. Days
+ * are checked from yesterday, whose session may run past midnight, to the end of the catalog window, the last day a
+ * session can exist for. A run whose first day moves forward keeps the starts of its later days, so nothing changes
+ * for it.
  */
 export function sessionScheduleChanged(
   previous: Pick<Event, 'startsAt' | 'endsAt'>,
@@ -59,7 +70,7 @@ export function sessionScheduleChanged(
   const lastDay = catalogWindow(now).to;
   for (let day = addDays(kyivDate(now), -1); day <= lastDay; day = addDays(day, 1)) {
     const before = sessionStart(previous, day);
-    if (before && sessionAhead(previous, before, now) && sessionStart(next, day)?.getTime() !== before.getTime()) {
+    if (before && sessionInPlay(next, before, now) && sessionStart(next, day)?.getTime() !== before.getTime()) {
       return true;
     }
   }

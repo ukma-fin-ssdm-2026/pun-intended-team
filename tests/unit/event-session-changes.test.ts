@@ -22,10 +22,26 @@ const RUN: Times = { startsAt: '2026-10-14T19:00:00+03:00', endsAt: '2026-10-30T
 const OPENING: Times = { startsAt: '2026-10-14T17:00:00+03:00', endsAt: '2026-10-14T19:00:00+03:00' };
 /** The same exhibition as its run, from today at the default 12:00, which has just started. */
 const EXHIBITION_RUN: Times = { startsAt: '2026-10-15T12:00:00+03:00', endsAt: '2026-11-10T23:59:59+02:00' };
+/** A museum day today, 10:00 to 18:00: it started two hours ago, and takes applications until its cutoff at 16:00. */
+const MUSEUM_DAY: Times = { startsAt: '2026-10-15T10:00:00+03:00', endsAt: '2026-10-15T18:00:00+03:00' };
+/** The museum day changed at 12:00 to 12:30–14:00: under these times the 10:00 session's cutoff has just passed. */
+const MUSEUM_DAY_SHORTENED: Times = { startsAt: '2026-10-15T12:30:00+03:00', endsAt: '2026-10-15T14:00:00+03:00' };
 
 describe('sessionScheduleChanged', () => {
   const cases: { name: string; previous: Times; next: Times; changed: boolean }[] = [
     { name: 'the same times', previous: CONCERT, next: CONCERT, changed: false },
+    {
+      name: 'a museum day that started, moved to a time still ahead',
+      previous: MUSEUM_DAY,
+      next: MUSEUM_DAY_SHORTENED,
+      changed: true,
+    },
+    {
+      name: 'a museum day that started, moved to a time that is over too: matching would change nothing',
+      previous: MUSEUM_DAY,
+      next: { startsAt: '2026-10-15T09:00:00+03:00', endsAt: '2026-10-15T11:00:00+03:00' },
+      changed: false,
+    },
     {
       name: 'another time on the same day',
       previous: CONCERT,
@@ -142,6 +158,14 @@ describe('EventSessionsService.reconcile', () => {
       moved: [{ sessionId: 's1', to: iso('2026-10-22T20:00:00+03:00'), intoSessionId: 'new1' }],
       movedTo: ['new1 created'],
       after: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `new1 scheduled ${iso('2026-10-22T20:00:00+03:00')}`],
+    },
+    {
+      name: 'a museum day that started and now starts later today moves the session, though its old cutoff passed',
+      event: anEvent(MUSEUM_DAY_SHORTENED),
+      sessions: [sessionAt(MUSEUM_DAY.startsAt, 's1')],
+      moved: [{ sessionId: 's1', to: iso(MUSEUM_DAY_SHORTENED.startsAt), intoSessionId: 'new1' }],
+      movedTo: ['new1 created'],
+      after: [`s1 cancelled ${iso(MUSEUM_DAY.startsAt)}`, `new1 scheduled ${iso(MUSEUM_DAY_SHORTENED.startsAt)}`],
     },
     {
       name: 'a session that exists at the new time takes the place of the moved one',

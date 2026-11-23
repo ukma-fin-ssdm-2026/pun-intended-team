@@ -7,7 +7,7 @@ import type { Transaction } from '../../common/transaction.ts';
 import { EventSessionsRepository } from '../repositories/event-sessions.repository.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
 import type { EventSession, EventSessionRecord, OpenedSession, SessionChanges } from '../types/event-session.ts';
-import { sessionAhead, sessionCutoff, sessionStart } from './session-start.ts';
+import { sessionCutoff, sessionInPlay, sessionStart } from './session-start.ts';
 
 @Injectable()
 export class EventSessionsService {
@@ -65,8 +65,8 @@ export class EventSessionsService {
   }
 
   /**
-   * Brings the event's sessions that are still ahead in line with the event as it is now, and says what changed
-   * (matching.md, rule 10). A cancelled event has them cancelled. A published one keeps a session that still starts
+   * Brings the event's sessions that are still in play (`sessionInPlay`) in line with the event as it is now, and says
+   * what changed (matching.md, rule 10). A cancelled event has them cancelled. A published one keeps a session that still starts
    * when the event does on its day, moves one whose day now starts at another time, cancels one whose day the event
    * no longer has, and schedules again a cancelled one it has. Past sessions are left as they are, and so is
    * everything on a second call.
@@ -82,7 +82,7 @@ export class EventSessionsService {
     const moves: { session: EventSessionRecord; to: Date }[] = [];
     for (const session of sessions) {
       const start = new Date(session.startsAt);
-      if (!sessionAhead(event, start, now)) {
+      if (!sessionInPlay(event, start, now)) {
         continue;
       }
       const target = event.status === 'cancelled' ? undefined : sessionStart(event, kyivDate(start));
