@@ -28,18 +28,19 @@ src/
       schemas/                  common.ts, errors.ts
     catalog/
       catalog-api.module.ts     imports core's CatalogModule, declares the controllers
-      controllers/              events, categories, admin-categories, organizations
-      schemas/                  events.ts, categories.ts, organizations.ts
+      controllers/              events, categories, admin-categories, admin-events, admin-venues, organizations, venues
+      schemas/                  events.ts, categories.ts, organizations.ts, venues.ts
     system/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
     common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts, age.ts, durations.ts
     catalog/
-      catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, ImportFreshnessService
+      catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, VenuesService, ImportFreshnessService
       repositories/             events, event-sessions, categories, venues, organizations, import-runs (abstract: what core needs from storage)
-      services/                 events.service.ts, event-sessions.service.ts, categories.service.ts, organizations.service.ts, import-freshness.service.ts,
-                                category-name.ts (how a category name is saved), session-start.ts (when an event's session on a day starts)
+      services/                 events.service.ts, event-sessions.service.ts, categories.service.ts, organizations.service.ts, venues.service.ts,
+                                import-freshness.service.ts, category-name.ts (how a category name is saved), session-start.ts (when an event's
+                                session on a day starts), verified-organization.ts (only a verified organization publishes and adds venues)
       types/                    event, event-session, category, venue, organization, import-freshness
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
     images/                     uploaded pictures (HLD §2.3): images.module.ts provides + exports ImagesService; adapters/image-processor.ts

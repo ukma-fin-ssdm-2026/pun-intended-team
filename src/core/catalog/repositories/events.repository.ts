@@ -1,7 +1,15 @@
 // Written with the help of Claude
 import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
-import type { Event, EventChanges, EventFilter, EventRecord, EventStatus } from '../types/event.ts';
+import type {
+  Event,
+  EventChanges,
+  EventFilter,
+  EventOverview,
+  EventRecord,
+  EventSearch,
+  EventStatus,
+} from '../types/event.ts';
 
 /**
  * What the catalog needs from storage. Core only depends on this class;
@@ -13,10 +21,20 @@ export abstract class EventsRepository {
   /** Published events that overlap the filter's dates, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
 
+  /** The organization's events, published and cancelled, that end after the instant; soonest first. */
+  abstract findByOrganization(organizationId: string, endingAfter: Date, page: PageRequest): Promise<Page<Event>>;
+
+  /** Events in any status that match, in the order of the filter's period; `now` splits upcoming from past. */
+  abstract search(filter: EventSearch, now: Date, page: PageRequest): Promise<Page<EventOverview>>;
+
+  abstract findOverview(id: string): Promise<EventOverview | undefined>;
+
   /** Published events that end after the instant. */
   abstract countPublishedEndingAfter(instant: Date): Promise<number>;
 
   abstract create(event: EventRecord): Promise<Event>;
 
   abstract update(id: string, changes: EventChanges & { status?: EventStatus }, tx?: Transaction): Promise<Event>;
+
+  abstract setPhoto(id: string, photoId: string | null, tx?: Transaction): Promise<Event>;
 }

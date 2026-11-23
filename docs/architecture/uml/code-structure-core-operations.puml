@@ -21,6 +21,10 @@ package "core (business logic)" as CORE {
     class StatsService {
       +get()
     }
+    class AccountsOverviewService {
+      +list(query, page)
+      +get(accountId)
+    }
     class BackupsService {
       +status(now)
       +history(now)
@@ -77,13 +81,13 @@ package "core (business logic)" as CORE {
       +prepare(kind, upload)
       +save(ownerId, prepared, tx)
       +getRefs(ids)
-      +getFile(id)
+      +getFile(id, caller)
       +remove(ids, tx)
     }
     abstract class ImagesRepository {
       +create(image, tx)
       +findRefs(ids)
-      +findFile(id)
+      +findFile(id, options)
       +delete(ids, tx)
     }
     abstract class ImageProcessor {
@@ -111,6 +115,7 @@ package "core (business logic)" as CORE {
 class AccountsService <<other diagram>>
 class EventsService <<other diagram>>
 class MatchingService <<other diagram>>
+class OrganizationsService <<other diagram>>
 class ModerationService <<other diagram>>
 class AuthService <<other diagram>>
 class SessionsService <<other diagram>>
@@ -125,6 +130,9 @@ StatsService --> EventsService
 StatsService --> MatchingService
 StatsService --> ModerationService
 StatsService --> BackupsService
+AccountsOverviewService --> AccountsService
+AccountsOverviewService --> ProfilesService
+AccountsOverviewService --> OrganizationsService
 BackupsService --> BackupRunsRepository
 HealthService --> DatabaseProbe
 NotificationsService --> MessagingProvider

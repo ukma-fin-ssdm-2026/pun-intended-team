@@ -16,6 +16,7 @@ import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
 import { Sheet } from '@/components/ui/sheet';
+import type { PictureKind } from '@/pictures/geometry';
 import type { PictureDraft, PictureRefusal } from '@/pictures/picked-picture';
 import { colors } from '@/styles/tokens';
 
@@ -136,7 +137,7 @@ export function ProfilePhoto({ pictures, onChange, onRefused }: Props) {
   );
 }
 
-function slotOf(kind: 'profilePhoto' | 'profileCover' | 'listingPhoto'): ProfileImageSlot {
+function slotOf(kind: PictureKind): ProfileImageSlot {
   return kind === 'profilePhoto' ? 'photo' : 'cover';
 }
 

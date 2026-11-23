@@ -58,10 +58,13 @@ package "api/images" as API_images {
 package "api/catalog" as API_catalog {
   class EventsController {
     +listEvents()
+    +listMyEvents()
     +getEvent()
     +createEvent()
     +updateEvent()
     +cancelEvent()
+    +uploadEventPhoto()
+    +deleteEventPhoto()
   }
   class CategoriesController {
     +listCategories()
@@ -76,6 +79,21 @@ package "api/catalog" as API_catalog {
   class OrganizationsController {
     +getMyOrganization()
     +requestOrganizationStatus()
+    +uploadOrganizationLogo()
+    +deleteOrganizationLogo()
+  }
+  class VenuesController {
+    +listMyVenues()
+    +getMyVenue()
+    +createVenue()
+  }
+  class AdminEventsController {
+    +listEvents()
+    +getEvent()
+  }
+  class AdminVenuesController {
+    +listVenues()
+    +getVenue()
   }
 }
 package "api/listings" as API_listings {
@@ -109,6 +127,7 @@ package "api/moderation" as API_moderation {
   }
   class AdminOrganizationsController {
     +listOrganizations()
+    +getOrganization()
     +approveOrganization()
     +rejectOrganization()
   }
@@ -128,6 +147,10 @@ package "api/admin" as API_admin {
   class AdminBackupsController {
     +listBackups()
   }
+  class AdminAccountsController {
+    +listAccounts()
+    +getAccount()
+  }
 }
 package "api/system" as API_system {
   class SystemController {
@@ -144,12 +167,14 @@ package "core services (methods on code-structure-core-*)" as CORE {
   class EventsService <<other diagram>>
   class CategoriesService <<other diagram>>
   class OrganizationsService <<other diagram>>
+  class VenuesService <<other diagram>>
   class ImportFreshnessService <<other diagram>>
   class ListingsService <<other diagram>>
   class ImagesService <<other diagram>>
   class ApplicationsService <<other diagram>>
   class StatsService <<other diagram>>
   class BackupsService <<other diagram>>
+  class AccountsOverviewService <<other diagram>>
   class NotificationsService <<other diagram>>
   class HealthService <<other diagram>>
 }
@@ -167,6 +192,9 @@ EventsController --> ImportFreshnessService
 CategoriesController --> CategoriesService
 AdminCategoriesController --> CategoriesService
 OrganizationsController --> OrganizationsService
+VenuesController --> VenuesService
+AdminEventsController --> EventsService
+AdminVenuesController --> VenuesService
 ListingsService <-- ListingsController
 ApplicationsService <-- ApplicationsController
 ModerationService <-- ReportsController
@@ -174,6 +202,7 @@ ModerationService <-- AdminReportCasesController
 OrganizationReviewService <-- AdminOrganizationsController
 StatsService <-- AdminStatsController
 BackupsService <-- AdminBackupsController
+AccountsOverviewService <-- AdminAccountsController
 NotificationsService <-- NotificationsController
 HealthService <-- SystemController
 

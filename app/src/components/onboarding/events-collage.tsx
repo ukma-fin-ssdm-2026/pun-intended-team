@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: event collage of the Figma "В1 Онбординг · Події" frame; reviewed by Daryna Halytska.
 import { Image, type ImageSource } from 'expo-image';
-import { Text, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import type { components } from '@/api/schema';
@@ -28,22 +28,22 @@ const gradientTransforms: Record<number, string> = {
 };
 
 // `eventId` marks a tile showing a catalog event instead of the bundled picture.
-type Tile = { label: string; column: number; top: number; height: number; image?: ImageSource; eventId?: string };
+type Tile = { column: number; top: number; height: number; image?: ImageSource; eventId?: string };
 
-// "00 Колаж подій": three columns of 122 px tiles, partly above and below the 600 px frame.
+// "00 Колаж подій": three columns of 122 px tiles, partly above and below the 600 px frame; the tiles have no titles.
 const tiles: Tile[] = [
-  { label: 'Джаз-вечір', column: 0, top: -60, height: 170, image: jazz },
-  { label: 'Лекція: сучасне мистецтво', column: 0, top: 120, height: 150 },
-  { label: 'Квартирник', column: 0, top: 280, height: 190, image: kvartyrnyk },
-  { label: 'Кіно під зірками', column: 0, top: 480, height: 160 },
-  { label: 'Стендап у Подолі', column: 1, top: 10, height: 140 },
-  { label: 'Вечірка на даху', column: 1, top: 160, height: 200, image: kvartyrnyk },
-  { label: 'Виставка ілюстрації', column: 1, top: 370, height: 170, image: jazz },
-  { label: 'Кераміка', column: 1, top: 550, height: 150 },
-  { label: 'Поетичний вечір', column: 2, top: -110, height: 180, image: kvartyrnyk },
-  { label: 'Інді-концерт', column: 2, top: 80, height: 160, image: jazz },
-  { label: 'Настільні ігри', column: 2, top: 250, height: 170 },
-  { label: 'Фестиваль', column: 2, top: 430, height: 150, image: kvartyrnyk },
+  { column: 0, top: -60, height: 170, image: jazz },
+  { column: 0, top: 120, height: 150 },
+  { column: 0, top: 280, height: 190, image: kvartyrnyk },
+  { column: 0, top: 480, height: 160 },
+  { column: 1, top: 10, height: 140 },
+  { column: 1, top: 160, height: 200, image: kvartyrnyk },
+  { column: 1, top: 370, height: 170, image: jazz },
+  { column: 1, top: 550, height: 150 },
+  { column: 2, top: -110, height: 180, image: kvartyrnyk },
+  { column: 2, top: 80, height: 160, image: jazz },
+  { column: 2, top: 250, height: 170 },
+  { column: 2, top: 430, height: 150, image: kvartyrnyk },
 ];
 
 // "Затемнення": clear down to 45% of the tile, then black at 55% at the bottom.
@@ -67,7 +67,7 @@ function withEvents(events: Event[] | undefined): Tile[] {
   const picked = [...(events ?? [])].sort((a, b) => Number(!a.imageUrl) - Number(!b.imageUrl));
   return tiles.map((tile, index) => {
     const event = picked[index];
-    return event ? { ...tile, label: event.title, image: coverOf(event.imageUrl), eventId: event.id } : tile;
+    return event ? { ...tile, image: coverOf(event.imageUrl), eventId: event.id } : tile;
   });
 }
 
@@ -85,7 +85,8 @@ export function EventsCollage() {
         );
         return (
           <View
-            key={tile.eventId ?? tile.label}
+            key={tile.eventId ?? `${tile.column}-${tile.top}`}
+            testID={tile.eventId && `collage-event-${tile.eventId}`}
             className="absolute overflow-hidden rounded-[20px]"
             style={{ left: start + tile.column * COLUMN_STEP, top: tile.top, width: TILE_WIDTH, height: tile.height }}
           >
@@ -98,12 +99,6 @@ export function EventsCollage() {
               gradient
             )}
             <TileShade id={`collage-shade-${index}`} />
-            <Text
-              numberOfLines={3}
-              className="absolute bottom-3 left-3 w-[100px] font-inter-semibold text-tag text-white"
-            >
-              {tile.label}
-            </Text>
           </View>
         );
       })}

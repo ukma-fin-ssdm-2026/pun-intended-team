@@ -49,7 +49,7 @@ Not covered, and why:
 
 ## CI/CD
 
-[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit` and the unit tests in one job, `CI passed`, on every pull request and push. All tests with coverage (`npm run test:coverage`) run in a second job, `E2E tests`, after a merge to `main` and before every staging publish. The coverage step fails that job below 90% of lines or 80% of branches (see Bonuses); the gate rises as coverage grows.
+[`ci.yml`](../../.github/workflows/ci.yml) runs lint, formatting and type checks, the spec check, `npm audit`, the unit tests and the app's Jest tests in one job, `CI passed`, on every pull request and push. All tests with coverage (`npm run test:coverage`) run in a second job, `E2E tests`, after a merge to `main` and before every staging publish. The coverage step fails that job below 90% of lines or 80% of branches (see Bonuses); the gate rises as coverage grows.
 
 Tests run locally before pushing, review checks them with the diff, and a flaky test is fixed, not skipped.
 
@@ -58,6 +58,7 @@ Tests run locally before pushing, review checks them with the diff, and a flaky 
 | Tests | Job | Contains | Runs on |
 |---|---|---|---|
 | Unit tests | `CI passed` (required check) | `npm run test:unit`: [`tests/unit/`](../../tests/unit/), no database | every pull request and every push to `main` or `staging` |
+| App tests | `CI passed` (required check) | `npm test -- --ci` in `app/`: [`app/tests/`](../../app/tests/), Jest with jest-expo and React Native Testing Library, no API | every pull request and every push to `main` or `staging` |
 | E2E tests | `E2E tests` (not a required check) | a PostgreSQL 18 service, the Prisma migrations, the role passwords, then `npm run test:coverage`: all tests, including [`tests/e2e/`](../../tests/e2e/), with the coverage gate | a push or a manual run on `main` or `staging`, side by side with `CI passed`: after every merge to `main` and before every staging publish, which waits for it; never on a pull request |
 
 The reliability tests keep their own job, `Reliability tests`, on every pull request; it needs no database.

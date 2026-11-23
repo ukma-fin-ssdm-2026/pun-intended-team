@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { PrismaEventsRepository } from '../../dist/infra/prisma/prisma-events.repository.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
+import { ACCOUNT_ID } from './fixtures/accounts.ts';
 import { EVENT_ID } from './fixtures/catalog.ts';
 import { anEventRow } from './fixtures/catalog-rows.ts';
 
@@ -11,7 +12,7 @@ const FILTER = { from: '2026-11-10', to: '2026-11-12' };
 function makeRepository(rows: ReturnType<typeof anEventRow>[] = []) {
   // Each Prisma call takes one argument, which the tests read back from `mock.calls`.
   const query = () => mock.fn<(args: unknown) => Promise<unknown>>();
-  const event = { findMany: query(), update: query(), count: query() };
+  const event = { findMany: query(), findUnique: query(), update: query(), count: query() };
   event.findMany.mock.mockImplementation(() => Promise.resolve(rows));
   event.update.mock.mockImplementation(() => Promise.resolve(anEventRow()));
   event.count.mock.mockImplementation(() => Promise.resolve(2));
@@ -83,5 +84,72 @@ describe('PrismaEventsRepository.countPublishedEndingAfter', () => {
     assert.deepEqual(event.count.mock.calls[0]?.arguments[0], {
       where: { status: 'published', endsAt: { gt: instant } },
     });
+  });
+});
+
+describe('PrismaEventsRepository.search', () => {
+  const NOW = new Date('2026-11-21T10:00:00Z');
+  const ORGANIZATION = { accountId: ACCOUNT_ID, name: 'Podil Film Club' };
+
+  test('lists upcoming events in any status, soonest first, with the filters', async () => {
+    const { repository, event } = makeRepository();
+
+    await repository.search(
+      { period: 'upcoming', search: 'film', source: 'organization', status: 'cancelled', organizationId: ACCOUNT_ID },
+      NOW,
+      { limit: 20, offset: 0 },
+    );
+
+    const { where, orderBy } = event.findMany.mock.calls[0]?.arguments[0] as { where: unknown; orderBy: unknown };
+    assert.deepEqual(where, {
+      source: 'organization',
+      status: 'cancelled',
+      organizationId: ACCOUNT_ID,
+      venueId: undefined,
+      categoryId: undefined,
+      title: { contains: 'film', mode: 'insensitive' },
+      endsAt: { gt: NOW },
+    });
+    assert.deepEqual(orderBy, [{ startsAt: 'asc' }, { id: 'asc' }]);
+  });
+
+  test('lists past events latest first', async () => {
+    const { repository, event } = makeRepository();
+
+    await repository.search({ period: 'past' }, NOW, { limit: 20, offset: 0 });
+
+    const { where, orderBy } = event.findMany.mock.calls[0]?.arguments[0] as {
+      where: { endsAt: unknown; title: unknown };
+      orderBy: unknown;
+    };
+    assert.deepEqual(where.endsAt, { lte: NOW });
+    assert.equal(where.title, undefined);
+    assert.deepEqual(orderBy, [{ startsAt: 'desc' }, { id: 'asc' }]);
+  });
+
+  test('gives each event with its organization, and null for an imported one', async () => {
+    const { repository } = makeRepository([
+      { ...anEventRow({ id: 'a' }), organization: ORGANIZATION },
+      { ...anEventRow({ id: 'b', organizationId: null, source: 'import' }), organization: null },
+    ] as ReturnType<typeof anEventRow>[]);
+
+    const { items } = await repository.search({ period: 'upcoming' }, NOW, { limit: 20, offset: 0 });
+
+    assert.deepEqual(
+      items.map(({ id, organization }) => ({ id, organization })),
+      [
+        { id: 'a', organization: ORGANIZATION },
+        { id: 'b', organization: null },
+      ],
+    );
+  });
+});
+
+describe('PrismaEventsRepository.findOverview', () => {
+  test('is undefined for an unknown event', async () => {
+    const { repository, event } = makeRepository();
+    event.findUnique.mock.mockImplementation(() => Promise.resolve(null));
+
+    assert.equal(await repository.findOverview(EVENT_ID), undefined);
   });
 });

@@ -11,6 +11,7 @@ import { imageKinds, pixelCrop, scaleArea } from './image-kinds.ts';
 export interface PreparedImage {
   encoded: EncodedImage;
   crop: PixelArea | null;
+  isPublic: boolean;
 }
 
 @Injectable()
@@ -32,15 +33,16 @@ export class ImagesService {
     const settings = imageKinds[kind];
     const crop = pixelCrop(upload.crop, size, settings.aspectRatio);
     const box = { maxWidth: settings.maxWidth, maxHeight: settings.maxHeight };
+    const { isPublic } = settings;
     if (!settings.keepWhole) {
-      return { encoded: await this.imageProcessor.encode(upload.content, { ...box, crop }), crop: null };
+      return { encoded: await this.imageProcessor.encode(upload.content, { ...box, crop }), crop: null, isPublic };
     }
     const encoded = await this.imageProcessor.encode(upload.content, box);
-    return { encoded, crop: scaleArea(crop, size, encoded) };
+    return { encoded, crop: scaleArea(crop, size, encoded), isPublic };
   }
 
-  async save(ownerId: string, { encoded, crop }: PreparedImage, tx?: Transaction): Promise<ImageRef> {
-    return this.imagesRepository.create({ ownerId, ...encoded, crop }, tx);
+  async save(ownerId: string, { encoded, crop, isPublic }: PreparedImage, tx?: Transaction): Promise<ImageRef> {
+    return this.imagesRepository.create({ ownerId, ...encoded, crop, isPublic }, tx);
   }
 
   /** By id; ids without an image are left out. */
@@ -50,8 +52,9 @@ export class ImagesService {
     return new Map(refs.map((ref) => [ref.id, ref]));
   }
 
-  async getFile(id: string): Promise<ImageFile> {
-    const file = await this.imagesRepository.findFile(id);
+  /** A guest gets only the pictures of the catalog; any other is NOT_FOUND for it. */
+  async getFile(id: string, { guest }: { guest: boolean }): Promise<ImageFile> {
+    const file = await this.imagesRepository.findFile(id, { publicOnly: guest });
     if (!file) {
       throw new DomainError('NOT_FOUND', 'Image not found');
     }

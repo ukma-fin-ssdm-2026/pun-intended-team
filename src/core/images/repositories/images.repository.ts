@@ -8,7 +8,7 @@ export abstract class ImagesRepository {
   /** Without their content. */
   abstract findRefs(ids: string[]): Promise<ImageRef[]>;
 
-  abstract findFile(id: string): Promise<ImageFile | undefined>;
+  abstract findFile(id: string, options: { publicOnly: boolean }): Promise<ImageFile | undefined>;
 
   abstract delete(ids: string[], tx?: Transaction): Promise<void>;
 }

@@ -1,7 +1,21 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { CalendarDate, DateTime, Id, PageQuery, pageExample, pageFields } from '../../common/schemas/common.ts';
+import {
+  CalendarDate,
+  DateTime,
+  Id,
+  PageQuery,
+  pageExample,
+  pageFields,
+  pageOf,
+  SearchText,
+} from '../../common/schemas/common.ts';
+import { EventPhoto } from '../../images/schemas/images.ts';
 import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
+import { OrganizationName } from './organizations.ts';
+
+/** The highest ticket price an organization can enter, in hryvnias. */
+export const MAX_PRICE = 1_000_000;
 
 export const EventSource = z
   .enum(['organization', 'import'])
@@ -17,6 +31,27 @@ const VenueFields = z.object({
 });
 
 export const Venue = VenueFields.meta({ id: 'Venue', description: 'Where an event takes place' });
+
+const VenueSource = z
+  .enum(['organization', 'import'])
+  .meta({ id: 'VenueSource', description: 'Who added the venue: an organization, which owns it, or the importer' });
+
+const AdminVenueFields = VenueFields.extend({ source: VenueSource, organization: OrganizationName });
+
+export const adminVenueExample: AdminVenue = {
+  id: '5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05',
+  name: 'Natalka Park lawn',
+  address: 'Naberezhno-Luhova St, Kyiv',
+  location: { lat: 50.4825, lng: 30.5181 },
+  source: 'organization',
+  organization: { accountId: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c', name: 'Podil Film Club' },
+};
+
+export const AdminVenue = AdminVenueFields.meta({
+  id: 'AdminVenue',
+  description: 'A venue as administrators see it, with who added it',
+  example: adminVenueExample,
+});
 
 const EventFields = z.object({
   id: Id,
@@ -39,10 +74,29 @@ const EventFields = z.object({
       'False for an imported event whose provider gives no end: endsAt is then the end of its start day in ' +
         'Europe/Kyiv and only startsAt should be shown. Always true for an organization event',
     ),
+  priceMin: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .describe(
+      'The lowest ticket price in whole hryvnias. Null when the price is unknown: show no price. 0 with priceMax ' +
+        'null or 0: the event is free',
+    ),
+  priceMax: z
+    .number()
+    .int()
+    .min(0)
+    .nullable()
+    .describe(
+      'The highest ticket price in whole hryvnias, when the tickets cost from priceMin to priceMax; never below ' +
+        'priceMin. Null for one price, a free event or an unknown price',
+    ),
   imageUrl: z
     .string()
     .nullable()
     .describe("Imported events: the provider's image URL, shown as is; null for organization events"),
+  photo: EventPhoto.nullable().describe('The cover an organization uploaded; null for imported events and without one'),
   sourceUrl: z
     .string()
     .nullable()
@@ -66,7 +120,10 @@ export const eventExample: Event = {
   startTimeKnown: true,
   endsAt: '2026-10-17T21:30:00+03:00',
   endTimeKnown: true,
+  priceMin: 150,
+  priceMax: null,
   imageUrl: null,
+  photo: null,
   sourceUrl: null,
   source: 'organization',
   status: 'published',
@@ -89,8 +146,37 @@ export const EventsPage = pageFields(Event)
   })
   .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });
 
+export const MyEventsPage = pageOf(Event, 'MyEventsPage', eventExample);
+
+export const ListMyEventsQuery = PageQuery;
+
 export const EventIdParams = z.object({
   id: Id.describe('Event id'),
+});
+
+const AdminEventFields = EventFields.extend({ organization: OrganizationName });
+
+const adminEventExample: AdminEvent = { ...eventExample, organization: adminVenueExample.organization };
+
+export const AdminEvent = AdminEventFields.meta({
+  id: 'AdminEvent',
+  description: 'An event as administrators see it: in any status, past or upcoming, with who added it',
+  example: adminEventExample,
+});
+
+export const AdminEventsPage = pageOf(AdminEvent, 'AdminEventsPage', adminEventExample);
+
+export const ListAdminEventsQuery = PageQuery.extend({
+  period: z
+    .enum(['upcoming', 'past'])
+    .default('upcoming')
+    .describe('`upcoming`: not ended yet, soonest first. `past`: ended, latest first'),
+  search: SearchText.optional().describe('Part of the title, in any case'),
+  source: EventSource.optional(),
+  status: EventStatus.optional(),
+  organizationId: Id.optional().describe('Only events of this organization, by its account id'),
+  venueId: Id.optional().describe('Only events at this venue'),
+  categoryId: Id.optional().describe('Only events of this category, active or not'),
 });
 
 export const ListEventsQuery = PageQuery.extend({
@@ -100,6 +186,9 @@ export const ListEventsQuery = PageQuery.extend({
   to: CalendarDate.optional().describe('Last day, Kyiv time; later dates count as the end of the catalog window'),
 }).refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' });
 
+/** A ticket price in whole hryvnias; the upper bound only keeps a typo from passing as a price. */
+const Hryvnias = z.number().int().min(0).max(MAX_PRICE);
+
 const EventInputFields = {
   title: z.string().trim().min(1).max(120).describe('Title shown in the catalog'),
   description: z.string().trim().max(5000).describe('Can be empty'),
@@ -107,9 +196,28 @@ const EventInputFields = {
   venueId: Id.describe("One of the organization's own venues"),
   startsAt: DateTime.describe('Start time with an offset, e.g. 2026-10-25T19:00:00+03:00'),
   endsAt: DateTime.describe('End time with an offset; must be after startsAt'),
+  priceMin: Hryvnias.nullable()
+    .default(null)
+    .describe('The lowest ticket price in whole hryvnias; 0 for a free event. Omitted or null: the price is unknown'),
+  priceMax: Hryvnias.nullable()
+    .default(null)
+    .describe(
+      'The highest ticket price of a range in whole hryvnias; only together with priceMin, and not below it. ' +
+        'Omitted or null for one price or a free event',
+    ),
 };
 
-const CreateEventFields = z.strictObject(EventInputFields);
+// PUT replaces every editable field, so a price left out of an edit becomes unknown.
+const CreateEventFields = z
+  .strictObject(EventInputFields)
+  .refine(({ priceMin, priceMax }) => priceMax === null || priceMin !== null, {
+    path: ['priceMax'],
+    message: 'Requires priceMin',
+  })
+  .refine(({ priceMin, priceMax }) => priceMin === null || priceMax === null || priceMax >= priceMin, {
+    path: ['priceMax'],
+    message: 'Must not be below priceMin',
+  });
 
 export const createEventExample: CreateEventBody = {
   title: 'Film quiz night',
@@ -118,6 +226,8 @@ export const createEventExample: CreateEventBody = {
   venueId: eventExample.venue.id,
   startsAt: '2026-10-25T19:00:00+03:00',
   endsAt: '2026-10-25T21:00:00+03:00',
+  priceMin: 300,
+  priceMax: 700,
 };
 
 export const CreateEventBody = CreateEventFields.meta({
@@ -126,6 +236,11 @@ export const CreateEventBody = CreateEventFields.meta({
   example: createEventExample,
 });
 
+export type Venue = z.infer<typeof VenueFields>;
 export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
+export type MyEventsPage = z.infer<typeof MyEventsPage>;
+export type AdminVenue = z.infer<typeof AdminVenueFields>;
+export type AdminEvent = z.infer<typeof AdminEventFields>;
+export type AdminEventsPage = z.infer<typeof AdminEventsPage>;

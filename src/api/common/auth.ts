@@ -64,6 +64,15 @@ export const CurrentAccount = createParamDecorator((_data: unknown, context: Exe
   return caller;
 });
 
+/** Any caller of an endpoint with access: 'guest', a guest or an account. */
+export const CurrentCaller = createParamDecorator((_data: unknown, context: ExecutionContext): Caller => {
+  const caller = context.switchToHttp().getRequest<AuthenticatedRequest>()[CALLER];
+  if (!caller) {
+    throw new Error('@CurrentCaller() is only available on endpoints that need a token');
+  }
+  return caller;
+});
+
 export const CurrentRegistrant = createParamDecorator((_data: unknown, context: ExecutionContext): RegistrantCaller => {
   const caller = context.switchToHttp().getRequest<AuthenticatedRequest>()[CALLER];
   if (caller?.kind !== 'registrant') {

@@ -3,7 +3,7 @@
 // reviewed by Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -75,13 +75,24 @@ type ActionsProps = {
   onGoogleFailure: (snackbar: SnackbarContent) => void;
   googleLoading: boolean;
   onGuest: () => void;
+  onOrganizations: () => void;
   onHeight: (height: number) => void;
 };
 
 // "02 Дії" stays in place while the slides move: the step indicator only moves its active dot, and the main button is
 // "Далі" until В3, where it becomes Google's, for signing in and signing up alike. "Увійти" on В1 and В2 leads to В3.
 // Figma spaces it 18 px apart (В2, В3).
-function Actions({ page, onDot, onNext, onIdToken, onGoogleFailure, googleLoading, onGuest, onHeight }: ActionsProps) {
+function Actions({
+  page,
+  onDot,
+  onNext,
+  onIdToken,
+  onGoogleFailure,
+  googleLoading,
+  onGuest,
+  onOrganizations,
+  onHeight,
+}: ActionsProps) {
   const insets = useSafeAreaInsets();
   const last = page === PAGES - 1;
   return (
@@ -122,6 +133,15 @@ function Actions({ page, onDot, onNext, onIdToken, onGoogleFailure, googleLoadin
         <Pressable accessibilityRole="link" onPress={onGuest}>
           <Text className="font-inter-medium text-label text-text-on-dark-muted">Продовжити як гість</Text>
         </Pressable>
+        {/* Organizations work in a browser on a computer, so the phone app does not offer it. */}
+        {Platform.OS === 'web' && (
+          <>
+            <View className="size-1 rounded-full bg-white/[0.35]" />
+            <Pressable accessibilityRole="link" onPress={onOrganizations}>
+              <Text className="font-inter-medium text-label text-text-on-dark-muted">Для організацій</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -273,6 +293,7 @@ export default function OnboardingScreen() {
           if (router.canDismiss()) router.dismissAll();
           router.replace('/');
         }}
+        onOrganizations={() => router.push('/for-organizations')}
         onHeight={setActionsHeight}
       />
       {google.snackbar && <Snackbar {...google.snackbar} />}

@@ -35,6 +35,8 @@ package "core (business logic)" as CORE {
     class AccountsService {
       +getDateOfBirth(accountId)
       +findStanding(accountId)
+      +listOverviews(filter, page)
+      +findOverview(accountId)
       +ban(accountId)
       +stats()
     }
@@ -47,6 +49,8 @@ package "core (business logic)" as CORE {
     }
     abstract class AccountsRepository {
       +findById(accountId)
+      +findOverviews(filter, page)
+      +findOverview(accountId)
       +findByPhone(phone)
       +findPasswordCredential(phone)
       +create(account)
@@ -98,6 +102,7 @@ package "core (business logic)" as CORE {
     class ProfilesService {
       +getSummaries(accountIds)
       +findAccountId(username)
+      +searchAccountIds(text, limit)
       +listInterests()
       +isComplete(accountId)
       +getMatchingTraits(accountIds, day, tx)
@@ -113,6 +118,7 @@ package "core (business logic)" as CORE {
       +findSummaries(accountIds)
       +findByAccountId(accountId)
       +findAccountIdByUsername(username)
+      +findAccountIdsMatching(text, limit)
       +isUsernameTaken(username, exceptAccountId)
       +create(accountId, profile)
       +update(accountId, changes)
@@ -136,7 +142,8 @@ package "core (business logic)" as CORE {
       +stats()
     }
     class OrganizationReviewService {
-      +list(page)
+      +list(filter, page)
+      +get(accountId)
       +decide(accountId, decision, adminId)
     }
     abstract class ReportCasesRepository {

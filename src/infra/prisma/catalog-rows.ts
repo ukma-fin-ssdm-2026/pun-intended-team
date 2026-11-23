@@ -15,6 +15,11 @@ export const eventInclude = {
 
 export type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
+/** The organization's name, for the admin panel's events and venues. */
+export const organizationName = {
+  organization: { select: { accountId: true, name: true } },
+} satisfies Prisma.EventInclude & Prisma.VenueInclude;
+
 export function toVenue(row: VenueRow): Venue {
   return {
     id: row.id,
@@ -43,7 +48,10 @@ export function toEvent(row: EventRow): Event {
     startTimeKnown: row.startTimeKnown,
     endsAt: row.endsAt.toISOString(),
     endTimeKnown: row.endTimeKnown,
+    priceMin: row.priceMin,
+    priceMax: row.priceMax,
     imageUrl: row.imageUrl,
+    photoId: row.photoId,
     sourceUrl: row.sourceUrl,
     source: row.source,
     status: row.status,
@@ -70,6 +78,8 @@ export function toImportedEventRow(row: EventTableRow): ImportedEventRow {
     startTimeKnown: row.startTimeKnown,
     endsAt: row.endsAt.toISOString(),
     endTimeKnown: row.endTimeKnown,
+    priceMin: row.priceMin,
+    priceMax: row.priceMax,
     status: row.status,
   };
 }

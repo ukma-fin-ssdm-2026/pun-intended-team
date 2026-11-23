@@ -21,11 +21,16 @@ package "core (business logic)" as CORE {
     class EventsService {
       +stats()
       +list(query, page)
+      +listOwn(accountId, page)
+      +search(filter, page)
+      +getOverview(id)
       +find(id)
       +getById(id)
       +create(accountId, input)
       +update(accountId, id, input)
       +cancel(accountId, id)
+      +setPhoto(accountId, id, upload)
+      +removePhoto(accountId, id)
     }
     class EventSessionsService {
       +open(eventId, days, tx)
@@ -45,8 +50,18 @@ package "core (business logic)" as CORE {
       +getOwn(accountId)
       +request(accountId, request)
       +find(accountId)
-      +listRequests(page)
+      +listRequests(filter, page)
+      +findMany(accountIds)
       +decide(accountId, decision, adminId)
+      +setLogo(accountId, upload)
+      +removeLogo(accountId)
+    }
+    class VenuesService {
+      +listOwn(accountId, page)
+      +getOwn(accountId, id)
+      +search(filter, page)
+      +getOverview(id)
+      +create(accountId, venue)
     }
     class ImportFreshnessService {
       +lastUpdatedAt()
@@ -54,9 +69,13 @@ package "core (business logic)" as CORE {
     abstract class EventsRepository {
       +findById(id, tx)
       +findPublished(filter, page)
+      +findByOrganization(organizationId, endingAfter, page)
+      +search(filter, now, page)
+      +findOverview(id)
       +countPublishedEndingAfter(instant)
       +create(event)
       +update(id, changes, tx)
+      +setPhoto(id, photoId, tx)
     }
     abstract class EventSessionsRepository {
       +findOrCreateMany(eventId, starts, tx)
@@ -73,13 +92,19 @@ package "core (business logic)" as CORE {
     }
     abstract class VenuesRepository {
       +findById(id)
+      +findByOrganization(organizationId, page)
+      +search(filter, page)
+      +findOverview(id)
+      +create(organizationId, venue)
     }
     abstract class OrganizationsRepository {
       +findByAccountId(accountId)
       +create(accountId, request)
       +resubmit(accountId, request)
-      +findPage(page)
+      +findPage(filter, page)
+      +findByAccountIds(accountIds)
       +decide(accountId, decision, adminId, at)
+      +setLogo(accountId, logoId, tx)
     }
     abstract class ImportRunsRepository {
       +freshness()
@@ -177,10 +202,14 @@ EventsService --> EventsRepository
 EventsService --> OrganizationsRepository
 EventsService --> VenuesRepository
 EventsService --> CategoriesService
+EventsService --> ImagesService
 EventSessionsService --> EventsRepository
 EventSessionsService --> EventSessionsRepository
 CategoriesService --> CategoriesRepository
 OrganizationsService --> OrganizationsRepository
+OrganizationsService --> ImagesService
+VenuesService --> VenuesRepository
+VenuesService --> OrganizationsRepository
 ImportFreshnessService --> ImportRunsRepository
 ListingsService --> ListingsRepository
 ListingsService --> CategoriesService

@@ -35,7 +35,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | catalog | Events, sessions, venues, categories, organization verification and publishing | FR-003, FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
 | notifications | Inbox, push delivery, verification-code dispatch | FR-011, FR-023, FR-024 |
-| images | Uploaded pictures: profile photos, covers and listing photos; checks, crops and stores them, serves them by id | FR-002, FR-021 |
+| images | Uploaded pictures: profile photos, covers, listing photos, event covers and organization logos; checks, crops and stores them, serves them by id | FR-002, FR-003, FR-009, FR-021 |
 | moderation | Reports, cases, bans, listing removal, audit log | FR-025–FR-028, SAFE-003, SEC-004 |
 | listings | "Looking for company" posts | FR-021, FR-022 |
 | admin | Platform statistics | FR-030 |
@@ -63,8 +63,8 @@ Modules sit in three tiers, defined by dependency direction rather than importan
 Pictures are stored in **PostgreSQL** (CMP-04), in the `images` table owned by the images module, not on the app host's disk or in an object store. CMP-02 stays stateless, the daily backups already cover them, and there is no second store to secure.
 
 - The client sends the original picture and the area picked in the crop preview; CMP-02 checks that it is a JPEG, PNG or WebP (up to 10 MB and 60 megapixels), turns it by its EXIF orientation, drops its metadata and stores it as WebP.
-- A profile photo is stored cut to a square (up to 512 × 512), a listing photo cut to 2:1 (up to 1200 × 600). A cover is kept whole (up to 2560 px) with the picked area beside it, since it is shown at several shapes: 390 × 200 on the profile, wider on the proposal card and the desktop profile.
-- Pictures are served only through `GET /images/{id}` to signed-in users, never as public links (TM-14). A new upload gets a new id, so a picture never changes and clients cache it for good.
+- A profile photo and an organization's logo are stored cut to a square (up to 512 × 512), a listing photo cut to 2:1 (up to 1200 × 600). A profile cover and an event cover are kept whole (up to 2560 px) with the picked area beside it, since they are shown at several shapes: the profile cover 390 × 200 on the profile, wider on the proposal card and the desktop profile; the event cover 2:1 on the catalog card, almost square on the event page.
+- Pictures are served only through `GET /images/{id}`, never as public links (TM-14): pictures of people to signed-in users, event covers and organization logos, which the catalog shows, to guests as well. A new upload gets a new id, so a picture never changes and clients cache it for good.
 
 If the pictures make the database or its backups too large, their content moves to an S3-compatible object store behind the same repository, still served through the API.
 
@@ -82,7 +82,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 | `/events/{id}/applications`, `/me/applications`, `/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |
-| `/images` | user | pictures by id (§2.3) |
+| `/images` | user; guest for event covers and logos | pictures by id (§2.3) |
 | `/reports` | user | FR-025 |
 | `/notifications` | user | inbox, polled on app open and every 30–60 s while open |
 | `/admin/*` | administrator | FR-003 (organization verification), FR-026–FR-030 |

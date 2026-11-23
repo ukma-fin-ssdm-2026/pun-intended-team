@@ -363,12 +363,15 @@ model Image {
   cropTop     Int?     @map("crop_top")
   cropWidth   Int?     @map("crop_width")
   cropHeight  Int?     @map("crop_height")
+  isPublic    Boolean  @default(false) @map("is_public")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  owner          Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  profilePhotoOf Profile? @relation("ProfilePhoto")
-  profileCoverOf Profile? @relation("ProfileCover")
-  listingPhotoOf Listing?
+  owner              Account       @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  profilePhotoOf     Profile?      @relation("ProfilePhoto")
+  profileCoverOf     Profile?      @relation("ProfileCover")
+  listingPhotoOf     Listing?
+  eventPhotoOf       Event?        @relation("EventPhoto")
+  organizationLogoOf Organization? @relation("OrganizationLogo")
 
   @@index([ownerId])
   @@map("images")
@@ -420,11 +423,13 @@ model Organization {
   verificationStatus VerificationStatus @default(pending) @map("verification_status")
   verifiedById       String?            @map("verified_by") @db.Uuid
   verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)
+  logoId             String?            @unique @map("logo_id") @db.Uuid
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account    Account  @relation("OrganizationAccount", fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   verifiedBy Account? @relation("OrganizationVerifier", fields: [verifiedById], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  logo       Image?   @relation("OrganizationLogo", fields: [logoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   events     Event[]
   venues     Venue[]
 
@@ -460,10 +465,15 @@ model Event {
   description    String
   imageUrl       String?       @map("image_url")
   sourceUrl      String?       @map("source_url")
+  photoId        String?       @unique @map("photo_id") @db.Uuid
   startsAt       DateTime      @map("starts_at") @db.Timestamptz(3)
   endsAt         DateTime      @map("ends_at") @db.Timestamptz(3)
   startTimeKnown Boolean       @default(true) @map("start_time_known")
   endTimeKnown   Boolean       @default(true) @map("end_time_known")
+  /// Whole hryvnias. Both null: the price is unknown; price_min 0 and no price_max: free.
+  priceMin       Int?          @map("price_min")
+  /// Whole hryvnias, only together with price_min and not below it: the highest price of a range.
+  priceMax       Int?          @map("price_max")
   status         EventStatus   @default(published)
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -471,6 +481,7 @@ model Event {
   category     Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   venue        Venue          @relation(fields: [venueId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   organization Organization?  @relation(fields: [organizationId], references: [accountId], onDelete: Restrict, onUpdate: Cascade)
+  photo        Image?         @relation("EventPhoto", fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   sessions     EventSession[]
   applications Application[]
   exclusions   Exclusion[]

@@ -23,9 +23,11 @@ import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import { KarabasEventProvider } from '../../dist/infra/providers/karabas-event-provider.js';
 import { events, venues } from '../../dist/infra/stubs/data.js';
 import { StubImportedEventsRepository } from '../../dist/infra/stubs/imported-events.repository.js';
+import type { ImagesService } from '../../dist/core/images/services/images.service.js';
 import { aCategory } from './fixtures/catalog.ts';
 import { useFixedClock } from './fixtures/clock.ts';
 import { aJobQueue, aTransactionRunner } from './fixtures/jobs.ts';
+import { fakeImages } from './fixtures/images.ts';
 import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
 
 /** Karabas on its saved concerts page. */
@@ -132,6 +134,7 @@ function makeCatalog(provider: EventProvider) {
       {} as OrganizationsRepository,
       venuesRepository,
       categoriesService,
+      fakeImages().imagesService as unknown as ImagesService,
       transactions,
       jobs,
     ),

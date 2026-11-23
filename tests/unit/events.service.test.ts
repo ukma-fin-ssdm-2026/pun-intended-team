@@ -13,25 +13,45 @@ import type { Event, EventChanges, EventFilter, EventRecord, NewEvent } from '..
 import type { Organization } from '../../dist/core/catalog/types/organization.js';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
 import type { Page, PageRequest } from '../../dist/core/common/page.js';
+import type { ImagesService } from '../../dist/core/images/services/images.service.js';
+import type { ImageRef } from '../../dist/core/images/types/image.js';
 import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aCategory, aNewEvent, anEvent, anOrganization, aVenue, EVENT_ID } from './fixtures/catalog.ts';
-import { TODAY, useFixedClock } from './fixtures/clock.ts';
+import { NOW, TODAY, useFixedClock } from './fixtures/clock.ts';
+import { fakeImages } from './fixtures/images.ts';
 import { aJobQueue, aTransactionRunner, enqueued, TX } from './fixtures/jobs.ts';
 
 const PAGE: PageRequest = { limit: 20, offset: 0 };
 /** TODAY plus the 28-day catalog window. */
 const WINDOW_END = '2026-11-12';
+const OLD_PHOTO: ImageRef = {
+  id: 'a0000000-0000-4000-8000-000000000011',
+  width: 2560,
+  height: 1707,
+  crop: { left: 0, top: 213, width: 2560, height: 1280 },
+};
+const PHOTO: ImageRef = { ...OLD_PHOTO, id: 'a0000000-0000-4000-8000-000000000012' };
+const UPLOAD = {
+  content: new Uint8Array([1, 2, 3]),
+  contentType: 'image/jpeg',
+  crop: { left: 0, top: 0.1, width: 1, height: 0.75 },
+};
 
 /** Every dependency of EventsService as a mock; a test changes only what it needs. */
 function makeService() {
   const eventsRepository = {
     findById: mock.fn((): Promise<Event | undefined> => Promise.resolve(anEvent())),
+    findByOrganization: mock.fn(
+      (_organizationId: string, _endingAfter: Date, page: PageRequest): Promise<Page<Event>> =>
+        Promise.resolve({ items: [anEvent()], page: { ...page, hasMore: false } }),
+    ),
     findPublished: mock.fn((_filter: EventFilter, page: PageRequest): Promise<Page<Event>> =>
       Promise.resolve({ items: [anEvent()], page: { ...page, hasMore: false } }),
     ),
     create: mock.fn((record: EventRecord): Promise<Event> => Promise.resolve(anEvent({ ...record }))),
     update: mock.fn((id: string, changes: EventChanges) => Promise.resolve({ ...anEvent({ id }), ...changes })),
+    setPhoto: mock.fn((id: string, photoId: string | null) => Promise.resolve(anEvent({ id, photoId }))),
   };
   const organizationsRepository = {
     findByAccountId: mock.fn((): Promise<Organization | undefined> => Promise.resolve(anOrganization())),
@@ -41,6 +61,7 @@ function makeService() {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
   };
 
+  const { imagesService } = fakeImages([OLD_PHOTO, PHOTO], PHOTO);
   const transactions = aTransactionRunner();
   const jobs = aJobQueue();
 
@@ -49,10 +70,20 @@ function makeService() {
     organizationsRepository as unknown as OrganizationsRepository,
     venuesRepository as unknown as VenuesRepository,
     categoriesService as unknown as CategoriesService,
+    imagesService as unknown as ImagesService,
     transactions,
     jobs as unknown as JobQueue,
   );
-  return { service, eventsRepository, organizationsRepository, venuesRepository, categoriesService, jobs };
+  return {
+    service,
+    eventsRepository,
+    organizationsRepository,
+    venuesRepository,
+    categoriesService,
+    imagesService,
+    jobs,
+    tx: TX,
+  };
 }
 
 function isDomainError(code: string) {
@@ -136,11 +167,33 @@ describe('EventsService.list', () => {
   });
 });
 
+// FR-009: О1 lists the organization's own events.
+describe('EventsService.listOwn', () => {
+  useFixedClock();
+
+  test('asks for the caller’s events that end after now', async () => {
+    const { service, eventsRepository } = makeService();
+
+    await service.listOwn(ACCOUNT_ID, PAGE);
+
+    assert.deepEqual(eventsRepository.findByOrganization.mock.calls[0]?.arguments, [ACCOUNT_ID, NOW, PAGE]);
+  });
+});
+
 describe('EventsService.getById', () => {
-  test('returns the event', async () => {
+  test('returns the event without a cover', async () => {
     const { service } = makeService();
 
-    assert.deepEqual(await service.getById(EVENT_ID), anEvent());
+    assert.deepEqual(await service.getById(EVENT_ID), { ...anEvent(), photo: null });
+  });
+
+  test('returns the event with its cover’s size and crop', async () => {
+    const { service, eventsRepository } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(anEvent({ photoId: PHOTO.id })));
+
+    const event = await service.getById(EVENT_ID);
+
+    assert.deepEqual(event.photo, PHOTO);
   });
 
   test('answers NOT_FOUND to an unknown event', async () => {
@@ -365,8 +418,70 @@ describe('EventsService.cancel', () => {
 
     const result = await service.cancel(ACCOUNT_ID, EVENT_ID);
 
-    assert.equal(result, cancelled);
+    assert.deepEqual(result, { ...cancelled, photo: null });
     assert.equal(eventsRepository.update.mock.callCount(), 0);
     assert.deepEqual(enqueued(jobs), []);
+  });
+});
+
+// FR-009: an organization's event cover.
+describe('EventsService.setPhoto', () => {
+  test('cuts the upload as an event photo, points the event at it and deletes the old cover in one transaction', async () => {
+    const { service, eventsRepository, imagesService, tx } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(anEvent({ photoId: OLD_PHOTO.id })));
+
+    const event = await service.setPhoto(ACCOUNT_ID, EVENT_ID, UPLOAD);
+
+    assert.deepEqual(imagesService.prepare.mock.calls[0]?.arguments, ['eventPhoto', UPLOAD]);
+    assert.deepEqual(eventsRepository.setPhoto.mock.calls[0]?.arguments, [EVENT_ID, PHOTO.id, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO.id], tx]);
+    assert.deepEqual(event.photo, PHOTO);
+  });
+
+  test('tells another organization the event does not exist, without reading the picture', async () => {
+    const { service, imagesService } = makeService();
+
+    await assert.rejects(service.setPhoto(OTHER_ACCOUNT_ID, EVENT_ID, UPLOAD), isDomainError('NOT_FOUND'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+
+  test('keeps the cover of a cancelled event', async () => {
+    const { service, eventsRepository, imagesService } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(anEvent({ status: 'cancelled' })));
+
+    await assert.rejects(service.setPhoto(ACCOUNT_ID, EVENT_ID, UPLOAD), isDomainError('EVENT_CANCELLED'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+
+  test('rejects an organization that is no longer verified', async () => {
+    const { service, organizationsRepository, imagesService } = makeService();
+    organizationsRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(anOrganization({ verificationStatus: 'revoked' })),
+    );
+
+    await assert.rejects(service.setPhoto(ACCOUNT_ID, EVENT_ID, UPLOAD), isDomainError('ORGANIZATION_NOT_VERIFIED'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+});
+
+describe('EventsService.removePhoto', () => {
+  test('clears the cover and deletes its picture', async () => {
+    const { service, eventsRepository, imagesService, tx } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(anEvent({ photoId: OLD_PHOTO.id })));
+
+    const event = await service.removePhoto(ACCOUNT_ID, EVENT_ID);
+
+    assert.deepEqual(eventsRepository.setPhoto.mock.calls[0]?.arguments, [EVENT_ID, null, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO.id], tx]);
+    assert.equal(event.photo, null);
+  });
+
+  test('changes nothing for an event without a cover', async () => {
+    const { service, eventsRepository, imagesService } = makeService();
+
+    await service.removePhoto(ACCOUNT_ID, EVENT_ID);
+
+    assert.equal(eventsRepository.setPhoto.mock.callCount(), 0);
+    assert.equal(imagesService.remove.mock.callCount(), 0);
   });
 });

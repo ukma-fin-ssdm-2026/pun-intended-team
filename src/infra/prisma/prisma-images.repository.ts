@@ -31,7 +31,7 @@ export class PrismaImagesRepository implements ImagesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(
-    { ownerId, content, contentType, width, height, crop }: ImageRecord,
+    { ownerId, content, contentType, width, height, crop, isPublic }: ImageRecord,
     tx?: Transaction,
   ): Promise<ImageRef> {
     const row = await clientOf(this.prisma, tx).image.create({
@@ -45,6 +45,7 @@ export class PrismaImagesRepository implements ImagesRepository {
         cropTop: crop?.top,
         cropWidth: crop?.width,
         cropHeight: crop?.height,
+        isPublic,
       },
       select: refFields,
     });
@@ -56,8 +57,11 @@ export class PrismaImagesRepository implements ImagesRepository {
     return rows.map(toRef);
   }
 
-  async findFile(id: string): Promise<ImageFile | undefined> {
-    const row = await this.prisma.image.findUnique({ where: { id }, select: { content: true, contentType: true } });
+  async findFile(id: string, { publicOnly }: { publicOnly: boolean }): Promise<ImageFile | undefined> {
+    const row = await this.prisma.image.findFirst({
+      where: { id, isPublic: publicOnly ? true : undefined },
+      select: { content: true, contentType: true },
+    });
     return row ?? undefined;
   }
 
