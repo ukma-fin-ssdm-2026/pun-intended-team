@@ -24,8 +24,8 @@ interface ChangedDay {
  * the catalog brings the sessions in line with the event, and the applications follow their sessions. An application
  * left without a day that is still ahead is cancelled with its pending proposal, whose other side returns to the pool
  * if it keeps a day; one that keeps a day loses only the days that are gone. A mutual match that lost a shared day and
- * has none left ahead is cancelled too; one whose shared day moved is kept. Every applicant whose days changed is told
- * once, with what became of their mutual match.
+ * has none left ahead is cancelled too; one whose shared day moved is kept, and so are its paired applications. Every
+ * applicant whose days changed is told once, with what became of their mutual match.
  */
 @Injectable()
 export class EventChangesService implements OnModuleInit {
@@ -85,9 +85,6 @@ export class EventChangesService implements OnModuleInit {
       const session = sessions.get(sessionId);
       return session?.status === 'scheduled' && (new Date(session.startsAt) > now || new Date(session.cutoffAt) > now);
     };
-    const cancelled = new Set(
-      applications.filter((application) => !daysLeft(application).some(isAhead)).map(({ id }) => id),
-    );
     // The two picked one of their shared days (rule 9): the match ends when the change took one of them away and
     // leaves none ahead. A shared day that moved still counts, and a match whose days are all past is left alone.
     const ended = new Set(
@@ -97,6 +94,17 @@ export class EventChangesService implements OnModuleInit {
           const sharedLeft = sharedDays(daysLeft(match.applicationA), daysLeft(match.applicationB));
           return shared.some((id) => gone.has(id)) && !sharedLeft.some(isAhead);
         })
+        .map(({ id }) => id),
+    );
+    // An application whose mutual match is kept stays paired with it, as a withdrawal leaves it, whatever days it has.
+    const keptPaired = new Set(
+      [...mutual.values()]
+        .filter(({ id }) => !ended.has(id))
+        .flatMap(({ applicationAId, applicationBId }) => [applicationAId, applicationBId]),
+    );
+    const cancelled = new Set(
+      applications
+        .filter((application) => !keptPaired.has(application.id) && !daysLeft(application).some(isAhead))
         .map(({ id }) => id),
     );
     const trimmed = applications.filter(

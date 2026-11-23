@@ -227,6 +227,9 @@ const iso = (kyivTime: string) => new Date(kyivTime).toISOString();
 /** NOW is 12:00 in Kyiv on 15 October. */
 const CONCERT = { startsAt: '2026-10-22T19:00:00+03:00', endsAt: '2026-10-22T21:00:00+03:00' };
 const CONCERT_AT_20 = { startsAt: '2026-10-22T20:00:00+03:00', endsAt: '2026-10-22T22:00:00+03:00' };
+const CONCERT_TODAY = { startsAt: '2026-10-15T19:00:00+03:00', endsAt: '2026-10-15T21:00:00+03:00' };
+/** Moved to an hour ago, so its new session has started and its cutoff passed. */
+const CONCERT_EARLIER_TODAY = { startsAt: '2026-10-15T11:00:00+03:00', endsAt: '2026-10-15T13:00:00+03:00' };
 /** A show at 19:00 every day from 14 to 30 October; Kyiv is on +02:00 from the 25th. */
 const RUN = { startsAt: '2026-10-14T19:00:00+03:00', endsAt: '2026-10-30T21:00:00+02:00' };
 const RUN_ON_18 = '2026-10-18T19:00:00+03:00';
@@ -372,7 +375,7 @@ const cases: Case[] = [
     },
   },
   {
-    name: 'a mutual match whose shared day is over: left as it is, though a later day of one side is cancelled',
+    name: 'a mutual match whose shared day is over: left as it is with its applications, though a later day of one side is cancelled',
     change: 'rescheduled',
     world: {
       event: anEvent(RUN_ENDING_ON_20),
@@ -382,9 +385,45 @@ const cases: Case[] = [
     },
     after: {
       sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
-      applications: ['a cancelled s14+s27', 'b paired s14'],
+      applications: ['a paired s14', 'b paired s14'],
       matches: ['mutual mutual'],
       inbox: [`user event_changed:rescheduled:a:${RUN_ON_27_GONE}`],
+    },
+  },
+  {
+    name: 'a mutual match whose shared day is over and whose later shared day is cancelled: cancelled with its applications',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: [sessionAt(RUN.startsAt, 's14'), sessionAt(RUN_ON_27, 's27')],
+      applications: aPair(['s14', 's27'], ['s14', 's27']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
+    },
+    after: {
+      sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['a cancelled s14+s27', 'b cancelled s14+s27'],
+      matches: ['mutual cancelled event_cancelled'],
+      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
+    },
+  },
+  {
+    name: 'a mutual match whose shared day moved to a time past its cutoff: kept on the new session with its applications',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(CONCERT_EARLIER_TODAY),
+      sessions: [sessionAt(CONCERT_TODAY.startsAt, 's1')],
+      applications: aPair(['s1'], ['s1']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
+    },
+    rounds: ['new1'],
+    after: {
+      sessions: [
+        `s1 cancelled ${iso(CONCERT_TODAY.startsAt)}`,
+        `new1 scheduled ${iso(CONCERT_EARLIER_TODAY.startsAt)}`,
+      ],
+      applications: ['a paired new1', 'b paired new1'],
+      matches: ['mutual mutual'],
+      inbox: bothTold('rescheduled', `${iso(CONCERT_TODAY.startsAt)}>${iso(CONCERT_EARLIER_TODAY.startsAt)}`),
     },
   },
   {
