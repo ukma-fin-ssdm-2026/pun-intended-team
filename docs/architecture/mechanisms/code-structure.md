@@ -28,20 +28,23 @@ src/
       schemas/                  common.ts, errors.ts
     catalog/
       catalog-api.module.ts     imports core's CatalogModule, declares the controllers
-      controllers/              events, categories, admin-categories, organizations
-      schemas/                  events.ts, categories.ts, organizations.ts
+      controllers/              events, categories, admin-categories, admin-events, admin-venues, organizations, venues
+      schemas/                  events.ts, categories.ts, organizations.ts, venues.ts
     system/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
     common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts, age.ts, durations.ts
     catalog/
-      catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, ImportFreshnessService
+      catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, VenuesService, ImportFreshnessService
       repositories/             events, event-sessions, categories, venues, organizations, import-runs (abstract: what core needs from storage)
-      services/                 events.service.ts, event-sessions.service.ts, categories.service.ts, organizations.service.ts, import-freshness.service.ts,
-                                category-name.ts (how a category name is saved), session-start.ts (when an event's session on a day starts)
+      services/                 events.service.ts, event-sessions.service.ts, categories.service.ts, organizations.service.ts, venues.service.ts,
+                                import-freshness.service.ts, category-name.ts (how a category name is saved), session-start.ts (when an event's
+                                session on a day starts), verified-organization.ts (only a verified organization publishes and adds venues)
       types/                    event, event-session, category, venue, organization, import-freshness
     jobs/                       the job queue port (adapters/job-queue.ts, abstract; types/job.ts); no Nest module, InfraModule provides it
+    images/                     uploaded pictures (HLD §2.3): images.module.ts provides + exports ImagesService; adapters/image-processor.ts
+                                (abstract: reads, crops and re-encodes a picture); services/image-kinds.ts (crop shape and stored size per kind)
     system/                     HealthService behind /health; adapters/database-probe.ts (abstract: does the database answer)
     import/                     the import (CMP-03); only src/import/ loads it, never the API
       import.module.ts          provides + exports EventImportService; depends on no other module
@@ -60,6 +63,7 @@ src/
     jobs/                       PgBossJobQueue: the job queue on pg-boss ([job queue](job-queue.md))
     messaging/                  MessagingProvider implementations: Telegram Gateway with the TurboSMS fallback, console, disabled
     push/                       PushProvider implementation (expo-push-provider.ts)
+    images/                     ImageProcessor implementation (sharp-image-processor.ts)
     providers/                  one adapter per external event provider (artwizard-, karabas-event-provider.ts), the polite HTTP client they share, import-settings.ts
     geocoding/                  Geocoder implementation (nominatim-geocoder.ts)
   import/                       main.ts, app.module.ts: the import service (CMP-03), no HTTP; reads IMPORT_DATABASE_URL and the import settings of .env.example
@@ -82,7 +86,7 @@ src/
 11. **ESLint enforces rules 1, 7 and 9** with `no-restricted-imports` in `eslint.config.mjs`.
 12. **Abstract classes only where `core` depends on something outside it.** Nest injects by class, since TypeScript interfaces do not exist at runtime: an abstract class is both the interface and the injection token. Repositories (rule 7) and the adapters of HLD I5 (rule 13) are abstract classes owned by `core`. Services are injected as concrete classes, by `api` and by other modules alike; a service gets an abstract class only when it needs a second implementation. An injected class is a value import, not `import type`, because the class is the token. In tests, a service is replaced with `{ provide: EventsService, useValue: fake }`, the fake typed as `Pick<EventsService, …>`.
 
-13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`) are defined in `core` and implemented in `infra`. All of them exist, and the `JobQueue` port. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
+13. **External services** follow the same pattern: the adapter interfaces of HLD I5 (`PushProvider`, `MessagingProvider`, `GoogleIdTokens`, `EventProvider`, `Geocoder`, `ImageProcessor`) are defined in `core` and implemented in `infra`. All of them exist, and the `JobQueue` port. The import runs several `EventProvider`s, injected as one array under the `EVENT_PROVIDERS` token, since an array has no class to serve as the token.
 
 14. **Transactions across modules** (HLD I2, I3) are explicit. A service starts one with `TransactionRunner.run(async (tx) => …)` (an abstract class in `core/common`, implemented with Prisma in `infra/prisma/`) and passes `tx` to every repository method, `notify(…, tx)` and `JobQueue.enqueue(…, tx)` that must join it. A repository method that can join takes `tx?: Transaction` and uses `tx ?? this.prisma`. Details: [database access](database-access.md#transactions). `@nestjs-cls/transactional` (implicit, no `tx` parameter) was considered and not adopted: an explicit `tx` keeps every transaction visible in signatures and needs no request context in job handlers.
 

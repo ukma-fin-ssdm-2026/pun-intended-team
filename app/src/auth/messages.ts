@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import type { ApiResult } from '@/api/public-client';
 import type { SnackbarContent } from '@/components/ui/snackbar';
+import type { PictureRefusal } from '@/pictures/picked-picture';
 
 export const messages = {
   phone: 'Перевір номер: +380 і 9 цифр',
@@ -21,6 +22,26 @@ export function failureSnackbar(result: Extract<ApiResult<unknown>, { ok: false 
   return result.status === 0
     ? { tone: 'error', title: 'Немає з’єднання', note: 'Перевір інтернет' }
     : { tone: 'error', title: 'Щось пішло не так', note: 'Спробуй ще раз за хвилину' };
+}
+
+// An upload of a photo or a cover the API refused, or that was refused before it was sent.
+export function pictureFailureSnackbar(result: Extract<ApiResult<unknown>, { ok: false }>): SnackbarContent {
+  switch (result.code) {
+    case 'PAYLOAD_TOO_LARGE':
+      return { tone: 'error', title: 'Фото завелике', note: 'Обери фото до 10 МБ' };
+    case 'UNSUPPORTED_MEDIA_TYPE':
+    case 'INVALID_IMAGE':
+      return { tone: 'error', title: 'Не вдалося прочитати фото', note: 'Обери фото у форматі JPEG, PNG або WebP' };
+    default:
+      return failureSnackbar(result);
+  }
+}
+
+// A file from the gallery that cannot be uploaded, refused before the preview.
+export function pictureRefusalSnackbar(refusal: PictureRefusal): SnackbarContent {
+  return refusal === 'too-large'
+    ? { tone: 'error', title: 'Фото завелике', note: 'Обери фото до 10 МБ' }
+    : { tone: 'error', title: 'Це фото не відкрити', note: 'Обери фото у форматі JPEG, PNG або WebP' };
 }
 
 export const googleSnackbars = {

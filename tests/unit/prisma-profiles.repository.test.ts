@@ -25,9 +25,14 @@ function aRow(overrides: Record<string, unknown> = {}) {
     description: 'Cinema and walks.',
     occupation: 'Student',
     communicationFormat: 'friends',
+    gender: 'other',
+    genderDescription: 'Небінарна людина',
     sharePhone: true,
     profileInterests: [{ interestId: INTEREST_ID }],
     linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
+    photoId: null,
+    coverId: null,
+    safetyNotice: 'not_acknowledged',
     ...overrides,
   };
 }
@@ -81,9 +86,14 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       description: 'Cinema and walks.',
       occupation: 'Student',
       communicationFormat: 'friends',
+      gender: 'other',
+      genderDescription: 'Небінарна людина',
       sharePhone: true,
       interestIds: [INTEREST_ID],
       linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
+      photoId: null,
+      coverId: null,
+      safetyNotice: 'not_acknowledged',
     });
   });
 
@@ -151,8 +161,8 @@ describe('PrismaProfilesRepository.findByAccountIds', () => {
 });
 
 describe('PrismaProfilesRepository.findSummaries', () => {
-  test('asks only for the given accounts and their public names', async () => {
-    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena' };
+  test('asks only for the given accounts, their public names and photo', async () => {
+    const summary = { accountId: ACCOUNT_ID, username: 'olena_k', displayName: 'Olena', photoId: null };
     const { repository, prisma } = makeRepository({ found: [summary] });
 
     assert.deepEqual(await repository.findSummaries([ACCOUNT_ID]), [summary]);
@@ -231,6 +241,24 @@ describe('PrismaProfilesRepository.update', () => {
     assert.deepEqual(data, { description: null, occupation: null });
   });
 
+  test('stores a gender with its description', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.update(ACCOUNT_ID, { gender: 'other', genderDescription: 'Небінарна людина' });
+
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
+    assert.deepEqual(data, { gender: 'other', genderDescription: 'Небінарна людина' });
+  });
+
+  test('clears the description of a gender sent without one', async () => {
+    const { repository, prisma } = makeRepository();
+
+    await repository.update(ACCOUNT_ID, { gender: 'female' });
+
+    const data = prisma.profile.update.mock.calls[0]?.arguments[0].data;
+    assert.deepEqual(data, { gender: 'female', genderDescription: null });
+  });
+
   test('leaves the format out when it is not changed', async () => {
     const { repository, prisma } = makeRepository();
 
@@ -288,4 +316,21 @@ describe('PrismaProfilesRepository.replaceLinkedAccounts', () => {
       [{ profileId: ACCOUNT_ID, app: 'instagram', username: 'enc:olena.k' }],
     );
   });
+});
+
+// FR-032
+describe('PrismaProfilesRepository.acknowledgeSafetyNotice', () => {
+  for (const [dontShowAgain, state] of [
+    [false, 'acknowledged'],
+    [true, 'hidden'],
+  ] as const) {
+    test(`stores ${state} when dontShowAgain is ${dontShowAgain}`, async () => {
+      const { repository, prisma } = makeRepository({ write: () => Promise.resolve(aRow({ safetyNotice: state })) });
+
+      const profile = await repository.acknowledgeSafetyNotice(ACCOUNT_ID, dontShowAgain);
+
+      assert.deepEqual(prisma.profile.update.mock.calls[0]?.arguments[0]?.data, { safetyNotice: state });
+      assert.equal(profile.safetyNotice, state);
+    });
+  }
 });

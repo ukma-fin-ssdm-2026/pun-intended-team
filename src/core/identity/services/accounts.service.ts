@@ -1,8 +1,9 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { AccountsRepository } from '../repositories/accounts.repository.ts';
-import type { Account } from '../types/account.ts';
+import type { Account, AccountFilter, AccountOverview } from '../types/account.ts';
 import { SessionsService } from './sessions.service.ts';
 
 @Injectable()
@@ -18,8 +19,8 @@ export class AccountsService {
   }
 
   /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
-  async getDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
-    return this.accountsRepository.findDatesOfBirth(accountIds);
+  async getDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>> {
+    return this.accountsRepository.findDatesOfBirth(accountIds, tx);
   }
 
   /** The account's verified phone number; null without one, as with Google sign-in, or for an unknown account. */
@@ -42,6 +43,15 @@ export class AccountsService {
   /** The banned ones of `accountIds`. */
   async findBanned(accountIds: string[], tx?: Transaction): Promise<string[]> {
     return this.accountsRepository.findIdsWithStatus(accountIds, 'banned', tx);
+  }
+
+  /** For the admin panel, newest first. */
+  async listOverviews(filter: AccountFilter, page: PageRequest): Promise<Page<AccountOverview>> {
+    return this.accountsRepository.findOverviews(filter, page);
+  }
+
+  async findOverview(accountId: string): Promise<AccountOverview | undefined> {
+    return this.accountsRepository.findOverview(accountId);
   }
 
   async stats(): Promise<{ users: number }> {

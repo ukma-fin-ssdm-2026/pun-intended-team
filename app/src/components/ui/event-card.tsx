@@ -5,6 +5,7 @@ import type { ImageSource } from 'expo-image';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
+import type { ApiEventPhoto } from '@/api/images';
 import { EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
@@ -21,6 +22,8 @@ type Props = {
   // Without a cover image, or when it fails to load, the card shows the coral gradient, as the lecture card on the
   // Figma catalog.
   cover?: ImageSource;
+  // The cover an organization uploaded, instead of `cover`.
+  photo?: ApiEventPhoto | null;
   // "В обране": the heart is filled in brand/coral while the event is a favourite.
   favorite: boolean;
   onToggleFavorite: () => void;
@@ -37,6 +40,7 @@ export function EventCard({
   place,
   price,
   cover,
+  photo,
   favorite,
   onToggleFavorite,
   onPress,
@@ -64,7 +68,7 @@ export function EventCard({
       <View className="h-[170px] overflow-hidden rounded-2xl">
         {/* What the glass blurs on Android; the glass itself stays outside. */}
         <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          <EventCover cover={cover} />
+          <EventCover cover={cover} photo={photo} />
         </BlurTargetView>
         <Glass
           className="absolute left-2.5 top-2.5 h-9 min-w-[72px] items-center justify-center px-4"
@@ -113,7 +117,10 @@ export function EventCard({
 
       <View className="px-2 pt-3">
         <View className="gap-2">
-          <Text className="font-inter-semibold text-title text-text-primary">{title}</Text>
+          {/* Two lines at most, so a long title does not stretch the card; the label above keeps it in full. */}
+          <Text numberOfLines={2} className="font-inter-semibold text-title text-text-primary">
+            {title}
+          </Text>
           <View className="flex-row items-center gap-4">
             <View className="flex-row items-center gap-1.5">
               <Icon name="calendar" size={16} />

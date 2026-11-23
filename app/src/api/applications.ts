@@ -3,6 +3,7 @@ import { kyivDay } from '@/dates';
 import {
   applicationsSession,
   applicationsState,
+  dropApplication,
   putApplication,
   setApplicationsState,
   type Application,
@@ -63,6 +64,14 @@ export async function withdrawApplication(id: string) {
   return result;
 }
 
+// Takes an application that found no match off the Метчі tab (FR-018).
+export async function dismissApplication(id: string) {
+  const from = applicationsSession();
+  const result = await call(() => apiClient.POST('/api/v1/applications/{id}/dismiss', { params: { path: { id } } }));
+  if (result.ok) dropApplication(id, from);
+  return result;
+}
+
 // The API cannot edit an application, so new answers withdraw it and apply again, for the newly picked `dates` or for
 // its days that are still open. When the new application is refused, the old answers are sent again for those open
 // days, so the user stays in the pool if the API allows it. With no day open, the application is left as it is.
@@ -80,8 +89,12 @@ export async function changeAnswers(
   if (!withdrawn.ok) return withdrawn;
   const applied = await applyToEvent(application.eventId, answers, dates);
   if (!applied.ok && openDays.length > 0) {
-    const { desiredCompany, afterEventPlans } = application;
-    await applyToEvent(application.eventId, { desiredCompany, afterEventPlans }, openDays);
+    const { desiredCompany, afterEventPlans, preferredGender, ageMin, ageMax } = application;
+    await applyToEvent(
+      application.eventId,
+      { desiredCompany, afterEventPlans, preferredGender, ageMin, ageMax },
+      openDays,
+    );
   }
   return applied;
 }

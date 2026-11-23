@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/api/v1/admin/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accounts
+         * @description List accounts, newest first: users and administrators, with their profile and organization status. The phone number and the date of birth are never returned, only the age. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/accounts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an account
+         * @description Get one account with its profile, as other users see it, and its organization request. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/backups": {
         parameters: {
             query?: never;
@@ -96,6 +136,86 @@ export interface paths {
         patch: operations["adminUpdateCategory"];
         trace?: never;
     };
+    "/api/v1/admin/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all events
+         * @description List every event, imported or added by an organization, published or cancelled, upcoming or past. For the catalog users see, use listEvents. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/events/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get any event
+         * @description Get one event in any status, past ones too, with who added it. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetEvent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all venues
+         * @description List every venue by name: the imported ones and those organizations added. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminListVenues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/venues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get any venue
+         * @description Get one venue with the organization that owns it. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetVenue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/categories": {
         parameters: {
             query?: never;
@@ -134,6 +254,26 @@ export interface paths {
          * @description Publish an event. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["createEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your organization’s events
+         * @description List the events the caller’s organization has published that have not ended, the cancelled ones too, soonest first. Empty for an account that is not an organization. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyEvents"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -184,6 +324,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a cover to your event
+         * @description Set or replace the cover of one of the organization’s own events. The crop is the catalog card’s 2:1 shape, and the whole picture is kept (up to 2560 px), so the event page shows more around it. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadEventPhoto"];
+        post?: never;
+        /**
+         * Remove the cover of your event
+         * @description Remove the cover of one of the organization’s own events. Without a cover, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteEventPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/organization": {
         parameters: {
             query?: never;
@@ -201,6 +365,74 @@ export interface paths {
          * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["requestOrganizationStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/organization/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add your organization’s logo
+         * @description Set or replace the logo of the caller’s organization, in any verification status: a square shown as a circle, stored at up to 512 × 512. The catalog shows it, so guests may load it. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadOrganizationLogo"];
+        post?: never;
+        /**
+         * Remove your organization’s logo
+         * @description Remove the logo of the caller’s organization. Without a logo, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteOrganizationLogo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/venues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your organization’s venues
+         * @description List the venues the caller’s organization has added, by name. An organization publishes events only at its own venues. Empty for an account that is not an organization. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyVenues"];
+        put?: never;
+        /**
+         * Add a venue
+         * @description Add a venue where the caller’s organization can publish events: a name, an address and its point on the map, which must be in Kyiv. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["createVenue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/venues/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one of your organization’s venues
+         * @description Get one of your organization’s venues. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getMyVenue"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -328,6 +560,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/images/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a picture
+         * @description The bytes of an uploaded picture, as WebP. Only through the API, never a public link (TM-14). A guest token gets only event photos and organization logos, which the catalog shows. An image never changes: a new upload gets a new id, so clients may cache it for good. Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["getImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings": {
         parameters: {
             query?: never;
@@ -376,6 +628,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{id}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a photo to your listing
+         * @description Set or replace the photo of the caller’s own listing, cut to 2:1 and stored at up to 1200 × 600. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadListingPhoto"];
+        post?: never;
+        /**
+         * Remove the photo of your listing
+         * @description Remove the photo of the caller’s own listing. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteListingPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/{id}/applications": {
         parameters: {
             query?: never;
@@ -405,7 +681,7 @@ export interface paths {
         };
         /**
          * List your applications
-         * @description The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
+         * @description The caller’s active applications (in the pool, paired or paused), and those that found no match until the caller dismisses them; soonest first day first. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listMyApplications"];
         put?: never;
@@ -450,6 +726,26 @@ export interface paths {
          * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss an application with no match
+         * @description Take one of the caller’s applications that found no match by its cutoff out of `listMyApplications`. Dismissing it again changes nothing; `getApplication` still returns it. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["dismissApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -545,7 +841,7 @@ export interface paths {
         };
         /**
          * Get the contacts of a mutual match
-         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). A mutual match answers `422` until the caller has acknowledged the safety notice with `acknowledgeSafetyNotice` (SAFE-002). Needs a signed-in account; a guest token gets 401.
          */
         get: operations["getMatchContacts"];
         put?: never;
@@ -565,9 +861,29 @@ export interface paths {
         };
         /**
          * List organization requests
-         * @description List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Needs an administrator account; other accounts get 404.
+         * @description List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Filter them by name or status. Needs an administrator account; other accounts get 404.
          */
         get: operations["adminListOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/organizations/{accountId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an organization request
+         * @description Get the organization request of one account, in any status, with the account that sent it. Needs an administrator account; other accounts get 404.
+         */
+        get: operations["adminGetOrganization"];
         put?: never;
         post?: never;
         delete?: never;
@@ -888,6 +1204,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/safety-notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge the safety notice
+         * @description Record that the caller read the safety notice the app shows on a mutual match (FR-032): `safetyNotice` becomes `acknowledged`, or `hidden` with `dontShowAgain`. Until the first acknowledgment, `getMatchContacts` holds the contacts back. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["acknowledgeSafetyNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload your photo
+         * @description Set or replace the caller’s avatar: a square, shown as a circle, stored at up to 512 × 512. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadMyPhoto"];
+        post?: never;
+        /**
+         * Delete your photo
+         * @description Remove the caller’s avatar; the initial is shown instead. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteMyPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/profile/cover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upload your cover
+         * @description Set or replace the picture behind the caller’s avatar. The crop has the shape of the profile header (390:200); the whole picture is kept too, at up to 2560 px, so wider or taller screens can show more of it. Send the picture itself as the body, with its Content-Type (JPEG, PNG or WebP, up to 10 MB), and the area picked in the crop preview as fractions in the query. The server cuts the largest area of the exact shape inside it, rotates the picture by its EXIF orientation, drops its metadata (location included) and stores it as WebP. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["uploadMyCover"];
+        post?: never;
+        /**
+         * Delete your cover
+         * @description Remove the caller’s cover; the default gradient is shown instead. Without a cover, nothing changes. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["deleteMyCover"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -912,6 +1296,306 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *           "role": "user",
+         *           "status": "active",
+         *           "signInMethods": [
+         *             "google"
+         *           ],
+         *           "age": 25,
+         *           "createdAt": "2026-10-12T09:30:00.000Z",
+         *           "profile": {
+         *             "username": "olena_k",
+         *             "displayName": "Olena"
+         *           },
+         *           "organization": null
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        AdminAccountsPage: {
+            items: components["schemas"]["AdminAccount"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description An account as administrators see it in a list: without its phone number and date of birth
+         * @example {
+         *       "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *       "role": "user",
+         *       "status": "active",
+         *       "signInMethods": [
+         *         "google"
+         *       ],
+         *       "age": 25,
+         *       "createdAt": "2026-10-12T09:30:00.000Z",
+         *       "profile": {
+         *         "username": "olena_k",
+         *         "displayName": "Olena"
+         *       },
+         *       "organization": null
+         *     }
+         */
+        AdminAccount: {
+            /** Format: uuid */
+            id: string;
+            role: components["schemas"]["AccountRole"];
+            status: components["schemas"]["AccountStatus"];
+            /** @description How the account signs in */
+            signInMethods: ("google" | "password")[];
+            /** @description Whole years; null while the account is pending */
+            age: number | null;
+            /**
+             * Format: date-time
+             * @description When the account was registered
+             */
+            createdAt: string;
+            /** @description Null without a profile */
+            profile: {
+                username: string;
+                displayName: string;
+            } | null;
+            /** @description Null when the account has not requested organization status */
+            organization: {
+                name: string;
+                /** @enum {string} */
+                verificationStatus: "pending" | "verified" | "rejected" | "revoked";
+            } | null;
+        };
+        /** @enum {string} */
+        AccountRole: "user" | "admin";
+        /**
+         * @description `pending`: signed in with Google, has not given a date of birth yet. `banned`: cannot sign in
+         * @enum {string}
+         */
+        AccountStatus: "pending" | "active" | "banned";
+        /**
+         * @example {
+         *       "limit": 20,
+         *       "offset": 0,
+         *       "hasMore": false
+         *     }
+         */
+        PageInfo: {
+            limit: number;
+            offset: number;
+            /** @description Whether another page follows */
+            hasMore: boolean;
+        };
+        /**
+         * @description The body of every error response
+         * @example {
+         *       "error": {
+         *         "code": "VALIDATION_ERROR",
+         *         "message": "The request is invalid",
+         *         "details": [
+         *           {
+         *             "location": "params",
+         *             "field": "id",
+         *             "message": "Invalid UUID"
+         *           }
+         *         ]
+         *       }
+         *     }
+         */
+        ErrorResponse: {
+            error: {
+                code: components["schemas"]["ErrorCode"];
+                message: string;
+                /** @description Every invalid field, for validation errors and business rules that can name them */
+                details?: components["schemas"]["ValidationIssue"][];
+            };
+        };
+        /**
+         * @description Machine-readable code; clients branch on it, not on the message
+         * @enum {string}
+         */
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
+        /** @description One invalid field of the request */
+        ValidationIssue: {
+            location: components["schemas"]["ValidationLocation"];
+            field: string;
+            message: string;
+        };
+        /**
+         * @description Part of the request the invalid field is in
+         * @enum {string}
+         */
+        ValidationLocation: "params" | "query" | "body";
+        /**
+         * @description One account as administrators see it: its profile and its organization request
+         * @example {
+         *       "id": "c3a1f6d2-4b7e-4f0a-9d21-6e8b5a3c7f14",
+         *       "role": "user",
+         *       "status": "active",
+         *       "signInMethods": [
+         *         "google"
+         *       ],
+         *       "age": 25,
+         *       "createdAt": "2026-10-12T09:30:00.000Z",
+         *       "profile": {
+         *         "username": "olena_k",
+         *         "displayName": "Olena",
+         *         "description": "Cinema, galleries and long walks.",
+         *         "occupation": "Student at Kyiv-Mohyla Academy",
+         *         "interests": [
+         *           {
+         *             "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *             "name": "Книги",
+         *             "group": "Книги й комікси"
+         *           }
+         *         ],
+         *         "photo": null,
+         *         "cover": null
+         *       },
+         *       "organization": {
+         *         "name": "Мистецький Арсенал",
+         *         "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *         "officialLink": "https://artarsenal.in.ua",
+         *         "verificationStatus": "verified",
+         *         "verifiedAt": "2026-10-14T12:00:00.000Z",
+         *         "logo": null
+         *       }
+         *     }
+         */
+        AdminAccountDetails: {
+            /** Format: uuid */
+            id: string;
+            role: components["schemas"]["AccountRole"];
+            status: components["schemas"]["AccountStatus"];
+            /** @description How the account signs in */
+            signInMethods: ("google" | "password")[];
+            /** @description Whole years; null while the account is pending */
+            age: number | null;
+            /**
+             * Format: date-time
+             * @description When the account was registered
+             */
+            createdAt: string;
+            /** @description The profile as other users see it; null without a profile */
+            profile: {
+                username: string;
+                displayName: string;
+                description: string;
+                occupation: string;
+                interests: components["schemas"]["Interest"][];
+                photo: components["schemas"]["Image"];
+                cover: components["schemas"]["CoverImage"];
+            } | null;
+            /**
+             * @description Null when the account has not requested organization status
+             * @example {
+             *       "name": "Мистецький Арсенал",
+             *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+             *       "officialLink": "https://artarsenal.in.ua",
+             *       "verificationStatus": "pending",
+             *       "verifiedAt": null,
+             *       "logo": null
+             *     }
+             */
+            organization: {
+                name: string;
+                description: string | null;
+                officialLink: string | null;
+                /**
+                 * @description pending: waits for an administrator; only a verified organization publishes events
+                 * @enum {string}
+                 */
+                verificationStatus: "pending" | "verified" | "rejected" | "revoked";
+                /**
+                 * Format: date-time
+                 * @description When an administrator verified it; null otherwise
+                 */
+                verifiedAt: string | null;
+                /**
+                 * @description A square shown as a circle; null shows the building icon
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                logo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+            } | null;
+        };
+        /**
+         * @description An interest from the fixed list users pick from
+         * @example {
+         *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *       "name": "Книги",
+         *       "group": "Книги й комікси"
+         *     }
+         */
+        Interest: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description The heading the interest is shown under */
+            group: string;
+        };
+        /**
+         * @description An uploaded picture, stored cropped
+         * @example {
+         *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+         *       "width": 512,
+         *       "height": 512
+         *     }
+         */
+        Image: {
+            /**
+             * Format: uuid
+             * @description Get the picture with getImage
+             */
+            id: string;
+            width: number;
+            height: number;
+        } | null;
+        /**
+         * @description The profile cover: the whole picture and the area the user picked
+         * @example {
+         *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+         *       "width": 2560,
+         *       "height": 1920,
+         *       "crop": {
+         *         "left": 0,
+         *         "top": 640,
+         *         "width": 2560,
+         *         "height": 1313
+         *       }
+         *     }
+         */
+        CoverImage: {
+            /**
+             * Format: uuid
+             * @description Get the picture with getImage
+             */
+            id: string;
+            width: number;
+            height: number;
+            /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+            crop: {
+                left: number;
+                top: number;
+                width: number;
+                height: number;
+            };
+        } | null;
         /**
          * @example {
          *       "status": {
@@ -971,46 +1655,6 @@ export interface components {
              */
             reason: "unreachable" | "auth_failed" | "timeout" | "locked" | "unreadable" | "failed" | null;
         };
-        /**
-         * @description The body of every error response
-         * @example {
-         *       "error": {
-         *         "code": "VALIDATION_ERROR",
-         *         "message": "The request is invalid",
-         *         "details": [
-         *           {
-         *             "location": "params",
-         *             "field": "id",
-         *             "message": "Invalid UUID"
-         *           }
-         *         ]
-         *       }
-         *     }
-         */
-        ErrorResponse: {
-            error: {
-                code: components["schemas"]["ErrorCode"];
-                message: string;
-                /** @description Every invalid field, for validation errors and business rules that can name them */
-                details?: components["schemas"]["ValidationIssue"][];
-            };
-        };
-        /**
-         * @description Machine-readable code; clients branch on it, not on the message
-         * @enum {string}
-         */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST";
-        /** @description One invalid field of the request */
-        ValidationIssue: {
-            location: components["schemas"]["ValidationLocation"];
-            field: string;
-            message: string;
-        };
-        /**
-         * @description Part of the request the invalid field is in
-         * @enum {string}
-         */
-        ValidationLocation: "params" | "query" | "body";
         /**
          * @example {
          *       "users": 128,
@@ -1106,14 +1750,150 @@ export interface components {
          * @example {
          *       "items": [
          *         {
-         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
-         *           "name": "Концерти"
+         *           "id": "3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10",
+         *           "title": "Open-air film night: Shadows of Forgotten Ancestors",
+         *           "description": "Screening in the park, bring a blanket.",
+         *           "category": {
+         *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *             "name": "Концерти"
+         *           },
+         *           "venue": {
+         *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *             "name": "Natalka Park lawn",
+         *             "address": "Naberezhno-Luhova St, Kyiv",
+         *             "location": {
+         *               "lat": 50.4825,
+         *               "lng": 30.5181
+         *             }
+         *           },
+         *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
+         *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
+         *           "priceMin": 150,
+         *           "priceMax": null,
+         *           "imageUrl": null,
+         *           "photo": null,
+         *           "sourceUrl": null,
+         *           "source": "organization",
+         *           "status": "published",
+         *           "organization": {
+         *             "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club"
+         *           }
          *         }
-         *       ]
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
          *     }
          */
-        CategoryList: {
-            items: components["schemas"]["Category"][];
+        AdminEventsPage: {
+            items: components["schemas"]["AdminEvent"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description An event as administrators see it: in any status, past or upcoming, with who added it
+         * @example {
+         *       "id": "3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10",
+         *       "title": "Open-air film night: Shadows of Forgotten Ancestors",
+         *       "description": "Screening in the park, bring a blanket.",
+         *       "category": {
+         *         "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *         "name": "Концерти"
+         *       },
+         *       "venue": {
+         *         "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *         "name": "Natalka Park lawn",
+         *         "address": "Naberezhno-Luhova St, Kyiv",
+         *         "location": {
+         *           "lat": 50.4825,
+         *           "lng": 30.5181
+         *         }
+         *       },
+         *       "startsAt": "2026-10-17T19:00:00+03:00",
+         *       "startTimeKnown": true,
+         *       "endsAt": "2026-10-17T21:30:00+03:00",
+         *       "endTimeKnown": true,
+         *       "priceMin": 150,
+         *       "priceMax": null,
+         *       "imageUrl": null,
+         *       "photo": null,
+         *       "sourceUrl": null,
+         *       "source": "organization",
+         *       "status": "published",
+         *       "organization": {
+         *         "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club"
+         *       }
+         *     }
+         */
+        AdminEvent: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            description: string;
+            category: components["schemas"]["Category"];
+            venue: components["schemas"]["Venue"];
+            /** Format: date-time */
+            startsAt: string;
+            /** @description False when the provider gives no time of day: startsAt is then a default opening time (12:00 Europe/Kyiv for exhibitions) that only orders the event and its sessions; show the dates without a time. Always true for an organization event */
+            startTimeKnown: boolean;
+            /** Format: date-time */
+            endsAt: string;
+            /** @description False for an imported event whose provider gives no end: endsAt is then the end of its start day in Europe/Kyiv and only startsAt should be shown. Always true for an organization event */
+            endTimeKnown: boolean;
+            /** @description The lowest ticket price in whole hryvnias. Null when the price is unknown: show no price. 0 with priceMax null or 0: the event is free */
+            priceMin: number | null;
+            /** @description The highest ticket price in whole hryvnias, when the tickets cost from priceMin to priceMax; never below priceMin. Null for one price, a free event or an unknown price */
+            priceMax: number | null;
+            /** @description Imported events: the provider's image URL, shown as is; null for organization events */
+            imageUrl: string | null;
+            /**
+             * @description The cover an organization uploaded; null for imported events and without one
+             * @example {
+             *       "id": "7b8c9d0e-1f2a-4b3c-9d4e-5f6a7b8c9d0e",
+             *       "width": 2560,
+             *       "height": 1707,
+             *       "crop": {
+             *         "left": 0,
+             *         "top": 213,
+             *         "width": 2560,
+             *         "height": 1280
+             *       }
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage; a guest token may
+                 */
+                id: string;
+                width: number;
+                height: number;
+                /** @description The area the organization picked (2:1, the catalog card). The event page, almost square, shows more around it */
+                crop: {
+                    left: number;
+                    top: number;
+                    width: number;
+                    height: number;
+                };
+            } | null;
+            /** @description Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise */
+            sourceUrl: string | null;
+            source: components["schemas"]["EventSource"];
+            status: components["schemas"]["EventStatus"];
+            /** @description The organization that added it; null for an imported one */
+            organization: {
+                /**
+                 * Format: uuid
+                 * @description Get it with adminGetOrganization
+                 */
+                accountId: string;
+                name: string;
+            } | null;
         };
         /**
          * @description An event category from the directory administrators manage
@@ -1126,6 +1906,108 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+        };
+        /** @description Where an event takes place */
+        Venue: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            location: {
+                lat: number;
+                lng: number;
+            };
+        };
+        /**
+         * @description Who added the event: a verified organization or the importer
+         * @enum {string}
+         */
+        EventSource: "organization" | "import";
+        /** @enum {string} */
+        EventStatus: "published" | "cancelled";
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *           "name": "Natalka Park lawn",
+         *           "address": "Naberezhno-Luhova St, Kyiv",
+         *           "location": {
+         *             "lat": 50.4825,
+         *             "lng": 30.5181
+         *           },
+         *           "source": "organization",
+         *           "organization": {
+         *             "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club"
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        AdminVenuesPage: {
+            items: components["schemas"]["AdminVenue"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description A venue as administrators see it, with who added it
+         * @example {
+         *       "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *       "name": "Natalka Park lawn",
+         *       "address": "Naberezhno-Luhova St, Kyiv",
+         *       "location": {
+         *         "lat": 50.4825,
+         *         "lng": 30.5181
+         *       },
+         *       "source": "organization",
+         *       "organization": {
+         *         "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club"
+         *       }
+         *     }
+         */
+        AdminVenue: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            location: {
+                lat: number;
+                lng: number;
+            };
+            source: components["schemas"]["VenueSource"];
+            /** @description The organization that added it; null for an imported one */
+            organization: {
+                /**
+                 * Format: uuid
+                 * @description Get it with adminGetOrganization
+                 */
+                accountId: string;
+                name: string;
+            } | null;
+        };
+        /**
+         * @description Who added the venue: an organization, which owns it, or the importer
+         * @enum {string}
+         */
+        VenueSource: "organization" | "import";
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *           "name": "Концерти"
+         *         }
+         *       ]
+         *     }
+         */
+        CategoryList: {
+            items: components["schemas"]["Category"][];
         };
         /**
          * @example {
@@ -1154,6 +2036,7 @@ export interface components {
          *           "priceMin": 150,
          *           "priceMax": null,
          *           "imageUrl": null,
+         *           "photo": null,
          *           "sourceUrl": null,
          *           "source": "organization",
          *           "status": "published"
@@ -1202,6 +2085,7 @@ export interface components {
          *       "priceMin": 150,
          *       "priceMax": null,
          *       "imageUrl": null,
+         *       "photo": null,
          *       "sourceUrl": null,
          *       "source": "organization",
          *       "status": "published"
@@ -1228,41 +2112,84 @@ export interface components {
             priceMax: number | null;
             /** @description Imported events: the provider's image URL, shown as is; null for organization events */
             imageUrl: string | null;
+            /**
+             * @description The cover an organization uploaded; null for imported events and without one
+             * @example {
+             *       "id": "7b8c9d0e-1f2a-4b3c-9d4e-5f6a7b8c9d0e",
+             *       "width": 2560,
+             *       "height": 1707,
+             *       "crop": {
+             *         "left": 0,
+             *         "top": 213,
+             *         "width": 2560,
+             *         "height": 1280
+             *       }
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage; a guest token may
+                 */
+                id: string;
+                width: number;
+                height: number;
+                /** @description The area the organization picked (2:1, the catalog card). The event page, almost square, shows more around it */
+                crop: {
+                    left: number;
+                    top: number;
+                    width: number;
+                    height: number;
+                };
+            } | null;
             /** @description Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise */
             sourceUrl: string | null;
             source: components["schemas"]["EventSource"];
             status: components["schemas"]["EventStatus"];
         };
-        /** @description Where an event takes place */
-        Venue: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            address: string;
-            location: {
-                lat: number;
-                lng: number;
-            };
-        };
-        /**
-         * @description Who added the event: a verified organization or the importer
-         * @enum {string}
-         */
-        EventSource: "organization" | "import";
-        /** @enum {string} */
-        EventStatus: "published" | "cancelled";
         /**
          * @example {
-         *       "limit": 20,
-         *       "offset": 0,
-         *       "hasMore": false
+         *       "items": [
+         *         {
+         *           "id": "3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10",
+         *           "title": "Open-air film night: Shadows of Forgotten Ancestors",
+         *           "description": "Screening in the park, bring a blanket.",
+         *           "category": {
+         *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *             "name": "Концерти"
+         *           },
+         *           "venue": {
+         *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *             "name": "Natalka Park lawn",
+         *             "address": "Naberezhno-Luhova St, Kyiv",
+         *             "location": {
+         *               "lat": 50.4825,
+         *               "lng": 30.5181
+         *             }
+         *           },
+         *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
+         *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
+         *           "priceMin": 150,
+         *           "priceMax": null,
+         *           "imageUrl": null,
+         *           "photo": null,
+         *           "sourceUrl": null,
+         *           "source": "organization",
+         *           "status": "published"
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
          *     }
          */
-        PageInfo: {
-            limit: number;
-            offset: number;
-            /** @description Whether another page follows */
-            hasMore: boolean;
+        MyEventsPage: {
+            items: components["schemas"]["Event"][];
+            page: components["schemas"]["PageInfo"];
         };
         /**
          * @description All editable fields of an event; PUT /events/{id} takes the same body
@@ -1320,7 +2247,8 @@ export interface components {
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *       "officialLink": "https://artarsenal.in.ua",
          *       "verificationStatus": "pending",
-         *       "verifiedAt": null
+         *       "verifiedAt": null,
+         *       "logo": null
          *     }
          */
         Organization: {
@@ -1337,6 +2265,23 @@ export interface components {
              * @description When an administrator verified it; null otherwise
              */
             verifiedAt: string | null;
+            /**
+             * @description A square shown as a circle; null shows the building icon
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            logo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
         };
         /**
          * @example {
@@ -1355,6 +2300,51 @@ export interface components {
              * @description The organization’s official site or page, where an administrator can check it
              */
             officialLink: string;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *           "name": "Natalka Park lawn",
+         *           "address": "Naberezhno-Luhova St, Kyiv",
+         *           "location": {
+         *             "lat": 50.4825,
+         *             "lng": 30.5181
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        VenuesPage: {
+            items: components["schemas"]["Venue"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @example {
+         *       "name": "Natalka Park lawn",
+         *       "address": "Naberezhno-Luhova St, Kyiv",
+         *       "location": {
+         *         "lat": 50.4825,
+         *         "lng": 30.5181
+         *       }
+         *     }
+         */
+        CreateVenueBody: {
+            /** @description The venue’s name, as users will see it */
+            name: string;
+            /** @description Street and building, as users will see it */
+            address: string;
+            /** @description Where the venue’s map pin stands; must be in Kyiv */
+            location: {
+                lat: number;
+                lng: number;
+            };
         };
         /**
          * @example {
@@ -1426,7 +2416,8 @@ export interface components {
          *           "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *           "author": {
          *             "username": "olena_k",
-         *             "displayName": "Olena"
+         *             "displayName": "Olena",
+         *             "photo": null
          *           },
          *           "category": {
          *             "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1436,7 +2427,8 @@ export interface components {
          *           "title": "Looking for company for an exhibition on Saturday",
          *           "description": "Planning to go in the evening, happy to grab a coffee after.",
          *           "date": "2026-10-17",
-         *           "status": "active"
+         *           "status": "active",
+         *           "photo": null
          *         }
          *       ],
          *       "page": {
@@ -1456,7 +2448,8 @@ export interface components {
          *       "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
          *       "author": {
          *         "username": "olena_k",
-         *         "displayName": "Olena"
+         *         "displayName": "Olena",
+         *         "photo": null
          *       },
          *       "category": {
          *         "id": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
@@ -1466,7 +2459,8 @@ export interface components {
          *       "title": "Looking for company for an exhibition on Saturday",
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
          *       "date": "2026-10-17",
-         *       "status": "active"
+         *       "status": "active",
+         *       "photo": null
          *     }
          */
         Listing: {
@@ -1484,11 +2478,29 @@ export interface components {
             /** Format: date */
             date: string;
             status: components["schemas"]["ListingStatus"];
+            /**
+             * @description Cut to 2:1, as the post card shows it
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
         };
         /** @description Who posted the listing; never their contacts */
         ListingAuthor: {
             username: string;
             displayName: string;
+            photo: components["schemas"]["Image"];
         };
         /** @enum {string} */
         ListingStatus: "active" | "removed";
@@ -1543,6 +2555,9 @@ export interface components {
          *         "walk",
          *         "coffee"
          *       ],
+         *       "preferredGender": "any",
+         *       "ageMin": 20,
+         *       "ageMax": 30,
          *       "status": "in_pool",
          *       "nextRoundAt": "2026-10-21T16:00:00.000Z",
          *       "createdAt": "2026-10-15T09:00:00.000Z"
@@ -1563,6 +2578,11 @@ export interface components {
             desiredCompany: components["schemas"]["CommunicationFormat"];
             /** @description What the user would do together after the event; empty: only the event */
             afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            preferredGender: components["schemas"]["GenderPreference"];
+            /** @description The youngest age of whom the user wants to go with, in whole years */
+            ageMin: number;
+            /** @description The oldest age of whom the user wants to go with; null: no upper bound */
+            ageMax: number | null;
             status: components["schemas"]["ApplicationStatus"];
             /**
              * Format: date-time
@@ -1596,7 +2616,12 @@ export interface components {
          */
         AfterEventPlan: "walk" | "coffee" | "dinner";
         /**
-         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned
+         * @description Whom the user wants to go with: `any` accepts every gender, including `other`; `female` and `male` only that gender
+         * @enum {string}
+         */
+        GenderPreference: "any" | "female" | "male";
+        /**
+         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found by the cutoff. `cancelled`: the event was cancelled or the user banned
          * @enum {string}
          */
         ApplicationStatus: "in_pool" | "paired" | "paused" | "removed" | "withdrawn" | "no_match" | "cancelled";
@@ -1606,7 +2631,10 @@ export interface components {
          *       "afterEventPlans": [
          *         "walk",
          *         "coffee"
-         *       ]
+         *       ],
+         *       "preferredGender": "any",
+         *       "ageMin": 20,
+         *       "ageMax": 30
          *     }
          */
         CreateApplicationBody: {
@@ -1619,6 +2647,22 @@ export interface components {
             desiredCompany: "friends" | "dating" | "company";
             /** @description What the user would do together after the event; an empty list means only the event */
             afterEventPlans: components["schemas"]["AfterEventPlan"][];
+            /**
+             * @description Whom the user wants to go with; matching pairs two users only if each fits the other’s preferences
+             * @default any
+             * @enum {string}
+             */
+            preferredGender: "any" | "female" | "male";
+            /**
+             * @description The youngest age of whom the user wants to go with, 18 or more
+             * @default 18
+             */
+            ageMin: number;
+            /**
+             * @description The oldest age of whom the user wants to go with, at least ageMin; null or left out: no upper bound
+             * @default null
+             */
+            ageMax: number | null;
         };
         /**
          * @example [
@@ -1641,6 +2685,9 @@ export interface components {
          *           "walk",
          *           "coffee"
          *         ],
+         *         "preferredGender": "any",
+         *         "ageMin": 20,
+         *         "ageMax": 30,
          *         "status": "in_pool",
          *         "nextRoundAt": "2026-10-21T16:00:00.000Z",
          *         "createdAt": "2026-10-15T09:00:00.000Z"
@@ -1675,6 +2722,8 @@ export interface components {
          *               "group": "Книги й комікси"
          *             }
          *           ],
+         *           "photo": null,
+         *           "cover": null,
          *           "desiredCompany": "company",
          *           "afterEventPlans": [
          *             "walk",
@@ -1713,6 +2762,8 @@ export interface components {
          *             "group": "Книги й комікси"
          *           }
          *         ],
+         *         "photo": null,
+         *         "cover": null,
          *         "desiredCompany": "company",
          *         "afterEventPlans": [
          *           "walk",
@@ -1750,6 +2801,53 @@ export interface components {
                 age: number;
                 interests: components["schemas"]["Interest"][];
                 /**
+                 * @description The avatar; null shows the initial
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                photo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+                /**
+                 * @description null shows the default gradient
+                 * @example {
+                 *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+                 *       "width": 2560,
+                 *       "height": 1920,
+                 *       "crop": {
+                 *         "left": 0,
+                 *         "top": 640,
+                 *         "width": 2560,
+                 *         "height": 1313
+                 *       }
+                 *     }
+                 */
+                cover: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                    /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                    crop: {
+                        left: number;
+                        top: number;
+                        width: number;
+                        height: number;
+                    };
+                } | null;
+                /**
                  * @description What kind of company they are looking for at this event
                  * @enum {string}
                  */
@@ -1765,21 +2863,6 @@ export interface components {
          * @enum {string}
          */
         MatchStatus: "proposed" | "accepted" | "mutual" | "declined" | "expired" | "cancelled";
-        /**
-         * @description An interest from the fixed list users pick from
-         * @example {
-         *       "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
-         *       "name": "Книги",
-         *       "group": "Книги й комікси"
-         *     }
-         */
-        Interest: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @description The heading the interest is shown under */
-            group: string;
-        };
         /**
          * @description How to reach the other user of a mutual match (FR-019)
          * @example {
@@ -1827,6 +2910,7 @@ export interface components {
          *           "officialLink": "https://artarsenal.in.ua",
          *           "verificationStatus": "pending",
          *           "verifiedAt": null,
+         *           "logo": null,
          *           "accountId": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
          *           "account": {
          *             "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
@@ -1854,6 +2938,7 @@ export interface components {
          *       "officialLink": "https://artarsenal.in.ua",
          *       "verificationStatus": "pending",
          *       "verifiedAt": null,
+         *       "logo": null,
          *       "accountId": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
          *       "account": {
          *         "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
@@ -1876,6 +2961,23 @@ export interface components {
              * @description When an administrator verified it; null otherwise
              */
             verifiedAt: string | null;
+            /**
+             * @description A square shown as a circle; null shows the building icon
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            logo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
             /**
              * Format: uuid
              * @description The account that sent the request; the id in the approve and reject paths
@@ -2205,6 +3307,8 @@ export interface components {
          *       "description": "Cinema, galleries and long walks.",
          *       "occupation": "Student at Kyiv-Mohyla Academy",
          *       "communicationFormat": "friends",
+         *       "gender": "female",
+         *       "genderDescription": null,
          *       "sharePhone": true,
          *       "age": 28,
          *       "interests": [
@@ -2221,7 +3325,10 @@ export interface components {
          *           "url": "https://t.me/olena_k"
          *         }
          *       ],
-         *       "isComplete": true
+         *       "isComplete": true,
+         *       "photo": null,
+         *       "cover": null,
+         *       "safetyNotice": "acknowledged"
          *     }
          */
         Profile: {
@@ -2235,6 +3342,13 @@ export interface components {
              * @enum {string|null}
              */
             communicationFormat: "friends" | "dating" | "company" | null;
+            /**
+             * @description Null until the user picks one; matching needs it
+             * @enum {string|null}
+             */
+            gender: "female" | "male" | "other" | null;
+            /** @description The user’s own words for the gender `other`; null for any other gender */
+            genderDescription: string | null;
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone: boolean;
             /** @description Whole years, computed from the account’s date of birth; the date itself is never returned */
@@ -2242,9 +3356,62 @@ export interface components {
             interests: components["schemas"]["Interest"][];
             /** @description Revealed to a mutual match, in the order of SocialNetwork */
             linkedAccounts: components["schemas"]["LinkedAccount"][];
-            /** @description True once communicationFormat, at least one interest and at least one linked account are set; matching needs all three */
+            /** @description True once communicationFormat, gender, at least one interest and at least one linked account are set; matching needs all four */
             isComplete: boolean;
+            /**
+             * @description The avatar, a square shown as a circle; null shows the initial
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            photo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
+            /**
+             * @description The picture behind the avatar; null shows the default gradient
+             * @example {
+             *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+             *       "width": 2560,
+             *       "height": 1920,
+             *       "crop": {
+             *         "left": 0,
+             *         "top": 640,
+             *         "width": 2560,
+             *         "height": 1313
+             *       }
+             *     }
+             */
+            cover: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+                /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                crop: {
+                    left: number;
+                    top: number;
+                    width: number;
+                    height: number;
+                };
+            } | null;
+            safetyNotice: components["schemas"]["SafetyNoticeState"];
         };
+        /**
+         * @description Where the user is with the safety notice: `not_acknowledged` holds the contacts of their matches back; `acknowledged` has the app show it once on each mutual match; `hidden` after "don’t show again"
+         * @enum {string}
+         */
+        SafetyNoticeState: "not_acknowledged" | "acknowledged" | "hidden";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -2274,9 +3441,17 @@ export interface components {
             /** @description What the user does, e.g. their studies or work; can be empty */
             occupation?: string;
             communicationFormat?: components["schemas"]["CommunicationFormat"];
+            gender?: components["schemas"]["Gender"];
+            /** @description The user’s own words for the gender `other`; required with it and refused with any other gender */
+            genderDescription?: string;
             /** @description Whether the phone number is revealed on a mutual match */
             sharePhone?: boolean;
         };
+        /**
+         * @description The user’s gender; `other` comes with `genderDescription`, the user’s own words for it
+         * @enum {string}
+         */
+        Gender: "female" | "male" | "other";
         /**
          * @example {
          *       "interestIds": [
@@ -2305,6 +3480,15 @@ export interface components {
                 /** @description A nickname with or without "@", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE */
                 username: string;
             }[];
+        };
+        /**
+         * @example {
+         *       "dontShowAgain": false
+         *     }
+         */
+        AcknowledgeSafetyNoticeBody: {
+            /** @description True when the user ticked "don’t show again"; false keeps showing it on the next matches */
+            dontShowAgain: boolean;
         };
         /**
          * @description Whether the API and the dependencies it needs are up
@@ -2336,6 +3520,114 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    adminListAccounts: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+                /** @description An account id, or part of a username or display name, in any case */
+                search?: string;
+                /** @description Only accounts with this role; `admin` lists the administrators */
+                role?: "user" | "admin";
+                /** @description Only accounts in this status */
+                status?: "pending" | "active" | "banned";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccountsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminGetAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Account id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminAccountDetails"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No account with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     adminListBackups: {
         parameters: {
             query?: never;
@@ -2682,6 +3974,228 @@ export interface operations {
             };
         };
     };
+    adminListEvents: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+                /** @description `upcoming`: not ended yet, soonest first. `past`: ended, latest first */
+                period?: "upcoming" | "past";
+                /** @description Part of the title, in any case */
+                search?: string;
+                /** @description Who added the event: a verified organization or the importer */
+                source?: components["schemas"]["EventSource"];
+                status?: components["schemas"]["EventStatus"];
+                /** @description Only events of this organization, by its account id */
+                organizationId?: string;
+                /** @description Only events at this venue */
+                venueId?: string;
+                /** @description Only events of this category, active or not */
+                categoryId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEventsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminGetEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminEvent"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No event with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminListVenues: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+                /** @description Part of the name or the address, in any case */
+                search?: string;
+                source?: "organization" | "import";
+                /** @description Only venues of this organization, by its account id */
+                organizationId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of venues */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVenuesPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminGetVenue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Venue id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The venue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminVenue"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No venue with this id, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listCategories: {
         parameters: {
             query?: never;
@@ -2806,6 +4320,49 @@ export interface operations {
             };
             /** @description `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified organization. `REFERENCE_NOT_FOUND`: no such active category, or the venue is not one of the organization’s own. `EVENT_ENDS_BEFORE_START`. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyEvents: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyEventsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2978,6 +4535,157 @@ export interface operations {
             };
         };
     };
+    uploadEventPhoto: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path: {
+                /** @description Event id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No event with this id, or it is not one of the organization’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `EVENT_CANCELLED`: a cancelled event keeps its cover. `ORGANIZATION_NOT_VERIFIED`: as when publishing. `INVALID_IMAGE`: the body is not a JPEG, PNG or WebP picture. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteEventPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Event id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Event"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No event with this id, or it is not one of the organization’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `EVENT_CANCELLED`, `ORGANIZATION_NOT_VERIFIED`: as when adding a cover. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getMyOrganization: {
         parameters: {
             query?: never;
@@ -3058,6 +4766,279 @@ export interface operations {
             };
             /** @description `CONFLICT`: the organization is already verified, or its verification was revoked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadOrganizationLogo: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller has not requested organization status */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteOrganizationLogo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller has not requested organization status */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyVenues: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of venues */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenuesPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    createVenue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CreateVenueBody"];
+            };
+        };
+        responses: {
+            /** @description The added venue */
+            201: {
+                headers: {
+                    /** @description URL of the created object */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venue"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `ORGANIZATION_NOT_VERIFIED`: the caller is not a verified organization. `VENUE_OUTSIDE_CITY`: the location is not in Kyiv. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getMyVenue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Venue id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The venue */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Venue"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No venue with this id, or it is not one of the organization’s own */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3327,6 +5308,56 @@ export interface operations {
             };
         };
     };
+    getImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Image id, from the `id` of an Image or CoverImage */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": string;
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No image with this id, or a guest asked for a picture of a person */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listListings: {
         parameters: {
             query?: {
@@ -3521,6 +5552,148 @@ export interface operations {
             };
         };
     };
+    uploadListingPhoto: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteListingPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Listing"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     applyToEvent: {
         parameters: {
             query?: never;
@@ -3604,7 +5777,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The active applications */
+            /** @description The active applications and those with no match */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3723,6 +5896,65 @@ export interface operations {
                 };
             };
             /** @description `CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismissApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Application id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dismissed application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No application with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the application has another status than `no_match`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3978,6 +6210,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety notice yet. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     adminListOrganizations: {
@@ -3987,6 +6228,10 @@ export interface operations {
                 limit?: number;
                 /** @description Items to skip */
                 offset?: number | null;
+                /** @description Part of the organization’s name, in any case */
+                search?: string;
+                /** @description Only organizations in this status */
+                status?: "pending" | "verified" | "rejected" | "revoked";
             };
             header?: never;
             path?: never;
@@ -4022,6 +6267,56 @@ export interface operations {
                 };
             };
             /** @description Not found, or the caller is not an administrator */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    adminGetOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Account id of the organization */
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOrganization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not requested organization status, or the caller is not an administrator */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4931,6 +7226,311 @@ export interface operations {
             };
             /** @description `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acknowledgeSafetyNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeSafetyNoticeBody"];
+            };
+        };
+        responses: {
+            /** @description The profile with the new `safetyNotice` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadMyPhoto: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadMyCover: {
+        parameters: {
+            query: {
+                /** @description Left edge, a fraction of the picture’s width (0 to 1) */
+                cropLeft?: number | null;
+                /** @description Top edge, a fraction of the picture’s height (0 to 1) */
+                cropTop?: number | null;
+                /** @description Width, a fraction of the picture’s width */
+                cropWidth: number;
+                /** @description Height, a fraction of the picture’s height */
+                cropHeight: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The file is larger than the limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The Content-Type is not one of the accepted file types */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_IMAGE`: the file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deleteMyCover: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

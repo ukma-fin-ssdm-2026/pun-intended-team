@@ -1,5 +1,7 @@
 // Written with the help of Claude
+import type { WholeImageRef } from '../../images/types/image.ts';
 import type { Category } from './category.ts';
+import type { OrganizationName } from './organization.ts';
 import type { Venue } from './venue.ts';
 
 export type EventSource = 'organization' | 'import';
@@ -31,6 +33,8 @@ export interface Event {
   priceMax: number | null;
   /** Set on imported events: the provider's image, linked, never copied. */
   imageUrl: string | null;
+  /** The cover an organization uploaded for its event; null for imported events. */
+  photoId: string | null;
   /** Set on imported events: the event's page at the provider, for attribution and tickets. */
   sourceUrl: string | null;
   source: EventSource;
@@ -46,6 +50,28 @@ export interface EventFilter {
 }
 
 export type EventQuery = Partial<EventFilter>;
+
+/** An event as the API returns it: with its cover's size and crop. */
+export type WithPhoto<T extends Event> = T & { photo: WholeImageRef | null };
+
+/** An event as the admin panel shows it, in any status, with the organization that added it. */
+export interface EventOverview extends Event {
+  organization: OrganizationName | null;
+}
+
+/**
+ * Which events the admin panel lists; `search` matches part of the title, in any case. `upcoming`: not ended yet,
+ * soonest first; `past`: ended, latest first.
+ */
+export interface EventSearch {
+  period: 'upcoming' | 'past';
+  search?: string;
+  source?: EventSource;
+  status?: EventStatus;
+  organizationId?: string;
+  venueId?: string;
+  categoryId?: string;
+}
 
 export interface NewEvent {
   title: string;

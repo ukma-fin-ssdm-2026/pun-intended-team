@@ -4,7 +4,7 @@
 import { BlurTargetView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -13,6 +13,7 @@ import { failureSnackbar } from '@/auth/messages';
 import { GuestDialog } from '@/components/guest-dialog';
 import { CompanyRequestSheet } from '@/components/matching/company-request-sheet';
 import { DayPickerSheet } from '@/components/matching/day-picker-sheet';
+import { actionBarReach, MatchActionBar } from '@/components/matching/match-action-bar';
 import { ProfileIncompleteDialog } from '@/components/matching/profile-incomplete-dialog';
 import { Button } from '@/components/ui/button';
 import { coverOf, EventCover } from '@/components/ui/event-cover';
@@ -38,17 +39,26 @@ import { colors } from '@/styles/tokens';
 const TOP_ACTIONS_Y = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 // "02 Деталі" starts at y=312, overlapping the 340 px cover by 28 px.
+const COVER_HEIGHT = 340;
 const SHEET_OVERLAP = 28;
-// "03 Дія": padding 16 / 20 / 34 / 20 around the 52 px button; a larger bottom inset replaces the 34 px.
-const ACTION_BAR_TOP = 16;
-const ACTION_BAR_BOTTOM = 34;
-const BUTTON_HEIGHT = 52;
+const GLASS_BUTTON_SIZE = 40;
+// Scrolled up, the sheet stops this far below the buttons, so they always stand on the cover.
+const SHEET_GAP_BELOW_ACTIONS = 12;
+// The sheet's content ends this far above the button of the action bar.
+const GAP_ABOVE_ACTION = 28;
 // Longer descriptions are cut at the last word within 105 characters and end with "… Читати далі", which gives the
 // Figma text for the jazz evening.
 const DESCRIPTION_PREVIEW = 105;
 
-// Figma's first choice on 03: company for the evening, then a walk and coffee. The profile's format replaces the first.
-const FIGMA_ANSWERS: ApplicationAnswers = { desiredCompany: 'company', afterEventPlans: ['walk', 'coffee'] };
+// Figma's first choice on 03: company for the evening, then a walk and coffee, with anyone of any age. The profile's
+// format replaces the first.
+const FIGMA_ANSWERS: ApplicationAnswers = {
+  desiredCompany: 'company',
+  afterEventPlans: ['walk', 'coffee'],
+  preferredGender: 'any',
+  ageMin: 18,
+  ageMax: null,
+};
 
 // What the API refuses an application for, besides an incomplete profile and an application that already exists.
 const refusals: Record<string, SnackbarContent> = {
@@ -238,12 +248,21 @@ export default function EventScreen() {
   const profileIncomplete = profile.missing || profile.data?.isComplete === false;
   // With an application, 03 changes its answers; otherwise the format comes from the profile.
   const initialAnswers: ApplicationAnswers = application
-    ? { desiredCompany: application.desiredCompany, afterEventPlans: application.afterEventPlans }
+    ? {
+        desiredCompany: application.desiredCompany,
+        afterEventPlans: application.afterEventPlans,
+        preferredGender: application.preferredGender,
+        ageMin: application.ageMin,
+        ageMax: application.ageMax,
+      }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
-  const short = expanded ? undefined : preview(event.description);
-  const bottomPadding = Math.max(ACTION_BAR_BOTTOM, insets.bottom);
-  // 130 px in Figma: the 102 px action bar and the 28 px overlap.
-  const sheetBottomPadding = ACTION_BAR_TOP + BUTTON_HEIGHT + bottomPadding + SHEET_OVERLAP;
+  // Mock and organization events have no provider page.
+  const sourceUrl = liveEvent?.sourceUrl;
+  const cut = preview(event.description);
+  const short = expanded ? undefined : cut;
+  const actionsTop = Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR);
+  const sheetStop = actionsTop + GLASS_BUTTON_SIZE + SHEET_GAP_BELOW_ACTIONS;
+  const sheetBottomPadding = actionBarReach(insets.bottom) + GAP_ABOVE_ACTION;
 
   const openSearch = () => router.push({ pathname: '/events/[id]/search', params: { id: event.id } });
 
@@ -287,110 +306,142 @@ export default function EventScreen() {
 
   return (
     <View className="flex-1 bg-surface-background">
-      <ScrollView>
-        <View className="h-[340px] overflow-hidden">
-          {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
-          <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-            {/* An imported event links its provider's image; a mock event has a bundled one. */}
-            <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} />
-            <TopShade />
-          </BlurTargetView>
+      <View className="absolute left-0 right-0 top-0 overflow-hidden" style={{ height: COVER_HEIGHT }}>
+        {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
+        <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
+          {/* An imported event links its provider's image, an organization's event has its uploaded cover, and a mock event has a bundled one. */}
+          <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
+          <TopShade />
+        </BlurTargetView>
+      </View>
+
+      {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
+          content scrolls, so nothing passes under the status bar or the buttons. Above the sheet the scroll view is
+          clear and shows the cover. */}
+      <View className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-t-[28px]" style={{ top: sheetStop }}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={{ height: COVER_HEIGHT - SHEET_OVERLAP - sheetStop }} />
           <View
-            className="absolute left-5 right-5 flex-row items-center justify-between"
-            style={{ top: Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR) }}
+            className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
+            style={{ paddingBottom: sheetBottomPadding }}
           >
-            <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
-            <GlassButton
-              icon="heart"
-              label="В обране"
-              active={favorite}
-              onPress={() => toggleFavorite(id)}
-              blurTarget={coverRef}
-            />
-          </View>
-        </View>
-
-        <View
-          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ marginTop: -SHEET_OVERLAP, paddingBottom: sheetBottomPadding }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
-
-          {/* Figma fixes this block at 84 px: a two-line title runs 11 px into the gap below, so the next block starts
-              where it does in the frame. */}
-          <View className="h-[84px] items-start gap-2.5">
-            <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
-              <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
+            <View className="items-center">
+              <View className="h-1 w-10 rounded-sm bg-border-default" />
             </View>
-            <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-              {event.title}
-            </Text>
-          </View>
 
-          <View className="gap-2">
-            <Text className="font-inter-semibold text-title text-text-primary">Про подію</Text>
-            <Text className="font-inter text-caption leading-5 text-text-secondary">
-              {short ? `${short}… ` : event.description}
-              {short && (
-                <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
-                  Читати далі
-                </Text>
-              )}
-            </Text>
-          </View>
-
-          <View className="rounded-[20px] bg-surface-background px-4 py-1">
-            <DetailRow
-              icon="pin"
-              value={event.venue.name}
-              note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
-              // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
-              onPress={() => router.navigate('/map')}
-            />
-            <View className="h-px bg-border-default" />
-            <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
-            {/* The API has no organizer name yet; only mock events have one. */}
-            {mockEvent && (
-              <>
-                <View className="h-px bg-border-default" />
-                <DetailRow
-                  icon="building"
-                  value={mockEvent.organizer}
-                  note="Організатор події"
-                  onPress={() => router.push('/organizer')}
-                />
-              </>
-            )}
-          </View>
-
-          <View className="gap-3">
-            <Text className="font-inter-semibold text-title text-text-primary">На мапі</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Показати на мапі"
-              onPress={() => router.navigate('/map')}
-              className="h-[140px] items-center justify-center rounded-[18px] bg-[#ECECE7] active:opacity-90"
-            >
-              <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
-                <Icon name="pin" size={20} color={colors.text['on-dark']} />
+            {/* "02.1 Назва і категорія": as tall as its content, so a title of one, two or three lines is followed by the
+                sheet's 20 px gap to "Про подію"; the chips and the title are 10 px apart. */}
+            <View className="items-start gap-2.5">
+              <View className="flex-row items-center gap-2.5">
+                <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
+                  <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
+                </View>
+                {/* "квитки та деталі": an imported event links its page on ArtWizard or Karabas, where tickets are
+                    sold. */}
+                {sourceUrl && (
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="Квитки та деталі"
+                    onPress={() => void Linking.openURL(sourceUrl)}
+                    className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral-soft px-3.5 py-[7px] active:opacity-80"
+                  >
+                    <Text className="font-inter-semibold text-button-sm text-brand-coral-dark">Квитки та деталі</Text>
+                    <Icon name="square-top-down" size={14} color={colors.brand['coral-dark']} />
+                  </Pressable>
+                )}
               </View>
-            </Pressable>
-          </View>
-        </View>
-      </ScrollView>
+              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
+                {event.title}
+              </Text>
+            </View>
 
-      <View
-        className="absolute bottom-0 left-0 right-0 items-center bg-surface-card px-5"
-        style={{ paddingTop: ACTION_BAR_TOP, paddingBottom: bottomPadding }}
-      >
-        <Button
-          label={match ? 'Відкрити метч' : inPool ? 'Стежити за метчингом' : 'Знайти мені метч'}
-          variant="dark"
-          onPress={onAction}
+            <View className="gap-2">
+              <Text className="font-inter-semibold text-title text-text-primary">Про подію</Text>
+              <Text className="font-inter text-caption leading-5 text-text-secondary">
+                {short ? `${short}… ` : event.description}
+                {short && (
+                  <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
+                    Читати далі
+                  </Text>
+                )}
+                {/* Only a text long enough to be cut collapses back to its preview. */}
+                {expanded && cut && (
+                  <>
+                    {' '}
+                    <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(false)}>
+                      Читати менше
+                    </Text>
+                  </>
+                )}
+              </Text>
+            </View>
+
+            <View className="rounded-[20px] bg-surface-background px-4 py-1">
+              <DetailRow
+                icon="pin"
+                value={event.venue.name}
+                note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
+                // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
+                onPress={() => router.navigate('/map')}
+              />
+              <View className="h-px bg-border-default" />
+              <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
+              {/* The API has no organizer name yet; only mock events have one. */}
+              {mockEvent && (
+                <>
+                  <View className="h-px bg-border-default" />
+                  <DetailRow
+                    icon="building"
+                    value={mockEvent.organizer}
+                    note="Організатор події"
+                    onPress={() => router.push('/organizer')}
+                  />
+                </>
+              )}
+            </View>
+
+            <View className="gap-3">
+              <Text className="font-inter-semibold text-title text-text-primary">На мапі</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Показати на мапі"
+                onPress={() => router.navigate('/map')}
+                className="h-[140px] items-center justify-center rounded-[18px] bg-[#ECECE7] active:opacity-90"
+              >
+                <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
+                  <Icon name="pin" size={20} color={colors.text['on-dark']} />
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </ScrollView>
+      </View>
+
+      <View className="absolute left-5 right-5 flex-row items-center justify-between" style={{ top: actionsTop }}>
+        <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
+        <GlassButton
+          icon="heart"
+          label="В обране"
+          active={favorite}
+          onPress={() => toggleFavorite(id)}
+          blurTarget={coverRef}
         />
       </View>
+
+      <MatchActionBar
+        label={
+          match
+            ? 'Відкрити метч'
+            : application?.status === 'no_match'
+              ? 'Результат підбору'
+              : inPool
+                ? 'Стежити за метчингом'
+                : 'Знайти метч'
+        }
+        icon={!match && !inPool}
+        onPress={onAction}
+        bottomInset={insets.bottom}
+      />
 
       <DayPickerSheet
         key={`days-${dayOpen}`}

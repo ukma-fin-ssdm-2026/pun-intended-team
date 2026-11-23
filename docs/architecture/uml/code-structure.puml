@@ -17,6 +17,7 @@ package "api (HTTP), started by src/api/main.ts" as API {
   class "profiles" as A_PR
   class "catalog" as A_CA
   class "listings" as A_LI
+  class "images" as A_IMG
   class "matching" as A_MA
   class "moderation" as A_MO
   class "admin" as A_AD
@@ -32,6 +33,7 @@ package "core (business logic)" as CORE {
   class "catalog" as C_CA
   class "identity" as C_ID
   class "notifications" as C_NO
+  class "images" as C_IMG
   class "system" as C_SY
   class "import" as C_IM
   class "jobs (port only)" as C_JO
@@ -45,10 +47,11 @@ package "infra (data access and external services)" as INFRA {
   class "jobs" as I_JOBS
   class "providers" as I_PROV
   class "geocoding" as I_GEO
+  class "images (sharp)" as I_IMG
   class "stubs (unit test only)" as I_STUBS
   note as BINDINGS
     **InfraModule** (API process): prisma (nearby_main),
-    auth, messaging, jobs
+    auth, messaging, jobs, images
     **ImportInfraModule** (import process): prisma
     (nearby_import), providers, geocoding, and jobs
     with withJobQueue()
@@ -65,6 +68,7 @@ A_ID --> C_ID
 A_PR --> C_PR
 A_CA --> C_CA
 A_LI --> C_LI
+A_IMG --> C_IMG
 A_MA --> C_MA
 A_MO --> C_MO
 A_AD --> C_AD
@@ -87,6 +91,8 @@ C_MA --> C_PR
 C_LI --> C_CA
 C_LI --> C_PR
 C_PR --> C_ID
+C_PR --> C_IMG
+C_LI --> C_IMG
 C_ID --> C_NO
 C_IM --> C_JO
 
@@ -97,6 +103,7 @@ C_NO -[hidden]-> I_MSG
 CORE <|.. I_PRISMA
 C_ID <|.. I_AUTH
 C_NO <|.. I_MSG
+C_IMG <|.. I_IMG
 C_JO <|.. I_JOBS
 C_IM <|.. I_PROV
 C_IM <|.. I_GEO

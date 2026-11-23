@@ -50,6 +50,9 @@ export class ApplicationsService {
           sessionIds: sessions.map(({ id }) => id),
           desiredCompany: input.desiredCompany,
           afterEventPlans: input.afterEventPlans,
+          preferredGender: input.preferredGender,
+          ageMin: input.ageMin,
+          ageMax: input.ageMax,
         },
         tx,
       );
@@ -63,9 +66,9 @@ export class ApplicationsService {
     );
   }
 
-  /** The user's active applications, soonest first day first. */
+  /** The user's active applications, and those with no match until the user dismisses them; soonest first day first. */
   async listMine(userId: string): Promise<ApplicationDetails[]> {
-    const applications = await this.applicationsRepository.findByUserWithStatus(userId, ACTIVE);
+    const applications = await this.applicationsRepository.findListed(userId, ACTIVE);
     const sessions = await this.eventSessionsService.getByIds(applications.flatMap(({ sessionIds }) => sessionIds));
     return applications
       .map((application) => withSessions(application, sessions))
@@ -90,6 +93,15 @@ export class ApplicationsService {
       throw new DomainError('CONFLICT', 'Only an application waiting in the pool or for an answer can be withdrawn');
     }
     return this.withSessionOf(withdrawn);
+  }
+
+  /** Takes an application with no match out of the user's list (FR-018); dismissing it again changes nothing. */
+  async dismiss(userId: string, id: string): Promise<ApplicationDetails> {
+    const application = await this.requireOwn(userId, id);
+    if (!(await this.applicationsRepository.dismiss(application.id))) {
+      throw new DomainError('CONFLICT', 'Only an application that found no match can be dismissed');
+    }
+    return this.withSessionOf(application);
   }
 
   /**

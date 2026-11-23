@@ -7,11 +7,12 @@ import { startSession } from '@/api/session';
 import { failureSnackbar } from '@/auth/messages';
 import { useSnackbar } from '@/components/ui/snackbar';
 import { useSignIn } from '@/hooks/use-sign-in';
-import { startGoogleRegistration } from '@/state/google-registration';
+import { setOrganizationSignUp, startGoogleRegistration } from '@/state/google-registration';
 
 // What a Google button does with the ID token: a known account signs in and opens the catalog, a new one goes to В5
-// for the date of birth. `onLeave` runs before the screen changes, e.g. to close the guest dialog.
-export function useGoogleAuth(onLeave?: () => void) {
+// for the date of birth. `onLeave` runs before the screen changes, e.g. to close the guest dialog; `forOrganization` is
+// the button of "Для організацій".
+export function useGoogleAuth(onLeave?: () => void, forOrganization = false) {
   const router = useRouter();
   const openCatalog = useSignIn();
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,7 @@ export function useGoogleAuth(onLeave?: () => void) {
   const continueWithGoogle = useCallback(
     async function signIn(idToken: string): Promise<void> {
       hide();
+      setOrganizationSignUp(forOrganization);
       setLoading(true);
       const result = await call(() => publicClient.POST('/api/v1/auth/google', { body: { idToken } }));
       setLoading(false);
@@ -40,7 +42,7 @@ export function useGoogleAuth(onLeave?: () => void) {
         show({ ...failureSnackbar(result), action: { label: 'Ще раз', onPress: () => void signIn(idToken) } });
       }
     },
-    [hide, onLeave, openCatalog, router, show],
+    [forOrganization, hide, onLeave, openCatalog, router, show],
   );
 
   return { continueWithGoogle, loading, snackbar, showSnackbar: show };

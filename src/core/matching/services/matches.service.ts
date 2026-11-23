@@ -10,6 +10,7 @@ import type { Contacts, PublicProfile } from '../../profiles/types/profile.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
 import { type MatchRecord, type MatchView, PENDING_STATUSES } from '../types/match.ts';
 import { acceptedStatus, sidesOf, viewStatus } from './match-sides.ts';
+import { MatchingService } from './matching.service.ts';
 
 /** A participant's view of their matches, and their answer to a proposal (UC-001 steps 8–11, A3). */
 @Injectable()
@@ -18,6 +19,7 @@ export class MatchesService {
     private readonly matchesRepository: MatchesRepository,
     private readonly eventSessionsService: EventSessionsService,
     private readonly profilesService: ProfilesService,
+    private readonly matchingService: MatchingService,
     private readonly transactions: TransactionRunner,
   ) {}
 
@@ -51,10 +53,12 @@ export class MatchesService {
   }
 
   /**
-   * Declines the proposal: both return to the pool, kept apart at this event (matching.md, rule 5). Declining again
-   * changes nothing; a mutual match can no longer be declined.
+   * Declines the proposal: both return to the pool, kept apart at this event (matching.md, rule 5), and are matched
+   * again in open mode or end with no match past the cutoff (rule 3). Declining again changes nothing; a mutual match
+   * can no longer be declined.
    */
   async decline(userId: string, id: string): Promise<MatchView> {
+    let declined = false;
     const match = await this.answer(userId, id, async (current, tx) => {
       const { side } = sidesOf(current, userId)!;
       const status = viewStatus(current.status, current.validUntil, side, new Date());
@@ -65,16 +69,26 @@ export class MatchesService {
         throw new DomainError('CONFLICT', 'The proposal is no longer open');
       }
       await this.matchesRepository.decline(current, userId, tx);
+      declined = true;
       return { ...current, status: 'declined' as const };
     });
+    if (declined) {
+      await this.matchingService.matchReturned([match.applicationAId, match.applicationBId]);
+    }
     return this.view(userId, match);
   }
 
-  /** The other participant's contacts, only once the match is mutual; before that the match is reported missing (SEC-001). */
+  /**
+   * The other participant's contacts, only once the match is mutual; before that the match is reported missing
+   * (SEC-001). A mutual match still holds them back until the caller has acknowledged the safety notice (SAFE-002).
+   */
   async getContacts(userId: string, id: string): Promise<Contacts> {
     const match = await this.requireOwn(userId, id);
     if (match.status !== 'mutual') {
       throw new DomainError('NOT_FOUND', 'Match not found');
+    }
+    if (!(await this.profilesService.hasAcknowledgedSafetyNotice(userId))) {
+      throw new DomainError('SAFETY_NOTICE_REQUIRED', 'Acknowledge the safety notice first');
     }
     return this.profilesService.getContacts(sidesOf(match, userId)!.other.userId);
   }

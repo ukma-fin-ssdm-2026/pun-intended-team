@@ -42,6 +42,7 @@ export function anEventRow(overrides: Partial<EventRow> = {}): EventRow {
     priceMax: null,
     imageUrl: null,
     sourceUrl: null,
+    photoId: null,
     status: 'published',
     createdAt: CREATED,
     updatedAt: CREATED,

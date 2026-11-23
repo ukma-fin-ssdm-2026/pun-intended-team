@@ -9,6 +9,7 @@ export const domainErrorCodes = [
   'ORGANIZATION_NOT_VERIFIED',
   'EVENT_CANCELLED',
   'EVENT_ENDS_BEFORE_START',
+  'VENUE_OUTSIDE_CITY',
   'APPLICATIONS_CLOSED',
   'INVALID_SESSION_DAY',
   'LISTING_DATE_IN_PAST',
@@ -16,6 +17,7 @@ export const domainErrorCodes = [
   'PROFILE_EXISTS',
   'PROFILE_INCOMPLETE',
   'ALREADY_APPLIED',
+  'SAFETY_NOTICE_REQUIRED',
   'CONTACT_REQUIRED',
   'INVALID_SOCIAL_HANDLE',
   'INVALID_CREDENTIALS',
@@ -31,6 +33,7 @@ export const domainErrorCodes = [
   'CANNOT_RESOLVE_OWN_CASE',
   'CANNOT_BAN_ADMIN',
   'CANNOT_DECIDE_OWN_REQUEST',
+  'INVALID_IMAGE',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];

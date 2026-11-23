@@ -1,16 +1,24 @@
 // Written with the help of Claude
 import { Link, Slot, usePathname, useRouter, type Href } from 'expo-router';
+import { useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { signOut } from '@/api/session';
+import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { useOwnOrganization } from '@/hooks/use-own-organization';
 import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 const sections: { href: Href; path: string; label: string; icon: IconName }[] = [
   { href: '/admin', path: '/admin', label: 'Огляд', icon: 'home' },
   { href: '/admin/reports', path: '/admin/reports', label: 'Скарги', icon: 'shield' },
+  { href: '/admin/users', path: '/admin/users', label: 'Користувачі', icon: 'user' },
+  { href: '/admin/admins', path: '/admin/admins', label: 'Адміністратори', icon: 'status-check' },
   { href: '/admin/organizations', path: '/admin/organizations', label: 'Організації', icon: 'building' },
+  { href: '/admin/events', path: '/admin/events', label: 'Події', icon: 'calendar' },
+  { href: '/admin/venues', path: '/admin/venues', label: 'Місця', icon: 'pin' },
   { href: '/admin/categories', path: '/admin/categories', label: 'Категорії', icon: 'list' },
   { href: '/admin/backups', path: '/admin/backups', label: 'Резервні копії', icon: 'clock' },
 ];
@@ -36,46 +44,76 @@ function Notice({ title, text, action }: { title: string; text: string; action?:
 }
 
 function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  // An administrator is not an organization; one that has both is a test account and switches between the panels.
+  const hasOrganization = !!useOwnOrganization().data;
   return (
-    <View className="w-60 justify-between bg-brand-ink px-4 py-8">
-      <View className="gap-8">
-        <View className="gap-0.5 px-3">
-          <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
-          <Text className="font-inter text-caption text-text-on-dark-muted">Адмін-панель</Text>
-        </View>
-        <View className="gap-1">
-          {sections.map((section) => {
-            const active = section.path === '/admin' ? pathname === '/admin' : pathname.startsWith(section.path);
-            return (
-              <Link key={section.path} href={section.href} asChild>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityState={{ selected: active }}
-                  className={`flex-row items-center gap-3 rounded-2xl px-3 py-2.5 ${active ? 'bg-white/[0.12]' : ''}`}
-                >
-                  <Icon
-                    name={section.icon}
-                    size={20}
-                    color={active ? colors.brand.coral : colors.text['on-dark-muted']}
-                  />
-                  <Text
-                    className={`font-inter-medium text-body ${active ? 'text-text-on-dark' : 'text-text-on-dark-muted'}`}
-                  >
-                    {section.label}
-                  </Text>
-                </Pressable>
-              </Link>
-            );
-          })}
-        </View>
+    <View className="w-60 gap-4 bg-brand-ink py-8">
+      <View className="gap-0.5 px-7 pb-4">
+        <Text className="font-logo text-logo text-text-on-dark">Nearby</Text>
+        <Text className="font-inter text-caption text-text-on-dark-muted">Адмін-панель</Text>
       </View>
-      <Link href="/" asChild>
-        <Pressable accessibilityRole="link" className="flex-row items-center gap-3 px-3 py-2.5">
+      {/* The sections scroll on a short window; the name above and the links below stay. */}
+      <ScrollView className="flex-1" contentContainerClassName="gap-1 px-4">
+        {sections.map((section) => {
+          const active = section.path === '/admin' ? pathname === '/admin' : pathname.startsWith(section.path);
+          return (
+            <Link key={section.path} href={section.href} asChild>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityState={{ selected: active }}
+                className={`flex-row items-center gap-3 rounded-2xl px-3 py-2.5 ${active ? 'bg-white/[0.12]' : ''}`}
+              >
+                <Icon
+                  name={section.icon}
+                  size={20}
+                  color={active ? colors.brand.coral : colors.text['on-dark-muted']}
+                />
+                <Text
+                  className={`font-inter-medium text-body ${active ? 'text-text-on-dark' : 'text-text-on-dark-muted'}`}
+                >
+                  {section.label}
+                </Text>
+              </Pressable>
+            </Link>
+          );
+        })}
+      </ScrollView>
+      {/* On the web an administrator's start screen is this panel, so it has no way back to the app. */}
+      <View className="gap-1 px-4">
+        {hasOrganization && (
+          <Link href="/organization" asChild>
+            <Pressable
+              accessibilityRole="link"
+              className="flex-row items-center gap-3 rounded-2xl px-3 py-2.5 hover:bg-white/[0.08]"
+            >
+              <Icon name="building" size={20} color={colors.text['on-dark-muted']} />
+              <Text className="font-inter-medium text-body text-text-on-dark-muted">Кабінет організації</Text>
+            </Pressable>
+          </Link>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSignOutOpen(true)}
+          className="flex-row items-center gap-3 rounded-2xl px-3 py-2.5 hover:bg-white/[0.08]"
+        >
           <Icon name="arrow-left" size={20} color={colors.text['on-dark-muted']} />
-          <Text className="font-inter-medium text-body text-text-on-dark-muted">До застосунку</Text>
+          <Text className="font-inter-medium text-body text-text-on-dark-muted">Вийти</Text>
         </Pressable>
-      </Link>
+      </View>
+      <SignOutDialog
+        visible={signOutOpen}
+        icon="shield"
+        note="Повернутися можна будь-коли."
+        onClose={() => setSignOutOpen(false)}
+        onSignOut={() => {
+          setSignOutOpen(false);
+          void signOut();
+          router.replace('/onboarding');
+        }}
+      />
     </View>
   );
 }

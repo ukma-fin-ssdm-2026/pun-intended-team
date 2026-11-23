@@ -47,6 +47,7 @@ import Search from '@/assets/icons/search.svg';
 import Send from '@/assets/icons/send.svg';
 import Share from '@/assets/icons/share.svg';
 import Shield from '@/assets/icons/shield.svg';
+import SquareTopDown from '@/assets/icons/square-top-down.svg';
 import StateArrow from '@/assets/icons/state-arrow.svg';
 import StateClock from '@/assets/icons/state-clock.svg';
 import StateDanger from '@/assets/icons/state-danger.svg';
@@ -117,6 +118,7 @@ const icons = {
   send: Send,
   share: Share,
   shield: Shield,
+  'square-top-down': SquareTopDown,
   // The С1–С3 system state icons (34 px, 1.5 px stroke); С2 turns the arrow up, as Figma does.
   'state-arrow': StateArrow,
   'state-clock': StateClock,

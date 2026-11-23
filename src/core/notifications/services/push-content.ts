@@ -4,6 +4,7 @@ import type { PushMessage } from '../types/push.ts';
 
 // One line each, in Ukrainian, as the app speaks. Types whose senders are not built yet get the general line.
 const bodies: Partial<Record<NotificationType, (notification: Notification) => string>> = {
+  no_match_found: () => 'Цього разу компанії не знайшлося. Обери іншу подію або створи оголошення.',
   report_received: () => 'Ми отримали вашу скаргу й розглянемо її.',
 };
 

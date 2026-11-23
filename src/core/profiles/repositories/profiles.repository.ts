@@ -1,6 +1,13 @@
 // Written with the help of Claude
 import type { Transaction } from '../../common/transaction.ts';
-import type { LinkedAccount, NewProfile, Profile, ProfileChanges, ProfileSummary } from '../types/profile.ts';
+import type {
+  LinkedAccount,
+  NewProfile,
+  Profile,
+  ProfileChanges,
+  ProfileImageSlot,
+  ProfileSummary,
+} from '../types/profile.ts';
 
 export abstract class ProfilesRepository {
   abstract findSummaries(accountIds: string[]): Promise<ProfileSummary[]>;
@@ -12,6 +19,9 @@ export abstract class ProfilesRepository {
 
   /** Case-insensitive, like the unique index. */
   abstract findAccountIdByUsername(username: string): Promise<string | undefined>;
+
+  /** Accounts whose username or display name contains the text, in any case; at most `limit` of them. */
+  abstract findAccountIdsMatching(text: string, limit: number): Promise<string[]>;
 
   /** Usernames are unique regardless of case; `exceptAccountId` lets a user keep their own. */
   abstract isUsernameTaken(username: string, exceptAccountId?: string): Promise<boolean>;
@@ -25,4 +35,15 @@ export abstract class ProfilesRepository {
 
   /** Replaces the whole set of linked networks; at most one per app. */
   abstract replaceLinkedAccounts(accountId: string, linkedAccounts: LinkedAccount[]): Promise<Profile>;
+
+  /** Acknowledged, or hidden when the user does not want to see the notice again. */
+  abstract acknowledgeSafetyNotice(accountId: string, dontShowAgain: boolean): Promise<Profile>;
+
+  /** Points the avatar or the cover at another image, or at none. */
+  abstract setImage(
+    accountId: string,
+    slot: ProfileImageSlot,
+    imageId: string | null,
+    tx?: Transaction,
+  ): Promise<Profile>;
 }

@@ -7,6 +7,7 @@ import { ActivityIndicator, ScrollView, Text, useWindowDimensions, View } from '
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadNotifications } from '@/api/notifications';
 import { CatalogHeader } from '@/components/catalog-header';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,6 @@ import { useCategories } from '@/hooks/use-categories';
 import { useEvents } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { mockUser } from '@/mocks/user';
 import {
   eventQuery,
   filterEvents,
@@ -34,7 +34,8 @@ import {
   useCatalogFilters,
 } from '@/state/catalog-filters';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { finishCatalogLoading, openGuestDialog, useSession } from '@/state/session';
+import { unreadCount, useNotificationsState } from '@/state/notifications';
+import { finishCatalogLoading, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 import { priceLabel } from '@/price';
 
@@ -90,7 +91,16 @@ export default function CatalogScreen() {
   const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
   const lastUpdated = allEvents.lastUpdated;
+  const inbox = useNotificationsState();
+  const hasUnread = inbox.status === 'loaded' && unreadCount(inbox.notifications) > 0;
   useStatusBarStyle('light');
+
+  // Read again each time the catalog shows, so the dot follows what came in and what was read on Т5.
+  useFocusEffect(
+    useCallback(() => {
+      if (!isGuest) void loadNotifications();
+    }, [isGuest]),
+  );
 
   // The timer runs only while the catalog is on screen, so the skeleton is seen even after switching modes elsewhere.
   useFocusEffect(
@@ -139,14 +149,13 @@ export default function CatalogScreen() {
         </View>
 
         {isGuest ? (
-          <CatalogHeader onAvatarPress={openGuestDialog} />
+          <CatalogHeader />
         ) : (
           <CatalogHeader
             name={profile.data?.displayName}
             // Figma hides the unread dot while the catalog loads.
-            hasUnread={mockUser.hasUnreadNotifications && !loading}
+            hasUnread={hasUnread && !loading}
             onNotificationsPress={() => router.push('/notifications')}
-            onAvatarPress={() => router.navigate('/profile')}
           />
         )}
 
@@ -179,10 +188,7 @@ export default function CatalogScreen() {
             <View className="gap-4 px-5 pt-7">
               {lastUpdated && loadedEvents.length > 0 && (
                 // FR-014: an import failed, so the imported events are those of its last succeeded run.
-                <View className="flex-row items-center gap-2 self-start rounded-full bg-surface-card px-4 py-2">
-                  <Icon name="clock" size={16} />
-                  <Text className="font-inter text-caption text-text-secondary">{lastUpdated}</Text>
-                </View>
+                <Text className="self-end font-inter text-tag text-text-on-dark">{lastUpdated}</Text>
               )}
               {events.map((event) => (
                 <EventCard
@@ -193,6 +199,7 @@ export default function CatalogScreen() {
                   place={event.venue.name}
                   price={priceLabel(event.priceMin, event.priceMax)}
                   cover={coverOf(event.imageUrl)}
+                  photo={event.photo}
                   favorite={favoriteIds.includes(event.id)}
                   onToggleFavorite={() => toggleFavorite(event.id)}
                   // The button opens the event page too, as in the prototype; the request starts there.

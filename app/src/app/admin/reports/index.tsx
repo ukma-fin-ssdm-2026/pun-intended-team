@@ -60,7 +60,7 @@ export default function AdminReports() {
 
   return (
     <>
-      <PageHeader title="Скарги" note="Скарги на одного користувача чи одне оголошення збираються в одну справу." />
+      <PageHeader title="Скарги" />
 
       <View accessibilityRole="tablist" className="flex-row gap-2">
         {statusTabs.map((tab) => (

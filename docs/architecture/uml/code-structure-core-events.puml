@@ -21,11 +21,16 @@ package "core (business logic)" as CORE {
     class EventsService {
       +stats()
       +list(query, page)
+      +listOwn(accountId, page)
+      +search(filter, page)
+      +getOverview(id)
       +find(id)
       +getById(id)
       +create(accountId, input)
       +update(accountId, id, input)
       +cancel(accountId, id)
+      +setPhoto(accountId, id, upload)
+      +removePhoto(accountId, id)
     }
     class EventSessionsService {
       +open(eventId, days)
@@ -44,8 +49,18 @@ package "core (business logic)" as CORE {
       +getOwn(accountId)
       +request(accountId, request)
       +find(accountId)
-      +listRequests(page)
+      +listRequests(filter, page)
+      +findMany(accountIds)
       +decide(accountId, decision, adminId)
+      +setLogo(accountId, upload)
+      +removeLogo(accountId)
+    }
+    class VenuesService {
+      +listOwn(accountId, page)
+      +getOwn(accountId, id)
+      +search(filter, page)
+      +getOverview(id)
+      +create(accountId, venue)
     }
     class ImportFreshnessService {
       +lastUpdatedAt()
@@ -53,9 +68,13 @@ package "core (business logic)" as CORE {
     abstract class EventsRepository {
       +findById(id)
       +findPublished(filter, page)
+      +findByOrganization(organizationId, endingAfter, page)
+      +search(filter, now, page)
+      +findOverview(id)
       +countPublishedEndingAfter(instant)
       +create(event)
       +update(id, changes)
+      +setPhoto(id, photoId, tx)
     }
     abstract class EventSessionsRepository {
       +findOrCreateMany(eventId, starts)
@@ -70,13 +89,19 @@ package "core (business logic)" as CORE {
     }
     abstract class VenuesRepository {
       +findById(id)
+      +findByOrganization(organizationId, page)
+      +search(filter, page)
+      +findOverview(id)
+      +create(organizationId, venue)
     }
     abstract class OrganizationsRepository {
       +findByAccountId(accountId)
       +create(accountId, request)
       +resubmit(accountId, request)
-      +findPage(page)
+      +findPage(filter, page)
+      +findByAccountIds(accountIds)
       +decide(accountId, decision, adminId, at)
+      +setLogo(accountId, logoId, tx)
     }
     abstract class ImportRunsRepository {
       +freshness()
@@ -90,6 +115,8 @@ package "core (business logic)" as CORE {
       +remove(accountId, id)
       +findByIds(ids)
       +removeReported(id)
+      +setPhoto(accountId, id, upload)
+      +removePhoto(accountId, id)
     }
     abstract class ListingsRepository {
       +findActiveById(id)
@@ -97,6 +124,7 @@ package "core (business logic)" as CORE {
       +findActive(fromDate, page)
       +create(listing)
       +markRemoved(id)
+      +setPhoto(id, imageId, tx)
     }
   }
   package matching {
@@ -124,6 +152,7 @@ package "core (business logic)" as CORE {
 
 ' other modules' classes, shown with their methods on their own diagram
 class ProfilesService <<other diagram>>
+class ImagesService <<other diagram>>
 class ModerationService <<other diagram>>
 class OrganizationReviewService <<other diagram>>
 class StatsService <<other diagram>>
@@ -135,15 +164,20 @@ EventsService --> EventsRepository
 EventsService --> OrganizationsRepository
 EventsService --> VenuesRepository
 EventsService --> CategoriesService
+EventsService --> ImagesService
 EventSessionsService --> EventsRepository
 EventSessionsService --> EventSessionsRepository
 CategoriesService --> CategoriesRepository
 OrganizationsService --> OrganizationsRepository
+OrganizationsService --> ImagesService
+VenuesService --> VenuesRepository
+VenuesService --> OrganizationsRepository
 ImportFreshnessService --> ImportRunsRepository
 ListingsService --> ListingsRepository
 ListingsService --> CategoriesService
 ListingsService --> EventsService
 ListingsService --> ProfilesService
+ListingsService --> ImagesService
 ApplicationsService --> ApplicationsRepository
 ApplicationsService --> EventSessionsService
 ApplicationsService --> ProfilesService

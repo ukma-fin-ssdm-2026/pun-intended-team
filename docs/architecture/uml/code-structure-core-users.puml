@@ -35,6 +35,8 @@ package "core (business logic)" as CORE {
     class AccountsService {
       +getDateOfBirth(accountId)
       +findStanding(accountId)
+      +listOverviews(filter, page)
+      +findOverview(accountId)
       +ban(accountId)
       +stats()
     }
@@ -47,6 +49,8 @@ package "core (business logic)" as CORE {
     }
     abstract class AccountsRepository {
       +findById(accountId)
+      +findOverviews(filter, page)
+      +findOverview(accountId)
       +findByPhone(phone)
       +findPasswordCredential(phone)
       +create(account)
@@ -98,23 +102,29 @@ package "core (business logic)" as CORE {
     class ProfilesService {
       +getSummaries(accountIds)
       +findAccountId(username)
+      +searchAccountIds(text, limit)
       +listInterests()
       +isComplete(accountId)
+      +getMatchingTraits(accountIds, day, tx)
       +getOwn(accountId)
       +create(accountId, input)
       +update(accountId, changes)
       +replaceInterests(accountId, interestIds)
       +replaceLinkedAccounts(accountId, linkedAccounts)
+      +setImage(accountId, slot, upload)
+      +removeImage(accountId, slot)
     }
     abstract class ProfilesRepository {
       +findSummaries(accountIds)
       +findByAccountId(accountId)
       +findAccountIdByUsername(username)
+      +findAccountIdsMatching(text, limit)
       +isUsernameTaken(username, exceptAccountId)
       +create(accountId, profile)
       +update(accountId, changes)
       +replaceInterests(accountId, interestIds)
       +replaceLinkedAccounts(accountId, linkedAccounts)
+      +setImage(accountId, slot, imageId, tx)
     }
     abstract class InterestsRepository {
       +findAll()
@@ -132,7 +142,8 @@ package "core (business logic)" as CORE {
       +stats()
     }
     class OrganizationReviewService {
-      +list(page)
+      +list(filter, page)
+      +get(accountId)
       +decide(accountId, decision, adminId)
     }
     abstract class ReportCasesRepository {
@@ -151,6 +162,7 @@ package "core (business logic)" as CORE {
 
 ' other modules' classes, shown with their methods on their own diagram
 class ListingsService <<other diagram>>
+class ImagesService <<other diagram>>
 class NotificationsService <<other diagram>>
 class OrganizationsService <<other diagram>>
 class ApplicationsService <<other diagram>>
@@ -174,6 +186,7 @@ SessionsService --> NotificationsService
 ProfilesService --> ProfilesRepository
 ProfilesService --> InterestsRepository
 ProfilesService --> AccountsService
+ProfilesService --> ImagesService
 ModerationService --> ReportCasesRepository
 ModerationService --> AuditLogRepository
 ModerationService --> ProfilesService

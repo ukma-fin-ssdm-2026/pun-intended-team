@@ -32,6 +32,7 @@ export function anEvent(id: string, title: string, venue = arsenal): Event {
     priceMin: null,
     priceMax: null,
     imageUrl: null,
+    photo: null,
     sourceUrl: null,
     source: 'import',
     status: 'published',

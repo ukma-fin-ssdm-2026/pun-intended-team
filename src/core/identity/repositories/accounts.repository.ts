@@ -1,7 +1,10 @@
 // Written with the help of Claude
+import type { Page, PageRequest } from '../../common/page.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import type {
   Account,
+  AccountFilter,
+  AccountOverview,
   AccountRecord,
   AccountStatus,
   GoogleLinkResult,
@@ -11,6 +14,11 @@ import type {
 
 export abstract class AccountsRepository {
   abstract findById(accountId: string): Promise<Account | undefined>;
+
+  /** Newest first. */
+  abstract findOverviews(filter: AccountFilter, page: PageRequest): Promise<Page<AccountOverview>>;
+
+  abstract findOverview(accountId: string): Promise<AccountOverview | undefined>;
 
   abstract findByPhone(phone: string): Promise<Account | undefined>;
 
@@ -52,7 +60,7 @@ export abstract class AccountsRepository {
   abstract findDateOfBirth(accountId: string): Promise<string | undefined>;
 
   /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
-  abstract findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>>;
+  abstract findDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>>;
 
   abstract setStatus(accountId: string, status: AccountStatus): Promise<void>;
 

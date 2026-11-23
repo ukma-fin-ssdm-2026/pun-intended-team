@@ -1,10 +1,9 @@
 // Written with the help of Claude
 // AI Usage: Профіль tab from the Figma "Т4 Профіль" frame with the "П5 Вийти з акаунта" dialog, on mock data; reviewed
 // by Daryna Halytska.
-import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -14,9 +13,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import type { ApiEventPhoto } from '@/api/images';
+import { SafetySheet } from '@/components/matching/safety-sheet';
+import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
+import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
+import { eventCoverOf } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
@@ -25,10 +29,8 @@ import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
-import { mockProfile } from '@/mocks/profile';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 import { priceLabel } from '@/price';
 
@@ -93,7 +95,7 @@ function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab:
 }
 
 // A live event from the catalog or, until the screens that use them move to the API, a mock one.
-type SavedEvent = Omit<MockEvent, 'district' | 'organizer'>;
+type SavedEvent = Omit<MockEvent, 'district' | 'organizer' | 'photo'> & { photo?: ApiEventPhoto | null };
 
 function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: string) => void }) {
   return (
@@ -107,7 +109,8 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
           price={priceLabel(event.priceMin, event.priceMax)}
-          cover={event.cover}
+          cover={eventCoverOf(event)}
+          photo={event.photo}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
           // The button opens the event page too, as on the catalog cards.
@@ -206,6 +209,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
   // Т4 shows "Про мене", П6 "Збережені"; С1 opens П6 with `saved`.
   const { saved } = useLocalSearchParams<{ saved?: string }>();
   const [chosenTab, setChosenTab] = useState<ProfileTab>('about');
@@ -218,11 +222,10 @@ export default function ProfileScreen() {
   const favoriteIds = useFavoriteIds();
   const liveEvents = useEventsByIds(favoriteIds).data;
   const savedEvents = favoriteIds
-    .map((id) => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
+    .map((id): SavedEvent | undefined => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
     .filter((event): event is SavedEvent => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
-  const { role } = useSession();
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -237,8 +240,13 @@ export default function ProfileScreen() {
             marginBottom: -AVATAR_OVERLAP,
           }}
         >
-          <View className="absolute inset-0">
-            <Image source={mockProfile.cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+          {/* The user's cover, or the default gradient once the profile shows there is none; light grey until then. */}
+          <View className="absolute inset-0 bg-border-default">
+            {profile.data?.cover ? (
+              <ApiPicture image={profile.data.cover} />
+            ) : (
+              profile.data && <CoralGradient preset="cover" />
+            )}
           </View>
           <CoverShade />
           <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
@@ -255,10 +263,14 @@ export default function ProfileScreen() {
         </View>
 
         <View className="pl-5">
-          <View className="size-[92px] items-center justify-center rounded-full border-4 border-surface-background bg-surface-card">
-            <Text className="font-inter-semibold text-title text-text-secondary">
-              {profile.data?.displayName.charAt(0).toUpperCase()}
-            </Text>
+          <View className="size-[92px] items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card">
+            {profile.data?.photo ? (
+              <ApiPicture image={profile.data.photo} />
+            ) : (
+              <Text className="font-inter-semibold text-title text-text-secondary">
+                {profile.data?.displayName.charAt(0).toUpperCase()}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -280,11 +292,9 @@ export default function ProfileScreen() {
 
         {tab === 'about' ? (
           <View className="items-center gap-4 px-5 pt-2.5">
-            {Platform.OS === 'web' && role === 'admin' && (
-              <Pressable accessibilityRole="link" onPress={() => router.push('/admin')} hitSlop={8}>
-                <Text className="font-inter-medium text-label text-text-primary">Адмін-панель</Text>
-              </Pressable>
-            )}
+            <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
+              <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
+            </Pressable>
             <Pressable accessibilityRole="button" onPress={() => setSignOutOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-brand-coral">Вийти з акаунта</Text>
             </Pressable>
@@ -297,6 +307,7 @@ export default function ProfileScreen() {
         )}
       </ScrollView>
 
+      <SafetySheet visible={safetyOpen} onClose={() => setSafetyOpen(false)} onConfirm={() => setSafetyOpen(false)} />
       <SignOutDialog
         visible={signOutOpen}
         icon="user"

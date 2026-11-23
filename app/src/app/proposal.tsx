@@ -145,8 +145,8 @@ export default function ProposalScreen() {
       return;
     }
     setAnswered(match);
-    // Both accepted: the safety reminder (06) opens over the contacts (07), as after "Це взаємно!" on Т5.
-    if (result.data.status === 'mutual') setNext({ pathname: '/mutual', params: { id: match.id, safety: '1' } });
+    // Both accepted: on the first match, the mutual screen opens the safety reminder (06) over the contacts (07).
+    if (result.data.status === 'mutual') setNext({ pathname: '/mutual', params: { id: match.id } });
     setAnswer(choice);
   };
 

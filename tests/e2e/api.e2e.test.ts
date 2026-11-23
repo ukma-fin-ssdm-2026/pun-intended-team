@@ -13,6 +13,8 @@ import path from 'node:path';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import pg from 'pg';
+import sharp from 'sharp';
+import { ageOn } from '../../dist/core/common/age.js';
 import { addDays, fromKyivWallClock, kyivDate } from '../../dist/core/common/kyiv-time.js';
 import type { MessagingProvider } from '../../dist/core/notifications/adapters/messaging-provider.js';
 import type { PushProvider } from '../../dist/core/notifications/adapters/push-provider.js';
@@ -79,6 +81,7 @@ const stubProfiles = [
     displayName: 'Olena',
     description: 'Cinema, galleries and long walks.',
     communicationFormat: 'friends',
+    gender: 'female',
     interestIds: [interestFilms, 'b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e12'],
     telegram: 'olena_k',
   },
@@ -88,6 +91,7 @@ const stubProfiles = [
     displayName: 'Taras',
     description: null,
     communicationFormat: 'casual',
+    gender: 'male',
     interestIds: ['b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e04'],
     telegram: 'taras_m',
   },
@@ -277,6 +281,54 @@ function assertInvalid(res: Response, location: string, field: string): void {
   );
 }
 
+/** A JPEG, left half red and right half blue, with a camera location in its metadata. */
+async function testPicture({ width = 400, height = 300, orientation = 1 } = {}): Promise<Buffer> {
+  const blue = await sharp({ create: { width: width / 2, height, channels: 3, background: 'blue' } })
+    .png()
+    .toBuffer();
+  return sharp({ create: { width, height, channels: 3, background: 'red' } })
+    .composite([{ input: blue, left: width / 2, top: 0 }])
+    .jpeg()
+    .withMetadata({ orientation, exif: { IFD0: { Copyright: 'e2e' }, IFD3: { GPSLatitudeRef: 'N' } } })
+    .toBuffer();
+}
+
+const wholePicture = 'cropLeft=0&cropTop=0&cropWidth=1&cropHeight=1';
+
+/** Sends the picture as the raw body, as the app does. */
+async function upload(
+  path: string,
+  picture: Buffer,
+  { token, contentType = 'image/jpeg', crop = wholePicture }: { token?: string; contentType?: string; crop?: string },
+): Promise<Response> {
+  const headers: Record<string, string> = { 'content-type': contentType };
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(`${baseUrl}${path}?${crop}`, { method: 'PUT', headers, body: new Uint8Array(picture) });
+  const text = await res.text();
+  return { status: res.status, headers: res.headers, body: text ? JSON.parse(text) : undefined };
+}
+
+/** GET /images/{id}: the status, headers and the decoded picture's metadata. */
+async function getImage(id: string, token: string) {
+  const res = await fetch(`${baseUrl}/api/v1/images/${id}`, { headers: { authorization: `Bearer ${token}` } });
+  const bytes = Buffer.from(await res.arrayBuffer());
+  return {
+    status: res.status,
+    headers: res.headers,
+    bytes,
+    metadata: res.ok ? await sharp(bytes).metadata() : undefined,
+  };
+}
+
+/** The colour of the pixel in the middle of the picture. */
+async function centreColour(picture: Uint8Array): Promise<number[]> {
+  const { data, info } = await sharp(picture).raw().toBuffer({ resolveWithObject: true });
+  const offset = (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * info.channels;
+  return [...data.subarray(offset, offset + 3)];
+}
+
 /** Signs in with Google and returns the new session's tokens. */
 async function newSession(subject: string): Promise<{ accessToken: string; refreshToken: string }> {
   const res = await call('POST', '/api/v1/auth/google', { body: { idToken: await googleIdToken(subject) } });
@@ -424,13 +476,14 @@ async function addStubAccounts(cipher: PersonalDataCipher): Promise<void> {
       displayName,
       description,
       communicationFormat,
+      gender,
       interestIds,
       telegram,
     } of stubProfiles) {
       await client.query(
-        `INSERT INTO profiles (account_id, username, display_name, description, communication_format)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [accountId, username, displayName, description, communicationFormat],
+        `INSERT INTO profiles (account_id, username, display_name, description, communication_format, gender)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [accountId, username, displayName, description, communicationFormat, gender],
       );
       await client.query(`INSERT INTO linked_accounts (profile_id, app, username) VALUES ($1, 'telegram', $2)`, [
         accountId,
@@ -1444,6 +1497,125 @@ describe('POST /api/v1/events/{id}/cancel', () => {
   });
 });
 
+describe('GET /api/v1/me/events', () => {
+  test('lists the organization’s events that have not ended, cancelled ones too, soonest first', async () => {
+    const upcoming = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, startsAt: `${inDays(3)}T19:00:00+03:00`, endsAt: `${inDays(3)}T21:00:00+03:00` },
+    });
+    const ended = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, startsAt: `${inDays(-1)}T19:00:00+03:00`, endsAt: `${inDays(-1)}T21:00:00+03:00` },
+    });
+    assert.equal(upcoming.status, 201, JSON.stringify(upcoming.body));
+    assert.equal(ended.status, 201, JSON.stringify(ended.body));
+
+    const res = await call('GET', '/api/v1/me/events', { token: tokens.org });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = res.body.items.map((event: { id: string }) => event.id);
+    assert.ok(ids.includes(upcoming.body.id));
+    assert.ok(ids.includes(cancelledFilmEvent));
+    assert.ok(!ids.includes(ended.body.id), 'an ended event is not listed');
+    assert.ok(!ids.includes(arsenalExhibition), 'an imported event is not listed');
+    const starts = res.body.items.map((event: { startsAt: string }) => Date.parse(event.startsAt));
+    assert.deepEqual(
+      starts,
+      [...starts].sort((a, b) => a - b),
+    );
+  });
+
+  test('is empty for an account that is not an organization', async () => {
+    const res = await call('GET', '/api/v1/me/events', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.items, []);
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(await call('GET', '/api/v1/me/events', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('Organization venues', () => {
+  const newVenue = {
+    name: 'Kyiv Film Studio yard',
+    address: '44 Peremohy Ave, Kyiv',
+    location: { lat: 50.4555, lng: 30.4407 },
+  };
+
+  test('lists only the organization’s own venues', async () => {
+    const res = await call('GET', '/api/v1/me/venues', { token: tokens.org });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const ids = res.body.items.map((venue: { id: string }) => venue.id);
+    assert.ok(ids.includes(filmClubVenue));
+    assert.ok(!ids.includes(arsenalVenue), 'an imported venue is not listed');
+    assert.ok(!ids.includes(newGalleryHall), 'another organization’s venue is not listed');
+  });
+
+  test('is empty for an account that is not an organization', async () => {
+    const res = await call('GET', '/api/v1/me/venues', { token: tokens.user });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.items, []);
+  });
+
+  test('adds a venue that the organization can then publish an event at', async () => {
+    const created = await call('POST', '/api/v1/me/venues', { token: tokens.org, body: newVenue });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.deepEqual({ ...created.body, id: undefined }, { ...newVenue, id: undefined });
+
+    assert.equal(created.headers.get('location'), `/api/v1/me/venues/${created.body.id}`);
+    const fetched = await call('GET', `/api/v1/me/venues/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(fetched.body, created.body);
+
+    const listed = await call('GET', '/api/v1/me/venues', { token: tokens.org });
+    assert.ok(listed.body.items.some((venue: { id: string }) => venue.id === created.body.id));
+    const others = await call('GET', '/api/v1/me/venues', { token: tokens.orgPending });
+    assert.ok(!others.body.items.some((venue: { id: string }) => venue.id === created.body.id));
+
+    const event = await call('POST', '/api/v1/events', {
+      token: tokens.org,
+      body: { ...newEvent, venueId: created.body.id },
+    });
+    assert.equal(event.status, 201, JSON.stringify(event.body));
+    assert.equal(event.body.venue.id, created.body.id);
+  });
+
+  test('answers 404 for another organization’s venue and an imported one', async () => {
+    for (const id of [newGalleryHall, arsenalVenue]) {
+      assertRejected(await call('GET', `/api/v1/me/venues/${id}`, { token: tokens.org }), 404, 'NOT_FOUND');
+    }
+  });
+
+  test('rejects an organization that is not verified, and a regular user, with 422', async () => {
+    for (const token of [tokens.orgPending, tokens.user]) {
+      assertRejected(
+        await call('POST', '/api/v1/me/venues', { token, body: newVenue }),
+        422,
+        'ORGANIZATION_NOT_VERIFIED',
+      );
+    }
+  });
+
+  test('rejects a point outside Kyiv with 422', async () => {
+    const body = { ...newVenue, location: { lat: 49.8419, lng: 24.0315 } };
+    assertRejected(await call('POST', '/api/v1/me/venues', { token: tokens.org, body }), 422, 'VENUE_OUTSIDE_CITY');
+  });
+
+  test('rejects a body without a name or location with 400, one details entry each', async () => {
+    const res = await call('POST', '/api/v1/me/venues', { token: tokens.org, body: { address: newVenue.address } });
+    assertInvalid(res, 'body', 'name');
+    assertInvalid(res, 'body', 'location');
+    assert.equal(res.body.error.details.length, 2, JSON.stringify(res.body.error.details));
+  });
+
+  test('rejects a guest token with 401', async () => {
+    assertRejected(
+      await call('POST', '/api/v1/me/venues', { token: tokens.guest, body: newVenue }),
+      401,
+      'UNAUTHENTICATED',
+    );
+  });
+});
+
 describe('GET /api/v1/listings', () => {
   test('returns a page of listings', async () => {
     const res = await call('GET', '/api/v1/listings', { token: tokens.user });
@@ -1506,14 +1678,61 @@ describe('DELETE /api/v1/listings/{id}', () => {
   });
 });
 
+describe('PUT and DELETE /api/v1/listings/{id}/photo', () => {
+  test('adds a 2:1 photo to the caller’s own listing; readers see it, and removing it deletes the picture', async () => {
+    const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    const res = await upload(`/api/v1/listings/${created.body.id}/photo`, await testPicture(), { token: tokens.user });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(Object.keys(res.body.photo).sort(), ['height', 'id', 'width']);
+    assert.equal(res.body.photo.width, 2 * res.body.photo.height);
+
+    const read = await call('GET', `/api/v1/listings/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(read.body.photo, res.body.photo);
+    const image = await getImage(res.body.photo.id, tokens.org);
+    assert.equal(image.status, 200);
+    assert.equal(image.metadata?.width, 400);
+    assert.equal(image.metadata?.height, 200);
+
+    const removed = await call('DELETE', `/api/v1/listings/${created.body.id}/photo`, { token: tokens.user });
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.photo, null);
+    assert.equal((await getImage(res.body.photo.id, tokens.org)).status, 404);
+  });
+
+  test('shows the author’s profile photo to readers', async () => {
+    const { token } = await newProfile();
+    const photo = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const created = await call('POST', '/api/v1/listings', { token, body: newListing });
+
+    const read = await call('GET', `/api/v1/listings/${created.body.id}`, { token: tokens.org });
+    assert.deepEqual(read.body.author.photo, photo.body.photo);
+    assert.equal((await getImage(read.body.author.photo.id, tokens.org)).status, 200);
+  });
+
+  test('answers 404 for someone else’s listing', async () => {
+    const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    const res = await upload(`/api/v1/listings/${created.body.id}/photo`, await testPicture(), { token: tokens.org });
+    assertRejected(res, 404, 'NOT_FOUND');
+    assertRejected(
+      await call('DELETE', `/api/v1/listings/${created.body.id}/photo`, { token: tokens.org }),
+      404,
+      'NOT_FOUND',
+    );
+  });
+});
+
 describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
 
   /** A new account whose profile has everything matching needs. */
-  async function newCompleteProfile(): Promise<{ token: string; accountId: string; username: string }> {
+  // Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
+  async function newCompleteProfile(
+    gender: 'female' | 'male' | 'other' = 'female',
+  ): Promise<{ token: string; accountId: string; username: string }> {
     const { token, accountId, username } = await newProfile();
+    const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
     for (const [method, path, body] of [
-      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends' }],
+      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
       ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
       [
         'PUT',
@@ -1622,6 +1841,18 @@ describe('Applications', () => {
 
   test('rejects a profile that matching cannot use yet with 422', async () => {
     const { token } = await newProfile();
+    assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  // Profiles made before genders were asked: everything else is set, and the app sends the user to add one.
+  test('rejects a profile without a gender with 422', async () => {
+    const { token } = await newCompleteProfile();
+    await withDatabase((client) =>
+      client.query('UPDATE profiles SET gender = NULL, gender_description = NULL WHERE account_id = $1', [
+        accountIdOf(token),
+      ]),
+    );
+
     assertRejected(await apply(token, soonEvent), 422, 'PROFILE_INCOMPLETE');
   });
 
@@ -1806,6 +2037,52 @@ describe('Applications', () => {
     assert.deepEqual(rows, [{ source: 'instant', score: '1.000' }]);
   });
 
+  test('stores whom the caller wants to go with and returns it', async () => {
+    const { token } = await newCompleteProfile();
+
+    const res = await apply(token, soonEvent, { ...answers, preferredGender: 'male', ageMin: 20, ageMax: 30 });
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual([res.body.preferredGender, res.body.ageMin, res.body.ageMax], ['male', 20, 30]);
+    const read = await call('GET', `/api/v1/applications/${res.body.id}`, { token });
+    assert.deepEqual([read.body.preferredGender, read.body.ageMin, read.body.ageMax], ['male', 20, 30]);
+  });
+
+  test('takes left-out preferences as anyone of any age', async () => {
+    const { token } = await newCompleteProfile();
+
+    const res = await apply(token, soonEvent);
+
+    assert.deepEqual([res.body.preferredGender, res.body.ageMin, res.body.ageMax], ['any', 18, null]);
+  });
+
+  test('rejects an age range whose oldest age is below the youngest with 400', async () => {
+    const { token } = await newCompleteProfile();
+
+    assertInvalid(await apply(token, soonEvent, { ...answers, ageMin: 30, ageMax: 25 }), 'body', 'ageMax');
+  });
+
+  // matching.md, policy: a pair that would score 1 is not matched when one does not want the other's gender.
+  test('does not match users who do not fit each other’s gender preference', async () => {
+    const waiting = await newCompleteProfile('female');
+    const newcomer = await newCompleteProfile('other');
+    await apply(waiting.token, soonEvent, { ...answers, preferredGender: 'female' });
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
+  test('does not match users outside each other’s age range', async () => {
+    const waiting = await newCompleteProfile();
+    const newcomer = await newCompleteProfile();
+    await apply(waiting.token, soonEvent, { ...answers, ageMin: 30 });
+
+    const res = await apply(newcomer.token, soonEvent);
+
+    assert.equal(res.body.status, 'in_pool');
+  });
+
   test('leaves the caller in the pool when nobody suits them well enough', async () => {
     const waiting = await newCompleteProfile();
     const newcomer = await newCompleteProfile();
@@ -1934,6 +2211,11 @@ describe('Applications', () => {
   const answer = (token: string, matchId: string, verb: 'accept' | 'decline') =>
     call('POST', `/api/v1/matches/${matchId}/${verb}`, { token });
 
+  async function acknowledgeSafetyNotice(token: string): Promise<void> {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+
   // FR-019, SEC-001, UC-001 steps 8–11
   test('shows a proposal without contacts, and the contacts once both users accept', async () => {
     const { waiting, newcomer, waited, match } = await aProposal();
@@ -1964,6 +2246,7 @@ describe('Applications', () => {
 
     const mutual = await answer(newcomer.token, match.id, 'accept');
     assert.equal(mutual.body.status, 'mutual');
+    await acknowledgeSafetyNotice(waiting.token);
     const contacts = await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token });
     assert.equal(contacts.status, 200, JSON.stringify(contacts.body));
     assert.deepEqual(contacts.body, {
@@ -1977,6 +2260,22 @@ describe('Applications', () => {
       409,
       'CONFLICT',
     );
+  });
+
+  // SAFE-002, FR-032, TC-39
+  test('holds the contacts of a mutual match back until the caller acknowledges the safety notice', async () => {
+    const { waiting, newcomer, match } = await aProposal();
+    await answer(waiting.token, match.id, 'accept');
+    assert.equal((await answer(newcomer.token, match.id, 'accept')).body.status, 'mutual');
+    const contactsOf = (token: string) => call('GET', `/api/v1/matches/${match.id}/contacts`, { token });
+
+    assertRejected(await contactsOf(waiting.token), 422, 'SAFETY_NOTICE_REQUIRED');
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
+
+    await acknowledgeSafetyNotice(waiting.token);
+    assert.equal((await contactsOf(waiting.token)).status, 200);
+    // Each user acknowledges for themselves.
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
   });
 
   // UC-001 A3, matching.md rule 5, FR-020
@@ -2013,6 +2312,144 @@ describe('Applications', () => {
       'in_pool',
     );
     assert.equal((await call('GET', `/api/v1/matches/${match.id}`, { token: waiting.token })).body.status, 'cancelled');
+  });
+
+  /** A long event that started an hour ago and ends in 3 hours: past its last round, its cutoff an hour away. */
+  async function anEventUnderWay(): Promise<string> {
+    const hour = 60 * 60 * 1000;
+    return newEventAt(new Date(Date.now() - hour).toISOString(), new Date(Date.now() + 3 * hour).toISOString());
+  }
+
+  /** The application's status once it is no longer `from`, or `from` after 20 seconds. */
+  async function statusAfter(token: string, id: string, from: string): Promise<string> {
+    const deadline = Date.now() + 20_000;
+    let status = from;
+    while (status === from && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      status = (await call('GET', `/api/v1/applications/${id}`, { token })).body.status;
+    }
+    return status;
+  }
+
+  // matching.md, rule 3
+  test('proposes the best partner at once to an application after the last round, however low the score', async () => {
+    const eventId = await anEventUnderWay();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    const waiting = await apply(first.token, eventId, { desiredCompany: 'friends', afterEventPlans: [] });
+    assert.equal(waiting.body.status, 'in_pool');
+    assert.equal(waiting.body.nextRoundAt, null);
+
+    const latecomer = await apply(second.token, eventId);
+
+    assert.equal(latecomer.status, 201, JSON.stringify(latecomer.body));
+    assert.equal(latecomer.body.status, 'paired');
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT source, score, valid_until FROM matches WHERE application_a_id = $1`, [latecomer.body.id]),
+    );
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].source, rows[0].score], ['open', '0.700']);
+    assert.equal(rows[0].valid_until.toISOString(), latecomer.body.cutoffAt);
+  });
+
+  test('leaves an application after the last round waiting when nobody can be paired with it', async () => {
+    const eventId = await anEventUnderWay();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    await apply(first.token, eventId, { ...answers, desiredCompany: 'dating' });
+
+    const latecomer = await apply(second.token, eventId);
+
+    assert.equal(latecomer.body.status, 'in_pool');
+    assert.equal(latecomer.body.nextRoundAt, null);
+  });
+
+  // FUNC-002, matching.md rule 7
+  test('never proposes one waiting user to two applications sent at once in open mode', async () => {
+    const eventId = await anEventUnderWay();
+    const waiting = await newCompleteProfile();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    const waited = await apply(waiting.token, eventId);
+
+    const results = await Promise.all([apply(first.token, eventId), apply(second.token, eventId)]);
+
+    const ids = [waited.body.id, ...results.map((res) => res.body.id)];
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT application_a_id, application_b_id FROM matches
+          WHERE application_a_id = ANY($1) OR application_b_id = ANY($1)`,
+        [ids],
+      ),
+    );
+    // The first of the two takes the waiting user; the second then finds the first already paired.
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].application_b_id, waited.body.id);
+  });
+
+  // matching.md, rules 3 and 5
+  test('proposes a declined user again in open mode', async () => {
+    const eventId = await anEventUnderWay();
+    const [first, second, third] = [await newCompleteProfile(), await newCompleteProfile(), await newCompleteProfile()];
+    await apply(first.token, eventId);
+    assert.equal((await apply(second.token, eventId)).body.status, 'paired');
+    const [match] = (await call('GET', '/api/v1/me/matches', { token: first.token })).body;
+    const lonely = await apply(third.token, eventId, { desiredCompany: 'friends', afterEventPlans: [] });
+    assert.equal(lonely.body.status, 'in_pool');
+
+    await answer(second.token, match.id, 'decline');
+
+    // The two are kept apart, and one of them now pairs with the third, who has waited alone.
+    const status = (await call('GET', `/api/v1/applications/${lonely.body.id}`, { token: third.token })).body.status;
+    assert.equal(status, 'paired');
+  });
+
+  // FR-018
+  test('ends an application still waiting at the cutoff with no match, until the user dismisses it', async () => {
+    const eventId = await anEventUnderWay();
+    const { token } = await newCompleteProfile();
+    const applied = await apply(token, eventId);
+    assert.equal(applied.body.status, 'in_pool');
+    const other = await newCompleteProfile();
+    const inPool = await apply(other.token, soonEvent);
+
+    await withDatabase(async (client) => {
+      // The event now ends within 2 hours, so its cutoff has passed.
+      await client.query(`UPDATE events SET ends_at = now() + interval '1 hour' WHERE id = $1`, [eventId]);
+      await client.query(
+        `UPDATE pgboss.job SET start_after = now()
+          WHERE name = 'matching.cutoff' AND data->>'sessionId' IN
+            (SELECT session_id::text FROM application_sessions WHERE application_id = $1)`,
+        [applied.body.id],
+      );
+    });
+
+    assert.equal(await statusAfter(token, applied.body.id, 'in_pool'), 'no_match');
+    const inbox = await call('GET', '/api/v1/me/notifications', { token });
+    assert.deepEqual(
+      inbox.body.items.map(({ type, payload }: { type: string; payload: object }) => [type, payload]),
+      [['no_match_found', { applicationId: applied.body.id, eventId }]],
+    );
+    const listed = await call('GET', '/api/v1/me/applications', { token });
+    assert.deepEqual(
+      listed.body.map(({ id, status }: { id: string; status: string }) => [id, status]),
+      [[applied.body.id, 'no_match']],
+    );
+
+    const dismissed = await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token });
+    assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+    assert.deepEqual((await call('GET', '/api/v1/me/applications', { token })).body, []);
+    assert.equal((await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token })).status, 200);
+    assertRejected(
+      await call('POST', `/api/v1/applications/${inPool.body.id}/dismiss`, { token: other.token }),
+      409,
+      'CONFLICT',
+    );
+    assertRejected(
+      await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token: other.token }),
+      404,
+      'NOT_FOUND',
+    );
   });
 
   // SEC-001
@@ -2655,7 +3092,7 @@ describe('Organization verification', () => {
 
     const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
 
-    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null };
+    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null, logo: null };
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(res.body, pending);
     assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);
@@ -2766,6 +3203,189 @@ describe('Organization verification', () => {
     assertRejected(await call('GET', '/api/v1/admin/organizations', { token: tokens.user }), 404, 'NOT_FOUND');
     assertRejected(await decide(accountId, 'approve', tokens.user), 404, 'NOT_FOUND');
     assertRejected(await call('GET', '/api/v1/me/organization', { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+  });
+});
+
+// FR-027: the admin panel lists every account, event, venue and organization.
+describe('Admin panel lists', () => {
+  const podilFilmClub = { accountId: stubAccounts.org.id, name: 'Podil Film Club' };
+
+  async function listAll(path: string): Promise<Response['body'][]> {
+    let items: Response['body'][] = [];
+    for (let offset = 0, hasMore = true; hasMore; offset += 20) {
+      const separator = path.includes('?') ? '&' : '?';
+      const page = await call('GET', `${path}${separator}offset=${offset}`, { token: tokens.admin });
+      assert.equal(page.status, 200, JSON.stringify(page.body));
+      items = [...items, ...page.body.items];
+      hasMore = page.body.page.hasMore;
+    }
+    return items;
+  }
+
+  test('lists an account with its profile, organization and age, never its phone or date of birth', async () => {
+    const items = await listAll('/api/v1/admin/accounts?search=OLENA_K');
+
+    assert.deepEqual(items, [
+      {
+        id: stubAccounts.user.id,
+        role: 'user',
+        status: 'active',
+        signInMethods: ['google'],
+        age: ageOn(kyivDate(), stubAccounts.user.dateOfBirth),
+        createdAt: items[0]?.createdAt,
+        profile: { username: 'olena_k', displayName: 'Olena' },
+        organization: null,
+      },
+    ]);
+  });
+
+  test('finds an account by its id, with its organization request', async () => {
+    const items = await listAll(`/api/v1/admin/accounts?search=${stubAccounts.org.id}`);
+
+    assert.deepEqual(
+      items.map(({ id, organization }) => ({ id, organization })),
+      [{ id: stubAccounts.org.id, organization: { name: 'Podil Film Club', verificationStatus: 'verified' } }],
+    );
+  });
+
+  test('lists only the administrators with role=admin, newest first', async () => {
+    const items = await listAll('/api/v1/admin/accounts?role=admin');
+
+    assert.ok(items.length > 0);
+    assert.ok(
+      items.every((item) => item.role === 'admin'),
+      JSON.stringify(items),
+    );
+    assert.ok(items.some((item) => item.id === stubAccounts.admin.id));
+    const created = items.map((item) => item.createdAt);
+    assert.deepEqual(created, [...created].sort().reverse());
+  });
+
+  test('gives an empty page when nothing matches the search', async () => {
+    const res = await call('GET', '/api/v1/admin/accounts?search=no-such-user-anywhere', { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual(res.body, { items: [], page: { limit: 20, offset: 0, hasMore: false } });
+  });
+
+  test('gives one account with its profile as other users see it', async () => {
+    const res = await call('GET', `/api/v1/admin/accounts/${stubAccounts.user.id}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.profile.username, 'olena_k');
+    assert.equal(res.body.profile.description, 'Cinema, galleries and long walks.');
+    assert.ok(res.body.profile.interests.some((interest: { id: string }) => interest.id === interestFilms));
+    assert.equal(res.body.organization, null);
+    assert.equal('dateOfBirth' in res.body, false);
+    assert.equal('phone' in res.body, false);
+  });
+
+  test('lists upcoming events in any status, with who added them', async () => {
+    const items = await listAll('/api/v1/admin/events');
+
+    const byId = new Map(items.map((item) => [item.id, item]));
+    assert.deepEqual(byId.get(cancelledFilmEvent)?.organization, podilFilmClub);
+    assert.equal(byId.get(cancelledFilmEvent)?.status, 'cancelled');
+    assert.equal(byId.get(arsenalExhibition)?.organization, null);
+    const starts = items.map((item) => item.startsAt);
+    assert.deepEqual(starts, [...starts].sort());
+  });
+
+  test('lists past events latest first, and filters events', async () => {
+    const pastEvent = randomUUID();
+    await withDatabase((client) =>
+      client.query(
+        `INSERT INTO events (id, category_id, venue_id, organization_id, source, title, description, starts_at, ends_at)
+         VALUES ($1, $2, $3, $4, 'organization', 'Last year''s film night', '', now() - interval '400 days',
+                 now() - interval '399 days')`,
+        [pastEvent, concerts, filmClubVenue, stubAccounts.org.id],
+      ),
+    );
+
+    const past = await listAll('/api/v1/admin/events?period=past');
+    const filtered = await listAll(
+      `/api/v1/admin/events?organizationId=${stubAccounts.org.id}&status=cancelled&search=SILENT`,
+    );
+
+    assert.ok(past.some((item) => item.id === pastEvent));
+    assert.ok(!past.some((item) => item.id === arsenalExhibition));
+    assert.deepEqual(
+      filtered.map((item) => item.id),
+      [cancelledFilmEvent],
+    );
+  });
+
+  test('gives one event, a cancelled one too', async () => {
+    const res = await call('GET', `/api/v1/admin/events/${cancelledFilmEvent}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.status, 'cancelled');
+    assert.deepEqual(res.body.organization, podilFilmClub);
+  });
+
+  test('lists venues, imported ones too, and filters them', async () => {
+    const arsenal = await listAll('/api/v1/admin/venues?search=lavrska');
+    const newGallery = await listAll(`/api/v1/admin/venues?organizationId=${stubAccounts.orgPending.id}`);
+
+    assert.deepEqual(
+      arsenal.map(({ id, source, organization }) => ({ id, source, organization })),
+      [{ id: arsenalVenue, source: 'import', organization: null }],
+    );
+    assert.deepEqual(
+      newGallery.map(({ id, organization }) => ({ id, organization })),
+      [{ id: newGalleryHall, organization: { accountId: stubAccounts.orgPending.id, name: 'New Gallery' } }],
+    );
+  });
+
+  test('gives one venue with the organization that owns it', async () => {
+    const res = await call('GET', `/api/v1/admin/venues/${filmClubVenue}`, { token: tokens.admin });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.name, 'Natalka Park lawn');
+    assert.deepEqual(res.body.organization, podilFilmClub);
+  });
+
+  test('filters organizations by name and status, and gives one organization', async () => {
+    const items = await listAll('/api/v1/admin/organizations?search=podil&status=verified');
+    const one = await call('GET', `/api/v1/admin/organizations/${stubAccounts.org.id}`, { token: tokens.admin });
+
+    assert.deepEqual(
+      items.map((item) => item.accountId),
+      [stubAccounts.org.id],
+    );
+    assert.equal(one.status, 200, JSON.stringify(one.body));
+    assert.equal(one.body.name, 'Podil Film Club');
+    assert.equal(one.body.account.id, stubAccounts.org.id);
+  });
+
+  test('answers 404 to an id that does not exist', async () => {
+    for (const path of ['accounts', 'events', 'venues', 'organizations']) {
+      const res = await call('GET', `/api/v1/admin/${path}/${randomUUID()}`, { token: tokens.admin });
+      assertRejected(res, 404, 'NOT_FOUND');
+    }
+  });
+
+  test('rejects an unknown filter value and an empty search with 400', async () => {
+    assertInvalid(await call('GET', '/api/v1/admin/accounts?role=owner', { token: tokens.admin }), 'query', 'role');
+    assertInvalid(await call('GET', '/api/v1/admin/events?period=soon', { token: tokens.admin }), 'query', 'period');
+    assertInvalid(await call('GET', '/api/v1/admin/venues?search=%20', { token: tokens.admin }), 'query', 'search');
+    assertInvalid(await call('GET', '/api/v1/admin/accounts/not-a-uuid', { token: tokens.admin }), 'params', 'id');
+  });
+
+  // SEC-001
+  test('answers a user who is not an administrator with 404, and a guest with 401', async () => {
+    for (const path of [
+      '/api/v1/admin/accounts',
+      `/api/v1/admin/accounts/${stubAccounts.user.id}`,
+      '/api/v1/admin/events',
+      `/api/v1/admin/events/${filmNight}`,
+      '/api/v1/admin/venues',
+      `/api/v1/admin/venues/${filmClubVenue}`,
+      `/api/v1/admin/organizations/${stubAccounts.org.id}`,
+    ]) {
+      assertRejected(await call('GET', path, { token: tokens.user }), 404, 'NOT_FOUND');
+      assertRejected(await call('GET', path, { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+    }
   });
 });
 
@@ -3009,6 +3629,26 @@ describe('PATCH /api/v1/me/profile', () => {
     assert.equal(stored.rows[0]?.communication_format, 'casual');
   });
 
+  // Leaves the profile with a gender, which the interests tests need to complete it.
+  test('stores the gender "other" with its description, and drops the description for another gender', async () => {
+    const other = await call('PATCH', '/api/v1/me/profile', {
+      token: tokens.orgPending,
+      body: { gender: 'other', genderDescription: ' Небінарна людина ' },
+    });
+    assert.equal(other.status, 200, JSON.stringify(other.body));
+    assert.deepEqual([other.body.gender, other.body.genderDescription], ['other', 'Небінарна людина']);
+
+    const female = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { gender: 'female' } });
+
+    assert.deepEqual([female.body.gender, female.body.genderDescription], ['female', null]);
+  });
+
+  test('rejects the gender "other" without a description with 400', async () => {
+    const res = await call('PATCH', '/api/v1/me/profile', { token: tokens.orgPending, body: { gender: 'other' } });
+
+    assertInvalid(res, 'body', 'genderDescription');
+  });
+
   test('lets a user change the case of their own username', async () => {
     const res = await call('PATCH', '/api/v1/me/profile', {
       token: tokens.orgPending,
@@ -3154,6 +3794,40 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
   });
 });
 
+// FR-032
+describe('POST /api/v1/me/profile/safety-notice', () => {
+  const acknowledge = (token: string, dontShowAgain: boolean) =>
+    call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain } });
+
+  test('moves from not_acknowledged to acknowledged, or to hidden with dontShowAgain, and back', async () => {
+    const { token } = await newProfile();
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'not_acknowledged');
+
+    const acknowledged = await acknowledge(token, false);
+    assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+    assert.equal(acknowledged.body.safetyNotice, 'acknowledged');
+
+    assert.equal((await acknowledge(token, true)).body.safetyNotice, 'hidden');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'hidden');
+    assert.equal((await acknowledge(token, false)).body.safetyNotice, 'acknowledged');
+  });
+
+  test('rejects a request without dontShowAgain with 400', async () => {
+    const { token } = await newProfile();
+    assertInvalid(await call('POST', '/api/v1/me/profile/safety-notice', { token, body: {} }), 'body', 'dontShowAgain');
+  });
+
+  test('answers 404 before the profile is created', async () => {
+    const { token } = await newAccount();
+    assertRejected(await acknowledge(token, false), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { body: { dontShowAgain: false } });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('PUT /api/v1/me/profile/interests', () => {
   test('replaces the whole set and completes the profile', async () => {
     const first = await call('PUT', '/api/v1/me/profile/interests', {
@@ -3162,7 +3836,7 @@ describe('PUT /api/v1/me/profile/interests', () => {
     });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.equal(first.body.interests.length, 2, 'a repeated id counts once');
-    assert.equal(first.body.isComplete, true, 'format, interests and a network are all set');
+    assert.equal(first.body.isComplete, true, 'format, gender, interests and a network are all set');
 
     const second = await call('PUT', '/api/v1/me/profile/interests', {
       token: tokens.orgPending,
@@ -3212,6 +3886,233 @@ describe('PUT /api/v1/me/profile/interests', () => {
       body: { interestIds: ['cinema'] },
     });
     assertInvalid(res, 'body', 'interestIds.0');
+  });
+});
+
+describe('PUT and DELETE /api/v1/me/profile/photo', () => {
+  test('stores the largest square inside the crop as WebP, without metadata', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual({ width: res.body.photo.width, height: res.body.photo.height }, { width: 300, height: 300 });
+    assert.equal(res.body.cover, null);
+
+    const image = await getImage(res.body.photo.id, tokens.user);
+    assert.equal(image.status, 200);
+    assert.equal(image.headers.get('content-type'), 'image/webp');
+    assert.equal(image.headers.get('cache-control'), 'private, max-age=31536000, immutable');
+    assert.equal(image.metadata?.format, 'webp');
+    assert.equal(image.metadata?.width, 300);
+    assert.equal(image.metadata?.exif, undefined);
+    assert.deepEqual((await call('GET', '/api/v1/me/profile', { token })).body.photo, res.body.photo);
+  });
+
+  test('cuts the picked area, after turning the picture by its EXIF orientation', async () => {
+    const { token } = await newProfile();
+    // Orientation 6 shows the 400 × 300 picture turned a quarter clockwise: 300 × 400, red on top.
+    const picture = await testPicture({ orientation: 6 });
+    const top = await upload('/api/v1/me/profile/photo', picture, {
+      token,
+      crop: 'cropLeft=0&cropTop=0&cropWidth=1&cropHeight=0.5',
+    });
+    assert.equal(top.status, 200, JSON.stringify(top.body));
+    const [red, green, blue] = await centreColour((await getImage(top.body.photo.id, token)).bytes);
+    assert.ok(red! > 200 && green! < 50 && blue! < 50, `expected red, got ${[red, green, blue]}`);
+  });
+
+  test('replacing the photo deletes the old picture', async () => {
+    const { token } = await newProfile();
+    const first = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const second = await upload('/api/v1/me/profile/photo', await testPicture(), { token, contentType: 'image/jpeg' });
+    assert.notEqual(second.body.photo.id, first.body.photo.id);
+    assert.equal((await getImage(first.body.photo.id, token)).status, 404);
+    assert.equal((await getImage(second.body.photo.id, token)).status, 200);
+  });
+
+  test('DELETE removes the photo and its picture; without one it changes nothing', async () => {
+    const { token } = await newProfile();
+    const uploaded = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    const res = await call('DELETE', '/api/v1/me/profile/photo', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.photo, null);
+    assert.equal((await getImage(uploaded.body.photo.id, token)).status, 404);
+    assert.equal((await call('DELETE', '/api/v1/me/profile/photo', { token })).status, 200);
+  });
+
+  test('rejects a file that is not a picture with 422 INVALID_IMAGE', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', Buffer.from('not a picture'), { token });
+    assertRejected(res, 422, 'INVALID_IMAGE');
+  });
+
+  test('rejects another Content-Type with 415 and an empty body with 400', async () => {
+    const { token } = await newProfile();
+    const gif = await upload('/api/v1/me/profile/photo', Buffer.from('GIF89a'), { token, contentType: 'image/gif' });
+    assertRejected(gif, 415, 'UNSUPPORTED_MEDIA_TYPE');
+    assertInvalid(await upload('/api/v1/me/profile/photo', Buffer.alloc(0), { token }), 'body', '');
+  });
+
+  test('rejects a file over 10 MB with 413', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', Buffer.alloc(10 * 1024 * 1024 + 1), { token });
+    assertRejected(res, 413, 'PAYLOAD_TOO_LARGE');
+  });
+
+  test('rejects a crop past the edge of the picture with 400', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/photo', await testPicture(), {
+      token,
+      crop: 'cropLeft=0.5&cropTop=0&cropWidth=0.6&cropHeight=1',
+    });
+    assertInvalid(res, 'query', 'cropWidth');
+  });
+
+  test('answers 404 without a profile, and 401 without a signed-in account', async () => {
+    const picture = await testPicture();
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, { token: tokens.admin }), 404, 'NOT_FOUND');
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, { token: tokens.guest }), 401, 'UNAUTHENTICATED');
+    assertRejected(await upload('/api/v1/me/profile/photo', picture, {}), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('PUT and DELETE /api/v1/me/profile/cover', () => {
+  test('keeps the whole picture with a 390:200 crop around the picked area', async () => {
+    const { token } = await newProfile();
+    const res = await upload('/api/v1/me/profile/cover', await testPicture({ width: 800, height: 600 }), {
+      token,
+      crop: 'cropLeft=0&cropTop=0.25&cropWidth=1&cropHeight=0.5',
+    });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const { width, height, crop } = res.body.cover;
+    assert.deepEqual({ width, height }, { width: 800, height: 600 });
+    assert.equal(crop.width, 585);
+    assert.equal(crop.height, 300);
+    assert.equal(crop.top, 150);
+    const image = await getImage(res.body.cover.id, token);
+    assert.equal(image.metadata?.width, 800);
+  });
+
+  test('DELETE goes back to the default cover', async () => {
+    const { token } = await newProfile();
+    await upload('/api/v1/me/profile/cover', await testPicture(), { token });
+    const res = await call('DELETE', '/api/v1/me/profile/cover', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.cover, null);
+  });
+});
+
+describe('Event covers', () => {
+  const upcoming = () => ({
+    ...newEvent,
+    startsAt: `${inDays(5)}T19:00:00+03:00`,
+    endsAt: `${inDays(5)}T21:00:00+03:00`,
+  });
+
+  test('an organization adds a cover cut to 2:1 and kept whole, which a guest sees in the catalog', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    assert.equal(created.body.photo, null);
+
+    const res = await upload(
+      `/api/v1/events/${created.body.id}/photo`,
+      await testPicture({ width: 400, height: 300 }),
+      {
+        token: tokens.org,
+      },
+    );
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const { photo } = res.body;
+    assert.deepEqual([photo.width, photo.height], [400, 300]);
+    assert.deepEqual(photo.crop, { left: 0, top: 50, width: 400, height: 200 });
+    const seen = await call('GET', `/api/v1/events/${created.body.id}`, { token: tokens.guest });
+    assert.deepEqual(seen.body.photo, photo);
+    assert.equal((await getImage(photo.id, tokens.guest)).status, 200);
+    const own = await call('GET', '/api/v1/me/events', { token: tokens.org });
+    assert.deepEqual(own.body.items.find((event: { id: string }) => event.id === created.body.id).photo, photo);
+  });
+
+  test('replacing and removing the cover deletes the old picture', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    const path = `/api/v1/events/${created.body.id}/photo`;
+    const first = await upload(path, await testPicture(), { token: tokens.org });
+    const second = await upload(path, await testPicture(), { token: tokens.org });
+
+    const removed = await call('DELETE', path, { token: tokens.org });
+
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.photo, null);
+    for (const { body } of [first, second]) {
+      assert.equal((await getImage(body.photo.id, tokens.org)).status, 404);
+    }
+  });
+
+  test('answers 404 to another organization and 422 for a cancelled event', async () => {
+    const created = await call('POST', '/api/v1/events', { token: tokens.org, body: upcoming() });
+    const other = await upload(`/api/v1/events/${created.body.id}/photo`, await testPicture(), {
+      token: tokens.orgPending,
+    });
+    const cancelled = await upload(`/api/v1/events/${cancelledFilmEvent}/photo`, await testPicture(), {
+      token: tokens.org,
+    });
+
+    assertRejected(other, 404, 'NOT_FOUND');
+    assertRejected(cancelled, 422, 'EVENT_CANCELLED');
+  });
+});
+
+describe('Organization logos', () => {
+  /** A new account with a pending organization request. */
+  async function newOrganization(): Promise<string> {
+    const { token } = await newProfile();
+    const requested = await call('PUT', '/api/v1/me/organization', {
+      token,
+      body: {
+        name: 'Riverside Stage',
+        description: 'Open-air concerts.',
+        officialLink: 'https://riverside.example.org',
+      },
+    });
+    assert.equal(requested.status, 200, JSON.stringify(requested.body));
+    assert.equal(requested.body.logo, null);
+    return token;
+  }
+
+  test('a pending organization adds a square logo, which a guest may load', async () => {
+    const token = await newOrganization();
+
+    const res = await upload('/api/v1/me/organization/logo', await testPicture({ width: 400, height: 300 }), { token });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.deepEqual([res.body.logo.width, res.body.logo.height], [300, 300]);
+    assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body.logo, res.body.logo);
+    assert.equal((await getImage(res.body.logo.id, tokens.guest)).status, 200);
+  });
+
+  test('removing the logo deletes its picture', async () => {
+    const token = await newOrganization();
+    const uploaded = await upload('/api/v1/me/organization/logo', await testPicture(), { token });
+
+    const removed = await call('DELETE', '/api/v1/me/organization/logo', { token });
+
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.logo, null);
+    assert.equal((await getImage(uploaded.body.logo.id, token)).status, 404);
+  });
+
+  test('answers 404 to an account without an organization request', async () => {
+    const { token } = await newProfile();
+
+    assertRejected(await upload('/api/v1/me/organization/logo', await testPicture(), { token }), 404, 'NOT_FOUND');
+  });
+});
+
+describe('GET /api/v1/images/{id}', () => {
+  test('answers 404 to a guest for a picture of a person, 404 for an unknown id and 400 for an id that is not a UUID', async () => {
+    const { token } = await newProfile();
+    const uploaded = await upload('/api/v1/me/profile/photo', await testPicture(), { token });
+    assert.equal((await getImage(uploaded.body.photo.id, tokens.guest)).status, 404);
+    assertRejected(await call('GET', `/api/v1/images/${randomUUID()}`, { token }), 404, 'NOT_FOUND');
+    assertInvalid(await call('GET', '/api/v1/images/not-a-uuid', { token }), 'params', 'id');
   });
 });
 
@@ -3805,7 +4706,8 @@ describe('Event import', () => {
       return JSON.stringify({ ...body, total: 40, total_pages: 2 });
     };
     const eventBlocks = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
-    const noEvents = saved('karabas/kyiv-sport-2026-11-07.html').toString().replace(eventBlocks, '');
+    // The site's own JSON-LD blocks stay: a page without any counts as a failed section (REL-14).
+    const noEvents = saved('karabas/kyiv-sport-2026-11-07-no-events.html').toString();
     const withoutEvent = (html: string, slug: string) =>
       html.replace(eventBlocks, (block) => (block.includes(`/${slug}/"`) ? '' : block));
     providerSite = createHttpServer((req, res) => {

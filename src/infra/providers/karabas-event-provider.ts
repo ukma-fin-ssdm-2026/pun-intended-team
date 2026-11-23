@@ -14,7 +14,7 @@ import {
   fitDescription,
   fitTitle,
   inWindow,
-  jsonLdObjects,
+  readJsonLd,
   slugOf,
 } from './provider-pages.ts';
 import { type EventPrice, priceOf } from './price.ts';
@@ -134,9 +134,9 @@ export class KarabasEventProvider extends EventProvider {
   }
 
   /**
-   * One section's pages into `byUrl`. `failed` when its first page cannot be read, `incomplete` when a later one
-   * cannot, or when the reading stops early: at the page limit, on a page that repeats the earlier ones, or at a
-   * "load more" link that leads out of the section.
+   * One section's pages into `byUrl`. `failed` when its first page cannot be read (no answer, not 200, or no JSON-LD
+   * that parses), `incomplete` when a later one cannot, or when the reading stops early: at the page limit, on a page
+   * that repeats the earlier ones, or at a "load more" link that leads out of the section.
    */
   private async readSection(
     { path, categorySlug }: { path: string; categorySlug: string },
@@ -155,20 +155,31 @@ export class KarabasEventProvider extends EventProvider {
         return 'incomplete';
       }
       let html: string;
+      let jsonLd: ReturnType<typeof readJsonLd>;
       try {
         const response = await this.http.get(url);
         if (response.status !== 200) {
           throw new Error(`answered ${response.status}`);
         }
         html = response.text;
+        jsonLd = readJsonLd(html);
+        // Every saved section page has the site's Organization, CollectionPage and BreadcrumbList blocks besides its
+        // events, and a section without events keeps them. A page where no block parses is a changed or broken page,
+        // not an empty section, so it counts like a page that did not answer (REL-14).
+        if (jsonLd.objects.length === 0) {
+          throw new Error(`answered 200 without JSON-LD that parses (${jsonLd.blocks} blocks)`);
+        }
       } catch (error) {
         this.logger.warn(`GET ${url} failed: ${errorMessage(error)}`);
         return page === 1 ? 'failed' : 'incomplete';
       }
       read.pages++;
       parts.set(path, inWindowInSection.size);
+      if (jsonLd.unparsable > 0) {
+        this.logger.warn(`GET ${url}: ${jsonLd.unparsable} of ${jsonLd.blocks} JSON-LD blocks are not JSON; skipped`);
+      }
 
-      const events = jsonLdObjects(html).filter(isEvent);
+      const events = jsonLd.objects.filter(isEvent);
       let newInSection = 0;
       // The start of the page's last event, the one the next page is counted from (`time` in its link). Not the
       // latest start on the page: an event pinned to the top of a page could start long after the others.

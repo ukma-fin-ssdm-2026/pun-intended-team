@@ -6,18 +6,23 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { getMatchContacts } from '@/api/matches';
+import { acknowledgeSafetyNotice } from '@/api/profile';
+import { failureSnackbar } from '@/auth/messages';
 import { MutualMatch, type MutualContact, type MutualPerson } from '@/components/matching/mutual-match';
 import { ReportFlow, reportedUser, type ReportStep } from '@/components/matching/report-flow';
+import { SafetyRequiredDialog } from '@/components/matching/safety-required-dialog';
 import { SafetySheet } from '@/components/matching/safety-sheet';
 import { socialNetworks } from '@/components/profile/network-fields';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { useApiQuery } from '@/hooks/use-api-query';
 import { useEvent } from '@/hooks/use-event';
 import { useMatch } from '@/hooks/use-matches';
-import { useProfileInitial } from '@/hooks/use-profile';
+import { useProfile, useProfileInitial } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
 import { isMatchPersonId, mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
 import { matchHref, type MatchContacts } from '@/state/matches';
+import { markSafetyNoticeSeen, useSafetyNoticeSeen } from '@/state/safety-notice';
 import { colors } from '@/styles/tokens';
 
 export default function MutualMatchScreen() {
@@ -25,7 +30,7 @@ export default function MutualMatchScreen() {
   // the mock people by `person`.
   const params = useLocalSearchParams<{ id?: string; person?: string; safety?: string }>();
   return params.id ? (
-    <ApiMutualMatch id={params.id} safety={params.safety === '1'} />
+    <ApiMutualMatch id={params.id} />
   ) : (
     <MockMutualMatch person={params.person} safety={params.safety === '1'} />
   );
@@ -44,19 +49,36 @@ function contactsOf({ phone, linkedAccounts }: MatchContacts): MutualContact[] {
     : networks;
 }
 
-// After both accepted, "safety" opens the reminder (06) over the contacts (07), as the prototype does from Т5.
-function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
+// The safety reminder (06) covers the screen (07) on every match until the user ticks "Більше не показувати"; before the
+// first acknowledgment the API also holds the contacts back (SAFE-002). Closing it asks to read it; closing that too
+// leaves for Метчі.
+function ApiMutualMatch({ id }: { id: string }) {
   const router = useRouter();
-  const [safetyOpen, setSafetyOpen] = useState(safety);
+  const [warning, setWarning] = useState(false);
+  const [acknowledging, setAcknowledging] = useState(false);
   const [report, setReport] = useState<ReportStep>('closed');
+  const { snackbar, show } = useSnackbar();
   useStatusBarStyle('light');
 
   const { match, loaded } = useMatch(id);
   const ownInitial = useProfileInitial();
+  const profile = useProfile().data;
+  const acknowledged = !!profile && profile.safetyNotice !== 'not_acknowledged';
+  const seen = useSafetyNoticeSeen(profile?.username, id);
+  const noticeShown = !acknowledged || (profile?.safetyNotice !== 'hidden' && !seen.seen);
   const { data: liveEvent } = useEvent(match?.eventId);
   const mutual = match?.status === 'mutual';
-  const { data: contacts } = useApiQuery(mutual ? id : null, () => getMatchContacts(id));
+  const { data: contacts } = useApiQuery(mutual && acknowledged ? id : null, () => getMatchContacts(id));
   const toMatches = () => router.dismissTo('/matches');
+
+  const acknowledge = async (dontShowAgain: boolean) => {
+    if (!profile) return;
+    setAcknowledging(true);
+    const result = await acknowledgeSafetyNotice(dontShowAgain);
+    setAcknowledging(false);
+    if (result.ok) void markSafetyNoticeSeen(profile.username, id);
+    else show(failureSnackbar(result));
+  };
 
   // A match that is not mutual (yet) shows as a proposal; one that is gone leaves the screen.
   useEffect(() => {
@@ -65,7 +87,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
     else if (match.status !== 'mutual') router.replace(matchHref(match));
   }, [loaded, match, router]);
 
-  if (!match || !mutual || !liveEvent || !contacts) {
+  if (!match || !mutual || !liveEvent || !profile || !seen.loaded || (acknowledged && !contacts)) {
     return (
       <View className="flex-1 items-center justify-center bg-brand-ink">
         <Stack.Screen options={{ headerShown: false }} />
@@ -78,7 +100,8 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
   const person: MutualPerson = {
     name: partner.displayName,
     initial: partner.displayName.charAt(0).toUpperCase(),
-    contacts: contactsOf(contacts),
+    photo: partner.photo,
+    contacts: contacts ? contactsOf(contacts) : [],
   };
   // The first day both can go; the two pick theirs.
   const event = {
@@ -96,6 +119,7 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
         title="Це взаємно!"
         person={person}
         ownInitial={ownInitial}
+        ownPhoto={profile.photo}
         event={event}
         onBack={toMatches}
         onMore={() => setReport('form')}
@@ -103,11 +127,14 @@ function ApiMutualMatch({ id, safety }: { id: string; safety: boolean }) {
       />
       <ReportFlow person={reportedUser(partner)} step={report} onStepChange={setReport} onDone={toMatches} />
       <SafetySheet
-        visible={safetyOpen}
+        visible={noticeShown && !warning}
         person={person}
-        onClose={() => setSafetyOpen(false)}
-        onConfirm={() => setSafetyOpen(false)}
+        busy={acknowledging}
+        onClose={() => setWarning(true)}
+        onConfirm={acknowledge}
       />
+      <SafetyRequiredDialog visible={warning} onRead={() => setWarning(false)} onClose={toMatches} />
+      {snackbar && <Snackbar {...snackbar} />}
     </>
   );
 }

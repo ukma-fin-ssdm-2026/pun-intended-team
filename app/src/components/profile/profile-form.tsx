@@ -3,13 +3,12 @@
 // reviewed by Daryna Halytska.
 import { useRouter, type Href } from 'expo-router';
 import { useState, type ReactNode } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { components } from '@/api/schema';
+import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
-import { CoralGradient } from '@/components/ui/coral-gradient';
-import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -26,6 +25,7 @@ const FORM_BOTTOM_GAP = 110 - (ACTION_TOP + BUTTON_HEIGHT + ACTION_BOTTOM) + 34;
 
 type Interest = components['schemas']['Interest'];
 type CommunicationFormat = components['schemas']['CommunicationFormat'];
+type Gender = components['schemas']['Gender'];
 
 export const MIN_INTERESTS = 3;
 
@@ -113,10 +113,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
         {children}
       </ScrollView>
 
-      <View
-        className="absolute bottom-0 left-0 right-0 bg-surface-card px-5"
-        style={{ paddingTop: ACTION_TOP, paddingBottom: actionBottom }}
-      >
+      <BottomActionFade id="form-action-fade">
         <Button
           label={action.label}
           variant="dark"
@@ -124,41 +121,7 @@ export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProp
           disabled={action.disabled}
           loading={action.loading}
         />
-      </View>
-    </View>
-  );
-}
-
-// "02 Фото": the default cover with "Обкладинка", and the empty avatar overlapping its bottom 48 px.
-export function ProfilePhoto() {
-  return (
-    <View className="px-5">
-      <View className="h-[108px] items-end overflow-hidden rounded-[22px] pr-3 pt-3" style={{ marginBottom: -48 }}>
-        <View className="absolute inset-0">
-          <CoralGradient preset="profileCover" />
-        </View>
-        {/* "Змінити обкладинку" has no prototype link; shown as in Figma. */}
-        <Glass
-          className="flex-row items-center gap-1.5 py-[7px] pl-2.5 pr-3"
-          radius={16}
-          fill="rgba(255, 255, 255, 0.16)"
-          border="rgba(255, 255, 255, 0.25)"
-          tone="light"
-        >
-          <View className="flex-row items-center gap-1.5">
-            <Icon name="gallery-edit" size={16} color={colors.text['on-dark']} />
-            <Text className="font-inter-semibold text-tag text-text-on-dark">Обкладинка</Text>
-          </View>
-        </Glass>
-      </View>
-      <View className="pl-4">
-        <View className="size-[92px] items-center justify-center rounded-full border-4 border-surface-card bg-surface-background">
-          <Icon name="camera" size={28} color={colors.text.secondary} />
-          <View className="absolute left-16 top-16 size-[30px] items-center justify-center rounded-[15px] border-[3px] border-surface-card bg-brand-coral">
-            <Text className="font-inter-semibold text-[18px] leading-6 text-text-on-dark">+</Text>
-          </View>
-        </View>
-      </View>
+      </BottomActionFade>
     </View>
   );
 }
@@ -298,4 +261,92 @@ export function FormatPicker({
 
 export function toggleInList(list: string[], value: string) {
   return list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+}
+
+// The user's gender and, for "Інше", their own words for it.
+export type GenderAnswer = { gender: Gender | null; description: string };
+
+// As the API caps it.
+const GENDER_DESCRIPTION_MAX = 50;
+
+const genderOptions: { value: Gender; label: string }[] = [
+  { value: 'female', label: 'Жінка' },
+  { value: 'male', label: 'Чоловік' },
+  { value: 'other', label: 'Інше' },
+];
+
+// A gender is picked, and "Інше" has words for it.
+export function isGenderComplete({ gender, description }: GenderAnswer) {
+  return gender !== null && (gender !== 'other' || description.trim().length > 0);
+}
+
+// What PATCH /me/profile takes: the description goes only with "other", which needs it.
+export function genderFields({ gender, description }: GenderAnswer) {
+  if (!gender) return {};
+  return gender === 'other' ? { gender, genderDescription: description.trim() } : { gender };
+}
+
+// "Поле / Гендер": Жінка / Чоловік / Інше; the picked segment is dark with a check. "Інше" opens a field for the
+// user's own words under the segments.
+export function GenderField({
+  value,
+  onChange,
+}: Readonly<{ value: GenderAnswer; onChange: (value: GenderAnswer) => void }>) {
+  const [focused, setFocused] = useState(false);
+  const [touched, setTouched] = useState(false);
+  const missing = value.gender === 'other' && !value.description.trim();
+  const error = touched && missing ? 'Впиши, як ти себе визначаєш' : undefined;
+  const border = error ? 'border-brand-coral' : focused ? 'border-brand-ink' : 'border-transparent';
+
+  return (
+    <View className="gap-1.5">
+      <Text className="font-inter text-caption text-text-secondary">
+        Гендер<Text className="text-brand-coral"> *</Text>
+      </Text>
+      <View accessibilityRole="radiogroup" className="h-[52px] flex-row gap-1 rounded-2xl bg-surface-background p-1">
+        {genderOptions.map((option) => {
+          const selected = value.gender === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              accessibilityRole="radio"
+              accessibilityLabel={option.label}
+              accessibilityState={{ checked: selected }}
+              onPress={() => onChange({ ...value, gender: option.value })}
+              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl ${selected ? 'bg-brand-ink' : ''}`}
+              style={selected ? { boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.12)' } : undefined}
+            >
+              {selected && <Icon name="chip-check" size={14} color={colors.text['on-dark']} />}
+              <Text className={`font-inter-medium text-label ${selected ? 'text-text-on-dark' : 'text-text-primary'}`}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {value.gender === 'other' && (
+        <>
+          <View className={`h-[52px] justify-center rounded-2xl border-[1.5px] bg-surface-background px-4 ${border}`}>
+            <TextInput
+              accessibilityLabel="Свій гендер"
+              placeholder="Як ти себе визначаєш?"
+              placeholderTextColor={colors.text.secondary}
+              value={value.description}
+              onChangeText={(description) => onChange({ ...value, description })}
+              maxLength={GENDER_DESCRIPTION_MAX}
+              onFocus={() => setFocused(true)}
+              onBlur={() => {
+                setFocused(false);
+                setTouched(true);
+              }}
+              className="font-inter text-body text-text-primary"
+              // Hides the browser focus ring; the field draws its own focus border.
+              style={{ outlineWidth: 0 }}
+            />
+          </View>
+          {error && <Text className="font-inter text-caption text-brand-coral">{error}</Text>}
+        </>
+      )}
+    </View>
+  );
 }

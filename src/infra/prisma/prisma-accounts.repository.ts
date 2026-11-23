@@ -1,20 +1,29 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
+import type { Page, PageRequest } from '../../core/common/page.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { AccountsRepository } from '../../core/identity/repositories/accounts.repository.ts';
 import type {
   Account,
+  AccountFilter,
+  AccountOverview,
   AccountRecord,
   AccountStatus,
   GoogleLinkResult,
   PasswordCredential,
   SignInLockout,
 } from '../../core/identity/types/account.ts';
-import type { Account as AccountRow } from './generated/client.ts';
+import type { Account as AccountRow, Prisma } from './generated/client.ts';
 import { PersonalDataCipher } from './personal-data-cipher.ts';
 import { PrismaService } from './prisma.service.ts';
 import { clientOf } from './transaction-client.ts';
 import { violatedIndex } from './violated-index.ts';
+
+const overviewInclude = {
+  authMethods: { select: { type: true }, orderBy: { type: 'asc' } },
+} satisfies Prisma.AccountInclude;
+
+type OverviewRow = Prisma.AccountGetPayload<{ include: typeof overviewInclude }>;
 
 @Injectable()
 export class PrismaAccountsRepository implements AccountsRepository {
@@ -25,6 +34,28 @@ export class PrismaAccountsRepository implements AccountsRepository {
 
   async findById(accountId: string): Promise<Account | undefined> {
     return this.toAccount(await this.prisma.account.findUnique({ where: { id: accountId } }));
+  }
+
+  async findOverviews(
+    { role, status, ids }: AccountFilter,
+    { limit, offset }: PageRequest,
+  ): Promise<Page<AccountOverview>> {
+    const rows = await this.prisma.account.findMany({
+      where: { role, status, id: ids && { in: ids } },
+      include: overviewInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      skip: offset,
+      take: limit + 1,
+    });
+    return {
+      items: rows.slice(0, limit).map((row) => this.toOverview(row)),
+      page: { limit, offset, hasMore: rows.length > limit },
+    };
+  }
+
+  async findOverview(accountId: string): Promise<AccountOverview | undefined> {
+    const row = await this.prisma.account.findUnique({ where: { id: accountId }, include: overviewInclude });
+    return row ? this.toOverview(row) : undefined;
   }
 
   async findByPhone(phone: string): Promise<Account | undefined> {
@@ -142,8 +173,8 @@ export class PrismaAccountsRepository implements AccountsRepository {
     return (await this.findById(accountId))?.dateOfBirth ?? undefined;
   }
 
-  async findDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
-    const rows = await this.prisma.account.findMany({
+  async findDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>> {
+    const rows = await clientOf(this.prisma, tx).account.findMany({
       where: { id: { in: accountIds }, dateOfBirth: { not: null } },
       select: { id: true, dateOfBirth: true },
     });
@@ -168,6 +199,17 @@ export class PrismaAccountsRepository implements AccountsRepository {
 
   private findAuthMethod(accountId: string, type: 'password' | 'google') {
     return this.prisma.authMethod.findUnique({ where: { accountId_type: { accountId, type } } });
+  }
+
+  private toOverview(row: OverviewRow): AccountOverview {
+    return {
+      id: row.id,
+      role: row.role,
+      status: row.status,
+      signInMethods: row.authMethods.map(({ type }) => type),
+      dateOfBirth: row.dateOfBirth === null ? null : this.cipher.decrypt(row.dateOfBirth),
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   private toAccount(row: AccountRow | null | undefined): Account | undefined {

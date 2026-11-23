@@ -5,24 +5,18 @@ import { render, screen } from '@testing-library/react-native';
 import { EventCard } from '@/components/ui/event-card';
 import { priceLabel } from '@/price';
 
-// The cover and the glass need native views; plain ones keep the card's own content.
+// The cover needs native views; a plain one keeps the card's own content.
 jest.mock('@/components/ui/event-cover', () => {
   const { View } = require('react-native') as typeof import('react-native');
   return { EventCover: () => <View testID="cover" /> };
 });
-jest.mock('@/components/ui/glass', () => {
-  const { View } = require('react-native') as typeof import('react-native');
-  return { Glass: ({ children }: { children?: React.ReactNode }) => <View>{children}</View> };
-});
-jest.mock('expo-blur', () => {
-  const { View } = require('react-native') as typeof import('react-native');
-  return { BlurTargetView: View };
-});
 
-function renderCard(price: string | undefined) {
+const LONG_TITLE = 'Благодійний концерт хорової капели НаУКМА «Почайна» пам’яті героїв-могилянців';
+
+function renderCard({ title = 'Джаз-вечір у Мистецькому Арсеналі', price }: { title?: string; price?: string }) {
   return render(
     <EventCard
-      title="Джаз-вечір у Мистецькому Арсеналі"
+      title={title}
       category="Концерт"
       dateLabel="Сб, 24 жовт · 19:00"
       place="Поділ"
@@ -34,6 +28,18 @@ function renderCard(price: string | undefined) {
 }
 
 describe('EventCard', () => {
+  test('shows the title in two lines at most', async () => {
+    await renderCard({ title: LONG_TITLE });
+
+    expect(screen.getByText(LONG_TITLE).props.numberOfLines).toBe(2);
+  });
+
+  test('keeps the full title in its accessibility label', async () => {
+    await renderCard({ title: LONG_TITLE });
+
+    expect(screen.getByRole('link').props.accessibilityLabel).toContain(LONG_TITLE);
+  });
+
   test.each([
     { min: 450, max: null, title: 'one price' },
     { min: 300, max: 700, title: 'a range' },
@@ -42,7 +48,7 @@ describe('EventCard', () => {
   ])('shows the price tag for $title, and reads it out with the card', async ({ min, max }) => {
     const label = priceLabel(min, max);
 
-    await renderCard(label);
+    await renderCard({ price: label });
 
     expect(label).toBeDefined();
     expect(screen.getByText(label!)).toBeTruthy();
@@ -52,7 +58,7 @@ describe('EventCard', () => {
   });
 
   test('shows no price tag for an unknown price', async () => {
-    await renderCard(priceLabel(null, null));
+    await renderCard({ price: priceLabel(null, null) });
 
     expect(screen.queryByText(/₴|Безкоштовно/)).toBeNull();
     expect(screen.getByRole('link').props.accessibilityLabel).toBe(

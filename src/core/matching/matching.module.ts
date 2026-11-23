@@ -2,13 +2,14 @@
 import { Module } from '@nestjs/common';
 import { CatalogModule } from '../catalog/catalog.module.ts';
 import { ModerationModule } from '../moderation/moderation.module.ts';
+import { NotificationsModule } from '../notifications/notifications.module.ts';
 import { ProfilesModule } from '../profiles/profiles.module.ts';
 import { ApplicationsService } from './services/applications.service.ts';
 import { MatchesService } from './services/matches.service.ts';
 import { MatchingService } from './services/matching.service.ts';
 
 @Module({
-  imports: [CatalogModule, ProfilesModule, ModerationModule],
+  imports: [CatalogModule, ProfilesModule, ModerationModule, NotificationsModule],
   providers: [MatchingService, ApplicationsService, MatchesService],
   exports: [MatchingService, ApplicationsService, MatchesService],
 })

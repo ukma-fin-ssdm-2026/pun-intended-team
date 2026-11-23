@@ -22,6 +22,9 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
           userId: application.userId,
           eventId: application.eventId,
           desiredCompany: toDesiredCompany[application.desiredCompany],
+          preferredGender: application.preferredGender,
+          ageMin: application.ageMin,
+          ageMax: application.ageMax,
           sessions: { create: application.sessionIds.map((sessionId) => ({ sessionId })) },
           afterEventPlans: { create: application.afterEventPlans.map((plan) => ({ plan })) },
         },
@@ -46,8 +49,8 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
     return rows.map(toApplication);
   }
 
-  async findById(id: string): Promise<Application | undefined> {
-    const row = await this.prisma.application.findUnique({ where: { id }, include: withDaysAndPlans });
+  async findById(id: string, tx?: Transaction): Promise<Application | undefined> {
+    const row = await clientOf(this.prisma, tx).application.findUnique({ where: { id }, include: withDaysAndPlans });
     return row ? toApplication(row) : undefined;
   }
 
@@ -56,9 +59,9 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
     return rows.map(toApplication);
   }
 
-  async findByUserWithStatus(userId: string, statuses: ApplicationStatus[]): Promise<Application[]> {
+  async findListed(userId: string, statuses: ApplicationStatus[]): Promise<Application[]> {
     const rows = await this.prisma.application.findMany({
-      where: { userId, status: { in: statuses } },
+      where: { userId, OR: [{ status: { in: statuses } }, { status: 'no_match', dismissedAt: null }] },
       include: withDaysAndPlans,
     });
     return rows.map(toApplication);
@@ -74,5 +77,20 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       return undefined;
     }
     return toApplication(await client.application.findUniqueOrThrow({ where: { id }, include: withDaysAndPlans }));
+  }
+
+  async markNoMatch(ids: string[], tx: Transaction): Promise<void> {
+    await clientOf(this.prisma, tx).application.updateMany({
+      where: { id: { in: ids }, status: 'in_pool' },
+      data: { status: 'no_match' },
+    });
+  }
+
+  async dismiss(id: string): Promise<boolean> {
+    const { count } = await this.prisma.application.updateMany({
+      where: { id, status: 'no_match' },
+      data: { dismissedAt: new Date() },
+    });
+    return count > 0;
   }
 }
