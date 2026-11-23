@@ -185,22 +185,25 @@ function makeService(world: World) {
       return Promise.resolve();
     },
   };
-  const notificationsService: Pick<NotificationsService, 'notify'> = {
-    notify: (accountId, type, payload, dedupeKey, tx) => {
+  const notificationsService: Pick<NotificationsService, 'notifyMany'> = {
+    notifyMany: (notifications, tx) => {
       inTransaction(tx);
-      if (world.inbox.some((told) => told.dedupeKey === dedupeKey)) {
-        return Promise.resolve(undefined);
-      }
-      world.inbox.push({ accountId, type, payload, dedupeKey });
-      return Promise.resolve({
-        id: randomUUID(),
-        accountId,
-        type,
-        payload,
-        pushStatus: 'pending',
-        readAt: null,
-        createdAt: new Date().toISOString(),
-      });
+      world.queries.push('notifyMany');
+      const created = notifications.filter(
+        ({ dedupeKey }) => !world.inbox.some((told) => told.dedupeKey === dedupeKey),
+      );
+      world.inbox.push(...created);
+      return Promise.resolve(
+        created.map(({ accountId, type, payload }) => ({
+          id: randomUUID(),
+          accountId,
+          type,
+          payload,
+          pushStatus: 'pending' as const,
+          readAt: null,
+          createdAt: new Date().toISOString(),
+        })),
+      );
     },
   };
   const matchingService = {
@@ -884,7 +887,7 @@ describe('EventChangesService.handle', () => {
 });
 
 describe('EventChangesService.handle, a large event', () => {
-  test('reads and cancels the proposals of all applicants in a fixed number of queries', async () => {
+  test('reads and cancels the proposals of all applicants, and tells them, in a fixed number of queries', async () => {
     const pairs = Array.from({ length: 200 }, (_, i) => i);
     const world: World = {
       inbox: [],
@@ -907,7 +910,8 @@ describe('EventChangesService.handle, a large event', () => {
 
     await service.handle(aJob('rescheduled'), NOW);
 
-    assert.deepEqual(world.queries, ['findByApplications', 'findByApplications', 'cancelAndReturnBoth']);
+    assert.deepEqual(world.queries, ['findByApplications', 'findByApplications', 'cancelAndReturnBoth', 'notifyMany']);
+    assert.equal(world.inbox.length, 400);
     assert.ok(
       world.matches.every(({ status, cancelReason }) => status === 'cancelled' && cancelReason === 'event_changed'),
     );

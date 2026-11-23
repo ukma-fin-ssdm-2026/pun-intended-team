@@ -11,6 +11,9 @@ export abstract class NotificationsRepository {
    */
   abstract create(notification: NewNotification, tx?: Transaction): Promise<Notification | undefined>;
 
+  /** Stores the notifications in one insert, as `create` does each: those whose dedupe key exists are left out. */
+  abstract createMany(notifications: NewNotification[], tx?: Transaction): Promise<Notification[]>;
+
   abstract findById(id: string, tx?: Transaction): Promise<Notification | undefined>;
 
   /** The account's notifications, newest first. */

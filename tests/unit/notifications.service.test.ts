@@ -10,7 +10,7 @@ import type { DeviceTokensRepository } from '../../dist/core/notifications/repos
 import type { NotificationsRepository } from '../../dist/core/notifications/repositories/notifications.repository.js';
 import { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { DeviceToken } from '../../dist/core/notifications/types/device-token.js';
-import type { Notification, PushStatus } from '../../dist/core/notifications/types/notification.js';
+import type { NewNotification, Notification, PushStatus } from '../../dist/core/notifications/types/notification.js';
 import type { PushMessage, PushTicket } from '../../dist/core/notifications/types/push.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 
@@ -52,6 +52,9 @@ type DeliverHandler = (job: { id: string; name: string; payload: { notificationI
 function makeService() {
   const repository = {
     create: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
+    createMany: mock.fn((notifications: NewNotification[]): Promise<Notification[]> =>
+      Promise.resolve(notifications.map((_, i) => aNotification({ id: `n${i}` }))),
+    ),
     findById: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
     findByAccount: mock.fn(),
     markRead: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
@@ -67,7 +70,12 @@ function makeService() {
   const push = {
     send: mock.fn((messages: PushMessage[]): Promise<PushTicket[]> => Promise.resolve(messages.map(() => ok))),
   };
-  const jobs = { register: mock.fn(), schedule: mock.fn(), enqueue: mock.fn(() => Promise.resolve()) };
+  const jobs = {
+    register: mock.fn(),
+    schedule: mock.fn(),
+    enqueue: mock.fn(() => Promise.resolve()),
+    enqueueMany: mock.fn(() => Promise.resolve()),
+  };
   const service = new NotificationsService(
     {} as MessagingProvider,
     repository as unknown as NotificationsRepository,
@@ -132,6 +140,47 @@ describe('NotificationsService.notify', () => {
 
     assert.equal(notification, undefined);
     assert.equal(jobs.enqueue.mock.callCount(), 0);
+  });
+});
+
+describe('NotificationsService.notifyMany', () => {
+  const told = (dedupeKey: string): NewNotification => ({
+    accountId: ACCOUNT_ID,
+    type: 'event_changed',
+    payload: {},
+    dedupeKey,
+  });
+
+  test('writes the notifications in one insert and enqueues their deliveries in one, in the caller’s transaction', async () => {
+    const { service, repository, jobs } = makeService();
+    const notifications = [told('one'), told('two')];
+
+    const created = await service.notifyMany(notifications, TX);
+
+    assert.deepEqual(repository.createMany.mock.calls[0]?.arguments, [notifications, TX]);
+    assert.deepEqual(
+      jobs.enqueueMany.mock.calls.map((call) => call.arguments as unknown[]),
+      [[DELIVER_JOB, created.map(({ id }) => ({ notificationId: id })), TX]],
+    );
+    assert.equal(repository.create.mock.callCount(), 0);
+    assert.equal(jobs.enqueue.mock.callCount(), 0);
+  });
+
+  test('enqueues only the notifications that were stored, not those whose dedupe key exists', async () => {
+    const { service, repository, jobs } = makeService();
+    repository.createMany.mock.mockImplementation(() => Promise.resolve([aNotification({ id: 'new' })]));
+
+    await service.notifyMany([told('existing'), told('new')], TX);
+
+    assert.deepEqual(jobs.enqueueMany.mock.calls[0]?.arguments[1], [{ notificationId: 'new' }]);
+  });
+
+  test('stores and enqueues nothing for no notification', async () => {
+    const { service, repository, jobs } = makeService();
+
+    assert.deepEqual(await service.notifyMany([], TX), []);
+    assert.equal(repository.createMany.mock.callCount(), 0);
+    assert.equal(jobs.enqueueMany.mock.callCount(), 0);
   });
 });
 

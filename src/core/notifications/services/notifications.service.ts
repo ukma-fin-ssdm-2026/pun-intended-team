@@ -10,7 +10,7 @@ import { DeviceTokensRepository } from '../repositories/device-tokens.repository
 import { NotificationsRepository } from '../repositories/notifications.repository.ts';
 import type { CodeDelivery } from '../types/code-delivery.ts';
 import type { DeviceRegistration } from '../types/device-token.ts';
-import type { Notification, NotificationPayload, NotificationType } from '../types/notification.ts';
+import type { NewNotification, Notification, NotificationPayload, NotificationType } from '../types/notification.ts';
 import { PUSH_BATCH_LIMIT, type PushTicket } from '../types/push.ts';
 import { pushContent } from './push-content.ts';
 
@@ -62,6 +62,23 @@ export class NotificationsService implements OnModuleInit {
       await this.jobs.enqueue(DELIVER_JOB, { notificationId: notification.id }, undefined, tx);
     }
     return notification;
+  }
+
+  /**
+   * `notify` for many notifications at once, as a change that tells every applicant of an event: one insert and one
+   * enqueue of their deliveries, in `tx`. Those whose dedupe key exists are left out of the result.
+   */
+  async notifyMany(notifications: NewNotification[], tx: Transaction): Promise<Notification[]> {
+    if (notifications.length === 0) {
+      return [];
+    }
+    const created = await this.notificationsRepository.createMany(notifications, tx);
+    await this.jobs.enqueueMany(
+      DELIVER_JOB,
+      created.map(({ id }) => ({ notificationId: id })),
+      tx,
+    );
+    return created;
   }
 
   /** The account's inbox, newest first. */

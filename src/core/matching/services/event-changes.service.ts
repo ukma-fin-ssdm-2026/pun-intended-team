@@ -9,6 +9,7 @@ import { JobQueue } from '../../jobs/adapters/job-queue.ts';
 import { EVENT_CHANGED_JOB, type EventChangedPayload } from '../../jobs/types/event-changed.ts';
 import type { Job } from '../../jobs/types/job.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
+import type { NewNotification } from '../../notifications/types/notification.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
 import { ACTIVE_STATUSES, type Application } from '../types/application.ts';
@@ -174,7 +175,7 @@ export class EventChangesService implements OnModuleInit {
     }
 
     const change = changes.eventStatus === 'cancelled' ? 'cancelled' : 'rescheduled';
-    for (const application of applications) {
+    const notifications = applications.map((application): NewNotification => {
       const days = application.sessionIds.flatMap((id): ChangedDay[] => {
         const goneFrom = gone.get(id);
         const move = moved.get(id);
@@ -187,10 +188,10 @@ export class EventChangesService implements OnModuleInit {
       const match = [...mutual.values()].find(({ applicationAId, applicationBId }) =>
         [applicationAId, applicationBId].includes(application.id),
       );
-      await this.notificationsService.notify(
-        application.userId,
-        'event_changed',
-        {
+      return {
+        accountId: application.userId,
+        type: 'event_changed',
+        payload: {
           eventId,
           applicationId: application.id,
           change,
@@ -198,10 +199,10 @@ export class EventChangesService implements OnModuleInit {
           applicationCancelled: cancelled.has(application.id),
           ...(match && { match: { id: match.id, cancelled: ended.has(match.id) } }),
         },
-        `event_changed:${jobId}:${application.id}`,
-        tx,
-      );
-    }
+        dedupeKey: `event_changed:${jobId}:${application.id}`,
+      };
+    });
+    await this.notificationsService.notifyMany(notifications, tx);
   }
 
   /** The mutual matches of the paired applications, by id; an application has at most one (data model). */
