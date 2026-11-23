@@ -15,6 +15,8 @@ const DISPLAY_NAME_MAX = 50;
 const DESCRIPTION_MAX = 500;
 const OCCUPATION_MAX = 100;
 const INTERESTS_MAX = 30;
+// A short answer, capped like the display name.
+const GENDER_DESCRIPTION_MAX = 50;
 // FR-002: friends / dating / company for an event.
 const COMMUNICATION_FORMATS = ['friends', 'dating', 'company'] as const;
 
@@ -176,6 +178,54 @@ describe('UpdateProfileBody', () => {
     const result = UpdateProfileBody.safeParse({ communicationFormat: 'anyone' });
 
     assert.deepEqual(rejectedPaths(result), [['communicationFormat']]);
+  });
+
+  for (const gender of ['female', 'male'] as const) {
+    test(`accepts the gender ${gender} without a description`, () => {
+      const result = UpdateProfileBody.safeParse({ gender });
+
+      assert.equal(result.success, true);
+      assert.deepEqual(result.data, { gender });
+    });
+  }
+
+  test('accepts the gender "other" with a description and trims it', () => {
+    const result = UpdateProfileBody.safeParse({ gender: 'other', genderDescription: '  Небінарна людина ' });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data, { gender: 'other', genderDescription: 'Небінарна людина' });
+  });
+
+  test(`accepts a gender description of ${GENDER_DESCRIPTION_MAX} characters`, () => {
+    const body = { gender: 'other', genderDescription: 'a'.repeat(GENDER_DESCRIPTION_MAX) };
+
+    assert.equal(UpdateProfileBody.safeParse(body).success, true);
+  });
+
+  const rejectedGenders = [
+    { label: 'the gender "other" without a description', body: { gender: 'other' } },
+    {
+      label: 'the gender "other" with a description of spaces only',
+      body: { gender: 'other', genderDescription: ' ' },
+    },
+    {
+      label: `a gender description of ${GENDER_DESCRIPTION_MAX + 1} characters`,
+      body: { gender: 'other', genderDescription: 'a'.repeat(GENDER_DESCRIPTION_MAX + 1) },
+    },
+    { label: 'a description with the gender female', body: { gender: 'female', genderDescription: 'Жінка' } },
+    { label: 'a description without a gender', body: { genderDescription: 'Небінарна людина' } },
+  ];
+
+  for (const { label, body } of rejectedGenders) {
+    test(`rejects ${label} and points at genderDescription`, () => {
+      assert.deepEqual(rejectedPaths(UpdateProfileBody.safeParse(body)), [['genderDescription']]);
+    });
+  }
+
+  test('rejects an unknown gender and points at gender', () => {
+    const result = UpdateProfileBody.safeParse({ gender: 'nonbinary' });
+
+    assert.ok(rejectedPaths(result).some((path) => path.join('.') === 'gender'));
   });
 
   const emptyBodies = [

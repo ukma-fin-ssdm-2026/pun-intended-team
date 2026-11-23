@@ -1,10 +1,28 @@
 // Written with the help of Claude
+import type { ImageRef, WholeImageRef } from '../../images/types/image.ts';
+
 export type CommunicationFormat = 'friends' | 'dating' | 'company';
+
+/** The user's gender; "other" comes with the user's own words for it. */
+export const genders = ['female', 'male', 'other'] as const;
+
+export type Gender = (typeof genders)[number];
+
+/** Whom a user wants to go with: anyone, or only women or only men. */
+export const genderPreferences = ['any', 'female', 'male'] as const;
+
+export type GenderPreference = (typeof genderPreferences)[number];
+
+/** Not acknowledged yet, so contacts are held back (SAFE-002); acknowledged; or hidden after "don't show again". */
+export const safetyNoticeStates = ['not_acknowledged', 'acknowledged', 'hidden'] as const;
+
+export type SafetyNoticeState = (typeof safetyNoticeStates)[number];
 
 export interface ProfileSummary {
   accountId: string;
   username: string;
   displayName: string;
+  photoId: string | null;
 }
 
 /** Social networks a user can share with a mutual match, in the order they are shown. */
@@ -36,29 +54,47 @@ export interface Profile extends ProfileSummary {
   occupation: string;
   /** Null until the user picks one during onboarding. */
   communicationFormat: CommunicationFormat | null;
+  /** Null until the user picks one; profiles made before genders were asked have none. */
+  gender: Gender | null;
+  /** The user's own words for an "other" gender; null for any other. */
+  genderDescription: string | null;
   sharePhone: boolean;
   interestIds: string[];
   linkedAccounts: LinkedAccount[];
+  coverId: string | null;
+  safetyNotice: SafetyNoticeState;
+}
+
+/** The two pictures of a profile: the avatar and the cover behind it. */
+export type ProfileImageSlot = 'photo' | 'cover';
+
+export interface ProfileImages {
+  photo: ImageRef | null;
+  /** Kept whole, with the area the user picked. */
+  cover: WholeImageRef | null;
 }
 
 /** What the owner sees of their profile. */
-export interface ProfileDetails {
+export interface ProfileDetails extends ProfileImages {
   username: string;
   displayName: string;
   description: string;
   occupation: string;
   communicationFormat: CommunicationFormat | null;
+  gender: Gender | null;
+  genderDescription: string | null;
   sharePhone: boolean;
   /** Whole years, computed from the account's date of birth; the date itself is never returned. */
   age: number;
   interests: Interest[];
   linkedAccounts: LinkedAccountDetails[];
-  /** True once matching has what it needs: a communication format, an interest and a network to reveal. */
+  /** True once matching has what it needs: a communication format, a gender, an interest and a network to reveal. */
   isComplete: boolean;
+  safetyNotice: SafetyNoticeState;
 }
 
 /** What a proposed match sees of the other user: no contacts (FR-019). */
-export interface PublicProfile extends ProfileSummary {
+export interface PublicProfile extends Omit<ProfileSummary, 'photoId'>, ProfileImages {
   description: string;
   occupation: string;
   age: number;
@@ -83,5 +119,16 @@ export interface ProfileChanges {
   description?: string;
   occupation?: string;
   communicationFormat?: CommunicationFormat;
+  /** A new gender replaces the description: kept for "other", dropped for the others. */
+  gender?: Gender;
+  genderDescription?: string;
   sharePhone?: boolean;
+}
+
+/** What matching needs of a user in the pool, besides their answers to the event. */
+export interface MatchingTraits {
+  interests: Interest[];
+  gender: Gender | null;
+  /** Whole years on the day matching runs for. */
+  age: number;
 }

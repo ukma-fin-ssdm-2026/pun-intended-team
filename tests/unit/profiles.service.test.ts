@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
 import type { Transaction } from '../../dist/core/common/transaction.js';
+import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { AccountsService } from '../../dist/core/identity/services/accounts.service.js';
+import type { ImagesService, PreparedImage } from '../../dist/core/images/services/images.service.js';
+import type { ImageRef } from '../../dist/core/images/types/image.js';
 import type { InterestsRepository } from '../../dist/core/profiles/repositories/interests.repository.js';
 import type { ProfilesRepository } from '../../dist/core/profiles/repositories/profiles.repository.js';
 import { ageOn } from '../../dist/core/common/age.js';
@@ -40,6 +43,9 @@ describe('ageOn', () => {
 });
 
 const DATE_OF_BIRTH = '2000-05-17';
+// The day of an event, and DATE_OF_BIRTH's 26th birthday.
+const EVENT_DAY = '2026-04-30';
+const BIRTHDAY_2026 = '2026-05-17';
 const HIKING: Interest = {
   id: 'f0000000-0000-4000-8000-000000000001',
   name: 'Походи в гори',
@@ -56,15 +62,29 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     description: '',
     occupation: '',
     communicationFormat: null,
+    gender: null,
+    genderDescription: null,
     sharePhone: false,
     interestIds: [],
     linkedAccounts: [],
+    photoId: null,
+    coverId: null,
+    safetyNotice: 'not_acknowledged',
     ...overrides,
   };
 }
 
+const OLD_PHOTO_ID = 'a0000000-0000-4000-8000-000000000001';
+const NEW_PHOTO_ID = 'a0000000-0000-4000-8000-000000000002';
+const PHOTO: ImageRef = { id: NEW_PHOTO_ID, width: 512, height: 512, crop: null };
+const UPLOAD = {
+  content: new Uint8Array([1, 2, 3]),
+  contentType: 'image/jpeg',
+  crop: { left: 0, top: 0, width: 1, height: 1 },
+};
+
 function aProfileSummary(overrides: Partial<ProfileSummary> = {}): ProfileSummary {
-  return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', ...overrides };
+  return { accountId: ACCOUNT_ID, username: 'Natalka.Park', displayName: 'Natalka', photoId: null, ...overrides };
 }
 
 function isDomainError(code: string) {
@@ -86,7 +106,25 @@ function makeService() {
     replaceLinkedAccounts: mock.fn((_accountId: string, linkedAccounts: LinkedAccount[]) =>
       Promise.resolve(aProfile({ linkedAccounts })),
     ),
+    setImage: mock.fn((_accountId: string, _slot: string, imageId: string | null) =>
+      Promise.resolve(aProfile({ photoId: imageId })),
+    ),
+    acknowledgeSafetyNotice: mock.fn(() => Promise.resolve(aProfile({ safetyNotice: 'hidden' }))),
   };
+  const prepared = {
+    encoded: { content: new Uint8Array(), contentType: 'image/webp', width: 512, height: 512 },
+    crop: null,
+  };
+  const imagesService = {
+    prepare: mock.fn((): Promise<PreparedImage> => Promise.resolve(prepared)),
+    save: mock.fn((): Promise<ImageRef> => Promise.resolve(PHOTO)),
+    remove: mock.fn(() => Promise.resolve()),
+    getRefs: mock.fn((ids: (string | null)[]) =>
+      Promise.resolve(new Map(ids.includes(NEW_PHOTO_ID) ? [[NEW_PHOTO_ID, PHOTO]] : [])),
+    ),
+  };
+  const tx = {} as Transaction;
+  const transactions = { run: mock.fn(<T>(work: (tx: Transaction) => Promise<T>) => work(tx)) };
   const interestsRepository = { findAll: mock.fn(() => Promise.resolve([HIKING, JAZZ])) };
   const accountsService = {
     getDateOfBirth: mock.fn((): Promise<string | undefined> => Promise.resolve(DATE_OF_BIRTH)),
@@ -99,8 +137,10 @@ function makeService() {
     profilesRepository as unknown as ProfilesRepository,
     interestsRepository as unknown as InterestsRepository,
     accountsService as unknown as AccountsService,
+    imagesService as unknown as ImagesService,
+    transactions as unknown as TransactionRunner,
   );
-  return { service, profilesRepository, interestsRepository, accountsService };
+  return { service, profilesRepository, interestsRepository, accountsService, imagesService, tx };
 }
 
 describe('ProfilesService.getSummaries', () => {
@@ -123,35 +163,44 @@ describe('ProfilesService.getSummaries', () => {
   });
 });
 
-describe('ProfilesService.getInterests', () => {
-  test('gives each account its chosen interests with their headings, in the order of the list', async () => {
+describe('ProfilesService.getMatchingTraits', () => {
+  test('gives each account its interests in the order of the list, its gender and its age on the day', async () => {
     const { service, profilesRepository } = makeService();
     profilesRepository.findByAccountIds.mock.mockImplementation(() =>
       Promise.resolve([
-        aProfile({ interestIds: [JAZZ.id, HIKING.id] }),
-        aProfile({ accountId: OTHER_ACCOUNT_ID, interestIds: [JAZZ.id] }),
+        aProfile({ interestIds: [JAZZ.id, HIKING.id], gender: 'female' }),
+        aProfile({ accountId: OTHER_ACCOUNT_ID, interestIds: [JAZZ.id], gender: null }),
       ]),
     );
 
-    const interests = await service.getInterests([ACCOUNT_ID, OTHER_ACCOUNT_ID]);
+    const traits = await service.getMatchingTraits([ACCOUNT_ID, OTHER_ACCOUNT_ID], EVENT_DAY);
 
     assert.deepEqual(
-      interests,
+      traits,
       new Map([
-        [ACCOUNT_ID, [HIKING, JAZZ]],
-        [OTHER_ACCOUNT_ID, [JAZZ]],
+        [ACCOUNT_ID, { interests: [HIKING, JAZZ], gender: 'female', age: ageOn(EVENT_DAY, DATE_OF_BIRTH) }],
+        [OTHER_ACCOUNT_ID, { interests: [JAZZ], gender: null, age: ageOn(EVENT_DAY, DATE_OF_BIRTH) }],
       ]),
     );
   });
 
+  test('counts a birthday on the day of the event', async () => {
+    const { service } = makeService();
+
+    const traits = await service.getMatchingTraits([ACCOUNT_ID], BIRTHDAY_2026);
+
+    assert.equal(traits.get(ACCOUNT_ID)?.age, 26);
+  });
+
   test('reads each account once when the list repeats one, in the caller’s transaction', async () => {
-    const { service, profilesRepository, interestsRepository } = makeService();
+    const { service, profilesRepository, interestsRepository, accountsService } = makeService();
     const tx = {} as Transaction;
 
-    await service.getInterests([ACCOUNT_ID, ACCOUNT_ID], tx);
+    await service.getMatchingTraits([ACCOUNT_ID, ACCOUNT_ID], EVENT_DAY, tx);
 
     assert.deepEqual(profilesRepository.findByAccountIds.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
     assert.deepEqual(interestsRepository.findAll.mock.calls[0]?.arguments, [tx]);
+    assert.deepEqual(accountsService.getDatesOfBirth.mock.calls[0]?.arguments, [[ACCOUNT_ID], tx]);
   });
 });
 
@@ -183,6 +232,8 @@ describe('ProfilesService.getPublicProfiles', () => {
       occupation: 'Illustrator',
       age: ageOn(TODAY, DATE_OF_BIRTH),
       interests: [JAZZ],
+      photo: null,
+      cover: null,
     });
   });
 
@@ -247,6 +298,44 @@ describe('ProfilesService.getContacts', () => {
   });
 });
 
+// FR-032, SAFE-002
+describe('ProfilesService.acknowledgeSafetyNotice', () => {
+  test('records the acknowledgment and the choice not to see it again', async () => {
+    const { service, profilesRepository } = makeService();
+
+    const profile = await service.acknowledgeSafetyNotice(ACCOUNT_ID, true);
+
+    assert.deepEqual(profilesRepository.acknowledgeSafetyNotice.mock.calls[0]?.arguments, [ACCOUNT_ID, true]);
+    assert.equal(profile.safetyNotice, 'hidden');
+  });
+
+  test('answers NOT_FOUND without a profile', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.acknowledgeSafetyNotice(ACCOUNT_ID, false), isDomainError('NOT_FOUND'));
+    assert.equal(profilesRepository.acknowledgeSafetyNotice.mock.callCount(), 0);
+  });
+});
+
+describe('ProfilesService.hasAcknowledgedSafetyNotice', () => {
+  const cases = [
+    { title: 'is true once acknowledged', profile: aProfile({ safetyNotice: 'acknowledged' }), result: true },
+    { title: 'is true when hidden', profile: aProfile({ safetyNotice: 'hidden' }), result: true },
+    { title: 'is false before that', profile: aProfile(), result: false },
+    { title: 'is false without a profile', profile: undefined, result: false },
+  ];
+
+  for (const { title, profile, result } of cases) {
+    test(title, async () => {
+      const { service, profilesRepository } = makeService();
+      profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(profile));
+
+      assert.equal(await service.hasAcknowledgedSafetyNotice(ACCOUNT_ID), result);
+    });
+  }
+});
+
 describe('ProfilesService.getOwn', () => {
   test('answers NOT_FOUND before the profile is created', async () => {
     const { service, profilesRepository } = makeService();
@@ -279,9 +368,21 @@ describe('ProfilesService.getOwn', () => {
 
 // FR-002
 describe('ProfilesService.isComplete', () => {
-  const complete = { communicationFormat: 'friends' as const, interestIds: [HIKING.id], linkedAccounts: [TELEGRAM] };
+  const complete = {
+    communicationFormat: 'friends' as const,
+    gender: 'male' as const,
+    interestIds: [HIKING.id],
+    linkedAccounts: [TELEGRAM],
+  };
   const cases = [
-    { title: 'is true with a format, an interest and a network', profile: aProfile(complete), result: true },
+    { title: 'is true with a format, a gender, an interest and a network', profile: aProfile(complete), result: true },
+    {
+      title: 'is true with the gender "other" and its description',
+      profile: aProfile({ ...complete, gender: 'other', genderDescription: 'Небінарна людина' }),
+      result: true,
+    },
+    // Profiles made before genders were asked: matching needs one.
+    { title: 'is false without a gender', profile: aProfile({ ...complete, gender: null }), result: false },
     {
       title: 'is false without a format',
       profile: aProfile({ ...complete, communicationFormat: null }),
@@ -343,6 +444,27 @@ describe('ProfilesService.update', () => {
     assert.equal(profile.username, 'Natalka.Park');
   });
 
+  test('saves the gender "other" with its description', async () => {
+    const { service, profilesRepository } = makeService();
+    const changes: ProfileChanges = { gender: 'other', genderDescription: 'Небінарна людина' };
+
+    const profile = await service.update(ACCOUNT_ID, changes);
+
+    assert.deepEqual(profilesRepository.update.mock.calls[0]?.arguments, [ACCOUNT_ID, changes]);
+    assert.equal(profile.genderDescription, 'Небінарна людина');
+  });
+
+  test('drops a description sent with a gender other than "other"', async () => {
+    const { service, profilesRepository } = makeService();
+
+    await service.update(ACCOUNT_ID, { gender: 'female', genderDescription: 'Жінка' });
+
+    assert.deepEqual(profilesRepository.update.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      { gender: 'female', genderDescription: undefined },
+    ]);
+  });
+
   test('does not check the username when it is not changed', async () => {
     const { service, profilesRepository } = makeService();
 
@@ -378,13 +500,12 @@ describe('ProfilesService.update', () => {
 });
 
 describe('ProfilesService.replaceInterests', () => {
-  test('saves each interest once and completes a profile with a communication format and a network', async () => {
+  test('saves each interest once and completes a profile with a format, a gender and a network', async () => {
     const { service, profilesRepository } = makeService();
-    profilesRepository.findByAccountId.mock.mockImplementation(() =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM] })),
-    );
+    const rest = { communicationFormat: 'friends' as const, gender: 'female' as const, linkedAccounts: [TELEGRAM] };
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(aProfile(rest)));
     profilesRepository.replaceInterests.mock.mockImplementation((_accountId: string, interestIds: string[]) =>
-      Promise.resolve(aProfile({ communicationFormat: 'friends', linkedAccounts: [TELEGRAM], interestIds })),
+      Promise.resolve(aProfile({ ...rest, interestIds })),
     );
 
     const profile = await service.replaceInterests(ACCOUNT_ID, [HIKING.id, JAZZ.id, HIKING.id]);
@@ -458,5 +579,53 @@ describe('ProfilesService.replaceLinkedAccounts', () => {
     profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
 
     await assert.rejects(service.replaceLinkedAccounts(ACCOUNT_ID, [TELEGRAM]), isDomainError('NOT_FOUND'));
+  });
+});
+
+describe('ProfilesService.setImage', () => {
+  test('crops the upload as an avatar, points the profile at it and deletes the old picture in one transaction', async () => {
+    const { service, profilesRepository, imagesService, tx } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ photoId: OLD_PHOTO_ID })),
+    );
+
+    const profile = await service.setImage(ACCOUNT_ID, 'photo', UPLOAD);
+
+    assert.deepEqual(imagesService.prepare.mock.calls[0]?.arguments, ['profilePhoto', UPLOAD]);
+    assert.equal(imagesService.save.mock.calls[0]?.arguments[2], tx);
+    assert.deepEqual(profilesRepository.setImage.mock.calls[0]?.arguments, [ACCOUNT_ID, 'photo', NEW_PHOTO_ID, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+    assert.deepEqual(profile.photo, PHOTO);
+  });
+
+  test('answers NOT_FOUND before the profile is created, without reading the picture', async () => {
+    const { service, profilesRepository, imagesService } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.setImage(ACCOUNT_ID, 'cover', UPLOAD), isDomainError('NOT_FOUND'));
+    assert.equal(imagesService.prepare.mock.callCount(), 0);
+  });
+});
+
+describe('ProfilesService.removeImage', () => {
+  test('clears the cover and deletes its picture', async () => {
+    const { service, profilesRepository, imagesService, tx } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ coverId: OLD_PHOTO_ID })),
+    );
+
+    await service.removeImage(ACCOUNT_ID, 'cover');
+
+    assert.deepEqual(profilesRepository.setImage.mock.calls[0]?.arguments, [ACCOUNT_ID, 'cover', null, tx]);
+    assert.deepEqual(imagesService.remove.mock.calls[0]?.arguments, [[OLD_PHOTO_ID], tx]);
+  });
+
+  test('changes nothing without a picture', async () => {
+    const { service, profilesRepository, imagesService } = makeService();
+
+    await service.removeImage(ACCOUNT_ID, 'photo');
+
+    assert.equal(profilesRepository.setImage.mock.callCount(), 0);
+    assert.equal(imagesService.remove.mock.callCount(), 0);
   });
 });

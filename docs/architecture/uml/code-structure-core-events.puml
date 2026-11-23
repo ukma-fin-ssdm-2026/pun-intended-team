@@ -93,6 +93,8 @@ package "core (business logic)" as CORE {
       +remove(accountId, id)
       +findByIds(ids)
       +removeReported(id)
+      +setPhoto(accountId, id, upload)
+      +removePhoto(accountId, id)
     }
     abstract class ListingsRepository {
       +findActiveById(id)
@@ -100,6 +102,7 @@ package "core (business logic)" as CORE {
       +findActive(fromDate, page)
       +create(listing)
       +markRemoved(id)
+      +setPhoto(id, imageId, tx)
     }
   }
   package matching {
@@ -159,6 +162,7 @@ package "core (business logic)" as CORE {
 
 ' other modules' classes, shown with their methods on their own diagram
 class ProfilesService <<other diagram>>
+class ImagesService <<other diagram>>
 class ModerationService <<other diagram>>
 class OrganizationReviewService <<other diagram>>
 class StatsService <<other diagram>>
@@ -184,6 +188,7 @@ ListingsService --> EventsService
 ListingsService --> ProfilesService
 EventsService --> TransactionRunner
 EventsService --> JobQueue
+ListingsService --> ImagesService
 ApplicationsService --> ApplicationsRepository
 ApplicationsService --> EventSessionsService
 ApplicationsService --> ProfilesService

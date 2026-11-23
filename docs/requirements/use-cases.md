@@ -25,7 +25,7 @@
 9. The user accepts the proposed match. Until the other participant responds, the user sees the match as pending.
 10. The matched participant accepts the proposal as well.
 11. The system closes the round as successful, reveals each participant's contact details to the other (FR-019) and notifies both of them (FR-023).
-12. If this is the user's first match, the system shows the safety notice and waits for the user to acknowledge it (FR-032).
+12. The system shows the safety notice and waits for the user to acknowledge it (FR-032).
 13. The user contacts their match and attends the event together with them.
 
 **Alternative Flows & Exceptions:**
@@ -35,7 +35,7 @@
 - **A3 (participant declines):** at step 9 or 10 either participant declines the proposal. The system closes the round without revealing any contact details, excludes the two from each other's candidate sets for this event (FR-020) and returns both to the pool. The participant who did not decline is notified that the proposed match did not go ahead. The scenario resumes at step 6 at the next round.
 - **A4 (no response):** at step 9 or 10 a participant neither accepts nor declines before the proposal expires — after 24 hours or when the next round starts, whichever comes first. The system closes the proposal as expired and excludes the two from each other's candidate sets for this event (FR-020). A participant who responded returns to the pool. A participant who did not respond is paused and asked whether to continue matching on this event, and returns to the pool only after confirming; after a second unanswered proposal they are removed from the pool and may apply again. The scenario resumes at step 6 at the next round.
 - **A5 (user withdraws):** at any point before step 11 the user withdraws from the event. The system removes them from that event's matching pool and closes any pending round; if a proposal was pending, the other participant is notified that it did not go ahead and is returned to the pool. The use case ends without a match for the user (FR-031).
-- **A6 (repeat match):** at step 12 the user has been matched before. The system skips the safety notice — it stays reachable from the profile — and continues at step 13.
+- **A6 (notice turned off):** at step 12 the user chose "don't show again" on an earlier match. The system skips the safety notice — it stays reachable from the profile — and continues at step 13.
 - **E1 (incomplete profile):** at step 2 the user's profile does not yet contain the interests the matching relies on. The system asks the user to complete their profile first (FR-002) and the scenario resumes at step 2.
 - **E2 (event cancelled):** the organization cancels the event before step 11. The system dissolves the pool and any pending rounds, notifies everyone who had requested a match for that event, and the use case ends without a match (FR-011).
 - **E3 (participant banned):** between the proposal and the event one participant is banned by an administrator (FR-027). The system invalidates the proposal or match, hides the banned account's contact details from the other participant, notifies them that their company for this event is no longer available and returns them to the pool; the scenario resumes at step 6 at the next round.

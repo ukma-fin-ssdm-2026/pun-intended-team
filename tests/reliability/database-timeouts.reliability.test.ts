@@ -130,7 +130,7 @@ describe('a database that accepts the connection and does not answer', () => {
     assert.equal(status, 503);
     assert.deepEqual(body, UNAVAILABLE);
     assert.ok(elapsedMs < CONNECT_TIMEOUT_MS + SLACK_MS, `answered after ${Math.round(elapsedMs)} ms`);
-    assert.match(api.output(), /A dependency timed out: Connection terminated due to connection timeout/);
+    assert.match(api.output(), /A dependency is unavailable: Connection terminated due to connection timeout/);
   });
 
   test('ends a request whose query gets no answer with 503 within the query timeout, and logs it', async () => {
@@ -142,7 +142,7 @@ describe('a database that accepts the connection and does not answer', () => {
     assert.deepEqual(body, UNAVAILABLE);
     assert.ok(elapsedMs >= STATEMENT_TIMEOUT_MS, `answered after ${Math.round(elapsedMs)} ms, before the limit`);
     assert.ok(elapsedMs < QUERY_TIMEOUT_MS + SLACK_MS, `answered after ${Math.round(elapsedMs)} ms`);
-    assert.match(api.output(), /A dependency timed out: Query read timeout/);
+    assert.match(api.output(), /A dependency is unavailable: Query read timeout/);
   });
 
   test('answers 503 to a statement Postgres cancelled, without the database error in the body', async () => {
@@ -152,7 +152,7 @@ describe('a database that accepts the connection and does not answer', () => {
 
     assert.equal(status, 503);
     assert.deepEqual(body, UNAVAILABLE);
-    assert.match(api.output(), /A dependency timed out: [\s\S]*57014/);
+    assert.match(api.output(), /A dependency is unavailable: [\s\S]*57014/);
   });
 
   test('gives each connection back to the pool after a timeout, so more requests than it holds still answer at once', async () => {

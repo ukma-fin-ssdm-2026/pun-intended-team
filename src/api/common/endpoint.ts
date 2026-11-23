@@ -8,9 +8,11 @@ import {
   type NestInterceptor,
   RequestMapping,
   RequestMethod,
+  StreamableFile,
   UseInterceptors,
 } from '@nestjs/common';
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import type { Readable } from 'node:stream';
 import { map, tap } from 'rxjs';
 import { z } from 'zod';
 import { ApiException } from './api-exception.ts';
@@ -21,15 +23,34 @@ import type { Tag } from './tags.ts';
 
 type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
+/** A body that is a file, sent as is with its own Content-Type, instead of JSON. */
+export interface FileBody {
+  contentTypes: readonly string[];
+  maxBytes: number;
+}
+
 export interface RequestSchemas {
   params?: z.ZodObject;
   query?: z.ZodObject;
   body?: z.ZodType;
+  file?: FileBody;
+}
+
+/** A success response that is a file: the handler returns an `UploadedFile`. */
+interface FileResponse {
+  contentTypes: readonly string[];
+  cacheControl: string;
 }
 
 interface ResponseDefinition {
   description: string;
   schema?: z.ZodType;
+  file?: FileResponse;
+}
+
+export interface UploadedFile {
+  content: Uint8Array;
+  contentType: string;
 }
 
 type Parsed<T> = T extends z.ZodType ? z.output<T> : undefined;
@@ -39,6 +60,7 @@ export interface RouteInput<R extends RequestSchemas> {
   params: Parsed<R['params']>;
   query: Parsed<R['query']>;
   body: Parsed<R['body']>;
+  file: R['file'] extends FileBody ? UploadedFile : undefined;
 }
 
 export interface EndpointDefinition {
@@ -62,6 +84,16 @@ export interface EndpointDefinition {
 
 const VALIDATION_ERROR: ResponseDefinition = {
   description: 'The request is invalid',
+  schema: ErrorResponse,
+};
+
+const PAYLOAD_TOO_LARGE: ResponseDefinition = {
+  description: 'The file is larger than the limit',
+  schema: ErrorResponse,
+};
+
+const UNSUPPORTED_MEDIA_TYPE: ResponseDefinition = {
+  description: 'The Content-Type is not one of the accepted file types',
   schema: ErrorResponse,
 };
 
@@ -95,6 +127,7 @@ interface IncomingRequest {
   params: unknown;
   query: unknown;
   body: unknown;
+  headers: Record<string, string | string[] | undefined>;
   [INPUT]?: RouteInput<RequestSchemas>;
 }
 
@@ -106,10 +139,11 @@ interface IncomingRequest {
 export function Endpoint(route: EndpointDefinition): MethodDecorator {
   const { method, path, access, location, request = {} } = route;
   const { status, response: success } = successResponse(route);
-  const hasInput = Boolean(request.params || request.query || request.body);
+  const hasInput = Boolean(request.params || request.query || request.body || request.file);
 
   const responses = {
     ...(hasInput && { 400: VALIDATION_ERROR }),
+    ...(request.file && { 413: PAYLOAD_TOO_LARGE, 415: UNSUPPORTED_MEDIA_TYPE }),
     ...(access !== 'public' && { 401: UNAUTHENTICATED }),
     ...(access === 'admin' && { 404: NOT_AN_ADMIN }),
     ...route.responses,
@@ -126,11 +160,12 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
     ...(route.mcp === false && { 'x-mcp': false }),
     request: toOpenApiRequest(request),
     responses: Object.fromEntries(
-      Object.entries(responses).map(([code, { description, schema }]) => [
+      Object.entries(responses).map(([code, { description, schema, file }]) => [
         code,
         {
           description,
           ...(schema && { content: { 'application/json': { schema } } }),
+          ...(file && { content: binaryContent(file.contentTypes) }),
           ...(Number(code) === 201 && { headers: LOCATION_HEADER }),
         },
       ]),
@@ -139,7 +174,7 @@ export function Endpoint(route: EndpointDefinition): MethodDecorator {
 
   const interceptors: NestInterceptor[] = [
     new ValidationInterceptor(request),
-    new ResponseSchemaInterceptor(success.schema),
+    success.file ? new FileResponseInterceptor(success.file) : new ResponseSchemaInterceptor(success.schema),
   ];
   if (location) {
     interceptors.push(new LocationInterceptor(location));
@@ -161,7 +196,8 @@ export const Input = createParamDecorator(
 class ValidationInterceptor implements NestInterceptor {
   constructor(private readonly request: RequestSchemas) {}
 
-  intercept(context: ExecutionContext, next: CallHandler) {
+  // Guards run before interceptors, so a file body is read only once the caller is known.
+  async intercept(context: ExecutionContext, next: CallHandler) {
     const req = context.switchToHttp().getRequest<IncomingRequest>();
     const details: ValidationIssue[] = [];
     const parse = (location: ValidationIssue['location'], schema: z.ZodType | undefined, value: unknown) => {
@@ -184,9 +220,56 @@ class ValidationInterceptor implements NestInterceptor {
       throw new ApiException('VALIDATION_ERROR', 'The request is invalid', details);
     }
 
+    const file = this.request.file && (await readFile(req, this.request.file));
+
     // Every schema has passed, so the values match the declared types.
-    req[INPUT] = { params, query, body } as RouteInput<RequestSchemas>;
+    req[INPUT] = { params, query, body, file } as RouteInput<RequestSchemas>;
     return next.handle();
+  }
+}
+
+async function readFile(req: IncomingRequest, { contentTypes, maxBytes }: FileBody): Promise<UploadedFile> {
+  const contentType = String(req.headers['content-type'] ?? '')
+    .split(';')[0]!
+    .trim()
+    .toLowerCase();
+  if (!contentTypes.includes(contentType)) {
+    throw new ApiException('UNSUPPORTED_MEDIA_TYPE', `Send the file as one of: ${contentTypes.join(', ')}`);
+  }
+  const tooLarge = () => new ApiException('PAYLOAD_TOO_LARGE', `The file is larger than ${maxBytes} bytes`);
+  if (Number(req.headers['content-length'] ?? 0) > maxBytes) {
+    throw tooLarge();
+  }
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req as unknown as Readable) {
+    size += (chunk as Buffer).length;
+    if (size > maxBytes) {
+      throw tooLarge();
+    }
+    chunks.push(chunk as Buffer);
+  }
+  if (size === 0) {
+    throw new ApiException('VALIDATION_ERROR', 'The request is invalid', [
+      { location: 'body', field: '', message: 'The file is empty' },
+    ]);
+  }
+  return { content: Buffer.concat(chunks), contentType };
+}
+
+/** Sends the handler's file with its own Content-Type and the endpoint's caching. */
+class FileResponseInterceptor implements NestInterceptor {
+  constructor(private readonly file: FileResponse) {}
+
+  intercept(context: ExecutionContext, next: CallHandler) {
+    const res = context.switchToHttp().getResponse<{ setHeader(name: string, value: string): void }>();
+    return next.handle().pipe(
+      tap(() => res.setHeader('Cache-Control', this.file.cacheControl)),
+      map(
+        ({ content, contentType }: UploadedFile) =>
+          new StreamableFile(content, { type: contentType, length: content.length }),
+      ),
+    );
   }
 }
 
@@ -255,6 +338,14 @@ function toOpenApiRequest(request: RequestSchemas): RouteConfig['request'] {
   return {
     params: request.params,
     query: request.query,
-    body: request.body && { content: { 'application/json': { schema: request.body } } },
+    body:
+      (request.body && { content: { 'application/json': { schema: request.body } } }) ||
+      (request.file && { required: true, content: binaryContent(request.file.contentTypes) }),
   };
+}
+
+function binaryContent(contentTypes: readonly string[]) {
+  return Object.fromEntries(
+    contentTypes.map((type) => [type, { schema: { type: 'string' as const, format: 'binary' } }]),
+  );
 }

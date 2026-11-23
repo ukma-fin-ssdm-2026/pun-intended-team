@@ -58,6 +58,30 @@ enum DesiredCompany {
   @@map("desired_company")
 }
 
+enum Gender {
+  female
+  male
+  other
+
+  @@map("gender")
+}
+
+enum SafetyNoticeState {
+  not_acknowledged
+  acknowledged
+  hidden
+
+  @@map("safety_notice_state")
+}
+
+enum GenderPreference {
+  any
+  female
+  male
+
+  @@map("gender_preference")
+}
+
 enum VerificationStatus {
   pending
   verified
@@ -246,6 +270,7 @@ model Account {
   reports               Report[]
   notifications         Notification[]
   deviceTokens          DeviceToken[]
+  images                Image[]
 
   @@map("accounts")
 }
@@ -285,8 +310,8 @@ model VerificationCode {
 }
 
 model RefreshToken {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  accountId String    @map("account_id") @db.Uuid
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId         String    @map("account_id") @db.Uuid
   tokenHash         String    @map("token_hash")
   previousTokenHash String?   @map("previous_token_hash")
   rotatedAt         DateTime? @map("rotated_at") @db.Timestamptz(3)
@@ -309,29 +334,44 @@ model Profile {
   description         String?
   occupation          String?
   communicationFormat DesiredCompany? @map("communication_format")
+  gender              Gender?
+  genderDescription   String?         @map("gender_description")
   sharePhone          Boolean         @default(true) @map("share_phone")
-  safetyNoticeAckAt   DateTime?       @map("safety_notice_ack_at") @db.Timestamptz(3)
+  safetyNotice        SafetyNoticeState @default(not_acknowledged) @map("safety_notice")
+  photoId             String?         @unique @map("photo_id") @db.Uuid
+  coverId             String?         @unique @map("cover_id") @db.Uuid
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  photo            ProfilePhoto?
+  photo            Image?            @relation("ProfilePhoto", fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  cover            Image?            @relation("ProfileCover", fields: [coverId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   linkedAccounts   LinkedAccount[]
   profileInterests ProfileInterest[]
 
   @@map("profiles")
 }
 
-model ProfilePhoto {
-  profileId   String   @id @map("profile_id") @db.Uuid
+model Image {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String   @map("owner_id") @db.Uuid
   content     Bytes
   contentType String   @map("content_type")
+  width       Int
+  height      Int
+  cropLeft    Int?     @map("crop_left")
+  cropTop     Int?     @map("crop_top")
+  cropWidth   Int?     @map("crop_width")
+  cropHeight  Int?     @map("crop_height")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  profile Profile @relation(fields: [profileId], references: [accountId], onDelete: Cascade, onUpdate: Cascade)
+  owner          Account  @relation(fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  profilePhotoOf Profile? @relation("ProfilePhoto")
+  profileCoverOf Profile? @relation("ProfileCover")
+  listingPhotoOf Listing?
 
-  @@map("profile_photos")
+  @@index([ownerId])
+  @@map("images")
 }
 
 model LinkedAccount {
@@ -492,8 +532,12 @@ model Application {
   userId          String            @map("user_id") @db.Uuid
   eventId         String            @map("event_id") @db.Uuid
   desiredCompany  DesiredCompany    @map("desired_company")
+  preferredGender GenderPreference  @default(any) @map("preferred_gender")
+  ageMin          Int               @default(18) @map("age_min")
+  ageMax          Int?              @map("age_max")
   status          ApplicationStatus @default(in_pool)
   noResponseCount Int               @default(0) @map("no_response_count")
+  dismissedAt     DateTime?         @map("dismissed_at") @db.Timestamptz(3)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -575,12 +619,14 @@ model Listing {
   description String
   date        DateTime      @db.Date
   status      ListingStatus @default(active)
+  photoId     String?       @unique @map("photo_id") @db.Uuid
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   author      Account      @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   event       Event?       @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  photo       Image?       @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   reportCases ReportCase[]
 
   @@map("listings")

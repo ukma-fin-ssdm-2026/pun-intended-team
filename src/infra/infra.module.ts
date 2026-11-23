@@ -10,6 +10,8 @@ import { ImportRunsRepository } from '../core/catalog/repositories/import-runs.r
 import { OrganizationsRepository } from '../core/catalog/repositories/organizations.repository.ts';
 import { VenuesRepository } from '../core/catalog/repositories/venues.repository.ts';
 import { AccountsRepository } from '../core/identity/repositories/accounts.repository.ts';
+import { ImageProcessor } from '../core/images/adapters/image-processor.ts';
+import { ImagesRepository } from '../core/images/repositories/images.repository.ts';
 import { InterestsRepository } from '../core/profiles/repositories/interests.repository.ts';
 import { ProfilesRepository } from '../core/profiles/repositories/profiles.repository.ts';
 import { AccessTokens } from '../core/identity/adapters/access-tokens.ts';
@@ -58,6 +60,7 @@ import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
 import { PrismaNotificationsRepository } from './prisma/prisma-notifications.repository.ts';
 import { PrismaOrganizationsRepository } from './prisma/prisma-organizations.repository.ts';
+import { PrismaImagesRepository } from './prisma/prisma-images.repository.ts';
 import { PrismaProfilesRepository } from './prisma/prisma-profiles.repository.ts';
 import { PrismaReportCasesRepository } from './prisma/prisma-report-cases.repository.ts';
 import { PrismaSessionsRepository } from './prisma/prisma-sessions.repository.ts';
@@ -66,6 +69,7 @@ import { PrismaVerificationCodesRepository } from './prisma/prisma-verification-
 import { PrismaService } from './prisma/prisma.service.ts';
 import { PrismaTransactionRunner } from './prisma/prisma-transaction-runner.ts';
 import { ExpoPushProvider } from './push/expo-push-provider.ts';
+import { SharpImageProcessor } from './images/sharp-image-processor.ts';
 
 const repositories = [
   { provide: EventsRepository, useClass: PrismaEventsRepository },
@@ -87,6 +91,7 @@ const repositories = [
   { provide: ImportRunsRepository, useClass: PrismaImportRunsRepository },
   { provide: NotificationsRepository, useClass: PrismaNotificationsRepository },
   { provide: DeviceTokensRepository, useClass: PrismaDeviceTokensRepository },
+  { provide: ImagesRepository, useClass: PrismaImagesRepository },
 ];
 
 const adapters = [
@@ -99,6 +104,7 @@ const adapters = [
   { provide: JobQueue, useFactory: jobQueue },
   { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PushProvider, useFactory: () => new ExpoPushProvider() },
+  { provide: ImageProcessor, useClass: SharpImageProcessor },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },

@@ -117,9 +117,12 @@ function SearchCard({ application }: { application: Application }) {
       status={
         <>
           <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
-            <Icon name="clock" size={20} />
+            <Icon name={application.status === 'no_match' ? 'close' : 'clock'} size={20} />
           </View>
-          <StatusText title="Шукаємо компанію" note={statusNote(application)} />
+          <StatusText
+            title={application.status === 'no_match' ? 'Компанії не знайшлося' : 'Шукаємо компанію'}
+            note={statusNote(application)}
+          />
         </>
       }
     />
@@ -180,7 +183,7 @@ function EmptyState({ onPick }: { onPick: () => void }) {
         </View>
         <Text className="text-center font-inter-bold text-h1 text-text-primary">Поки без метчів</Text>
         <Text className="text-center font-inter text-body text-text-secondary">
-          Обери подію в каталозі й натисни «Знайти мені метч». Ми підберемо тобі компанію за інтересами.
+          Обери подію в каталозі й натисни «Знайти метч». Ми підберемо тобі компанію за інтересами.
         </Text>
         <View className="h-1.5" />
         <View className="w-full">

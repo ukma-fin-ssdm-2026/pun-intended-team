@@ -3,6 +3,7 @@
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 
+import { ApiPicture } from '@/components/pictures/picture';
 import { EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
@@ -87,8 +88,12 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
-      <View className="size-11 items-center justify-center rounded-[22px] bg-surface-background">
-        <Text className="font-inter-semibold text-title text-text-secondary">{post.initial}</Text>
+      <View className="size-11 items-center justify-center overflow-hidden rounded-[22px] bg-surface-background">
+        {post.authorPhoto ? (
+          <ApiPicture image={post.authorPhoto} />
+        ) : (
+          <Text className="font-inter-semibold text-title text-text-secondary">{post.initial}</Text>
+        )}
       </View>
       <View className="flex-1 gap-2">
         <View className="flex-row items-center gap-1.5">
@@ -123,9 +128,13 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
 
         {post.eventId && <LinkedEvent eventId={post.eventId} />}
 
-        {post.photo && (
+        {(post.apiPhoto || post.photo) && (
           <View className="h-[150px] overflow-hidden rounded-2xl">
-            <Image source={post.photo} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            {post.apiPhoto ? (
+              <ApiPicture image={post.apiPhoto} />
+            ) : (
+              <Image source={post.photo} contentFit="cover" style={{ width: '100%', height: '100%' }} />
+            )}
           </View>
         )}
 

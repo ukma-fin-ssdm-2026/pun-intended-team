@@ -6,6 +6,7 @@ type PushText = Pick<PushMessage, 'title' | 'body'>;
 
 // In Ukrainian, as the app speaks. Types whose senders are not built yet get the general line.
 const texts: Partial<Record<NotificationType, (notification: Notification) => PushText>> = {
+  no_match_found: () => ({ body: 'Цього разу компанії не знайшлося. Обери іншу подію або створи оголошення.' }),
   event_changed: ({ payload }) => eventChangedText(payload),
   report_received: () => ({ body: 'Ми отримали вашу скаргу й розглянемо її.' }),
 };

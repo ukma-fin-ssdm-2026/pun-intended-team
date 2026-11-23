@@ -25,7 +25,9 @@ function makeService() {
   };
   const profilesService = {
     getSummaries: mock.fn((): Promise<Map<string, ProfileSummary>> =>
-      Promise.resolve(new Map([[ACCOUNT_ID, { accountId: ACCOUNT_ID, username: 'natalka', displayName: 'Natalka' }]])),
+      Promise.resolve(
+        new Map([[ACCOUNT_ID, { accountId: ACCOUNT_ID, username: 'natalka', displayName: 'Natalka', photoId: null }]]),
+      ),
     ),
   };
   const auditLogRepository = { record: mock.fn<(entry: AuditEntry) => Promise<void>>(() => Promise.resolve()) };

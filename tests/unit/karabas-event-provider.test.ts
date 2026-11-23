@@ -175,6 +175,108 @@ describe('KarabasEventProvider.fetch', () => {
   });
 });
 
+/**
+ * Derived from the sport page of 2026-11-07: without its event blocks and with an empty ItemList, as a section with
+ * no events in the window; without any JSON-LD block; and with every JSON-LD block cut short, so none parses.
+ */
+const NO_EVENTS = 'karabas/kyiv-sport-2026-11-07-no-events.html';
+const NO_JSON_LD = 'karabas/kyiv-sport-2026-11-07-no-json-ld.html';
+const BROKEN_JSON_LD = 'karabas/kyiv-sport-2026-11-07-broken-json-ld.html';
+
+/** Runs `fetch` and returns its outcome with the messages it logged and warned. */
+async function fetchLogged(routes: Parameters<typeof savedPagesClient>[0]) {
+  const log = mock.method(Logger.prototype, 'log', () => {});
+  const warn = mock.method(Logger.prototype, 'warn', () => {});
+  try {
+    const result = await makeProvider(routes, PAGES_SAVED_AT_NOV_7)
+      .provider.fetch()
+      .catch((error: unknown) => error as Error);
+    const messages = (calls: { arguments: unknown[] }[]) => calls.map(({ arguments: [message] }) => String(message));
+    return { result, logged: messages(log.mock.calls), warned: messages(warn.mock.calls) };
+  } finally {
+    log.mock.restore();
+    warn.mock.restore();
+  }
+}
+
+// REL-14: a page that answers 200 but has no JSON-LD that parses is a changed or broken page, not an empty section.
+describe('KarabasEventProvider.fetch, a page without usable JSON-LD', () => {
+  const everySection = (route: string) => Object.fromEntries(KARABAS_SECTIONS.map(({ path }) => [path, route]));
+
+  for (const [title, file] of [
+    ['no JSON-LD', NO_JSON_LD],
+    ['only JSON-LD that does not parse', BROKEN_JSON_LD],
+  ]) {
+    test(`fails the run when every section answers a page with ${title}, and warns with each URL`, async () => {
+      const { result, warned } = await fetchLogged(everySection(file as string));
+
+      assert.ok(result instanceof Error);
+      assert.match(result.message, /No Karabas section page could be fetched/);
+      assert.deepEqual(
+        warned,
+        KARABAS_SECTIONS.map(
+          ({ path }) =>
+            `GET https://kyiv.karabas.com${path} failed: answered 200 without JSON-LD that parses ` +
+            `(${file === NO_JSON_LD ? 0 : 5} blocks)`,
+        ),
+      );
+    });
+  }
+
+  test('reads the other sections when one has no JSON-LD, counts it failed and reports the list as not complete', async () => {
+    const routes = { ...everySection('karabas/kyiv-sport-2026-11-07.html'), '/cinema/': NO_JSON_LD };
+
+    const { result, logged } = await fetchLogged(routes);
+
+    assert.ok(!(result instanceof Error));
+    assert.equal(result.complete, false);
+    assert.equal(result.records.length, 1, 'the sambo tournament of the other sections, kept once');
+    assert.equal(result.parts?.['/cinema/'], undefined);
+    assert.equal(result.parts?.['/sport/'], 1);
+    assert.match(logged.at(-1) ?? '', /; 1 of 7 sections failed, 0 not read to the end$/);
+  });
+
+  test('keeps the pages read so far when a later page has no JSON-LD, and counts the section not read to the end', async () => {
+    const routes = {
+      '/concerts/': 'karabas/kyiv-concerts-2026-11-07-page-1.html',
+      '/concerts/?time=1794150000&page=2&per-page=20': BROKEN_JSON_LD,
+    };
+
+    const { result, logged, warned } = await fetchLogged(routes);
+
+    assert.ok(!(result instanceof Error));
+    assert.equal(result.complete, false);
+    assert.equal(result.records.length, 20);
+    assert.match(logged.at(-1) ?? '', /; 6 of 7 sections failed, 1 not read to the end$/);
+    assert.ok(
+      warned.includes(
+        'GET https://kyiv.karabas.com/concerts/?time=1794150000&page=2&per-page=20 failed: ' +
+          'answered 200 without JSON-LD that parses (5 blocks)',
+      ),
+    );
+  });
+
+  test('takes a page that keeps the site blocks but lists no events as a section with no events', async () => {
+    const { result, warned } = await fetchLogged(everySection(NO_EVENTS));
+
+    assert.ok(!(result instanceof Error));
+    assert.equal(result.complete, true);
+    assert.deepEqual(result.records, []);
+    assert.deepEqual(result.parts, Object.fromEntries(KARABAS_SECTIONS.map(({ path }) => [path, 0])));
+    assert.deepEqual(warned, []);
+  });
+
+  test('reads a page with one block that does not parse, and warns about it', async () => {
+    const page = savedPage('karabas/kyiv-sport-2026-11-07.html').replace('"@type": "Organization"', '"@type": ');
+
+    const { result, warned } = await fetchLogged({ '/sport/': { status: 200, text: page } });
+
+    assert.ok(!(result instanceof Error));
+    assert.equal(result.records.length, 1);
+    assert.ok(warned.includes('GET https://kyiv.karabas.com/sport/: 1 of 5 JSON-LD blocks are not JSON; skipped'));
+  });
+});
+
 // FR-008, REL-003: the concerts pages saved on 7 November, read with that day as today.
 describe('KarabasEventProvider.fetch, page after page', () => {
   const PAGE_2 = '/concerts/?time=1794150000&page=2&per-page=20';
@@ -282,11 +384,7 @@ describe('KarabasEventProvider.fetch, page after page', () => {
   });
 
   test('counts a section that answers a page without events as 0', async () => {
-    const empty = savedPage('karabas/kyiv-sport-2026-11-07.html').replace(
-      /<script type="application\/ld\+json">[\s\S]*?<\/script>/g,
-      '',
-    );
-    const { result } = read({ '/festivals/': { status: 200, text: empty } });
+    const { result } = read({ '/festivals/': NO_EVENTS });
 
     assert.deepEqual((await result).parts, { '/festivals/': 0 });
   });

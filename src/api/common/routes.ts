@@ -23,6 +23,7 @@ export const Routes = {
     mine: '/api/v1/me/applications',
     byId: '/api/v1/applications/{id}',
     withdraw: '/api/v1/applications/{id}/withdraw',
+    dismiss: '/api/v1/applications/{id}/dismiss',
   },
   matches: {
     mine: '/api/v1/me/matches',
@@ -39,6 +40,10 @@ export const Routes = {
   listings: {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
+    photo: '/api/v1/listings/{id}/photo',
+  },
+  images: {
+    byId: '/api/v1/images/{id}',
   },
   organizations: {
     me: '/api/v1/me/organization',
@@ -47,6 +52,9 @@ export const Routes = {
     me: '/api/v1/me/profile',
     interests: '/api/v1/me/profile/interests',
     linkedAccounts: '/api/v1/me/profile/linked-accounts',
+    photo: '/api/v1/me/profile/photo',
+    cover: '/api/v1/me/profile/cover',
+    safetyNotice: '/api/v1/me/profile/safety-notice',
   },
   interests: {
     list: '/api/v1/interests',

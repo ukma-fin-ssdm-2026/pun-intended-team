@@ -8,13 +8,26 @@ Team project for the SSDM course at the National University of Kyiv-Mohyla Acade
 
 Nearby is a particularly whimsical mobile app for going to events and meeting new people along the way.
 
-The app collects all the upcoming events in a city: films, exhibitions, concerts, protests or workshops — anything one may need company for. A user fills in a profile (interests, age, what they are looking for: friends, dating, or just company for the evening), picks an event they would like to attend, and gets matched with someone who wants to go to the same event and shares the most interests. Users can also propose their own events if one isn't already listed.
+The app collects the upcoming events of Kyiv for the next four weeks: concerts, exhibitions, plays, lectures or workshops — anything one may need company for. They are imported every night from ArtWizard and Karabas, and verified organizations publish their own. A user fills in a profile (interests, age, contacts), picks an event, says what kind of company they want and their plans after it, and in a matching round before the event gets paired with someone going to the same event who shares the most interests. If both accept, they see each other's contacts. Someone still looking can post a listing, and anything unpleasant can be reported to the administrators.
 
 Instead of matching first and looking for something to do second, the event is what brings people together.
 
 Look [here](Project-Description.md) for a more detailed project description
 
 The working staging version is at [nearbystaging.app](https://nearbystaging.app), built from the `staging` branch ([Staging](#staging)).
+
+## ✦ Project artifacts
+
+- [Requirements](#requirements-artifacts) — [`docs/requirements/`](docs/requirements/)
+- [Architecture](#architecture-artifacts) — [`docs/architecture/`](docs/architecture/)
+- [API](#api-documentation) — [`docs/api/`](docs/api/)
+- [Code quality](#code-quality) — [`docs/code-quality/`](docs/code-quality/)
+- [Refactoring](#refactoring) — [`docs/refactoring/`](docs/refactoring/)
+- [Testing and validation](#test-documentation) — [`docs/testing/`](docs/testing/), [`docs/validation/`](docs/validation/)
+- [Reliability](#reliability) — [`docs/reliability/`](docs/reliability/)
+- [CI/CD](#ci-cd) — [`docs/ci-cd/`](docs/ci-cd/)
+- [Operations](#operations) — [`docs/operations/`](docs/operations/)
+- [`CHANGELOG.md`](CHANGELOG.md) — what changed in each release, 1.0.0 to the current 1.2.0
 
 ## ໑ Team
 
@@ -29,6 +42,8 @@ More on the team and our principles can be found [here](TeamCharter.md).
 
 The links to each member's lab videos are in [`labs/`](labs/), one folder per lab.
 
+<a id="requirements-artifacts"></a>
+
 ## ୭ Requirements Artifacts
 
 Documentation related to requirements engineering for this project is located [here](docs/requirements/):
@@ -37,6 +52,8 @@ Documentation related to requirements engineering for this project is located [h
 - [`user-stories.md`](docs/requirements/user-stories.md) — user stories with acceptance criteria
 - [`rtm.md`](docs/requirements/rtm.md) — Requirements Traceability Matrix
 - [`use-cases.md`](docs/requirements/use-cases.md) — use case descriptions
+
+<a id="architecture-artifacts"></a>
 
 ## ໒ Architecture Artifacts
 
@@ -47,8 +64,11 @@ Documentation related to system architecture for this project is located [here](
 - [`data-model.md`](docs/architecture/data-model.md) — ER / domain model
 - [`threat-model.md`](docs/architecture/threat-model.md) — STRIDE threat model
 - [`decisions/`](docs/architecture/decisions/) — Architecture Decision Records (ADRs)
+- [`research/event-import-sources.md`](docs/architecture/research/event-import-sources.md) — research behind ADR-006: which event sites to import from, their robots.txt and terms, field mapping, start and end times
 - [`mechanisms/`](docs/architecture/mechanisms/) — architectural and code mechanisms
 - [`uml/`](docs/architecture/uml/) — UML diagrams (component, main server components, sequence, deployment, data model) with rendered SVGs in `rendered/`. Render them with `npm run docs:diagrams` (needs Docker).
+
+<a id="api-documentation"></a>
 
 ## ൭ API Documentation
 
@@ -61,6 +81,8 @@ The REST API (NestJS) is Code-First: the OpenAPI spec is generated from the zod 
 - [`api-design.md`](docs/api/api-design.md) — resource model, endpoints, status codes, error format and versioning
 - [`quality-attributes.md`](docs/api/quality-attributes.md) — quality goals for the Nearby REST API
 
+<a id="code-quality"></a>
+
 ## ⟡ Code Quality
 
 Documentation related to code quality for this project is located [here](docs/code-quality/):
@@ -69,7 +91,14 @@ Documentation related to code quality for this project is located [here](docs/co
 - [`review-report.md`](docs/code-quality/review-report.md) — code review of the Whadio team's project
 - [`review-response.md`](docs/code-quality/review-response.md) — how we handled the review of our code
 - [`progress.md`](docs/code-quality/progress.md) — implementation progress of the prototype
-- [`sonarcloud-report.md`](docs/refactoring/sonarcloud-report.md) — SonarCloud analysis of the code and how its findings are handled
+
+<a id="refactoring"></a>
+
+## ⟲ Refactoring
+
+Documentation related to refactoring for this project is located [here](docs/refactoring/):
+
+- [`sonarcloud-report.md`](docs/refactoring/sonarcloud-report.md) — SonarCloud analysis of the code and how its findings are handled, the refactorings it led to and their regression tests, with screenshots in `images/`
 
 ## ര Running the API
 
@@ -170,6 +199,35 @@ Documentation related to testing is located [here](docs/testing/), the test plan
 - [`test-plan.md`](docs/validation/test-plan.md) — scope, test levels, risks, test cases and exit criteria, with the k6 load test run (TC-10)
 - [`review-log.md`](docs/validation/review-log.md) — the Lab 7 peer review of the test plan by Whadio, what we changed after it, and the review of an AI-generated pull request
 
+<a id="reliability"></a>
+
+## ⚘ Reliability
+
+Documentation related to reliability is located [here](docs/reliability/):
+
+- [`scavenger-hunt.md`](docs/reliability/scavenger-hunt.md) — the Lab 9 hunt for reliability risks in the API and the app, each with its fault → error → failure chain
+- [`reliability-report.md`](docs/reliability/reliability-report.md) — how each finding was fixed or mitigated: the patterns applied, what the user sees, recovery and verification
+
+<a id="ci-cd"></a>
+
+## ⇶ CI/CD
+
+Documentation related to CI/CD is located [here](docs/ci-cd/):
+
+- [`ci.yml`](.github/workflows/ci.yml) — the `CI` workflow behind the badge: the `CI passed` checks on every pull request, the e2e and reliability tests, the API docs, the images and the staging deployment through [`deploy-staging.yml`](.github/workflows/deploy-staging.yml)
+- [`dora-summary.md`](docs/ci-cd/dora-summary.md) — the four DORA metrics of `CI` on `main` for three weeks, root causes of the red runs and the improvement backlog
+- [`metrics-raw.md`](docs/ci-cd/metrics-raw.md) — every `CI` run on `main` from 12.09 to 11.11.2026 with its queue and execution time and status
+- [`evidence/`](docs/ci-cd/evidence/README.md) — the raw GitHub Actions data and computed metrics behind both tables
+
+<a id="operations"></a>
+
+## ⚙ Operations
+
+Documentation related to running the system is located [here](docs/operations/):
+
+- [`staging.md`](docs/operations/staging.md) — the staging server: settings and secrets, first setup, deploying and rolling back, logs, backups and restore, the event import
+- [`external-services.md`](docs/operations/external-services.md) — services outside the repository the API and the app depend on, who owns them, what they cost and their status
+
 <a id="commit-hooks"></a>
 
 ## 𓂀 Commit hooks
@@ -190,7 +248,7 @@ If a commit from VS Code fails with "pre-commit is not installed", restart VS Co
 
 ## 𓊚 Local database
 
-Categories, accounts, verification codes, sessions, profiles, interests, report cases, the audit log, events, venues, organizations and listings are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)). A new local database has no events or listings until the development seed returns ([#354](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/354)). You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
+Categories, accounts, verification codes, sessions, profiles, interests, report cases, the audit log, events, venues, organizations and listings are stored in PostgreSQL ([ADR-002](docs/architecture/decisions/ADR-002.md)). A new local database has no events until the [event import](#event-import) runs, and no listings until the development seed returns ([#354](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/issues/354)). You need [Docker](https://docs.docker.com/get-docker/). The database settings are in `.env`, which `cp .env.example .env` creates.
 
 ```bash
 docker compose up -d        # PostgreSQL 18 on 127.0.0.1:5432; wait until `docker compose ps` shows healthy
@@ -212,7 +270,7 @@ UPDATE accounts SET role = 'admin' WHERE id = '<id>';
 
 ## ൬ Running the client
 
-The Expo client in [`app/`](app/) lists the catalog events and opens their details, in a browser or on a phone, and has admin pages for reports and categories at `/admin`. To run it next to the API, see [`app/README.md`](app/README.md).
+The Expo client in [`app/`](app/) runs in a browser or on a phone. Its five tabs are the catalog with filters and search, a map of the venues with upcoming events, the Метчі tab with the user's applications for a match, the listings, and the profile. Notifications also arrive as pushes on Android, and an account can request organization status in the organization settings. Administrators get a panel at `/admin` with statistics, report cases, categories, organizations and backups. To run it next to the API, see [`app/README.md`](app/README.md).
 
 ## ൠ MCP Server
 
@@ -223,3 +281,5 @@ The Expo client in [`app/`](app/) lists the catalog events and opens their detai
 This README was written with the participation of Claude, which drafted the initial structure and wording. The draft was reviewed and edited by Daryna Halytska and Viktoriya Baran before being committed.
 
 Claude later checked every link against the repository files, fixed broken section links and added links to the documents in `docs/` that were missing. Every link target was verified to exist; the changes were reviewed by Daryna Halytska.
+
+Claude later added the sections for the remaining artifacts and updated the overview to the current release; the links were checked by a script.

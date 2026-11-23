@@ -16,6 +16,7 @@ export const domainErrorCodes = [
   'PROFILE_EXISTS',
   'PROFILE_INCOMPLETE',
   'ALREADY_APPLIED',
+  'SAFETY_NOTICE_REQUIRED',
   'CONTACT_REQUIRED',
   'INVALID_SOCIAL_HANDLE',
   'INVALID_CREDENTIALS',
@@ -31,6 +32,7 @@ export const domainErrorCodes = [
   'CANNOT_RESOLVE_OWN_CASE',
   'CANNOT_BAN_ADMIN',
   'CANNOT_DECIDE_OWN_REQUEST',
+  'INVALID_IMAGE',
 ] as const;
 
 export type DomainErrorCode = (typeof domainErrorCodes)[number];

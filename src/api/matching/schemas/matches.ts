@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
 import { Id } from '../../common/schemas/common.ts';
+import { CoverImage, Image } from '../../images/schemas/images.ts';
 import {
   CommunicationFormat,
   Interest,
@@ -26,6 +27,8 @@ const MatchPartnerFields = z.object({
   occupation: z.string(),
   age: z.number().int().describe('Whole years'),
   interests: z.array(Interest),
+  photo: Image.nullable().describe('The avatar; null shows the initial'),
+  cover: CoverImage.nullable().describe('null shows the default gradient'),
   desiredCompany: CommunicationFormat.describe('What kind of company they are looking for at this event'),
   afterEventPlans: z
     .array(AfterEventPlan)
@@ -61,6 +64,8 @@ export const matchExample: Match = {
     occupation: 'Illustrator',
     age: 24,
     interests: [interestExample],
+    photo: null,
+    cover: null,
     desiredCompany: 'company',
     afterEventPlans: ['walk', 'coffee'],
   },

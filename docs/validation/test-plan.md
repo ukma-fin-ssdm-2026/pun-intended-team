@@ -61,7 +61,7 @@
 Testing under this plan is complete when all of the following hold:
 
 - Every row for a feature that is built is **done** and passes in CI: the `CI passed` job is green on `main`.
-- Rows for features not built yet become due once the feature is implemented: TC-37 with the expiry of proposals, TC-39 with the safety notice, and TC-29 once events are stored in the database. TC-10 is due now that staging exists; so far it has been run only locally.
+- Rows for features not built yet become due once the feature is implemented: TC-37 with the expiry of proposals and TC-29 once events are stored in the database. TC-10 is due now that staging exists; so far it has been run only locally.
 - The coverage gate passes: at least 90% of lines and 80% of branches over all tests (`npm run test:coverage`, set in `mcr.config.mjs`).
 - No critical defect is open.
 
@@ -109,7 +109,7 @@ Testing under this plan is complete when all of the following hold:
 | TC-36 | `match(pool, exclusions, seed)` | Unit | Positive | 10 runs with the same pool and seed return the same pairings; two seeds order tied candidates differently | Vlad Redchuk | FR-017, FUNC-001 | done |
 | TC-37 | `match(pool, exclusions, seed)` | Unit | Negative | The user themselves, banned accounts, users they reported, and candidates declined or expired for this event are never proposed; a user with no candidate left stays in the pool unmatched | TBD | FR-018, FR-020 | planned |
 | TC-38 | Contact reveal | Integration | Positive | After both users accept the match, each gets the other's contact details with `200` | Viktoriia Baran | FR-019 | done |
-| TC-39 | Contact reveal | Integration | Negative | On a user's first match, a contact request before the safety notice is acknowledged returns no contact details, also when the API is called directly; after the acknowledgment the same request gets them | TBD | FR-032, SAFE-002 | planned |
+| TC-39 | Contact reveal | Integration | Negative | On a user's first match, a contact request before the safety notice is acknowledged returns no contact details, also when the API is called directly; after the acknowledgment the same request gets them | Viktoriia Baran | FR-032, SAFE-002 | done |
 | TC-40 | Matching under concurrent requests | Integration | Negative | Overlapping match requests that all rank the same candidate first: exactly one of them gets that candidate | Viktoriia Baran | FR-017, FUNC-002 | done |
 | TC-41 | `EventsService.list` | Unit | Positive | Without dates the catalog covers the Kyiv date of today to the end of the window; a start in the past and an end beyond the window are moved inside it; the category and venue filters are passed on unchanged | Viktoriia Baran | FR-006, FR-007 | done |
 | TC-42 | `GET /events` | Integration | Positive | A guest token, issued without signing in, gets `200` with a page of events | Vlad Redchuk | FR-006 | done |

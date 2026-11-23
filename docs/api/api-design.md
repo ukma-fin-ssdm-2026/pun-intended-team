@@ -51,15 +51,16 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `author` | `{ username, displayName }` | Never the author's contacts. A listing whose author has no profile is left out of the list and is a `404` by id |
+| `author` | `{ username, displayName, photo }` | `photo` is the author's profile photo, or `null`. Never the author's contacts. A listing whose author has no profile is left out of the list and is a `404` by id |
 | `category` | `{ id, name }` | |
 | `eventId` | UUID or `null` | Set when the listing is about a catalog event |
 | `title` | string | |
 | `description` | string | |
 | `date` | date | |
 | `status` | `active` \| `removed` | Only `active` listings are returned to users |
+| `photo` | `{ id, width, height }` or `null` | Cut to 2:1; the picture comes from `GET /images/{id}` |
 
-Related to: Account (author), Category, Event.
+Related to: Account (author), Category, Event, Image.
 
 ### Application
 
@@ -74,6 +75,8 @@ A user's request to be matched at one event. For an event that runs on several d
 | `sessions` | `[{ startsAt, cutoffAt }]` | The days the user can go, soonest first: the event start, or each picked day at the event's time of day, Kyiv time. A day's `cutoffAt` is when matching for it stops: an hour before it starts, or for a session of 3 hours or more 2 hours before it ends |
 | `desiredCompany` | `friends` \| `dating` \| `company` | The kind of company the user is looking for at this event; the app pre-fills it from the profile's `communicationFormat` |
 | `afterEventPlans` | array of `walk` \| `coffee` \| `dinner` | What the user would do together after the event; empty means only the event |
+| `preferredGender` | `any` \| `female` \| `male` | Whom the user wants to go with; `any` also accepts the gender `other`. Default `any` |
+| `ageMin`, `ageMax` | integer, integer or `null` | The age range of whom the user wants to go with: `ageMin` 18 or more, default 18; `ageMax` at least `ageMin`, `null` (the default) for no upper bound. Matching pairs two users only if each fits the other's preferences ([matching](../architecture/mechanisms/matching.md), policy) |
 | `status` | `in_pool` \| `paired` \| `paused` \| `removed` \| `withdrawn` \| `no_match` \| `cancelled` | `in_pool` until matching proposes a pair |
 | `cutoffAt` | date-time | The last day's cutoff: until then the application can be matched |
 | `nextRoundAt` | date-time or `null` | The earliest matching round still to come on any of the days; `null` when the application is not waiting in the pool or no round is left. Waiting in the pool with no round left and before `cutoffAt` means open mode ([matching](../architecture/mechanisms/matching.md), rule 3) |
@@ -102,7 +105,7 @@ Related to: Application (both users), Exclusion.
 
 ### Profile
 
-**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`
+**Base paths:** `/api/v1/me/profile`, `/api/v1/me/profile/interests`, `/api/v1/me/profile/linked-accounts`, `/api/v1/me/profile/photo`, `/api/v1/me/profile/cover`, `/api/v1/me/profile/safety-notice`
 
 The signed-in user's own profile, built step by step during onboarding (FR-002, US-003) and edited afterwards. The resource is singular and lives under `/me`: a user only ever sees their own profile here, so there is no id to guess. Other users' profiles are shown only through listings (`author`).
 
@@ -113,15 +116,20 @@ The signed-in user's own profile, built step by step during onboarding (FR-002, 
 | `description` | string | Free text up to 500 characters; empty until set |
 | `occupation` | string | Studies or work, free text up to 100 characters; empty until set |
 | `communicationFormat` | `friends` \| `dating` \| `company` \| `null` | `null` until the user picks one |
+| `gender` | `female` \| `male` \| `other` \| `null` | `null` until the user picks one; profiles made before it was asked have none. Returned only to the owner |
+| `genderDescription` | string or `null` | The user's own words for `other`, 1 to 50 characters; `PATCH` requires it with `other` and refuses it otherwise, and a new gender other than `other` clears it |
 | `sharePhone` | boolean | Default `true`: whether the phone number is revealed on a mutual match; no account has one while sign-in is Google-only ([ADR-004](../architecture/decisions/ADR-004.md)) |
 | `age` | integer | Whole years, computed on the server from the account's date of birth. The date itself is never returned (data model §4) |
 | `interests` | `[{ id, name }]` | Empty until the user picks some |
 | `linkedAccounts` | `[{ network, username, url }]` | Social networks a mutual match sees: `network` is `telegram`, `instagram`, `whatsapp`, `tiktok` or `facebook`, at most one each; `username` is the bare handle (for WhatsApp, the phone number digits), stored encrypted; `url` is the profile link. Empty until set during onboarding |
-| `isComplete` | boolean | `true` once `communicationFormat` is set, at least one interest is picked **and** at least one network is linked; matching needs all three (use case E1) |
+| `isComplete` | boolean | `true` once `communicationFormat` and `gender` are set, at least one interest is picked **and** at least one network is linked; matching needs all four (use case E1) |
+| `photo` | `{ id, width, height }` or `null` | The avatar, a square shown as a circle; `null` shows the initial |
+| `cover` | `{ id, width, height, crop }` or `null` | The whole picture behind the avatar, and `crop`: the area the user picked (390:200) in its pixels. A screen of another shape shows more of the picture around `crop`, or less; `null` shows the default gradient |
+| `safetyNotice` | `not_acknowledged` \| `acknowledged` \| `hidden` | The safety notice (FR-032). `not_acknowledged` until the user first acknowledges it, and the contacts of their mutual matches wait for that (SAFE-002); `acknowledged`: the app shows it once on each mutual match, and which matches it was shown on is kept on the device; `hidden`: the user ticked "don't show again" |
 
-Related to: Account (`age` comes from its date of birth), Interest.
+Related to: Account (`age` comes from its date of birth), Interest, Image. A match's `partner` has the same `photo` and `cover`.
 
-Not in this version: photo upload. A mutual match needs a contact to reveal, and while sign-in is Google-only there is no phone number, so the contact is a linked network: `PUT /me/profile/linked-accounts` refuses an empty list, and `sharePhone` plays no part in the check.
+A mutual match needs a contact to reveal, and while sign-in is Google-only there is no phone number, so the contact is a linked network: `PUT /me/profile/linked-accounts` refuses an empty list, and `sharePhone` plays no part in the check.
 
 ### Interest
 
@@ -275,26 +283,29 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/listings/{id}` | Signed-in user | `200` the listing | `400`, `401`, `404` |
 | `POST` | `/api/v1/listings` | Signed-in user | `201` the listing + `Location` header | `400`, `401`, `422` |
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
+| `PUT` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404`, `413`, `415`, `422` |
+| `DELETE` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404` |
 
 ### Matching
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
 | `POST` | `/api/v1/events/{id}/applications` | Signed-in user with a complete profile | `201` the application + `Location` header | `400`, `401`, `404`, `409`, `422` |
-| `GET` | `/api/v1/me/applications` | Signed-in user | `200` the caller's active applications | `401` |
+| `GET` | `/api/v1/me/applications` | Signed-in user | `200` the caller's active applications and those with no match | `401` |
 | `GET` | `/api/v1/applications/{id}` | The applicant | `200` the application | `400`, `401`, `404` |
 | `POST` | `/api/v1/applications/{id}/withdraw` | The applicant | `200` the withdrawn application | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/applications/{id}/dismiss` | The applicant | `200` the dismissed application | `400`, `401`, `404`, `409` |
 | `GET` | `/api/v1/me/matches` | Signed-in user | `200` the caller's pending and mutual matches | `401` |
 | `GET` | `/api/v1/matches/{id}` | One of the two users | `200` the match | `400`, `401`, `404` |
 | `POST` | `/api/v1/matches/{id}/accept` | One of the two users | `200` the match | `400`, `401`, `404`, `409` |
 | `POST` | `/api/v1/matches/{id}/decline` | One of the two users | `200` the match | `400`, `401`, `404`, `409` |
-| `GET` | `/api/v1/matches/{id}/contacts` | One of the two users of a mutual match | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404` |
+| `GET` | `/api/v1/matches/{id}/contacts` | One of the two users of a mutual match | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404`, `422` |
 
-`POST` takes `{ dates?, desiredCompany, afterEventPlans }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. A day must lie within the catalog window, today and the next 28 days, as the catalog does: a run of shows until May takes applications for the coming four weeks, and a later day gives `422 INVALID_SESSION_DAY`. A single-day event has no such limit. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
+`POST` takes `{ dates?, desiredCompany, afterEventPlans, preferredGender?, ageMin?, ageMax? }` and puts the caller in the event's pool. A single-day event has one session and needs no `dates`; an event that runs on several days has one session per day, and `dates` lists the days the caller can go, at most 366. A day must lie within the catalog window, today and the next 28 days, as the catalog does: a run of shows until May takes applications for the coming four weeks, and a later day gives `422 INVALID_SESSION_DAY`. A single-day event has no such limit. The first application to a day creates its session. Every day must be valid and open, or nothing is created. The caller needs a complete profile (`isComplete`), checked before anything else, so the app can send the user to finish it (use case E1). A day takes applications until its cutoff: an hour before it starts, or for a session of 3 hours or more, such as a museum day, 2 hours before it ends ([matching](../architecture/mechanisms/matching.md), rules 3 and 9). A caller who already has an active application for the event (`in_pool`, `paired` or `paused`) gets `409 ALREADY_APPLIED`. `nextRoundAt` gives the time of the next round, so the user is never left without an answer (PERF-003).
 
-`GET /me/applications` lists the active applications, soonest first day first; it is not paginated. An application cancelled because its event was cancelled, or its days are gone, leaves the list; `GET /applications/{id}` still shows it, `cancelled`, with the days it had, and the user may apply again once the event takes applications ([matching](../architecture/mechanisms/matching.md), rule 10). Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. A `paired` application with a proposal still waiting for an answer is withdrawn too: the proposal is `cancelled` and the other user returns to the pool (use case A5). An application with a mutual match, or with another status, answers `409 CONFLICT`. Someone else's application is a `404`.
+`GET /me/applications` lists the active applications, and those that found no match by their cutoff (`no_match`) until the caller dismisses them, soonest first day first; it is not paginated. An application cancelled because its event was cancelled, or its days are gone, leaves the list; `GET /applications/{id}` still shows it, `cancelled`, with the days it had, and the user may apply again once the event takes applications ([matching](../architecture/mechanisms/matching.md), rule 10). Dismiss takes a `no_match` application out of that list; dismissing it again changes nothing, and any other status answers `409 CONFLICT` (FR-018). Withdraw takes an application waiting in the pool (`in_pool` or `paused`) out of it on all its days (FR-031); withdrawing it again changes nothing, and the caller may apply to the event again. A `paired` application with a proposal still waiting for an answer is withdrawn too: the proposal is `cancelled` and the other user returns to the pool (use case A5). An application with a mutual match, or with another status, answers `409 CONFLICT`. Someone else's application is a `404`.
 
-A proposal moves both applications to `paired`. `GET /me/matches` lists the caller's matches still waiting for answers and the mutual ones, soonest shared day first; it is not paginated. Accept and decline take the same per-event lock as the rounds, so no answer crosses a round (rule 7). Accepting when the other has accepted makes the match `mutual`; accepting again changes nothing. Declining, even after accepting, sends both users back to the pool and keeps them apart at this event (rule 5); declining again changes nothing. A match that is no longer waiting for answers, including a mutual one for decline, answers `409 CONFLICT`. The contacts are `{ phone, linkedAccounts }` of the other user: `phone` only if they share it, so `null` while sign-in is Google-only. Until the match is mutual they answer `404`, as does any match the caller is not part of (SEC-001). A mutual match whose event, or every shared day, is cancelled becomes `cancelled`: it leaves `GET /me/matches`, and its contacts answer `404` ([matching](../architecture/mechanisms/matching.md), rule 10). Nothing expires a proposal past `validUntil` yet; it shows as `expired` and can no longer be answered, but its two applications stay `paired` until one of them is withdrawn.
+A proposal moves both applications to `paired`. `GET /me/matches` lists the caller's matches still waiting for answers and the mutual ones, soonest shared day first; it is not paginated. Accept and decline take the same per-event lock as the rounds, so no answer crosses a round (rule 7). Accepting when the other has accepted makes the match `mutual`; accepting again changes nothing. Declining, even after accepting, sends both users back to the pool and keeps them apart at this event (rule 5); declining again changes nothing. A match that is no longer waiting for answers, including a mutual one for decline, answers `409 CONFLICT`. The contacts are `{ phone, linkedAccounts }` of the other user: `phone` only if they share it, so `null` while sign-in is Google-only. Until the match is mutual they answer `404`, as does any match the caller is not part of (SEC-001). A mutual match answers `422 SAFETY_NOTICE_REQUIRED` until the caller has acknowledged the safety notice with `POST /me/profile/safety-notice` (SAFE-002). One acknowledgment per user unlocks all their matches. Its body `{ dontShowAgain }` sets `safetyNotice` to `hidden` when true and to `acknowledged` when false. A mutual match whose event, or every shared day, is cancelled becomes `cancelled`: it leaves `GET /me/matches`, and its contacts answer `404` ([matching](../architecture/mechanisms/matching.md), rule 10). Nothing expires a proposal past `validUntil` yet; it shows as `expired` and can no longer be answered, but its two applications stay `paired` until one of them is withdrawn.
 
 ### Profile and Interests
 
@@ -306,8 +317,14 @@ A proposal moves both applications to `paired`. `GET /me/matches` lists the call
 | `PATCH` | `/api/v1/me/profile` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `409` |
 | `PUT` | `/api/v1/me/profile/interests` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
 | `PUT` | `/api/v1/me/profile/linked-accounts` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `422` |
+| `PUT` | `/api/v1/me/profile/photo`, `/api/v1/me/profile/cover` | Signed-in user | `200` the updated profile | `400`, `401`, `404`, `413`, `415`, `422` |
+| `DELETE` | `/api/v1/me/profile/photo`, `/api/v1/me/profile/cover` | Signed-in user | `200` the updated profile | `401`, `404` |
+| `POST` | `/api/v1/me/profile/safety-notice` | Signed-in user | `200` the profile with the new `safetyNotice` | `400`, `401`, `404` |
+| `GET` | `/api/v1/images/{id}` | Signed-in user | `200` the picture, `image/webp` | `400`, `401`, `404` |
 
-Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat` and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
+**Pictures.** An upload sends the picture itself as the body with its `Content-Type` (`image/jpeg`, `image/png` or `image/webp`, up to 10 MB), not JSON or a form, and the area the user picked in the crop preview as fractions of the picture in the query: `cropLeft`, `cropTop`, `cropWidth`, `cropHeight`, measured after the EXIF rotation. The server cuts the largest area of the exact shape inside it, around its centre: a square for the photo, 390:200 for the cover, 2:1 for a listing. Another `Content-Type` is `415 UNSUPPORTED_MEDIA_TYPE`, a file that is not such a picture `422 INVALID_IMAGE`. A new upload replaces the old picture, which is deleted; `DELETE` without a picture changes nothing. Pictures are served only through `GET /images/{id}`, never as public links (TM-14); an id never changes its picture, so the response is cached for good (`Cache-Control: private, max-age=31536000, immutable`). How they are stored: [HLD §2.3](../architecture/high-level-design.md#23-uploaded-pictures).
+
+Onboarding goes in steps (FR-002). The first step, `POST /me/profile`, takes only the required `username` and `displayName`. Every later step and the edit screen use `PATCH /me/profile`, which takes any of `displayName`, `username`, `description`, `occupation`, `communicationFormat`, `gender` with `genderDescription` for `other`, and `sharePhone`; only the fields sent change, and an empty body is a `400`. `PUT /me/profile/interests` takes `{ "interestIds": [...] }` and replaces the whole set, so the client sends what the user ticked rather than adding and removing one by one; a repeated id counts once, an empty list clears the set. Ids come from `GET /interests`; an unknown one is `422 REFERENCE_NOT_FOUND` and nothing changes. `PUT /me/profile/linked-accounts` takes `{ "linkedAccounts": [{ "network", "username" }] }` and replaces the whole set the same way; a `network` that appears twice is a `400`, an empty list is `422 CONTACT_REQUIRED`. `username` may be a nickname with or without `@` or a pasted profile link (`t.me/…`, `instagram.com/…`, `tiktok.com/@…`, `facebook.com/…` or `facebook.com/profile.php?id=…`, `wa.me/…`); the server keeps the bare handle. A username that does not fit its social network, or a link to a page that is not a profile (a post, a group, an invite), is `422 INVALID_SOCIAL_HANDLE` with `details` naming it. The rules live in `core/profiles/services/social-networks.ts`, so every entry point applies them.
 
 A profile that does not exist yet is a `404` on `GET` and `PATCH`, and on the interests and linked-accounts `PUT`: the client answers it by starting onboarding with `POST`. A second `POST` is `409 PROFILE_EXISTS`. A username another user already has, in any letter case, is `409 USERNAME_TAKEN`, on `POST` and on `PATCH`; a user may change the case of their own username.
 
@@ -434,7 +451,8 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `401 Unauthorized` | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `INVALID_REFRESH_TOKEN` | `UNAUTHENTICATED`: no access token, an invalid or expired one, one of an ended session, or a registration token outside `complete-registration`. `INVALID_CREDENTIALS`: sign-in with an invalid Google ID token or a Google account that is not registered. `INVALID_REFRESH_TOKEN`: the session expired or was ended, or the refresh token was already replaced; the app signs in again |
 | `404 Not Found` | `NOT_FOUND` | The resource does not exist, **or the caller may not access it**, or no route matches (including a wrong method on an existing path) |
 | `409 Conflict` | `CONFLICT`, or one code per business rule (see below) | The request conflicts with the current state, e.g. a duplicate category name, or deleting a category that is in use |
-| `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB |
+| `413 Content Too Large` | `PAYLOAD_TOO_LARGE` | The body is larger than 100 kB, or an uploaded picture larger than 10 MB |
+| `415 Unsupported Media Type` | `UNSUPPORTED_MEDIA_TYPE` | An upload's `Content-Type` is not one of the picture types it accepts |
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007), with `Retry-After` in seconds |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
@@ -458,6 +476,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
+| `INVALID_IMAGE` | `PUT /me/profile/photo`, `PUT /me/profile/cover`, `PUT /listings/{id}/photo` | The file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
 
 A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a value in the body that is wrong.

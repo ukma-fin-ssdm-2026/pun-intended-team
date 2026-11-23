@@ -2,7 +2,7 @@
 // AI Usage: bottom tab bar with the Figma notch for the active tab and its Smart Animate transition; reviewed by Daryna
 // Halytska.
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedReaction,
@@ -17,6 +17,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { BAR_HEIGHT, tabBarPath } from '@/components/ui/tab-bar-shape';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { shapeShadow } from '@/components/ui/shape-shadow';
 import { colors, shadows, tabBarShadow } from '@/styles/tokens';
 
 export type TabName = 'events' | 'map' | 'matches' | 'announcements' | 'profile';
@@ -37,20 +38,7 @@ const ICON_LIFT = 10;
 // Figma switches the TabBar variants with Smart Animate, 400 ms, ease in and out (CSS ease-in-out).
 const TRANSITION = { duration: 400, easing: Easing.bezier(0.42, 0, 0.58, 1) };
 
-// A shadow that follows the drawn shape: iOS shadows the opaque pixels of a transparent view, Android 12+ and the web
-// use a drop-shadow filter. Android 10 and 11 draw the bar without a shadow.
-const { offsetY, blur, color } = tabBarShadow;
-const shapeShadow: ViewStyle =
-  Platform.select<ViewStyle>({
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: offsetY },
-      shadowOpacity: 0.06,
-      shadowRadius: blur / 2,
-    },
-    android: { filter: [{ dropShadow: { offsetX: 0, offsetY, standardDeviation: blur / 2, color } }] },
-    default: { filter: `drop-shadow(0px ${offsetY}px ${blur}px ${color})` },
-  }) ?? {};
+const barShadow = shapeShadow(tabBarShadow);
 
 const centerOf = (index: number, width: number) => {
   'worklet';
@@ -161,7 +149,7 @@ export function TabBar({ active, onTabPress, bottomPadding = 0 }: Props) {
     >
       {width > 0 && (
         <>
-          <View className="absolute left-0 top-0" style={[shapeShadow, { pointerEvents: 'none' }]}>
+          <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
             <Svg width={width} height={height}>
               <Path
                 d={tabBarPath(width, notchCenter ?? centerOf(activeIndex, width), height)}

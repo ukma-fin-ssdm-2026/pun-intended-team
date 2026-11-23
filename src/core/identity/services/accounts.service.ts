@@ -18,8 +18,8 @@ export class AccountsService {
   }
 
   /** By account, as YYYY-MM-DD; accounts that are unknown or have none are left out. */
-  async getDatesOfBirth(accountIds: string[]): Promise<Map<string, string>> {
-    return this.accountsRepository.findDatesOfBirth(accountIds);
+  async getDatesOfBirth(accountIds: string[], tx?: Transaction): Promise<Map<string, string>> {
+    return this.accountsRepository.findDatesOfBirth(accountIds, tx);
   }
 
   /** The account's verified phone number; null without one, as with Google sign-in, or for an unknown account. */

@@ -7,12 +7,28 @@ const COMPANY_WEIGHT = 0.2;
 const PLANS_WEIGHT = 0.1;
 const SHARED_GROUP_CREDIT = 0.5;
 
-/** Whether two users may be paired at all: dating only with dating, and at least one day both can go. */
+/**
+ * Whether two users may be paired at all: dating only with dating, at least one day both can go, and each is whom the
+ * other wants to go with (matching.md, policy).
+ */
 export function canPair(a: PoolMember, b: PoolMember): boolean {
   const sessionsB = new Set(b.sessionIds);
   return (
-    (a.desiredCompany === 'dating') === (b.desiredCompany === 'dating') && a.sessionIds.some((id) => sessionsB.has(id))
+    (a.desiredCompany === 'dating') === (b.desiredCompany === 'dating') &&
+    a.sessionIds.some((id) => sessionsB.has(id)) &&
+    accepts(a, b) &&
+    accepts(b, a)
   );
+}
+
+/**
+ * Whether `other` is whom `member` wants to go with: of the preferred gender, where "any" accepts every gender, "other"
+ * and none included, and of an age within the range, whose upper bound may be open.
+ */
+export function accepts(member: PoolMember, other: PoolMember): boolean {
+  const genderFits = member.preferredGender === 'any' || member.preferredGender === other.gender;
+  const ageFits = other.age >= member.ageMin && (member.ageMax === null || other.age <= member.ageMax);
+  return genderFits && ageFits;
 }
 
 /** How well two users suit each other, 0–1, rounded to the 3 decimals a Match stores (matching.md, policy). */

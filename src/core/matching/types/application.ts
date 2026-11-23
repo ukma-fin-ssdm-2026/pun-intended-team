@@ -1,11 +1,21 @@
 // Written with the help of Claude
 import type { EventSession } from '../../catalog/types/event-session.ts';
-import type { CommunicationFormat } from '../../profiles/types/profile.ts';
+import type { CommunicationFormat, GenderPreference } from '../../profiles/types/profile.ts';
 
 /** What the user would do together after the event; none means only the event. */
 export const afterEventPlans = ['walk', 'coffee', 'dinner'] as const;
 
 export type AfterEventPlan = (typeof afterEventPlans)[number];
+
+/** The youngest age a user can ask for: everyone on Nearby is 18 or older (SAFE-001). */
+export const MIN_PREFERRED_AGE = 18;
+
+/** Whom the user wants to go with: a gender or anyone, and an age range; `ageMax` null means no upper bound. */
+export interface CompanyPreferences {
+  preferredGender: GenderPreference;
+  ageMin: number;
+  ageMax: number | null;
+}
 
 export type ApplicationStatus = 'in_pool' | 'paired' | 'paused' | 'removed' | 'withdrawn' | 'no_match' | 'cancelled';
 
@@ -16,7 +26,7 @@ export const ACTIVE_STATUSES: ApplicationStatus[] = ['in_pool', 'paired', 'pause
  * A user's request to be matched at one event, with their answers to the matching questions. `sessionIds` are the
  * days the user can go: one for a single-day event, any of those picked for a multi-day one (matching.md, rule 9).
  */
-export interface Application {
+export interface Application extends CompanyPreferences {
   id: string;
   userId: string;
   eventId: string;
@@ -27,7 +37,7 @@ export interface Application {
   createdAt: string;
 }
 
-export interface NewApplication {
+export interface NewApplication extends CompanyPreferences {
   eventId: string;
   /** The Kyiv days of a multi-day event the user can go on; a single-day event needs none. */
   dates?: string[];
@@ -37,7 +47,7 @@ export interface NewApplication {
 
 export type ApplicationRecord = Pick<
   Application,
-  'userId' | 'eventId' | 'sessionIds' | 'desiredCompany' | 'afterEventPlans'
+  'userId' | 'eventId' | 'sessionIds' | 'desiredCompany' | 'afterEventPlans' | keyof CompanyPreferences
 >;
 
 /** What the owner sees: the days with their cutoffs, and when matching next and last runs for them. */

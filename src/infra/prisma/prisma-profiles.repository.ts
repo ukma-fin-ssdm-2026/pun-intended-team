@@ -10,6 +10,7 @@ import {
   type NewProfile,
   type Profile,
   type ProfileChanges,
+  type ProfileImageSlot,
   type ProfileSummary,
 } from '../../core/profiles/types/profile.ts';
 import { toCommunicationFormat, toDesiredCompany } from './desired-company.ts';
@@ -39,7 +40,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
   async findSummaries(accountIds: string[]): Promise<ProfileSummary[]> {
     return this.prisma.profile.findMany({
       where: { accountId: { in: accountIds } },
-      select: { accountId: true, username: true, displayName: true },
+      select: { accountId: true, username: true, displayName: true, photoId: true },
     });
   }
 
@@ -79,10 +80,11 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
-  // An empty description or occupation is stored as null, as a new profile has it.
+  // An empty description or occupation is stored as null, as a new profile has it. A gender replaces the gender
+  // description with the one sent along, or none.
   async update(
     accountId: string,
-    { communicationFormat, description, occupation, ...changes }: ProfileChanges,
+    { communicationFormat, description, occupation, gender, genderDescription, ...changes }: ProfileChanges,
   ): Promise<Profile> {
     const row = await this.prisma.profile
       .update({
@@ -92,6 +94,7 @@ export class PrismaProfilesRepository implements ProfilesRepository {
           ...(description !== undefined && { description: description || null }),
           ...(occupation !== undefined && { occupation: occupation || null }),
           ...(communicationFormat && { communicationFormat: toDesiredCompany[communicationFormat] }),
+          ...(gender && { gender, genderDescription: genderDescription ?? null }),
         },
         include: withRelations,
       })
@@ -125,6 +128,29 @@ export class PrismaProfilesRepository implements ProfilesRepository {
     return this.toProfile(row);
   }
 
+  async acknowledgeSafetyNotice(accountId: string, dontShowAgain: boolean): Promise<Profile> {
+    const row = await this.prisma.profile.update({
+      where: { accountId },
+      data: { safetyNotice: dontShowAgain ? 'hidden' : 'acknowledged' },
+      include: withRelations,
+    });
+    return this.toProfile(row);
+  }
+
+  async setImage(
+    accountId: string,
+    slot: ProfileImageSlot,
+    imageId: string | null,
+    tx?: Transaction,
+  ): Promise<Profile> {
+    const row = await clientOf(this.prisma, tx).profile.update({
+      where: { accountId },
+      data: slot === 'photo' ? { photoId: imageId } : { coverId: imageId },
+      include: withRelations,
+    });
+    return this.toProfile(row);
+  }
+
   private toProfile(row: ProfileWithRelations): Profile {
     return {
       accountId: row.accountId,
@@ -133,12 +159,17 @@ export class PrismaProfilesRepository implements ProfilesRepository {
       description: row.description ?? '',
       occupation: row.occupation ?? '',
       communicationFormat: row.communicationFormat && toCommunicationFormat[row.communicationFormat],
+      gender: row.gender,
+      genderDescription: row.genderDescription,
       sharePhone: row.sharePhone,
       interestIds: row.profileInterests.map(({ interestId }) => interestId),
       linkedAccounts: row.linkedAccounts
         .filter((linked): linked is { app: SocialNetwork; username: Uint8Array } => isSocialNetwork(linked.app))
         .sort((a, b) => socialNetworks.indexOf(a.app) - socialNetworks.indexOf(b.app))
         .map(({ app, username }) => ({ network: app, username: this.cipher.decrypt(username) })),
+      photoId: row.photoId,
+      coverId: row.coverId,
+      safetyNotice: row.safetyNotice,
     };
   }
 }

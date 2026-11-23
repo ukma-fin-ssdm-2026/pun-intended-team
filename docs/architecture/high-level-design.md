@@ -35,6 +35,7 @@ Both server processes are built from **one codebase and one image**, started in 
 | catalog | Events, sessions, venues, categories, organization verification and publishing | FR-003, FR-006–FR-013, FR-029 |
 | matching | Applications, instant match, rounds, open mode, accept / decline, contact reveal | FR-016–FR-020, FR-031, FUNC-001, FUNC-002, SEC-001 |
 | notifications | Inbox, push delivery, verification-code dispatch | FR-011, FR-023, FR-024 |
+| images | Uploaded pictures: profile photos, covers and listing photos; checks, crops and stores them, serves them by id | FR-002, FR-021 |
 | moderation | Reports, cases, bans, listing removal, audit log | FR-025–FR-028, SAFE-003, SEC-004 |
 | listings | "Looking for company" posts | FR-021, FR-022 |
 | admin | Platform statistics | FR-030 |
@@ -43,18 +44,29 @@ Mechanism details: [matching](mechanisms/matching.md) · [notifications](mechani
 
 ### 2.2 Module Dependencies
 
-Modules sit in three tiers, defined by dependency direction rather than importance — **Workflows** (matching, moderation, listings, admin) → **Foundation** (profiles, catalog, identity) → **Platform** (notifications). A module may depend only on modules in a lower tier or, without cycles, in its own tier. When a lower module must trigger an upper one, it publishes a job instead of calling it.
+Modules sit in three tiers, defined by dependency direction rather than importance — **Workflows** (matching, moderation, listings, admin) → **Foundation** (profiles, catalog, identity) → **Platform** (notifications, images). A module may depend only on modules in a lower tier or, without cycles, in its own tier. When a lower module must trigger an upper one, it publishes a job instead of calling it.
 
 | Module | Depends on | Reacts to (job) |
 |---|---|---|
 | matching | profiles (interests, contacts, safety acknowledgment), catalog (sessions), identity (phone number for the contact reveal), moderation (exclusions), notifications | `event.changed`, `user.banned` |
 | moderation | listings (remove), identity (revoke on ban), profiles (find the reported user by username, names in cases), notifications | `audit.record` |
 | admin | `stats()` of every other module | — |
-| listings | catalog (event and category references), profiles (author's name) | — |
-| profiles | — | — |
+| listings | catalog (event and category references), profiles (author's name and photo), images (photos) | — |
+| profiles | images (photo and cover) | — |
 | catalog | — | — |
 | identity | notifications (`sendCode`) | — |
 | notifications | — | — |
+| images | — | — |
+
+### 2.3 Uploaded Pictures
+
+Pictures are stored in **PostgreSQL** (CMP-04), in the `images` table owned by the images module, not on the app host's disk or in an object store. CMP-02 stays stateless, the daily backups already cover them, and there is no second store to secure.
+
+- The client sends the original picture and the area picked in the crop preview; CMP-02 checks that it is a JPEG, PNG or WebP (up to 10 MB and 60 megapixels), turns it by its EXIF orientation, drops its metadata and stores it as WebP.
+- A profile photo is stored cut to a square (up to 512 × 512), a listing photo cut to 2:1 (up to 1200 × 600). A cover is kept whole (up to 2560 px) with the picked area beside it, since it is shown at several shapes: 390 × 200 on the profile, wider on the proposal card and the desktop profile.
+- Pictures are served only through `GET /images/{id}` to signed-in users, never as public links (TM-14). A new upload gets a new id, so a picture never changes and clients cache it for good.
+
+If the pictures make the database or its backups too large, their content moves to an S3-compatible object store behind the same repository, still served through the API.
 
 ## 3. Interfaces
 
@@ -70,6 +82,7 @@ REST over HTTPS (TLS 1.2+), described by an **OpenAPI** spec generated from the 
 | `/events/{id}/applications`, `/me/applications`, `/applications` | user | FR-016, FR-031 |
 | `/matches` | user, participant only | FR-017–FR-019 |
 | `/listings` | user | FR-021, FR-022 |
+| `/images` | user | pictures by id (§2.3) |
 | `/reports` | user | FR-025 |
 | `/notifications` | user | inbox, polled on app open and every 30–60 s while open |
 | `/admin/*` | administrator | FR-003 (organization verification), FR-026–FR-030 |
@@ -92,7 +105,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | Job | Producer | Consumer | Payload | When |
 |---|---|---|---|---|
 | `matching.round` | matching | matching | `sessionId` | delayed, at each round offset |
-| `matching.cutoff` | matching | matching | `sessionId` | delayed, at the open-mode cutoff |
+| `matching.cutoff` | matching | matching | `sessionId` | delayed, at the open-mode cutoff — ends the applications left in the pool with no match |
 | `matching.expire` | matching | matching | `matchId` | delayed, at `valid_until` — expires the proposal, applies strikes |
 | `notifications.deliver` | notifications | notifications | `notificationId` | immediate or delayed (reminders, "respond soon") |
 | `event.changed` | CMP-03, catalog | matching | `eventId`, `change` (cancelled / republished / rescheduled) | immediate — cancels or moves the coming sessions with their applications, voids the pending matches they affect, notifies applicants ([matching](mechanisms/matching.md), rule 10) |
@@ -122,6 +135,7 @@ Each process connects with its own database role; the import role can write only
 | `PushProvider.send(batch)` — up to 100 messages | notifications | Expo Push |
 | `MessagingProvider.sendCode(contact, code)` | notifications | Telegram Gateway API → SMS fallback chain |
 | `GoogleIdTokens.verify(idToken)` → the Google subject id, or none for an invalid token | identity | Google |
+| `ImageProcessor.measure(content)`, `encode(content, options)` — reads, crops and re-encodes a picture | images | sharp (libvips), in process |
 
 ## 4. How Components Communicate
 
