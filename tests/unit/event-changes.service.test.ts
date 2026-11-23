@@ -408,6 +408,22 @@ const cases: Case[] = [
     },
   },
   {
+    name: 'a mutual match whose shared day is over, on an event cancelled since: left as it is with its applications',
+    change: 'cancelled',
+    world: {
+      event: anEvent({ ...RUN, status: 'cancelled' }),
+      sessions: [sessionAt(RUN.startsAt, 's14'), sessionAt(RUN_ON_27, 's27')],
+      applications: aPair(['s14', 's27'], ['s14']),
+      matches: [aMatchOfPair('mutual', 'mutual')],
+    },
+    after: {
+      sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
+      applications: ['a paired s14', 'b paired s14'],
+      matches: ['mutual mutual'],
+      inbox: ['user a cancelled'],
+    },
+  },
+  {
     name: 'a mutual match whose shared day is over and whose later shared day is cancelled: cancelled with its applications',
     change: 'rescheduled',
     world: {
