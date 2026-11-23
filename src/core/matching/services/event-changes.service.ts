@@ -10,7 +10,7 @@ import { NotificationsService } from '../../notifications/services/notifications
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
 import { ACTIVE_STATUSES, type Application } from '../types/application.ts';
-import { type MatchRecord, PENDING_STATUSES } from '../types/match.ts';
+import { type MatchCancelReason, type MatchRecord, PENDING_STATUSES } from '../types/match.ts';
 import { MatchingService } from './matching.service.ts';
 
 /** A day of an application that changed: `to` is its new start, or null when the day is no longer on. */
@@ -121,17 +121,25 @@ export class EventChangesService implements OnModuleInit {
       tx,
     );
     // A proposal on a shared day that moved has its time limit from the old time: the two return to the pool for
-    // the rounds of the new one (matching.md, rule 4).
+    // the rounds of the new one (matching.md, rule 4). One left without a shared day ahead could only become a match
+    // with no day to go: the two return to the pool for the days they keep.
     const voided = new Set<string>();
     for (const application of applications.filter(({ id, status }) => status === 'paired' && !cancelled.has(id))) {
       const match = await this.matchesRepository.findByApplication(application.id, PENDING_STATUSES, tx);
       if (!match || voided.has(match.id)) {
         continue;
       }
-      const daysOfB = new Set(match.applicationB.sessionIds);
-      if (match.applicationA.sessionIds.some((id) => daysOfB.has(id) && moved.has(id))) {
+      const shared = sharedDays(match.applicationA.sessionIds, match.applicationB.sessionIds);
+      const sharedLeft = sharedDays(daysLeft(match.applicationA), daysLeft(match.applicationB));
+      let reason: MatchCancelReason | undefined;
+      if (shared.some((id) => moved.has(id))) {
+        reason = 'event_changed';
+      } else if (shared.some((id) => gone.has(id)) && !sharedLeft.some(isAhead)) {
+        reason = 'event_cancelled';
+      }
+      if (reason) {
         voided.add(match.id);
-        await this.matchesRepository.cancelAndReturnBoth(match, 'event_changed', tx);
+        await this.matchesRepository.cancelAndReturnBoth(match, reason, tx);
       }
     }
     for (const { sessionId, intoSessionId } of changes.moved) {

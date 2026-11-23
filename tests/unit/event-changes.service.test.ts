@@ -232,6 +232,7 @@ const CONCERT_TODAY = { startsAt: '2026-10-15T19:00:00+03:00', endsAt: '2026-10-
 const CONCERT_EARLIER_TODAY = { startsAt: '2026-10-15T11:00:00+03:00', endsAt: '2026-10-15T13:00:00+03:00' };
 /** A show at 19:00 every day from 14 to 30 October; Kyiv is on +02:00 from the 25th. */
 const RUN = { startsAt: '2026-10-14T19:00:00+03:00', endsAt: '2026-10-30T21:00:00+02:00' };
+const RUN_ON_16 = '2026-10-16T19:00:00+03:00';
 const RUN_ON_18 = '2026-10-18T19:00:00+03:00';
 const RUN_ON_27 = '2026-10-27T19:00:00+02:00';
 const OPENING = '2026-10-14T17:00:00+03:00';
@@ -595,6 +596,38 @@ const cases: Case[] = [
         `user event_changed:rescheduled:later:${RUN_ON_27_GONE}`,
         `other event_changed:rescheduled:partner:${RUN_ON_27_GONE}`,
       ],
+    },
+  },
+  {
+    name: 'a pending proposal whose only shared day is cancelled: cancelled, and both return to the pool with the days they keep',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: [sessionAt(RUN_ON_16, 's16'), ...RUN_SESSIONS()],
+      applications: aPair(['s18', 's27'], ['s16', 's27']),
+      matches: [aMatchOfPair('proposed', 'accepted_a')],
+    },
+    after: {
+      sessions: [`s16 scheduled ${iso(RUN_ON_16)}`, ...RUN_SESSIONS_AFTER_ENDING_ON_20],
+      applications: ['a in_pool s18', 'b in_pool s16'],
+      matches: ['proposed cancelled event_cancelled'],
+      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
+    },
+  },
+  {
+    name: 'a pending proposal that keeps a shared day ahead: kept, though another shared day is cancelled',
+    change: 'rescheduled',
+    world: {
+      event: anEvent(RUN_ENDING_ON_20),
+      sessions: RUN_SESSIONS(),
+      applications: aPair(['s18', 's27'], ['s18', 's27']),
+      matches: [aMatchOfPair('proposed', 'proposed')],
+    },
+    after: {
+      sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
+      applications: ['a paired s18', 'b paired s18'],
+      matches: ['proposed proposed'],
+      inbox: bothTold('rescheduled', RUN_ON_27_GONE),
     },
   },
   {
