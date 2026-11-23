@@ -22,6 +22,7 @@ import { NOW, useFixedClock } from './fixtures/clock.ts';
 import { sessionAt, sessionStates, sessionsServiceOver, type StoredSession } from './fixtures/event-sessions.ts';
 
 const TX = { transaction: true } as unknown as Transaction;
+const JOB_ID = 'job-1';
 const PENDING = ['proposed', 'accepted_a', 'accepted_b'];
 
 interface StoredMatch {
@@ -210,7 +211,19 @@ function makeService(world: World) {
   return { service, jobs };
 }
 
-/** Everything that is stored, as short lines. */
+interface ChangedDay {
+  from: string;
+  to: string | null;
+}
+
+const daysOf = (days: ChangedDay[]) => days.map(({ from, to }) => `${from}>${to ?? 'none'}`).join(',');
+
+/** The job of `change` as the queue hands it over; each change comes with a job of its own. */
+function aJob(change: Case['change'], id = JOB_ID) {
+  return { id, name: 'event.changed', payload: { eventId: EVENT_ID, change } };
+}
+
+/** Everything that is stored, as short lines; the inbox as who was told about which application, and what changed. */
 function stateOf(world: World) {
   return {
     sessions: sessionStates(world.sessions),
@@ -218,7 +231,10 @@ function stateOf(world: World) {
     matches: world.matches.map(
       ({ id, status, cancelReason }) => `${id} ${status}${cancelReason ? ` ${cancelReason}` : ''}`,
     ),
-    inbox: world.inbox.map(({ accountId, dedupeKey }) => `${accountId === ACCOUNT_ID ? 'user' : 'other'} ${dedupeKey}`),
+    inbox: world.inbox.map(({ accountId, payload }) => {
+      const days = payload.change === 'cancelled' ? '' : ` ${daysOf(payload.sessions as ChangedDay[])}`;
+      return `${accountId === ACCOUNT_ID ? 'user' : 'other'} ${payload.applicationId} ${payload.change}${days}`;
+    }),
   };
 }
 
@@ -266,7 +282,7 @@ function aMatchOfPair(id: string, status: string, cancelReason?: string): Stored
 
 /** The inbox once both of `aPair` were told: `change` is `cancelled`, or `rescheduled` with its days. */
 function bothTold(change: 'cancelled' | 'rescheduled', days?: string): string[] {
-  const key = (applicationId: string) => `event_changed:${change}:${applicationId}${days ? `:${days}` : ''}`;
+  const key = (applicationId: string) => `${applicationId} ${change}${days ? ` ${days}` : ''}`;
   return [`user ${key('a')}`, `other ${key('b')}`];
 }
 
@@ -307,7 +323,7 @@ const cases: Case[] = [
         'mutual cancelled event_cancelled',
         'declined declined',
       ],
-      inbox: ['user event_changed:cancelled:waiting', 'other event_changed:cancelled:paired'],
+      inbox: ['user waiting cancelled', 'other paired cancelled'],
     },
   },
   {
@@ -388,7 +404,7 @@ const cases: Case[] = [
       sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
       applications: ['a paired s14', 'b paired s14'],
       matches: ['mutual mutual'],
-      inbox: [`user event_changed:rescheduled:a:${RUN_ON_27_GONE}`],
+      inbox: [`user a rescheduled ${RUN_ON_27_GONE}`],
     },
   },
   {
@@ -481,7 +497,7 @@ const cases: Case[] = [
       sessions: CONCERT_SESSIONS_AFTER_MOVING_TO_20,
       applications: ['waiting paused new1'],
       matches: [],
-      inbox: [`user event_changed:rescheduled:waiting:${CONCERT_MOVED_TO_20}`],
+      inbox: [`user waiting rescheduled ${CONCERT_MOVED_TO_20}`],
     },
   },
   {
@@ -519,7 +535,7 @@ const cases: Case[] = [
       ],
       applications: ['a paired past', 'b paired past+new1'],
       matches: ['proposed proposed'],
-      inbox: [`other event_changed:rescheduled:b:${iso(RUN_ON_18)}>${iso('2026-10-18T20:00:00+03:00')}`],
+      inbox: [`other b rescheduled ${iso(RUN_ON_18)}>${iso('2026-10-18T20:00:00+03:00')}`],
     },
   },
   {
@@ -535,7 +551,7 @@ const cases: Case[] = [
       sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`, `s2 scheduled ${iso(CONCERT_AT_20.startsAt)}`],
       applications: ['early in_pool s2', 'late in_pool s2'],
       matches: [],
-      inbox: [`user event_changed:rescheduled:early:${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`],
+      inbox: [`user early rescheduled ${iso(CONCERT.startsAt)}>${iso(CONCERT_AT_20.startsAt)}`],
     },
   },
   {
@@ -551,7 +567,7 @@ const cases: Case[] = [
       sessions: [`s1 cancelled ${iso(CONCERT.startsAt)}`],
       applications: ['waiting cancelled s1'],
       matches: ['proposed cancelled event_cancelled'],
-      inbox: [`user event_changed:rescheduled:waiting:${iso(CONCERT.startsAt)}>none`],
+      inbox: [`user waiting rescheduled ${iso(CONCERT.startsAt)}>none`],
     },
   },
   {
@@ -570,10 +586,7 @@ const cases: Case[] = [
       sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['both in_pool s18', 'later cancelled s27'],
       matches: [],
-      inbox: [
-        `user event_changed:rescheduled:both:${RUN_ON_27_GONE}`,
-        `other event_changed:rescheduled:later:${RUN_ON_27_GONE}`,
-      ],
+      inbox: [`user both rescheduled ${RUN_ON_27_GONE}`, `other later rescheduled ${RUN_ON_27_GONE}`],
     },
   },
   {
@@ -592,10 +605,7 @@ const cases: Case[] = [
       sessions: RUN_SESSIONS_AFTER_ENDING_ON_20,
       applications: ['later cancelled s27', 'partner in_pool s18'],
       matches: ['proposed cancelled event_cancelled'],
-      inbox: [
-        `user event_changed:rescheduled:later:${RUN_ON_27_GONE}`,
-        `other event_changed:rescheduled:partner:${RUN_ON_27_GONE}`,
-      ],
+      inbox: [`user later rescheduled ${RUN_ON_27_GONE}`, `other partner rescheduled ${RUN_ON_27_GONE}`],
     },
   },
   {
@@ -643,7 +653,7 @@ const cases: Case[] = [
       sessions: [`s14 scheduled ${iso(RUN.startsAt)}`, `s27 cancelled ${iso(RUN_ON_27)}`],
       applications: ['both cancelled s14+s27'],
       matches: [],
-      inbox: [`user event_changed:rescheduled:both:${RUN_ON_27_GONE}`],
+      inbox: [`user both rescheduled ${RUN_ON_27_GONE}`],
     },
   },
   {
@@ -711,11 +721,11 @@ describe('EventChangesService.handle', () => {
       const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(initial) };
       const { service } = makeService(world);
 
-      await service.handle({ eventId: EVENT_ID, change }, NOW);
+      await service.handle(aJob(change), NOW);
       assert.deepEqual(stateOf(world), after);
       assert.deepEqual(world.roundsPlanned, rounds);
 
-      await service.handle({ eventId: EVENT_ID, change }, NOW);
+      await service.handle(aJob(change), NOW);
       assert.deepEqual(stateOf(world), after);
       assert.deepEqual(world.roundsPlanned, rounds, 'a second run plans no rounds');
     });
@@ -725,7 +735,7 @@ describe('EventChangesService.handle', () => {
     const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(cases[0]!.world) };
     const { service } = makeService(world);
 
-    await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
+    await service.handle(aJob('rescheduled'), NOW);
 
     assert.deepEqual(stateOf(world), cases[0]!.after);
   });
@@ -738,7 +748,7 @@ describe('EventChangesService.handle', () => {
     };
     const { service } = makeService(world);
 
-    await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
+    await service.handle(aJob('rescheduled'), NOW);
 
     assert.deepEqual(
       world.inbox.map(({ accountId, type, payload }) => ({ accountId, type, payload })),
@@ -775,7 +785,7 @@ describe('EventChangesService.handle', () => {
       const world: World = { inbox: [], roundsPlanned: [], ...structuredClone(caseNamed(start).world) };
       const { service } = makeService(world);
 
-      await service.handle({ eventId: EVENT_ID, change: 'cancelled' }, NOW);
+      await service.handle(aJob('cancelled'), NOW);
 
       assert.deepEqual(
         world.inbox.map(({ accountId, payload }) => [accountId, payload.applicationId, payload.match]),
@@ -798,10 +808,10 @@ describe('EventChangesService.handle', () => {
       matches: [],
     };
     const { service } = makeService(world);
-    await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
+    await service.handle(aJob('rescheduled'), NOW);
 
     world.event = anEvent(CONCERT);
-    await service.handle({ eventId: EVENT_ID, change: 'rescheduled' }, NOW);
+    await service.handle(aJob('rescheduled', 'job-2'), NOW);
 
     assert.deepEqual(stateOf(world).sessions, [
       `s1 scheduled ${iso(CONCERT.startsAt)}`,
@@ -810,6 +820,32 @@ describe('EventChangesService.handle', () => {
     assert.deepEqual(stateOf(world).applications, ['waiting in_pool s1']);
     assert.deepEqual(world.roundsPlanned, ['new1'], "s1's round jobs are still queued, so none are planned for it");
     assert.equal(world.inbox.length, 2);
+  });
+
+  test('moved there, back and there again: each move is told, though the third is the same as the first', async () => {
+    const world: World = {
+      inbox: [],
+      roundsPlanned: [],
+      event: anEvent(CONCERT_AT_20),
+      sessions: [sessionAt(CONCERT.startsAt, 's1')],
+      applications: [anApplication('waiting', ['s1'])],
+      matches: [],
+    };
+    const { service } = makeService(world);
+
+    for (const [jobId, times] of [
+      ['job-1', CONCERT_AT_20],
+      ['job-2', CONCERT],
+      ['job-3', CONCERT_AT_20],
+    ] as const) {
+      world.event = anEvent(times);
+      await service.handle(aJob('rescheduled', jobId), NOW);
+    }
+
+    assert.deepEqual(
+      world.inbox.map(({ dedupeKey }) => dedupeKey),
+      ['event_changed:job-1:waiting', 'event_changed:job-2:waiting', 'event_changed:job-3:waiting'],
+    );
   });
 });
 

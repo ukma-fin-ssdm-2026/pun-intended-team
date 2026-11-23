@@ -6,6 +6,7 @@ import { TransactionRunner } from '../../common/transaction-runner.ts';
 import type { Transaction } from '../../common/transaction.ts';
 import { JobQueue } from '../../jobs/adapters/job-queue.ts';
 import { EVENT_CHANGED_JOB, type EventChangedPayload } from '../../jobs/types/event-changed.ts';
+import type { Job } from '../../jobs/types/job.ts';
 import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { ApplicationsRepository } from '../repositories/applications.repository.ts';
 import { MatchesRepository } from '../repositories/matches.repository.ts';
@@ -40,25 +41,32 @@ export class EventChangesService implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
-    this.jobs.register<EventChangedPayload>(EVENT_CHANGED_JOB, ({ payload }) => this.handle(payload));
+    this.jobs.register<EventChangedPayload>(EVENT_CHANGED_JOB, (job) => this.handle(job));
   }
 
   /**
    * Safe to run twice, or late: it reads the event as it is now, whatever `change` the job names, and a second run
-   * finds the sessions already in line and does nothing.
+   * finds the sessions already in line and does nothing. Each applicant is told once per job: a retry of it tells
+   * no one again, and every later change comes with a job of its own.
    */
-  async handle({ eventId }: EventChangedPayload, now = new Date()): Promise<void> {
+  async handle({ id: jobId, payload: { eventId } }: Job<EventChangedPayload>, now = new Date()): Promise<void> {
     await this.transactions.run(async (tx) => {
       // Under the event's lock, so no round or answer reads the pool while it changes (matching.md, rule 7).
       await this.matchesRepository.lockEvent(eventId, tx);
       const changes = await this.eventSessionsService.reconcile(eventId, tx, now);
       if (changes.cancelled.length > 0 || changes.moved.length > 0) {
-        await this.follow(eventId, changes, now, tx);
+        await this.follow(eventId, jobId, changes, now, tx);
       }
     });
   }
 
-  private async follow(eventId: string, changes: SessionChanges, now: Date, tx: Transaction): Promise<void> {
+  private async follow(
+    eventId: string,
+    jobId: string,
+    changes: SessionChanges,
+    now: Date,
+    tx: Transaction,
+  ): Promise<void> {
     const gone = new Map(changes.cancelled.map(({ sessionId, startsAt }) => [sessionId, startsAt]));
     const moved = new Map(changes.moved.map((move) => [move.sessionId, move]));
     const applications = await this.applicationsRepository.findBySessions(
@@ -165,10 +173,6 @@ export class EventChangesService implements OnModuleInit {
         return move ? [{ from: move.from, to: move.to }] : [];
       });
       days.sort((a, b) => a.from.localeCompare(b.from));
-      const dedupeKey =
-        change === 'cancelled'
-          ? `event_changed:cancelled:${application.id}`
-          : `event_changed:rescheduled:${application.id}:${days.map(({ from, to }) => `${from}>${to ?? 'none'}`).join(',')}`;
       const match = [...mutual.values()].find(({ applicationAId, applicationBId }) =>
         [applicationAId, applicationBId].includes(application.id),
       );
@@ -182,7 +186,7 @@ export class EventChangesService implements OnModuleInit {
           sessions: days,
           ...(match && { match: { id: match.id, cancelled: ended.has(match.id) } }),
         },
-        dedupeKey,
+        `event_changed:${jobId}:${application.id}`,
         tx,
       );
     }
