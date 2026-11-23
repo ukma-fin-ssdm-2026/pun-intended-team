@@ -51,6 +51,8 @@ function anImportedEvent(overrides: Partial<ImportedEvent> = {}): ImportedEvent 
     endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
+    priceMin: 300,
+    priceMax: 700,
     ...overrides,
   };
 }
@@ -71,6 +73,8 @@ function theSavedEvent(overrides: Partial<ImportedEventRow> = {}): ImportedEvent
     endTimeKnown: true,
     imageUrl: 'https://images.example/jazz.jpg',
     sourceUrl: 'https://tickets.example/jazz-evening/',
+    priceMin: 300,
+    priceMax: 700,
     status: 'published',
     ...overrides,
   };
@@ -144,6 +148,8 @@ describe('EventImportService.importFrom', () => {
       endTimeKnown: true,
       imageUrl: 'https://images.example/jazz.jpg',
       sourceUrl: 'https://tickets.example/jazz-evening/',
+      priceMin: 300,
+      priceMax: 700,
       provider: PROVIDER_ID,
       externalId: 'ext-1',
     });
@@ -211,6 +217,27 @@ describe('EventImportService.importFrom', () => {
     assert.equal(changes?.title, 'Jazz evening, new date');
     assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
   });
+
+  // ADR-006, decision 12: saved at 300–700; a price change alone is an update like any other.
+  const priceChanges = [
+    { price: { priceMin: 350, priceMax: 700 }, title: 'a new lowest price' },
+    { price: { priceMin: 300, priceMax: null }, title: 'one price instead of a range' },
+    { price: { priceMin: 0, priceMax: null }, title: 'a free event' },
+    { price: { priceMin: null, priceMax: null }, title: 'a price the provider no longer gives' },
+  ];
+  for (const { price, title } of priceChanges) {
+    test(`updates an event whose price the provider changed to ${title}`, async () => {
+      const { run, repository } = makeService([{}], [{ event: anImportedEvent(price) }]);
+      repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent()));
+
+      const report = await run();
+
+      const [id, changes] = repository.updateEvent.mock.calls[0]?.arguments ?? [];
+      assert.equal(id, theSavedEvent().id);
+      assert.deepEqual({ priceMin: changes?.priceMin, priceMax: changes?.priceMax }, price);
+      assert.deepEqual([report.created, report.updated, report.unchanged], [0, 1, 0]);
+    });
+  }
 
   // Saved with a known time; the provider now gives none, and the default happens to be the saved time.
   for (const flag of ['startTimeKnown', 'endTimeKnown'] as const) {

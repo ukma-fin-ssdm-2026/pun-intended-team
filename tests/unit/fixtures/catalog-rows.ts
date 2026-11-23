@@ -38,6 +38,8 @@ export function anEventRow(overrides: Partial<EventRow> = {}): EventRow {
     startTimeKnown: true,
     endsAt: new Date('2026-11-14T18:30:00Z'),
     endTimeKnown: true,
+    priceMin: null,
+    priceMax: null,
     imageUrl: null,
     sourceUrl: null,
     photoId: null,

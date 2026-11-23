@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { PriceBadge } from '@/components/ui/overlay-badge';
 import { Snackbar, useSnackbar, type SnackbarContent } from '@/components/ui/snackbar';
 import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay, pickableSessions } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
@@ -26,6 +27,7 @@ import { useApplicationMatch } from '@/hooks/use-matches';
 import { useEvent } from '@/hooks/use-event';
 import { useProfile } from '@/hooks/use-profile';
 import { plural } from '@/plural';
+import { priceLabel } from '@/price';
 import { openSessions } from '@/state/applications';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent } from '@/mocks/events';
@@ -258,6 +260,7 @@ export default function EventScreen() {
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
   // Mock and organization events have no provider page.
   const sourceUrl = liveEvent?.sourceUrl;
+  const price = priceLabel(event.priceMin, event.priceMax);
   const cut = preview(event.description);
   const short = expanded ? undefined : cut;
   const actionsTop = Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR);
@@ -313,6 +316,9 @@ export default function EventScreen() {
           <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
           <TopShade />
         </BlurTargetView>
+        {/* "1.3 Ціна", 16 px above the sheet, which scrolls over it. As on the card: no badge while the price is
+            unknown. */}
+        {price ? <PriceBadge price={price} className="absolute bottom-11 right-5" /> : null}
       </View>
 
       {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
