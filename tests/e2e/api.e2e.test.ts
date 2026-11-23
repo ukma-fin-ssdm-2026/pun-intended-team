@@ -2129,6 +2129,11 @@ describe('Applications', () => {
   const answer = (token: string, matchId: string, verb: 'accept' | 'decline') =>
     call('POST', `/api/v1/matches/${matchId}/${verb}`, { token });
 
+  async function acknowledgeSafetyNotice(token: string): Promise<void> {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+
   // FR-019, SEC-001, UC-001 steps 8–11
   test('shows a proposal without contacts, and the contacts once both users accept', async () => {
     const { waiting, newcomer, waited, match } = await aProposal();
@@ -2159,6 +2164,7 @@ describe('Applications', () => {
 
     const mutual = await answer(newcomer.token, match.id, 'accept');
     assert.equal(mutual.body.status, 'mutual');
+    await acknowledgeSafetyNotice(waiting.token);
     const contacts = await call('GET', `/api/v1/matches/${match.id}/contacts`, { token: waiting.token });
     assert.equal(contacts.status, 200, JSON.stringify(contacts.body));
     assert.deepEqual(contacts.body, {
@@ -2172,6 +2178,22 @@ describe('Applications', () => {
       409,
       'CONFLICT',
     );
+  });
+
+  // SAFE-002, FR-032, TC-39
+  test('holds the contacts of a mutual match back until the caller acknowledges the safety notice', async () => {
+    const { waiting, newcomer, match } = await aProposal();
+    await answer(waiting.token, match.id, 'accept');
+    assert.equal((await answer(newcomer.token, match.id, 'accept')).body.status, 'mutual');
+    const contactsOf = (token: string) => call('GET', `/api/v1/matches/${match.id}/contacts`, { token });
+
+    assertRejected(await contactsOf(waiting.token), 422, 'SAFETY_NOTICE_REQUIRED');
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
+
+    await acknowledgeSafetyNotice(waiting.token);
+    assert.equal((await contactsOf(waiting.token)).status, 200);
+    // Each user acknowledges for themselves.
+    assertRejected(await contactsOf(newcomer.token), 422, 'SAFETY_NOTICE_REQUIRED');
   });
 
   // UC-001 A3, matching.md rule 5, FR-020
@@ -2208,6 +2230,144 @@ describe('Applications', () => {
       'in_pool',
     );
     assert.equal((await call('GET', `/api/v1/matches/${match.id}`, { token: waiting.token })).body.status, 'cancelled');
+  });
+
+  /** A long event that started an hour ago and ends in 3 hours: past its last round, its cutoff an hour away. */
+  async function anEventUnderWay(): Promise<string> {
+    const hour = 60 * 60 * 1000;
+    return newEventAt(new Date(Date.now() - hour).toISOString(), new Date(Date.now() + 3 * hour).toISOString());
+  }
+
+  /** The application's status once it is no longer `from`, or `from` after 20 seconds. */
+  async function statusAfter(token: string, id: string, from: string): Promise<string> {
+    const deadline = Date.now() + 20_000;
+    let status = from;
+    while (status === from && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      status = (await call('GET', `/api/v1/applications/${id}`, { token })).body.status;
+    }
+    return status;
+  }
+
+  // matching.md, rule 3
+  test('proposes the best partner at once to an application after the last round, however low the score', async () => {
+    const eventId = await anEventUnderWay();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    const waiting = await apply(first.token, eventId, { desiredCompany: 'friends', afterEventPlans: [] });
+    assert.equal(waiting.body.status, 'in_pool');
+    assert.equal(waiting.body.nextRoundAt, null);
+
+    const latecomer = await apply(second.token, eventId);
+
+    assert.equal(latecomer.status, 201, JSON.stringify(latecomer.body));
+    assert.equal(latecomer.body.status, 'paired');
+    const { rows } = await withDatabase((client) =>
+      client.query(`SELECT source, score, valid_until FROM matches WHERE application_a_id = $1`, [latecomer.body.id]),
+    );
+    assert.equal(rows.length, 1);
+    assert.deepEqual([rows[0].source, rows[0].score], ['open', '0.700']);
+    assert.equal(rows[0].valid_until.toISOString(), latecomer.body.cutoffAt);
+  });
+
+  test('leaves an application after the last round waiting when nobody can be paired with it', async () => {
+    const eventId = await anEventUnderWay();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    await apply(first.token, eventId, { ...answers, desiredCompany: 'dating' });
+
+    const latecomer = await apply(second.token, eventId);
+
+    assert.equal(latecomer.body.status, 'in_pool');
+    assert.equal(latecomer.body.nextRoundAt, null);
+  });
+
+  // FUNC-002, matching.md rule 7
+  test('never proposes one waiting user to two applications sent at once in open mode', async () => {
+    const eventId = await anEventUnderWay();
+    const waiting = await newCompleteProfile();
+    const first = await newCompleteProfile();
+    const second = await newCompleteProfile();
+    const waited = await apply(waiting.token, eventId);
+
+    const results = await Promise.all([apply(first.token, eventId), apply(second.token, eventId)]);
+
+    const ids = [waited.body.id, ...results.map((res) => res.body.id)];
+    const { rows } = await withDatabase((client) =>
+      client.query(
+        `SELECT application_a_id, application_b_id FROM matches
+          WHERE application_a_id = ANY($1) OR application_b_id = ANY($1)`,
+        [ids],
+      ),
+    );
+    // The first of the two takes the waiting user; the second then finds the first already paired.
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].application_b_id, waited.body.id);
+  });
+
+  // matching.md, rules 3 and 5
+  test('proposes a declined user again in open mode', async () => {
+    const eventId = await anEventUnderWay();
+    const [first, second, third] = [await newCompleteProfile(), await newCompleteProfile(), await newCompleteProfile()];
+    await apply(first.token, eventId);
+    assert.equal((await apply(second.token, eventId)).body.status, 'paired');
+    const [match] = (await call('GET', '/api/v1/me/matches', { token: first.token })).body;
+    const lonely = await apply(third.token, eventId, { desiredCompany: 'friends', afterEventPlans: [] });
+    assert.equal(lonely.body.status, 'in_pool');
+
+    await answer(second.token, match.id, 'decline');
+
+    // The two are kept apart, and one of them now pairs with the third, who has waited alone.
+    const status = (await call('GET', `/api/v1/applications/${lonely.body.id}`, { token: third.token })).body.status;
+    assert.equal(status, 'paired');
+  });
+
+  // FR-018
+  test('ends an application still waiting at the cutoff with no match, until the user dismisses it', async () => {
+    const eventId = await anEventUnderWay();
+    const { token } = await newCompleteProfile();
+    const applied = await apply(token, eventId);
+    assert.equal(applied.body.status, 'in_pool');
+    const other = await newCompleteProfile();
+    const inPool = await apply(other.token, soonEvent);
+
+    await withDatabase(async (client) => {
+      // The event now ends within 2 hours, so its cutoff has passed.
+      await client.query(`UPDATE events SET ends_at = now() + interval '1 hour' WHERE id = $1`, [eventId]);
+      await client.query(
+        `UPDATE pgboss.job SET start_after = now()
+          WHERE name = 'matching.cutoff' AND data->>'sessionId' IN
+            (SELECT session_id::text FROM application_sessions WHERE application_id = $1)`,
+        [applied.body.id],
+      );
+    });
+
+    assert.equal(await statusAfter(token, applied.body.id, 'in_pool'), 'no_match');
+    const inbox = await call('GET', '/api/v1/me/notifications', { token });
+    assert.deepEqual(
+      inbox.body.items.map(({ type, payload }: { type: string; payload: object }) => [type, payload]),
+      [['no_match_found', { applicationId: applied.body.id, eventId }]],
+    );
+    const listed = await call('GET', '/api/v1/me/applications', { token });
+    assert.deepEqual(
+      listed.body.map(({ id, status }: { id: string; status: string }) => [id, status]),
+      [[applied.body.id, 'no_match']],
+    );
+
+    const dismissed = await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token });
+    assert.equal(dismissed.status, 200, JSON.stringify(dismissed.body));
+    assert.deepEqual((await call('GET', '/api/v1/me/applications', { token })).body, []);
+    assert.equal((await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token })).status, 200);
+    assertRejected(
+      await call('POST', `/api/v1/applications/${inPool.body.id}/dismiss`, { token: other.token }),
+      409,
+      'CONFLICT',
+    );
+    assertRejected(
+      await call('POST', `/api/v1/applications/${applied.body.id}/dismiss`, { token: other.token }),
+      404,
+      'NOT_FOUND',
+    );
   });
 
   // SEC-001
@@ -3548,6 +3708,40 @@ describe('PUT /api/v1/me/profile/linked-accounts', () => {
     const res = await call('PUT', '/api/v1/me/profile/linked-accounts', {
       body: { linkedAccounts: [{ network: 'telegram', username: 'guest_k' }] },
     });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
+// FR-032
+describe('POST /api/v1/me/profile/safety-notice', () => {
+  const acknowledge = (token: string, dontShowAgain: boolean) =>
+    call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain } });
+
+  test('moves from not_acknowledged to acknowledged, or to hidden with dontShowAgain, and back', async () => {
+    const { token } = await newProfile();
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'not_acknowledged');
+
+    const acknowledged = await acknowledge(token, false);
+    assert.equal(acknowledged.status, 200, JSON.stringify(acknowledged.body));
+    assert.equal(acknowledged.body.safetyNotice, 'acknowledged');
+
+    assert.equal((await acknowledge(token, true)).body.safetyNotice, 'hidden');
+    assert.equal((await call('GET', '/api/v1/me/profile', { token })).body.safetyNotice, 'hidden');
+    assert.equal((await acknowledge(token, false)).body.safetyNotice, 'acknowledged');
+  });
+
+  test('rejects a request without dontShowAgain with 400', async () => {
+    const { token } = await newProfile();
+    assertInvalid(await call('POST', '/api/v1/me/profile/safety-notice', { token, body: {} }), 'body', 'dontShowAgain');
+  });
+
+  test('answers 404 before the profile is created', async () => {
+    const { token } = await newAccount();
+    assertRejected(await acknowledge(token, false), 404, 'NOT_FOUND');
+  });
+
+  test('rejects a request without a token with 401', async () => {
+    const res = await call('POST', '/api/v1/me/profile/safety-notice', { body: { dontShowAgain: false } });
     assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });

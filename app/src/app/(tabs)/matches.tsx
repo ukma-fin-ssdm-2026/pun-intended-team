@@ -117,9 +117,12 @@ function SearchCard({ application }: { application: Application }) {
       status={
         <>
           <View className="size-10 items-center justify-center rounded-[20px] bg-surface-card">
-            <Icon name="clock" size={20} />
+            <Icon name={application.status === 'no_match' ? 'close' : 'clock'} size={20} />
           </View>
-          <StatusText title="Шукаємо компанію" note={statusNote(application)} />
+          <StatusText
+            title={application.status === 'no_match' ? 'Компанії не знайшлося' : 'Шукаємо компанію'}
+            note={statusNote(application)}
+          />
         </>
       }
     />

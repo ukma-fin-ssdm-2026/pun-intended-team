@@ -32,6 +32,7 @@ function aRow(overrides: Record<string, unknown> = {}) {
     linkedAccounts: [{ app: 'telegram', username: cipher.encrypt('olena_k') }],
     photoId: null,
     coverId: null,
+    safetyNotice: 'not_acknowledged',
     ...overrides,
   };
 }
@@ -92,6 +93,7 @@ describe('PrismaProfilesRepository.findByAccountId', () => {
       linkedAccounts: [{ network: 'telegram', username: 'olena_k' }],
       photoId: null,
       coverId: null,
+      safetyNotice: 'not_acknowledged',
     });
   });
 
@@ -314,4 +316,21 @@ describe('PrismaProfilesRepository.replaceLinkedAccounts', () => {
       [{ profileId: ACCOUNT_ID, app: 'instagram', username: 'enc:olena.k' }],
     );
   });
+});
+
+// FR-032
+describe('PrismaProfilesRepository.acknowledgeSafetyNotice', () => {
+  for (const [dontShowAgain, state] of [
+    [false, 'acknowledged'],
+    [true, 'hidden'],
+  ] as const) {
+    test(`stores ${state} when dontShowAgain is ${dontShowAgain}`, async () => {
+      const { repository, prisma } = makeRepository({ write: () => Promise.resolve(aRow({ safetyNotice: state })) });
+
+      const profile = await repository.acknowledgeSafetyNotice(ACCOUNT_ID, dontShowAgain);
+
+      assert.deepEqual(prisma.profile.update.mock.calls[0]?.arguments[0]?.data, { safetyNotice: state });
+      assert.equal(profile.safetyNotice, state);
+    });
+  }
 });

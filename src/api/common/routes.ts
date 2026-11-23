@@ -29,6 +29,7 @@ export const Routes = {
     mine: '/api/v1/me/applications',
     byId: '/api/v1/applications/{id}',
     withdraw: '/api/v1/applications/{id}/withdraw',
+    dismiss: '/api/v1/applications/{id}/dismiss',
   },
   matches: {
     mine: '/api/v1/me/matches',
@@ -60,6 +61,7 @@ export const Routes = {
     linkedAccounts: '/api/v1/me/profile/linked-accounts',
     photo: '/api/v1/me/profile/photo',
     cover: '/api/v1/me/profile/cover',
+    safetyNotice: '/api/v1/me/profile/safety-notice',
   },
   interests: {
     list: '/api/v1/interests',

@@ -1,7 +1,5 @@
 // Written with the help of Claude
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
-
+import { deviceStorage as storage } from '@/device-storage';
 import { clearApplications } from '@/state/applications';
 import { clearMatches } from '@/state/matches';
 import { clearNotifications } from '@/state/notifications';
@@ -23,16 +21,6 @@ const REFRESH_TOKEN_KEY = 'nearby.refreshToken';
 // A refresh that got no answer, e.g. after the request timeout, is sent once more after this delay. The API accepts the
 // token it replaced for 60 s (REL-08); the timeout, this delay and the next tries stay within them.
 const REFRESH_RETRY_DELAY_MS = 2000;
-
-// The keychain or keystore on a phone; on the web, localStorage. Static web rendering has neither.
-const storage =
-  Platform.OS === 'web'
-    ? {
-        get: async (key: string) => (typeof localStorage === 'undefined' ? null : localStorage.getItem(key)),
-        set: async (key: string, value: string) => localStorage.setItem(key, value),
-        remove: async (key: string) => localStorage.removeItem(key),
-      }
-    : { get: SecureStore.getItemAsync, set: SecureStore.setItemAsync, remove: SecureStore.deleteItemAsync };
 
 let account: { access: Token; refreshToken: string } | undefined;
 let renewal: Promise<void> | undefined;

@@ -69,6 +69,7 @@ function aProfile(overrides: Partial<Profile> = {}): Profile {
     linkedAccounts: [],
     photoId: null,
     coverId: null,
+    safetyNotice: 'not_acknowledged',
     ...overrides,
   };
 }
@@ -108,6 +109,7 @@ function makeService() {
     setImage: mock.fn((_accountId: string, _slot: string, imageId: string | null) =>
       Promise.resolve(aProfile({ photoId: imageId })),
     ),
+    acknowledgeSafetyNotice: mock.fn(() => Promise.resolve(aProfile({ safetyNotice: 'hidden' }))),
   };
   const prepared = {
     encoded: { content: new Uint8Array(), contentType: 'image/webp', width: 512, height: 512 },
@@ -294,6 +296,44 @@ describe('ProfilesService.getContacts', () => {
 
     await assert.rejects(service.getContacts(ACCOUNT_ID), isDomainError('NOT_FOUND'));
   });
+});
+
+// FR-032, SAFE-002
+describe('ProfilesService.acknowledgeSafetyNotice', () => {
+  test('records the acknowledgment and the choice not to see it again', async () => {
+    const { service, profilesRepository } = makeService();
+
+    const profile = await service.acknowledgeSafetyNotice(ACCOUNT_ID, true);
+
+    assert.deepEqual(profilesRepository.acknowledgeSafetyNotice.mock.calls[0]?.arguments, [ACCOUNT_ID, true]);
+    assert.equal(profile.safetyNotice, 'hidden');
+  });
+
+  test('answers NOT_FOUND without a profile', async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.acknowledgeSafetyNotice(ACCOUNT_ID, false), isDomainError('NOT_FOUND'));
+    assert.equal(profilesRepository.acknowledgeSafetyNotice.mock.callCount(), 0);
+  });
+});
+
+describe('ProfilesService.hasAcknowledgedSafetyNotice', () => {
+  const cases = [
+    { title: 'is true once acknowledged', profile: aProfile({ safetyNotice: 'acknowledged' }), result: true },
+    { title: 'is true when hidden', profile: aProfile({ safetyNotice: 'hidden' }), result: true },
+    { title: 'is false before that', profile: aProfile(), result: false },
+    { title: 'is false without a profile', profile: undefined, result: false },
+  ];
+
+  for (const { title, profile, result } of cases) {
+    test(title, async () => {
+      const { service, profilesRepository } = makeService();
+      profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(profile));
+
+      assert.equal(await service.hasAcknowledgedSafetyNotice(ACCOUNT_ID), result);
+    });
+  }
 });
 
 describe('ProfilesService.getOwn', () => {

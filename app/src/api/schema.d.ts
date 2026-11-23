@@ -681,7 +681,7 @@ export interface paths {
         };
         /**
          * List your applications
-         * @description The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
+         * @description The caller’s active applications (in the pool, paired or paused), and those that found no match until the caller dismisses them; soonest first day first. Needs a signed-in account; a guest token gets 401.
          */
         get: operations["listMyApplications"];
         put?: never;
@@ -726,6 +726,26 @@ export interface paths {
          * @description Withdraw one of the caller’s applications; withdrawing it again changes nothing. A proposal still waiting for an answer is cancelled, and the other user returns to the pool. The caller can apply to the same event again later. Needs a signed-in account; a guest token gets 401.
          */
         post: operations["withdrawApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/applications/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss an application with no match
+         * @description Take one of the caller’s applications that found no match by its cutoff out of `listMyApplications`. Dismissing it again changes nothing; `getApplication` still returns it. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["dismissApplication"];
         delete?: never;
         options?: never;
         head?: never;
@@ -821,7 +841,7 @@ export interface paths {
         };
         /**
          * Get the contacts of a mutual match
-         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+         * @description How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is `404`, as for a match that does not exist (SEC-001). A mutual match answers `422` until the caller has acknowledged the safety notice with `acknowledgeSafetyNotice` (SAFE-002). Needs a signed-in account; a guest token gets 401.
          */
         get: operations["getMatchContacts"];
         put?: never;
@@ -1184,6 +1204,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/profile/safety-notice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge the safety notice
+         * @description Record that the caller read the safety notice the app shows on a mutual match (FR-032): `safetyNotice` becomes `acknowledged`, or `hidden` with `dontShowAgain`. Until the first acknowledgment, `getMatchContacts` holds the contacts back. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["acknowledgeSafetyNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/profile/photo": {
         parameters: {
             query?: never;
@@ -1378,7 +1418,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -2551,7 +2591,7 @@ export interface components {
          */
         GenderPreference: "any" | "female" | "male";
         /**
-         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found before the event. `cancelled`: the event was cancelled or the user banned
+         * @description `in_pool`: waiting for a match. `paired`: a match is proposed. `paused`: a proposal went unanswered, waiting for the user to continue. `removed`: a second proposal went unanswered. `withdrawn`: the user left the pool. `no_match`: no match was found by the cutoff. `cancelled`: the event was cancelled or the user banned
          * @enum {string}
          */
         ApplicationStatus: "in_pool" | "paired" | "paused" | "removed" | "withdrawn" | "no_match" | "cancelled";
@@ -3257,7 +3297,8 @@ export interface components {
          *       ],
          *       "isComplete": true,
          *       "photo": null,
-         *       "cover": null
+         *       "cover": null,
+         *       "safetyNotice": "acknowledged"
          *     }
          */
         Profile: {
@@ -3334,7 +3375,13 @@ export interface components {
                     height: number;
                 };
             } | null;
+            safetyNotice: components["schemas"]["SafetyNoticeState"];
         };
+        /**
+         * @description Where the user is with the safety notice: `not_acknowledged` holds the contacts of their matches back; `acknowledged` has the app show it once on each mutual match; `hidden` after "don’t show again"
+         * @enum {string}
+         */
+        SafetyNoticeState: "not_acknowledged" | "acknowledged" | "hidden";
         /**
          * @description The first onboarding step; everything else is added with PATCH
          * @example {
@@ -3403,6 +3450,15 @@ export interface components {
                 /** @description A nickname with or without "@", or a profile link; for WhatsApp, a phone number. Kept as the bare handle; one that does not fit is INVALID_SOCIAL_HANDLE */
                 username: string;
             }[];
+        };
+        /**
+         * @example {
+         *       "dontShowAgain": false
+         *     }
+         */
+        AcknowledgeSafetyNoticeBody: {
+            /** @description True when the user ticked "don’t show again"; false keeps showing it on the next matches */
+            dontShowAgain: boolean;
         };
         /**
          * @description Whether the API and the dependencies it needs are up
@@ -5691,7 +5747,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The active applications */
+            /** @description The active applications and those with no match */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5810,6 +5866,65 @@ export interface operations {
                 };
             };
             /** @description `CONFLICT`: the application has a mutual match, or is no longer waiting in the pool or for an answer. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    dismissApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Application id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dismissed application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Application"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No application with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the application has another status than `no_match`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6058,6 +6173,15 @@ export interface operations {
             };
             /** @description No mutual match with this id that the caller is part of */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety notice yet. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7072,6 +7196,57 @@ export interface operations {
             };
             /** @description `CONTACT_REQUIRED`: the list is empty. `INVALID_SOCIAL_HANDLE`: a username does not fit its social network; `details` names it. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acknowledgeSafetyNotice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeSafetyNoticeBody"];
+            };
+        };
+        responses: {
+            /** @description The profile with the new `safetyNotice` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The account has not created a profile yet */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -66,6 +66,14 @@ enum Gender {
   @@map("gender")
 }
 
+enum SafetyNoticeState {
+  not_acknowledged
+  acknowledged
+  hidden
+
+  @@map("safety_notice_state")
+}
+
 enum GenderPreference {
   any
   female
@@ -328,7 +336,7 @@ model Profile {
   gender              Gender?
   genderDescription   String?         @map("gender_description")
   sharePhone          Boolean         @default(true) @map("share_phone")
-  safetyNoticeAckAt   DateTime?       @map("safety_notice_ack_at") @db.Timestamptz(3)
+  safetyNotice        SafetyNoticeState @default(not_acknowledged) @map("safety_notice")
   photoId             String?         @unique @map("photo_id") @db.Uuid
   coverId             String?         @unique @map("cover_id") @db.Uuid
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -535,6 +543,7 @@ model Application {
   ageMax          Int?              @map("age_max")
   status          ApplicationStatus @default(in_pool)
   noResponseCount Int               @default(0) @map("no_response_count")
+  dismissedAt     DateTime?         @map("dismissed_at") @db.Timestamptz(3)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 

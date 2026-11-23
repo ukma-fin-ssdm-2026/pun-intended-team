@@ -8,6 +8,7 @@ import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
 import { INVALID_IMAGE, UPLOAD_NOTE, UploadImageRequest, toCrop } from '../../images/schemas/images.ts';
 import {
+  AcknowledgeSafetyNoticeBody,
   CreateProfileBody,
   InterestList,
   Profile,
@@ -20,6 +21,7 @@ const CreateProfileRequest = { body: CreateProfileBody } satisfies RequestSchema
 const UpdateProfileRequest = { body: UpdateProfileBody } satisfies RequestSchemas;
 const ReplaceInterestsRequest = { body: ReplaceInterestsBody } satisfies RequestSchemas;
 const ReplaceLinkedAccountsRequest = { body: ReplaceLinkedAccountsBody } satisfies RequestSchemas;
+const AcknowledgeSafetyNoticeRequest = { body: AcknowledgeSafetyNoticeBody } satisfies RequestSchemas;
 
 const NO_PROFILE = {
   description: 'The account has not created a profile yet',
@@ -166,6 +168,30 @@ export class ProfilesController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Profile> {
     return this.profilesService.replaceLinkedAccounts(account.accountId, body.linkedAccounts);
+  }
+
+  @Endpoint({
+    method: 'post',
+    path: Routes.profiles.safetyNotice,
+    operationId: 'acknowledgeSafetyNotice',
+    summary: 'Acknowledge the safety notice',
+    description:
+      'Record that the caller read the safety notice the app shows on a mutual match (FR-032): `safetyNotice` ' +
+      'becomes `acknowledged`, or `hidden` with `dontShowAgain`. Until the first acknowledgment, `getMatchContacts` ' +
+      'holds the contacts back.',
+    tags: ['Profiles'],
+    access: 'user',
+    request: AcknowledgeSafetyNoticeRequest,
+    responses: {
+      200: { description: 'The profile with the new `safetyNotice`', schema: Profile },
+      404: NO_PROFILE,
+    },
+  })
+  async acknowledgeSafetyNotice(
+    @Input() { body }: RouteInput<typeof AcknowledgeSafetyNoticeRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Profile> {
+    return this.profilesService.acknowledgeSafetyNotice(account.accountId, body.dontShowAgain);
   }
 
   @Endpoint({

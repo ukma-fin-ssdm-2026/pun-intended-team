@@ -105,7 +105,7 @@ A job is enqueued in the same transaction as the change that causes it. Every ha
 | Job | Producer | Consumer | Payload | When |
 |---|---|---|---|---|
 | `matching.round` | matching | matching | `sessionId` | delayed, at each round offset |
-| `matching.cutoff` | matching | matching | `sessionId` | delayed, at the open-mode cutoff |
+| `matching.cutoff` | matching | matching | `sessionId` | delayed, at the open-mode cutoff — ends the applications left in the pool with no match |
 | `matching.expire` | matching | matching | `matchId` | delayed, at `valid_until` — expires the proposal, applies strikes |
 | `notifications.deliver` | notifications | notifications | `notificationId` | immediate or delayed (reminders, "respond soon") |
 | `event.changed` | CMP-03, catalog | matching | `eventId`, `change` | immediate — closes pools, voids pending matches, notifies applicants |

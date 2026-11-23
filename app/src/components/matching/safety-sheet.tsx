@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // AI Usage: safety reminder sheet from the Figma "06 Безпекова памʼятка" frame; reviewed by Daryna Halytska.
-import { Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,14 +21,19 @@ const SHEET_BOTTOM = 34;
 
 type Props = {
   visible: boolean;
-  // The mutual match the reminder is about; `accepted` is the verb in their gender, as the mocks have it.
-  person: { name: string; accepted?: string };
+  // The mutual match the reminder is about; `accepted` is the verb in their gender, as the mocks have it. Without
+  // one, it is the reminder opened from the profile.
+  person?: { name: string; accepted?: string };
+  // The acknowledgment is being sent: the button waits.
+  busy?: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  // `dontShowAgain`: the box under the rules is ticked; it is offered only on a match.
+  onConfirm: (dontShowAgain: boolean) => void;
 };
 
-export function SafetySheet({ visible, person, onClose, onConfirm }: Props) {
+export function SafetySheet({ visible, person, busy, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
@@ -49,8 +55,16 @@ export function SafetySheet({ visible, person, onClose, onConfirm }: Props) {
               Перед першою зустріччю
             </Text>
             <Text className="text-center font-inter text-caption text-text-secondary">
-              {person.accepted ? `${person.name} теж ${person.accepted} метч!` : `${person.name} теж хоче піти разом!`}{' '}
-              Кілька простих правил, і можна планувати зустріч.
+              {person ? (
+                <>
+                  {person.accepted
+                    ? `${person.name} теж ${person.accepted} метч!`
+                    : `${person.name} теж хоче піти разом!`}{' '}
+                  Кілька простих правил, і можна планувати зустріч.
+                </>
+              ) : (
+                'Кілька простих правил для зустрічі з новими людьми.'
+              )}
             </Text>
           </View>
 
@@ -68,10 +82,35 @@ export function SafetySheet({ visible, person, onClose, onConfirm }: Props) {
             ))}
           </View>
 
-          <Button label="Зрозуміло" variant="dark" onPress={onConfirm} />
-          <Text className="text-center font-inter text-caption text-text-secondary">
-            Памʼятка завжди є в «Профіль → Безпека»
-          </Text>
+          {person && (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: dontShowAgain }}
+              onPress={() => setDontShowAgain((value) => !value)}
+              hitSlop={8}
+              className="flex-row items-center gap-2.5"
+            >
+              <View
+                className={`size-[22px] items-center justify-center rounded-[7px] ${
+                  dontShowAgain ? 'bg-brand-ink' : 'border-[1.5px] border-border-default bg-surface-card'
+                }`}
+              >
+                {dontShowAgain && <Icon name="checkbox-check" size={16} color={colors.text['on-dark']} />}
+              </View>
+              <Text className="flex-1 font-inter text-caption text-text-secondary">Більше не показувати</Text>
+            </Pressable>
+          )}
+          <Button
+            label="Зрозуміло"
+            variant="dark"
+            loading={busy}
+            onPress={() => onConfirm(person ? dontShowAgain : false)}
+          />
+          {person && (
+            <Text className="text-center font-inter text-caption text-text-secondary">
+              Памʼятка завжди є в «Профіль → Безпека»
+            </Text>
+          )}
         </View>
       </Animated.View>
     </Overlay>

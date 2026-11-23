@@ -8,6 +8,7 @@ import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { MatchesRepository } from '../../dist/core/matching/repositories/matches.repository.js';
 import { MatchesService } from '../../dist/core/matching/services/matches.service.js';
+import type { MatchingService } from '../../dist/core/matching/services/matching.service.js';
 import type { Application } from '../../dist/core/matching/types/application.js';
 import type { MatchRecord, MatchStatus } from '../../dist/core/matching/types/match.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
@@ -106,15 +107,23 @@ function makeService(stored: MatchRecord | null = aMatch()) {
       Promise.resolve(new Map([[OTHER_ACCOUNT_ID, OTHER_PROFILE]])),
     ),
     getContacts: mock.fn<(accountId: string) => Promise<Contacts>>(() => Promise.resolve(CONTACTS)),
+    hasAcknowledgedSafetyNotice: mock.fn<(accountId: string) => Promise<boolean>>(() => Promise.resolve(true)),
+  };
+  const matchingService = {
+    matchReturned: mock.fn<(applicationIds: string[]) => Promise<void>>(() => {
+      calls.push('match returned');
+      return Promise.resolve();
+    }),
   };
   const transactions = { run: mock.fn((work: (tx: Transaction) => Promise<unknown>) => work(TX)) };
   const service = new MatchesService(
     matchesRepository as unknown as MatchesRepository,
     eventSessionsService as unknown as EventSessionsService,
     profilesService as unknown as ProfilesService,
+    matchingService as unknown as MatchingService,
     transactions as unknown as TransactionRunner,
   );
-  return { service, calls, matchesRepository, profilesService };
+  return { service, calls, matchesRepository, profilesService, matchingService };
 }
 
 function isDomainError(code: string) {
@@ -242,19 +251,32 @@ describe('MatchesService.decline', () => {
 
       const match = await service.decline(ACCOUNT_ID, 'match-1');
 
-      assert.deepEqual(calls, ['find', 'lock', 'find in tx']);
+      assert.deepEqual(calls, ['find', 'lock', 'find in tx', 'match returned']);
       assert.deepEqual(matchesRepository.decline.mock.calls[0]?.arguments, [stored, ACCOUNT_ID, TX]);
       assert.equal(match.status, 'declined');
     });
   }
 
+  // matching.md, rule 3
+  test('matches both applications again once the decline commits', async () => {
+    const stored = aMatch();
+    const { service, matchingService } = makeService(stored);
+
+    await service.decline(ACCOUNT_ID, 'match-1');
+
+    assert.deepEqual(matchingService.matchReturned.mock.calls[0]?.arguments, [
+      [stored.applicationAId, stored.applicationBId],
+    ]);
+  });
+
   test('changes nothing for a declined match', async () => {
-    const { service, matchesRepository } = makeService(aMatch({ status: 'declined' }));
+    const { service, matchesRepository, matchingService } = makeService(aMatch({ status: 'declined' }));
 
     const match = await service.decline(ACCOUNT_ID, 'match-1');
 
     assert.equal(match.status, 'declined');
     assert.equal(matchesRepository.decline.mock.callCount(), 0);
+    assert.equal(matchingService.matchReturned.mock.callCount(), 0);
   });
 
   for (const { title, match } of [
@@ -295,5 +317,22 @@ describe('MatchesService.getContacts', () => {
     const { service } = makeService(aMatch({ status: 'mutual' }));
 
     await assert.rejects(service.getContacts(STRANGER_ID, 'match-1'), isDomainError('NOT_FOUND'));
+  });
+
+  // SAFE-002
+  test('holds the contacts back until the caller has acknowledged the safety notice', async () => {
+    const { service, profilesService } = makeService(aMatch({ status: 'mutual' }));
+    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
+
+    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('SAFETY_NOTICE_REQUIRED'));
+    assert.deepEqual(profilesService.hasAcknowledgedSafetyNotice.mock.calls[0]?.arguments, [ACCOUNT_ID]);
+    assert.equal(profilesService.getContacts.mock.callCount(), 0);
+  });
+
+  test('reports a match that is not mutual as missing, whether or not the notice was acknowledged', async () => {
+    const { service, profilesService } = makeService(aMatch({ status: 'accepted_a' }));
+    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
+
+    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('NOT_FOUND'));
   });
 });

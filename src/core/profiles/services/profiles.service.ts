@@ -123,6 +123,18 @@ export class ProfilesService {
     };
   }
 
+  /** Whether the user has acknowledged the safety notice, which contacts wait for (SAFE-002); false without a profile. */
+  async hasAcknowledgedSafetyNotice(accountId: string): Promise<boolean> {
+    const profile = await this.profilesRepository.findByAccountId(accountId);
+    return profile !== undefined && profile.safetyNotice !== 'not_acknowledged';
+  }
+
+  /** Records that the user read the safety notice (FR-032), and whether the app shows it on their next matches. */
+  async acknowledgeSafetyNotice(accountId: string, dontShowAgain: boolean): Promise<ProfileDetails> {
+    const profile = await this.requireProfile(accountId);
+    return this.withDetails(await this.profilesRepository.acknowledgeSafetyNotice(profile.accountId, dontShowAgain));
+  }
+
   async getOwn(accountId: string): Promise<ProfileDetails> {
     return this.withDetails(await this.requireProfile(accountId));
   }
@@ -243,6 +255,7 @@ export class ProfilesService {
       interests: interestsOf(profile),
       linkedAccounts: profile.linkedAccounts.map(withUrl),
       isComplete: isComplete(profile),
+      safetyNotice: profile.safetyNotice,
       ...imagesOf(profile),
     };
   }

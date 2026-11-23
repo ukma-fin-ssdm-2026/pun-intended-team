@@ -3,6 +3,7 @@ import { kyivDay } from '@/dates';
 import {
   applicationsSession,
   applicationsState,
+  dropApplication,
   putApplication,
   setApplicationsState,
   type Application,
@@ -60,6 +61,14 @@ export async function withdrawApplication(id: string) {
     call(() => apiClient.POST('/api/v1/applications/{id}/withdraw', { params: { path: { id } } })),
   );
   if (result.ok) invalidateMatches();
+  return result;
+}
+
+// Takes an application that found no match off the Метчі tab (FR-018).
+export async function dismissApplication(id: string) {
+  const from = applicationsSession();
+  const result = await call(() => apiClient.POST('/api/v1/applications/{id}/dismiss', { params: { path: { id } } }));
+  if (result.ok) dropApplication(id, from);
   return result;
 }
 
