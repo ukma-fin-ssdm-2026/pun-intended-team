@@ -309,8 +309,8 @@ export default function EventScreen() {
       <View className="absolute left-0 right-0 top-0 overflow-hidden" style={{ height: COVER_HEIGHT }}>
         {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
         <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          {/* An imported event links its provider's image; a mock event has a bundled one. */}
-          <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} />
+          {/* An imported event links its provider's image, an organization's event has its uploaded cover, and a mock event has a bundled one. */}
+          <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
           <TopShade />
         </BlurTargetView>
       </View>

@@ -18,8 +18,6 @@ type Session = {
   announcementsEmpty: boolean;
   // Т5 as Т5.1: "Олена хоче піти з тобою" answers the user's post.
   joinRequest: boolean;
-  // О1 as О1.1: the organization has no events yet.
-  organizationEmpty: boolean;
   // "Увійди, щоб знайти компанію" (02.2) over the current screen.
   guestDialogOpen: boolean;
 };
@@ -32,7 +30,6 @@ const store = createStore<Session>({
   catalogLoading: true,
   announcementsEmpty: false,
   joinRequest: false,
-  organizationEmpty: false,
   guestDialogOpen: false,
 });
 
@@ -67,10 +64,6 @@ export function setAnnouncementsEmpty(announcementsEmpty: boolean) {
 
 export function setJoinRequest(joinRequest: boolean) {
   store.set({ joinRequest });
-}
-
-export function setOrganizationEmpty(organizationEmpty: boolean) {
-  store.set({ organizationEmpty });
 }
 
 export function finishCatalogLoading() {

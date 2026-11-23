@@ -1,4 +1,6 @@
 // Written with the help of Claude
+import type { ImageRef } from '../../images/types/image.ts';
+
 export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'revoked';
 
 /** A regular account that also acts as an organization; it publishes events only when verified (FR-003). */
@@ -10,6 +12,19 @@ export interface Organization {
   verificationStatus: VerificationStatus;
   /** When an administrator verified it; null otherwise. */
   verifiedAt: string | null;
+  logoId: string | null;
+}
+
+/** The caller's organization as the API returns it: with its logo's size. */
+export type OrganizationWithLogo = Organization & { logo: ImageRef | null };
+
+/** The organization that added an event or a venue. */
+export type OrganizationName = Pick<Organization, 'accountId' | 'name'>;
+
+/** Which organizations the admin panel lists; `search` matches part of the name, in any case. */
+export interface OrganizationSearch {
+  search?: string;
+  status?: VerificationStatus;
 }
 
 /** What an account sends to become a verified organization. */

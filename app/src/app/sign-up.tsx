@@ -13,7 +13,12 @@ import { Icon } from '@/components/ui/icon';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
 import { useSignIn } from '@/hooks/use-sign-in';
-import { finishGoogleRegistration, googleProfile, googleRegistrationToken } from '@/state/google-registration';
+import {
+  finishGoogleRegistration,
+  googleProfile,
+  googleRegistrationToken,
+  isOrganizationSignUp,
+} from '@/state/google-registration';
 import { colors } from '@/styles/tokens';
 
 const MIN_AGE = 18;
@@ -96,7 +101,7 @@ export default function SignUpScreen() {
     }
     finishGoogleRegistration();
     await startSession(completed.data);
-    router.replace('/profile-setup');
+    router.replace(isOrganizationSignUp() ? '/organization/settings' : '/profile-setup');
   };
 
   return (

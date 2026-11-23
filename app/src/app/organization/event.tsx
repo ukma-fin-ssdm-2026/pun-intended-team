@@ -1,36 +1,31 @@
 // Written with the help of Claude
-// AI Usage: event editor from the Figma "О2 Організація · Нова подія" frame; reviewed by Daryna Halytska.
+// AI Usage: event editor from the Figma "DО2 Організація · Нова подія" desktop frame with the DО2.1 list, after the О2
+// screen reviewed by Daryna Halytska.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { createEvent, updateEvent, type Event, type EventBody } from '@/api/events';
+import { deleteEventPhoto, uploadEventPhoto, type ApiEventPhoto } from '@/api/images';
+import type { ApiResult } from '@/api/public-client';
+import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
 import { eventFailure } from '@/components/organization/event-messages';
+import { NewVenueModal } from '@/components/organization/new-venue-modal';
+import { ApiPicture, Picture } from '@/components/pictures/picture';
+import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { formatTime, kyivDay, kyivIso } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
 import { useEvent } from '@/hooks/use-event';
-import { useEvents } from '@/hooks/use-events';
-import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { rememberOwnEvent } from '@/state/organization-events';
+import { useMyVenues } from '@/hooks/use-my-venues';
+import type { PictureDraft } from '@/pictures/picked-picture';
 import { colors, shadows } from '@/styles/tokens';
 
-// "01 Навігація" starts 56 px from the top (9 px below the iPhone 14 status bar); "03 Дія" has a 34 px bottom padding.
-const NAV_TOP = 56;
-const GAP_BELOW_STATUS_BAR = 9;
-const ACTION_BOTTOM = 34;
+// "01.2 Колонки": the 776 px form and the publishing card beside it, 24 px apart in the 1200 px column.
+const FORM_COLUMN = 776;
+const SIDE_COLUMN = 400;
 // "Список категорій" opens 6 px under the field (18 px label, 6 px gap, 52 px field) and shows four and a half rows.
 const LIST_TOP = 18 + 6 + 52 + 6;
 // The list is as tall as its items, up to four and a half rows; longer lists scroll.
@@ -44,11 +39,13 @@ type Item = { id: string; label: string; note?: string };
 // What the list shows while its items load or when it cannot get them; an empty list explains itself in `emptyText`.
 type ListStatus = 'loading' | 'error' | 'ready';
 
+// `action` is a last row that is not an item, such as "+ Додати місце"; it shows in an empty list too.
 function ChoiceList({
   items,
   selected,
   status,
   emptyText,
+  action,
   onSelect,
   onRetry,
 }: {
@@ -56,9 +53,20 @@ function ChoiceList({
   selected: string | undefined;
   status: ListStatus;
   emptyText: string;
+  action?: { label: string; onPress: () => void };
   onSelect: (id: string) => void;
   onRetry: () => void;
 }) {
+  const actionRow = action && (
+    <Pressable
+      accessibilityRole="button"
+      onPress={action.onPress}
+      className="flex-row items-center gap-3 border-t border-border-default px-4 py-[13px]"
+    >
+      <Text className="font-inter-medium text-body text-brand-coral">{action.label}</Text>
+    </Pressable>
+  );
+
   return (
     <View
       className="absolute left-0 right-0 overflow-hidden rounded-[18px] bg-surface-card"
@@ -75,9 +83,12 @@ function ChoiceList({
           </Text>
         </Pressable>
       ) : items.length === 0 ? (
-        <View className="min-h-24 items-center justify-center px-4 py-3">
-          <Text className="text-center font-inter text-caption text-text-secondary">{emptyText}</Text>
-        </View>
+        <>
+          <View className="min-h-24 items-center justify-center px-4 py-3">
+            <Text className="text-center font-inter text-caption text-text-secondary">{emptyText}</Text>
+          </View>
+          {actionRow}
+        </>
       ) : (
         <ScrollView nestedScrollEnabled className="shrink" contentContainerClassName="py-1">
           {items.map((item) => {
@@ -102,6 +113,7 @@ function ChoiceList({
               </Pressable>
             );
           })}
+          {actionRow}
         </ScrollView>
       )}
     </View>
@@ -142,13 +154,13 @@ export default function OrganizationEventEditorScreen() {
   if (loaded.data) return <EventForm key={loaded.data.id} existing={loaded.data} />;
   if (loaded.loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-surface-card">
+      <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={colors.brand.coral} />
       </View>
     );
   }
   return (
-    <View className="flex-1 items-center justify-center gap-4 bg-surface-card px-5">
+    <View className="flex-1 items-center justify-center gap-4 px-5">
       <Text className="text-center font-inter-semibold text-title text-text-primary">
         {loaded.notFound ? 'Подію не знайдено' : 'Не вдалося завантажити подію'}
       </Text>
@@ -160,11 +172,10 @@ export default function OrganizationEventEditorScreen() {
 
 function EventForm({ existing }: Readonly<{ existing?: Event }>) {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const categories = useCategories();
-  // The API has no list of venues. The venues of the catalog's events are the places to choose from, and it accepts
-  // only the organization's own.
-  const catalog = useEvents();
+  // An event takes place only at one of the organization's own venues.
+  const venues = useMyVenues();
+  const [addingVenue, setAddingVenue] = useState(false);
   const [title, setTitle] = useState(existing?.title ?? '');
   const [categoryId, setCategoryId] = useState(existing?.category.id);
   const [venueId, setVenueId] = useState(existing?.venue.id);
@@ -178,20 +189,29 @@ function EventForm({ existing }: Readonly<{ existing?: Event }>) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string>();
   const [endError, setEndError] = useState<string>();
-  useStatusBarStyle('dark');
+  // Set once the event is saved: when only its cover then fails, pressing the button again saves the same event.
+  const [savedId, setSavedId] = useState(existing?.id);
+  // The cover the event has on the server, and the one picked or removed here, which is sent after the event.
+  const [savedPhoto, setSavedPhoto] = useState<ApiEventPhoto | null>(existing?.photo ?? null);
+  const [coverDraft, setCoverDraft] = useState<PictureDraft>();
+  const [coverRemoved, setCoverRemoved] = useState(false);
+  const { start: pickCover, cropper } = usePictureCropper(
+    (_kind, draft) => {
+      setCoverDraft(draft);
+      setCoverRemoved(false);
+      setFormError(undefined);
+    },
+    (refusal) => {
+      const { title: refusalTitle, note } = pictureRefusalSnackbar(refusal);
+      setFormError(`${refusalTitle}. ${note}.`);
+    },
+  );
+  const shownPhoto = coverRemoved ? null : savedPhoto;
 
   const categoryItems: Item[] = (categories.data ?? []).map(({ id: itemId, name }) => ({ id: itemId, label: name }));
-  const venues = new Map(
-    [...(existing ? [existing.venue] : []), ...(catalog.data ?? []).map((event) => event.venue)].map((venue) => [
-      venue.id,
-      venue,
-    ]),
-  );
-  const venueItems: Item[] = [...venues.values()].map((venue) => ({
-    id: venue.id,
-    label: venue.name,
-    note: venue.address,
-  }));
+  // The edited event's venue is shown while the list loads.
+  const venueList = venues.data ?? (existing ? [existing.venue] : []);
+  const venueItems: Item[] = venueList.map((venue) => ({ id: venue.id, label: venue.name, note: venue.address }));
 
   const day = parseDay(date);
   const startTime = parseTime(start);
@@ -233,193 +253,255 @@ function EventForm({ existing }: Readonly<{ existing?: Event }>) {
       endsAt: kyivIso(day, endTime),
     };
     setSaving(true);
-    const result = existing ? await updateEvent(existing.id, body) : await createEvent(body);
-    setSaving(false);
+    const result = savedId ? await updateEvent(savedId, body) : await createEvent(body);
     if (result.ok) {
-      rememberOwnEvent(result.data);
-      backToEvents();
+      setSavedId(result.data.id);
+      const cover = await saveCover(result.data.id);
+      setSaving(false);
+      if (cover.ok) {
+        backToEvents();
+      } else {
+        setFormError(`Подію збережено, але обкладинку не вдалося оновити. ${failureMessage(cover)}`);
+      }
       return;
     }
+    setSaving(false);
     if (result.code === 'EVENT_ENDS_BEFORE_START') {
       setEndError('Кінець має бути пізніше за початок');
     }
     setFormError(eventFailure(result));
     if (result.code === 'REFERENCE_NOT_FOUND') {
       categories.reload();
-      catalog.reload();
+      venues.reload();
     }
   };
 
+  // Sends the picked cover, or removes the saved one, after the event itself is saved.
+  const saveCover = async (id: string): Promise<ApiResult<unknown>> => {
+    if (coverDraft) {
+      const uploaded = await uploadEventPhoto(id, coverDraft);
+      if (uploaded.ok) {
+        setSavedPhoto(uploaded.data.photo);
+        setCoverDraft(undefined);
+      }
+      return uploaded;
+    }
+    if (coverRemoved && savedPhoto) {
+      const removed = await deleteEventPhoto(id);
+      if (removed.ok) {
+        setSavedPhoto(null);
+        setCoverRemoved(false);
+      }
+      return removed;
+    }
+    return { ok: true, data: undefined };
+  };
+
   return (
-    <KeyboardAvoidingView className="flex-1 bg-surface-card" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View
-        className="flex-row items-center gap-3 px-5 pb-3"
-        style={{ paddingTop: Math.max(NAV_TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Назад"
-          // Opened directly (a link, a reload) there is nothing to go back to.
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/organization'))}
-          className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
-        >
-          <Icon name="arrow-left" size={20} />
-        </Pressable>
-        <Text
-          accessibilityRole="header"
-          className="flex-1 text-center font-inter-semibold text-title text-text-primary"
-        >
-          {existing ? 'Редагувати подію' : 'Нова подія'}
-        </Text>
-        {existing ? (
-          <View className="w-[70px]" />
-        ) : (
-          <Pressable accessibilityRole="button" accessibilityLabel="Зберегти чернетку" onPress={backToEvents}>
-            <Text className="font-inter-medium text-label text-text-secondary">Чернетка</Text>
-          </Pressable>
-        )}
-      </View>
+    <View className="flex-1">
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerClassName="px-10 pb-20 pt-12">
+        <View className="w-full max-w-[1200px] gap-6 self-center">
+          <View className="h-10 justify-center">
+            <Text accessibilityRole="header" className="font-inter-bold text-[32px] text-text-primary">
+              {existing ? 'Редагувати подію' : 'Нова подія'}
+            </Text>
+          </View>
 
-      <ScrollView
-        className="flex-1"
-        contentContainerClassName="gap-4 px-5 pb-[120px] pt-2"
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* The API has no cover images yet, so this only shows the design. */}
-        <View className="h-[140px] items-center justify-center gap-2 rounded-[22px] border-[1.5px] border-dashed border-border-default bg-surface-background">
-          <View className="size-12 items-center justify-center rounded-2xl bg-surface-card">
-            <Icon name="gallery-edit" size={24} color={colors.brand.coral} />
-          </View>
-          <Text className="font-inter-medium text-label text-text-primary">Додати обкладинку</Text>
-          <Text className="font-inter text-caption text-text-secondary">JPG або PNG, від 1200 px завширшки</Text>
-        </View>
+          <View className="flex-row items-start gap-6">
+            <View className="gap-6 rounded-[28px] bg-surface-card p-8" style={{ flex: FORM_COLUMN }}>
+              <TextField label="Назва" required value={title} onChangeText={setTitle} error={shown('title')} />
+              {/* Each list lies over the fields after it, so an earlier field has the higher z-index. */}
+              <View className="z-30">
+                <TextField
+                  label="Категорія"
+                  required
+                  value={categoryItems.find((item) => item.id === categoryId)?.label ?? existing?.category.name ?? ''}
+                  placeholder="Обери категорію"
+                  error={shown('category')}
+                  list={{ open: openList === 'category', onPress: () => toggleList('category') }}
+                />
+                {openList === 'category' && (
+                  <ChoiceList
+                    items={categoryItems}
+                    selected={categoryId}
+                    status={categories.loading ? 'loading' : categories.error ? 'error' : 'ready'}
+                    emptyText="Категорій поки немає."
+                    onSelect={(picked) => {
+                      setCategoryId(picked);
+                      setOpenList(undefined);
+                    }}
+                    onRetry={categories.reload}
+                  />
+                )}
+              </View>
+              {/* DО2 shows the date and the start; the API also needs the end, as on О2. */}
+              <View className="flex-row gap-2.5">
+                <View className="flex-1">
+                  <TextField
+                    label="Дата"
+                    required
+                    value={date}
+                    onChangeText={setDate}
+                    placeholder="21.10.2026"
+                    keyboardType="numbers-and-punctuation"
+                    error={shown('date')}
+                  />
+                </View>
+                <View className="flex-1">
+                  <TextField
+                    label="Початок"
+                    required
+                    value={start}
+                    onChangeText={setStart}
+                    placeholder="19:00"
+                    keyboardType="numbers-and-punctuation"
+                    error={shown('start')}
+                  />
+                </View>
+                <View className="flex-1">
+                  <TextField
+                    label="Кінець"
+                    required
+                    value={end}
+                    onChangeText={setEnd}
+                    placeholder="21:00"
+                    keyboardType="numbers-and-punctuation"
+                    error={endError ?? shown('end')}
+                  />
+                </View>
+              </View>
+              <View className="z-20">
+                <TextField
+                  label="Місце"
+                  required
+                  value={venueItems.find((item) => item.id === venueId)?.label ?? ''}
+                  placeholder="Обери місце"
+                  error={shown('place')}
+                  list={{ open: openList === 'venue', onPress: () => toggleList('venue') }}
+                />
+                {openList === 'venue' && (
+                  <ChoiceList
+                    items={venueItems}
+                    selected={venueId}
+                    status={venues.data ? 'ready' : venues.loading ? 'loading' : venues.error ? 'error' : 'ready'}
+                    emptyText="Ще немає місць. Додай перше, щоб опублікувати подію."
+                    action={{ label: '+ Додати місце', onPress: () => setAddingVenue(true) }}
+                    onSelect={(picked) => {
+                      setVenueId(picked);
+                      setOpenList(undefined);
+                    }}
+                    onRetry={venues.reload}
+                  />
+                )}
+              </View>
+              <View className="gap-1.5">
+                <Text className="font-inter text-caption text-text-secondary">
+                  Опис <Text className="text-brand-coral">*</Text>
+                </Text>
+                <TextInput
+                  accessibilityLabel="Опис"
+                  multiline
+                  value={description}
+                  onChangeText={setDescription}
+                  textAlignVertical="top"
+                  className="min-h-[120px] rounded-2xl bg-surface-background px-4 py-3.5 font-inter text-body text-text-primary"
+                  // Hides the browser focus ring, as in the other fields.
+                  style={{ outlineWidth: 0 }}
+                />
+                {shown('description') && (
+                  <Text className="font-inter text-caption text-brand-coral">{shown('description')}</Text>
+                )}
+              </View>
+            </View>
 
-        <TextField label="Назва" required value={title} onChangeText={setTitle} error={shown('title')} />
-        {/* Each list lies over the fields after it, so an earlier field has the higher z-index. */}
-        <View className="z-30">
-          <TextField
-            label="Категорія"
-            required
-            value={categoryItems.find((item) => item.id === categoryId)?.label ?? existing?.category.name ?? ''}
-            placeholder="Обери категорію"
-            error={shown('category')}
-            list={{ open: openList === 'category', onPress: () => toggleList('category') }}
-          />
-          {openList === 'category' && (
-            <ChoiceList
-              items={categoryItems}
-              selected={categoryId}
-              status={categories.loading ? 'loading' : categories.error ? 'error' : 'ready'}
-              emptyText="Категорій поки немає."
-              onSelect={(picked) => {
-                setCategoryId(picked);
-                setOpenList(undefined);
-              }}
-              onRetry={categories.reload}
-            />
-          )}
-        </View>
-        <View className="flex-row gap-2.5">
-          <View className="flex-1">
-            <TextField
-              label="Дата"
-              required
-              value={date}
-              onChangeText={setDate}
-              placeholder="21.10.2026"
-              keyboardType="numbers-and-punctuation"
-              error={shown('date')}
-            />
+            <View className="gap-4 rounded-[28px] bg-surface-card p-6" style={{ flex: SIDE_COLUMN }}>
+              {/* The cover is cut to the catalog card's 2:1, which the preview shows. */}
+              {coverDraft || shownPhoto ? (
+                <View className="overflow-hidden rounded-[22px] bg-surface-background" style={{ aspectRatio: 2 }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Змінити обкладинку"
+                    onPress={() => void pickCover('eventPhoto')}
+                    className="flex-1"
+                  >
+                    {coverDraft ? (
+                      <Picture
+                        source={{ uri: coverDraft.picture.uri }}
+                        size={coverDraft.picture}
+                        crop={coverDraft.crop}
+                      />
+                    ) : (
+                      shownPhoto && <ApiPicture image={shownPhoto} />
+                    )}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Прибрати обкладинку"
+                    onPress={() => {
+                      setCoverDraft(undefined);
+                      setCoverRemoved(true);
+                    }}
+                    hitSlop={8}
+                    className="absolute right-3 top-3 size-7 items-center justify-center rounded-full bg-[rgba(18,18,18,0.6)]"
+                  >
+                    <Icon name="close" size={14} color={colors.text['on-dark']} />
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Додати обкладинку"
+                  onPress={() => void pickCover('eventPhoto')}
+                  className="items-center justify-center gap-2 rounded-[22px] border-[1.5px] border-dashed border-border-default bg-surface-background py-3 hover:border-text-secondary"
+                >
+                  <View className="size-12 items-center justify-center rounded-2xl bg-surface-card">
+                    <Icon name="gallery-edit" size={24} color={colors.brand.coral} />
+                  </View>
+                  <Text className="font-inter-medium text-label text-text-primary">Додати обкладинку</Text>
+                  <Text className="font-inter text-caption text-text-secondary">
+                    JPG або PNG, від 1200 px завширшки
+                  </Text>
+                </Pressable>
+              )}
+
+              {formError && (
+                <Text accessibilityRole="alert" className="text-center font-inter text-caption text-brand-coral">
+                  {formError}
+                </Text>
+              )}
+              <Button
+                label={savedId ? 'Зберегти зміни' : 'Опублікувати подію'}
+                variant="dark"
+                loading={saving}
+                // The promise comes from `submit`, which shows its own failures.
+                onPress={() => void submit()}
+              />
+              {/* "Чернетка" returns to DО1: there are no drafts in the API. */}
+              <Pressable
+                accessibilityRole="button"
+                onPress={backToEvents}
+                className="h-12 items-center justify-center rounded-[26px] bg-[rgba(0,0,0,0.05)] hover:bg-[rgba(0,0,0,0.08)]"
+              >
+                <Text className="font-inter-medium text-label text-text-primary">
+                  {existing ? 'До подій' : 'Чернетка'}
+                </Text>
+              </Pressable>
+            </View>
           </View>
-          <View className="flex-1">
-            <TextField
-              label="Початок"
-              required
-              value={start}
-              onChangeText={setStart}
-              placeholder="19:00"
-              keyboardType="numbers-and-punctuation"
-              error={shown('start')}
-            />
-          </View>
-          <View className="flex-1">
-            <TextField
-              label="Кінець"
-              required
-              value={end}
-              onChangeText={setEnd}
-              placeholder="21:00"
-              keyboardType="numbers-and-punctuation"
-              error={endError ?? shown('end')}
-            />
-          </View>
-        </View>
-        <View className="z-20">
-          <TextField
-            label="Місце"
-            required
-            value={venueItems.find((item) => item.id === venueId)?.label ?? ''}
-            placeholder="Обери місце"
-            error={shown('place')}
-            list={{ open: openList === 'venue', onPress: () => toggleList('venue') }}
-          />
-          {openList === 'venue' && (
-            <ChoiceList
-              items={venueItems}
-              selected={venueId}
-              status={
-                catalog.loading && venueItems.length === 0
-                  ? 'loading'
-                  : catalog.error && venueItems.length === 0
-                    ? 'error'
-                    : 'ready'
-              }
-              emptyText="Місця беруться з подій каталогу. Поки там немає подій, обрати місце не можна."
-              onSelect={(picked) => {
-                setVenueId(picked);
-                setOpenList(undefined);
-              }}
-              onRetry={catalog.reload}
-            />
-          )}
-        </View>
-        <View className="gap-1.5">
-          <Text className="font-inter text-caption text-text-secondary">
-            Опис <Text className="text-brand-coral">*</Text>
-          </Text>
-          <TextInput
-            accessibilityLabel="Опис"
-            multiline
-            value={description}
-            onChangeText={setDescription}
-            textAlignVertical="top"
-            className="rounded-2xl bg-surface-background px-4 py-3.5 font-inter text-body text-text-primary"
-            // Hides the browser focus ring, as in the other fields.
-            style={{ outlineWidth: 0 }}
-          />
-          {shown('description') && (
-            <Text className="font-inter text-caption text-brand-coral">{shown('description')}</Text>
-          )}
         </View>
       </ScrollView>
 
-      <View
-        className="gap-3 bg-surface-card px-5 pt-4"
-        style={{ paddingBottom: Math.max(ACTION_BOTTOM, insets.bottom) }}
-      >
-        {formError && (
-          <Text accessibilityRole="alert" className="text-center font-inter text-caption text-brand-coral">
-            {formError}
-          </Text>
-        )}
-        <Button
-          label={existing ? 'Зберегти зміни' : 'Опублікувати подію'}
-          variant="dark"
-          loading={saving}
-          // The promise comes from `submit`, which shows its own failures.
-          onPress={() => void submit()}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      {cropper}
+      <NewVenueModal
+        visible={addingVenue}
+        onClose={() => setAddingVenue(false)}
+        onCreated={(venue) => {
+          venues.setData([...venueList, venue].sort((a, b) => a.name.localeCompare(b.name, 'uk')));
+          setVenueId(venue.id);
+          setOpenList(undefined);
+          setAddingVenue(false);
+        }}
+      />
+    </View>
   );
 }

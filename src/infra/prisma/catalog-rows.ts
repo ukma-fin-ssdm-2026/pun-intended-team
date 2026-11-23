@@ -15,6 +15,11 @@ export const eventInclude = {
 
 export type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
 
+/** The organization's name, for the admin panel's events and venues. */
+export const organizationName = {
+  organization: { select: { accountId: true, name: true } },
+} satisfies Prisma.EventInclude & Prisma.VenueInclude;
+
 export function toVenue(row: VenueRow): Venue {
   return {
     id: row.id,
@@ -44,6 +49,7 @@ export function toEvent(row: EventRow): Event {
     endsAt: row.endsAt.toISOString(),
     endTimeKnown: row.endTimeKnown,
     imageUrl: row.imageUrl,
+    photoId: row.photoId,
     sourceUrl: row.sourceUrl,
     source: row.source,
     status: row.status,

@@ -127,7 +127,7 @@ describe('registering after sign-in', () => {
     const { startSession, registerPushToken } = loadSession();
     await startSession(tokens);
 
-    await startSession({ ...tokens, accessToken: 'access-2', refreshToken: 'refresh-2' });
+    await startSession({ ...tokens, accessToken: 'access-2', refreshToken: 'refresh-2' }, true);
 
     expect(registerPushToken).toHaveBeenCalledTimes(1);
   });

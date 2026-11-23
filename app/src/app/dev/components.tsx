@@ -20,14 +20,7 @@ import { formatEventDate } from '@/dates';
 import { findMockEvent, mockCategories, mockEvents } from '@/mocks/events';
 import { mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import {
-  setAnnouncementsEmpty,
-  setGuest,
-  setJoinRequest,
-  setOrganizationEmpty,
-  setSimulateLoading,
-  useSession,
-} from '@/state/session';
+import { setAnnouncementsEmpty, setGuest, setJoinRequest, setSimulateLoading, useSession } from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -92,11 +85,6 @@ export default function ComponentsGallery() {
           onValueChange={setAnnouncementsEmpty}
         />
         <SwitchRow label="Запит на оголошення (Т5.1)" value={session.joinRequest} onValueChange={setJoinRequest} />
-        <SwitchRow
-          label="Події організації порожні (О1.1)"
-          value={session.organizationEmpty}
-          onValueChange={setOrganizationEmpty}
-        />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 

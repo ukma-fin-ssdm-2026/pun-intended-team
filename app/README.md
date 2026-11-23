@@ -98,9 +98,15 @@ Build and install:
 
 Rebuild after adding a native package or changing `app.json`, `app.config.ts` or `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`. Otherwise run `npm start` and open the installed app, as with Expo Go.
 
-## Admin pages
+## Admin and Organization Pages
 
-Administrators review reports, ban users and manage categories at `/admin`, e.g. `http://localhost:8081/admin`, in a browser on a computer; on a phone the page asks to open it on a computer. To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the mock posts and matches go to the usernames `iryna`, `artem`, `maksym` and `olena`, so they reach the API only when an account has that username.
+Both are for a browser on a computer, and the web app opens them in place of the app:
+
+- An administrator lands on `/admin` (reports, users, categories). In the phone app an administrator uses the app as anyone else, with no way into the panel.
+- An organization is an account of its own that has sent an organization request; it has no personal profile. It lands on `/organization` (its events, venues and settings); the phone app only asks it to open Nearby on a computer. An organization signs up through "Для організацій" next to "Продовжити як гість" on the web onboarding; after the date of birth it opens the request instead of the profile setup.
+- An administrator that also has an organization, e.g. a local test account, gets a link between the two panels.
+
+To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the mock posts and matches go to the usernames `iryna`, `artem`, `maksym` and `olena`, so they reach the API only when an account has that username.
 
 ## Environment variables
 
@@ -229,7 +235,7 @@ The screens are built from the [Figma design](https://www.figma.com/design/SxoD0
 - **Motion.** Animations take their values from Figma's motion data and prototype (Smart Animate durations and easing) and run on Reanimated; with reduced motion they rest on their first frame or switch at once.
 - **State.** `src/state/` holds client state shared between screens in small stores (`createStore`, over `useSyncExternalStore`): the mock session and the catalog filters, which the search, the category row and the filters sheet all change. Favourite events are one store too, so a heart toggled on a catalog card shows on the event page, on П6 and back; it starts with the three events П6 shows in Figma. Post likes (Ірина's post starts liked, as on Т3) and "Хочу піти" requests on the Оголошення tab are kept the same way.
 - **Status bar.** Call `useStatusBarStyle('light')` on a screen with a dark top, `'dark'` otherwise; it applies when the screen gets focus.
-- **Gallery and modes.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. Its first section switches the mock session: guest or signed in, whether the catalog shows its skeleton for 1.5 s first (on by default, as in the prototype), whether the event page shows 02.1 "Ти вже в пошуку" (off by default), whether the Метчі tab is empty (Т2.1), whether the Оголошення tab is empty (Т3.1), whether Т5 shows the join request of Т5.1, and whether О1 has no events (О1.1). Its "Інші екрани" section opens О1 and С1–С3. It also shows the other titles of 07 ("Концерту бути!", "Вечір врятовано!", "Гірко!"). Catalog cards always show the default "Знайти компанію" button; the gallery shows the "У пулі" card. Open the catalog with the button there: reloading the page resets the switches. The route only works in development; in a production build it redirects to the catalog.
+- **Gallery and modes.** Run `npm run web` and open `http://localhost:8081/dev/components` to see every component and state. Its first section switches the mock session: guest or signed in, whether the catalog shows its skeleton for 1.5 s first (on by default, as in the prototype), whether the event page shows 02.1 "Ти вже в пошуку" (off by default), whether the Метчі tab is empty (Т2.1), whether the Оголошення tab is empty (Т3.1), and whether Т5 shows the join request of Т5.1. Its "Інші екрани" section opens О1 and С1–С3. It also shows the other titles of 07 ("Концерту бути!", "Вечір врятовано!", "Гірко!"). Catalog cards always show the default "Знайти компанію" button; the gallery shows the "У пулі" card. Open the catalog with the button there: reloading the page resets the switches. The route only works in development; in a production build it redirects to the catalog.
 
 ## Code style
 

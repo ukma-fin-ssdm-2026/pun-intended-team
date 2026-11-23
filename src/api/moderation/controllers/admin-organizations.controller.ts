@@ -3,6 +3,7 @@ import { Controller } from '@nestjs/common';
 import type { AccountCaller } from '../../../core/identity/types/caller.ts';
 import { OrganizationReviewService } from '../../../core/moderation/services/organization-review.service.ts';
 import {
+  AdminOrganization,
   AdminOrganizationsPage,
   ListOrganizationsQuery,
   Organization,
@@ -14,6 +15,7 @@ import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
 
 const ListOrganizationsRequest = { query: ListOrganizationsQuery } satisfies RequestSchemas;
+const GetOrganizationRequest = { params: OrganizationAccountParams } satisfies RequestSchemas;
 const DecideOrganizationRequest = { params: OrganizationAccountParams } satisfies RequestSchemas;
 
 const NO_REQUEST = {
@@ -38,7 +40,8 @@ export class AdminOrganizationsController {
     operationId: 'adminListOrganizations',
     summary: 'List organization requests',
     description:
-      'List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones.',
+      'List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. ' +
+      'Filter them by name or status.',
     tags: ['Organizations'],
     access: 'admin',
     request: ListOrganizationsRequest,
@@ -49,7 +52,26 @@ export class AdminOrganizationsController {
   async listOrganizations(
     @Input() { query }: RouteInput<typeof ListOrganizationsRequest>,
   ): Promise<AdminOrganizationsPage> {
-    return this.organizationReviewService.list(query);
+    const { limit, offset, ...filter } = query;
+    return this.organizationReviewService.list(filter, { limit, offset });
+  }
+
+  @Endpoint({
+    method: 'get',
+    path: Routes.admin.organizationById,
+    operationId: 'adminGetOrganization',
+    summary: 'Get an organization request',
+    description: 'Get the organization request of one account, in any status, with the account that sent it.',
+    tags: ['Organizations'],
+    access: 'admin',
+    request: GetOrganizationRequest,
+    responses: {
+      200: { description: 'The request', schema: AdminOrganization },
+      404: NO_REQUEST,
+    },
+  })
+  async getOrganization(@Input() { params }: RouteInput<typeof GetOrganizationRequest>): Promise<AdminOrganization> {
+    return this.organizationReviewService.get(params.accountId);
   }
 
   @Endpoint({

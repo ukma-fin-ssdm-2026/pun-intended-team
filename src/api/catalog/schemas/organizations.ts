@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { z } from 'zod';
-import { DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts';
+import { DateTime, Id, PageQuery, pageOf, SearchText } from '../../common/schemas/common.ts';
+import { Image } from '../../images/schemas/images.ts';
 
 const OrganizationRequestFields = z.strictObject({
   name: z.string().trim().min(1).max(100).describe('The organization’s name, as users will see it'),
@@ -22,20 +23,24 @@ export const OrganizationRequestBody = OrganizationRequestFields.meta({
   example: organizationRequestExample,
 });
 
+export const VerificationStatus = z.enum(['pending', 'verified', 'rejected', 'revoked']);
+
 const OrganizationFields = z.object({
   name: z.string(),
   description: z.string().nullable(),
   officialLink: z.string().nullable(),
-  verificationStatus: z
-    .enum(['pending', 'verified', 'rejected', 'revoked'])
-    .describe('pending: waits for an administrator; only a verified organization publishes events'),
+  verificationStatus: VerificationStatus.describe(
+    'pending: waits for an administrator; only a verified organization publishes events',
+  ),
   verifiedAt: DateTime.nullable().describe('When an administrator verified it; null otherwise'),
+  logo: Image.nullable().describe('A square shown as a circle; null shows the building icon'),
 });
 
 export const organizationExample: Organization = {
   ...organizationRequestExample,
   verificationStatus: 'pending',
   verifiedAt: null,
+  logo: null,
 };
 
 export const Organization = OrganizationFields.meta({
@@ -69,7 +74,16 @@ export const AdminOrganization = AdminOrganizationFields.meta({
 
 export const AdminOrganizationsPage = pageOf(AdminOrganization, 'AdminOrganizationsPage', adminOrganizationExample);
 
-export const ListOrganizationsQuery = PageQuery;
+export const ListOrganizationsQuery = PageQuery.extend({
+  search: SearchText.optional().describe('Part of the organization’s name, in any case'),
+  status: VerificationStatus.optional().describe('Only organizations in this status'),
+});
+
+/** The organization an event or a venue belongs to, for administrators. */
+export const OrganizationName = z
+  .object({ accountId: Id.describe('Get it with adminGetOrganization'), name: z.string() })
+  .nullable()
+  .describe('The organization that added it; null for an imported one');
 
 export const OrganizationAccountParams = z.object({
   accountId: Id.describe('Account id of the organization'),

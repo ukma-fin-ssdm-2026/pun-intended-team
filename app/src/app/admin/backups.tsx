@@ -58,7 +58,7 @@ export default function AdminBackups() {
 
   return (
     <>
-      <PageHeader title="Резервні копії" note="Резервна копія бази даних створюється щодня о 01:00 UTC." />
+      <PageHeader title="Резервні копії" />
 
       {backups.data && (
         <Card className="gap-3 p-6">
@@ -70,18 +70,12 @@ export default function AdminBackups() {
               />
               <Text className="font-inter-medium text-body text-text-primary">
                 {status.lastSucceededAt
-                  ? `Остання резервна копія: ${formatDateTime(status.lastSucceededAt)}`
-                  : 'Успішних резервних копій ще немає.'}
+                  ? `Остання копія: ${formatDateTime(status.lastSucceededAt)}`
+                  : 'Успішних копій ще немає.'}
               </Text>
-              {status.overdue && (
-                <Text className="font-inter text-caption text-text-secondary">
-                  Останнє резервне копіювання завершилося помилкою або нова копія не створювалася понад 26 годин.
-                  Повідомте адміністратора сервера.
-                </Text>
-              )}
             </>
           ) : (
-            <Text className="font-inter text-body text-text-secondary">Резервних копій ще немає.</Text>
+            <Text className="font-inter text-body text-text-secondary">Копій ще немає.</Text>
           )}
         </Card>
       )}
@@ -100,7 +94,7 @@ export default function AdminBackups() {
         {backups.data ? (
           backups.data.items.length === 0 ? (
             <Text className="border-t border-border-default px-6 py-10 text-center font-inter text-body text-text-secondary">
-              Записів поки немає.
+              Нічого не знайдено.
             </Text>
           ) : (
             backups.data.items.map((item) => <BackupRow key={item.finishedAt} item={item} />)

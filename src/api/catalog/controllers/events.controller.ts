@@ -7,14 +7,37 @@ import { CurrentAccount } from '../../common/auth.ts';
 import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../common/endpoint.ts';
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
-import { CreateEventBody, Event, EventIdParams, EventsPage, ListEventsQuery } from '../schemas/events.ts';
+import { CropQuery, ImageFileBody, UPLOAD_NOTE, toCrop } from '../../images/schemas/images.ts';
+import {
+  CreateEventBody,
+  Event,
+  EventIdParams,
+  EventsPage,
+  ListEventsQuery,
+  ListMyEventsQuery,
+  MyEventsPage,
+} from '../schemas/events.ts';
 
 const ListEventsRequest = { query: ListEventsQuery } satisfies RequestSchemas;
+const ListMyEventsRequest = { query: ListMyEventsQuery } satisfies RequestSchemas;
 const GetEventRequest = { params: EventIdParams } satisfies RequestSchemas;
 const CreateEventRequest = { body: CreateEventBody } satisfies RequestSchemas;
 // PUT replaces the editable fields, so it takes the same body as POST.
 const UpdateEventRequest = { params: EventIdParams, body: CreateEventBody } satisfies RequestSchemas;
 const CancelEventRequest = { params: EventIdParams } satisfies RequestSchemas;
+const UploadEventPhotoRequest = {
+  params: EventIdParams,
+  query: CropQuery,
+  file: ImageFileBody,
+} satisfies RequestSchemas;
+const DeleteEventPhotoRequest = { params: EventIdParams } satisfies RequestSchemas;
+
+const PHOTO_REFUSED = {
+  description:
+    '`EVENT_CANCELLED`: a cancelled event keeps its cover. `ORGANIZATION_NOT_VERIFIED`: as when publishing. ' +
+    '`INVALID_IMAGE`: the body is not a JPEG, PNG or WebP picture.',
+  schema: ErrorResponse,
+};
 
 const NOT_OWN_EVENT = {
   description: 'No event with this id, or it is not one of the organization’s own',
@@ -51,6 +74,28 @@ export class EventsController {
       this.importFreshnessService.lastUpdatedAt(),
     ]);
     return { ...page, lastUpdatedAt };
+  }
+
+  @Endpoint({
+    method: 'get',
+    path: Routes.events.mine,
+    operationId: 'listMyEvents',
+    summary: 'List your organization’s events',
+    description:
+      'List the events the caller’s organization has published that have not ended, the cancelled ones too, ' +
+      'soonest first. Empty for an account that is not an organization.',
+    tags: ['Events'],
+    access: 'user',
+    request: ListMyEventsRequest,
+    responses: {
+      200: { description: 'A page of events', schema: MyEventsPage },
+    },
+  })
+  async listMyEvents(
+    @Input() { query }: RouteInput<typeof ListMyEventsRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<MyEventsPage> {
+    return this.eventsService.listOwn(account.accountId, query);
   }
 
   @Endpoint({
@@ -148,5 +193,55 @@ export class EventsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Event> {
     return this.eventsService.cancel(account.accountId, params.id);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.events.photo,
+    operationId: 'uploadEventPhoto',
+    summary: 'Add a cover to your event',
+    description:
+      'Set or replace the cover of one of the organization’s own events. The crop is the catalog card’s 2:1 shape, and ' +
+      `the whole picture is kept (up to 2560 px), so the event page shows more around it. ${UPLOAD_NOTE}`,
+    tags: ['Events'],
+    access: 'user',
+    request: UploadEventPhotoRequest,
+    responses: {
+      200: { description: 'The updated event', schema: Event },
+      404: NOT_OWN_EVENT,
+      422: PHOTO_REFUSED,
+    },
+    mcp: false,
+  })
+  async uploadEventPhoto(
+    @Input() { params, query, file }: RouteInput<typeof UploadEventPhotoRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Event> {
+    return this.eventsService.setPhoto(account.accountId, params.id, { ...file, crop: toCrop(query) });
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.events.photo,
+    operationId: 'deleteEventPhoto',
+    summary: 'Remove the cover of your event',
+    description: 'Remove the cover of one of the organization’s own events. Without a cover, nothing changes.',
+    tags: ['Events'],
+    access: 'user',
+    request: DeleteEventPhotoRequest,
+    responses: {
+      200: { description: 'The updated event', schema: Event },
+      404: NOT_OWN_EVENT,
+      422: {
+        description: '`EVENT_CANCELLED`, `ORGANIZATION_NOT_VERIFIED`: as when adding a cover.',
+        schema: ErrorResponse,
+      },
+    },
+  })
+  async deleteEventPhoto(
+    @Input() { params }: RouteInput<typeof DeleteEventPhotoRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Event> {
+    return this.eventsService.removePhoto(account.accountId, params.id);
   }
 }

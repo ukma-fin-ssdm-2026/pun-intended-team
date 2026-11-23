@@ -184,7 +184,7 @@ export default function AdminCategories() {
 
   return (
     <>
-      <PageHeader title="Категорії" note="Приховані категорії не видно у фільтрах, і їх не можна обрати." />
+      <PageHeader title="Категорії" />
 
       <Card className="gap-2 px-6 py-5">
         <Text className="font-inter-medium text-label text-text-primary">Нова категорія</Text>

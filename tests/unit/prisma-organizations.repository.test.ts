@@ -21,6 +21,7 @@ function makeRepository() {
     findUnique: mock.fn((): Promise<unknown> => Promise.resolve(aRow())),
     create: mock.fn((): Promise<unknown> => Promise.resolve(aRow())),
     updateMany: mock.fn<(args: unknown) => Promise<{ count: number }>>(() => Promise.resolve({ count: 1 })),
+    findMany: mock.fn<(args: unknown) => Promise<unknown[]>>(() => Promise.resolve([aRow()])),
   };
   const repository = new PrismaOrganizationsRepository({ organization } as unknown as PrismaService);
   return { repository, organization };
@@ -95,5 +96,38 @@ describe('PrismaOrganizationsRepository.decide', () => {
       where: { accountId: ACCOUNT_ID, verificationStatus: 'pending' },
       data: { verificationStatus: 'rejected' },
     });
+  });
+});
+
+describe('PrismaOrganizationsRepository.findPage', () => {
+  test('filters by part of the name in any case and by status', async () => {
+    const { repository, organization } = makeRepository();
+
+    await repository.findPage({ search: 'film', status: 'pending' }, { limit: 20, offset: 0 });
+
+    const { where } = organization.findMany.mock.calls[0]?.arguments[0] as { where: unknown };
+    assert.deepEqual(where, {
+      verificationStatus: 'pending',
+      name: { contains: 'film', mode: 'insensitive' },
+    });
+  });
+
+  test('lists every organization without a filter', async () => {
+    const { repository, organization } = makeRepository();
+
+    const { items } = await repository.findPage({}, { limit: 20, offset: 0 });
+
+    const { where } = organization.findMany.mock.calls[0]?.arguments[0] as { where: unknown };
+    assert.deepEqual(where, { verificationStatus: undefined, name: undefined });
+    assert.deepEqual(items, [anOrganization()]);
+  });
+});
+
+describe('PrismaOrganizationsRepository.findByAccountIds', () => {
+  test('asks for the organizations of these accounts', async () => {
+    const { repository, organization } = makeRepository();
+
+    assert.deepEqual(await repository.findByAccountIds([ACCOUNT_ID]), [anOrganization()]);
+    assert.deepEqual(organization.findMany.mock.calls[0]?.arguments, [{ where: { accountId: { in: [ACCOUNT_ID] } } }]);
   });
 });

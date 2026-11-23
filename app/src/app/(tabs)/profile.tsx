@@ -3,7 +3,7 @@
 // by Daryna Halytska.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -13,6 +13,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
+import type { ApiEventPhoto } from '@/api/images';
 import { SafetySheet } from '@/components/matching/safety-sheet';
 import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
@@ -30,7 +31,6 @@ import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
@@ -94,7 +94,7 @@ function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab:
 }
 
 // A live event from the catalog or, until the screens that use them move to the API, a mock one.
-type SavedEvent = Omit<MockEvent, 'district' | 'organizer'>;
+type SavedEvent = Omit<MockEvent, 'district' | 'organizer' | 'photo'> & { photo?: ApiEventPhoto | null };
 
 function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: string) => void }) {
   return (
@@ -108,6 +108,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
           cover={eventCoverOf(event)}
+          photo={event.photo}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
           // The button opens the event page too, as on the catalog cards.
@@ -219,11 +220,10 @@ export default function ProfileScreen() {
   const favoriteIds = useFavoriteIds();
   const liveEvents = useEventsByIds(favoriteIds).data;
   const savedEvents = favoriteIds
-    .map((id) => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
+    .map((id): SavedEvent | undefined => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
     .filter((event): event is SavedEvent => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
-  const { role } = useSession();
 
   return (
     <View className="flex-1 bg-surface-background">
@@ -290,11 +290,6 @@ export default function ProfileScreen() {
 
         {tab === 'about' ? (
           <View className="items-center gap-4 px-5 pt-2.5">
-            {Platform.OS === 'web' && role === 'admin' && (
-              <Pressable accessibilityRole="link" onPress={() => router.push('/admin')} hitSlop={8}>
-                <Text className="font-inter-medium text-label text-text-primary">Адмін-панель</Text>
-              </Pressable>
-            )}
             <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
             </Pressable>

@@ -5,6 +5,7 @@ import type { ImageSource } from 'expo-image';
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View, type AccessibilityActionEvent } from 'react-native';
 
+import type { ApiEventPhoto } from '@/api/images';
 import { EventCover } from '@/components/ui/event-cover';
 import { Glass } from '@/components/ui/glass';
 import { Icon } from '@/components/ui/icon';
@@ -19,6 +20,8 @@ type Props = {
   // Without a cover image, or when it fails to load, the card shows the coral gradient, as the lecture card on the
   // Figma catalog.
   cover?: ImageSource;
+  // The cover an organization uploaded, instead of `cover`.
+  photo?: ApiEventPhoto | null;
   // "В обране": the heart is filled in brand/coral while the event is a favourite.
   favorite: boolean;
   onToggleFavorite: () => void;
@@ -28,7 +31,17 @@ type Props = {
 
 const accessibilityActions = [{ name: 'activate' }, { name: 'favorite', label: 'В обране' }];
 
-export function EventCard({ title, category, dateLabel, place, cover, favorite, onToggleFavorite, onPress }: Props) {
+export function EventCard({
+  title,
+  category,
+  dateLabel,
+  place,
+  cover,
+  photo,
+  favorite,
+  onToggleFavorite,
+  onPress,
+}: Props) {
   const coverRef = useRef<View>(null);
 
   // A pressable card groups its content for screen readers, so the heart is offered as its action.
@@ -52,7 +65,7 @@ export function EventCard({ title, category, dateLabel, place, cover, favorite, 
       <View className="h-[170px] overflow-hidden rounded-2xl">
         {/* What the glass blurs on Android; the glass itself stays outside. */}
         <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          <EventCover cover={cover} />
+          <EventCover cover={cover} photo={photo} />
         </BlurTargetView>
         <Glass
           className="absolute left-2.5 top-2.5 h-9 min-w-[72px] items-center justify-center px-4"

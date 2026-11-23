@@ -1,6 +1,6 @@
 // Written with the help of Claude
 /** Where an image is shown; each kind has its own crop shape and stored size (image-kinds.ts). */
-export type ImageKind = 'profilePhoto' | 'profileCover' | 'listingPhoto';
+export type ImageKind = 'profilePhoto' | 'profileCover' | 'listingPhoto' | 'eventPhoto' | 'organizationLogo';
 
 /** An area of a picture in pixels. */
 export interface PixelArea {
@@ -42,6 +42,8 @@ export interface ImageFile {
 /** A new row as the repository stores it. */
 export interface ImageRecord extends ImageFile, Omit<ImageRef, 'id'> {
   ownerId: string;
+  /** A guest token may get it: a picture of the catalog, not of a person. */
+  isPublic: boolean;
 }
 
 /** The picture the processor returns: encoded, and its size. */

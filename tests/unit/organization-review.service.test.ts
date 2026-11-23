@@ -20,7 +20,9 @@ function makeService() {
   const organizationsService = {
     find: mock.fn((): Promise<Organization | undefined> => Promise.resolve(PENDING)),
     getOwn: mock.fn(() => Promise.resolve(anOrganization())),
-    listRequests: mock.fn(() => Promise.resolve({ items: [PENDING], page: { limit: 20, offset: 0, hasMore: false } })),
+    listRequests: mock.fn<(filter: unknown, page: unknown) => Promise<unknown>>(() =>
+      Promise.resolve({ items: [PENDING], page: { limit: 20, offset: 0, hasMore: false } }),
+    ),
     decide: mock.fn(() => Promise.resolve(true)),
   };
   const profilesService = {
@@ -47,9 +49,37 @@ describe('OrganizationReviewService.list', () => {
   test('shows each request with the account that sent it', async () => {
     const { service } = makeService();
 
-    const { items } = await service.list({ limit: 20, offset: 0 });
+    const { items } = await service.list({}, { limit: 20, offset: 0 });
 
     assert.deepEqual(items, [{ ...PENDING, account: { id: ACCOUNT_ID, username: 'natalka', displayName: 'Natalka' } }]);
+  });
+
+  test('passes the search and the status on', async () => {
+    const { service, organizationsService } = makeService();
+
+    await service.list({ search: 'film', status: 'pending' }, { limit: 20, offset: 0 });
+
+    assert.deepEqual(organizationsService.listRequests.mock.calls[0]?.arguments, [
+      { search: 'film', status: 'pending' },
+      { limit: 20, offset: 0 },
+    ]);
+  });
+});
+
+describe('OrganizationReviewService.get', () => {
+  test('gives the request with the account that sent it', async () => {
+    const { service } = makeService();
+
+    const review = await service.get(ACCOUNT_ID);
+
+    assert.deepEqual(review, { ...PENDING, account: { id: ACCOUNT_ID, username: 'natalka', displayName: 'Natalka' } });
+  });
+
+  test('refuses an account without a request with NOT_FOUND', async () => {
+    const { service, organizationsService } = makeService();
+    organizationsService.find.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.get(ACCOUNT_ID), isDomainError('NOT_FOUND'));
   });
 });
 

@@ -14,6 +14,26 @@ export interface Account {
   dateOfBirth: string | null;
 }
 
+export type SignInMethod = 'google' | 'password';
+
+/** An account as the admin panel lists it; the date of birth only gives the age, the contact never leaves. */
+export interface AccountOverview {
+  id: string;
+  role: AccountRole;
+  status: AccountStatus;
+  signInMethods: SignInMethod[];
+  /** YYYY-MM-DD; null while the account is pending. */
+  dateOfBirth: string | null;
+  createdAt: string;
+}
+
+/** Which accounts the admin panel lists; `ids` limits them to these, e.g. the ones a profile search found. */
+export interface AccountFilter {
+  role?: AccountRole;
+  status?: AccountStatus;
+  ids?: string[];
+}
+
 /** A new row as the repository stores it. */
 export type AccountRecord = Omit<Account, 'id'>;
 

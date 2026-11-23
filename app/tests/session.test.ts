@@ -105,3 +105,36 @@ describe('renewing the session', () => {
     expect(post.mock.calls[0]?.[1]).toEqual({ body: { refreshToken: 'refresh-1' } });
   });
 });
+
+describe('signing in', () => {
+  const tokens = (name: string, expiresIn = 3600) => ({
+    accessToken: `access-${name}`,
+    tokenType: 'Bearer' as const,
+    refreshToken: `refresh-${name}`,
+    expiresIn,
+  });
+
+  test("over another account's session forgets that account and ends its session", async () => {
+    const { startSession, post } = load();
+    const organization = require('@/state/organization') as typeof import('@/state/organization');
+    post.mockResolvedValue({ response: { status: 204 } });
+    await startSession(tokens('admin'));
+    organization.setOwnOrganizationState({ status: 'none' });
+
+    await startSession(tokens('organization'));
+
+    expect(organization.ownOrganizationState()).toEqual({ status: 'idle' });
+    expect(post).toHaveBeenCalledWith('/api/v1/auth/sign-out', { headers: { Authorization: 'Bearer access-admin' } });
+  });
+
+  test('a renewal keeps what the account loaded', async () => {
+    const { startSession, currentAccessToken, post } = load();
+    const organization = require('@/state/organization') as typeof import('@/state/organization');
+    await startSession(tokens('1', 0));
+    organization.setOwnOrganizationState({ status: 'none' });
+    post.mockResolvedValueOnce(renewed);
+
+    await expect(currentAccessToken()).resolves.toBe('access-2');
+    expect(organization.ownOrganizationState()).toEqual({ status: 'none' });
+  });
+});
