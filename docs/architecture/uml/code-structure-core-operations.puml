@@ -46,6 +46,7 @@ package "core (business logic)" as CORE {
     class NotificationsService {
       +sendCode(phone, code)
       +notify(accountId, type, payload, dedupeKey, tx)
+      +notifyMany(notifications, tx)
       +listMine(accountId, page)
       +markRead(accountId, id)
       +registerDevice(accountId, sessionId, device)
@@ -58,6 +59,7 @@ package "core (business logic)" as CORE {
     }
     abstract class NotificationsRepository {
       +create(notification, tx)
+      +createMany(notifications, tx)
       +findById(id, tx)
       +findByAccount(accountId, page, tx)
       +markRead(accountId, id, tx)
@@ -96,13 +98,14 @@ package "core (business logic)" as CORE {
   package jobs {
     abstract class JobQueue {
       +enqueue(name, payload, options, tx)
+      +enqueueMany(name, payloads, tx)
       +register(name, handler, options)
       +schedule(name, cron, payload, key)
     }
   }
   package common {
     abstract class TransactionRunner {
-      +run(work)
+      +run(work, options)
     }
     class DomainError
   }

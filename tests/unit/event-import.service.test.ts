@@ -10,6 +10,7 @@ import type { EventProvider } from '../../dist/core/import/adapters/event-provid
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import type { ImportedEventsRepository } from '../../dist/core/import/repositories/imported-events.repository.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
+import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import type {
   CompleteRun,
   FetchResult,
@@ -20,6 +21,7 @@ import type {
   NormalizeResult,
 } from '../../dist/core/import/types/import.js';
 import { aCategory, aVenue, CATEGORY_ID, VENUE_ID } from './fixtures/catalog.ts';
+import { aJobQueue, aTransactionRunner, enqueued, TX } from './fixtures/jobs.ts';
 
 const PROVIDER_ID = 'test_provider';
 /** What the test provider's list covers: from when it was read to the end of its last day. */
@@ -114,20 +116,24 @@ function makeService(raws: unknown[] = [{}], normalized: NormalizeResult[] = [{ 
     ),
     updateEvent: mock.fn<ImportedEventsRepository['updateEvent']>(() => Promise.resolve()),
     lastCompleteRun: mock.fn((): Promise<CompleteRun | undefined> => Promise.resolve(undefined)),
-    cancelUnseen: mock.fn<ImportedEventsRepository['cancelUnseen']>(() => Promise.resolve(0)),
+    cancelUnseen: mock.fn<ImportedEventsRepository['cancelUnseen']>(() => Promise.resolve([])),
   };
   const geocoder = {
     locate: mock.fn((): Promise<Venue['location'] | undefined> => Promise.resolve({ lat: 50.45, lng: 30.52 })),
   };
   const clock = { now: mock.fn(() => NOW) };
+  const transactions = aTransactionRunner();
+  const jobs = aJobQueue();
   const service = new EventImportService(
     [provider as unknown as EventProvider],
     repository as unknown as ImportedEventsRepository,
     geocoder as unknown as Geocoder,
     clock as Clock,
+    transactions,
+    jobs as unknown as JobQueue,
   );
   const run = () => service.importFrom(provider as unknown as EventProvider);
-  return { service, run, provider, repository, geocoder, clock };
+  return { service, run, provider, repository, geocoder, clock, transactions, jobs };
 }
 
 // FR-008, FLEX-003
@@ -567,6 +573,7 @@ describe('EventImportService.importFrom, with the geocoder unavailable', () => {
       PROVIDER_ID,
       ['new-1', 'known-1', 'new-2', 'new-3'],
       COVERS,
+      TX,
     ]);
     assert.equal(report.complete, true);
   });
@@ -838,11 +845,11 @@ describe('EventImportService.importFrom, removed and cancelled events', () => {
       [{}, {}],
       [{ event: anImportedEvent() }, { event: anImportedEvent({ externalId: 'ext-2' }) }],
     );
-    repository.cancelUnseen.mock.mockImplementation(() => Promise.resolve(3));
+    repository.cancelUnseen.mock.mockImplementation(() => Promise.resolve(['gone-1', 'gone-2', 'gone-3']));
 
     const report = await run();
 
-    assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments, [PROVIDER_ID, ['ext-1', 'ext-2'], COVERS]);
+    assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments, [PROVIDER_ID, ['ext-1', 'ext-2'], COVERS, TX]);
     assert.equal(report.cancelled, 3);
     assert.equal(report.complete, true);
   });
@@ -1076,7 +1083,7 @@ describe('EventImportService.importFrom, when the database fails', () => {
 
 describe('EventImportService.run', () => {
   test('reports a provider whose run the database could not start, and still imports the next one', async () => {
-    const { provider, repository, geocoder, clock } = makeService();
+    const { provider, repository, geocoder, clock, transactions, jobs } = makeService();
     const second = {
       id: 'up',
       fetch: () => Promise.resolve(aList([{}])),
@@ -1087,6 +1094,8 @@ describe('EventImportService.run', () => {
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
       clock as Clock,
+      transactions,
+      jobs as unknown as JobQueue,
     );
     repository.startRun.mock.mockImplementationOnce(() => Promise.reject(new Error('Connection terminated')), 0);
     const error = mock.method(Logger.prototype, 'error', () => {});
@@ -1102,7 +1111,7 @@ describe('EventImportService.run', () => {
   });
 
   test('imports from every provider and reports a failed one without stopping the others', async () => {
-    const { repository, geocoder, clock } = makeService();
+    const { repository, geocoder, clock, transactions, jobs } = makeService();
     const failing = { id: 'down', fetch: () => Promise.reject(new Error('Karabas is down')), normalize: () => null };
     const working = {
       id: 'up',
@@ -1114,6 +1123,8 @@ describe('EventImportService.run', () => {
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
       clock as Clock,
+      transactions,
+      jobs as unknown as JobQueue,
     );
     const error = mock.method(Logger.prototype, 'error', () => {});
 
@@ -1190,6 +1201,7 @@ describe('EventImportService.importFrom, duplicates across providers', () => {
       PROVIDER_ID,
       ['bridgerton-candlelight'],
       COVERS,
+      TX,
     ]);
     assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [
       RUN_ID,
@@ -1230,7 +1242,7 @@ describe('EventImportService.importFrom, a run of shows', () => {
   const nextDay = anImportedEvent({ startsAt: '2026-10-16T07:00:00.000Z', endsAt: '2027-05-01T11:00:00.000Z' });
 
   test('moves the first day forward as an update, keeping the start of a later day’s session', async () => {
-    const { run, repository } = makeService([{}], [{ event: nextDay }]);
+    const { run, repository, jobs } = makeService([{}], [{ event: nextDay }]);
     repository.findEvent.mock.mockImplementation(() => Promise.resolve(savedRun));
 
     const report = await run();
@@ -1247,6 +1259,7 @@ describe('EventImportService.importFrom, a run of shows', () => {
     const moved = { startsAt: changes?.startsAt ?? '', endsAt: changes?.endsAt ?? '' };
     assert.deepEqual(sessionStart(moved, '2026-11-01'), opened);
     assert.equal(sessionStart(moved, '2026-10-15'), undefined, 'the day that has passed is no longer a day of it');
+    assert.deepEqual(enqueued(jobs), [], 'no later day changed, so matching is not told');
   });
 });
 
@@ -1267,7 +1280,7 @@ describe('EventImportService.importFrom, an exhibition whose opening has passed'
   });
 
   test('updates the opening into the run under the same external id, and cancels nothing', async () => {
-    const { run, repository } = makeService([{}], [{ event: theRun }]);
+    const { run, repository, jobs } = makeService([{}], [{ event: theRun }]);
     repository.findEvent.mock.mockImplementation(() => Promise.resolve(opening));
 
     const report = await run();
@@ -1282,6 +1295,98 @@ describe('EventImportService.importFrom, an exhibition whose opening has passed'
     assert.equal(repository.createEvent.mock.callCount(), 0);
     assert.equal(repository.findOtherProvidersEvents.mock.callCount(), 0);
     assert.deepEqual(repository.cancelUnseen.mock.calls[0]?.arguments[1], ['ext-1']);
+    assert.deepEqual(enqueued(jobs), [], 'the opening is over, so no session that is ahead changed');
+  });
+});
+
+// ADR-006, decision 10; HLD I3: the import tells matching about a change in the transaction of the change.
+describe('EventImportService.importFrom, event.changed', () => {
+  /** A concert nine days after NOW, at 19:00 in Kyiv. */
+  const coming = { startsAt: '2026-11-20T17:00:00.000Z', endsAt: '2026-11-20T20:00:00.000Z' };
+  const anHourLater = { startsAt: '2026-11-20T18:00:00.000Z', endsAt: '2026-11-20T21:00:00.000Z' };
+  const EVENT = theSavedEvent().id;
+
+  const cases: {
+    name: string;
+    saved: ImportedEventRow | undefined;
+    imported: ImportedEvent;
+    change?: 'republished' | 'rescheduled';
+  }[] = [
+    { name: 'a new event', saved: undefined, imported: anImportedEvent(coming) },
+    { name: 'an unchanged event', saved: theSavedEvent(coming), imported: anImportedEvent(coming) },
+    {
+      name: 'another title',
+      saved: theSavedEvent({ ...coming, title: 'Old title' }),
+      imported: anImportedEvent(coming),
+    },
+    {
+      name: 'another start time of a coming event',
+      saved: theSavedEvent(coming),
+      imported: anImportedEvent(anHourLater),
+      change: 'rescheduled',
+    },
+    {
+      name: 'another start time of an event that is over',
+      saved: theSavedEvent(),
+      imported: anImportedEvent({ startsAt: '2026-10-22T17:00:00.000Z', endsAt: '2026-10-22T20:00:00.000Z' }),
+    },
+    {
+      name: 'a cancelled event the provider lists again',
+      saved: theSavedEvent({ ...coming, status: 'cancelled' }),
+      imported: anImportedEvent(coming),
+      change: 'republished',
+    },
+    {
+      name: 'a cancelled event the provider lists again at another time',
+      saved: theSavedEvent({ ...coming, status: 'cancelled' }),
+      imported: anImportedEvent(anHourLater),
+      change: 'republished',
+    },
+  ];
+  for (const { name, saved, imported, change } of cases) {
+    test(`${name}: ${change ?? 'no job'}`, async () => {
+      const { run, repository, jobs } = makeService([{}], [{ event: imported }]);
+      repository.findEvent.mock.mockImplementation(() => Promise.resolve(saved));
+
+      await run();
+
+      assert.deepEqual(enqueued(jobs), change ? [['event.changed', { eventId: EVENT, change }, TX]] : []);
+      if (change) {
+        assert.equal(repository.updateEvent.mock.calls[0]?.arguments[2], TX, 'the update is in the transaction');
+      }
+    });
+  }
+
+  test('enqueues a job for every event it cancels, in one insert in the transaction of the cancellation', async () => {
+    const { run, repository, jobs } = makeService();
+    repository.cancelUnseen.mock.mockImplementation(() => Promise.resolve(['gone-1', 'gone-2']));
+
+    await run();
+
+    assert.deepEqual(
+      jobs.enqueueMany.mock.calls.map((call) => call.arguments),
+      [
+        [
+          'event.changed',
+          [
+            { eventId: 'gone-1', change: 'cancelled' },
+            { eventId: 'gone-2', change: 'cancelled' },
+          ],
+          TX,
+        ],
+      ],
+    );
+    assert.equal(repository.cancelUnseen.mock.calls[0]?.arguments[3], TX);
+  });
+
+  test('fails the run when a job cannot be enqueued, so the change is rolled back with it', async () => {
+    const { run, repository, jobs } = makeService([{}], [{ event: anImportedEvent(anHourLater) }]);
+    repository.findEvent.mock.mockImplementation(() => Promise.resolve(theSavedEvent(coming)));
+    jobs.enqueue.mock.mockImplementation(() => Promise.reject(new Error('The job queue is not running')));
+
+    await assert.rejects(run(), /The job queue is not running/);
+
+    assert.deepEqual(repository.finishRun.mock.calls[0]?.arguments, [RUN_ID, 'failed']);
   });
 });
 
@@ -1388,7 +1493,7 @@ describe('EventImportService, the least time between runs', () => {
   });
 
   test('still runs the next provider when one is not started', async () => {
-    const { repository, geocoder, clock } = makeService();
+    const { repository, geocoder, clock, transactions, jobs } = makeService();
     const recent = { id: 'recent', minHoursBetweenRuns: 20, fetch: mock.fn(), normalize: () => null };
     const due = {
       id: 'due',
@@ -1404,6 +1509,8 @@ describe('EventImportService, the least time between runs', () => {
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
       clock as Clock,
+      transactions,
+      jobs as unknown as JobQueue,
     );
     const warn = mock.method(Logger.prototype, 'warn', () => {});
 
@@ -1424,7 +1531,7 @@ describe('EventImportService, the least time between runs', () => {
 
 describe('EventImportService.runProvider', () => {
   test('runs only the provider with the id, with the same check of the last run', async () => {
-    const { repository, geocoder, clock } = makeService();
+    const { repository, geocoder, clock, transactions, jobs } = makeService();
     const other = { id: 'other', minHoursBetweenRuns: 20, fetch: mock.fn(), normalize: () => null };
     const asked = {
       id: 'asked',
@@ -1437,6 +1544,8 @@ describe('EventImportService.runProvider', () => {
       repository as unknown as ImportedEventsRepository,
       geocoder as unknown as Geocoder,
       clock as Clock,
+      transactions,
+      jobs as unknown as JobQueue,
     );
 
     const summary = await service.runProvider('asked');

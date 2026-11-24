@@ -18,12 +18,23 @@ export class PrismaNotificationsRepository implements NotificationsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(notification: NewNotification, tx?: Transaction): Promise<Notification | undefined> {
+    const [created] = await this.createMany([notification], tx);
+    return created;
+  }
+
+  async createMany(notifications: NewNotification[], tx?: Transaction): Promise<Notification[]> {
+    if (notifications.length === 0) {
+      return [];
+    }
     // ON CONFLICT DO NOTHING rather than catching the unique violation, which would abort the caller's transaction.
-    const [row] = await clientOf(this.prisma, tx).notification.createManyAndReturn({
-      data: [{ ...notification, payload: notification.payload as Prisma.InputJsonObject }],
+    const rows = await clientOf(this.prisma, tx).notification.createManyAndReturn({
+      data: notifications.map((notification) => ({
+        ...notification,
+        payload: notification.payload as Prisma.InputJsonObject,
+      })),
       skipDuplicates: true,
     });
-    return row ? toNotification(row) : undefined;
+    return rows.map(toNotification);
   }
 
   async findById(id: string, tx?: Transaction): Promise<Notification | undefined> {

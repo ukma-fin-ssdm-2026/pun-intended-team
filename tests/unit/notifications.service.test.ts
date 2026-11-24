@@ -10,7 +10,7 @@ import type { DeviceTokensRepository } from '../../dist/core/notifications/repos
 import type { NotificationsRepository } from '../../dist/core/notifications/repositories/notifications.repository.js';
 import { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { DeviceToken } from '../../dist/core/notifications/types/device-token.js';
-import type { Notification, PushStatus } from '../../dist/core/notifications/types/notification.js';
+import type { NewNotification, Notification, PushStatus } from '../../dist/core/notifications/types/notification.js';
 import type { PushMessage, PushTicket } from '../../dist/core/notifications/types/push.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 
@@ -52,6 +52,9 @@ type DeliverHandler = (job: { id: string; name: string; payload: { notificationI
 function makeService() {
   const repository = {
     create: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
+    createMany: mock.fn((notifications: NewNotification[]): Promise<Notification[]> =>
+      Promise.resolve(notifications.map((_, i) => aNotification({ id: `n${i}` }))),
+    ),
     findById: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
     findByAccount: mock.fn(),
     markRead: mock.fn((): Promise<Notification | undefined> => Promise.resolve(aNotification())),
@@ -67,7 +70,12 @@ function makeService() {
   const push = {
     send: mock.fn((messages: PushMessage[]): Promise<PushTicket[]> => Promise.resolve(messages.map(() => ok))),
   };
-  const jobs = { register: mock.fn(), schedule: mock.fn(), enqueue: mock.fn(() => Promise.resolve()) };
+  const jobs = {
+    register: mock.fn(),
+    schedule: mock.fn(),
+    enqueue: mock.fn(() => Promise.resolve()),
+    enqueueMany: mock.fn(() => Promise.resolve()),
+  };
   const service = new NotificationsService(
     {} as MessagingProvider,
     repository as unknown as NotificationsRepository,
@@ -132,6 +140,47 @@ describe('NotificationsService.notify', () => {
 
     assert.equal(notification, undefined);
     assert.equal(jobs.enqueue.mock.callCount(), 0);
+  });
+});
+
+describe('NotificationsService.notifyMany', () => {
+  const told = (dedupeKey: string): NewNotification => ({
+    accountId: ACCOUNT_ID,
+    type: 'event_changed',
+    payload: {},
+    dedupeKey,
+  });
+
+  test('writes the notifications in one insert and enqueues their deliveries in one, in the caller’s transaction', async () => {
+    const { service, repository, jobs } = makeService();
+    const notifications = [told('one'), told('two')];
+
+    const created = await service.notifyMany(notifications, TX);
+
+    assert.deepEqual(repository.createMany.mock.calls[0]?.arguments, [notifications, TX]);
+    assert.deepEqual(
+      jobs.enqueueMany.mock.calls.map((call) => call.arguments as unknown[]),
+      [[DELIVER_JOB, created.map(({ id }) => ({ notificationId: id })), TX]],
+    );
+    assert.equal(repository.create.mock.callCount(), 0);
+    assert.equal(jobs.enqueue.mock.callCount(), 0);
+  });
+
+  test('enqueues only the notifications that were stored, not those whose dedupe key exists', async () => {
+    const { service, repository, jobs } = makeService();
+    repository.createMany.mock.mockImplementation(() => Promise.resolve([aNotification({ id: 'new' })]));
+
+    await service.notifyMany([told('existing'), told('new')], TX);
+
+    assert.deepEqual(jobs.enqueueMany.mock.calls[0]?.arguments[1], [{ notificationId: 'new' }]);
+  });
+
+  test('stores and enqueues nothing for no notification', async () => {
+    const { service, repository, jobs } = makeService();
+
+    assert.deepEqual(await service.notifyMany([], TX), []);
+    assert.equal(repository.createMany.mock.callCount(), 0);
+    assert.equal(jobs.enqueueMany.mock.callCount(), 0);
   });
 });
 
@@ -226,6 +275,69 @@ describe('NotificationsService: the notifications.deliver handler', () => {
     assert.doesNotMatch(message.body, /\n/);
     assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'report_received' });
   });
+
+  const moved = { from: '2026-10-22T16:00:00.000Z', to: '2026-10-22T17:00:00.000Z' };
+  const gone = { from: '2026-10-22T16:00:00.000Z', to: null };
+  const eventChanges: [string, Record<string, unknown>, { title: string; body: string }][] = [
+    [
+      'the event is cancelled',
+      { change: 'cancelled', sessions: [gone] },
+      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано.' },
+    ],
+    [
+      'the event is cancelled with a mutual match',
+      { change: 'cancelled', sessions: [gone], match: { id: 'm', cancelled: true } },
+      { title: 'Подію скасовано', body: 'Подію з твоєї заявки скасовано, тож ваша зустріч не відбудеться.' },
+    ],
+    [
+      'the shared day of a mutual match is gone',
+      { change: 'rescheduled', sessions: [gone], match: { id: 'm', cancelled: true } },
+      {
+        title: 'Метч скасовано',
+        body: 'Цього дня подія не відбудеться, тож ваша зустріч скасована.',
+      },
+    ],
+    [
+      'the time moved',
+      { change: 'rescheduled', sessions: [moved] },
+      { title: 'Час події змінився', body: 'Перевір новий час події.' },
+    ],
+    [
+      'the time moved, and the mutual match stands',
+      { change: 'rescheduled', sessions: [moved], match: { id: 'm', cancelled: false } },
+      { title: 'Час події змінився', body: 'Перевір новий час події. Ваш метч у силі.' },
+    ],
+    [
+      'the application is cancelled, since a time change left it no day',
+      { change: 'rescheduled', sessions: [gone], applicationCancelled: true },
+      {
+        title: 'Заявку скасовано',
+        body: 'Розклад події змінився, і в твоїй заявці не лишилося жодного дня. Можеш подати нову.',
+      },
+    ],
+    [
+      'a day is gone',
+      { change: 'rescheduled', sessions: [moved, gone], applicationCancelled: false },
+      { title: 'Розклад події змінився', body: 'Один із днів твоєї заявки скасовано. Перевір заявку.' },
+    ],
+  ];
+  for (const [name, payload, text] of eventChanges) {
+    test(`says with a title, in Ukrainian and with "ти", that ${name}`, async () => {
+      const mocks = makeService();
+      const stored = aNotification({
+        type: 'event_changed',
+        payload: { eventId: 'e', applicationId: 'a', ...payload },
+      });
+      mocks.repository.findById.mock.mockImplementation(() => Promise.resolve(stored));
+
+      await registeredHandler(mocks)(deliverJob);
+
+      const [message] = mocks.push.send.mock.calls[0]?.arguments[0] ?? [];
+      assert.ok(message);
+      assert.deepEqual({ title: message.title, body: message.body }, text);
+      assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type: 'event_changed' });
+    });
+  }
 
   test('marks it skipped and pushes nothing when the account has no device', async () => {
     const mocks = makeService();

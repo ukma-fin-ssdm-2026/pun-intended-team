@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import { Prisma } from '../../dist/infra/prisma/generated/client.js';
 import { ImportPrismaService } from '../../dist/infra/prisma/import-prisma.service.js';
 import { PrismaImportedEventsRepository } from '../../dist/infra/prisma/prisma-imported-events.repository.js';
@@ -8,12 +9,25 @@ import { aVenueRow } from './fixtures/catalog-rows.ts';
 
 const RUN_ID = 'f0000000-0000-4000-8000-0000000000aa';
 
+const FIELDS = {
+  title: 'Jazz evening',
+  description: 'Live quartet.',
+  categoryId: 'c0000000-0000-4000-8000-000000000001',
+  venueId: 'b0000000-0000-4000-8000-000000000001',
+  startsAt: '2026-10-22T16:00:00.000Z',
+  startTimeKnown: true,
+  endsAt: '2026-10-22T19:00:00.000Z',
+  endTimeKnown: false,
+  imageUrl: 'https://images.example/jazz.jpg',
+  sourceUrl: 'https://tickets.example/jazz-evening/',
+};
+
 function makeRepository() {
   const prisma = {
     event: {
       findMany: mock.fn((): Promise<unknown[]> => Promise.resolve([])),
       update: mock.fn(() => Promise.resolve({})),
-      updateMany: mock.fn(() => Promise.resolve({ count: 2 })),
+      updateManyAndReturn: mock.fn(() => Promise.resolve([{ id: 'gone-1' }, { id: 'gone-2' }])),
     },
     importRun: {
       update: mock.fn(() => Promise.resolve({})),
@@ -32,25 +46,13 @@ function makeRepository() {
 describe('PrismaImportedEventsRepository.updateEvent', () => {
   test('changes only an imported event, and publishes it, so an organization event is never touched', async () => {
     const { repository, prisma } = makeRepository();
-    const fields = {
-      title: 'Jazz evening',
-      description: 'Live quartet.',
-      categoryId: 'c0000000-0000-4000-8000-000000000001',
-      venueId: 'b0000000-0000-4000-8000-000000000001',
-      startsAt: '2026-10-22T16:00:00.000Z',
-      startTimeKnown: true,
-      endsAt: '2026-10-22T19:00:00.000Z',
-      endTimeKnown: false,
-      imageUrl: 'https://images.example/jazz.jpg',
-      sourceUrl: 'https://tickets.example/jazz-evening/',
-    };
 
-    await repository.updateEvent('e0000000-0000-4000-8000-000000000001', fields);
+    await repository.updateEvent('e0000000-0000-4000-8000-000000000001', FIELDS);
 
     assert.deepEqual(prisma.event.update.mock.calls[0]?.arguments, [
       {
         where: { id: 'e0000000-0000-4000-8000-000000000001', source: 'import' },
-        data: { ...fields, startsAt: new Date(fields.startsAt), endsAt: new Date(fields.endsAt), status: 'published' },
+        data: { ...FIELDS, startsAt: new Date(FIELDS.startsAt), endsAt: new Date(FIELDS.endsAt), status: 'published' },
       },
     ]);
   });
@@ -151,8 +153,8 @@ describe('PrismaImportedEventsRepository.cancelUnseen', () => {
 
     const cancelled = await repository.cancelUnseen('karabas', ['lama-15', 'sting-2'], range);
 
-    assert.equal(cancelled, 2);
-    assert.deepEqual(prisma.event.updateMany.mock.calls[0]?.arguments, [
+    assert.deepEqual(cancelled, ['gone-1', 'gone-2']);
+    assert.deepEqual(prisma.event.updateManyAndReturn.mock.calls[0]?.arguments, [
       {
         where: {
           source: 'import',
@@ -162,8 +164,22 @@ describe('PrismaImportedEventsRepository.cancelUnseen', () => {
           startsAt: { gt: new Date(range.from), lte: new Date(range.to) },
         },
         data: { status: 'cancelled' },
+        select: { id: true },
       },
     ]);
+  });
+
+  test('cancels and updates in the transaction it is given', async () => {
+    const { repository, prisma } = makeRepository();
+    const { prisma: tx } = makeRepository();
+    const range = { from: '2026-11-07T10:00:00.000Z', to: '2026-12-05T21:59:59.999Z' };
+
+    await repository.cancelUnseen('karabas', [], range, tx as unknown as Transaction);
+    await repository.updateEvent('e0000000-0000-4000-8000-000000000001', FIELDS, tx as unknown as Transaction);
+
+    assert.equal(tx.event.updateManyAndReturn.mock.callCount(), 1);
+    assert.equal(tx.event.update.mock.callCount(), 1);
+    assert.equal(prisma.event.updateManyAndReturn.mock.callCount() + prisma.event.update.mock.callCount(), 0);
   });
 });
 

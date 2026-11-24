@@ -6,11 +6,23 @@ import type { Page, PageRequest } from '../../common/page.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ImagesService } from '../../images/services/images.service.ts';
 import type { ImageUpload } from '../../images/types/image.ts';
+import { JobQueue } from '../../jobs/adapters/job-queue.ts';
+import { EVENT_CHANGED_JOB, type EventChange, type EventChangedPayload } from '../../jobs/types/event-changed.ts';
 import { EventsRepository } from '../repositories/events.repository.ts';
 import { OrganizationsRepository } from '../repositories/organizations.repository.ts';
 import { VenuesRepository } from '../repositories/venues.repository.ts';
-import type { Event, EventOverview, EventQuery, EventSearch, NewEvent, WithPhoto } from '../types/event.ts';
+import type {
+  Event,
+  EventChanges,
+  EventOverview,
+  EventQuery,
+  EventSearch,
+  EventStatus,
+  NewEvent,
+  WithPhoto,
+} from '../types/event.ts';
 import { CategoriesService } from './categories.service.ts';
+import { sessionScheduleChanged } from './session-start.ts';
 import { requireVerifiedOrganization } from './verified-organization.ts';
 
 @Injectable()
@@ -22,6 +34,7 @@ export class EventsService {
     private readonly categoriesService: CategoriesService,
     private readonly imagesService: ImagesService,
     private readonly transactions: TransactionRunner,
+    private readonly jobs: JobQueue,
   ) {}
 
   async stats(): Promise<{ events: number }> {
@@ -74,20 +87,27 @@ export class EventsService {
     return { ...event, photo: null };
   }
 
-  /** Replaces every editable field. Anyone but the posting organization is told the event does not exist. */
+  /**
+   * Replaces every editable field. Anyone but the posting organization is told the event does not exist. When the
+   * new times change a session that is still ahead, matching is told in the same transaction (`event.changed`).
+   */
   async update(accountId: string, id: string, input: NewEvent): Promise<WithPhoto<Event>> {
-    await this.getEditable(accountId, id);
+    const event = await this.getEditable(accountId, id);
     await this.checkReferences(accountId, input);
     checkTimes(input.startsAt, input.endsAt);
-    return this.withPhoto(await this.eventsRepository.update(id, input));
+    if (!sessionScheduleChanged(event, input, new Date())) {
+      return this.withPhoto(await this.eventsRepository.update(id, input));
+    }
+    return this.withPhoto(await this.changeAndTell(id, input, 'rescheduled'));
   }
 
+  /** Cancels the event and tells matching in the same transaction; cancelling again changes nothing. */
   async cancel(accountId: string, id: string): Promise<WithPhoto<Event>> {
     const event = await this.getOwned(accountId, id);
     if (event.status === 'cancelled') {
       return this.withPhoto(event);
     }
-    return this.withPhoto(await this.eventsRepository.update(id, { status: 'cancelled' }));
+    return this.withPhoto(await this.changeAndTell(id, { status: 'cancelled' }, 'cancelled'));
   }
 
   /** Sets or replaces the cover of the organization's own event; a cancelled event keeps the one it has. */
@@ -124,6 +144,19 @@ export class EventsService {
       throw new DomainError('NOT_FOUND', 'Event not found');
     }
     return event;
+  }
+
+  /** The change and its `event.changed` job commit together, so applicants never miss one (job-queue.md, rule 1). */
+  private changeAndTell(
+    id: string,
+    changes: EventChanges & { status?: EventStatus },
+    change: EventChange,
+  ): Promise<Event> {
+    return this.transactions.run(async (tx) => {
+      const event = await this.eventsRepository.update(id, changes, tx);
+      await this.jobs.enqueue<EventChangedPayload>(EVENT_CHANGED_JOB, { eventId: id, change }, undefined, tx);
+      return event;
+    });
   }
 
   private async getOwned(accountId: string, id: string): Promise<Event> {

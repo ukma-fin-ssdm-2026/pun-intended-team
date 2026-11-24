@@ -33,8 +33,9 @@ package "core (business logic)" as CORE {
       +removePhoto(accountId, id)
     }
     class EventSessionsService {
-      +open(eventId, days)
-      +getByIds(ids)
+      +open(eventId, days, tx)
+      +getByIds(ids, tx)
+      +reconcile(eventId, tx, now)
     }
     class CategoriesService {
       +findActive(id)
@@ -66,19 +67,21 @@ package "core (business logic)" as CORE {
       +lastUpdatedAt()
     }
     abstract class EventsRepository {
-      +findById(id)
+      +findById(id, tx)
       +findPublished(filter, page)
       +findByOrganization(organizationId, endingAfter, page)
       +search(filter, now, page)
       +findOverview(id)
       +countPublishedEndingAfter(instant)
       +create(event)
-      +update(id, changes)
+      +update(id, changes, tx)
       +setPhoto(id, photoId, tx)
     }
     abstract class EventSessionsRepository {
-      +findOrCreateMany(eventId, starts)
-      +findByIds(ids)
+      +findOrCreateMany(eventId, starts, tx)
+      +findByIds(ids, tx)
+      +findByEvent(eventId, tx)
+      +setStatus(ids, status, tx)
     }
     abstract class CategoriesRepository {
       +findById(id)
@@ -136,16 +139,48 @@ package "core (business logic)" as CORE {
     }
     class MatchingService {
       +stats()
+      +scheduleRounds(sessions, tx)
+      +matchOnApply(application)
+      +withdraw(application, from)
+      +runRound(sessionId)
+    }
+    class MatchesService {
+      +listMine(userId)
+      +getOwn(userId, id)
+      +accept(userId, id)
+      +decline(userId, id)
+      +getContacts(userId, id)
+    }
+    class EventChangesService {
+      +handle(payload, now)
     }
     abstract class ApplicationsRepository {
-      +create(application)
+      +create(application, tx)
+      +findPool(sessionIds, tx)
       +findById(id)
       +findByUserAndEvent(userId, eventId)
       +findByUserWithStatus(userId, statuses)
-      +withdraw(id, from)
+      +withdraw(id, from, tx)
+      +findBySessions(sessionIds, statuses, tx)
+      +cancel(ids, from, tx)
+      +removeDays(ids, sessionIds, tx)
+      +moveDay(fromSessionId, toSessionId, tx)
     }
     abstract class MatchesRepository {
       +count()
+      +lockEvent(eventId, tx)
+      +findExcludedPairs(eventId, tx)
+      +propose(match, tx)
+      +findById(id, tx)
+      +findByUser(userId, statuses)
+      +findByApplication(applicationId, statuses, tx)
+      +findByApplications(applicationIds, statuses, tx)
+      +setStatus(id, from, to, tx)
+      +decline(match, userId, tx)
+      +cancelForWithdrawal(match, applicationId, tx)
+      +cancelPending(applicationIds, reason, tx)
+      +cancelAndReturnBoth(matches, reason, tx)
+      +cancelMutual(matches, reason, tx)
     }
   }
 }
@@ -156,6 +191,9 @@ class ImagesService <<other diagram>>
 class ModerationService <<other diagram>>
 class OrganizationReviewService <<other diagram>>
 class StatsService <<other diagram>>
+class NotificationsService <<other diagram>>
+abstract class TransactionRunner <<other diagram>>
+abstract class JobQueue <<other diagram>>
 
 ' services call services and reach storage and adapters through abstract classes
 ModerationService --> ListingsService
@@ -177,11 +215,32 @@ ListingsService --> ListingsRepository
 ListingsService --> CategoriesService
 ListingsService --> EventsService
 ListingsService --> ProfilesService
+EventsService --> TransactionRunner
+EventsService --> JobQueue
 ListingsService --> ImagesService
 ApplicationsService --> ApplicationsRepository
 ApplicationsService --> EventSessionsService
 ApplicationsService --> ProfilesService
+ApplicationsService --> MatchingService
+ApplicationsService --> TransactionRunner
 MatchingService --> MatchesRepository
+MatchingService --> ApplicationsRepository
+MatchingService --> EventSessionsService
+MatchingService --> ProfilesService
+MatchingService --> ModerationService
+MatchingService --> TransactionRunner
+MatchingService --> JobQueue
+MatchesService --> MatchesRepository
+MatchesService --> EventSessionsService
+MatchesService --> ProfilesService
+MatchesService --> TransactionRunner
+EventChangesService --> JobQueue
+EventChangesService --> TransactionRunner
+EventChangesService --> EventSessionsService
+EventChangesService --> ApplicationsRepository
+EventChangesService --> MatchesRepository
+EventChangesService --> MatchingService
+EventChangesService --> NotificationsService
 StatsService --> EventsService
 StatsService --> MatchingService
 

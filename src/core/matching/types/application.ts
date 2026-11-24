@@ -19,6 +19,9 @@ export interface CompanyPreferences {
 
 export type ApplicationStatus = 'in_pool' | 'paired' | 'paused' | 'removed' | 'withdrawn' | 'no_match' | 'cancelled';
 
+/** The statuses of an application that is still being matched. */
+export const ACTIVE_STATUSES: ApplicationStatus[] = ['in_pool', 'paired', 'paused'];
+
 /**
  * A user's request to be matched at one event, with their answers to the matching questions. `sessionIds` are the
  * days the user can go: one for a single-day event, any of those picked for a multi-day one (matching.md, rule 9).

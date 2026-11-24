@@ -16,7 +16,7 @@ import type {
  * InfraModule decides which implementation services get.
  */
 export abstract class EventsRepository {
-  abstract findById(id: string): Promise<Event | undefined>;
+  abstract findById(id: string, tx?: Transaction): Promise<Event | undefined>;
 
   /** Published events that overlap the filter's dates, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
@@ -34,7 +34,7 @@ export abstract class EventsRepository {
 
   abstract create(event: EventRecord): Promise<Event>;
 
-  abstract update(id: string, changes: EventChanges & { status?: EventStatus }): Promise<Event>;
+  abstract update(id: string, changes: EventChanges & { status?: EventStatus }, tx?: Transaction): Promise<Event>;
 
   abstract setPhoto(id: string, photoId: string | null, tx?: Transaction): Promise<Event>;
 }

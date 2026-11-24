@@ -1,6 +1,10 @@
 // Written with the help of Claude
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { sessionScheduleChanged } from '../../catalog/services/session-start.ts';
 import type { Venue } from '../../catalog/types/venue.ts';
+import { TransactionRunner } from '../../common/transaction-runner.ts';
+import { JobQueue } from '../../jobs/adapters/job-queue.ts';
+import { EVENT_CHANGED_JOB, type EventChange, type EventChangedPayload } from '../../jobs/types/event-changed.ts';
 import { Clock } from '../adapters/clock.ts';
 import { EVENT_PROVIDERS, EventProvider } from '../adapters/event-provider.ts';
 import { Geocoder } from '../adapters/geocoder.ts';
@@ -52,6 +56,8 @@ export class EventImportService {
     private readonly importedEventsRepository: ImportedEventsRepository,
     private readonly geocoder: Geocoder,
     private readonly clock: Clock,
+    private readonly transactions: TransactionRunner,
+    private readonly jobs: JobQueue,
   ) {}
 
   /** Imports from every provider in turn; one that fails, or is not started, does not stop the others. */
@@ -217,7 +223,7 @@ export class EventImportService {
     if (brokenBecause) {
       this.logger.warn(`${report.provider}: cancelling nothing: ${brokenBecause}`);
     } else {
-      report.cancelled = await this.importedEventsRepository.cancelUnseen(provider.id, [...seen], list.covers);
+      report.cancelled = await this.cancelUnseen(provider.id, [...seen], list.covers);
     }
     report.complete = !brokenBecause;
 
@@ -336,8 +342,38 @@ export class EventImportService {
     if (existing.status === 'published' && isSame(existing, fields)) {
       return 'unchanged';
     }
-    await this.importedEventsRepository.updateEvent(existing.id, fields);
-    return existing.status === 'cancelled' ? 'republished' : 'updated';
+    const republished = existing.status === 'cancelled';
+    const rescheduled = !republished && sessionScheduleChanged(existing, fields, this.clock.now());
+    if (republished || rescheduled) {
+      await this.updateAndTell(existing.id, fields, republished ? 'republished' : 'rescheduled');
+    } else {
+      await this.importedEventsRepository.updateEvent(existing.id, fields);
+    }
+    return republished ? 'republished' : 'updated';
+  }
+
+  /**
+   * The change and its `event.changed` job commit together (ADR-006, decision 10): matching then decides what the
+   * change means for the event's applicants. The import itself never touches sessions or applications.
+   */
+  private async updateAndTell(id: string, fields: ImportedEventFields, change: EventChange): Promise<void> {
+    await this.transactions.run(async (tx) => {
+      await this.importedEventsRepository.updateEvent(id, fields, tx);
+      await this.jobs.enqueue<EventChangedPayload>(EVENT_CHANGED_JOB, { eventId: id, change }, undefined, tx);
+    });
+  }
+
+  /** Cancels the events the list no longer has and enqueues their jobs in one insert, in the same transaction. */
+  private async cancelUnseen(provider: string, seen: string[], range: { from: string; to: string }): Promise<number> {
+    return this.transactions.run(async (tx) => {
+      const cancelled = await this.importedEventsRepository.cancelUnseen(provider, seen, range, tx);
+      await this.jobs.enqueueMany<EventChangedPayload>(
+        EVENT_CHANGED_JOB,
+        cancelled.map((eventId) => ({ eventId, change: 'cancelled' })),
+        tx,
+      );
+      return cancelled.length;
+    });
   }
 
   private async skip(report: ImportReport, runId: string, raw: unknown, record: SkippedRecord): Promise<void> {

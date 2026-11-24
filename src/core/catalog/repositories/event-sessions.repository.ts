@@ -1,6 +1,6 @@
 // Written with the help of Claude
 import type { Transaction } from '../../common/transaction.ts';
-import type { EventSessionRecord, OpenedSession } from '../types/event-session.ts';
+import type { EventSessionRecord, OpenedSession, SessionStatus } from '../types/event-session.ts';
 
 export abstract class EventSessionsRepository {
   /**
@@ -14,4 +14,9 @@ export abstract class EventSessionsRepository {
   ): Promise<OpenedSession<EventSessionRecord>[]>;
 
   abstract findByIds(ids: string[], tx?: Transaction): Promise<EventSessionRecord[]>;
+
+  /** Every session of the event, whatever its status, earliest first. */
+  abstract findByEvent(eventId: string, tx?: Transaction): Promise<EventSessionRecord[]>;
+
+  abstract setStatus(ids: string[], status: SessionStatus, tx?: Transaction): Promise<void>;
 }

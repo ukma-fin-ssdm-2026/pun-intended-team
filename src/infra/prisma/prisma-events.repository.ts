@@ -22,8 +22,8 @@ import { clientOf } from './transaction-client.ts';
 export class PrismaEventsRepository implements EventsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<Event | undefined> {
-    const event = await this.prisma.event.findUnique({ where: { id }, include: eventInclude });
+  async findById(id: string, tx?: Transaction): Promise<Event | undefined> {
+    const event = await clientOf(this.prisma, tx).event.findUnique({ where: { id }, include: eventInclude });
     return event ? toEvent(event) : undefined;
   }
 
@@ -109,8 +109,12 @@ export class PrismaEventsRepository implements EventsRepository {
     return toEvent(event);
   }
 
-  async update(id: string, { startsAt, endsAt, ...changes }: EventChanges & { status?: EventStatus }): Promise<Event> {
-    const event = await this.prisma.event.update({
+  async update(
+    id: string,
+    { startsAt, endsAt, ...changes }: EventChanges & { status?: EventStatus },
+    tx?: Transaction,
+  ): Promise<Event> {
+    const event = await clientOf(this.prisma, tx).event.update({
       where: { id },
       data: {
         ...changes,

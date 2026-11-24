@@ -41,12 +41,7 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
   }
 
   async findPool(sessionIds: string[], tx: Transaction): Promise<Application[]> {
-    const rows = await clientOf(this.prisma, tx).application.findMany({
-      where: { status: 'in_pool', sessions: { some: { sessionId: { in: sessionIds } } } },
-      include: withDaysAndPlans,
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
-    return rows.map(toApplication);
+    return this.findOnSessions(sessionIds, 'in_pool', tx);
   }
 
   async findById(id: string, tx?: Transaction): Promise<Application | undefined> {
@@ -92,5 +87,47 @@ export class PrismaApplicationsRepository implements ApplicationsRepository {
       data: { dismissedAt: new Date() },
     });
     return count > 0;
+  }
+
+  async findBySessions(sessionIds: string[], statuses: ApplicationStatus[], tx?: Transaction): Promise<Application[]> {
+    return this.findOnSessions(sessionIds, { in: statuses }, tx);
+  }
+
+  async cancel(ids: string[], from: ApplicationStatus[], tx?: Transaction): Promise<void> {
+    await clientOf(this.prisma, tx).application.updateMany({
+      where: { id: { in: ids }, status: { in: from } },
+      data: { status: 'cancelled' },
+    });
+  }
+
+  async removeDays(ids: string[], sessionIds: string[], tx?: Transaction): Promise<void> {
+    await clientOf(this.prisma, tx).applicationSession.deleteMany({
+      where: { applicationId: { in: ids }, sessionId: { in: sessionIds } },
+    });
+  }
+
+  async moveDay(fromSessionId: string, toSessionId: string, tx?: Transaction): Promise<void> {
+    const client = clientOf(this.prisma, tx);
+    const waiting = await client.applicationSession.findMany({ where: { sessionId: fromSessionId } });
+    // An application that waits on both keeps its one row for the new session.
+    await client.applicationSession.createMany({
+      data: waiting.map(({ applicationId }) => ({ applicationId, sessionId: toSessionId })),
+      skipDuplicates: true,
+    });
+    await client.applicationSession.deleteMany({ where: { sessionId: fromSessionId } });
+  }
+
+  /** The applications with the status that list one of the sessions among their days, the earliest first. */
+  private async findOnSessions(
+    sessionIds: string[],
+    status: ApplicationStatus | { in: ApplicationStatus[] },
+    tx?: Transaction,
+  ): Promise<Application[]> {
+    const rows = await clientOf(this.prisma, tx).application.findMany({
+      where: { status, sessions: { some: { sessionId: { in: sessionIds } } } },
+      include: withDaysAndPlans,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map(toApplication);
   }
 }

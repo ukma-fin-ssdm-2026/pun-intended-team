@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
 import { DomainError } from '../../dist/core/common/domain-error.js';
+import type { Transaction } from '../../dist/core/common/transaction.js';
 import { PrismaApplicationsRepository } from '../../dist/infra/prisma/prisma-applications.repository.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
-import type { Transaction } from '../../dist/core/common/transaction.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aUniqueViolation } from './fixtures/prisma-errors.ts';
 
@@ -117,6 +117,97 @@ describe('PrismaApplicationsRepository.findPool', () => {
       [ACCOUNT_ID],
     );
   });
+});
+
+// matching.md, rule 10: what a changed event does to the applications of its sessions.
+describe('PrismaApplicationsRepository after an event change', () => {
+  /** A transaction client that records every call. */
+  function aTransactionClient() {
+    const calls: [string, unknown][] = [];
+    const record =
+      (name: string, result: unknown = { count: 1 }) =>
+      (args: unknown) => {
+        calls.push([name, args]);
+        return Promise.resolve(result);
+      };
+    const client = {
+      application: { findMany: record('application.findMany', []), updateMany: record('application.updateMany') },
+      applicationSession: {
+        findMany: record('applicationSession.findMany', [{ applicationId: 'app-1' }, { applicationId: 'app-2' }]),
+        createMany: record('applicationSession.createMany'),
+        deleteMany: record('applicationSession.deleteMany'),
+      },
+    };
+    return { calls, tx: client as unknown as Transaction };
+  }
+
+  const repository = new PrismaApplicationsRepository({} as unknown as PrismaService);
+  const cases: { name: string; act: (tx: Transaction) => Promise<unknown>; calls: [string, unknown][] }[] = [
+    {
+      name: 'findBySessions reads the applications with the statuses that wait on one of the sessions',
+      act: (tx) => repository.findBySessions([SESSION_ID], ['in_pool'], tx),
+      calls: [
+        [
+          'application.findMany',
+          {
+            where: { status: { in: ['in_pool'] }, sessions: { some: { sessionId: { in: [SESSION_ID] } } } },
+            include: {
+              sessions: { select: { sessionId: true } },
+              afterEventPlans: { select: { plan: true } },
+            },
+            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          },
+        ],
+      ],
+    },
+    {
+      name: 'cancel changes only the applications still in one of the statuses',
+      act: (tx) => repository.cancel(['app-1'], ['in_pool', 'paired'], tx),
+      calls: [
+        [
+          'application.updateMany',
+          { where: { id: { in: ['app-1'] }, status: { in: ['in_pool', 'paired'] } }, data: { status: 'cancelled' } },
+        ],
+      ],
+    },
+    {
+      name: 'removeDays takes the sessions out of the applications',
+      act: (tx) => repository.removeDays(['app-1'], [SESSION_ID], tx),
+      calls: [
+        [
+          'applicationSession.deleteMany',
+          { where: { applicationId: { in: ['app-1'] }, sessionId: { in: [SESSION_ID] } } },
+        ],
+      ],
+    },
+    {
+      name: 'moveDay moves every application waiting on a session to another, once each',
+      act: (tx) => repository.moveDay(SESSION_ID, LATER_SESSION_ID, tx),
+      calls: [
+        ['applicationSession.findMany', { where: { sessionId: SESSION_ID } }],
+        [
+          'applicationSession.createMany',
+          {
+            data: [
+              { applicationId: 'app-1', sessionId: LATER_SESSION_ID },
+              { applicationId: 'app-2', sessionId: LATER_SESSION_ID },
+            ],
+            skipDuplicates: true,
+          },
+        ],
+        ['applicationSession.deleteMany', { where: { sessionId: SESSION_ID } }],
+      ],
+    },
+  ];
+  for (const { name, act, calls } of cases) {
+    test(`${name}, in the transaction`, async () => {
+      const client = aTransactionClient();
+
+      await act(client.tx);
+
+      assert.deepEqual(client.calls, calls);
+    });
+  }
 });
 
 // FR-018

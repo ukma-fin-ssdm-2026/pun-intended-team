@@ -19,6 +19,22 @@ export abstract class ApplicationsRepository {
   /** Withdraws the application if its status is still one of `from`; undefined if it changed meanwhile. */
   abstract withdraw(id: string, from: ApplicationStatus[], tx: Transaction): Promise<Application | undefined>;
 
+  /** The applications with one of the statuses that list one of the sessions among their days. */
+  abstract findBySessions(
+    sessionIds: string[],
+    statuses: ApplicationStatus[],
+    tx?: Transaction,
+  ): Promise<Application[]>;
+
+  /** Cancels the applications whose status is still one of `from`. */
+  abstract cancel(ids: string[], from: ApplicationStatus[], tx?: Transaction): Promise<void>;
+
+  /** Takes the sessions out of the days of the applications. */
+  abstract removeDays(ids: string[], sessionIds: string[], tx?: Transaction): Promise<void>;
+
+  /** Every application waiting on `fromSessionId` waits on `toSessionId` instead. */
+  abstract moveDay(fromSessionId: string, toSessionId: string, tx?: Transaction): Promise<void>;
+
   /** Moves the applications still in the pool to `no_match` (FR-018). */
   abstract markNoMatch(ids: string[], tx: Transaction): Promise<void>;
 

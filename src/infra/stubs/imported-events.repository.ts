@@ -92,7 +92,7 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     provider: string,
     seenExternalIds: string[],
     range: { from: string; to: string },
-  ): Promise<number> {
+  ): Promise<string[]> {
     const unseen = events.filter(
       (event) =>
         event.source === 'import' &&
@@ -105,7 +105,7 @@ export class StubImportedEventsRepository implements ImportedEventsRepository {
     for (const event of unseen) {
       event.status = 'cancelled';
     }
-    return unseen.length;
+    return unseen.map(({ id }) => id);
   }
 }
 

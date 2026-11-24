@@ -19,13 +19,14 @@ import { EventProvider } from '../../dist/core/import/adapters/event-provider.js
 import type { Geocoder } from '../../dist/core/import/adapters/geocoder.js';
 import { EventImportService } from '../../dist/core/import/services/event-import.service.js';
 import type { FetchResult, NormalizeResult } from '../../dist/core/import/types/import.js';
+import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import { KarabasEventProvider } from '../../dist/infra/providers/karabas-event-provider.js';
 import { events, venues } from '../../dist/infra/stubs/data.js';
 import { StubImportedEventsRepository } from '../../dist/infra/stubs/imported-events.repository.js';
-import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { ImagesService } from '../../dist/core/images/services/images.service.js';
 import { aCategory } from './fixtures/catalog.ts';
 import { useFixedClock } from './fixtures/clock.ts';
+import { aJobQueue, aTransactionRunner } from './fixtures/jobs.ts';
 import { fakeImages } from './fixtures/images.ts';
 import { PAGES_SAVED_AT, savedPagesClient } from './fixtures/provider-pages.ts';
 
@@ -117,17 +118,25 @@ function makeCatalog(provider: EventProvider) {
   } as unknown as CategoriesRepository;
   const categoriesService = new CategoriesService(categoriesRepository);
   const { eventsRepository, venuesRepository } = catalogReading(categories);
+  const transactions = aTransactionRunner();
+  const jobs = aJobQueue() as unknown as JobQueue;
   return {
-    importService: new EventImportService([provider], new StubImportedEventsRepository(categories), geocoder, {
-      now: () => new Date(),
-    } satisfies Clock),
+    importService: new EventImportService(
+      [provider],
+      new StubImportedEventsRepository(categories),
+      geocoder,
+      { now: () => new Date() } satisfies Clock,
+      transactions,
+      jobs,
+    ),
     eventsService: new EventsService(
       eventsRepository,
       {} as OrganizationsRepository,
       venuesRepository,
       categoriesService,
       fakeImages().imagesService as unknown as ImagesService,
-      {} as TransactionRunner,
+      transactions,
+      jobs,
     ),
   };
 }

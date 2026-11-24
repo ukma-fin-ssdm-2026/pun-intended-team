@@ -61,8 +61,8 @@ package "core/import (ImportModule; ImportScheduleModule in worker() only)" as C
     +findEvent(provider, externalId)
     +findOtherProvidersEvents(provider, venueId, startsAt)
     +createEvent(event)
-    +updateEvent(id, fields)
-    +cancelUnseen(provider, seenExternalIds, range)
+    +updateEvent(id, fields, tx)
+    +cancelUnseen(provider, seenExternalIds, range, tx)
   }
   note as PROVIDERS_NOTE
     The providers are injected as one array
@@ -71,6 +71,7 @@ package "core/import (ImportModule; ImportScheduleModule in worker() only)" as C
 }
 
 abstract class JobQueue <<other diagram>>
+abstract class TransactionRunner <<other diagram>>
 
 package "infra (ImportInfraModule, global)" as INFRA {
   package "prisma " as IMPORT_PRISMA {
@@ -89,11 +90,13 @@ package "infra (ImportInfraModule, global)" as INFRA {
     class NominatimGeocoder
   }
   class PgBossJobQueue <<other diagram>>
+  class PrismaTransactionRunner <<other diagram>>
   note as BINDINGS_NOTE
     Connects as nearby_import, with no key files.
     Clock is bound to the system time (no class).
-    PgBossJobQueue only with withJobQueue(),
-    which worker() loads
+    PgBossJobQueue through withJobQueue():
+    worker() runs import.run on it, once()
+    is sendOnly and only enqueues event.changed
   end note
 }
 
@@ -114,6 +117,8 @@ EventImportService --> ImportedEventsRepository
 EventImportService --> Geocoder
 EventImportService --> Clock
 EventImportService --> SavedVenues : new per run
+EventImportService --> TransactionRunner
+EventImportService --> JobQueue : event.changed
 
 ' infra implements the abstract classes of core
 ImportedEventsRepository <|.. PrismaImportedEventsRepository
@@ -122,9 +127,11 @@ EventProvider <|.. ArtWizardEventProvider
 EventProvider <|.. KarabasEventProvider
 Geocoder <|.. NominatimGeocoder
 JobQueue <|.. PgBossJobQueue
+TransactionRunner <|.. PrismaTransactionRunner
 
 ' the adapters reach the network through one polite client per site
 PrismaImportedEventsRepository --> ImportPrismaService
+PrismaTransactionRunner --> ImportPrismaService
 ArtWizardEventProvider --> HttpClient
 KarabasEventProvider --> HttpClient
 NominatimGeocoder --> HttpClient

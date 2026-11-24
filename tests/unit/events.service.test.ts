@@ -9,17 +9,18 @@ import type { OrganizationsRepository } from '../../dist/core/catalog/repositori
 import type { VenuesRepository } from '../../dist/core/catalog/repositories/venues.repository.js';
 import type { CategoriesService } from '../../dist/core/catalog/services/categories.service.js';
 import type { Category } from '../../dist/core/catalog/types/category.js';
-import type { Event, EventChanges, EventFilter, EventRecord } from '../../dist/core/catalog/types/event.js';
+import type { Event, EventChanges, EventFilter, EventRecord, NewEvent } from '../../dist/core/catalog/types/event.js';
 import type { Organization } from '../../dist/core/catalog/types/organization.js';
 import type { Venue } from '../../dist/core/catalog/types/venue.js';
 import type { Page, PageRequest } from '../../dist/core/common/page.js';
-import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { ImagesService } from '../../dist/core/images/services/images.service.js';
 import type { ImageRef } from '../../dist/core/images/types/image.js';
+import type { JobQueue } from '../../dist/core/jobs/adapters/job-queue.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 import { aCategory, aNewEvent, anEvent, anOrganization, aVenue, EVENT_ID } from './fixtures/catalog.ts';
 import { NOW, TODAY, useFixedClock } from './fixtures/clock.ts';
 import { fakeImages } from './fixtures/images.ts';
+import { aJobQueue, aTransactionRunner, enqueued, TX } from './fixtures/jobs.ts';
 
 const PAGE: PageRequest = { limit: 20, offset: 0 };
 /** TODAY plus the 28-day catalog window. */
@@ -60,7 +61,9 @@ function makeService() {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
   };
 
-  const { imagesService, transactions, tx } = fakeImages([OLD_PHOTO, PHOTO], PHOTO);
+  const { imagesService } = fakeImages([OLD_PHOTO, PHOTO], PHOTO);
+  const transactions = aTransactionRunner();
+  const jobs = aJobQueue();
 
   const service = new EventsService(
     eventsRepository as unknown as EventsRepository,
@@ -68,9 +71,19 @@ function makeService() {
     venuesRepository as unknown as VenuesRepository,
     categoriesService as unknown as CategoriesService,
     imagesService as unknown as ImagesService,
-    transactions as unknown as TransactionRunner,
+    transactions,
+    jobs as unknown as JobQueue,
   );
-  return { service, eventsRepository, organizationsRepository, venuesRepository, categoriesService, imagesService, tx };
+  return {
+    service,
+    eventsRepository,
+    organizationsRepository,
+    venuesRepository,
+    categoriesService,
+    imagesService,
+    jobs,
+    tx: TX,
+  };
 }
 
 function isDomainError(code: string) {
@@ -296,6 +309,49 @@ describe('EventsService.update', () => {
     assert.deepEqual(eventsRepository.update.mock.calls[0]?.arguments, [EVENT_ID, input]);
   });
 
+  describe('tells matching in the transaction of the change only when a coming session changes', () => {
+    useFixedClock();
+
+    const cases: { name: string; input: Partial<NewEvent>; tells: boolean }[] = [
+      { name: 'another title', input: { title: 'Film quiz night: autumn edition' }, tells: false },
+      { name: 'a later end', input: { endsAt: '2026-10-22T21:30:00+03:00' }, tells: false },
+      {
+        name: 'another time of day',
+        input: { startsAt: '2026-10-22T20:00:00+03:00', endsAt: '2026-10-22T22:00:00+03:00' },
+        tells: true,
+      },
+      {
+        name: 'another day',
+        input: { startsAt: '2026-10-23T19:00:00+03:00', endsAt: '2026-10-23T21:00:00+03:00' },
+        tells: true,
+      },
+    ];
+    for (const { name, input, tells } of cases) {
+      test(`${name}: ${tells ? 'event.changed' : 'no job'}`, async () => {
+        const { service, eventsRepository, jobs } = makeService();
+        const edited = aNewEvent(input);
+
+        await service.update(ACCOUNT_ID, EVENT_ID, edited);
+
+        assert.deepEqual(
+          eventsRepository.update.mock.calls[0]?.arguments,
+          tells ? [EVENT_ID, edited, TX] : [EVENT_ID, edited],
+        );
+        assert.deepEqual(
+          enqueued(jobs),
+          tells ? [['event.changed', { eventId: EVENT_ID, change: 'rescheduled' }, TX]] : [],
+        );
+      });
+    }
+  });
+
+  test('fails, so that the change is rolled back, when the job cannot be enqueued', async () => {
+    const { service, jobs } = makeService();
+    jobs.enqueue.mock.mockImplementation(() => Promise.reject(new Error('The job queue is not running')));
+
+    await assert.rejects(service.cancel(ACCOUNT_ID, EVENT_ID), /The job queue is not running/);
+  });
+
   test('tells another organization the event does not exist, before checking anything else', async () => {
     const { service, eventsRepository, organizationsRepository } = makeService();
 
@@ -335,14 +391,15 @@ describe('EventsService.update', () => {
 
 // FR-011
 describe('EventsService.cancel', () => {
-  test('saves the event as cancelled for the organization that posted it', async () => {
-    const { service, eventsRepository } = makeService();
+  test('saves the event as cancelled for the organization that posted it, and tells matching', async () => {
+    const { service, eventsRepository, jobs } = makeService();
 
     const result = await service.cancel(ACCOUNT_ID, EVENT_ID);
 
     assert.equal(eventsRepository.update.mock.callCount(), 1);
-    assert.deepEqual(eventsRepository.update.mock.calls[0]?.arguments, [EVENT_ID, { status: 'cancelled' }]);
+    assert.deepEqual(eventsRepository.update.mock.calls[0]?.arguments, [EVENT_ID, { status: 'cancelled' }, TX]);
     assert.equal(result.status, 'cancelled');
+    assert.deepEqual(enqueued(jobs), [['event.changed', { eventId: EVENT_ID, change: 'cancelled' }, TX]]);
   });
 
   test('tells another organization the event does not exist', async () => {
@@ -355,7 +412,7 @@ describe('EventsService.cancel', () => {
   });
 
   test('returns an already cancelled event unchanged without saving anything', async () => {
-    const { service, eventsRepository } = makeService();
+    const { service, eventsRepository, jobs } = makeService();
     const cancelled = anEvent({ status: 'cancelled' });
     eventsRepository.findById.mock.mockImplementation(() => Promise.resolve(cancelled));
 
@@ -363,6 +420,7 @@ describe('EventsService.cancel', () => {
 
     assert.deepEqual(result, { ...cancelled, photo: null });
     assert.equal(eventsRepository.update.mock.callCount(), 0);
+    assert.deepEqual(enqueued(jobs), []);
   });
 });
 

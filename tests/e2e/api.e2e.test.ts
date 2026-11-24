@@ -20,8 +20,10 @@ import type { MessagingProvider } from '../../dist/core/notifications/adapters/m
 import type { PushProvider } from '../../dist/core/notifications/adapters/push-provider.js';
 import { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import { PgBossJobQueue } from '../../dist/infra/jobs/pg-boss-job-queue.js';
+import { ImportPrismaService } from '../../dist/infra/prisma/import-prisma.service.js';
 import { PersonalDataCipher } from '../../dist/infra/prisma/personal-data-cipher.js';
 import { PrismaDeviceTokensRepository } from '../../dist/infra/prisma/prisma-device-tokens.repository.js';
+import { PrismaImportedEventsRepository } from '../../dist/infra/prisma/prisma-imported-events.repository.js';
 import { PrismaNotificationsRepository } from '../../dist/infra/prisma/prisma-notifications.repository.js';
 import { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { PrismaTransactionRunner } from '../../dist/infra/prisma/prisma-transaction-runner.js';
@@ -2459,6 +2461,472 @@ describe('Applications', () => {
     assertRejected(await call('GET', `/api/v1/matches/${match.id}`, { token: tokens.user }), 404, 'NOT_FOUND');
     assertRejected(await answer(tokens.user, match.id, 'accept'), 404, 'NOT_FOUND');
     assertRejected(await answer(tokens.user, match.id, 'decline'), 404, 'NOT_FOUND');
+  });
+
+  // HLD I3, matching.md rule 10: the API consumes event.changed, so these wait for its job to run.
+  describe('after the event changes (event.changed)', () => {
+    const JOB_WAIT_MS = 30_000;
+
+    async function eventually<T>(what: string, check: () => Promise<T | undefined>): Promise<T> {
+      const until = Date.now() + JOB_WAIT_MS;
+      for (;;) {
+        const value = await check();
+        if (value !== undefined) {
+          return value;
+        }
+        assert.ok(Date.now() < until, `${what} did not happen`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+
+    // Without push_status: notifications.deliver may change it while a test reads the inbox.
+    const inboxOf = (accountId: string) =>
+      withDatabase(async (client) => {
+        const { rows } = await client.query<{ type: string; payload: Record<string, unknown> }>(
+          'SELECT type, payload FROM notifications WHERE account_id = $1 ORDER BY created_at',
+          [accountId],
+        );
+        return rows;
+      });
+
+    const sessionsOf = (eventId: string) =>
+      withDatabase(async (client) => {
+        const { rows } = await client.query<{ status: string; starts_at: Date }>(
+          'SELECT status, starts_at FROM event_sessions WHERE event_id = $1 ORDER BY starts_at',
+          [eventId],
+        );
+        return rows.map(({ status, starts_at }) => ({ status, startsAt: starts_at.toISOString() }));
+      });
+
+    const finishedJobsOf = (eventId: string) =>
+      withDatabase(async (client) => {
+        const { rows } = await client.query<{ finished: number }>(
+          `SELECT count(*)::int AS finished FROM pgboss.job
+           WHERE name = 'event.changed' AND data->>'eventId' = $1 AND state::text = 'completed'`,
+          [eventId],
+        );
+        return rows[0]?.finished ?? 0;
+      });
+
+    const proposalsOf = (applicationId: string) =>
+      withDatabase(async (client) => {
+        const { rows } = await client.query<{ status: string; cancel_reason: string | null }>(
+          `SELECT status::text AS status, cancel_reason::text AS cancel_reason FROM matches
+           WHERE application_a_id = $1 OR application_b_id = $1`,
+          [applicationId],
+        );
+        return rows;
+      });
+
+    /** Enqueues the job as a producer would, outside the API. */
+    /** The organization moves the event to start at 18:00 on `day`; gives the new start. */
+    async function startAt18(eventId: string, day: string): Promise<string> {
+      const at18 = fromKyivWallClock(`${day}T18:00:00Z`).toISOString();
+      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
+        token: tokens.org,
+        body: { ...newEvent, startsAt: at18, endsAt: at21(day) },
+      });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      return at18;
+    }
+
+    async function enqueueEventChanged(eventId: string, change: string): Promise<void> {
+      const queue = new PgBossJobQueue(mainDatabaseUrl(), { sendOnly: true });
+      queue.onApplicationBootstrap();
+      try {
+        await queue.enqueue('event.changed', { eventId, change });
+      } finally {
+        await queue.onModuleDestroy();
+      }
+    }
+
+    const applicationOf = async (token: string, id: string) =>
+      (await call('GET', `/api/v1/applications/${id}`, { token })).body;
+
+    test('a cancelled event cancels its application and session and tells the applicant once, also when the job runs twice', async () => {
+      const { token, accountId } = await newCompleteProfile();
+      const start = at19(inDays(9));
+      const eventId = await newEventAt(start, at21(inDays(9)));
+      const applied = await apply(token, eventId);
+      assert.equal(applied.status, 201, JSON.stringify(applied.body));
+
+      const cancelled = await call('POST', `/api/v1/events/${eventId}/cancel`, { token: tokens.org });
+      assert.equal(cancelled.status, 200, JSON.stringify(cancelled.body));
+
+      const application = await eventually('Cancelling the application', async () => {
+        const body = await applicationOf(token, applied.body.id);
+        return body.status === 'cancelled' ? body : undefined;
+      });
+      assert.deepEqual(application.sessions, applied.body.sessions, 'it still says which day it was for');
+      assert.deepEqual(
+        (await call('GET', '/api/v1/me/applications', { token })).body,
+        [],
+        'no longer among the active',
+      );
+      assert.deepEqual(await sessionsOf(eventId), [{ status: 'cancelled', startsAt: start }]);
+      const inbox = [
+        {
+          type: 'event_changed',
+          payload: {
+            eventId,
+            applicationId: applied.body.id,
+            change: 'cancelled',
+            sessions: [{ from: start, to: null }],
+            applicationCancelled: true,
+          },
+        },
+      ];
+      assert.deepEqual(await inboxOf(accountId), inbox);
+      assertRejected(await apply(token, eventId), 422, 'EVENT_CANCELLED');
+
+      await enqueueEventChanged(eventId, 'cancelled');
+      await eventually('The second job', async () => ((await finishedJobsOf(eventId)) >= 2 ? true : undefined));
+      assert.deepEqual(await inboxOf(accountId), inbox, 'the second job tells nobody again');
+      assert.equal((await applicationOf(token, applied.body.id)).status, 'cancelled');
+    });
+
+    test('an event moved to another time moves its session, keeps the application and tells the applicant', async () => {
+      const { token, accountId } = await newCompleteProfile();
+      const day = inDays(10);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const applied = await apply(token, eventId);
+      assert.equal(applied.status, 201, JSON.stringify(applied.body));
+      const at20 = fromKyivWallClock(`${day}T20:00:00Z`).toISOString();
+      const at22 = fromKyivWallClock(`${day}T22:00:00Z`).toISOString();
+
+      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
+        token: tokens.org,
+        body: { ...newEvent, startsAt: at20, endsAt: at22 },
+      });
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+
+      const [notification] = await eventually('Telling the applicant', async () => {
+        const inbox = await inboxOf(accountId);
+        return inbox.length > 0 ? inbox : undefined;
+      });
+      assert.deepEqual(notification?.payload, {
+        eventId,
+        applicationId: applied.body.id,
+        change: 'rescheduled',
+        sessions: [{ from: at19(day), to: at20 }],
+        applicationCancelled: false,
+      });
+      assert.deepEqual(await sessionsOf(eventId), [
+        { status: 'cancelled', startsAt: at19(day) },
+        { status: 'scheduled', startsAt: at20 },
+      ]);
+      const application = await applicationOf(token, applied.body.id);
+      assert.equal(application.status, 'in_pool');
+      assert.equal(application.sessions[0].startsAt, at20);
+    });
+
+    test('a shared day moved earlier cancels the pending proposal for the change, and both wait in the pool again', async () => {
+      const day = inDays(12);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const first = await newCompleteProfile();
+      const second = await newCompleteProfile();
+      const waiting = await apply(first.token, eventId);
+      const paired = await apply(second.token, eventId);
+      assert.equal(paired.body.status, 'paired', 'the two are proposed to each other at once');
+      const at18 = await startAt18(eventId, day);
+
+      const proposals = await eventually('Cancelling the proposal', async () => {
+        const rows = await proposalsOf(waiting.body.id);
+        return rows[0]?.status === 'cancelled' ? rows : undefined;
+      });
+      assert.deepEqual(proposals, [{ status: 'cancelled', cancel_reason: 'event_changed' }]);
+      for (const [token, id] of [
+        [first.token, waiting.body.id],
+        [second.token, paired.body.id],
+      ] as const) {
+        const application = await applicationOf(token, id);
+        assert.equal(application.status, 'in_pool');
+        assert.deepEqual(
+          application.sessions.map(({ startsAt }: { startsAt: string }) => startsAt),
+          [at18],
+        );
+      }
+    });
+
+    /** Two new users who apply to the event, are proposed to each other at once and both accept. */
+    async function mutualMatchAt(eventId: string) {
+      const first = await newCompleteProfile();
+      const second = await newCompleteProfile();
+      const applications = [await apply(first.token, eventId), await apply(second.token, eventId)];
+      assert.equal(applications[1]?.body.status, 'paired', 'the two are proposed to each other at once');
+      const [match] = (await call('GET', '/api/v1/me/matches', { token: first.token })).body;
+      for (const { token } of [first, second]) {
+        assert.equal((await call('POST', `/api/v1/matches/${match.id}/accept`, { token })).status, 200);
+      }
+      assert.equal((await call('GET', `/api/v1/matches/${match.id}`, { token: first.token })).body.status, 'mutual');
+      return { first, second, matchId: match.id as string, applicationId: applications[0]!.body.id as string };
+    }
+
+    test('a mutual match on a cancelled event is cancelled, both are told once, also when the job runs twice', async () => {
+      const day = inDays(16);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const { first, second, matchId, applicationId } = await mutualMatchAt(eventId);
+
+      assert.equal((await call('POST', `/api/v1/events/${eventId}/cancel`, { token: tokens.org })).status, 200);
+
+      const proposals = await eventually('Cancelling the match', async () => {
+        const rows = await proposalsOf(applicationId);
+        return rows[0]?.status === 'cancelled' ? rows : undefined;
+      });
+      assert.deepEqual(proposals, [{ status: 'cancelled', cancel_reason: 'event_cancelled' }]);
+      assert.equal((await call('GET', `/api/v1/matches/${matchId}`, { token: first.token })).body.status, 'cancelled');
+      assert.equal((await call('GET', `/api/v1/matches/${matchId}/contacts`, { token: first.token })).status, 404);
+      const told = async () =>
+        [...(await inboxOf(first.accountId)), ...(await inboxOf(second.accountId))].map(({ type, payload }) => [
+          type,
+          payload.change,
+          payload.match,
+        ]);
+      const inbox = [
+        ['event_changed', 'cancelled', { id: matchId, cancelled: true }],
+        ['event_changed', 'cancelled', { id: matchId, cancelled: true }],
+      ];
+      assert.deepEqual(await told(), inbox);
+
+      await enqueueEventChanged(eventId, 'cancelled');
+      await eventually('The second job', async () => ((await finishedJobsOf(eventId)) >= 2 ? true : undefined));
+      assert.deepEqual(await told(), inbox, 'the second job tells nobody again');
+      assert.deepEqual(await proposalsOf(applicationId), proposals);
+    });
+
+    test('a mutual match whose day moved to another time is kept, and both are told', async () => {
+      const day = inDays(17);
+      const eventId = await newEventAt(at19(day), at21(day));
+      const { first, second, matchId, applicationId } = await mutualMatchAt(eventId);
+      const at18 = await startAt18(eventId, day);
+
+      const application = await eventually('Moving the application', async () => {
+        const body = await applicationOf(first.token, applicationId);
+        return body.sessions[0]?.startsAt === at18 ? body : undefined;
+      });
+      assert.equal(application.status, 'paired');
+      assert.deepEqual(await proposalsOf(applicationId), [{ status: 'mutual', cancel_reason: null }]);
+      const match = (await call('GET', `/api/v1/matches/${matchId}`, { token: second.token })).body;
+      assert.deepEqual(
+        match.days.map(({ startsAt }: { startsAt: string }) => startsAt),
+        [at18],
+      );
+      for (const { accountId } of [first, second]) {
+        assert.deepEqual(
+          (await inboxOf(accountId)).map(({ payload }) => [payload.change, payload.match]),
+          [['rescheduled', { id: matchId, cancelled: false }]],
+        );
+      }
+    });
+
+    test('a moved day that only one side waits on leaves their pending proposal as it is', async () => {
+      // 19:00 on two days; the second day's session is put at 18:00 by hand, as an earlier schedule would have it.
+      const firstDay = inDays(14);
+      const secondDay = inDays(15);
+      const eventId = await newEventAt(at19(firstDay), at21(secondDay));
+      const first = await newCompleteProfile();
+      const second = await newCompleteProfile();
+      const waiting = await apply(first.token, eventId, { ...answers, dates: [firstDay] });
+      const paired = await apply(second.token, eventId, { ...answers, dates: [firstDay, secondDay] });
+      assert.equal(paired.body.status, 'paired', 'the two are proposed to each other at once');
+      await withDatabase((client) =>
+        client.query(
+          `UPDATE event_sessions SET starts_at = starts_at - interval '1 hour' WHERE event_id = $1 AND starts_at = $2`,
+          [eventId, at19(secondDay)],
+        ),
+      );
+
+      await enqueueEventChanged(eventId, 'rescheduled');
+      await eventually('The job', async () => ((await finishedJobsOf(eventId)) >= 1 ? true : undefined));
+
+      assert.deepEqual(await proposalsOf(waiting.body.id), [{ status: 'proposed', cancel_reason: null }]);
+      assert.equal((await applicationOf(first.token, waiting.body.id)).status, 'paired');
+      const moved = await applicationOf(second.token, paired.body.id);
+      assert.equal(moved.status, 'paired');
+      assert.deepEqual(
+        moved.sessions.map(({ startsAt }: { startsAt: string }) => startsAt),
+        [at19(firstDay), at19(secondDay)],
+      );
+    });
+
+    test('moved to another hour and back: the first session is scheduled again, and every round runs once', async () => {
+      const day = inDays(10);
+      const at20 = fromKyivWallClock(`${day}T20:00:00Z`).toISOString();
+      const at22 = fromKyivWallClock(`${day}T22:00:00Z`).toISOString();
+      const eventId = await newEventAt(at19(day), at21(day));
+      const first = await newCompleteProfile();
+      const second = await newCompleteProfile();
+      // Answers that do not suit each other well enough for an instant match, so a round pairs them.
+      await apply(first.token, eventId, { desiredCompany: 'friends', afterEventPlans: [] });
+      await apply(second.token, eventId);
+      const edit = (startsAt: string, endsAt: string) =>
+        call('PUT', `/api/v1/events/${eventId}`, { token: tokens.org, body: { ...newEvent, startsAt, endsAt } });
+
+      assert.equal((await edit(at20, at22)).status, 200);
+      await eventually('The move', async () => ((await finishedJobsOf(eventId)) >= 1 ? true : undefined));
+      assert.equal((await edit(at19(day), at21(day))).status, 200);
+      await eventually('The move back', async () => ((await finishedJobsOf(eventId)) >= 2 ? true : undefined));
+
+      const sessions = await withDatabase(async (client) => {
+        const { rows } = await client.query<{ id: string; status: string; starts_at: Date }>(
+          'SELECT id, status, starts_at FROM event_sessions WHERE event_id = $1 ORDER BY starts_at',
+          [eventId],
+        );
+        return rows;
+      });
+      assert.deepEqual(
+        sessions.map(({ status, starts_at }) => [status, starts_at.toISOString()]),
+        [
+          ['scheduled', at19(day)],
+          ['cancelled', at20],
+        ],
+      );
+      const rounds = (sessionId: string) =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ start_after: Date; state: string }>(
+            `SELECT start_after, state::text AS state FROM pgboss.job
+             WHERE name = 'matching.round' AND data->>'sessionId' = $1 ORDER BY start_after`,
+            [sessionId],
+          );
+          return rows;
+        });
+      const [first19, moved20] = sessions;
+      const offsetsHours = [7 * 24, 3 * 24, 24, 6];
+      const roundsAt = (start: string) =>
+        offsetsHours.map((hours) => new Date(Date.parse(start) - hours * 60 * 60 * 1000).toISOString());
+      assert.deepEqual(
+        (await rounds(first19!.id)).map(({ start_after }) => start_after.toISOString()),
+        roundsAt(at19(day)),
+        'the first session keeps its four rounds, none planned twice',
+      );
+      assert.deepEqual(
+        (await rounds(moved20!.id)).map(({ start_after }) => start_after.toISOString()),
+        roundsAt(at20),
+        'the session of the move had its own rounds',
+      );
+
+      // Every round job is due now: the first session's run once each, the cancelled session's do nothing.
+      await withDatabase((client) =>
+        client.query(
+          `UPDATE pgboss.job SET start_after = now() WHERE name = 'matching.round' AND data->>'sessionId' = ANY($1)`,
+          [[first19!.id, moved20!.id]],
+        ),
+      );
+      const states = await eventually('Running the rounds', async () => {
+        const all = [...(await rounds(first19!.id)), ...(await rounds(moved20!.id))].map(({ state }) => state);
+        return all.every((state) => state === 'completed') ? all : undefined;
+      });
+      assert.equal(states.length, 8);
+      const { rows } = await withDatabase((client) =>
+        client.query(
+          `SELECT m.status, m.source FROM matches m JOIN applications a ON a.id = m.application_a_id WHERE a.event_id = $1`,
+          [eventId],
+        ),
+      );
+      assert.deepEqual(rows, [{ status: 'proposed', source: 'round' }], 'the first round paired them, once');
+    });
+
+    test('an edit that changes no session time enqueues nothing', async () => {
+      const day = inDays(11);
+      const eventId = await newEventAt(at19(day), at21(day));
+
+      const edited = await call('PUT', `/api/v1/events/${eventId}`, {
+        token: tokens.org,
+        body: { ...newEvent, title: 'Film quiz night, with prizes', startsAt: at19(day), endsAt: at21(day) },
+      });
+
+      assert.equal(edited.status, 200, JSON.stringify(edited.body));
+      const { rows } = await withDatabase((client) =>
+        client.query(`SELECT id FROM pgboss.job WHERE name = 'event.changed' AND data->>'eventId' = $1`, [eventId]),
+      );
+      assert.deepEqual(rows, []);
+    });
+
+    // ADR-006, decision 10: as the import does it, with its own role, connection and send-only queue (`--once`).
+    test('the import cancels 100 events and enqueues their jobs in one transaction, and a rolled back one leaves no job', async (t) => {
+      const provider = `e2e-bulk-${randomUUID().slice(0, 8)}`;
+      await withDatabase((client) =>
+        client.query(
+          `INSERT INTO events (title, description, category_id, venue_id, starts_at, ends_at, source, status, provider, external_id)
+           SELECT 'Bulk ' || n, 'Gone from the list.', $1, $2, now() + interval '5 days', now() + interval '5 days 2 hours',
+                  'import', 'published', $3, 'bulk-' || n
+           FROM generate_series(1, 101) AS n`,
+          [concerts, arsenalVenue, provider],
+        ),
+      );
+      const statuses = () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ status: string; events: number }>(
+            'SELECT status, count(*)::int AS events FROM events WHERE provider = $1 GROUP BY status ORDER BY status',
+            [provider],
+          );
+          return Object.fromEntries(rows.map(({ status, events }) => [status, events]));
+        });
+      const jobs = () =>
+        withDatabase(async (client) => {
+          const { rows } = await client.query<{ change: string }>(
+            `SELECT data->>'change' AS change FROM pgboss.job
+             WHERE name = 'event.changed' AND data->>'eventId' IN (SELECT id::text FROM events WHERE provider = $1)`,
+            [provider],
+          );
+          return rows.map(({ change }) => change);
+        });
+
+      const importUrl = process.env.IMPORT_DATABASE_URL;
+      process.env.IMPORT_DATABASE_URL = runDatabaseUrl('IMPORT_DATABASE_URL');
+      const prisma = new ImportPrismaService();
+      process.env.IMPORT_DATABASE_URL = importUrl;
+      const repository = new PrismaImportedEventsRepository(prisma);
+      const transactions = new PrismaTransactionRunner(prisma);
+      const queue = new PgBossJobQueue(runDatabaseUrl('IMPORT_DATABASE_URL'), { sendOnly: true });
+      queue.onApplicationBootstrap();
+      const range = {
+        from: new Date().toISOString(),
+        to: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+      const cancelUnseen = (commit: boolean) =>
+        transactions.run(async (tx) => {
+          const cancelled = await repository.cancelUnseen(provider, ['bulk-101'], range, tx);
+          await queue.enqueueMany(
+            'event.changed',
+            cancelled.map((eventId) => ({ eventId, change: 'cancelled' })),
+            tx,
+          );
+          if (!commit) {
+            throw new Error('rolled back');
+          }
+          return cancelled.length;
+        });
+      try {
+        await assert.rejects(cancelUnseen(false), /rolled back/);
+        assert.deepEqual(await statuses(), { published: 101 });
+        assert.deepEqual(await jobs(), []);
+
+        const started = performance.now();
+        const cancelled = await cancelUnseen(true);
+        const elapsedMs = Math.round(performance.now() - started);
+        t.diagnostic(`cancelling 100 events with their event.changed jobs took ${elapsedMs} ms in one transaction`);
+
+        assert.equal(cancelled, 100);
+        assert.deepEqual(await statuses(), { cancelled: 100, published: 1 });
+        assert.deepEqual(
+          await jobs(),
+          Array.from({ length: 100 }, () => 'cancelled'),
+        );
+        assert.ok(elapsedMs < 5_000, `${elapsedMs} ms is over the 5 s a Prisma transaction may take`);
+      } finally {
+        await queue.onModuleDestroy();
+        await prisma.$disconnect();
+        // The API would take these one by one; they have no applicants, so they are removed instead of awaited.
+        await withDatabase((client) =>
+          client.query(
+            `DELETE FROM pgboss.job WHERE name = 'event.changed' AND state::text = 'created'
+               AND data->>'eventId' IN (SELECT id::text FROM events WHERE provider = $1)`,
+            [provider],
+          ),
+        );
+      }
+    });
   });
 });
 

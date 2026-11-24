@@ -154,6 +154,7 @@ enum MatchStatus {
 
 enum MatchCancelReason {
   event_cancelled
+  event_changed
   participant_banned
   participant_withdrew
 

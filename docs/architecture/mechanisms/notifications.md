@@ -25,6 +25,7 @@ await this.transactions.run(async (tx) => {
 - **`tx` is required** (rule 1): the row and its `notifications.deliver` job commit or roll back with the change, as any job does ([job queue](job-queue.md), rule 1).
 - **`dedupeKey`** is chosen by the sender, one per notification it means to send, such as `<type>:<id of what it is about>`. A sender that runs again, for example a retried job, passes the same key: nothing more is stored or enqueued, and `notify` returns `undefined`. The insert uses `ON CONFLICT DO NOTHING`, so a repeat does not abort the caller's transaction.
 - **`payload`** is plain JSON with the details the app needs for the type; never contact details (data model). A type with no details has `{}`.
+- **`notifyMany(notifications, tx)`** is `notify` for many at once, for a change that tells many users, as `event.changed` tells every applicant of an event: one insert and one `enqueueMany` of their deliveries, instead of two statements per user, so the transaction stays short ([database access](database-access.md#transactions)).
 - **`notifications.deliver`** takes `{ notificationId }`. It reads the row first and does nothing when it is gone or no longer `pending`, so a repeated job changes nothing. Otherwise it pushes the row, see below.
 
 The user reads the inbox with `GET /me/notifications` and marks a row read with `POST /notifications/{id}/read` ([API design](../../api/api-design.md#notifications)).

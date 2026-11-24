@@ -7,9 +7,9 @@ import { ImportInfraModule } from '../infra/import-infra.module.ts';
 /** The import service (CMP-03): the import module of `core` with its own `infra`, without the API's modules. */
 @Module({})
 export class ImportAppModule {
-  /** One run of every provider, then exit; no job queue. */
+  /** One run of every provider, then exit; the job queue only takes the `event.changed` jobs the run enqueues. */
   static once(): DynamicModule {
-    return { module: ImportAppModule, imports: [ImportInfraModule, ImportModule] };
+    return { module: ImportAppModule, imports: [ImportInfraModule.withJobQueue({ sendOnly: true }), ImportModule] };
   }
 
   /** The long-running process: runs each provider's `import.run` job on its schedule (HLD I3). */
