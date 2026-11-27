@@ -55,6 +55,8 @@ Push receipts (Expo's delivery check about 15 minutes later), so a token whose r
 | Event reminder | 3 h before the event (FR-024) — after the last round (T-6h), before the cutoff (T-1h) | Inbox + push |
 | Event changed / cancelled | Organization edit or import (FR-011) | Inbox + push |
 | Report received | Report filed on a user or a listing (SAFE-003); also on a user already banned, so the reporter cannot tell the ban from it | Inbox + push |
+| Someone wants to go with you (`listing_request`) | A user asks to join the recipient's listing; to the author, naming the requester | Inbox + push |
+| Request accepted (`listing_request_accepted`) | The author accepts the request; to the requester, naming the author. A decline sends nothing, so the requester is never told they were turned down | Inbox + push |
 | Verification code | Registration, password reset (FR-005) | Telegram Gateway API → SMS fallback, paused for now ([authentication](authentication.md), rule 6); not an inbox row (stored as VerificationCode) |
 
 ## AI Usage Note

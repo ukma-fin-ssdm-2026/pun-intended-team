@@ -12,8 +12,8 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | User profile | Profile, Image, LinkedAccount, Interest, ProfileInterest |
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
 | Event-based matching | Application, ApplicationSession, ApplicationAfterEventPlan, Match, Exclusion |
-| Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, Profile.safety_notice |
-| Listings | Listing, Image |
+| Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, ListingRequest.status, Profile.safety_notice |
+| Listings | Listing, ListingRequest, Image |
 | Notifications | Notification, DeviceToken |
 | Reports and moderation | ReportCase, Report, AuditLog |
 
@@ -71,6 +71,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Entity | Key | Main attributes |
 |---|---|---|
 | **Listing** | PK `id` | `author_id` FK, `category_id` FK, `event_id` FK (optional), `title`, `description` (P), `date`, `status` (active / removed), `photo_id` (FK → Image, UK, nullable), `place_name`, `place_address`, `place_latitude`, `place_longitude` (nullable: where the author suggests meeting, a point in Kyiv picked on the map with its name and address; kept on the listing, not a Venue) |
+| **ListingRequest** | PK `id` | `listing_id` FK, `requester_id` FK → Account, `status` (pending / accepted / declined), `created_at`, `decided_at` (nullable: when the author answered) — "Хочу піти" on someone else's listing; once accepted, both sides see each other's contacts after the safety notice, as on a mutual match. A pending request on a removed listing can no longer be read or decided |
 
 ### images
 
@@ -90,7 +91,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 
 | Entity | Key | Main attributes |
 |---|---|---|
-| **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
+| **Notification** | PK `id` | `account_id` FK, `type` (match_proposed / match_mutual / respond_soon / not_a_match / continue_matching / removed_from_matching / no_match_found / event_reminder / event_changed / report_received / listing_request / listing_request_accepted) — `continue_matching` carries a "yes" action (first strike), `removed_from_matching` follows the second strike, `payload` (P, jsonb), `dedupe_key` (UK), `push_status` (pending / sent / failed / skipped), `read_at` — the row is the inbox item ([notifications](mechanisms/notifications.md)). A `match_mutual` payload never contains contact details — the client fetches them from `/matches`, where SEC-001 and SAFE-002 are enforced. |
 | **DeviceToken** | PK `id` | `account_id` FK, `refresh_token_id` FK — the service deletes the row when that session is revoked (sign-out); the FK cascade only removes what is left when expired tokens are cleaned up daily, `push_token` (P, UK), `platform` (ios / android) |
 
 ### admin
@@ -129,6 +130,8 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Account — Exclusion | 1 : 0..* | as the user and as the excluded user |
 | Account — Listing | 1 : 0..* | |
 | Event — Listing | 0..1 : 0..* | a listing may point at a catalog event |
+| Listing — ListingRequest | 1 : 0..* | |
+| Account — ListingRequest | 1 : 0..* | requester; at most one request per listing |
 | ReportCase — Report | 1 : 1..* | repeat reports grouped into one case (FR-026) |
 | Account — Report | 1 : 0..* | reporter |
 | ReportCase — target | 0..1 Account or 0..1 Listing | |
@@ -152,6 +155,8 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | An event's price is not negative, and its highest price comes only with a lowest one and is not below it | CHECK on `price_min` (>= 0) and on `price_max` (null, or `price_min` not null and `price_max >= price_min`); the API's zod schema answers `400` first |
 | A gender description goes with the gender `other` only | CHECK (`(gender IS NOT DISTINCT FROM 'other') = (gender_description IS NOT NULL)`) on Profile |
 | An application's age range starts at 18 and does not end below its start | CHECK (`age_min >= 18 AND (age_max IS NULL OR age_max >= age_min)`) on Application |
+| One request per user and listing | UK (`listing_id`, `requester_id`) |
+| A listing request has its decision time exactly when it is decided | CHECK `listing_requests_decided_check` (`(status = 'pending') = (decided_at IS NULL)`); that only the author decides, and not on their own listing, is checked by the service (listings) |
 | A listing's place is all set or all null | CHECK `listings_place_check` on the four `place_*` columns; that the point is in Kyiv is checked by the service (listings) |
 | An active account has a date of birth (SAFE-001) | CHECK (`status <> 'active' OR date_of_birth IS NOT NULL`) — the database checks only that the date exists; the date is encrypted, so the age of at least 18 is checked by the service (identity) before the status becomes `active` |
 | A cover's crop is all set or all null, and lies inside the picture | CHECK on Image; its shape (390:200) is set by the service (images) |

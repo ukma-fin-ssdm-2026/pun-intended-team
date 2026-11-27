@@ -249,6 +249,16 @@ package "listings" {
     place_latitude : decimal(9,6)
     place_longitude : decimal(9,6)
   }
+
+  entity "ListingRequest" as listing_request {
+    * id : uuid <<PK>>
+    --
+    * listing_id : uuid <<FK>>
+    * requester_id : uuid <<FK>>
+    * status : pending | accepted | declined
+    * created_at : timestamptz
+    decided_at : timestamptz
+  }
 }
 
 package "images" {
@@ -307,6 +317,7 @@ package "notifications" {
       | not_a_match | continue_matching
       | removed_from_matching | no_match_found
       | event_reminder | event_changed | report_received
+      | listing_request | listing_request_accepted
     * <color:#1565C0>payload : jsonb (P)</color>
     * dedupe_key : text <<UK>>
     * push_status : pending | sent | failed | skipped
@@ -376,6 +387,8 @@ account ||--o{ exclusion : excludes / excluded
 account ||--o{ listing : writes
 category ||--o{ listing
 event |o--o{ listing : refers to
+listing ||--o{ listing_request
+account ||--o{ listing_request : asks to join
 
 ' ---- moderation ----
 report_case ||--|{ report

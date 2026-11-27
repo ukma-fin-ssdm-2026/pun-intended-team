@@ -107,6 +107,14 @@ package "api/listings" as API_listings {
     +uploadListingPhoto()
     +deleteListingPhoto()
   }
+  class ListingRequestsController {
+    +requestToJoinListing()
+    +listMyListingRequests()
+    +getListingRequest()
+    +acceptListingRequest()
+    +declineListingRequest()
+    +getListingRequestContacts()
+  }
   class PlacesController {
     +reversePlace()
   }
@@ -176,6 +184,7 @@ package "core services (methods on code-structure-core-*)" as CORE {
   class ImportFreshnessService <<other diagram>>
   class ListingsService <<other diagram>>
   class PlacesService <<other diagram>>
+  class ListingRequestsService <<other diagram>>
   class ImagesService <<other diagram>>
   class ApplicationsService <<other diagram>>
   class StatsService <<other diagram>>
@@ -204,6 +213,7 @@ AdminEventsController --> EventsService
 AdminVenuesController --> VenuesService
 ListingsService <-- ListingsController
 PlacesService <-- PlacesController
+ListingRequestsService <-- ListingRequestsController
 ApplicationsService <-- ApplicationsController
 ModerationService <-- ReportsController
 ModerationService <-- AdminReportCasesController

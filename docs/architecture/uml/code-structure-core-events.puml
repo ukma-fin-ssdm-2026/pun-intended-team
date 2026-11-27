@@ -114,8 +114,8 @@ package "core (business logic)" as CORE {
   }
   package listings {
     class ListingsService {
-      +list(page)
-      +getById(id)
+      +list(viewerId, page)
+      +getById(viewerId, id)
       +create(accountId, input)
       +remove(accountId, id)
       +findByIds(ids)
@@ -130,6 +130,22 @@ package "core (business logic)" as CORE {
       +create(listing)
       +markRemoved(id)
       +setPhoto(id, imageId, tx)
+    }
+    class ListingRequestsService {
+      +create(requesterId, listingId)
+      +listIncoming(authorId, page)
+      +getOwn(userId, id)
+      +accept(authorId, id)
+      +decline(authorId, id)
+      +getContacts(userId, id)
+    }
+    abstract class ListingRequestsRepository {
+      +create(listingId, requesterId, tx)
+      +findById(id, tx)
+      +findByListingAndRequester(listingId, requesterId)
+      +findOwn(requesterId, listingIds)
+      +findOnListingsOf(authorId, page)
+      +decide(id, status, decidedAt, tx)
     }
     class PlacesService {
       +describe(point)
@@ -227,6 +243,12 @@ ListingsService --> ProfilesService
 EventsService --> TransactionRunner
 EventsService --> JobQueue
 ListingsService --> ImagesService
+ListingsService --> ListingRequestsRepository
+ListingRequestsService --> ListingRequestsRepository
+ListingRequestsService --> ListingsRepository
+ListingRequestsService --> ProfilesService
+ListingRequestsService --> NotificationsService
+ListingRequestsService --> TransactionRunner
 ApplicationsService --> ApplicationsRepository
 ApplicationsService --> EventSessionsService
 ApplicationsService --> ProfilesService

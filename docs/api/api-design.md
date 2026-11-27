@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes six main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status), **Report Cases** (moderation) and the signed-in user's **Notifications** (the inbox), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes six main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts and the requests to join them), the signed-in user's own **Profile**, **Organizations** (requests for organization status), **Report Cases** (moderation) and the signed-in user's **Notifications** (the inbox), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -65,8 +65,27 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `status` | `active` \| `removed` | Only `active` listings are returned to users |
 | `photo` | `{ id, width, height }` or `null` | Cut to 2:1; the picture comes from `GET /images/{id}` |
 | `place` | `{ name, address, location: { lat, lng } }` or `null` | Where the author suggests meeting, picked on the map (Д2.1). Kept on the listing, not a catalog venue. In `POST`: optional; all three fields or none (`400` otherwise), `name` 1–100 characters, `address` up to 200 and may be empty, and the point must be in Kyiv (`422 PLACE_OUTSIDE_CITY`) |
+| `myRequest` | `{ id, status }` or `null` | The caller's own [request to join](#listing-request) the listing, so "Хочу піти" keeps reading "Запит надіслано" after a reload; `null` without one, and always on the caller's own listing. Read for the whole page at once |
 
-Related to: Account (author), Category, Event, Image.
+Related to: Account (author), Category, Event, Image, Listing Request.
+
+### Listing Request
+
+**Base paths:** `/api/v1/listings/{id}/requests` (asking), `/api/v1/me/listing-requests` (requests on the caller's listings), `/api/v1/listing-requests/{id}` (one of them)
+
+"Хочу піти" on someone else's listing: a user asks its author to go together, and the author accepts or declines. Once accepted, both see each other's contacts after the safety notice, as a mutual match does.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `status` | `pending` \| `accepted` \| `declined` | A decision is final |
+| `role` | `author` \| `requester` | The caller's side |
+| `createdAt` | date-time | |
+| `decidedAt` | date-time or `null` | When the author answered |
+| `listing` | `{ id, title, date, place, eventId }` | The listing it is about |
+| `requester`, `author` | object | Each one's `username`, `displayName`, `description`, `occupation`, `age`, `interests`, `photo` and `cover`, as a match partner is shown; never their contacts (FR-019) |
+
+Related to: Listing, Account (requester).
 
 ### Application
 
@@ -217,8 +236,8 @@ One row of the signed-in user's inbox ([notifications](../architecture/mechanism
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
-| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10) |
+| `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` \| `listing_request` \| `listing_request_accepted` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
+| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10). `listing_request` (to the author) and `listing_request_accepted` (to the requester) have `listingRequestId`, `listingId` and `displayName`, the other side's |
 | `readAt` | date-time or `null` | When the caller first marked it read |
 | `createdAt` | date-time | |
 
@@ -318,8 +337,16 @@ An organization publishes events only at its own venues (FR-009), so it adds the
 | `PUT` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404` |
 | `GET` | `/api/v1/places/reverse?lat&lng` | Signed-in user | `200` `{ name, address }` | `400`, `401`, `404`, `422`, `503` |
+| `POST` | `/api/v1/listings/{id}/requests` | Signed-in user with a complete profile | `201` the request + `Location` header | `400`, `401`, `404`, `409`, `422` |
+| `GET` | `/api/v1/me/listing-requests` | Signed-in user | `200` a page of requests on the caller's listings | `400`, `401` |
+| `GET` | `/api/v1/listing-requests/{id}` | The requester or the listing's author | `200` the request | `400`, `401`, `404` |
+| `POST` | `/api/v1/listing-requests/{id}/accept` | The listing's author | `200` the request | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/listing-requests/{id}/decline` | The listing's author | `200` the request | `400`, `401`, `404`, `409` |
+| `GET` | `/api/v1/listing-requests/{id}/contacts` | Both sides of an accepted request | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404`, `422` |
 
 `GET /places/reverse` names the point the Д2.1 place picker settles on: `name` is the place or the building there, else the street and the house; `address` is the street, the house and the district. It asks OpenStreetMap's Nominatim (`/reverse`, Ukrainian names, building zoom; data © OpenStreetMap contributors, ODbL) behind the `PlaceLookup` port, at most one request a second for the whole server as Nominatim's policy asks, and answers points it was asked about in the last day from memory (rounded to 5 decimals, about a metre). Nothing there is `404 NOT_FOUND`; a point outside Kyiv `422 PLACE_OUTSIDE_CITY`; Nominatim unreachable or failing `503 PLACE_LOOKUP_UNAVAILABLE`, and the app lets the user type the name. Guests cannot call it, since only a signed-in user posts listings.
+
+**Listing requests.** A signed-in user asks to join someone else's active listing once: their own is `422 CANNOT_REQUEST_OWN_LISTING`, a second request `409 ALREADY_REQUESTED` (not the existing one with `200`, so the app can tell a request from another device apart and reload), a listing that is not active `404`. The requester needs a complete profile, as for matching (`422 PROFILE_INCOMPLETE`), so the author sees who asks and has a way to reach them; an organization account may ask, as it may apply for a match, since an organization is a regular account too. The author gets a `listing_request` notification in the same transaction. `GET /me/listing-requests` lists the requests on the caller's listings, pending first, newest first, in pages as the feeds are. Only the listing's author accepts or declines, and only while the request is `pending`; anyone else, the requester included, gets `404`, and a request already answered `409 CONFLICT`. Accepting sends the requester a `listing_request_accepted` notification in the same transaction. **Declining sends nothing**, a product choice: the requester is not told they were turned down, and the app keeps showing their request as sent. A listing that is removed, by its author or an administrator, takes its pending requests with it: they leave the author's list, and reading or answering one is a `404` for both sides; accepted and declined ones stay readable. The contacts are those of the other side, the requester for the author and the author for the requester, in the shape of a match's: `404` until the request is accepted, also after a decline, and for anyone else (SEC-001); `422 SAFETY_NOTICE_REQUIRED` until the caller has acknowledged the safety notice, the same check and the same acknowledgment as for matches (SAFE-002).
 
 ### Matching
 
@@ -519,7 +546,8 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts`, `PUT /me/organization` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` or `instagram` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
-| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications`, `POST /listings/{id}/requests` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `CANNOT_REQUEST_OWN_LISTING` | `POST /listings/{id}/requests` | The listing is the caller's own |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
 | `INVALID_IMAGE` | `PUT /me/profile/photo`, `PUT /me/profile/cover`, `PUT /listings/{id}/photo`, `PUT /events/{id}/photo`, `PUT /me/organization/logo` | The file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
@@ -533,6 +561,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
 | `ALREADY_APPLIED` | `POST /events/{id}/applications` | The caller already has an active application for this event |
+| `ALREADY_REQUESTED` | `POST /listings/{id}/requests` | The caller has already asked to join this listing, whatever the author answered |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 | `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |

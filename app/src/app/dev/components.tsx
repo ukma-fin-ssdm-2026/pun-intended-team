@@ -99,9 +99,13 @@ export default function ComponentsGallery() {
         <Button label="С3 Забагато спроб" variant="light" onPress={() => router.push('/too-many-attempts')} />
       </Section>
 
-      {/* Designed, but the API has neither yet, so the real screens leave them out (#486). */}
-      <Section title="Без API">
+      {/* Т5 opens the sheet for a real request; here it shows mock content. */}
+      <Section title="Д4 Запит на оголошення">
         <Button label="Д4 Запит на оголошення (Т5.1)" variant="light" onPress={() => setJoinRequestOpen(true)} />
+      </Section>
+
+      {/* Designed, but the API has none yet, so the real screens leave it out (#486). */}
+      <Section title="Без API">
         <Text className="font-inter text-caption text-text-secondary">Д1 Фільтри · «Де»: райони</Text>
         <View className="flex-row flex-wrap gap-2">
           {mockDistricts.map((name) => (
