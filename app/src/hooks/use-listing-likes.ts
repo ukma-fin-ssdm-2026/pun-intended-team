@@ -31,8 +31,7 @@ export function useListingLikes(feed: Feed, show: (snackbar: SnackbarContent) =>
         updateData((listings) =>
           listings.map((listing) => (listing.id === post.id ? { ...listing, ...likes } : listing)),
         );
-      const liked = post.liked ?? false;
-      const likeCount = post.likeCount ?? 0;
+      const { liked, likeCount } = post;
       set({ liked: !liked, likeCount: Math.max(0, likeCount + (liked ? -1 : 1)) });
       const result = await (liked ? unlikeListing(post.id) : likeListing(post.id));
       pending.current.delete(post.id);

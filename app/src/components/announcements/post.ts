@@ -16,8 +16,8 @@ export type Post = {
   meta: string;
   text: string;
   chips?: { icon: 'calendar' | 'pin'; label: string }[];
-  // A listing from the API that names a place: its pin chip opens the place on a map.
-  hasPlace?: boolean;
+  // Whether the listing names a place: its pin chip then opens the place on a map.
+  hasPlace: boolean;
   // A catalog event attached to the post.
   eventId?: string;
   photo?: ImageSource;
@@ -31,7 +31,7 @@ export type Post = {
   own?: boolean;
   // The signed-in user's request to join the post, from the API; undefined without one.
   myRequest?: { id: string; status: 'pending' | 'accepted' | 'declined' };
-  // From the API: how many users like the post and whether the signed-in user is one of them.
-  likeCount?: number;
-  liked?: boolean;
+  // How many users like the post and whether the signed-in user is one of them.
+  likeCount: number;
+  liked: boolean;
 };

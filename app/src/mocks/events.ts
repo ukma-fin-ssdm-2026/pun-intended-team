@@ -12,7 +12,7 @@ type Event = components['schemas']['Event'];
 // Prices cover every case of the card's tag (`priceLabel`).
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 // Mock events have bundled covers, never an uploaded photo.
-export type MockEvent = Omit<Event, 'photo' | 'organizer'> & {
+type MockEvent = Omit<Event, 'photo' | 'organizer'> & {
   photo?: null;
   cover?: ImageSource;
   district: string;

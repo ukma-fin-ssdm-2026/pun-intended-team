@@ -1,6 +1,6 @@
 # Nearby client (Expo)
 
-Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It shows the event catalog under a five-tab bar, filters it by search, category and day, and shows an event's page, for a signed-in user or a guest. Sign-up and sign-in with Google, sign-out and the profile screens (setup, edit, contacts) use the API; so do asking for a match at an event, the company search screen, the Метчі tab's searches, the report sheet, the admin pages, the organizer page, the organization's О1 Мої події and О4 Налаштування (with its Instagram) and Д2.1 Місце на мапі (the real map, named by the API's place lookup) with the place of a listing, the listing join request ("Хочу піти", Т5.1, Д4 and 07 for it) and the post likes; the event page, the Метчі covers, the proposal and mutual screens and П6 read their events from the API too. Two designed parts have no API yet and are shown only in the gallery (`/dev/components`): the districts in Д1's "Де" and О4's notification switches; the other screens run on mock data for now (`src/mocks/`), and the API hooks in `src/hooks/` are kept for connecting them.
+Mobile and web client for the Nearby API, built with [Expo](https://expo.dev) and [Expo Router](https://docs.expo.dev/router/introduction/) (TypeScript). It shows the event catalog under a five-tab bar, filters it by search, category and day, and shows an event's page, for a signed-in user or a guest. Every screen reads the API: sign-up and sign-in with Google, sign-out and the profile screens (setup, edit, contacts); the catalog, the map tab, the event page and П6; asking for a match at an event, the company search screen, the Метчі tab's searches, the proposal and mutual screens and the report sheet; the Оголошення tab with its posts, the post likes, the listing join request ("Хочу піти", Т5.1, Д4 and 07 for it), Д2.1 Місце на мапі (the real map, named by the API's place lookup) and the place view of a listing (`listing-place`); the organizer page, the organization's О1 Мої події, its venues (the address filled from the map by the same place lookup) and О4 Налаштування (with its Instagram); Т5 Сповіщення; and the admin pages. Two designed parts have no API yet and are shown only in the gallery (`/dev/components`): the districts in Д1's "Де" and О4's notification switches. `src/mocks/` is used only by the gallery and the tests.
 
 ## Getting started
 
@@ -106,7 +106,7 @@ Both are for a browser on a computer, and the web app opens them in place of the
 - An organization is an account of its own that has sent an organization request; it has no personal profile. It lands on `/organization` (its events, venues and settings); the phone app only asks it to open Nearby on a computer. An organization signs up through "Для організацій" next to "Продовжити як гість" on the web onboarding; after the date of birth it opens the request instead of the profile setup.
 - An administrator that also has an organization, e.g. a local test account, gets a link between the two panels.
 
-To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the mock posts and matches go to the usernames `iryna`, `artem`, `maksym` and `olena`, so they reach the API only when an account has that username.
+To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the gallery's mock matches go to the usernames `maksym` and `olena`, so they reach the API only when an account has that username.
 
 ## Environment variables
 
@@ -163,15 +163,15 @@ app/
 ├─ .env.example
 ├─ assets/
 │  ├─ icons/            Solar Linear icons exported from Figma
-│  └─ images/           app icons, splash, spinner and mock event covers
+│  └─ images/           app icons, splash, spinner and the event covers of the onboarding collage and the gallery
 ├─ tests/               Jest tests; setup.ts mocks Reanimated, svg-mock.tsx stands in for SVG imports
 └─ src/
    ├─ app/              Expo Router routes (every file is a screen)
    │  ├─ _layout.tsx    root Stack navigator; loads the fonts and global.css
    │  ├─ (tabs)/        tab screens under the Figma tab bar
    │  │  ├─ _layout.tsx tab navigator
-   │  │  ├─ index.tsx   event catalog (mock data)
-   │  │  ├─ map.tsx     Т1 Мапа, a static map
+   │  │  ├─ index.tsx   event catalog
+   │  │  ├─ map.tsx     Т1 Мапа, the catalog's venues on the map
    │  │  ├─ matches.tsx Т2 Метчі, with Т2.1 and Т2.2
    │  │  ├─ announcements.tsx   Т3 Оголошення, with Т3.1 and the Д2 editor
    │  │  └─ profile.tsx Т4 Профіль and П6 Збережені події as two tabs, with the П5 dialog
@@ -201,7 +201,7 @@ app/
    ├─ auth/             Google sign-in on iOS and Android, phone number format and the auth screens' messages
    ├─ phone-auth/       the phone and password screens В4–В6, В4.1, В4.2, commented out while sign-in is Google-only
    ├─ hooks/use-google-auth.ts   what a Google button does with the ID token: sign in, or В5 for a new account
-   ├─ hooks/            API data hooks (not used by the mock screens yet), use-status-bar-style.ts and use-blur-on-navigate.ts
+   ├─ hooks/            API data hooks, use-status-bar-style.ts and use-blur-on-navigate.ts
    ├─ components/
    │  ├─ ui/            UI kit from the Figma design (see below)
    │  ├─ catalog-header.tsx   logo, notifications and greeting of the catalog
@@ -212,7 +212,7 @@ app/
    │  ├─ announcements/ post and post editor of the Оголошення tab
    │  ├─ organization/  the О3 cancel event sheet
    │  └─ system-state.tsx   shared layout of С1–С3
-   ├─ mocks/            mock data for screens that have no endpoint yet
+   ├─ mocks/            mock data for the gallery (`/dev/components`) and the tests
    ├─ state/            app-wide client state: the session and its mock switches, the sign-up and reset steps, the Google ID token on its way to В5, the catalog filters, favourites and the Метчі tab
    ├─ styles/
    │  └─ tokens.ts      design tokens from the Figma variables

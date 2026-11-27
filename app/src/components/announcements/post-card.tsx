@@ -103,8 +103,7 @@ function LinkedEvent({ eventId }: { eventId: string }) {
 
 export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props) {
   const router = useRouter();
-  const liked = post.liked ?? false;
-  const likeCount = post.likeCount ?? 0;
+  const { liked, likeCount } = post;
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">

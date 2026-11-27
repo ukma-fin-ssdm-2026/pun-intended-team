@@ -21,6 +21,9 @@ function aPost(overrides: Partial<Post> = {}): Post {
     text: '',
     going: false,
     own: false,
+    hasPlace: false,
+    likeCount: 0,
+    liked: false,
     ...overrides,
   };
 }

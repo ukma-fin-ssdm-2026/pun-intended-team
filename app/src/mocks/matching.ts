@@ -5,7 +5,7 @@ import { mockProfile } from '@/mocks/profile';
 
 // The people of the matching mocks: Олена is the new proposal for the jazz evening (05, Т2), Максим the mutual match
 // for the house concert (Т2, Т5 "Це взаємно!", 06, 07).
-export type MatchPerson = {
+type MatchPerson = {
   id: 'olena' | 'maksym';
   name: string;
   // Reports are sent for it, so they reach the API only when an account has this username.
@@ -54,8 +54,6 @@ export const mockPeople: Record<MatchPerson['id'], MatchPerson> = {
   },
 };
 
-export const isMatchPersonId = (id: string | undefined): id is MatchPerson['id'] => id === 'olena' || id === 'maksym';
-
 // 07 Взаємний метч: the user's own initial next to the match's.
 export const mockMutual = { ownInitial: mockProfile.initial };
 
@@ -72,8 +70,3 @@ export function mockMutualPerson(person: MatchPerson): MutualPerson {
     ],
   };
 }
-
-// The event of the mock reminder in the notifications.
-export const mockMatchesTab = {
-  search: { eventId: '7a2d4b5c-0002-4b00-8000-000000000003' },
-};
