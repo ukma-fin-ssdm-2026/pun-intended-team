@@ -36,6 +36,8 @@ const looks: Record<Notification['type'], { icon: IconName; tone: Tone; toMatche
   event_reminder: { icon: 'bell', tone: 'plain' },
   event_changed: { icon: 'calendar', tone: 'plain' },
   report_received: { icon: 'shield', tone: 'plain' },
+  listing_request: { icon: 'matches', tone: 'coral' },
+  listing_request_accepted: { icon: 'check', tone: 'coral' },
 };
 
 type Row = { key: string; icon: IconName; tone: Tone; title: string; time: string; text: string; unread: boolean };

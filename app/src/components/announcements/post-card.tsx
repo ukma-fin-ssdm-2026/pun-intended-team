@@ -1,6 +1,8 @@
 // Written with the help of Claude
 // AI Usage: post of the Figma "Т3 Оголошення" feed; reviewed by Daryna Halytska.
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ApiPicture } from '@/components/pictures/picture';
@@ -10,7 +12,6 @@ import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import type { Post } from '@/components/announcements/post';
 import { toggleLike, useLiked } from '@/state/post-likes';
-import { requestPost, usePostRequests } from '@/state/post-requests';
 import { colors } from '@/styles/tokens';
 
 type Props = {
@@ -18,14 +19,30 @@ type Props = {
   onReport: () => void;
   // The menu of the user's own post deletes it instead of reporting it.
   onDelete?: () => void;
-  // Called after "Хочу піти"; Т3.3 returns to the feed, which shows Т3.2.
-  onRequest?: () => void;
+  // "Хочу піти": the screen sends the request and shows Т3.2 or the failure. Т3.3 returns to the feed.
+  onRequest?: (post: Post) => Promise<void>;
 };
 
-// The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано"; "Ти йдеш" is a
-// post the user already joined.
-function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void }) {
-  const requested = usePostRequests().postIds.includes(post.id);
+// The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано", also once the
+// author declined, so a decline stays private. An accepted request opens 07 "Це взаємно!" with the author's contacts;
+// "Ти йдеш" is a post the user already joined.
+function JoinAction({ post, onRequest }: { post: Post; onRequest?: (post: Post) => Promise<void> }) {
+  const router = useRouter();
+  const [sending, setSending] = useState(false);
+  const request = post.myRequest;
+
+  if (request?.status === 'accepted') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/mutual', params: { request: request.id } })}
+        className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral py-1.5 pl-2.5 pr-3"
+      >
+        <Icon name="check" size={16} color={colors.text['on-dark']} />
+        <Text className="font-inter-semibold text-tag text-text-on-dark">Запит прийнято</Text>
+      </Pressable>
+    );
+  }
 
   if (post.going) {
     return (
@@ -36,13 +53,17 @@ function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void })
     );
   }
 
+  const requested = request !== undefined;
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={requested}
-      onPress={() => {
-        requestPost(post.id);
-        onRequest?.();
+      disabled={requested || sending || !onRequest}
+      accessibilityState={{ disabled: requested || sending, busy: sending }}
+      onPress={async () => {
+        if (!onRequest) return;
+        setSending(true);
+        await onRequest(post);
+        setSending(false);
       }}
       // Figma's 1 px stroke lies inside the pill: the padding is 1 px less than its 6 / 10 / 12.
       className="flex-row items-center gap-1.5 rounded-2xl border border-border-default py-[5px] pl-[9px] pr-[11px]"

@@ -27,4 +27,6 @@ export type Post = {
   // Only posts that come from the API have them: the heading of the post, and whether the signed-in user wrote it.
   title?: string;
   own?: boolean;
+  // The signed-in user's request to join the post, from the API; undefined without one.
+  myRequest?: { id: string; status: 'pending' | 'accepted' | 'declined' };
 };

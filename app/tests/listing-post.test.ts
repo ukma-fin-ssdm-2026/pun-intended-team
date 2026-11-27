@@ -15,9 +15,18 @@ const listing: Listing = {
   status: 'active',
   photo: null,
   place: null,
+  myRequest: null,
 };
 
 describe('listingToPost', () => {
+  test("carries the user's own request, so the card keeps its state after a reload", () => {
+    expect(listingToPost({ ...listing, myRequest: { id: 'r1', status: 'pending' } }).myRequest).toEqual({
+      id: 'r1',
+      status: 'pending',
+    });
+    expect(listingToPost(listing).myRequest).toBeUndefined();
+  });
+
   test('shows the day of the plan without a place', () => {
     expect(listingToPost(listing).chips).toEqual([{ icon: 'calendar', label: expect.any(String) }]);
   });
