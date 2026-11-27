@@ -28,6 +28,10 @@ export async function loadAllListings(): Promise<ApiResult<Listing[]>> {
   }
 }
 
+export function getListing(id: string) {
+  return call(() => apiClient.GET('/api/v1/listings/{id}', { params: { path: { id } } }));
+}
+
 export function createListing(body: NewListing) {
   return call(() => apiClient.POST('/api/v1/listings', { body }));
 }

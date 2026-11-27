@@ -102,6 +102,7 @@ function LinkedEvent({ eventId }: { eventId: string }) {
 }
 
 export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props) {
+  const router = useRouter();
   const liked = post.liked ?? false;
   const likeCount = post.likeCount ?? 0;
 
@@ -133,15 +134,31 @@ export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props)
 
         {post.chips && (
           <View className="flex-row gap-2">
-            {post.chips.map((chip) => (
-              <View
-                key={chip.label}
-                className="flex-row items-center gap-[5px] rounded-xl bg-surface-background py-1.5 pl-2 pr-2.5"
-              >
-                <Icon name={chip.icon} size={14} />
-                <Text className="font-inter-semibold text-tag text-text-primary">{chip.label}</Text>
-              </View>
-            ))}
+            {post.chips.map((chip) => {
+              const content = (
+                <>
+                  <Icon name={chip.icon} size={14} />
+                  <Text className="font-inter-semibold text-tag text-text-primary">{chip.label}</Text>
+                </>
+              );
+              const chipClass = 'flex-row items-center gap-[5px] rounded-xl bg-surface-background py-1.5 pl-2 pr-2.5';
+              // The place a listing names opens on a map; Figma has no frame for it, so it reuses Д2.1.
+              return chip.icon === 'pin' && post.hasPlace ? (
+                <Pressable
+                  key={chip.label}
+                  accessibilityRole="button"
+                  accessibilityLabel="Показати місце на мапі"
+                  onPress={() => router.push({ pathname: '/listing-place', params: { listing: post.id } })}
+                  className={chipClass}
+                >
+                  {content}
+                </Pressable>
+              ) : (
+                <View key={chip.label} className={chipClass}>
+                  {content}
+                </View>
+              );
+            })}
           </View>
         )}
 

@@ -86,6 +86,15 @@ describe('PostCard', () => {
     expect(screen.queryByText('0')).toBeNull();
   });
 
+  test('the place chip opens the place on a map', async () => {
+    const chips = [{ icon: 'pin' as const, label: 'Мистецький Арсенал' }];
+    await render(<PostCard post={aPost({ chips, hasPlace: true })} onReport={() => {}} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Показати місце на мапі' }));
+
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/listing-place', params: { listing: 'l1' } });
+  });
+
   test('offers no request on the own post', async () => {
     await render(<PostCard post={aPost({ own: true })} onReport={() => {}} onRequest={() => Promise.resolve()} />);
 

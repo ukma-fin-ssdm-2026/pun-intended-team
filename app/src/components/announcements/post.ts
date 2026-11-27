@@ -16,6 +16,8 @@ export type Post = {
   meta: string;
   text: string;
   chips?: { icon: 'calendar' | 'pin'; label: string }[];
+  // A listing from the API that names a place: its pin chip opens the place on a map.
+  hasPlace?: boolean;
   // A catalog event attached to the post.
   eventId?: string;
   photo?: ImageSource;

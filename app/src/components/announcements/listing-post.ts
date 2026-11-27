@@ -28,6 +28,7 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
       { icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) },
       ...(place ? [{ icon: 'pin' as const, label: place.name }] : []),
     ],
+    hasPlace: place !== null,
     eventId: eventId ?? undefined,
     apiPhoto: photo ?? undefined,
     authorPhoto: author.photo ?? undefined,

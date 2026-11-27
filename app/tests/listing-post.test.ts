@@ -40,6 +40,8 @@ describe('listingToPost', () => {
   test('shows the place as a pin chip next to the day', () => {
     const place = { name: 'Мистецький Арсенал', address: '', location: { lat: 50.4357, lng: 30.5555 } };
 
+    expect(listingToPost({ ...listing, place }).hasPlace).toBe(true);
+    expect(listingToPost(listing).hasPlace).toBe(false);
     expect(listingToPost({ ...listing, place }).chips).toEqual([
       { icon: 'calendar', label: expect.any(String) },
       { icon: 'pin', label: 'Мистецький Арсенал' },
