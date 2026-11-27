@@ -1,5 +1,6 @@
 // Written with the help of Claude
 import { Controller } from '@nestjs/common';
+import { EventsService } from '../../../core/catalog/services/events.service.ts';
 import { OrganizationsService } from '../../../core/catalog/services/organizations.service.ts';
 import type { AccountCaller } from '../../../core/identity/types/caller.ts';
 import { CurrentAccount } from '../../common/auth.ts';
@@ -7,16 +8,75 @@ import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../com
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
 import { CropQuery, ImageFileBody, INVALID_IMAGE, UPLOAD_NOTE, toCrop } from '../../images/schemas/images.ts';
-import { Organization, OrganizationRequestBody } from '../schemas/organizations.ts';
+import { ListMyEventsQuery, OrganizationEventsPage } from '../schemas/events.ts';
+import {
+  Organization,
+  OrganizationIdParams,
+  OrganizationRequestBody,
+  PublicOrganization,
+} from '../schemas/organizations.ts';
 
+const GetOrganizationRequest = { params: OrganizationIdParams } satisfies RequestSchemas;
+const ListOrganizationEventsRequest = {
+  params: OrganizationIdParams,
+  query: ListMyEventsQuery,
+} satisfies RequestSchemas;
 const RequestOrganizationRequest = { body: OrganizationRequestBody } satisfies RequestSchemas;
 const UploadLogoRequest = { query: CropQuery, file: ImageFileBody } satisfies RequestSchemas;
 
 const NO_ORGANIZATION = { description: 'The caller has not requested organization status', schema: ErrorResponse };
+const NO_PUBLIC_ORGANIZATION = {
+  description: 'No verified organization with this id: unknown, still pending, rejected or revoked',
+  schema: ErrorResponse,
+};
 
 @Controller()
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly eventsService: EventsService,
+  ) {}
+
+  @Endpoint({
+    method: 'get',
+    path: Routes.organizations.byId,
+    operationId: 'getOrganization',
+    summary: 'Get an organization’s page',
+    description:
+      'Get a verified organization as its page shows it: name, description, site, Instagram and logo. ' +
+      'An organization that is not verified is not found.',
+    tags: ['Organizations'],
+    access: 'guest',
+    request: GetOrganizationRequest,
+    responses: {
+      200: { description: 'The organization', schema: PublicOrganization },
+      404: NO_PUBLIC_ORGANIZATION,
+    },
+  })
+  async getOrganization(@Input() { params }: RouteInput<typeof GetOrganizationRequest>): Promise<PublicOrganization> {
+    return this.organizationsService.getPublic(params.id);
+  }
+
+  @Endpoint({
+    method: 'get',
+    path: Routes.organizations.events,
+    operationId: 'listOrganizationEvents',
+    summary: 'List an organization’s events',
+    description:
+      'List the published events of a verified organization that have not ended, soonest first, for its page.',
+    tags: ['Organizations'],
+    access: 'guest',
+    request: ListOrganizationEventsRequest,
+    responses: {
+      200: { description: 'A page of events', schema: OrganizationEventsPage },
+      404: NO_PUBLIC_ORGANIZATION,
+    },
+  })
+  async listOrganizationEvents(
+    @Input() { params, query }: RouteInput<typeof ListOrganizationEventsRequest>,
+  ): Promise<OrganizationEventsPage> {
+    return this.eventsService.listByOrganization(params.id, query);
+  }
 
   @Endpoint({
     method: 'get',
@@ -43,7 +103,8 @@ export class OrganizationsController {
     operationId: 'requestOrganizationStatus',
     summary: 'Request organization status',
     description:
-      'Ask to become a verified organization with a name, a description and an official link. The request ' +
+      'Ask to become a verified organization with a name, a description, an official link and, optionally, an ' +
+      'Instagram username. The request ' +
       'waits as pending until an administrator decides it. A pending request is replaced, and after a rejection ' +
       'the request can be sent again.',
     tags: ['Organizations'],
@@ -53,6 +114,10 @@ export class OrganizationsController {
       200: { description: 'The request, now pending', schema: Organization },
       409: {
         description: '`CONFLICT`: the organization is already verified, or its verification was revoked',
+        schema: ErrorResponse,
+      },
+      422: {
+        description: '`INVALID_SOCIAL_HANDLE`: the Instagram username does not fit; `details` names `instagram`',
         schema: ErrorResponse,
       },
     },

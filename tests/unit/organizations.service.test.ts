@@ -47,6 +47,73 @@ function isDomainError(code: string) {
   return (error: unknown) => error instanceof DomainError && error.code === code;
 }
 
+describe('OrganizationsService.request: Instagram', () => {
+  for (const typed of [
+    'natalka.park',
+    '@natalka.park',
+    'https://www.instagram.com/natalka.park/',
+    ' instagram.com/natalka.park ',
+  ]) {
+    test(`keeps "${typed}" as the bare username`, async () => {
+      const { service, organizationsRepository } = makeService();
+
+      await service.request(ACCOUNT_ID, { ...REQUEST, instagram: typed });
+
+      assert.equal(organizationsRepository.create.mock.calls[0]?.arguments[1]?.instagram, 'natalka.park');
+    });
+  }
+
+  test('keeps an empty field as none', async () => {
+    const { service, organizationsRepository } = makeService();
+
+    await service.request(ACCOUNT_ID, { ...REQUEST, instagram: '  ' });
+
+    assert.equal(organizationsRepository.create.mock.calls[0]?.arguments[1]?.instagram, null);
+  });
+
+  for (const typed of ['.natalka', 'a'.repeat(31), 'na talka', 'https://instagram.com/p/abc', 'https://t.me/natalka']) {
+    test(`refuses "${typed}" with INVALID_SOCIAL_HANDLE`, async () => {
+      const { service, organizationsRepository } = makeService();
+
+      await assert.rejects(
+        service.request(ACCOUNT_ID, { ...REQUEST, instagram: typed }),
+        (error: unknown) =>
+          error instanceof DomainError && error.code === 'INVALID_SOCIAL_HANDLE' && error.field === 'instagram',
+      );
+      assert.equal(organizationsRepository.create.mock.callCount(), 0);
+    });
+  }
+});
+
+describe('OrganizationsService.getPublic', () => {
+  test('returns a verified organization without its account or verification details', async () => {
+    const { service, organizationsRepository } = makeService();
+    organizationsRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(anOrganization({ instagram: 'natalka.park', logoId: LOGO.id })),
+    );
+
+    assert.deepEqual(await service.getPublic(ACCOUNT_ID), {
+      id: ACCOUNT_ID,
+      name: 'Natalka Park',
+      description: 'Open-air cinema and concerts by the Dnipro.',
+      officialLink: 'https://natalka.park',
+      instagram: 'natalka.park',
+      logo: LOGO,
+    });
+  });
+
+  for (const verificationStatus of ['pending', 'rejected', 'revoked'] as const) {
+    test(`answers NOT_FOUND for a ${verificationStatus} organization`, async () => {
+      const { service, organizationsRepository } = makeService();
+      organizationsRepository.findByAccountId.mock.mockImplementation(() =>
+        Promise.resolve(anOrganization({ verificationStatus })),
+      );
+
+      await assert.rejects(service.getPublic(ACCOUNT_ID), isDomainError('NOT_FOUND'));
+    });
+  }
+});
+
 describe('OrganizationsService.getOwn', () => {
   test('answers NOT_FOUND before the first request', async () => {
     const { service } = makeService();
@@ -61,7 +128,10 @@ describe('OrganizationsService.request', () => {
     const { service, organizationsRepository } = makeService();
 
     assert.deepEqual(await service.request(ACCOUNT_ID, REQUEST), { ...PENDING, logo: null });
-    assert.deepEqual(organizationsRepository.create.mock.calls[0]?.arguments, [ACCOUNT_ID, REQUEST]);
+    assert.deepEqual(organizationsRepository.create.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      { ...REQUEST, instagram: null },
+    ]);
     assert.equal(organizationsRepository.resubmit.mock.callCount(), 0);
   });
 
@@ -72,7 +142,10 @@ describe('OrganizationsService.request', () => {
     );
 
     assert.deepEqual(await service.request(ACCOUNT_ID, REQUEST), { ...PENDING, logo: null });
-    assert.deepEqual(organizationsRepository.resubmit.mock.calls[0]?.arguments, [ACCOUNT_ID, REQUEST]);
+    assert.deepEqual(organizationsRepository.resubmit.mock.calls[0]?.arguments, [
+      ACCOUNT_ID,
+      { ...REQUEST, instagram: null },
+    ]);
     assert.equal(organizationsRepository.create.mock.callCount(), 0);
   });
 

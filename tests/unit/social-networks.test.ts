@@ -1,11 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import {
-  socialNetworkHandle,
-  socialNetworkHint,
-  socialNetworkUrl,
-} from '../../dist/core/profiles/services/social-networks.js';
+import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from '../../dist/core/common/social-networks.js';
 import type { SocialNetwork } from '../../dist/core/profiles/types/profile.js';
 
 const handles: { network: SocialNetwork; input: string; handle: string | undefined }[] = [

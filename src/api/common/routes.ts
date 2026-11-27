@@ -52,6 +52,8 @@ export const Routes = {
     byId: '/api/v1/images/{id}',
   },
   organizations: {
+    byId: '/api/v1/organizations/{id}',
+    events: '/api/v1/organizations/{id}/events',
     me: '/api/v1/me/organization',
     logo: '/api/v1/me/organization/logo',
   },

@@ -9,6 +9,8 @@ export interface Organization {
   name: string;
   description: string | null;
   officialLink: string | null;
+  /** The Instagram username, without "@". */
+  instagram: string | null;
   verificationStatus: VerificationStatus;
   /** When an administrator verified it; null otherwise. */
   verifiedAt: string | null;
@@ -17,6 +19,17 @@ export interface Organization {
 
 /** The caller's organization as the API returns it: with its logo's size. */
 export type OrganizationWithLogo = Organization & { logo: ImageRef | null };
+
+/** A verified organization as anyone sees it: on its page, without its account or verification details. */
+export interface PublicOrganization {
+  /** The organization's account id. */
+  id: string;
+  name: string;
+  description: string | null;
+  officialLink: string | null;
+  instagram: string | null;
+  logo: ImageRef | null;
+}
 
 /** The organization that added an event or a venue. */
 export type OrganizationName = Pick<Organization, 'accountId' | 'name'>;
@@ -32,6 +45,8 @@ export interface OrganizationRequest {
   name: string;
   description: string;
   officialLink: string;
+  /** What the user typed: a username with or without "@", or a profile link; null or omitted for none. */
+  instagram?: string | null;
 }
 
 /** An administrator's decision on a pending request. */

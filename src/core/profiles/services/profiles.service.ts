@@ -10,7 +10,7 @@ import { ImagesService } from '../../images/services/images.service.ts';
 import type { ImageUpload } from '../../images/types/image.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
-import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from './social-networks.ts';
+import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from '../../common/social-networks.ts';
 import type {
   Contacts,
   Interest,

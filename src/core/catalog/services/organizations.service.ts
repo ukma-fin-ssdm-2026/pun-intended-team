@@ -1,6 +1,7 @@
 // Written with the help of Claude
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
+import { socialNetworkHandle, socialNetworkHint } from '../../common/social-networks.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ImagesService } from '../../images/services/images.service.ts';
@@ -11,6 +12,7 @@ import type {
   OrganizationRequest,
   OrganizationSearch,
   OrganizationWithLogo,
+  PublicOrganization,
   VerificationDecision,
 } from '../types/organization.ts';
 
@@ -26,6 +28,16 @@ export class OrganizationsService {
   /** The caller's organization with its verification status; NOT_FOUND before the first request. */
   async getOwn(accountId: string): Promise<OrganizationWithLogo> {
     return this.withLogo(await this.getStored(accountId));
+  }
+
+  /** A verified organization's page; NOT_FOUND for any other account, so a pending request stays private. */
+  async getPublic(accountId: string): Promise<PublicOrganization> {
+    const organization = await this.organizationsRepository.findByAccountId(accountId);
+    if (organization?.verificationStatus !== 'verified') {
+      throw new DomainError('NOT_FOUND', 'Organization not found');
+    }
+    const { name, description, officialLink, instagram, logo } = await this.withLogo(organization);
+    return { id: accountId, name, description, officialLink, instagram, logo };
   }
 
   /** Sets or replaces the logo, in any verification status. */
@@ -58,9 +70,11 @@ export class OrganizationsService {
 
   /**
    * Sends the request, which waits as pending for an administrator. A pending request is replaced, and a rejected one
-   * can be sent again; a verified or revoked organization cannot change its request.
+   * can be sent again; a verified or revoked organization cannot change its request, its Instagram included. The
+   * Instagram username is kept bare, as profiles keep it.
    */
-  async request(accountId: string, request: OrganizationRequest): Promise<OrganizationWithLogo> {
+  async request(accountId: string, input: OrganizationRequest): Promise<OrganizationWithLogo> {
+    const request = { ...input, instagram: instagramOf(input.instagram) };
     const existing = await this.organizationsRepository.findByAccountId(accountId);
     // A parallel first request can create the row in between; this one then replaces it.
     const saved = existing
@@ -114,4 +128,15 @@ export class OrganizationsService {
       logo: (organization.logoId !== null && logos.get(organization.logoId)) || null,
     }));
   }
+}
+
+function instagramOf(input: string | null | undefined): string | null {
+  if (input === undefined || input === null || input.trim() === '') {
+    return null;
+  }
+  const handle = socialNetworkHandle('instagram', input);
+  if (handle === undefined) {
+    throw new DomainError('INVALID_SOCIAL_HANDLE', `Expected ${socialNetworkHint('instagram')}`, 'instagram');
+  }
+  return handle;
 }

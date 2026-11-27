@@ -1272,6 +1272,56 @@ describe('GET /api/v1/events/{id}', () => {
   });
 });
 
+describe('Event organizer', () => {
+  test('shows the verified organization that published the event', async () => {
+    const res = await call('GET', `/api/v1/events/${filmNight}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.organizer, { id: stubAccounts.org.id, name: 'Podil Film Club', logo: null });
+  });
+
+  test('shows no organizer for an imported event', async () => {
+    const res = await call('GET', `/api/v1/events/${arsenalExhibition}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.organizer, null);
+  });
+});
+
+describe('Public organization pages', () => {
+  test('returns a verified organization to a guest, without private fields', async () => {
+    const res = await call('GET', `/api/v1/organizations/${stubAccounts.org.id}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.deepEqual(Object.keys(res.body).sort(), ['description', 'id', 'instagram', 'logo', 'name', 'officialLink']);
+    assert.equal(res.body.id, stubAccounts.org.id);
+    assert.equal(res.body.name, 'Podil Film Club');
+  });
+
+  test('lists its published events that have not ended, soonest first', async () => {
+    const res = await call('GET', `/api/v1/organizations/${stubAccounts.org.id}/events`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    const ids = res.body.items.map((event: { id: string }) => event.id);
+    assert.ok(ids.includes(filmNight));
+    assert.ok(!ids.includes(cancelledFilmEvent));
+    assert.ok(
+      res.body.items.every((event: { organizer: { id: string } }) => event.organizer.id === stubAccounts.org.id),
+    );
+  });
+
+  test('answers 404 for an organization that is not verified, and for an account without one', async () => {
+    for (const id of [stubAccounts.orgPending.id, stubAccounts.user.id]) {
+      assertRejected(await call('GET', `/api/v1/organizations/${id}`, { token: tokens.guest }), 404, 'NOT_FOUND');
+      assertRejected(
+        await call('GET', `/api/v1/organizations/${id}/events`, { token: tokens.guest }),
+        404,
+        'NOT_FOUND',
+      );
+    }
+  });
+
+  test('rejects a call without a token with 401', async () => {
+    assertRejected(await call('GET', `/api/v1/organizations/${stubAccounts.org.id}`), 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('POST /api/v1/events', () => {
   test('publishes an event for a verified organization', async () => {
     const res = await call('POST', '/api/v1/events', { token: tokens.org, body: newEvent });
@@ -3553,6 +3603,19 @@ describe('Organization verification', () => {
     );
     return rows;
   }
+
+  test('keeps the Instagram username bare, and refuses one that does not fit', async () => {
+    const { token } = await newAccount();
+    const saved = await call('PUT', '/api/v1/me/organization', {
+      token,
+      body: { ...request, instagram: 'https://www.instagram.com/riverside.stage/' },
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.instagram, 'riverside.stage');
+
+    const refused = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, instagram: '..nope' } });
+    assertRejected(refused, 422, 'INVALID_SOCIAL_HANDLE');
+  });
 
   test('saves a request as pending, shows it to the account, and keeps it from publishing events', async () => {
     const { token } = await newAccount();

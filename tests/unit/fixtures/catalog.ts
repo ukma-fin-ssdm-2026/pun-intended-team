@@ -33,6 +33,7 @@ export function anOrganization(overrides: Partial<Organization> = {}): Organizat
     name: 'Natalka Park',
     description: 'Open-air cinema and concerts by the Dnipro.',
     officialLink: 'https://natalka.park',
+    instagram: null,
     verificationStatus: 'verified',
     verifiedAt: '2026-10-01T10:00:00.000Z',
     logoId: null,
@@ -60,6 +61,7 @@ export function anEvent(overrides: Partial<Event> = {}): Event {
     source: 'organization',
     status: 'published',
     organizationId: ACCOUNT_ID,
+    organizer: { id: ACCOUNT_ID, name: 'Natalka Park', logoId: null },
     ...overrides,
   };
 }

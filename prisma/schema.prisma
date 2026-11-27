@@ -420,6 +420,8 @@ model Organization {
   name               String
   description        String?
   officialLink       String?            @map("official_link")
+  /// The bare username, without "@".
+  instagram          String?
   verificationStatus VerificationStatus @default(pending) @map("verification_status")
   verifiedById       String?            @map("verified_by") @db.Uuid
   verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)

@@ -34,7 +34,7 @@ src/
       system-api.module.ts
       controllers/  schemas/
   core/                         business logic, no HTTP
-    common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts, age.ts, durations.ts
+    common/                     domain-error.ts, kyiv-time.ts, kyiv-area.ts, social-networks.ts, catalog-window.ts, page.ts, slug.ts, transaction.ts, transaction-runner.ts, age.ts, durations.ts
     catalog/
       catalog.module.ts         provides + exports EventsService, EventSessionsService, CategoriesService, OrganizationsService, VenuesService, ImportFreshnessService
       repositories/             events, event-sessions, categories, venues, organizations, import-runs (abstract: what core needs from storage)

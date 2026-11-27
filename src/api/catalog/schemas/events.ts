@@ -10,7 +10,7 @@ import {
   pageOf,
   SearchText,
 } from '../../common/schemas/common.ts';
-import { EventPhoto } from '../../images/schemas/images.ts';
+import { EventPhoto, Image } from '../../images/schemas/images.ts';
 import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
 import { OrganizationName } from './organizations.ts';
 
@@ -52,6 +52,14 @@ export const AdminVenue = AdminVenueFields.meta({
   description: 'A venue as administrators see it, with who added it',
   example: adminVenueExample,
 });
+
+export const EventOrganizer = z
+  .object({
+    id: Id.describe('Get its page with getOrganization'),
+    name: z.string(),
+    logo: Image.nullable().describe('A square shown as a circle; null shows the building icon'),
+  })
+  .meta({ id: 'EventOrganizer', description: 'The verified organization that published an event' });
 
 const EventFields = z.object({
   id: Id,
@@ -103,6 +111,9 @@ const EventFields = z.object({
     .describe("Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise"),
   source: EventSource,
   status: EventStatus,
+  organizer: EventOrganizer.nullable().describe(
+    'The organization that published the event, while it is verified; null for imported events',
+  ),
 });
 
 export const eventExample: Event = {
@@ -127,6 +138,7 @@ export const eventExample: Event = {
   sourceUrl: null,
   source: 'organization',
   status: 'published',
+  organizer: { id: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c', name: 'Podil Film Club', logo: null },
 };
 
 export const Event = EventFields.meta({
@@ -147,6 +159,8 @@ export const EventsPage = pageFields(Event)
   .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });
 
 export const MyEventsPage = pageOf(Event, 'MyEventsPage', eventExample);
+
+export const OrganizationEventsPage = pageOf(Event, 'OrganizationEventsPage', eventExample);
 
 export const ListMyEventsQuery = PageQuery;
 
@@ -241,6 +255,7 @@ export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
 export type MyEventsPage = z.infer<typeof MyEventsPage>;
+export type OrganizationEventsPage = z.infer<typeof OrganizationEventsPage>;
 export type AdminVenue = z.infer<typeof AdminVenueFields>;
 export type AdminEvent = z.infer<typeof AdminEventFields>;
 export type AdminEventsPage = z.infer<typeof AdminEventsPage>;
