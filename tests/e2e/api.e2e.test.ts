@@ -1257,6 +1257,136 @@ describe('GET /api/v1/events', () => {
   test('rejects a limit above 20 with 400', async () => {
     assertInvalid(await call('GET', '/api/v1/events?limit=100', { token: tokens.guest }), 'query', 'limit');
   });
+
+  // FR-007: the filters of the sheet. The test's own categories and venues, so no other test's events show up. The
+  // point is in Obolon; the near venue is about 0.4 km from it, the far one about 5 km, and the stub venues 5 km and
+  // more.
+  describe('filters', () => {
+    const point = 'lat=50.5000&lng=30.4500';
+    const nearVenue = randomUUID();
+    const farVenue = randomUUID();
+    const firstDay = inDays(5);
+    const secondDay = inDays(6);
+    const ids = { nearFirst: randomUUID(), nearSecond: randomUUID(), nearOther: randomUUID(), farFirst: randomUUID() };
+    let first = '';
+    let second = '';
+    let other = '';
+
+    before(async () => {
+      [first, second, other] = (await Promise.all([newCategory(), newCategory(), newCategory()])).map(({ id }) => id);
+      const events = [
+        { id: ids.nearFirst, categoryId: first, venueId: nearVenue, day: firstDay },
+        { id: ids.nearSecond, categoryId: second, venueId: nearVenue, day: secondDay },
+        { id: ids.nearOther, categoryId: other, venueId: nearVenue, day: firstDay },
+        { id: ids.farFirst, categoryId: first, venueId: farVenue, day: firstDay },
+      ];
+      await withDatabase(async (client) => {
+        await client.query(
+          `INSERT INTO venues (id, name, address, latitude, longitude, source)
+           VALUES ($1, 'Near hall', 'Obolonskyi Ave, Kyiv', 50.5040, 30.4500, 'import'),
+                  ($2, 'Far hall', 'Kyrylivska St, Kyiv', 50.5000, 30.5200, 'import')`,
+          [nearVenue, farVenue],
+        );
+        for (const { id, categoryId, venueId, day } of events) {
+          await client.query(
+            `INSERT INTO events (id, title, description, category_id, venue_id, starts_at, ends_at, source)
+             VALUES ($1, 'Filter test', '', $2, $3, $4, $5, 'import')`,
+            [id, categoryId, venueId, fromKyivWallClock(`${day}T19:00:00Z`), fromKyivWallClock(`${day}T21:00:00Z`)],
+          );
+        }
+      });
+    });
+
+    async function listIds(query: string): Promise<string[]> {
+      const res = await call('GET', `/api/v1/events?${query}`, { token: tokens.guest });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      return res.body.items.map((item: { id: string }) => item.id).sort();
+    }
+
+    const sorted = (...values: string[]) => [...values].sort();
+
+    test('returns the events of any of several repeated categories', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first}&categoryIds=${second}`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.farFirst),
+      );
+    });
+
+    test('takes the categories as a comma-separated list', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second}`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.farFirst),
+      );
+    });
+
+    test('returns the events within the radius and leaves out the far venue', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second},${other}&${point}&radiusKm=3`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.nearOther),
+      );
+    });
+
+    test('takes the far venue in with a radius that reaches it', async () => {
+      assert.ok((await listIds(`categoryIds=${first}&${point}&radiusKm=6`)).includes(ids.farFirst));
+    });
+
+    test('combines the categories, the distance and the dates', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second}&${point}&radiusKm=3&from=${firstDay}&to=${firstDay}`),
+        [ids.nearFirst],
+      );
+    });
+
+    test('gives an empty page when the venue is outside the radius', async () => {
+      const res = await call('GET', `/api/v1/events?venueId=${farVenue}&${point}&radiusKm=3`, { token: tokens.guest });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body.items, []);
+      assert.equal(res.body.page.hasMore, false);
+    });
+
+    test('gives an empty page for an unknown category', async () => {
+      assert.deepEqual(await listIds(`categoryIds=${randomUUID()}`), []);
+    });
+
+    test('keeps the page size: one item and hasMore with limit=1', async () => {
+      const res = await call('GET', `/api/v1/events?categoryIds=${first},${second}&${point}&radiusKm=3&limit=1`, {
+        token: tokens.guest,
+      });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.items.length, 1);
+      assert.equal(res.body.page.hasMore, true);
+    });
+
+    test('rejects a limit above 20 with the filters too', async () => {
+      const res = await call('GET', `/api/v1/events?categoryIds=${first}&${point}&radiusKm=3&limit=21`, {
+        token: tokens.guest,
+      });
+
+      assertInvalid(res, 'query', 'limit');
+    });
+
+    const invalid = [
+      { title: 'a point without a radius', query: () => point, field: 'radiusKm' },
+      { title: 'a radius without a point', query: () => 'radiusKm=3', field: 'lat' },
+      { title: 'a latitude out of range', query: () => 'lat=91&lng=30.45&radiusKm=3', field: 'lat' },
+      { title: 'a longitude out of range', query: () => 'lat=50.5&lng=181&radiusKm=3', field: 'lng' },
+      { title: 'a radius above 50 km', query: () => `${point}&radiusKm=51`, field: 'radiusKm' },
+      { title: 'a zero radius', query: () => `${point}&radiusKm=0`, field: 'radiusKm' },
+      { title: 'a category id that is not a UUID', query: () => 'categoryIds=abc', field: 'categoryIds.0' },
+      {
+        title: 'more than 20 categories',
+        query: () => `categoryIds=${Array.from({ length: 21 }, () => first).join(',')}`,
+        field: 'categoryIds',
+      },
+    ];
+    for (const { title, query, field } of invalid) {
+      test(`rejects ${title} with 400`, async () => {
+        assertInvalid(await call('GET', `/api/v1/events?${query()}`, { token: tokens.guest }), 'query', field);
+      });
+    }
+  });
 });
 
 describe('GET /api/v1/events/{id}', () => {
