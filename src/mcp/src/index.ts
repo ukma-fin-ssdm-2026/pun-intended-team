@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
- * Generated on: 2026-11-27T09:51:49.968Z
+ * Generated on: 2026-11-27T14:38:32.910Z
  */
 
 import { existsSync } from 'node:fs';
@@ -666,6 +666,36 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
     method: "delete",
     pathTemplate: "/api/v1/listings/{id}/photo",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["likeListing", {
+    name: "likeListing",
+    title: "Like a listing",
+    description: `Like an active listing, the caller’s own too. Liking it again changes nothing. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
+    method: "put",
+    pathTemplate: "/api/v1/listings/{id}/like",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["unlikeListing", {
+    name: "unlikeListing",
+    title: "Take back a like",
+    description: `Take back the caller’s like of an active listing. Without a like, nothing changes. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
+    method: "delete",
+    pathTemplate: "/api/v1/listings/{id}/like",
     executionParameters: [{"name":"id","in":"path"}],
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],

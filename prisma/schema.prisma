@@ -277,6 +277,7 @@ model Account {
   excludedIn            Exclusion[]      @relation("ExclusionExcludedUser")
   listings              Listing[]
   listingRequests       ListingRequest[]
+  listingLikes          ListingLike[]
   reportCasesAsTarget   ReportCase[]     @relation("ReportCaseTargetAccount")
   reportCasesResolved   ReportCase[]     @relation("ReportCaseResolver")
   reports               Report[]
@@ -660,8 +661,22 @@ model Listing {
   photo       Image?           @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   reportCases ReportCase[]
   requests    ListingRequest[]
+  likes       ListingLike[]
 
   @@map("listings")
+}
+
+/// A user likes a listing (the heart on the post card); one row per user and listing, the author's own included.
+model ListingLike {
+  listingId String   @map("listing_id") @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([listingId, accountId])
+  @@map("listing_likes")
 }
 
 /// A user asks the author of a listing to go together ("Хочу піти"); once the author accepts, both see each other's

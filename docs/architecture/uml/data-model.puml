@@ -259,6 +259,13 @@ package "listings" {
     * created_at : timestamptz
     decided_at : timestamptz
   }
+
+  entity "ListingLike" as listing_like {
+    * listing_id : uuid <<PK, FK>>
+    * account_id : uuid <<PK, FK>>
+    --
+    * created_at : timestamptz
+  }
 }
 
 package "images" {
@@ -389,6 +396,8 @@ category ||--o{ listing
 event |o--o{ listing : refers to
 listing ||--o{ listing_request
 account ||--o{ listing_request : asks to join
+listing ||--o{ listing_like
+account ||--o{ listing_like : likes
 
 ' ---- moderation ----
 report_case ||--|{ report

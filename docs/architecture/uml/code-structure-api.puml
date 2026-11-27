@@ -107,6 +107,8 @@ package "api/listings" as API_listings {
     +deleteListing()
     +uploadListingPhoto()
     +deleteListingPhoto()
+    +likeListing()
+    +unlikeListing()
   }
   class ListingRequestsController {
     +requestToJoinListing()

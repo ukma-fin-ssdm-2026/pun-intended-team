@@ -48,6 +48,7 @@ export const Routes = {
     byId: '/api/v1/listings/{id}',
     photo: '/api/v1/listings/{id}/photo',
     requests: '/api/v1/listings/{id}/requests',
+    like: '/api/v1/listings/{id}/like',
   },
   listingRequests: {
     mine: '/api/v1/me/listing-requests',

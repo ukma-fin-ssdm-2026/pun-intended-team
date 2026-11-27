@@ -124,6 +124,8 @@ package "core (business logic)" as CORE {
       +removeReported(id)
       +setPhoto(accountId, id, upload)
       +removePhoto(accountId, id)
+      +like(accountId, id)
+      +unlike(accountId, id)
     }
     abstract class ListingsRepository {
       +findActiveById(id)
@@ -148,6 +150,11 @@ package "core (business logic)" as CORE {
       +findOwn(requesterId, listingIds)
       +findOnListingsOf(authorId, page)
       +decide(id, status, decidedAt, tx)
+    }
+    abstract class ListingLikesRepository {
+      +like(listingId, accountId)
+      +unlike(listingId, accountId)
+      +summaries(listingIds, viewerId)
     }
     class PlacesService {
       +describe(point)
@@ -246,6 +253,7 @@ EventsService --> TransactionRunner
 EventsService --> JobQueue
 ListingsService --> ImagesService
 ListingsService --> ListingRequestsRepository
+ListingsService --> ListingLikesRepository
 ListingRequestsService --> ListingRequestsRepository
 ListingRequestsService --> ListingsRepository
 ListingRequestsService --> ProfilesService

@@ -66,8 +66,10 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `photo` | `{ id, width, height }` or `null` | Cut to 2:1; the picture comes from `GET /images/{id}` |
 | `place` | `{ name, address, location: { lat, lng } }` or `null` | Where the author suggests meeting, picked on the map (Д2.1). Kept on the listing, not a catalog venue. In `POST`: optional; all three fields or none (`400` otherwise), `name` 1–100 characters, `address` up to 200 and may be empty, and the point must be in Kyiv (`422 PLACE_OUTSIDE_CITY`) |
 | `myRequest` | `{ id, status }` or `null` | The caller's own [request to join](#listing-request) the listing, so "Хочу піти" keeps reading "Запит надіслано" after a reload; `null` without one, and always on the caller's own listing. Read for the whole page at once |
+| `likeCount` | integer | How many users like the listing, its author included. Read for the whole page at once, with `liked` |
+| `liked` | boolean | Whether the caller likes it |
 
-Related to: Account (author), Category, Event, Image, Listing Request.
+Related to: Account (author, likes), Category, Event, Image, Listing Request.
 
 ### Listing Request
 
@@ -339,6 +341,8 @@ An organization publishes events only at its own venues (FR-009), so it adds the
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
 | `PUT` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404` |
+| `PUT` | `/api/v1/listings/{id}/like` | Signed-in user | `200` `{ likeCount, liked }` | `400`, `401`, `404` |
+| `DELETE` | `/api/v1/listings/{id}/like` | Signed-in user | `200` `{ likeCount, liked }` | `400`, `401`, `404` |
 | `GET` | `/api/v1/places/reverse?lat&lng` | Signed-in user | `200` `{ name, address }` | `400`, `401`, `404`, `422`, `503` |
 | `POST` | `/api/v1/listings/{id}/requests` | Signed-in user with a complete profile | `201` the request + `Location` header | `400`, `401`, `404`, `409`, `422` |
 | `GET` | `/api/v1/me/listing-requests` | Signed-in user | `200` a page of requests on the caller's listings | `400`, `401` |
@@ -348,6 +352,8 @@ An organization publishes events only at its own venues (FR-009), so it adds the
 | `GET` | `/api/v1/listing-requests/{id}/contacts` | Both sides of an accepted request | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404`, `422` |
 
 `GET /places/reverse` names the point the Д2.1 place picker settles on: `name` is the place or the building there, else the street and the house; `address` is the street, the house and the district. It asks OpenStreetMap's Nominatim (`/reverse`, Ukrainian names, building zoom; data © OpenStreetMap contributors, ODbL) behind the `PlaceLookup` port, at most one request a second for the whole server as Nominatim's policy asks, and answers points it was asked about in the last day from memory (rounded to 5 decimals, about a metre). Nothing there is `404 NOT_FOUND`; a point outside Kyiv `422 PLACE_OUTSIDE_CITY`; Nominatim unreachable or failing `503 PLACE_LOOKUP_UNAVAILABLE`, and the app lets the user type the name. Guests cannot call it, since only a signed-in user posts listings.
+
+**Likes.** The heart on a post card. `PUT …/like` likes an active listing and `DELETE …/like` takes the like back; both are idempotent, so a second like or an unlike without a like changes nothing and answers `200` as the first did. The author may like their own listing. A listing that is not active, removed or unknown, is a `404` to both. Each answers the listing's `likeCount` and the caller's `liked` after the change, which the app shows in place of its optimistic guess. Guests cannot like, as they cannot read listings.
 
 **Listing requests.** A signed-in user asks to join someone else's active listing once: their own is `422 CANNOT_REQUEST_OWN_LISTING`, a second request `409 ALREADY_REQUESTED` (not the existing one with `200`, so the app can tell a request from another device apart and reload), a listing that is not active `404`. The requester needs a complete profile, as for matching (`422 PROFILE_INCOMPLETE`), so the author sees who asks and has a way to reach them; an organization account may ask, as it may apply for a match, since an organization is a regular account too. The author gets a `listing_request` notification in the same transaction. `GET /me/listing-requests` lists the requests on the caller's listings, pending first, newest first, in pages as the feeds are. Only the listing's author accepts or declines, and only while the request is `pending`; anyone else, the requester included, gets `404`, and a request already answered `409 CONFLICT`. Accepting sends the requester a `listing_request_accepted` notification in the same transaction. **Declining sends nothing**, a product choice: the requester is not told they were turned down, and the app keeps showing their request as sent. A listing that is removed, by its author or an administrator, takes its pending requests with it: they leave the author's list, and reading or answering one is a `404` for both sides; accepted and declined ones stay readable. The contacts are those of the other side, the requester for the author and the author for the requester, in the shape of a match's: `404` until the request is accepted, also after a decline, and for anyone else (SEC-001); `422 SAFETY_NOTICE_REQUIRED` until the caller has acknowledged the safety notice, the same check and the same acknowledgment as for matches (SAFE-002).
 

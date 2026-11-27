@@ -31,6 +31,7 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class ImportRunsRepository <<other diagram>>
   abstract class ListingsRepository <<other diagram>>
   abstract class ListingRequestsRepository <<other diagram>>
+  abstract class ListingLikesRepository <<other diagram>>
   abstract class ApplicationsRepository <<other diagram>>
   abstract class MatchesRepository <<other diagram>>
   abstract class ReportCasesRepository <<other diagram>>
@@ -74,6 +75,7 @@ package "infra (InfraModule, global)" as INFRA {
     class PrismaImportRunsRepository
     class PrismaListingsRepository
     class PrismaListingRequestsRepository
+    class PrismaListingLikesRepository
     class PrismaApplicationsRepository
     class PrismaMatchesRepository
     class PrismaReportCasesRepository
@@ -145,6 +147,7 @@ OrganizationsRepository <|.. PrismaOrganizationsRepository
 ImportRunsRepository <|.. PrismaImportRunsRepository
 ListingsRepository <|.. PrismaListingsRepository
 ListingRequestsRepository <|.. PrismaListingRequestsRepository
+ListingLikesRepository <|.. PrismaListingLikesRepository
 ApplicationsRepository <|.. PrismaApplicationsRepository
 MatchesRepository <|.. PrismaMatchesRepository
 ReportCasesRepository <|.. PrismaReportCasesRepository

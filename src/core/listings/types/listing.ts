@@ -35,6 +35,15 @@ export interface ListingDetails extends Listing {
   photo: ImageRef | null;
   /** The viewer's own request to join it; null when they have none, and always on their own listing. */
   myRequest: OwnListingRequest | null;
+  likeCount: number;
+  /** Whether the viewer likes it. */
+  liked: boolean;
+}
+
+/** The likes of one listing as the viewer sees them. */
+export interface ListingLikes {
+  likeCount: number;
+  liked: boolean;
 }
 
 export interface NewListing {

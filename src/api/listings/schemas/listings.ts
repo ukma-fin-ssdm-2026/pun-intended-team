@@ -40,6 +40,9 @@ export const ListingPlace = ListingPlaceFields.meta({
   description: 'Where the author suggests meeting, picked on the map; not a catalog venue',
 });
 
+const LikeCount = z.number().int().min(0).describe('How many users like the listing, its author included');
+const Liked = z.boolean().describe('Whether the caller likes the listing');
+
 const ListingFields = z.object({
   id: Id,
   author: ListingAuthor,
@@ -54,6 +57,8 @@ const ListingFields = z.object({
   myRequest: OwnListingRequest.nullable().describe(
     'The caller’s own request to join this listing; null without one, and always on the caller’s own listing',
   ),
+  likeCount: LikeCount,
+  liked: Liked,
 });
 
 export const listingExample: Listing = {
@@ -72,12 +77,22 @@ export const listingExample: Listing = {
     location: { lat: 50.4357, lng: 30.5555 },
   },
   myRequest: null,
+  likeCount: 3,
+  liked: true,
 };
 
 export const Listing = ListingFields.meta({
   id: 'Listing',
   description: 'A "looking for company" post',
   example: listingExample,
+});
+
+const ListingLikesFields = z.object({ likeCount: LikeCount, liked: Liked });
+
+export const ListingLikes = ListingLikesFields.meta({
+  id: 'ListingLikes',
+  description: 'The likes of a listing after the caller’s like or unlike',
+  example: { likeCount: 3, liked: true },
 });
 
 export const ListingsPage = pageOf(Listing, 'ListingsPage', listingExample);
@@ -134,4 +149,5 @@ export const PlaceDescription = PlaceDescriptionFields.meta({
 export type Listing = z.infer<typeof ListingFields>;
 export type PlaceDescription = z.infer<typeof PlaceDescriptionFields>;
 export type ListingsPage = z.infer<typeof ListingsPage>;
+export type ListingLikes = z.infer<typeof ListingLikesFields>;
 export type CreateListingBody = z.input<typeof CreateListingFields>;

@@ -9,9 +9,10 @@ import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ImagesService } from '../../images/services/images.service.ts';
 import type { ImageUpload } from '../../images/types/image.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
+import { ListingLikesRepository } from '../repositories/listing-likes.repository.ts';
 import { ListingRequestsRepository } from '../repositories/listing-requests.repository.ts';
 import { ListingsRepository } from '../repositories/listings.repository.ts';
-import type { Listing, ListingDetails, NewListing } from '../types/listing.ts';
+import type { Listing, ListingDetails, ListingLikes, NewListing } from '../types/listing.ts';
 import type { ListingRequest, OwnListingRequest } from '../types/listing-request.ts';
 import { requirePlaceInKyiv } from './place-area.ts';
 
@@ -20,6 +21,7 @@ export class ListingsService {
   constructor(
     private readonly listingsRepository: ListingsRepository,
     private readonly requestsRepository: ListingRequestsRepository,
+    private readonly likesRepository: ListingLikesRepository,
     private readonly categoriesService: CategoriesService,
     private readonly eventsService: EventsService,
     private readonly profilesService: ProfilesService,
@@ -88,6 +90,20 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
+  /** Likes an active listing, the author's own too; liking it again changes nothing. */
+  async like(accountId: string, id: string): Promise<ListingLikes> {
+    await this.requireActive(id);
+    await this.likesRepository.like(id, accountId);
+    return this.likesOf(id, accountId);
+  }
+
+  /** Takes back the like of an active listing; without one, nothing changes. */
+  async unlike(accountId: string, id: string): Promise<ListingLikes> {
+    await this.requireActive(id);
+    await this.likesRepository.unlike(id, accountId);
+    return this.likesOf(id, accountId);
+  }
+
   /** The author adds or replaces the photo of their active listing, cut to the post card's 2:1. */
   async setPhoto(accountId: string, id: string, upload: ImageUpload): Promise<ListingDetails> {
     const listing = await this.requireOwnActive(accountId, id);
@@ -126,6 +142,19 @@ export class ListingsService {
     await this.listingsRepository.markRemoved(id);
   }
 
+  private async requireActive(id: string): Promise<Listing> {
+    const listing = await this.listingsRepository.findActiveById(id);
+    if (!listing) {
+      throw new DomainError('NOT_FOUND', 'Listing not found');
+    }
+    return listing;
+  }
+
+  private async likesOf(id: string, accountId: string): Promise<ListingLikes> {
+    const likes = await this.likesRepository.summaries([id], accountId);
+    return required(likes.get(id), `like count of ${id}`);
+  }
+
   /** Someone else's listing is reported as missing. */
   private async requireOwnActive(accountId: string, id: string): Promise<Listing> {
     const listing = await this.listingsRepository.findActiveById(id);
@@ -142,19 +171,21 @@ export class ListingsService {
   }
 
   /**
-   * Loads the authors and categories of these listings and the viewer's requests on them, then adds them to each
-   * listing. A listing whose author has no profile gives undefined: the account may never have finished onboarding, or
-   * its profile is gone.
+   * Loads the authors and categories of these listings, their likes and the viewer's requests on them, then adds them
+   * to each listing. A listing whose author has no profile gives undefined: the account may never have finished
+   * onboarding, or its profile is gone.
    */
   private async detailsFor(
     listings: Listing[],
     viewerId: string,
   ): Promise<(listing: Listing) => ListingDetails | undefined> {
     const othersListings = listings.filter((listing) => listing.authorId !== viewerId).map((listing) => listing.id);
-    const [authors, allCategories, ownRequests] = await Promise.all([
+    const listingIds = listings.map((listing) => listing.id);
+    const [authors, allCategories, ownRequests, likes] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
       this.requestsRepository.findOwn(viewerId, othersListings),
+      this.likesRepository.summaries(listingIds, viewerId),
     ]);
     const photos = await this.imagesService.getRefs([
       ...listings.map((listing) => listing.photoId),
@@ -171,6 +202,7 @@ export class ListingsService {
           category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
           photo: photoOf(listing.photoId),
           myRequest: requestOf(ownRequests.get(listing.id)),
+          ...(likes.get(listing.id) ?? { likeCount: 0, liked: false }),
         }
       );
     };

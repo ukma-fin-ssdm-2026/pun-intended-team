@@ -7,7 +7,14 @@ import { Endpoint, Input, type RequestSchemas, type RouteInput } from '../../com
 import { Routes } from '../../common/routes.ts';
 import { ErrorResponse } from '../../common/schemas/errors.ts';
 import { CropQuery, ImageFileBody, INVALID_IMAGE, UPLOAD_NOTE, toCrop } from '../../images/schemas/images.ts';
-import { CreateListingBody, ListListingsQuery, Listing, ListingIdParams, ListingsPage } from '../schemas/listings.ts';
+import {
+  CreateListingBody,
+  ListListingsQuery,
+  Listing,
+  ListingIdParams,
+  ListingLikes,
+  ListingsPage,
+} from '../schemas/listings.ts';
 
 const ListListingsRequest = { query: ListListingsQuery } satisfies RequestSchemas;
 const GetListingRequest = { params: ListingIdParams } satisfies RequestSchemas;
@@ -19,6 +26,8 @@ const UploadListingPhotoRequest = {
   file: ImageFileBody,
 } satisfies RequestSchemas;
 const DeleteListingPhotoRequest = { params: ListingIdParams } satisfies RequestSchemas;
+const LikeListingRequest = { params: ListingIdParams } satisfies RequestSchemas;
+const UnlikeListingRequest = { params: ListingIdParams } satisfies RequestSchemas;
 
 const NOT_OWN_LISTING = {
   description: 'No active listing with this id, or it is not the caller’s own',
@@ -158,5 +167,51 @@ export class ListingsController {
     @CurrentAccount() account: AccountCaller,
   ): Promise<Listing> {
     return this.listingsService.removePhoto(account.accountId, params.id);
+  }
+
+  @Endpoint({
+    method: 'put',
+    path: Routes.listings.like,
+    operationId: 'likeListing',
+    summary: 'Like a listing',
+    description:
+      'Like an active listing, the caller’s own too. Liking it again changes nothing. Returns the like count and ' +
+      'whether the caller likes it.',
+    tags: ['Listings'],
+    access: 'user',
+    request: LikeListingRequest,
+    responses: {
+      200: { description: 'The likes of the listing', schema: ListingLikes },
+      404: { description: 'No active listing with this id', schema: ErrorResponse },
+    },
+  })
+  async likeListing(
+    @Input() { params }: RouteInput<typeof LikeListingRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<ListingLikes> {
+    return this.listingsService.like(account.accountId, params.id);
+  }
+
+  @Endpoint({
+    method: 'delete',
+    path: Routes.listings.like,
+    operationId: 'unlikeListing',
+    summary: 'Take back a like',
+    description:
+      'Take back the caller’s like of an active listing. Without a like, nothing changes. Returns the like count and ' +
+      'whether the caller likes it.',
+    tags: ['Listings'],
+    access: 'user',
+    request: UnlikeListingRequest,
+    responses: {
+      200: { description: 'The likes of the listing', schema: ListingLikes },
+      404: { description: 'No active listing with this id', schema: ErrorResponse },
+    },
+  })
+  async unlikeListing(
+    @Input() { params }: RouteInput<typeof UnlikeListingRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<ListingLikes> {
+    return this.listingsService.unlike(account.accountId, params.id);
   }
 }

@@ -2072,6 +2072,89 @@ describe('Listing requests', () => {
   });
 });
 
+describe('Listing likes', () => {
+  async function newListingBy(token: string): Promise<string> {
+    const res = await call('POST', '/api/v1/listings', { token, body: newListing });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body.id;
+  }
+
+  /** The listing as the feed shows it to this user, read page by page, since other tests post listings too. */
+  async function findInFeed(token: string, id: string): Promise<{ likeCount: number; liked: boolean } | undefined> {
+    for (let offset = 0; ; offset += 20) {
+      const res = await call('GET', `/api/v1/listings?limit=20&offset=${offset}`, { token });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const found = res.body.items.find((listing: { id: string }) => listing.id === id);
+      if (found || !res.body.page.hasMore) return found;
+    }
+  }
+
+  const like = (token: string, id: string) => call('PUT', `/api/v1/listings/${id}/like`, { token });
+  const unlike = (token: string, id: string) => call('DELETE', `/api/v1/listings/${id}/like`, { token });
+
+  test('the author likes their own listing once, however often they ask', async () => {
+    const { token } = await newCompleteProfile();
+    const listingId = await newListingBy(token);
+
+    const first = await like(token, listingId);
+    const second = await like(token, listingId);
+
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, { likeCount: 1, liked: true });
+    assert.deepEqual(second.body, { likeCount: 1, liked: true });
+  });
+
+  test('another user sees the same count, likes too, and a reload keeps both', async () => {
+    const { token: author } = await newCompleteProfile();
+    const { token: reader } = await newCompleteProfile();
+    const listingId = await newListingBy(author);
+    await like(author, listingId);
+
+    const seen = await call('GET', `/api/v1/listings/${listingId}`, { token: reader });
+    assert.equal(seen.body.likeCount, 1);
+    assert.equal(seen.body.liked, false);
+
+    assert.deepEqual((await like(reader, listingId)).body, { likeCount: 2, liked: true });
+    const inFeed = await findInFeed(author, listingId);
+    assert.equal(inFeed?.likeCount, 2);
+    assert.equal(inFeed?.liked, true);
+  });
+
+  test('unliking twice takes the like back once and leaves the others', async () => {
+    const { token: author } = await newCompleteProfile();
+    const { token: reader } = await newCompleteProfile();
+    const listingId = await newListingBy(author);
+    await like(author, listingId);
+    await like(reader, listingId);
+
+    const first = await unlike(reader, listingId);
+    const second = await unlike(reader, listingId);
+
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, { likeCount: 1, liked: false });
+    assert.deepEqual(second.body, { likeCount: 1, liked: false });
+    const seen = await call('GET', `/api/v1/listings/${listingId}`, { token: reader });
+    assert.equal(seen.body.likeCount, 1);
+    assert.equal(seen.body.liked, false);
+  });
+
+  test('a removed or unknown listing is a 404', async () => {
+    const { token } = await newCompleteProfile();
+    const listingId = await newListingBy(token);
+    await like(token, listingId);
+    assert.equal((await call('DELETE', `/api/v1/listings/${listingId}`, { token })).status, 204);
+
+    assert.equal((await like(token, listingId)).status, 404);
+    assert.equal((await unlike(token, listingId)).status, 404);
+    assert.equal((await like(token, randomUUID())).status, 404);
+  });
+
+  test('rejects an id that is not a UUID with 400 and a call without a token with 401', async () => {
+    assertInvalid(await like(tokens.user, 'not-a-uuid'), 'params', 'id');
+    assert.equal((await call('PUT', `/api/v1/listings/${olenasListing}/like`)).status, 401);
+  });
+});
+
 describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
 

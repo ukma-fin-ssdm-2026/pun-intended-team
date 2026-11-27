@@ -13,7 +13,7 @@ Diagram: [ER diagram](uml/rendered/data-model.svg) (source: [`uml/data-model.pum
 | Event catalog (organization posts + import) | Organization, Category, Venue, Event, EventSession, ImportRun, SkippedRecord |
 | Event-based matching | Application, ApplicationSession, ApplicationAfterEventPlan, Match, Exclusion |
 | Contact exchange after a match | Account.contact_identifier, LinkedAccount, Match.status, ListingRequest.status, Profile.safety_notice |
-| Listings | Listing, ListingRequest, Image |
+| Listings | Listing, ListingRequest, ListingLike, Image |
 | Notifications | Notification, DeviceToken |
 | Reports and moderation | ReportCase, Report, AuditLog |
 
@@ -72,6 +72,7 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 |---|---|---|
 | **Listing** | PK `id` | `author_id` FK, `category_id` FK, `event_id` FK (optional), `title`, `description` (P), `date`, `status` (active / removed), `photo_id` (FK → Image, UK, nullable), `place_name`, `place_address`, `place_latitude`, `place_longitude` (nullable: where the author suggests meeting, a point in Kyiv picked on the map with its name and address; kept on the listing, not a Venue) |
 | **ListingRequest** | PK `id` | `listing_id` FK, `requester_id` FK → Account, `status` (pending / accepted / declined), `created_at`, `decided_at` (nullable: when the author answered) — "Хочу піти" on someone else's listing; once accepted, both sides see each other's contacts after the safety notice, as on a mutual match. A pending request on a removed listing can no longer be read or decided |
+| **ListingLike** | PK (`listing_id`, `account_id`) | `listing_id` FK (ON DELETE CASCADE), `account_id` FK → Account, `created_at` — the heart on a post card; one per user and listing, the author's own included. The listing shows how many there are and whether the reader is among them; a removed listing keeps its rows but takes no new likes |
 
 ### images
 
@@ -132,6 +133,8 @@ Notation: **PK** primary key, **FK** foreign key, **UK** unique. Sensitivity mar
 | Event — Listing | 0..1 : 0..* | a listing may point at a catalog event |
 | Listing — ListingRequest | 1 : 0..* | |
 | Account — ListingRequest | 1 : 0..* | requester; at most one request per listing |
+| Listing — ListingLike | 1 : 0..* | deleted with the listing |
+| Account — ListingLike | 1 : 0..* | at most one like per listing |
 | ReportCase — Report | 1 : 1..* | repeat reports grouped into one case (FR-026) |
 | Account — Report | 1 : 0..* | reporter |
 | ReportCase — target | 0..1 Account or 0..1 Listing | |
