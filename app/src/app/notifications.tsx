@@ -1,12 +1,22 @@
 // Written with the help of Claude
 // AI Usage: notifications screen from the Figma "Т5 Сповіщення" frame, on the inbox from the API; reviewed by Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  acceptListingRequest,
+  declineListingRequest,
+  getListingRequest,
+  type ListingRequest,
+} from '@/api/listing-requests';
 import { loadNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications';
+import { failureSnackbar } from '@/auth/messages';
+import { joinRequestOf } from '@/components/announcements/join-request';
+import { JoinRequestSheet } from '@/components/announcements/join-request-sheet';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { formatDateTime } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { notificationText, useNotificationsState, type Notification } from '@/state/notifications';
@@ -77,6 +87,10 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const inbox = useNotificationsState();
+  const { snackbar, show } = useSnackbar();
+  // The Д4 sheet of a `listing_request` row, with the request from the API.
+  const [request, setRequest] = useState<ListingRequest>();
+  const [answering, setAnswering] = useState<'accept' | 'decline'>();
   useStatusBarStyle('dark');
 
   // The inbox is read when the screen opens (HLD I1); the web build has no push, so this is its only channel.
@@ -84,12 +98,49 @@ export default function NotificationsScreen() {
     void loadNotifications();
   }, []);
 
+  const toMutual = (id: string) => router.push({ pathname: '/mutual', params: { request: id } });
+
+  // A request already accepted goes straight to 07; a pending or declined one opens Д4, read-only once declined.
+  const openRequest = async (id: string) => {
+    const result = await getListingRequest(id);
+    if (!result.ok) {
+      show(
+        result.status === 404
+          ? { tone: 'error', title: 'Запиту вже немає', note: 'Оголошення видалено' }
+          : failureSnackbar(result),
+      );
+    } else if (result.data.status === 'accepted') {
+      toMutual(id);
+    } else {
+      setRequest(result.data);
+    }
+  };
+
+  const answer = async (choice: 'accept' | 'decline') => {
+    if (!request) return;
+    setAnswering(choice);
+    const result =
+      choice === 'accept' ? await acceptListingRequest(request.id) : await declineListingRequest(request.id);
+    setAnswering(undefined);
+    if (!result.ok) {
+      show(failureSnackbar(result));
+      return;
+    }
+    setRequest(undefined);
+    if (choice === 'accept') toMutual(request.id);
+    else show({ title: 'Запит відхилено', note: `${request.requester.displayName} не отримає сповіщення` });
+  };
+
   const open = (notification: Notification) => () => {
     void markNotificationRead(notification.id);
-    const { eventId } = notification.payload;
+    const { eventId, listingRequestId } = notification.payload;
     // "No match found" opens the search screen of its event, which shows what to do next.
     if (notification.type === 'no_match_found' && typeof eventId === 'string') {
       router.push({ pathname: '/events/[id]/search', params: { id: eventId } });
+    } else if (notification.type === 'listing_request' && typeof listingRequestId === 'string') {
+      void openRequest(listingRequestId);
+    } else if (notification.type === 'listing_request_accepted' && typeof listingRequestId === 'string') {
+      toMutual(listingRequestId);
     } else if (looks[notification.type].toMatches) {
       router.dismissTo('/matches');
     }
@@ -151,6 +202,20 @@ export default function NotificationsScreen() {
         {section('Нові', fresh)}
         {section('Раніше', earlier)}
       </ScrollView>
+      {request && (
+        <JoinRequestSheet
+          visible
+          request={joinRequestOf(request)}
+          busy={answering}
+          decided={
+            request.status === 'declined' ? 'Запит уже відхилено. Про це ніхто не отримав сповіщення.' : undefined
+          }
+          onClose={() => setRequest(undefined)}
+          onAccept={() => void answer('accept')}
+          onDecline={() => void answer('decline')}
+        />
+      )}
+      {snackbar && <Snackbar {...snackbar} />}
     </View>
   );
 }

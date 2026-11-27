@@ -233,6 +233,7 @@ export default function ComponentsGallery() {
         request={mockJoinRequest}
         onClose={() => setJoinRequestOpen(false)}
         onAccept={() => setJoinRequestOpen(false)}
+        onDecline={() => setJoinRequestOpen(false)}
       />
     </ScrollView>
   );
