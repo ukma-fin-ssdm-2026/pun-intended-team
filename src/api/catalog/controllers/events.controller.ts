@@ -57,7 +57,9 @@ export class EventsController {
     operationId: 'listEvents',
     summary: 'Browse the event catalog',
     description:
-      'Browse the event catalog: published events in the catalog window, soonest first. ' +
+      'Browse the event catalog: published events in the catalog window, soonest first. Filters combine: an event ' +
+      'shows when it is in any of `categoryIds`, at `venueId`, within `radiusKm` of `lat`, `lng` and on the days ' +
+      'from `from` to `to`. ' +
       '`lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more ' +
       'than 30 hours ago (FR-014).',
     tags: ['Events'],
@@ -68,9 +70,11 @@ export class EventsController {
     },
   })
   async listEvents(@Input() { query }: RouteInput<typeof ListEventsRequest>): Promise<EventsPage> {
-    const { limit, offset, ...filter } = query;
+    const { limit, offset, lat, lng, radiusKm, ...filter } = query;
+    // The schema accepts the three only together.
+    const near = lat !== undefined && lng !== undefined && radiusKm !== undefined ? { lat, lng, radiusKm } : undefined;
     const [page, lastUpdatedAt] = await Promise.all([
-      this.eventsService.list(filter, { limit, offset }),
+      this.eventsService.list({ ...filter, near }, { limit, offset }),
       this.importFreshnessService.lastUpdatedAt(),
     ]);
     return { ...page, lastUpdatedAt };

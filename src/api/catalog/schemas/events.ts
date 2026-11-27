@@ -179,12 +179,43 @@ export const ListAdminEventsQuery = PageQuery.extend({
   categoryId: Id.optional().describe('Only events of this category, active or not'),
 });
 
+/** How many categories one catalog request can name. */
+export const MAX_CATEGORY_IDS = 20;
+
+/** The largest radius of the distance filter: Kyiv is about 40 km across. */
+export const MAX_RADIUS_KM = 50;
+
+// The query parser gives a repeated parameter as an array and a single one as a string, which may hold a list.
+const CategoryIds = z.preprocess(
+  (value) => (typeof value === 'string' ? value.split(',') : value),
+  z.array(Id).min(1).max(MAX_CATEGORY_IDS),
+);
+
 export const ListEventsQuery = PageQuery.extend({
-  categoryId: Id.optional().describe('Only events of this category'),
+  categoryIds: CategoryIds.optional().describe(
+    `Only events of any of these categories, at most ${MAX_CATEGORY_IDS}: repeated ` +
+      '(`categoryIds=a&categoryIds=b`) or comma-separated (`categoryIds=a,b`). An unknown id matches no event',
+  ),
   venueId: Id.optional().describe('Only events at this venue, e.g. after tapping its map pin'),
+  lat: z.coerce.number().min(-90).max(90).optional().describe('Latitude of the point; only with lng and radiusKm'),
+  lng: z.coerce.number().min(-180).max(180).optional().describe('Longitude of the point; only with lat and radiusKm'),
+  radiusKm: z.coerce
+    .number()
+    .positive()
+    .max(MAX_RADIUS_KM)
+    .optional()
+    .describe(`Only events whose venue is within this many kilometres of lat, lng; at most ${MAX_RADIUS_KM}`),
   from: CalendarDate.optional().describe('First day, Kyiv time; earlier dates count as today'),
   to: CalendarDate.optional().describe('Last day, Kyiv time; later dates count as the end of the catalog window'),
-}).refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' });
+})
+  .refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' })
+  .superRefine(({ lat, lng, radiusKm }, context) => {
+    const missing = Object.entries({ lat, lng, radiusKm }).filter(([, value]) => value === undefined);
+    if (missing.length === 3) return;
+    for (const [field] of missing) {
+      context.addIssue({ code: 'custom', path: [field], message: 'lat, lng and radiusKm go together' });
+    }
+  });
 
 /** A ticket price in whole hryvnias; the upper bound only keeps a typo from passing as a price. */
 const Hryvnias = z.number().int().min(0).max(MAX_PRICE);
