@@ -53,7 +53,7 @@ export default function RootLayout() {
         <Stack.Screen name="offline" options={dissolve} />
         <Stack.Screen name="update" options={dissolve} />
         <Stack.Screen name="too-many-attempts" options={dissolve} />
-        <Stack.Screen name="organizer" options={dissolve} />
+        <Stack.Screen name="organizers/[id]" options={dissolve} />
         <Stack.Screen name="post-place" options={dissolve} />
         <Stack.Screen name="admin" options={{ headerShown: false, title: 'Nearby · Адмін-панель' }} />
       </Stack>

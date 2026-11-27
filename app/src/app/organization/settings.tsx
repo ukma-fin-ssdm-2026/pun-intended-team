@@ -1,7 +1,7 @@
 // Written with the help of Claude
 // AI Usage: organization settings from the Figma "DО4 Організація · Налаштування" desktop frame with the DО4.1 dialog,
 // after the О4 screen reviewed by Daryna Halytska. The verification request (name, description, site) and its status
-// come from the API; the status block has no Figma frame. Figma's Instagram field and notification switches are left out
+// come from the API, Instagram included; the status block has no Figma frame. Figma's notification switches are left out
 // until the API stores them.
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
@@ -44,6 +44,7 @@ export default function OrganizationSettingsScreen() {
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
   const [site, setSite] = useState('');
+  const [instagram, setInstagram] = useState('');
   const [sending, setSending] = useState(false);
   const [requestError, setRequestError] = useState<string>();
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -85,6 +86,7 @@ export default function OrganizationSettingsScreen() {
     setName(own.data.name);
     setAbout(own.data.description ?? '');
     setSite(own.data.officialLink ?? '');
+    setInstagram(own.data.instagram ? `@${own.data.instagram}` : '');
   }
 
   const status = own.data?.verificationStatus ?? (own.none ? 'none' : undefined);
@@ -118,13 +120,20 @@ export default function OrganizationSettingsScreen() {
     setRequestError(undefined);
     // The site field in Figma has no scheme ("artarsenal.in.ua"); the API takes a full address.
     const officialLink = /^https?:\/\//i.test(link) ? link : `https://${link}`;
-    const result = await requestOrganizationStatus({ name: name.trim(), description: about.trim(), officialLink });
+    // The API keeps the bare username of "@name", "name" or a profile link; an empty field removes it.
+    const result = await requestOrganizationStatus({
+      name: name.trim(),
+      description: about.trim(),
+      officialLink,
+      instagram: instagram.trim() || null,
+    });
     setSending(false);
     if (result.ok) {
       own.set(result.data);
       if (logoDraft && (await saveLogo(logoDraft))) setLogoDraft(undefined);
     } else if (result.status === 0) setRequestError('Немає зʼєднання. Спробуй ще раз.');
     else if (result.status === 400) setRequestError('Перевір дані: сайт має бути адресою, наприклад artarsenal.in.ua.');
+    else if (result.code === 'INVALID_SOCIAL_HANDLE') setRequestError('Перевір Instagram: наприклад @artarsenal.');
     else if (result.status === 409) {
       setRequestError('Організацію вже підтверджено, змінити заявку не можна.');
       own.reload();
@@ -201,6 +210,14 @@ export default function OrganizationSettingsScreen() {
             onChangeText={setSite}
             autoCapitalize="none"
             keyboardType="url"
+            editable={canSend}
+          />
+          <TextField
+            label="Instagram"
+            value={instagram}
+            onChangeText={setInstagram}
+            autoCapitalize="none"
+            autoCorrect={false}
             editable={canSend}
           />
 

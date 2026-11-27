@@ -348,6 +348,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an organization’s page
+         * @description Get a verified organization as its page shows it: name, description, site, Instagram and logo. An organization that is not verified is not found. Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an organization’s events
+         * @description List the published events of a verified organization that have not ended, soonest first, for its page. Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["listOrganizationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/organization": {
         parameters: {
             query?: never;
@@ -362,7 +402,7 @@ export interface paths {
         get: operations["getMyOrganization"];
         /**
          * Request organization status
-         * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+         * @description Ask to become a verified organization with a name, a description, an official link and, optionally, an Instagram username. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["requestOrganizationStatus"];
         post?: never;
@@ -1460,6 +1500,7 @@ export interface components {
          *         "name": "Мистецький Арсенал",
          *         "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *         "officialLink": "https://artarsenal.in.ua",
+         *         "instagram": "artarsenal",
          *         "verificationStatus": "verified",
          *         "verifiedAt": "2026-10-14T12:00:00.000Z",
          *         "logo": null
@@ -1496,6 +1537,7 @@ export interface components {
              *       "name": "Мистецький Арсенал",
              *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
              *       "officialLink": "https://artarsenal.in.ua",
+             *       "instagram": "artarsenal",
              *       "verificationStatus": "pending",
              *       "verifiedAt": null,
              *       "logo": null
@@ -1505,6 +1547,8 @@ export interface components {
                 name: string;
                 description: string | null;
                 officialLink: string | null;
+                /** @description The Instagram username, without "@"; null when none */
+                instagram: string | null;
                 /**
                  * @description pending: waits for an administrator; only a verified organization publishes events
                  * @enum {string}
@@ -1777,6 +1821,11 @@ export interface components {
          *           "sourceUrl": null,
          *           "source": "organization",
          *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           },
          *           "organization": {
          *             "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
          *             "name": "Podil Film Club"
@@ -1824,6 +1873,11 @@ export interface components {
          *       "sourceUrl": null,
          *       "source": "organization",
          *       "status": "published",
+         *       "organizer": {
+         *         "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club",
+         *         "logo": null
+         *       },
          *       "organization": {
          *         "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
          *         "name": "Podil Film Club"
@@ -1885,6 +1939,32 @@ export interface components {
             sourceUrl: string | null;
             source: components["schemas"]["EventSource"];
             status: components["schemas"]["EventStatus"];
+            /** @description The organization that published the event, while it is verified; null for imported events */
+            organizer: {
+                /**
+                 * Format: uuid
+                 * @description Get its page with getOrganization
+                 */
+                id: string;
+                name: string;
+                /**
+                 * @description A square shown as a circle; null shows the building icon
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                logo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+            } | null;
             /** @description The organization that added it; null for an imported one */
             organization: {
                 /**
@@ -2039,7 +2119,12 @@ export interface components {
          *           "photo": null,
          *           "sourceUrl": null,
          *           "source": "organization",
-         *           "status": "published"
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
          *         }
          *       ],
          *       "page": {
@@ -2088,7 +2173,12 @@ export interface components {
          *       "photo": null,
          *       "sourceUrl": null,
          *       "source": "organization",
-         *       "status": "published"
+         *       "status": "published",
+         *       "organizer": {
+         *         "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club",
+         *         "logo": null
+         *       }
          *     }
          */
         Event: {
@@ -2146,6 +2236,32 @@ export interface components {
             sourceUrl: string | null;
             source: components["schemas"]["EventSource"];
             status: components["schemas"]["EventStatus"];
+            /** @description The organization that published the event, while it is verified; null for imported events */
+            organizer: {
+                /**
+                 * Format: uuid
+                 * @description Get its page with getOrganization
+                 */
+                id: string;
+                name: string;
+                /**
+                 * @description A square shown as a circle; null shows the building icon
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                logo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+            } | null;
         };
         /**
          * @example {
@@ -2177,7 +2293,12 @@ export interface components {
          *           "photo": null,
          *           "sourceUrl": null,
          *           "source": "organization",
-         *           "status": "published"
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
          *         }
          *       ],
          *       "page": {
@@ -2241,11 +2362,102 @@ export interface components {
             priceMax: number | null;
         };
         /**
+         * @description A verified organization as anyone sees it, on its page
+         * @example {
+         *       "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *       "name": "Мистецький Арсенал",
+         *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
+         *       "logo": null
+         *     }
+         */
+        PublicOrganization: {
+            /**
+             * Format: uuid
+             * @description The organization’s id; the same as the organizer id of its events
+             */
+            id: string;
+            name: string;
+            description: string | null;
+            /** @description The organization’s site */
+            officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
+            /**
+             * @description A square shown as a circle; null shows the building icon
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            logo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10",
+         *           "title": "Open-air film night: Shadows of Forgotten Ancestors",
+         *           "description": "Screening in the park, bring a blanket.",
+         *           "category": {
+         *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *             "name": "Концерти"
+         *           },
+         *           "venue": {
+         *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *             "name": "Natalka Park lawn",
+         *             "address": "Naberezhno-Luhova St, Kyiv",
+         *             "location": {
+         *               "lat": 50.4825,
+         *               "lng": 30.5181
+         *             }
+         *           },
+         *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
+         *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
+         *           "priceMin": 150,
+         *           "priceMax": null,
+         *           "imageUrl": null,
+         *           "photo": null,
+         *           "sourceUrl": null,
+         *           "source": "organization",
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        OrganizationEventsPage: {
+            items: components["schemas"]["Event"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
          * @description The caller’s organization request and its status
          * @example {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
          *       "verificationStatus": "pending",
          *       "verifiedAt": null,
          *       "logo": null
@@ -2255,6 +2467,8 @@ export interface components {
             name: string;
             description: string | null;
             officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
             /**
              * @description pending: waits for an administrator; only a verified organization publishes events
              * @enum {string}
@@ -2287,7 +2501,8 @@ export interface components {
          * @example {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
-         *       "officialLink": "https://artarsenal.in.ua"
+         *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "@artarsenal"
          *     }
          */
         OrganizationRequestBody: {
@@ -2300,6 +2515,8 @@ export interface components {
              * @description The organization’s official site or page, where an administrator can check it
              */
             officialLink: string;
+            /** @description The organization’s Instagram: a username with or without "@", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Omitted, null or empty: none */
+            instagram?: string | null;
         };
         /**
          * @example {
@@ -2908,6 +3125,7 @@ export interface components {
          *           "name": "Мистецький Арсенал",
          *           "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *           "officialLink": "https://artarsenal.in.ua",
+         *           "instagram": "artarsenal",
          *           "verificationStatus": "pending",
          *           "verifiedAt": null,
          *           "logo": null,
@@ -2936,6 +3154,7 @@ export interface components {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
          *       "verificationStatus": "pending",
          *       "verifiedAt": null,
          *       "logo": null,
@@ -2951,6 +3170,8 @@ export interface components {
             name: string;
             description: string | null;
             officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
             /**
              * @description pending: waits for an administrator; only a verified organization publishes events
              * @enum {string}
@@ -4686,6 +4907,111 @@ export interface operations {
             };
         };
     };
+    getOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The organization’s id: `organizer.id` of its events */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrganization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No verified organization with this id: unknown, still pending, rejected or revoked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listOrganizationEvents: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description The organization’s id: `organizer.id` of its events */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationEventsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No verified organization with this id: unknown, still pending, rejected or revoked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getMyOrganization: {
         parameters: {
             query?: never;
@@ -4766,6 +5092,15 @@ export interface operations {
             };
             /** @description `CONFLICT`: the organization is already verified, or its verification was revoked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_SOCIAL_HANDLE`: the Instagram username does not fit; `details` names `instagram` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

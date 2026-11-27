@@ -32,6 +32,7 @@ const rejected: Organization = {
   name: 'Riverside Stage',
   description: 'Open-air concerts.',
   officialLink: 'https://riverside.example.org',
+  instagram: null,
   verificationStatus: 'rejected',
   verifiedAt: null,
   logo: null,
@@ -62,7 +63,23 @@ describe('OrganizationSettingsScreen', () => {
       name: 'Riverside',
       description: 'Open-air concerts.',
       officialLink: 'https://riverside.example.org',
+      instagram: null,
     });
+  });
+
+  test('prefills the Instagram username and sends the edited one', async () => {
+    jest.mocked(getMyOrganization).mockResolvedValue({ ok: true, data: { ...rejected, instagram: 'riverside' } });
+    jest.mocked(requestOrganizationStatus).mockResolvedValue({ ok: true, data: rejected });
+    await render(<OrganizationSettingsScreen />);
+
+    await fireEvent.changeText(await screen.findByDisplayValue('@riverside'), 'instagram.com/riverside.stage');
+    await fireEvent.press(screen.getByRole('button', { name: 'Надіслати ще раз' }));
+
+    await waitFor(() =>
+      expect(requestOrganizationStatus).toHaveBeenCalledWith(
+        expect.objectContaining({ instagram: 'instagram.com/riverside.stage' }),
+      ),
+    );
   });
 
   test('offers the first request to an account without one, adding https to the site', async () => {
@@ -81,6 +98,7 @@ describe('OrganizationSettingsScreen', () => {
         name: 'Riverside Stage',
         description: 'Open-air concerts.',
         officialLink: 'https://riverside.example.org',
+        instagram: null,
       }),
     );
   });

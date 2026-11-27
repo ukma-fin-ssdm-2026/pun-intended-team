@@ -7,12 +7,12 @@ import type { components } from '@/api/schema';
 type Event = components['schemas']['Event'];
 
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
-// The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
+// The API has no districts, and its organizer is an object; `district` and the organizer's name are mock-only. `cover` is a bundled image for the mocks;
 // the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
 // Prices cover every case of the card's tag (`priceLabel`).
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 // Mock events have bundled covers, never an uploaded photo.
-export type MockEvent = Omit<Event, 'photo'> & {
+export type MockEvent = Omit<Event, 'photo' | 'organizer'> & {
   photo?: null;
   cover?: ImageSource;
   district: string;

@@ -350,6 +350,10 @@ components:
             officialLink:
               type: string
               nullable: true
+            instagram:
+              type: string
+              nullable: true
+              description: The Instagram username, without "@"; null when none
             verificationStatus:
               type: string
               enum:
@@ -390,6 +394,7 @@ components:
             - name
             - description
             - officialLink
+            - instagram
             - verificationStatus
             - verifiedAt
             - logo
@@ -398,6 +403,7 @@ components:
             name: Мистецький Арсенал
             description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
             officialLink: https://artarsenal.in.ua
+            instagram: artarsenal
             verificationStatus: pending
             verifiedAt: null
             logo: null
@@ -436,6 +442,7 @@ components:
           name: Мистецький Арсенал
           description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
           officialLink: https://artarsenal.in.ua
+          instagram: artarsenal
           verificationStatus: verified
           verifiedAt: '2026-10-14T12:00:00.000Z'
           logo: null
@@ -777,6 +784,10 @@ components:
             sourceUrl: null
             source: organization
             status: published
+            organizer:
+              id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+              logo: null
             organization:
               accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
               name: Podil Film Club
@@ -896,6 +907,44 @@ components:
           $ref: '#/components/schemas/EventSource'
         status:
           $ref: '#/components/schemas/EventStatus'
+        organizer:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get its page with getOrganization
+            name:
+              type: string
+            logo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: A square shown as a circle; null shows the building icon
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+          required:
+            - id
+            - name
+            - logo
+          description: >-
+            The organization that published the event, while it is verified;
+            null for imported events
         organization:
           type: object
           nullable: true
@@ -927,6 +976,7 @@ components:
         - sourceUrl
         - source
         - status
+        - organizer
         - organization
       description: >-
         An event as administrators see it: in any status, past or upcoming, with
@@ -956,6 +1006,10 @@ components:
         sourceUrl: null
         source: organization
         status: published
+        organizer:
+          id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+          name: Podil Film Club
+          logo: null
         organization:
           accountId: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
           name: Podil Film Club
@@ -1164,6 +1218,10 @@ components:
             sourceUrl: null
             source: organization
             status: published
+            organizer:
+              id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+              logo: null
         page:
           limit: 20
           offset: 0
@@ -1281,6 +1339,44 @@ components:
           $ref: '#/components/schemas/EventSource'
         status:
           $ref: '#/components/schemas/EventStatus'
+        organizer:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get its page with getOrganization
+            name:
+              type: string
+            logo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: A square shown as a circle; null shows the building icon
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+          required:
+            - id
+            - name
+            - logo
+          description: >-
+            The organization that published the event, while it is verified;
+            null for imported events
       required:
         - id
         - title
@@ -1298,6 +1394,7 @@ components:
         - sourceUrl
         - source
         - status
+        - organizer
       description: An event users can go to together
       example:
         id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
@@ -1324,6 +1421,10 @@ components:
         sourceUrl: null
         source: organization
         status: published
+        organizer:
+          id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+          name: Podil Film Club
+          logo: null
     MyEventsPage:
       type: object
       properties:
@@ -1362,6 +1463,10 @@ components:
             sourceUrl: null
             source: organization
             status: published
+            organizer:
+              id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+              logo: null
         page:
           limit: 20
           offset: 0
@@ -1431,6 +1536,108 @@ components:
         endsAt: '2026-10-25T21:00:00+03:00'
         priceMin: 300
         priceMax: 700
+    PublicOrganization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The organization’s id; the same as the organizer id of its events
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        officialLink:
+          type: string
+          nullable: true
+          description: The organization’s site
+        instagram:
+          type: string
+          nullable: true
+          description: The Instagram username, without "@"; null when none
+        logo:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Get the picture with getImage
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+            - id
+            - width
+            - height
+          description: A square shown as a circle; null shows the building icon
+          example:
+            id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+            width: 512
+            height: 512
+      required:
+        - id
+        - name
+        - description
+        - officialLink
+        - instagram
+        - logo
+      description: A verified organization as anyone sees it, on its page
+      example:
+        id: f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d
+        name: Мистецький Арсенал
+        description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
+        officialLink: https://artarsenal.in.ua
+        instagram: artarsenal
+        logo: null
+    OrganizationEventsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10
+            title: 'Open-air film night: Shadows of Forgotten Ancestors'
+            description: Screening in the park, bring a blanket.
+            category:
+              id: 2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03
+              name: Концерти
+            venue:
+              id: 5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05
+              name: Natalka Park lawn
+              address: Naberezhno-Luhova St, Kyiv
+              location:
+                lat: 50.4825
+                lng: 30.5181
+            startsAt: '2026-10-17T19:00:00+03:00'
+            startTimeKnown: true
+            endsAt: '2026-10-17T21:30:00+03:00'
+            endTimeKnown: true
+            priceMin: 150
+            priceMax: null
+            imageUrl: null
+            photo: null
+            sourceUrl: null
+            source: organization
+            status: published
+            organizer:
+              id: e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c
+              name: Podil Film Club
+              logo: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
     Organization:
       type: object
       properties:
@@ -1442,6 +1649,10 @@ components:
         officialLink:
           type: string
           nullable: true
+        instagram:
+          type: string
+          nullable: true
+          description: The Instagram username, without "@"; null when none
         verificationStatus:
           type: string
           enum:
@@ -1482,6 +1693,7 @@ components:
         - name
         - description
         - officialLink
+        - instagram
         - verificationStatus
         - verifiedAt
         - logo
@@ -1490,6 +1702,7 @@ components:
         name: Мистецький Арсенал
         description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
         officialLink: https://artarsenal.in.ua
+        instagram: artarsenal
         verificationStatus: pending
         verifiedAt: null
         logo: null
@@ -1513,6 +1726,15 @@ components:
           description: >-
             The organization’s official site or page, where an administrator can
             check it
+        instagram:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: >-
+            The organization’s Instagram: a username with or without "@", or an
+            instagram.com profile link. Kept as the bare username (up to 30
+            letters, digits, underscores or single dots); one that does not fit
+            is INVALID_SOCIAL_HANDLE. Omitted, null or empty: none
       required:
         - name
         - description
@@ -1522,6 +1744,7 @@ components:
         name: Мистецький Арсенал
         description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
         officialLink: https://artarsenal.in.ua
+        instagram: '@artarsenal'
     VenuesPage:
       type: object
       properties:
@@ -2357,6 +2580,7 @@ components:
           - name: Мистецький Арсенал
             description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
             officialLink: https://artarsenal.in.ua
+            instagram: artarsenal
             verificationStatus: pending
             verifiedAt: null
             logo: null
@@ -2380,6 +2604,10 @@ components:
         officialLink:
           type: string
           nullable: true
+        instagram:
+          type: string
+          nullable: true
+          description: The Instagram username, without "@"; null when none
         verificationStatus:
           type: string
           enum:
@@ -2444,6 +2672,7 @@ components:
         - name
         - description
         - officialLink
+        - instagram
         - verificationStatus
         - verifiedAt
         - logo
@@ -2454,6 +2683,7 @@ components:
         name: Мистецький Арсенал
         description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
         officialLink: https://artarsenal.in.ua
+        instagram: artarsenal
         verificationStatus: pending
         verifiedAt: null
         logo: null
@@ -4543,6 +4773,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/organizations/{id}:
+    get:
+      operationId: getOrganization
+      summary: Get an organization’s page
+      description: >-
+        Get a verified organization as its page shows it: name, description,
+        site, Instagram and logo. An organization that is not verified is not
+        found. Needs an access token: a guest token or a signed-in account.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: 'The organization’s id: `organizer.id` of its events'
+          required: true
+          description: 'The organization’s id: `organizer.id` of its events'
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicOrganization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            No verified organization with this id: unknown, still pending,
+            rejected or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/organizations/{id}/events:
+    get:
+      operationId: listOrganizationEvents
+      summary: List an organization’s events
+      description: >-
+        List the published events of a verified organization that have not
+        ended, soonest first, for its page. Needs an access token: a guest token
+        or a signed-in account.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: 'The organization’s id: `organizer.id` of its events'
+          required: true
+          description: 'The organization’s id: `organizer.id` of its events'
+          name: id
+          in: path
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationEventsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            No verified organization with this id: unknown, still pending,
+            rejected or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/me/organization:
     get:
       operationId: getMyOrganization
@@ -4578,11 +4924,11 @@ paths:
       operationId: requestOrganizationStatus
       summary: Request organization status
       description: >-
-        Ask to become a verified organization with a name, a description and an
-        official link. The request waits as pending until an administrator
-        decides it. A pending request is replaced, and after a rejection the
-        request can be sent again. Needs a signed-in account; a guest token gets
-        401.
+        Ask to become a verified organization with a name, a description, an
+        official link and, optionally, an Instagram username. The request waits
+        as pending until an administrator decides it. A pending request is
+        replaced, and after a rejection the request can be sent again. Needs a
+        signed-in account; a guest token gets 401.
       tags:
         - Organizations
       security:
@@ -4615,6 +4961,14 @@ paths:
           description: >-
             `CONFLICT`: the organization is already verified, or its
             verification was revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `INVALID_SOCIAL_HANDLE`: the Instagram username does not fit;
+            `details` names `instagram`
           content:
             application/json:
               schema:

@@ -1,6 +1,6 @@
 // Written with the help of Claude
-// AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
-// data; reviewed by Daryna Halytska.
+// AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens;
+// reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
@@ -30,7 +30,6 @@ import { plural } from '@/plural';
 import { priceLabel } from '@/price';
 import { openSessions } from '@/state/applications';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
 import { matchHref } from '@/state/matches';
 import { useSession } from '@/state/session';
@@ -206,11 +205,7 @@ export default function EventScreen() {
   const coverRef = useRef<View>(null);
   useStatusBarStyle('light');
 
-  const { data: liveEvent, loading, error, notFound, reload } = useEvent(id);
-  // Temporary: the screens still on mocks (map, matches, saved events, notifications) open mock events, which the API
-  // does not know. Remove the fallback when those screens move to the API.
-  const mockEvent = liveEvent ? undefined : findMockEvent(id);
-  const event = liveEvent ?? mockEvent;
+  const { data: event, loading, error, notFound, reload } = useEvent(id);
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (loading) {
@@ -258,8 +253,8 @@ export default function EventScreen() {
         ageMax: application.ageMax,
       }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
-  // Mock and organization events have no provider page.
-  const sourceUrl = liveEvent?.sourceUrl;
+  // Organization events have no provider page.
+  const sourceUrl = event.sourceUrl;
   const price = priceLabel(event.priceMin, event.priceMax);
   const cut = preview(event.description);
   const short = expanded ? undefined : cut;
@@ -312,8 +307,8 @@ export default function EventScreen() {
       <View className="absolute left-0 right-0 top-0 overflow-hidden" style={{ height: COVER_HEIGHT }}>
         {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
         <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          {/* An imported event links its provider's image, an organization's event has its uploaded cover, and a mock event has a bundled one. */}
-          <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
+          {/* An imported event links its provider's image, an organization's event has its uploaded cover. */}
+          <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} />
           <TopShade />
         </BlurTargetView>
       </View>
@@ -383,21 +378,24 @@ export default function EventScreen() {
               <DetailRow
                 icon="pin"
                 value={event.venue.name}
-                note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
+                note={event.venue.address}
                 // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
                 onPress={() => router.navigate('/map')}
               />
               <View className="h-px bg-border-default" />
               <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
-              {/* The API has no organizer name yet; only mock events have one. */}
-              {mockEvent && (
+              {/* Only an organization's event has an organizer; an imported one has its provider's page instead. */}
+              {event.organizer && (
                 <>
                   <View className="h-px bg-border-default" />
                   <DetailRow
                     icon="building"
-                    value={mockEvent.organizer}
+                    value={event.organizer.name}
                     note="Організатор події"
-                    onPress={() => router.push('/organizer')}
+                    onPress={() =>
+                      event.organizer &&
+                      router.push({ pathname: '/organizers/[id]', params: { id: event.organizer.id } })
+                    }
                   />
                 </>
               )}
