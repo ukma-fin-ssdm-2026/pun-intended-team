@@ -108,18 +108,34 @@ describe('NewVenueModal', () => {
       expect(screen.getByText('Перетягни мапу, щоб мітка стояла на вході до місця')).toBeOnTheScreen();
     });
 
-    test('fills the name only while it is empty', async () => {
+    test('an auto-filled name follows the map', async () => {
       jest.mocked(describePlace).mockResolvedValueOnce({ ok: true, data: arsenal });
       jest.mocked(describePlace).mockResolvedValueOnce({ ok: true, data: studio });
       await render(<NewVenueModal visible onClose={() => {}} onCreated={() => {}} />);
       await settle();
+      expect(screen.getByLabelText('Назва')).toHaveDisplayValue(arsenal.name);
 
       await fireEvent.press(screen.getByRole('button', { name: 'Посунути мапу' }));
       await settle();
 
       expect(describePlace).toHaveBeenLastCalledWith(MAP_POINT);
+      expect(screen.getByLabelText('Назва')).toHaveDisplayValue(studio.name);
       expect(screen.getByLabelText('Адреса')).toHaveDisplayValue(studio.address);
-      expect(screen.getByLabelText('Назва')).toHaveDisplayValue(arsenal.name);
+    });
+
+    test('a typed name is kept', async () => {
+      jest.mocked(describePlace).mockResolvedValueOnce({ ok: true, data: arsenal });
+      jest.mocked(describePlace).mockResolvedValueOnce({ ok: true, data: studio });
+      await render(<NewVenueModal visible onClose={() => {}} onCreated={() => {}} />);
+      await settle();
+
+      await fireEvent.changeText(screen.getByLabelText('Назва'), 'Кіностудія');
+      await fireEvent.press(screen.getByRole('button', { name: 'Посунути мапу' }));
+      await settle();
+
+      expect(describePlace).toHaveBeenLastCalledWith(MAP_POINT);
+      expect(screen.getByLabelText('Назва')).toHaveDisplayValue('Кіностудія');
+      expect(screen.getByLabelText('Адреса')).toHaveDisplayValue(studio.address);
     });
 
     test('cuts what it fills to the API limits', async () => {

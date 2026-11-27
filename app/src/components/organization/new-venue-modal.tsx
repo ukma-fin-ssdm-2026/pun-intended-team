@@ -69,7 +69,7 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
     setFilledFrom(lookup);
     if (lookup.place) {
       if (!edited.address) setAddress(lookup.place.address.trim().slice(0, ADDRESS_MAX));
-      if (!edited.name && !name) setName(lookup.place.name.trim().slice(0, NAME_MAX));
+      if (!edited.name) setName(lookup.place.name.trim().slice(0, NAME_MAX));
     }
   }
 
