@@ -29,7 +29,7 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
     try {
       return toOrganization(
         await this.prisma.organization.create({
-          data: { accountId, ...request, instagram: request.instagram ?? null },
+          data: { accountId, ...request },
         }),
       );
     } catch (error) {
@@ -45,7 +45,6 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
       where: { accountId, verificationStatus: { in: ['pending', 'rejected'] } },
       data: {
         ...request,
-        instagram: request.instagram ?? null,
         verificationStatus: 'pending',
         verifiedById: null,
         verifiedAt: null,
@@ -77,6 +76,10 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
     return toOrganization(
       await clientOf(this.prisma, tx).organization.update({ where: { accountId }, data: { logoId } }),
     );
+  }
+
+  async setInstagram(accountId: string, instagram: string | null): Promise<Organization> {
+    return toOrganization(await this.prisma.organization.update({ where: { accountId }, data: { instagram } }));
   }
 
   async decide(accountId: string, decision: VerificationDecision, adminId: string, at: Date): Promise<boolean> {

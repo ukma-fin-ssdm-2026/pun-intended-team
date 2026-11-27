@@ -402,9 +402,29 @@ export interface paths {
         get: operations["getMyOrganization"];
         /**
          * Request organization status
-         * @description Ask to become a verified organization with a name, a description, an official link and, optionally, an Instagram username. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+         * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. The Instagram username is set apart, with `setOrganizationInstagram`. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["requestOrganizationStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/organization/instagram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your organization’s Instagram
+         * @description Set or clear the Instagram username of the caller’s organization, in any verification status. It is a public link, not checked by an administrator, so a verified organization stays verified and a pending request keeps waiting. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["setOrganizationInstagram"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2641,8 +2661,7 @@ export interface components {
          * @example {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
-         *       "officialLink": "https://artarsenal.in.ua",
-         *       "instagram": "@artarsenal"
+         *       "officialLink": "https://artarsenal.in.ua"
          *     }
          */
         OrganizationRequestBody: {
@@ -2655,8 +2674,15 @@ export interface components {
              * @description The organization’s official site or page, where an administrator can check it
              */
             officialLink: string;
-            /** @description The organization’s Instagram: a username with or without "@", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Omitted, null or empty: none */
-            instagram?: string | null;
+        };
+        /**
+         * @example {
+         *       "instagram": "@artarsenal"
+         *     }
+         */
+        OrganizationInstagramBody: {
+            /** @description A username with or without "@", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Null or empty: none */
+            instagram: string | null;
         };
         /**
          * @example {
@@ -5589,6 +5615,57 @@ export interface operations {
             };
             /** @description `CONFLICT`: the organization is already verified, or its verification was revoked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setOrganizationInstagram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrganizationInstagramBody"];
+            };
+        };
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller has not requested organization status */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

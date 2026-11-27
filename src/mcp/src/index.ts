@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
- * Generated on: 2026-11-27T09:30:49.075Z
+ * Generated on: 2026-11-27T09:51:49.968Z
  */
 
 import { existsSync } from 'node:fs';
@@ -421,11 +421,26 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["requestOrganizationStatus", {
     name: "requestOrganizationStatus",
     title: "Request organization status",
-    description: `Ask to become a verified organization with a name, a description, an official link and, optionally, an Instagram username. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+    description: `Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. The Instagram username is set apart, with \`setOrganizationInstagram\`. Needs a signed-in account; a guest token gets 401.
 (Tags: Organizations)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":100,"description":"The organization’s name, as users will see it"},"description":{"type":"string","minLength":1,"maxLength":1000,"description":"What the organization does"},"officialLink":{"type":"string","maxLength":500,"format":"uri","description":"The organization’s official site or page, where an administrator can check it"},"instagram":{"type":["string","null"],"maxLength":200,"description":"The organization’s Instagram: a username with or without \"@\", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Omitted, null or empty: none"}},"required":["name","description","officialLink"],"additionalProperties":false,"examples":[{"name":"Мистецький Арсенал","description":"Культурний комплекс у центрі Києва: виставки, концерти, лекції.","officialLink":"https://artarsenal.in.ua","instagram":"@artarsenal"}],"description":"The JSON request body."}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":100,"description":"The organization’s name, as users will see it"},"description":{"type":"string","minLength":1,"maxLength":1000,"description":"What the organization does"},"officialLink":{"type":"string","maxLength":500,"format":"uri","description":"The organization’s official site or page, where an administrator can check it"}},"required":["name","description","officialLink"],"additionalProperties":false,"examples":[{"name":"Мистецький Арсенал","description":"Культурний комплекс у центрі Києва: виставки, концерти, лекції.","officialLink":"https://artarsenal.in.ua"}],"description":"The JSON request body."}}},
     method: "put",
     pathTemplate: "/api/v1/me/organization",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["setOrganizationInstagram", {
+    name: "setOrganizationInstagram",
+    title: "Set your organization’s Instagram",
+    description: `Set or clear the Instagram username of the caller’s organization, in any verification status. It is a public link, not checked by an administrator, so a verified organization stays verified and a pending request keeps waiting. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"instagram":{"type":["string","null"],"maxLength":200,"description":"A username with or without \"@\", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Null or empty: none"}},"required":["instagram"],"additionalProperties":false,"examples":[{"instagram":"@artarsenal"}],"description":"The JSON request body."}}},
+    method: "put",
+    pathTemplate: "/api/v1/me/organization/instagram",
     executionParameters: [],
     requestBodyContentType: "application/json",
     securityRequirements: [{"bearerAuth":[]}],

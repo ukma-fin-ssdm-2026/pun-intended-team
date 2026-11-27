@@ -1730,15 +1730,6 @@ components:
           description: >-
             The organization’s official site or page, where an administrator can
             check it
-        instagram:
-          type: string
-          nullable: true
-          maxLength: 200
-          description: >-
-            The organization’s Instagram: a username with or without "@", or an
-            instagram.com profile link. Kept as the bare username (up to 30
-            letters, digits, underscores or single dots); one that does not fit
-            is INVALID_SOCIAL_HANDLE. Omitted, null or empty: none
       required:
         - name
         - description
@@ -1748,6 +1739,22 @@ components:
         name: Мистецький Арсенал
         description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.'
         officialLink: https://artarsenal.in.ua
+    OrganizationInstagramBody:
+      type: object
+      properties:
+        instagram:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: >-
+            A username with or without "@", or an instagram.com profile link.
+            Kept as the bare username (up to 30 letters, digits, underscores or
+            single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Null
+            or empty: none
+      required:
+        - instagram
+      additionalProperties: false
+      example:
         instagram: '@artarsenal'
     VenuesPage:
       type: object
@@ -5443,11 +5450,12 @@ paths:
       operationId: requestOrganizationStatus
       summary: Request organization status
       description: >-
-        Ask to become a verified organization with a name, a description, an
-        official link and, optionally, an Instagram username. The request waits
-        as pending until an administrator decides it. A pending request is
-        replaced, and after a rejection the request can be sent again. Needs a
-        signed-in account; a guest token gets 401.
+        Ask to become a verified organization with a name, a description and an
+        official link. The request waits as pending until an administrator
+        decides it. A pending request is replaced, and after a rejection the
+        request can be sent again. The Instagram username is set apart, with
+        `setOrganizationInstagram`. Needs a signed-in account; a guest token
+        gets 401.
       tags:
         - Organizations
       security:
@@ -5480,6 +5488,50 @@ paths:
           description: >-
             `CONFLICT`: the organization is already verified, or its
             verification was revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/organization/instagram:
+    put:
+      operationId: setOrganizationInstagram
+      summary: Set your organization’s Instagram
+      description: >-
+        Set or clear the Instagram username of the caller’s organization, in any
+        verification status. It is a public link, not checked by an
+        administrator, so a verified organization stays verified and a pending
+        request keeps waiting. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Organizations
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationInstagramBody'
+      responses:
+        '200':
+          description: The organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The caller has not requested organization status
           content:
             application/json:
               schema:

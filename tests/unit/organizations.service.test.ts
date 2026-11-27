@@ -22,16 +22,21 @@ const UPLOAD = {
   crop: { left: 0, top: 0, width: 1, height: 1 },
 };
 
-/** The repository as a mock: the account has no organization yet. */
-function makeService() {
+const VERIFIED = anOrganization({ verificationStatus: 'verified' });
+
+/** The repository as a mock: the account has no organization yet, or `stored`. */
+function makeService({ stored }: { stored?: Organization } = {}) {
   const organizationsRepository = {
-    findByAccountId: mock.fn((): Promise<Organization | undefined> => Promise.resolve(undefined)),
+    findByAccountId: mock.fn((): Promise<Organization | undefined> => Promise.resolve(stored)),
     create: mock.fn((): Promise<Organization | undefined> => Promise.resolve(PENDING)),
     resubmit: mock.fn((): Promise<Organization | undefined> => Promise.resolve(PENDING)),
     findPage: mock.fn(),
     decide: mock.fn(() => Promise.resolve(true)),
     setLogo: mock.fn((accountId: string, logoId: string | null) =>
       Promise.resolve(anOrganization({ accountId, logoId })),
+    ),
+    setInstagram: mock.fn((accountId: string, instagram: string | null) =>
+      Promise.resolve({ ...(stored ?? anOrganization()), accountId, instagram }),
     ),
   };
   const { imagesService, transactions, tx } = fakeImages([OLD_LOGO, LOGO], LOGO);
@@ -47,7 +52,8 @@ function isDomainError(code: string) {
   return (error: unknown) => error instanceof DomainError && error.code === code;
 }
 
-describe('OrganizationsService.request: Instagram', () => {
+// Instagram is a public link, not verified data: it never sends the organization back to review.
+describe('OrganizationsService.setInstagram', () => {
   for (const typed of [
     'natalka.park',
     '@natalka.park',
@@ -55,34 +61,59 @@ describe('OrganizationsService.request: Instagram', () => {
     ' instagram.com/natalka.park ',
   ]) {
     test(`keeps "${typed}" as the bare username`, async () => {
-      const { service, organizationsRepository } = makeService();
+      const { service, organizationsRepository } = makeService({ stored: VERIFIED });
 
-      await service.request(ACCOUNT_ID, { ...REQUEST, instagram: typed });
+      await service.setInstagram(ACCOUNT_ID, typed);
 
-      assert.equal(organizationsRepository.create.mock.calls[0]?.arguments[1]?.instagram, 'natalka.park');
+      assert.deepEqual(organizationsRepository.setInstagram.mock.calls[0]?.arguments, [ACCOUNT_ID, 'natalka.park']);
     });
   }
 
-  test('keeps an empty field as none', async () => {
-    const { service, organizationsRepository } = makeService();
+  for (const [title, typed] of [
+    ['null', null],
+    ['an empty field', '  '],
+  ] as const) {
+    test(`clears it with ${title}`, async () => {
+      const { service, organizationsRepository } = makeService({ stored: VERIFIED });
 
-    await service.request(ACCOUNT_ID, { ...REQUEST, instagram: '  ' });
+      await service.setInstagram(ACCOUNT_ID, typed);
 
-    assert.equal(organizationsRepository.create.mock.calls[0]?.arguments[1]?.instagram, null);
-  });
+      assert.deepEqual(organizationsRepository.setInstagram.mock.calls[0]?.arguments, [ACCOUNT_ID, null]);
+    });
+  }
 
-  for (const typed of ['.natalka', 'a'.repeat(31), 'na talka', 'https://instagram.com/p/abc', 'https://t.me/natalka']) {
-    test(`refuses "${typed}" with INVALID_SOCIAL_HANDLE`, async () => {
-      const { service, organizationsRepository } = makeService();
+  for (const verificationStatus of ['pending', 'verified', 'rejected', 'revoked'] as const) {
+    test(`leaves a ${verificationStatus} organization ${verificationStatus}`, async () => {
+      const stored = anOrganization({ verificationStatus });
+      const { service, organizationsRepository } = makeService({ stored });
 
-      await assert.rejects(
-        service.request(ACCOUNT_ID, { ...REQUEST, instagram: typed }),
-        (error: unknown) =>
-          error instanceof DomainError && error.code === 'INVALID_SOCIAL_HANDLE' && error.field === 'instagram',
-      );
+      const saved = await service.setInstagram(ACCOUNT_ID, '@natalka.park');
+
+      assert.equal(saved.verificationStatus, verificationStatus);
+      assert.equal(organizationsRepository.resubmit.mock.callCount(), 0);
       assert.equal(organizationsRepository.create.mock.callCount(), 0);
     });
   }
+
+  for (const typed of ['.natalka', 'a'.repeat(31), 'na talka', 'https://instagram.com/p/abc', 'https://t.me/natalka']) {
+    test(`refuses "${typed}" with INVALID_SOCIAL_HANDLE`, async () => {
+      const { service, organizationsRepository } = makeService({ stored: VERIFIED });
+
+      await assert.rejects(
+        service.setInstagram(ACCOUNT_ID, typed),
+        (error: unknown) =>
+          error instanceof DomainError && error.code === 'INVALID_SOCIAL_HANDLE' && error.field === 'instagram',
+      );
+      assert.equal(organizationsRepository.setInstagram.mock.callCount(), 0);
+    });
+  }
+
+  test('answers NOT_FOUND for an account without an organization request', async () => {
+    const { service, organizationsRepository } = makeService();
+
+    await assert.rejects(service.setInstagram(ACCOUNT_ID, '@natalka.park'), isDomainError('NOT_FOUND'));
+    assert.equal(organizationsRepository.setInstagram.mock.callCount(), 0);
+  });
 });
 
 describe('OrganizationsService.getPublic', () => {
@@ -128,10 +159,7 @@ describe('OrganizationsService.request', () => {
     const { service, organizationsRepository } = makeService();
 
     assert.deepEqual(await service.request(ACCOUNT_ID, REQUEST), { ...PENDING, logo: null });
-    assert.deepEqual(organizationsRepository.create.mock.calls[0]?.arguments, [
-      ACCOUNT_ID,
-      { ...REQUEST, instagram: null },
-    ]);
+    assert.deepEqual(organizationsRepository.create.mock.calls[0]?.arguments, [ACCOUNT_ID, REQUEST]);
     assert.equal(organizationsRepository.resubmit.mock.callCount(), 0);
   });
 
@@ -142,10 +170,7 @@ describe('OrganizationsService.request', () => {
     );
 
     assert.deepEqual(await service.request(ACCOUNT_ID, REQUEST), { ...PENDING, logo: null });
-    assert.deepEqual(organizationsRepository.resubmit.mock.calls[0]?.arguments, [
-      ACCOUNT_ID,
-      { ...REQUEST, instagram: null },
-    ]);
+    assert.deepEqual(organizationsRepository.resubmit.mock.calls[0]?.arguments, [ACCOUNT_ID, REQUEST]);
     assert.equal(organizationsRepository.create.mock.callCount(), 0);
   });
 

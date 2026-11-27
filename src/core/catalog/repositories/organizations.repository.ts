@@ -28,6 +28,9 @@ export abstract class OrganizationsRepository {
 
   abstract setLogo(accountId: string, logoId: string | null, tx?: Transaction): Promise<Organization>;
 
+  /** Sets the bare Instagram username, or null for none; the verification status stays as it is. */
+  abstract setInstagram(accountId: string, instagram: string | null): Promise<Organization>;
+
   /** Records the decision on a pending request; false when it is not pending. */
   abstract decide(accountId: string, decision: VerificationDecision, adminId: string, at: Date): Promise<boolean>;
 }

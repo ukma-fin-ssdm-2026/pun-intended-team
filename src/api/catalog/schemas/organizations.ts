@@ -10,29 +10,35 @@ const OrganizationRequestFields = z.strictObject({
     .url({ protocol: /^https?$/ })
     .max(500)
     .describe('The organization’s official site or page, where an administrator can check it'),
-  instagram: z
-    .string()
-    .trim()
-    .max(200)
-    .nullable()
-    .optional()
-    .describe(
-      'The organization’s Instagram: a username with or without "@", or an instagram.com profile link. Kept as the ' +
-        'bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is ' +
-        'INVALID_SOCIAL_HANDLE. Omitted, null or empty: none',
-    ),
 });
 
 export const organizationRequestExample: OrganizationRequestBody = {
   name: 'Мистецький Арсенал',
   description: 'Культурний комплекс у центрі Києва: виставки, концерти, лекції.',
   officialLink: 'https://artarsenal.in.ua',
-  instagram: '@artarsenal',
 };
 
 export const OrganizationRequestBody = OrganizationRequestFields.meta({
   id: 'OrganizationRequestBody',
   example: organizationRequestExample,
+});
+
+const OrganizationInstagramFields = z.strictObject({
+  instagram: z
+    .string()
+    .trim()
+    .max(200)
+    .nullable()
+    .describe(
+      'A username with or without "@", or an instagram.com profile link. Kept as the bare username (up to 30 ' +
+        'letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Null or ' +
+        'empty: none',
+    ),
+});
+
+export const OrganizationInstagramBody = OrganizationInstagramFields.meta({
+  id: 'OrganizationInstagramBody',
+  example: { instagram: '@artarsenal' },
 });
 
 export const VerificationStatus = z.enum(['pending', 'verified', 'rejected', 'revoked']);
@@ -136,3 +142,4 @@ export type Organization = z.infer<typeof OrganizationFields>;
 export type AdminOrganization = z.infer<typeof AdminOrganizationFields>;
 export type PublicOrganization = z.infer<typeof PublicOrganizationFields>;
 export type AdminOrganizationsPage = z.infer<typeof AdminOrganizationsPage>;
+export type OrganizationInstagramBody = z.infer<typeof OrganizationInstagramFields>;

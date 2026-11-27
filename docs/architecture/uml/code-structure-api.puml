@@ -81,6 +81,7 @@ package "api/catalog" as API_catalog {
     +listOrganizationEvents()
     +getMyOrganization()
     +requestOrganizationStatus()
+    +setOrganizationInstagram()
     +uploadOrganizationLogo()
     +deleteOrganizationLogo()
   }

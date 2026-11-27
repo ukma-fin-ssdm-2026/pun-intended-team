@@ -195,7 +195,7 @@ A regular account asks to become an organization; only a verified organization p
 | `name` | string | 1–100 characters |
 | `description` | string or `null` | 1–1000 characters in a request; `null` only for organizations added in the database |
 | `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
-| `instagram` | string or `null` | The Instagram username without "@". A request takes it optionally as a username with or without "@" or an `instagram.com` profile link and keeps the bare username, up to 30 letters, digits, underscores or single dots (`422 INVALID_SOCIAL_HANDLE` otherwise); empty or `null` for none |
+| `instagram` | string or `null` | The Instagram username without "@". `PUT /me/organization/instagram` takes it as a username with or without "@" or an `instagram.com` profile link and keeps the bare username, up to 30 letters, digits, underscores or single dots (`422 INVALID_SOCIAL_HANDLE` otherwise); empty or `null` for none |
 | `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
 | `verifiedAt` | date-time or `null` | Set when verified |
 | `logo` | `{ id, width, height }` or `null` | A square shown as a circle |
@@ -304,7 +304,8 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `GET` | `/api/v1/organizations/{id}` | Anyone with a guest or user token | `200` the verified organization | `400`, `401`, `404` |
 | `GET` | `/api/v1/organizations/{id}/events` | Anyone with a guest or user token | `200` a page of its events | `400`, `401`, `404` |
 | `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
-| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409`, `422` |
+| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
+| `PUT` | `/api/v1/me/organization/instagram` | Signed-in user with a request | `200` the organization | `400`, `401`, `404`, `422` |
 | `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
 | `GET` | `/api/v1/admin/organizations/{accountId}` | Administrator | `200` the request with its account | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
@@ -314,7 +315,9 @@ Dates are clamped because a user scrolling the date picker too far should just s
 
 `GET /organizations/{id}` and `GET /organizations/{id}/events` are the organizer page: an organization that is not verified (pending, rejected, revoked) or an account without one is `404`, so a pending request stays private. The events are its published ones that have not ended, soonest first, a page in the format of `GET /events` without `lastUpdatedAt`.
 
-`PUT /me/organization` takes `{ name, description, officialLink }`, all required, and an optional `instagram`. Instagram is part of the request, so changing it follows the same rule: It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required, and nothing else (`400` for any other field). It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+
+`PUT /me/organization/instagram` takes `{ instagram }`, a username, a profile link or `null` (or empty) to clear it, and sets it in any verification status, as the logo is set: Instagram is a public link, not data an administrator verifies, so it never changes `verificationStatus`, and a verified organization stays verified. A request sent again keeps it. An account without a request gets `404`.
 
 ### Venues
 
@@ -543,7 +546,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `PUT` and `DELETE /events/{id}/photo`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have its cover changed, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
-| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts`, `PUT /me/organization` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` or `instagram` |
+| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts`, `PUT /me/organization/instagram` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` or `instagram` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications`, `POST /listings/{id}/requests` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |

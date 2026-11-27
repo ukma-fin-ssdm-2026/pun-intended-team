@@ -22,6 +22,7 @@ function makeRepository() {
     create: mock.fn((): Promise<unknown> => Promise.resolve(aRow())),
     updateMany: mock.fn<(args: unknown) => Promise<{ count: number }>>(() => Promise.resolve({ count: 1 })),
     findMany: mock.fn<(args: unknown) => Promise<unknown[]>>(() => Promise.resolve([aRow()])),
+    update: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve(aRow())),
   };
   const repository = new PrismaOrganizationsRepository({ organization } as unknown as PrismaService);
   return { repository, organization };
@@ -53,6 +54,19 @@ describe('PrismaOrganizationsRepository.create', () => {
   });
 });
 
+describe('PrismaOrganizationsRepository.setInstagram', () => {
+  test('changes only the Instagram username, not the verification', async () => {
+    const { repository, organization } = makeRepository();
+
+    await repository.setInstagram(ACCOUNT_ID, 'natalka.park');
+
+    assert.deepEqual(organization.update.mock.calls[0]?.arguments[0], {
+      where: { accountId: ACCOUNT_ID },
+      data: { instagram: 'natalka.park' },
+    });
+  });
+});
+
 // FR-003
 describe('PrismaOrganizationsRepository.resubmit', () => {
   test('makes only a pending or rejected request pending again, without the earlier verification', async () => {
@@ -62,7 +76,7 @@ describe('PrismaOrganizationsRepository.resubmit', () => {
 
     assert.deepEqual(organization.updateMany.mock.calls[0]?.arguments[0], {
       where: { accountId: ACCOUNT_ID, verificationStatus: { in: ['pending', 'rejected'] } },
-      data: { ...REQUEST, instagram: null, verificationStatus: 'pending', verifiedById: null, verifiedAt: null },
+      data: { ...REQUEST, verificationStatus: 'pending', verifiedById: null, verifiedAt: null },
     });
   });
 

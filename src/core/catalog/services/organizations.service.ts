@@ -69,12 +69,20 @@ export class OrganizationsService {
   }
 
   /**
-   * Sends the request, which waits as pending for an administrator. A pending request is replaced, and a rejected one
-   * can be sent again; a verified or revoked organization cannot change its request, its Instagram included. The
-   * Instagram username is kept bare, as profiles keep it.
+   * Sets or clears the Instagram username, in any verification status: it is a public link, not something an
+   * administrator checks, so it never sends the organization back to review. Kept bare, as profiles keep it.
    */
-  async request(accountId: string, input: OrganizationRequest): Promise<OrganizationWithLogo> {
-    const request = { ...input, instagram: instagramOf(input.instagram) };
+  async setInstagram(accountId: string, input: string | null): Promise<OrganizationWithLogo> {
+    await this.getStored(accountId);
+    return this.withLogo(await this.organizationsRepository.setInstagram(accountId, instagramOf(input)));
+  }
+
+  /**
+   * Sends the request, which waits as pending for an administrator. A pending request is replaced, and a rejected one
+   * can be sent again; a verified or revoked organization cannot change its request. The Instagram username is set
+   * apart from it (setInstagram) and is kept.
+   */
+  async request(accountId: string, request: OrganizationRequest): Promise<OrganizationWithLogo> {
     const existing = await this.organizationsRepository.findByAccountId(accountId);
     // A parallel first request can create the row in between; this one then replaces it.
     const saved = existing
@@ -130,8 +138,8 @@ export class OrganizationsService {
   }
 }
 
-function instagramOf(input: string | null | undefined): string | null {
-  if (input === undefined || input === null || input.trim() === '') {
+function instagramOf(input: string | null): string | null {
+  if (input === null || input.trim() === '') {
     return null;
   }
   const handle = socialNetworkHandle('instagram', input);

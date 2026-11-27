@@ -67,6 +67,7 @@ export const Routes = {
     events: '/api/v1/organizations/{id}/events',
     me: '/api/v1/me/organization',
     logo: '/api/v1/me/organization/logo',
+    instagram: '/api/v1/me/organization/instagram',
   },
   profiles: {
     me: '/api/v1/me/profile',

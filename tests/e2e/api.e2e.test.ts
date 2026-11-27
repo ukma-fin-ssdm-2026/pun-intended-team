@@ -3881,17 +3881,62 @@ describe('Organization verification', () => {
     return rows;
   }
 
-  test('keeps the Instagram username bare, and refuses one that does not fit', async () => {
-    const { token } = await newAccount();
-    const saved = await call('PUT', '/api/v1/me/organization', {
-      token,
-      body: { ...request, instagram: 'https://www.instagram.com/riverside.stage/' },
-    });
-    assert.equal(saved.status, 200, JSON.stringify(saved.body));
-    assert.equal(saved.body.instagram, 'riverside.stage');
+  describe('PUT /api/v1/me/organization/instagram', () => {
+    const setInstagram = (token: string, instagram: string | null) =>
+      call('PUT', '/api/v1/me/organization/instagram', { token, body: { instagram } });
 
-    const refused = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, instagram: '..nope' } });
-    assertRejected(refused, 422, 'INVALID_SOCIAL_HANDLE');
+    test('keeps the Instagram username bare, and refuses one that does not fit', async () => {
+      const { token } = await newRequest();
+
+      const saved = await setInstagram(token, 'https://www.instagram.com/riverside.stage/');
+
+      assert.equal(saved.status, 200, JSON.stringify(saved.body));
+      assert.equal(saved.body.instagram, 'riverside.stage');
+      assert.equal(saved.body.verificationStatus, 'pending');
+      assertRejected(await setInstagram(token, '..nope'), 422, 'INVALID_SOCIAL_HANDLE');
+    });
+
+    test('lets a verified organization set and clear it without a new review, and shows it on its page', async () => {
+      const { token, accountId } = await newRequest();
+      assert.equal((await decide(accountId, 'approve')).status, 200);
+
+      const saved = await setInstagram(token, '@riverside.stage');
+
+      assert.equal(saved.status, 200, JSON.stringify(saved.body));
+      assert.equal(saved.body.verificationStatus, 'verified');
+      const page = await call('GET', `/api/v1/organizations/${accountId}`, { token: tokens.guest });
+      assert.equal(page.body.instagram, 'riverside.stage');
+      const cleared = await setInstagram(token, null);
+      assert.equal(cleared.body.instagram, null);
+      assert.equal(cleared.body.verificationStatus, 'verified');
+      assert.equal(
+        (await call('GET', `/api/v1/organizations/${accountId}`, { token: tokens.guest })).body.instagram,
+        null,
+      );
+    });
+
+    test('keeps it when the request is sent again', async () => {
+      const { token } = await newRequest();
+      await setInstagram(token, 'riverside.stage');
+
+      const resent = await call('PUT', '/api/v1/me/organization', { token, body: request });
+
+      assert.equal(resent.body.instagram, 'riverside.stage');
+    });
+
+    test('answers 404 for an account without an organization request', async () => {
+      const { token } = await newAccount();
+
+      assertRejected(await setInstagram(token, 'riverside.stage'), 404, 'NOT_FOUND');
+    });
+
+    test('takes it no longer in the request itself', async () => {
+      const { token } = await newAccount();
+
+      const res = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, instagram: 'x' } });
+
+      assertRejected(res, 400, 'VALIDATION_ERROR');
+    });
   });
 
   test('saves a request as pending, shows it to the account, and keeps it from publishing events', async () => {

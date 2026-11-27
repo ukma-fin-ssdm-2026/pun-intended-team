@@ -57,6 +57,7 @@ package "core (business logic)" as CORE {
       +decide(accountId, decision, adminId)
       +setLogo(accountId, upload)
       +removeLogo(accountId)
+      +setInstagram(accountId, input)
     }
     class VenuesService {
       +listOwn(accountId, page)
@@ -107,6 +108,7 @@ package "core (business logic)" as CORE {
       +findByAccountIds(accountIds)
       +decide(accountId, decision, adminId, at)
       +setLogo(accountId, logoId, tx)
+      +setInstagram(accountId, instagram)
     }
     abstract class ImportRunsRepository {
       +freshness()

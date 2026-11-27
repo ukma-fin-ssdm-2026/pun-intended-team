@@ -45,8 +45,6 @@ export interface OrganizationRequest {
   name: string;
   description: string;
   officialLink: string;
-  /** What the user typed: a username with or without "@", or a profile link; null or omitted for none. */
-  instagram?: string | null;
 }
 
 /** An administrator's decision on a pending request. */
