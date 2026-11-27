@@ -3719,7 +3719,7 @@ describe('Organization verification', () => {
 
     const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
 
-    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null, logo: null };
+    const pending = { ...request, instagram: null, verificationStatus: 'pending', verifiedAt: null, logo: null };
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(res.body, pending);
     assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);

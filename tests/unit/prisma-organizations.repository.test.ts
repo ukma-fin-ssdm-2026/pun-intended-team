@@ -62,7 +62,7 @@ describe('PrismaOrganizationsRepository.resubmit', () => {
 
     assert.deepEqual(organization.updateMany.mock.calls[0]?.arguments[0], {
       where: { accountId: ACCOUNT_ID, verificationStatus: { in: ['pending', 'rejected'] } },
-      data: { ...REQUEST, verificationStatus: 'pending', verifiedById: null, verifiedAt: null },
+      data: { ...REQUEST, instagram: null, verificationStatus: 'pending', verifiedById: null, verifiedAt: null },
     });
   });
 
