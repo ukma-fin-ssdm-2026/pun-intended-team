@@ -28,6 +28,7 @@ import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import {
   eventQuery,
   filterEvents,
+  hasFilters,
   resetFilters,
   selectCategory,
   setQuery,
@@ -86,7 +87,8 @@ export default function CatalogScreen() {
   const filters = useCatalogFilters();
   const favoriteIds = useFavoriteIds();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  // The API narrows by one category and by the days; the next page is loaded when the list is scrolled to its end.
+  // The API narrows by the categories, the days and "Поруч зі мною"; the next page is loaded when the list is scrolled
+  // to its end.
   const allEvents = useEvents(eventQuery(filters));
   const categories = useCategories();
   const lastUpdated = allEvents.lastUpdated;
@@ -117,8 +119,8 @@ export default function CatalogScreen() {
   const isChipSelected = (id: string | undefined) =>
     id ? filters.categoryIds.includes(id) : filters.categoryIds.length === 0;
   const loadedEvents = allEvents.data ?? [];
-  // Gap: the search text, several categories and "Де" filter only the pages loaded so far (catalog-access.md: no bulk
-  // access, so the app does not load the whole catalog to search it).
+  // Gap: the search text and the districts filter only the pages loaded so far (catalog-access.md: no bulk access, so
+  // the app does not load the whole catalog to search it).
   const events = filterEvents(loadedEvents, filters);
 
   const retry = () => {
@@ -211,7 +213,7 @@ export default function CatalogScreen() {
                   text="Перевір зʼєднання з інтернетом і спробуй ще раз."
                   action={{ label: 'Спробувати ще раз', onPress: retry }}
                 />
-              ) : loadedEvents.length === 0 ? (
+              ) : loadedEvents.length === 0 && !hasFilters(filters) ? (
                 <CatalogNotice
                   icon="empty-search"
                   title="Поки немає подій"
@@ -222,7 +224,7 @@ export default function CatalogScreen() {
                   // 01.3: nothing matches the search or the filters.
                   <CatalogNotice
                     icon="empty-search"
-                    title="Нічого не знайшли"
+                    title="Нічого не знайдено за цими фільтрами"
                     text="Спробуй змінити фільтри або дати. Нові події зʼявляються щодня."
                     action={{
                       label: 'Скинути фільтри',
