@@ -217,6 +217,8 @@ enum NotificationType {
   event_reminder
   event_changed
   report_received
+  listing_request
+  listing_request_accepted
 
   @@map("notification_type")
 }

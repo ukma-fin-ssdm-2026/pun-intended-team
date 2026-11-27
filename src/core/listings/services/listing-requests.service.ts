@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/domain-error.ts';
 import type { Page, PageRequest } from '../../common/page.ts';
 import { TransactionRunner } from '../../common/transaction-runner.ts';
+import { NotificationsService } from '../../notifications/services/notifications.service.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import type { Contacts, PublicProfile } from '../../profiles/types/profile.ts';
 import { ListingRequestsRepository } from '../repositories/listing-requests.repository.ts';
@@ -17,12 +18,14 @@ export class ListingRequestsService {
     private readonly requestsRepository: ListingRequestsRepository,
     private readonly listingsRepository: ListingsRepository,
     private readonly profilesService: ProfilesService,
+    private readonly notificationsService: NotificationsService,
     private readonly transactions: TransactionRunner,
   ) {}
 
   /**
    * Asks to join someone else's active listing, once. The requester needs a complete profile, as for matching, so the
-   * author sees who asks and gets a way to reach them on accepting.
+   * author sees who asks and gets a way to reach them on accepting. The author gets a `listing_request` notification
+   * in the same transaction (notifications.md, rule 1).
    */
   async create(requesterId: string, listingId: string): Promise<ListingRequestView> {
     const listing = await this.listingsRepository.findActiveById(listingId);
@@ -38,7 +41,18 @@ export class ListingRequestsService {
     if (await this.requestsRepository.findByListingAndRequester(listingId, requesterId)) {
       throw new DomainError('ALREADY_REQUESTED', 'The user has already asked to join this listing');
     }
-    const request = await this.transactions.run((tx) => this.requestsRepository.create(listingId, requesterId, tx));
+    const displayName = await this.displayNameOf(requesterId);
+    const request = await this.transactions.run(async (tx) => {
+      const created = await this.requestsRepository.create(listingId, requesterId, tx);
+      await this.notificationsService.notify(
+        listing.authorId,
+        'listing_request',
+        { listingRequestId: created.id, listingId, displayName },
+        `listing_request:${created.id}`,
+        tx,
+      );
+      return created;
+    });
     return this.view(requesterId, request, listing);
   }
 
@@ -62,6 +76,7 @@ export class ListingRequestsService {
     return this.view(userId, request, listing);
   }
 
+  /** The requester gets a `listing_request_accepted` notification in the same transaction. */
   async accept(authorId: string, id: string): Promise<ListingRequestView> {
     return this.decide(authorId, id, 'accepted');
   }
@@ -92,14 +107,32 @@ export class ListingRequestsService {
     if (request.status !== 'pending') {
       throw new DomainError('CONFLICT', 'The request has already been answered');
     }
+    const displayName = status === 'accepted' ? await this.displayNameOf(authorId) : undefined;
     const decided = await this.transactions.run(async (tx) => {
       const changed = await this.requestsRepository.decide(id, status, new Date(), tx);
       if (!changed) {
         throw new DomainError('CONFLICT', 'The request has already been answered');
       }
+      if (displayName !== undefined) {
+        await this.notificationsService.notify(
+          changed.requesterId,
+          'listing_request_accepted',
+          { listingRequestId: id, listingId: listing.id, displayName },
+          `listing_request_accepted:${id}`,
+          tx,
+        );
+      }
       return changed;
     });
     return this.view(authorId, decided, listing);
+  }
+
+  private async displayNameOf(accountId: string): Promise<string> {
+    const summary = (await this.profilesService.getSummaries([accountId])).get(accountId);
+    if (!summary) {
+      throw new Error(`No profile for ${accountId}`);
+    }
+    return summary.displayName;
   }
 
   /**

@@ -10,8 +10,9 @@ import type { ListingRequestsRepository } from '../../dist/core/listings/reposit
 import type { ListingsRepository } from '../../dist/core/listings/repositories/listings.repository.js';
 import type { Listing } from '../../dist/core/listings/types/listing.js';
 import type { ListingRequest } from '../../dist/core/listings/types/listing-request.js';
+import type { NotificationsService } from '../../dist/core/notifications/services/notifications.service.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
-import type { Contacts, PublicProfile } from '../../dist/core/profiles/types/profile.js';
+import type { Contacts, ProfileSummary, PublicProfile } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
 import { CATEGORY_ID } from './fixtures/catalog.ts';
 
@@ -97,6 +98,16 @@ function makeService({
   };
   const profilesService = {
     isComplete: mock.fn(() => Promise.resolve(true)),
+    getSummaries: mock.fn((ids: string[]) =>
+      Promise.resolve(
+        new Map<string, ProfileSummary>(
+          ids.map((id) => [
+            id,
+            { accountId: id, username: 'u', displayName: id === AUTHOR_ID ? 'Olena' : 'Taras', photoId: null },
+          ]),
+        ),
+      ),
+    ),
     getPublicProfiles: mock.fn(() =>
       Promise.resolve(
         new Map([
@@ -109,6 +120,11 @@ function makeService({
       Promise.resolve(CONTACTS),
     ),
   };
+  const notificationsService = {
+    notify: mock.fn<
+      (accountId: string, type: string, payload: object, dedupeKey: string, tx: Transaction) => Promise<undefined>
+    >(() => Promise.resolve(undefined)),
+  };
   const tx = {} as Transaction;
   const transactions = { run: mock.fn(<T>(work: (tx: Transaction) => Promise<T>) => work(tx)) };
 
@@ -116,9 +132,10 @@ function makeService({
     requestsRepository as unknown as ListingRequestsRepository,
     listingsRepository as unknown as ListingsRepository,
     profilesService as unknown as ProfilesService,
+    notificationsService as unknown as NotificationsService,
     transactions as unknown as TransactionRunner,
   );
-  return { service, requestsRepository, listingsRepository, profilesService, transactions, tx };
+  return { service, requestsRepository, listingsRepository, profilesService, notificationsService, transactions, tx };
 }
 
 function isDomainError(code: string) {
@@ -136,6 +153,20 @@ describe('ListingRequestsService.create', () => {
     assert.equal(view.role, 'requester');
     assert.equal(view.requester.displayName, 'Taras');
     assert.equal(view.author.displayName, 'Olena');
+  });
+
+  test('tells the author who asked, in the same transaction', async () => {
+    const { service, notificationsService, tx } = makeService();
+
+    const view = await service.create(REQUESTER_ID, LISTING_ID);
+
+    assert.deepEqual(notificationsService.notify.mock.calls[0]?.arguments, [
+      AUTHOR_ID,
+      'listing_request',
+      { listingRequestId: view.id, listingId: LISTING_ID, displayName: 'Taras' },
+      `listing_request:${view.id}`,
+      tx,
+    ]);
   });
 
   test('never shows the account ids of the two', async () => {
@@ -295,6 +326,38 @@ for (const [method, status] of [
     });
   });
 }
+
+describe('ListingRequestsService answer notifications', () => {
+  test('tells the requester that the author accepted, in the same transaction', async () => {
+    const { service, notificationsService, tx } = makeService();
+
+    await service.accept(AUTHOR_ID, REQUEST_ID);
+
+    assert.deepEqual(notificationsService.notify.mock.calls[0]?.arguments, [
+      REQUESTER_ID,
+      'listing_request_accepted',
+      { listingRequestId: REQUEST_ID, listingId: LISTING_ID, displayName: 'Olena' },
+      `listing_request_accepted:${REQUEST_ID}`,
+      tx,
+    ]);
+  });
+
+  test('tells nobody of a decline', async () => {
+    const { service, notificationsService } = makeService();
+
+    await service.decline(AUTHOR_ID, REQUEST_ID);
+
+    assert.equal(notificationsService.notify.mock.callCount(), 0);
+  });
+
+  test('sends nothing when the request was answered first', async () => {
+    const { service, requestsRepository, notificationsService } = makeService();
+    requestsRepository.decide.mock.mockImplementation(() => Promise.resolve(undefined));
+
+    await assert.rejects(service.accept(AUTHOR_ID, REQUEST_ID), isDomainError('CONFLICT'));
+    assert.equal(notificationsService.notify.mock.callCount(), 0);
+  });
+});
 
 // FR-019, SEC-001, SAFE-002
 describe('ListingRequestsService.getContacts', () => {

@@ -1915,6 +1915,12 @@ describe('Listing requests', () => {
   const acknowledge = (token: string) =>
     call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
 
+  async function inboxOf(token: string): Promise<{ type: string; payload: Record<string, unknown> }[]> {
+    const res = await call('GET', '/api/v1/me/notifications', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body.items;
+  }
+
   test('creates a pending request that the listing then shows as the caller’s own', async () => {
     const { token: author, listingId } = await newAuthorListing();
     const { token: requester, username } = await newCompleteProfile();
@@ -1949,6 +1955,8 @@ describe('Listing requests', () => {
     assert.equal(item.requester.interests[0].id, interestFilms);
     assert.equal('phone' in item.requester, false);
     assert.equal('linkedAccounts' in item.requester, false);
+    const notification = (await inboxOf(author)).find(({ type }) => type === 'listing_request');
+    assert.deepEqual(notification?.payload, { listingRequestId: requestId, listingId, displayName: 'Reported' });
   });
 
   test('rejects a request on the caller’s own listing with 422', async () => {
@@ -1996,6 +2004,8 @@ describe('Listing requests', () => {
     assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
     assert.equal(accepted.body.status, 'accepted');
     assert.ok(accepted.body.decidedAt);
+    const notification = (await inboxOf(requester)).find(({ type }) => type === 'listing_request_accepted');
+    assert.equal(notification?.payload.listingRequestId, requestId);
     for (const token of [author, requester]) {
       assertRejected(await contacts(token), 422, 'SAFETY_NOTICE_REQUIRED');
       assert.equal((await acknowledge(token)).status, 200);
@@ -2017,6 +2027,7 @@ describe('Listing requests', () => {
 
     assert.equal(declined.status, 200, JSON.stringify(declined.body));
     assert.equal(declined.body.status, 'declined');
+    assert.deepEqual(await inboxOf(requester), []);
     assert.equal((await acknowledge(requester)).status, 200);
     assertRejected(
       await call('GET', `/api/v1/listing-requests/${requestId}/contacts`, { token: requester }),

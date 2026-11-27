@@ -11,6 +11,8 @@ export const notificationTypes = [
   'event_reminder',
   'event_changed',
   'report_received',
+  'listing_request',
+  'listing_request_accepted',
 ] as const;
 
 export type NotificationType = (typeof notificationTypes)[number];
