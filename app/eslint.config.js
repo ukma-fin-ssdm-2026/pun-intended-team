@@ -7,4 +7,21 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@/mocks', '@/mocks/*'], message: 'Mock data is only for tests and /dev/components (#486)' },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/mocks/**', 'src/app/dev/**', 'tests/**'],
+    rules: { 'no-restricted-imports': 'off' },
+  },
 ]);
