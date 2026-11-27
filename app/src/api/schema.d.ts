@@ -832,6 +832,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Like a listing
+         * @description Like an active listing, the caller’s own too. Liking it again changes nothing. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["likeListing"];
+        post?: never;
+        /**
+         * Take back a like
+         * @description Take back the caller’s like of an active listing. Without a like, nothing changes. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["unlikeListing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/places/reverse": {
         parameters: {
             query?: never;
@@ -3148,7 +3172,9 @@ export interface components {
          *               "lng": 30.5555
          *             }
          *           },
-         *           "myRequest": null
+         *           "myRequest": null,
+         *           "likeCount": 3,
+         *           "liked": true
          *         }
          *       ],
          *       "page": {
@@ -3189,7 +3215,9 @@ export interface components {
          *           "lng": 30.5555
          *         }
          *       },
-         *       "myRequest": null
+         *       "myRequest": null,
+         *       "likeCount": 3,
+         *       "liked": true
          *     }
          */
         Listing: {
@@ -3238,6 +3266,10 @@ export interface components {
                 id: string;
                 status: components["schemas"]["ListingRequestStatus"];
             } | null;
+            /** @description How many users like the listing, its author included */
+            likeCount: number;
+            /** @description Whether the caller likes the listing */
+            liked: boolean;
         };
         /** @description Who posted the listing; never their contacts */
         ListingAuthor: {
@@ -3298,6 +3330,19 @@ export interface components {
                     lng: number;
                 };
             };
+        };
+        /**
+         * @description The likes of a listing after the caller’s like or unlike
+         * @example {
+         *       "likeCount": 3,
+         *       "liked": true
+         *     }
+         */
+        ListingLikes: {
+            /** @description How many users like the listing, its author included */
+            likeCount: number;
+            /** @description Whether the caller likes the listing */
+            liked: boolean;
         };
         /**
          * @description What is at a point on the map, from OpenStreetMap (© OpenStreetMap contributors, ODbL)
@@ -6933,6 +6978,106 @@ export interface operations {
                 };
             };
             /** @description No active listing with this id, or it is not the caller’s own */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    likeListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The likes of the listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingLikes"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlikeListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The likes of the listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingLikes"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id */
             404: {
                 headers: {
                     [name: string]: unknown;

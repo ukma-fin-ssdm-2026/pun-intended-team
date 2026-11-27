@@ -22,6 +22,7 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useListingLikes } from '@/hooks/use-listing-likes';
 import { useListings } from '@/hooks/use-listings';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
@@ -120,6 +121,7 @@ export default function AnnouncementsScreen() {
   const listings = useListings();
   const profile = useProfile();
   const { snackbar, show } = useSnackbar();
+  const toggleLike = useListingLikes(listings, show);
   const allPosts = (listings.data ?? []).map((listing) => listingToPost(listing, profile.data?.username));
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
@@ -320,6 +322,7 @@ export default function AnnouncementsScreen() {
                 }}
                 onDelete={() => setDeleting(post)}
                 onRequest={requestToJoin}
+                onLike={(liked) => void toggleLike(liked)}
               />
               <View className="h-px bg-border-default" />
             </View>

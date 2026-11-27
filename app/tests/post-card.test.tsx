@@ -67,6 +67,25 @@ describe('PostCard', () => {
     expect(mockRouter.push).toHaveBeenCalledWith({ pathname: '/mutual', params: { request: 'r1' } });
   });
 
+  test('shows the like count next to the heart and hands the post to the screen on a tap', async () => {
+    const onLike = jest.fn();
+    await render(<PostCard post={aPost({ likeCount: 3, liked: true })} onReport={() => {}} onLike={onLike} />);
+
+    const heart = screen.getByRole('button', { name: 'Подобається' });
+    expect(heart).toBeSelected();
+    expect(screen.getByText('3')).toBeOnTheScreen();
+    await fireEvent.press(heart);
+
+    expect(onLike).toHaveBeenCalledWith(expect.objectContaining({ id: 'l1' }));
+  });
+
+  test('shows no count while nobody likes the post', async () => {
+    await render(<PostCard post={aPost({ likeCount: 0, liked: false })} onReport={() => {}} onLike={() => {}} />);
+
+    expect(screen.getByRole('button', { name: 'Подобається' })).not.toBeSelected();
+    expect(screen.queryByText('0')).toBeNull();
+  });
+
   test('offers no request on the own post', async () => {
     await render(<PostCard post={aPost({ own: true })} onReport={() => {}} onRequest={() => Promise.resolve()} />);
 

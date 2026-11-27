@@ -7,7 +7,8 @@ import type { Post } from '@/components/announcements/post';
 // the card shows the display name, the category and the day of the plan. Whose post it is stays undefined until the own
 // username is known, so a screen does not offer a report on the own post.
 export function listingToPost(listing: Listing, ownUsername?: string): Post {
-  const { id, author, category, title, description, date, eventId, photo, place, myRequest } = listing;
+  const { id, author, category, title, description, date, eventId, photo, place, myRequest, likeCount, liked } =
+    listing;
   return {
     id,
     initial: author.displayName.charAt(0).toUpperCase(),
@@ -32,6 +33,8 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
     authorPhoto: author.photo ?? undefined,
     going: false,
     myRequest: myRequest ?? undefined,
+    likeCount,
+    liked,
     own: ownUsername === undefined ? undefined : ownUsername.toLowerCase() === author.username.toLowerCase(),
   };
 }

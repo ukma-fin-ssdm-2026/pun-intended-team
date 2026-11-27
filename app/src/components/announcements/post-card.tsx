@@ -11,7 +11,6 @@ import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import type { Post } from '@/components/announcements/post';
-import { toggleLike, useLiked } from '@/state/post-likes';
 import { colors } from '@/styles/tokens';
 
 type Props = {
@@ -21,6 +20,8 @@ type Props = {
   onDelete?: () => void;
   // "Хочу піти": the screen sends the request and shows Т3.2 or the failure. Т3.3 returns to the feed.
   onRequest?: (post: Post) => Promise<void>;
+  // The heart: the screen turns it at once and asks the API.
+  onLike?: (post: Post) => void;
 };
 
 // The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано", also once the
@@ -100,8 +101,9 @@ function LinkedEvent({ eventId }: { eventId: string }) {
   );
 }
 
-export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
-  const liked = useLiked(post.id);
+export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props) {
+  const liked = post.liked ?? false;
+  const likeCount = post.likeCount ?? 0;
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
@@ -167,11 +169,15 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Подобається"
             accessibilityState={{ selected: liked }}
-            onPress={() => toggleLike(post.id)}
+            accessibilityValue={likeCount > 0 ? { text: String(likeCount) } : undefined}
+            onPress={() => onLike?.(post)}
             hitSlop={10}
+            className="flex-row items-center gap-1"
           >
             {/* Liked: the heart filled and outlined in brand/coral, as on the event card. */}
             <Icon name="heart" size={18} color={liked ? colors.brand.coral : colors.text.secondary} filled={liked} />
+            {/* Figma has no counter; a small number, left out while nobody likes the post. */}
+            {likeCount > 0 && <Text className="font-inter text-caption text-text-secondary">{likeCount}</Text>}
           </Pressable>
         </View>
       </View>

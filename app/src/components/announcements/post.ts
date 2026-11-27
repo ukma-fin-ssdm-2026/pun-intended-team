@@ -29,4 +29,7 @@ export type Post = {
   own?: boolean;
   // The signed-in user's request to join the post, from the API; undefined without one.
   myRequest?: { id: string; status: 'pending' | 'accepted' | 'declined' };
+  // From the API: how many users like the post and whether the signed-in user is one of them.
+  likeCount?: number;
+  liked?: boolean;
 };

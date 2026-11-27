@@ -16,6 +16,8 @@ const listing: Listing = {
   photo: null,
   place: null,
   myRequest: null,
+  likeCount: 0,
+  liked: false,
 };
 
 describe('listingToPost', () => {
@@ -25,6 +27,10 @@ describe('listingToPost', () => {
       status: 'pending',
     });
     expect(listingToPost(listing).myRequest).toBeUndefined();
+  });
+
+  test('carries the like count and whether the user likes the post', () => {
+    expect(listingToPost({ ...listing, likeCount: 4, liked: true })).toMatchObject({ likeCount: 4, liked: true });
   });
 
   test('shows the day of the plan without a place', () => {
