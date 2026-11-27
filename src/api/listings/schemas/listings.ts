@@ -6,6 +6,18 @@ import { Image } from '../../images/schemas/images.ts';
 
 export const ListingStatus = z.enum(['active', 'removed']).meta({ id: 'ListingStatus' });
 
+export const ListingRequestStatus = z.enum(['pending', 'accepted', 'declined']).meta({
+  id: 'ListingRequestStatus',
+  description:
+    '`pending`: waiting for the author. `accepted`: the author accepted, both see each other’s contacts. ' +
+    '`declined`: the author declined; the requester gets no notification, and the app keeps showing the ' +
+    'request as sent',
+});
+
+const OwnListingRequest = z
+  .object({ id: Id, status: ListingRequestStatus })
+  .meta({ id: 'OwnListingRequest', description: 'The caller’s request to join a listing' });
+
 const ListingAuthor = z
   .object({ username: z.string(), displayName: z.string(), photo: Image.nullable() })
   .meta({ id: 'ListingAuthor', description: 'Who posted the listing; never their contacts' });
@@ -39,6 +51,9 @@ const ListingFields = z.object({
   status: ListingStatus,
   photo: Image.nullable().describe('Cut to 2:1, as the post card shows it'),
   place: ListingPlace.nullable().describe('Null when the listing names no place'),
+  myRequest: OwnListingRequest.nullable().describe(
+    'The caller’s own request to join this listing; null without one, and always on the caller’s own listing',
+  ),
 });
 
 export const listingExample: Listing = {
@@ -56,6 +71,7 @@ export const listingExample: Listing = {
     address: 'вулиця Лаврська, 10-12, Печерський район',
     location: { lat: 50.4357, lng: 30.5555 },
   },
+  myRequest: null,
 };
 
 export const Listing = ListingFields.meta({

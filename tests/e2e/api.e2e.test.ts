@@ -414,6 +414,28 @@ async function newProfile(): Promise<{
   return { subject: registrant.subject, token, refreshToken, accountId: accountIdOf(token), username };
 }
 
+/** A new account whose profile has everything matching needs. */
+// Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
+async function newCompleteProfile(
+  gender: 'female' | 'male' | 'other' = 'female',
+): Promise<{ token: string; accountId: string; username: string }> {
+  const { token, accountId, username } = await newProfile();
+  const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
+  for (const [method, path, body] of [
+    ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
+    ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
+    [
+      'PUT',
+      '/api/v1/me/profile/linked-accounts',
+      { linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e' }] },
+    ],
+  ] as const) {
+    const res = await call(method, path, { token, body });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+  return { token, accountId, username };
+}
+
 /** Reports the user and resolves the case with `action`; returns the case id. */
 async function reportAndResolve(username: string, accountId: string, action: 'ban' | 'dismiss'): Promise<string> {
   await call('POST', '/api/v1/reports', { token: tokens.user, body: { username, reason: 'other' } });
@@ -1869,30 +1891,178 @@ describe('PUT and DELETE /api/v1/listings/{id}/photo', () => {
   });
 });
 
+describe('Listing requests', () => {
+  /** A listing by a new author with a complete profile, so both sides have contacts to reveal. */
+  async function newAuthorListing(): Promise<{ token: string; listingId: string }> {
+    const { token } = await newCompleteProfile();
+    const res = await call('POST', '/api/v1/listings', { token, body: newListing });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return { token, listingId: res.body.id };
+  }
+
+  function request(token: string, listingId: string): Promise<Response> {
+    return call('POST', `/api/v1/listings/${listingId}/requests`, { token });
+  }
+
+  async function requested(): Promise<{ author: string; requester: string; listingId: string; requestId: string }> {
+    const { token: author, listingId } = await newAuthorListing();
+    const { token: requester } = await newCompleteProfile();
+    const res = await request(requester, listingId);
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return { author, requester, listingId, requestId: res.body.id };
+  }
+
+  const acknowledge = (token: string) =>
+    call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
+
+  test('creates a pending request that the listing then shows as the caller’s own', async () => {
+    const { token: author, listingId } = await newAuthorListing();
+    const { token: requester, username } = await newCompleteProfile();
+
+    const res = await request(requester, listingId);
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.headers.get('location'), `/api/v1/listing-requests/${res.body.id}`);
+    assert.equal(res.body.status, 'pending');
+    assert.equal(res.body.role, 'requester');
+    assert.equal(res.body.requester.username, username);
+    const listing = await call('GET', `/api/v1/listings/${listingId}`, { token: requester });
+    assert.deepEqual(listing.body.myRequest, { id: res.body.id, status: 'pending' });
+    const inFeed = (await call('GET', '/api/v1/listings', { token: requester })).body.items.find(
+      (item: { id: string }) => item.id === listingId,
+    );
+    assert.deepEqual(inFeed?.myRequest, { id: res.body.id, status: 'pending' });
+    assert.equal((await call('GET', `/api/v1/listings/${listingId}`, { token: author })).body.myRequest, null);
+  });
+
+  test('shows the author the request with the requester’s public profile and no contacts', async () => {
+    const { author, requestId, listingId } = await requested();
+
+    const res = await call('GET', '/api/v1/me/listing-requests', { token: author });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const [item] = res.body.items;
+    assert.equal(item.id, requestId);
+    assert.equal(item.role, 'author');
+    assert.equal(item.listing.id, listingId);
+    assert.equal(item.requester.age, 26);
+    assert.equal(item.requester.interests[0].id, interestFilms);
+    assert.equal('phone' in item.requester, false);
+    assert.equal('linkedAccounts' in item.requester, false);
+  });
+
+  test('rejects a request on the caller’s own listing with 422', async () => {
+    const { token, listingId } = await newAuthorListing();
+
+    assertRejected(await request(token, listingId), 422, 'CANNOT_REQUEST_OWN_LISTING');
+  });
+
+  test('rejects a second request with 409', async () => {
+    const { requester, listingId } = await requested();
+
+    assertRejected(await request(requester, listingId), 409, 'ALREADY_REQUESTED');
+  });
+
+  test('rejects a request from an incomplete profile with 422', async () => {
+    const { listingId } = await newAuthorListing();
+    const { token } = await newProfile();
+
+    assertRejected(await request(token, listingId), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  test('answers 404 for a removed listing, and hides its pending requests', async () => {
+    const { author, requester, listingId, requestId } = await requested();
+    assert.equal((await call('DELETE', `/api/v1/listings/${listingId}`, { token: author })).status, 204);
+
+    const { token: late } = await newCompleteProfile();
+    assertRejected(await request(late, listingId), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', `/api/v1/listing-requests/${requestId}`, { token: requester }), 404, 'NOT_FOUND');
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author }),
+      404,
+      'NOT_FOUND',
+    );
+    const mine = await call('GET', '/api/v1/me/listing-requests', { token: author });
+    assert.deepEqual(mine.body.items, []);
+  });
+
+  test('accepted: the contacts wait for each side’s safety notice, then both see the other’s', async () => {
+    const { author, requester, requestId } = await requested();
+    const contacts = (token: string) => call('GET', `/api/v1/listing-requests/${requestId}/contacts`, { token });
+    assertRejected(await contacts(author), 404, 'NOT_FOUND');
+
+    const accepted = await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author });
+
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+    assert.equal(accepted.body.status, 'accepted');
+    assert.ok(accepted.body.decidedAt);
+    for (const token of [author, requester]) {
+      assertRejected(await contacts(token), 422, 'SAFETY_NOTICE_REQUIRED');
+      assert.equal((await acknowledge(token)).status, 200);
+      const res = await contacts(token);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.linkedAccounts[0].username, 'nearby_e2e');
+    }
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: author }),
+      409,
+      'CONFLICT',
+    );
+  });
+
+  test('declined: the request stays declined and opens no contacts', async () => {
+    const { author, requester, listingId, requestId } = await requested();
+
+    const declined = await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: author });
+
+    assert.equal(declined.status, 200, JSON.stringify(declined.body));
+    assert.equal(declined.body.status, 'declined');
+    assert.equal((await acknowledge(requester)).status, 200);
+    assertRejected(
+      await call('GET', `/api/v1/listing-requests/${requestId}/contacts`, { token: requester }),
+      404,
+      'NOT_FOUND',
+    );
+    const listing = await call('GET', `/api/v1/listings/${listingId}`, { token: requester });
+    assert.deepEqual(listing.body.myRequest, { id: requestId, status: 'declined' });
+  });
+
+  test('lets only the author answer', async () => {
+    const { requester, requestId } = await requested();
+
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: requester }),
+      404,
+      'NOT_FOUND',
+    );
+  });
+
+  test('answers 404 to a third user, even once accepted', async () => {
+    const { author, requestId } = await requested();
+    await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author });
+    const { token: stranger } = await newCompleteProfile();
+    await acknowledge(stranger);
+
+    for (const path of ['', '/contacts']) {
+      const res = await call('GET', `/api/v1/listing-requests/${requestId}${path}`, { token: stranger });
+      assertRejected(res, 404, 'NOT_FOUND');
+    }
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: stranger }),
+      404,
+      'NOT_FOUND',
+    );
+  });
+
+  test('rejects a guest with 401', async () => {
+    const { listingId } = await newAuthorListing();
+
+    assertRejected(await request(tokens.guest, listingId), 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
-
-  /** A new account whose profile has everything matching needs. */
-  // Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
-  async function newCompleteProfile(
-    gender: 'female' | 'male' | 'other' = 'female',
-  ): Promise<{ token: string; accountId: string; username: string }> {
-    const { token, accountId, username } = await newProfile();
-    const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
-    for (const [method, path, body] of [
-      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
-      ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
-      [
-        'PUT',
-        '/api/v1/me/profile/linked-accounts',
-        { linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e' }] },
-      ],
-    ] as const) {
-      const res = await call(method, path, { token, body });
-      assert.equal(res.status, 200, JSON.stringify(res.body));
-    }
-    return { token, accountId, username };
-  }
 
   async function newEventAt(startsAt: string, endsAt: string): Promise<string> {
     const res = await call('POST', '/api/v1/events', { token: tokens.org, body: { ...newEvent, startsAt, endsAt } });

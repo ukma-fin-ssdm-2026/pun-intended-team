@@ -9,14 +9,17 @@ import { TransactionRunner } from '../../common/transaction-runner.ts';
 import { ImagesService } from '../../images/services/images.service.ts';
 import type { ImageUpload } from '../../images/types/image.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
+import { ListingRequestsRepository } from '../repositories/listing-requests.repository.ts';
 import { ListingsRepository } from '../repositories/listings.repository.ts';
 import type { Listing, ListingDetails, NewListing } from '../types/listing.ts';
+import type { ListingRequest, OwnListingRequest } from '../types/listing-request.ts';
 import { requirePlaceInKyiv } from './place-area.ts';
 
 @Injectable()
 export class ListingsService {
   constructor(
     private readonly listingsRepository: ListingsRepository,
+    private readonly requestsRepository: ListingRequestsRepository,
     private readonly categoriesService: CategoriesService,
     private readonly eventsService: EventsService,
     private readonly profilesService: ProfilesService,
@@ -24,21 +27,21 @@ export class ListingsService {
     private readonly transactions: TransactionRunner,
   ) {}
 
-  /** Active listings from today on; past ones stay readable by id. */
-  async list(page: PageRequest): Promise<Page<ListingDetails>> {
+  /** Active listings from today on; past ones stay readable by id. Each says whether the viewer asked to join it. */
+  async list(viewerId: string, page: PageRequest): Promise<Page<ListingDetails>> {
     const result = await this.listingsRepository.findActive(kyivDate(), page);
-    const withDetails = await this.detailsFor(result.items);
+    const withDetails = await this.detailsFor(result.items, viewerId);
     // A listing whose author has no profile is left out after paging, so a page can hold fewer than `limit` items, or
     // none, while `hasMore` is still true.
     return { ...result, items: result.items.flatMap((listing) => withDetails(listing) ?? []) };
   }
 
-  async getById(id: string): Promise<ListingDetails> {
+  async getById(viewerId: string, id: string): Promise<ListingDetails> {
     const listing = await this.listingsRepository.findActiveById(id);
     if (!listing) {
       throw new DomainError('NOT_FOUND', 'Listing not found');
     }
-    const withDetails = await this.detailsFor([listing]);
+    const withDetails = await this.detailsFor([listing], viewerId);
     const details = withDetails(listing);
     if (!details) {
       throw new DomainError('NOT_FOUND', 'Listing not found');
@@ -134,18 +137,24 @@ export class ListingsService {
 
   /** The caller's own listing, so its author has a profile. */
   private async withDetailsOf(listing: Listing, accountId: string): Promise<ListingDetails> {
-    const withDetails = await this.detailsFor([listing]);
+    const withDetails = await this.detailsFor([listing], accountId);
     return required(withDetails(listing), `profile of ${accountId}`);
   }
 
   /**
-   * Loads the authors and categories of these listings, then adds them to each listing. A listing whose author has no
-   * profile gives undefined: the account may never have finished onboarding, or its profile is gone.
+   * Loads the authors and categories of these listings and the viewer's requests on them, then adds them to each
+   * listing. A listing whose author has no profile gives undefined: the account may never have finished onboarding, or
+   * its profile is gone.
    */
-  private async detailsFor(listings: Listing[]): Promise<(listing: Listing) => ListingDetails | undefined> {
-    const [authors, allCategories] = await Promise.all([
+  private async detailsFor(
+    listings: Listing[],
+    viewerId: string,
+  ): Promise<(listing: Listing) => ListingDetails | undefined> {
+    const othersListings = listings.filter((listing) => listing.authorId !== viewerId).map((listing) => listing.id);
+    const [authors, allCategories, ownRequests] = await Promise.all([
       this.profilesService.getSummaries(listings.map((listing) => listing.authorId)),
       this.categoriesService.findAll(),
+      this.requestsRepository.findOwn(viewerId, othersListings),
     ]);
     const photos = await this.imagesService.getRefs([
       ...listings.map((listing) => listing.photoId),
@@ -161,10 +170,15 @@ export class ListingsService {
           author: { ...author, photo: photoOf(author.photoId) },
           category: required(categories.get(listing.categoryId), `category ${listing.categoryId}`),
           photo: photoOf(listing.photoId),
+          myRequest: requestOf(ownRequests.get(listing.id)),
         }
       );
     };
   }
+}
+
+function requestOf(request: ListingRequest | undefined): OwnListingRequest | null {
+  return request ? { id: request.id, status: request.status } : null;
 }
 
 /** A listing always has a category, and a new one an author profile; a missing one is a data bug, so a 500. */

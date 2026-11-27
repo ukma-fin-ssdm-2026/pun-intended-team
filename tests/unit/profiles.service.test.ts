@@ -298,6 +298,33 @@ describe('ProfilesService.getContacts', () => {
   });
 });
 
+// SAFE-002
+describe('ProfilesService.revealContacts', () => {
+  test("gives the other user's contacts once the viewer has acknowledged the safety notice", async () => {
+    const { service, profilesRepository } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() =>
+      Promise.resolve(aProfile({ safetyNotice: 'acknowledged', sharePhone: false, linkedAccounts: [TELEGRAM] })),
+    );
+
+    const contacts = await service.revealContacts(ACCOUNT_ID, OTHER_ACCOUNT_ID);
+
+    assert.deepEqual(
+      profilesRepository.findByAccountId.mock.calls.map((call) => call.arguments[0]),
+      [ACCOUNT_ID, OTHER_ACCOUNT_ID],
+    );
+    assert.deepEqual(contacts, { phone: null, linkedAccounts: [{ ...TELEGRAM, url: 'https://t.me/natalka' }] });
+  });
+
+  test('holds the contacts back until the viewer has acknowledged the safety notice', async () => {
+    const { service, profilesRepository, accountsService } = makeService();
+    profilesRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(aProfile()));
+
+    await assert.rejects(service.revealContacts(ACCOUNT_ID, OTHER_ACCOUNT_ID), isDomainError('SAFETY_NOTICE_REQUIRED'));
+    assert.equal(profilesRepository.findByAccountId.mock.callCount(), 1);
+    assert.equal(accountsService.getPhone.mock.callCount(), 0);
+  });
+});
+
 // FR-032, SAFE-002
 describe('ProfilesService.acknowledgeSafetyNotice', () => {
   test('records the acknowledgment and the choice not to see it again', async () => {

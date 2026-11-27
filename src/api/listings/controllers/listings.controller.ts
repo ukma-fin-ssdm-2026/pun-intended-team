@@ -42,8 +42,11 @@ export class ListingsController {
       200: { description: 'A page of listings', schema: ListingsPage },
     },
   })
-  async listListings(@Input() { query }: RouteInput<typeof ListListingsRequest>): Promise<ListingsPage> {
-    return this.listingsService.list(query);
+  async listListings(
+    @Input() { query }: RouteInput<typeof ListListingsRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<ListingsPage> {
+    return this.listingsService.list(account.accountId, query);
   }
 
   @Endpoint({
@@ -60,8 +63,11 @@ export class ListingsController {
       404: { description: 'No active listing with this id', schema: ErrorResponse },
     },
   })
-  async getListing(@Input() { params }: RouteInput<typeof GetListingRequest>): Promise<Listing> {
-    return this.listingsService.getById(params.id);
+  async getListing(
+    @Input() { params }: RouteInput<typeof GetListingRequest>,
+    @CurrentAccount() account: AccountCaller,
+  ): Promise<Listing> {
+    return this.listingsService.getById(account.accountId, params.id);
   }
 
   @Endpoint({

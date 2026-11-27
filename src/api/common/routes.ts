@@ -47,6 +47,14 @@ export const Routes = {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
     photo: '/api/v1/listings/{id}/photo',
+    requests: '/api/v1/listings/{id}/requests',
+  },
+  listingRequests: {
+    mine: '/api/v1/me/listing-requests',
+    byId: '/api/v1/listing-requests/{id}',
+    accept: '/api/v1/listing-requests/{id}/accept',
+    decline: '/api/v1/listing-requests/{id}/decline',
+    contacts: '/api/v1/listing-requests/{id}/contacts',
   },
   places: {
     reverse: '/api/v1/places/reverse',

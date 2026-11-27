@@ -123,6 +123,17 @@ export class ProfilesService {
     };
   }
 
+  /**
+   * The contacts of `accountId` for `viewerId`, who must have acknowledged the safety notice first (SAFE-002). The
+   * caller checks that the two may see each other's contacts at all: a mutual match or an accepted listing request.
+   */
+  async revealContacts(viewerId: string, accountId: string): Promise<Contacts> {
+    if (!(await this.hasAcknowledgedSafetyNotice(viewerId))) {
+      throw new DomainError('SAFETY_NOTICE_REQUIRED', 'Acknowledge the safety notice first');
+    }
+    return this.getContacts(accountId);
+  }
+
   /** Whether the user has acknowledged the safety notice, which contacts wait for (SAFE-002); false without a profile. */
   async hasAcknowledgedSafetyNotice(accountId: string): Promise<boolean> {
     const profile = await this.profilesRepository.findByAccountId(accountId);

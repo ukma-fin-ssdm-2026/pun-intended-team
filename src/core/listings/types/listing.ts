@@ -2,6 +2,7 @@
 import type { Category } from '../../catalog/types/category.ts';
 import type { ImageRef } from '../../images/types/image.ts';
 import type { ProfileSummary } from '../../profiles/types/profile.ts';
+import type { OwnListingRequest } from './listing-request.ts';
 import type { ListingPlace } from './place.ts';
 
 export type ListingStatus = 'active' | 'removed';
@@ -32,6 +33,8 @@ export interface ListingDetails extends Listing {
   author: ListingAuthor;
   category: Pick<Category, 'id' | 'name'>;
   photo: ImageRef | null;
+  /** The viewer's own request to join it; null when they have none, and always on their own listing. */
+  myRequest: OwnListingRequest | null;
 }
 
 export interface NewListing {
