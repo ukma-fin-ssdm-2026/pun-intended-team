@@ -20,6 +20,7 @@ import { GoogleIdTokens } from '../core/identity/adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
+import { ListingRequestsRepository } from '../core/listings/repositories/listing-requests.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
 import { ApplicationsRepository } from '../core/matching/repositories/applications.repository.ts';
 import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
@@ -60,6 +61,7 @@ import { PrismaEventSessionsRepository } from './prisma/prisma-event-sessions.re
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaImportRunsRepository } from './prisma/prisma-import-runs.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
+import { PrismaListingRequestsRepository } from './prisma/prisma-listing-requests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
 import { PrismaNotificationsRepository } from './prisma/prisma-notifications.repository.ts';
@@ -86,6 +88,7 @@ const repositories = [
   { provide: SessionsRepository, useClass: PrismaSessionsRepository },
   { provide: ProfilesRepository, useClass: PrismaProfilesRepository },
   { provide: ListingsRepository, useClass: PrismaListingsRepository },
+  { provide: ListingRequestsRepository, useClass: PrismaListingRequestsRepository },
   { provide: InterestsRepository, useClass: PrismaInterestsRepository },
   { provide: MatchesRepository, useClass: PrismaMatchesRepository },
   { provide: ApplicationsRepository, useClass: PrismaApplicationsRepository },

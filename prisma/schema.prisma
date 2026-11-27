@@ -175,6 +175,15 @@ enum ListingStatus {
   @@map("listing_status")
 }
 
+/// Declared in this order, so ordering by status lists the pending requests first.
+enum ListingRequestStatus {
+  pending
+  accepted
+  declined
+
+  @@map("listing_request_status")
+}
+
 enum ReportTargetType {
   account
   listing
@@ -259,14 +268,15 @@ model Account {
   authMethods           AuthMethod[]
   refreshTokens         RefreshToken[]
   profile               Profile?
-  organization          Organization?  @relation("OrganizationAccount")
-  verifiedOrganizations Organization[] @relation("OrganizationVerifier")
+  organization          Organization?    @relation("OrganizationAccount")
+  verifiedOrganizations Organization[]   @relation("OrganizationVerifier")
   applications          Application[]
-  exclusions            Exclusion[]    @relation("ExclusionUser")
-  excludedIn            Exclusion[]    @relation("ExclusionExcludedUser")
+  exclusions            Exclusion[]      @relation("ExclusionUser")
+  excludedIn            Exclusion[]      @relation("ExclusionExcludedUser")
   listings              Listing[]
-  reportCasesAsTarget   ReportCase[]   @relation("ReportCaseTargetAccount")
-  reportCasesResolved   ReportCase[]   @relation("ReportCaseResolver")
+  listingRequests       ListingRequest[]
+  reportCasesAsTarget   ReportCase[]     @relation("ReportCaseTargetAccount")
+  reportCasesResolved   ReportCase[]     @relation("ReportCaseResolver")
   reports               Report[]
   notifications         Notification[]
   deviceTokens          DeviceToken[]
@@ -328,20 +338,20 @@ model RefreshToken {
 }
 
 model Profile {
-  accountId           String          @id @map("account_id") @db.Uuid
+  accountId           String            @id @map("account_id") @db.Uuid
   username            String
-  displayName         String          @map("display_name")
+  displayName         String            @map("display_name")
   description         String?
   occupation          String?
-  communicationFormat DesiredCompany? @map("communication_format")
+  communicationFormat DesiredCompany?   @map("communication_format")
   gender              Gender?
-  genderDescription   String?         @map("gender_description")
-  sharePhone          Boolean         @default(true) @map("share_phone")
+  genderDescription   String?           @map("gender_description")
+  sharePhone          Boolean           @default(true) @map("share_phone")
   safetyNotice        SafetyNoticeState @default(not_acknowledged) @map("safety_notice")
-  photoId             String?         @unique @map("photo_id") @db.Uuid
-  coverId             String?         @unique @map("cover_id") @db.Uuid
-  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  photoId             String?           @unique @map("photo_id") @db.Uuid
+  coverId             String?           @unique @map("cover_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   photo            Image?            @relation("ProfilePhoto", fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -642,13 +652,33 @@ model Listing {
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  author      Account      @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  event       Event?       @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  photo       Image?       @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  author      Account          @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category    Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  event       Event?           @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  photo       Image?           @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   reportCases ReportCase[]
+  requests    ListingRequest[]
 
   @@map("listings")
+}
+
+/// A user asks the author of a listing to go together ("Хочу піти"); once the author accepts, both see each other's
+/// contacts, as a mutual match does.
+model ListingRequest {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId   String               @map("listing_id") @db.Uuid
+  requesterId String               @map("requester_id") @db.Uuid
+  status      ListingRequestStatus @default(pending)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// When the author accepted or declined; null while pending.
+  decidedAt   DateTime?            @map("decided_at") @db.Timestamptz(3)
+
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requester Account @relation(fields: [requesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([listingId, requesterId])
+  @@index([requesterId])
+  @@map("listing_requests")
 }
 
 model ReportCase {
