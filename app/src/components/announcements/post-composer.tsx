@@ -1,6 +1,6 @@
 // Written with the help of Claude
 // AI Usage: post editor from the Figma "Д2 Оголошення · новий допис" frame; reviewed by Daryna Halytska.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadListingPhoto } from '@/api/images';
@@ -14,6 +14,7 @@ import { kyivDay, tomorrow, weekendDays } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
 import { mockDraft } from '@/mocks/announcements';
 import type { PictureDraft } from '@/pictures/picked-picture';
+import { clearPickedPlace, usePickedPlace } from '@/state/post-place';
 import { colors } from '@/styles/tokens';
 
 // "Дата", "Подія з каталогу", "Категорія": no prototype links, shown as in Figma. "Фото" opens the gallery.
@@ -40,6 +41,8 @@ function publishFailure(failure: Failure): string {
       return 'Ця дата вже минула. Обери іншу.';
     case 'REFERENCE_NOT_FOUND':
       return 'Такої категорії вже немає. Обери іншу.';
+    case 'PLACE_OUTSIDE_CITY':
+      return 'Місце має бути в Києві. Обери інше.';
     case 'VALIDATION_ERROR':
       return `Перевір допис: заголовок до ${TITLE_MAX} символів, решта тексту до ${DESCRIPTION_MAX}.`;
     case 'UNAUTHENTICATED':
@@ -66,6 +69,9 @@ function Pill({ label, selected, onPress }: { label: string; selected: boolean; 
 
 export function PostComposer({ onPublished, onAddPlace }: Props) {
   const categories = useCategories();
+  // Picked on Д2.1; a new editor starts without one.
+  const place = usePickedPlace();
+  useEffect(() => clearPickedPlace, []);
   const [text, setText] = useState('');
   const [categoryId, setCategoryId] = useState<string>();
   const [error, setError] = useState<string>();
@@ -113,8 +119,9 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
     }
     setError(undefined);
     setPublishing(true);
-    const result = await createListing({ categoryId, title, description, date: day });
+    const result = await createListing({ categoryId, title, description, date: day, place });
     if (result.ok) {
+      clearPickedPlace();
       const withPhoto = photo ? await uploadListingPhoto(result.data.id, photo) : undefined;
       setPublishing(false);
       if (withPhoto && !withPhoto.ok) onPublished(result.data, withPhoto);
@@ -207,14 +214,34 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
           )}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={onAddPlace}
-          className="flex-row items-center gap-1.5 self-start rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-3"
-        >
-          <Icon name="pin" size={15} color={colors.text.secondary} />
-          <Text className="font-inter-semibold text-tag text-text-secondary">+ Місце</Text>
-        </Pressable>
+        {place ? (
+          // The picked place, as the "+ Місце" chip; Figma has no frame for it, so "×" removes it as on the photo.
+          <View className="flex-row items-center gap-1.5 self-start rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-2">
+            <Pressable accessibilityRole="button" onPress={onAddPlace} className="flex-row items-center gap-1.5">
+              <Icon name="pin" size={15} color={colors.brand.coral} />
+              <Text numberOfLines={1} className="max-w-[220px] font-inter-semibold text-tag text-text-primary">
+                {place.name}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Прибрати місце"
+              onPress={clearPickedPlace}
+              hitSlop={8}
+            >
+              <Icon name="close" size={14} color={colors.text.secondary} />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onAddPlace}
+            className="flex-row items-center gap-1.5 self-start rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-3"
+          >
+            <Icon name="pin" size={15} color={colors.text.secondary} />
+            <Text className="font-inter-semibold text-tag text-text-secondary">+ Місце</Text>
+          </Pressable>
+        )}
 
         {error && (
           <Text accessibilityRole="alert" className="font-inter text-caption text-brand-coral">

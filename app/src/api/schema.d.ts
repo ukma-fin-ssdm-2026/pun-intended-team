@@ -692,6 +692,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/places/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Name a point on the map
+         * @description Say what is at a point the place picker of a listing settles on: the place or the building, and its address. Answers come from OpenStreetMap (© OpenStreetMap contributors, ODbL), at most one request a second for the whole server; recent points are answered from memory. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["reversePlace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/events/{id}/applications": {
         parameters: {
             query?: never;
@@ -1458,7 +1478,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "PLACE_OUTSIDE_CITY" | "PLACE_LOOKUP_UNAVAILABLE" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -2645,7 +2665,15 @@ export interface components {
          *           "description": "Planning to go in the evening, happy to grab a coffee after.",
          *           "date": "2026-10-17",
          *           "status": "active",
-         *           "photo": null
+         *           "photo": null,
+         *           "place": {
+         *             "name": "Мистецький Арсенал",
+         *             "address": "вулиця Лаврська, 10-12, Печерський район",
+         *             "location": {
+         *               "lat": 50.4357,
+         *               "lng": 30.5555
+         *             }
+         *           }
          *         }
          *       ],
          *       "page": {
@@ -2677,7 +2705,15 @@ export interface components {
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
          *       "date": "2026-10-17",
          *       "status": "active",
-         *       "photo": null
+         *       "photo": null,
+         *       "place": {
+         *         "name": "Мистецький Арсенал",
+         *         "address": "вулиця Лаврська, 10-12, Печерський район",
+         *         "location": {
+         *           "lat": 50.4357,
+         *           "lng": 30.5555
+         *         }
+         *       }
          *     }
          */
         Listing: {
@@ -2712,6 +2748,14 @@ export interface components {
                 width: number;
                 height: number;
             } | null;
+            /** @description Null when the listing names no place */
+            place: {
+                /** @description The place or the building, else the street and the house */
+                name: string;
+                /** @description Street, house and district; may be empty */
+                address: string;
+                location: components["schemas"]["Point"];
+            } | null;
         };
         /** @description Who posted the listing; never their contacts */
         ListingAuthor: {
@@ -2721,13 +2765,28 @@ export interface components {
         };
         /** @enum {string} */
         ListingStatus: "active" | "removed";
+        /** @description A point on the map */
+        Point: {
+            /** @description Latitude, WGS 84 */
+            lat: number;
+            /** @description Longitude, WGS 84 */
+            lng: number;
+        };
         /**
          * @example {
          *       "categoryId": "1c7a3e5b-9d2f-4b4c-8e6a-8f3b5d7c9e02",
          *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
          *       "title": "Looking for company for the Arsenal exhibition",
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
-         *       "date": "2026-10-20"
+         *       "date": "2026-10-20",
+         *       "place": {
+         *         "name": "Мистецький Арсенал",
+         *         "address": "вулиця Лаврська, 10-12, Печерський район",
+         *         "location": {
+         *           "lat": 50.4357,
+         *           "lng": 30.5555
+         *         }
+         *       }
          *     }
          */
         CreateListingBody: {
@@ -2750,6 +2809,33 @@ export interface components {
              * @description The day, Kyiv time; today or later
              */
             date: string;
+            /** @description Where to meet, picked on the map; all of name, address and location, or omitted */
+            place?: {
+                /** @description What the place is called, e.g. from reversePlace */
+                name: string;
+                /** @description May be empty */
+                address: string;
+                /** @description Must be in Kyiv; otherwise PLACE_OUTSIDE_CITY */
+                location: {
+                    /** @description Latitude, WGS 84 */
+                    lat: number;
+                    /** @description Longitude, WGS 84 */
+                    lng: number;
+                };
+            };
+        };
+        /**
+         * @description What is at a point on the map, from OpenStreetMap (© OpenStreetMap contributors, ODbL)
+         * @example {
+         *       "name": "Мистецький Арсенал",
+         *       "address": "вулиця Лаврська, 10-12, Печерський район"
+         *     }
+         */
+        PlaceDescription: {
+            /** @description The place or the building there, else the street and the house */
+            name: string;
+            /** @description Street, house and district; may be empty */
+            address: string;
         };
         /**
          * @description The caller’s request to be matched in one session of an event
@@ -5778,7 +5864,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`: the date is before today. */
+            /** @description `REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`: the date is before today. `PLACE_OUTSIDE_CITY`: the place is not in Kyiv. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6020,6 +6106,76 @@ export interface operations {
             };
             /** @description No active listing with this id, or it is not the caller’s own */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reversePlace: {
+        parameters: {
+            query?: {
+                /** @description Latitude of the map centre */
+                lat?: number | null;
+                /** @description Longitude of the map centre */
+                lng?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What is at the point */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceDescription"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing found at the point */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PLACE_OUTSIDE_CITY`: the point is not in Kyiv */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PLACE_LOOKUP_UNAVAILABLE`: OpenStreetMap cannot be reached; the user can name the place */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

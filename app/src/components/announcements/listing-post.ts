@@ -7,7 +7,7 @@ import type { Post } from '@/mocks/announcements';
 // the card shows the display name, the category and the day of the plan. Whose post it is stays undefined until the own
 // username is known, so a screen does not offer a report on the own post.
 export function listingToPost(listing: Listing, ownUsername?: string): Post {
-  const { id, author, category, title, description, date, eventId, photo } = listing;
+  const { id, author, category, title, description, date, eventId, photo, place } = listing;
   return {
     id,
     initial: author.displayName.charAt(0).toUpperCase(),
@@ -23,7 +23,10 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
     title,
     text: description,
     // Noon, so the day is the same in Kyiv whatever the offset.
-    chips: [{ icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) }],
+    chips: [
+      { icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) },
+      ...(place ? [{ icon: 'pin' as const, label: place.name }] : []),
+    ],
     eventId: eventId ?? undefined,
     apiPhoto: photo ?? undefined,
     authorPhoto: author.photo ?? undefined,
