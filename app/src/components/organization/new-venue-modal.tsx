@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
 import { TextField } from '@/components/ui/text-field';
+import { usePlaceLookup } from '@/hooks/use-place-lookup';
 import { colors } from '@/styles/tokens';
 
 // The API's limits.
@@ -58,6 +59,28 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string>();
+  // A field the user has typed in, even to clear it, is never filled from the map again.
+  const [edited, setEdited] = useState({ name: false, address: false });
+  // Once both fields are the user's, the map has nothing to fill.
+  const lookup = usePlaceLookup(edited.name && edited.address ? undefined : point);
+  // Each answer fills the fields once, as it arrives.
+  const [filledFrom, setFilledFrom] = useState(lookup);
+  if (lookup !== filledFrom) {
+    setFilledFrom(lookup);
+    if (lookup.place) {
+      if (!edited.address) setAddress(lookup.place.address.trim().slice(0, ADDRESS_MAX));
+      if (!edited.name && !name) setName(lookup.place.name.trim().slice(0, NAME_MAX));
+    }
+  }
+
+  const typeName = (text: string) => {
+    setEdited((fields) => ({ ...fields, name: true }));
+    setName(text);
+  };
+  const typeAddress = (text: string) => {
+    setEdited((fields) => ({ ...fields, address: true }));
+    setAddress(text);
+  };
 
   const trimmedName = name.trim();
   const trimmedAddress = address.trim();
@@ -119,7 +142,7 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
           label="Назва"
           required
           value={name}
-          onChangeText={setName}
+          onChangeText={typeName}
           placeholder="Галявина в парку Наталка"
           error={submitted ? errors.name : undefined}
         />
@@ -127,12 +150,12 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
           label="Адреса"
           required
           value={address}
-          onChangeText={setAddress}
+          onChangeText={typeAddress}
           placeholder="вул. Набережно-Лугова, Київ"
           error={submitted ? errors.address : undefined}
         />
         <Text className="font-inter text-caption text-text-secondary">
-          Перетягни мапу, щоб мітка стояла на вході до місця
+          {lookup.status === 'loading' ? 'Шукаємо адресу…' : 'Перетягни мапу, щоб мітка стояла на вході до місця'}
         </Text>
         <View className="flex-1" />
         {formError && (
