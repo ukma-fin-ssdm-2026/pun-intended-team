@@ -24,7 +24,7 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { useListings } from '@/hooks/use-listings';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import type { Post } from '@/mocks/announcements';
+import type { Post } from '@/components/announcements/post';
 import { usePostRequests } from '@/state/post-requests';
 import { openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';

@@ -8,7 +8,7 @@ import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
-import type { Post } from '@/mocks/announcements';
+import type { Post } from '@/components/announcements/post';
 import { toggleLike, useLiked } from '@/state/post-likes';
 import { requestPost, usePostRequests } from '@/state/post-requests';
 import { colors } from '@/styles/tokens';

@@ -1,34 +1,6 @@
 // Written with the help of Claude
 // AI Usage: mock posts from the Figma "Т3 Оголошення" frame; reviewed by Daryna Halytska.
-import type { ImageSource } from 'expo-image';
-
-import type { ApiImage } from '@/api/images';
-
-// Name forms the report sheet needs, as for the proposed match: "Поскаржитися на Ірину", "Ви з Іриною". The report is
-// sent for `username`, so it reaches the API only when an account has that username.
-export type Author = { name: string; accusative: string; instrumental: string; username: string };
-
-export type Post = {
-  id: string;
-  initial: string;
-  nameAge: string;
-  author: Author;
-  // "· Лук’янівка · 2 год".
-  meta: string;
-  text: string;
-  chips?: { icon: 'calendar' | 'pin'; label: string }[];
-  // A catalog event attached to the post.
-  eventId?: string;
-  photo?: ImageSource;
-  // The photo of a listing from the API.
-  apiPhoto?: ApiImage;
-  // The author's profile photo, for a post from the API.
-  authorPhoto?: ApiImage;
-  going: boolean;
-  // Only posts that come from the API have them: the heading of the post, and whether the signed-in user wrote it.
-  title?: string;
-  own?: boolean;
-};
+import type { Post } from '@/components/announcements/post';
 
 // Dates are shifted like the mock events (Figma's Нд, 19 жовт is Нд, 25 жовт here).
 export const mockPosts: Post[] = [
@@ -68,13 +40,6 @@ export const mockPosts: Post[] = [
   },
 ];
 
-// Д2 Оголошення · новий допис: the draft Figma shows in the editor.
-export const mockDraft = {
-  audience: 'Люди поруч · Київ',
-  text: 'Велопрогулянка Трухановим островом у суботу зранку. Хто зі мною?',
-  date: 'Сб, 24 жовт · 11:00',
-};
-
 // Д4 Хоче піти з тобою: Олена answers the user's post about board games (Т5.1).
 export const mockJoinRequest = {
   initial: 'О',
@@ -83,10 +48,4 @@ export const mockJoinRequest = {
   post: 'Шукаємо ще 2–3 людей на настолки в антикафе в неділю о 17:00.',
   details: 'Нд, 19 жовт · 17:00 · Антикафе «Ліхтар»',
   note: 'Прийми, і ви одразу зможете домовитися про зустріч.',
-};
-
-// Д2.1 Місце на мапі: the place under the drop pin.
-export const mockPostPlace = {
-  name: 'Антикафе «Ліхтар»',
-  address: 'вул. Ярославська, 22 · Поділ',
 };

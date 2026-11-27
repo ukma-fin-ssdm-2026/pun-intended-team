@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import type { Listing } from '@/api/listings';
 import { formatShortDay } from '@/dates';
-import type { Post } from '@/mocks/announcements';
+import type { Post } from '@/components/announcements/post';
 
 // A listing as the feed's card shows it. The API gives no age, no district or time of posting and no name forms, so
 // the card shows the display name, the category and the day of the plan. Whose post it is stays undefined until the own

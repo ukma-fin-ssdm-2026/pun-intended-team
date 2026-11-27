@@ -12,7 +12,6 @@ import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { kyivDay, tomorrow, weekendDays } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
-import { mockDraft } from '@/mocks/announcements';
 import type { PictureDraft } from '@/pictures/picked-picture';
 import { clearPickedPlace, usePickedPlace } from '@/state/post-place';
 import { colors } from '@/styles/tokens';
@@ -142,7 +141,7 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
         {/* Figma's 1 px stroke lies inside the chip: the padding is 1 px less than its 5 / 10 / 12. */}
         <View className="flex-row items-center gap-1.5 self-start rounded-[14px] border border-border-default py-1 pl-[9px] pr-[11px]">
           <Icon name="pin" size={14} color={colors.brand.coral} />
-          <Text className="font-inter-semibold text-tag text-brand-coral">{mockDraft.audience}</Text>
+          <Text className="font-inter-semibold text-tag text-brand-coral">Люди поруч · Київ</Text>
         </View>
 
         <TextInput

@@ -1,17 +1,15 @@
 // Written with the help of Claude
 // AI Usage: notifications screen from the Figma "Т5 Сповіщення" frame, on the inbox from the API; reviewed by Daryna Halytska.
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { loadNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications';
-import { JoinRequestSheet } from '@/components/announcements/join-request-sheet';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatDateTime } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { notificationText, useNotificationsState, type Notification } from '@/state/notifications';
-import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // "01 Навігація": top padding 56 in the iPhone 14 frame, 9 px below its status bar.
@@ -73,23 +71,10 @@ function toRow(notification: Notification): Row {
   };
 }
 
-// Т5.1: shown on top of the new ones when the development switch is on.
-const joinRequest: Row = {
-  key: 'join-request',
-  icon: 'matches',
-  tone: 'ink',
-  title: 'Олена хоче піти з тобою',
-  time: 'щойно',
-  text: 'Відгукнулася на твоє оголошення про настолки в антикафе.',
-  unread: true,
-};
-
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const session = useSession();
   const inbox = useNotificationsState();
-  const [requestOpen, setRequestOpen] = useState(false);
   useStatusBarStyle('dark');
 
   // The inbox is read when the screen opens (HLD I1); the web build has no push, so this is its only channel.
@@ -112,11 +97,10 @@ export default function NotificationsScreen() {
   const fresh = notifications.filter(({ readAt }) => readAt === null);
   const earlier = notifications.filter(({ readAt }) => readAt !== null);
 
-  const section = (label: string, items: Notification[], extra?: Row) =>
-    (items.length > 0 || extra) && (
+  const section = (label: string, items: Notification[]) =>
+    items.length > 0 && (
       <View className="gap-1 px-5 pt-4">
         <Text className="font-inter-medium text-label text-text-secondary">{label}</Text>
-        {extra && <NotificationRow row={extra} onPress={() => setRequestOpen(true)} />}
         {items.map((item) => (
           <NotificationRow key={item.id} row={toRow(item)} onPress={open(item)} />
         ))}
@@ -126,7 +110,7 @@ export default function NotificationsScreen() {
   const message =
     inbox.status === 'error'
       ? 'Не вдалося завантажити сповіщення'
-      : inbox.status === 'loaded' && notifications.length === 0 && !session.joinRequest
+      : inbox.status === 'loaded' && notifications.length === 0
         ? 'Сповіщень поки немає'
         : undefined;
 
@@ -162,18 +146,9 @@ export default function NotificationsScreen() {
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: Math.max(34, insets.bottom) }}>
         {message && <Text className="px-5 pt-8 text-center font-inter text-body text-text-secondary">{message}</Text>}
-        {section('Нові', fresh, session.joinRequest ? joinRequest : undefined)}
+        {section('Нові', fresh)}
         {section('Раніше', earlier)}
       </ScrollView>
-
-      <JoinRequestSheet
-        visible={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        onAccept={() => {
-          setRequestOpen(false);
-          router.push({ pathname: '/mutual', params: { person: 'olena' } });
-        }}
-      />
     </View>
   );
 }

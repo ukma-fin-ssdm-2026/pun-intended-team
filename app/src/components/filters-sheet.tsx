@@ -11,13 +11,11 @@ import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
-import { mockDistricts } from '@/mocks/events';
 import {
   filterEvents,
   resetFilters,
   setNearMe,
   toggleCategory,
-  toggleDistrict,
   toggleWhen,
   useCatalogFilters,
   type When,
@@ -118,15 +116,6 @@ export function FiltersSheet({ visible, onClose, events, categories }: Props) {
                   selected={filters.nearMe}
                   onPress={() => (filters.nearMe ? setNearMe(false) : setView('location'))}
                 />
-                {/* The API has no districts yet, so with live events a district shows nothing. */}
-                {mockDistricts.map((district) => (
-                  <FilterChip
-                    key={district}
-                    label={district}
-                    selected={filters.districts.includes(district)}
-                    onPress={() => toggleDistrict(district)}
-                  />
-                ))}
               </Section>
             </ScrollView>
 
