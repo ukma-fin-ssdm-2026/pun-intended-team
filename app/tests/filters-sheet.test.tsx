@@ -6,6 +6,8 @@ import { FiltersSheet } from '@/components/filters-sheet';
 import { locateUser, type LocateResult } from '@/location';
 import { resetFilters } from '@/state/catalog-filters';
 
+import { anEvent } from './fixtures/events';
+
 jest.mock('@/location', () => ({ locateUser: jest.fn() }));
 
 const categories = [
@@ -26,6 +28,22 @@ describe('FiltersSheet', () => {
   afterEach(async () => {
     await act(resetFilters);
     jest.mocked(locateUser).mockReset();
+  });
+
+  test('counts every loaded event when nothing is picked', async () => {
+    const events = [anEvent('e1', 'Концерт'), anEvent('e2', 'Виставка'), anEvent('e3', 'Лекція')];
+
+    await render(<FiltersSheet visible onClose={() => {}} events={events} categories={categories} />);
+
+    expect(screen.getByRole('button', { name: `Показати ${events.length} події` })).toBeTruthy();
+  });
+
+  test('shows no district chips in "Де"', async () => {
+    await render(<FiltersSheet visible onClose={() => {}} events={[]} categories={categories} />);
+
+    for (const district of ['Центр', 'Поділ', 'Печерськ', 'Лівий берег']) {
+      expect(screen.queryByRole('button', { name: district })).toBeNull();
+    }
   });
 
   test('picks several categories', async () => {

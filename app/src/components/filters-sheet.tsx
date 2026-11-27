@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
 import { locateUser } from '@/location';
-import { mockDistricts } from '@/mocks/events';
 import {
   filterEvents,
   RADIUS_OPTIONS,
@@ -20,7 +19,6 @@ import {
   setNear,
   setRadius,
   toggleCategory,
-  toggleDistrict,
   toggleWhen,
   useCatalogFilters,
   type When,
@@ -161,15 +159,6 @@ export function FiltersSheet({ visible, onClose, events, categories }: Props) {
                       onPress={() => setRadius(radiusKm)}
                     />
                   ))}
-                {/* The API has no districts yet, so with live events a district shows nothing. */}
-                {mockDistricts.map((district) => (
-                  <FilterChip
-                    key={district}
-                    label={district}
-                    selected={filters.districts.includes(district)}
-                    onPress={() => toggleDistrict(district)}
-                  />
-                ))}
               </Section>
               {locationNotice && (
                 <Text accessibilityLiveRegion="polite" className="-mt-3 font-inter text-caption text-text-secondary">

@@ -21,7 +21,6 @@ const noFilters: Filters = {
   categoryIds: [],
   when: null,
   dates: null,
-  districts: [],
   near: null,
   radiusKm: 3,
 };
@@ -96,7 +95,6 @@ describe('hasFilters', () => {
     ['a category', { categoryIds: ['c1'] }],
     ['a quick day', { when: 'today' }],
     ['picked days', { dates: { from: '2026-11-11', to: '2026-11-12' } }],
-    ['a district', { districts: ['Поділ'] }],
     ['"Поруч зі мною"', { near: { lat: 50.45, lng: 30.524 } }],
   ];
   test.each(narrowing)('is true with %s', (_, filters) => {
