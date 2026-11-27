@@ -4,19 +4,28 @@ import { describe, mock, test } from 'node:test';
 import { PrismaEventsRepository } from '../../dist/infra/prisma/prisma-events.repository.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
-import { EVENT_ID } from './fixtures/catalog.ts';
+import { CATEGORY_ID, EVENT_ID, VENUE_ID } from './fixtures/catalog.ts';
 import { anEventRow } from './fixtures/catalog-rows.ts';
 
 const FILTER = { from: '2026-11-10', to: '2026-11-12' };
+const NEAR = { lat: 50.45, lng: 30.524, radiusKm: 3 };
 
-function makeRepository(rows: ReturnType<typeof anEventRow>[] = []) {
+function makeRepository(rows: ReturnType<typeof anEventRow>[] = [], nearVenueIds: string[] = []) {
   // Each Prisma call takes one argument, which the tests read back from `mock.calls`.
   const query = () => mock.fn<(args: unknown) => Promise<unknown>>();
   const event = { findMany: query(), findUnique: query(), update: query(), count: query() };
   event.findMany.mock.mockImplementation(() => Promise.resolve(rows));
   event.update.mock.mockImplementation(() => Promise.resolve(anEventRow()));
   event.count.mock.mockImplementation(() => Promise.resolve(2));
-  return { repository: new PrismaEventsRepository({ event } as unknown as PrismaService), event };
+  // A tagged template: the SQL text and then the values it binds.
+  const queryRaw = mock.fn<(sql: TemplateStringsArray, ...values: unknown[]) => Promise<{ id: string }[]>>();
+  queryRaw.mock.mockImplementation(() => Promise.resolve(nearVenueIds.map((id) => ({ id }))));
+  const prisma = { event, $queryRaw: queryRaw } as unknown as PrismaService;
+  return { repository: new PrismaEventsRepository(prisma), event, queryRaw };
+}
+
+function whereOf(findMany: ReturnType<typeof makeRepository>['event']['findMany']) {
+  return (findMany.mock.calls[0]?.arguments[0] as { where: Record<string, unknown> }).where;
 }
 
 describe('PrismaEventsRepository.findPublished', () => {
@@ -34,6 +43,52 @@ describe('PrismaEventsRepository.findPublished', () => {
       endsAt: { gt: new Date('2026-11-09T21:59:59.999Z') },
       startsAt: { lte: new Date('2026-11-12T21:59:59.999Z') },
     });
+  });
+
+  test('asks for events of any of the categories', async () => {
+    const { repository, event } = makeRepository();
+    const categoryIds = [CATEGORY_ID, 'c0000000-0000-4000-8000-000000000002'];
+
+    await repository.findPublished({ ...FILTER, categoryIds }, { limit: 20, offset: 0 });
+
+    assert.deepEqual(whereOf(event.findMany).categoryId, { in: categoryIds });
+  });
+
+  test('looks up no venues without a point', async () => {
+    const { repository, event, queryRaw } = makeRepository();
+
+    await repository.findPublished(FILTER, { limit: 20, offset: 0 });
+
+    assert.equal(queryRaw.mock.callCount(), 0);
+    assert.equal(whereOf(event.findMany).AND, undefined);
+  });
+
+  test('binds the point and the radius as values, not as SQL text', async () => {
+    const { repository, queryRaw } = makeRepository();
+
+    await repository.findPublished({ ...FILTER, near: NEAR }, { limit: 20, offset: 0 });
+
+    const [sql, ...values] = queryRaw.mock.calls[0]?.arguments ?? [];
+    assert.ok(values.includes(NEAR.lat) && values.includes(NEAR.lng) && values.includes(NEAR.radiusKm));
+    assert.ok(!sql?.join('').includes(String(NEAR.lat)));
+  });
+
+  test('keeps the venue filter and adds the venues within the radius', async () => {
+    const { repository, event } = makeRepository([], [VENUE_ID]);
+
+    await repository.findPublished({ ...FILTER, venueId: VENUE_ID, near: NEAR }, { limit: 20, offset: 0 });
+
+    const where = whereOf(event.findMany);
+    assert.equal(where.venueId, VENUE_ID);
+    assert.deepEqual(where.AND, { venueId: { in: [VENUE_ID] } });
+  });
+
+  test('matches no venue when none is within the radius', async () => {
+    const { repository, event } = makeRepository([], []);
+
+    await repository.findPublished({ ...FILTER, near: NEAR }, { limit: 20, offset: 0 });
+
+    assert.deepEqual(whereOf(event.findMany).AND, { venueId: { in: [] } });
   });
 
   test('reads one row more than the page to know whether another page follows', async () => {

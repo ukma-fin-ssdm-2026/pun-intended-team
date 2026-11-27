@@ -18,7 +18,7 @@ import type {
 export abstract class EventsRepository {
   abstract findById(id: string, tx?: Transaction): Promise<Event | undefined>;
 
-  /** Published events that overlap the filter's dates, soonest first. */
+  /** Published events that overlap the filter's dates and match all its other fields, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
 
   /** The organization's events, published and cancelled, that end after the instant; soonest first. */
