@@ -624,17 +624,23 @@ model Exclusion {
 }
 
 model Listing {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId    String        @map("author_id") @db.Uuid
-  categoryId  String        @map("category_id") @db.Uuid
-  eventId     String?       @map("event_id") @db.Uuid
-  title       String
-  description String
-  date        DateTime      @db.Date
-  status      ListingStatus @default(active)
-  photoId     String?       @unique @map("photo_id") @db.Uuid
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId       String        @map("author_id") @db.Uuid
+  categoryId     String        @map("category_id") @db.Uuid
+  eventId        String?       @map("event_id") @db.Uuid
+  title          String
+  description    String
+  date           DateTime      @db.Date
+  status         ListingStatus @default(active)
+  photoId        String?       @unique @map("photo_id") @db.Uuid
+  /// Where the author suggests meeting (Д2.1). The four place columns are all set or all null.
+  placeName      String?       @map("place_name")
+  /// May be empty.
+  placeAddress   String?       @map("place_address")
+  placeLatitude  Decimal?      @map("place_latitude") @db.Decimal(9, 6)
+  placeLongitude Decimal?      @map("place_longitude") @db.Decimal(9, 6)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   author      Account      @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)

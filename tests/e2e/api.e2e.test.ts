@@ -237,6 +237,9 @@ const googleClientId = 'nearby-e2e.apps.googleusercontent.com';
 const googleKid = 'e2e-google';
 let googleKey: CryptoKey;
 let jwksServer: Server;
+// Stands in for Nominatim's /reverse, so no test calls the real service.
+let nominatimServer: Server;
+const nominatimRequests: string[] = [];
 
 interface Response {
   status: number;
@@ -693,6 +696,24 @@ before(async () => {
   jwksServer = createHttpServer((_req, res) => res.writeHead(200, { 'content-type': 'application/json' }).end(jwks));
   const jwksPort = await freePort();
   await new Promise<void>((resolve) => jwksServer.listen(jwksPort, resolve));
+  nominatimServer = createHttpServer((req, res) => {
+    const query = new URL(req.url ?? '/', 'http://localhost').searchParams;
+    nominatimRequests.push(`${query.get('lat')},${query.get('lon')}`);
+    const json = (status: number, body: object) =>
+      res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+    if (query.get('lat') === '50.4357') {
+      json(200, {
+        name: 'Мистецький Арсенал',
+        address: { road: 'вулиця Лаврська', house_number: '10-12', city_district: 'Печерський район' },
+      });
+    } else if (query.get('lat') === '50.401') {
+      json(503, {});
+    } else {
+      json(200, { error: 'Unable to geocode' });
+    }
+  });
+  const nominatimPort = await freePort();
+  await new Promise<void>((resolve) => nominatimServer.listen(nominatimPort, resolve));
   apiEnv = {
     ...process.env,
     // Production mode so the run does not rewrite the committed OpenAPI spec.
@@ -706,6 +727,7 @@ before(async () => {
     GOOGLE_CLIENT_IDS: googleClientId,
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     ALLOW_TEST_ADAPTERS: 'true',
+    NOMINATIM_BASE_URL: `http://localhost:${nominatimPort}`,
   };
   runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
   await addStubAccounts(new PersonalDataCipher(dataEncryptionKey, contactHmacKey));
@@ -726,6 +748,7 @@ before(async () => {
 after(() => {
   server?.kill();
   jwksServer?.close();
+  nominatimServer?.close();
   rmSync(keysDir, { recursive: true, force: true });
 });
 
@@ -1714,6 +1737,79 @@ describe('POST /api/v1/listings', () => {
       body: { ...newListing, date: '2020-01-01' },
     });
     assertRejected(res, 422, 'LISTING_DATE_IN_PAST');
+  });
+});
+
+describe('Listing place', () => {
+  const place = {
+    name: 'Мистецький Арсенал',
+    address: 'вулиця Лаврська, 10-12',
+    location: { lat: 50.4357, lng: 30.5555 },
+  };
+
+  test('posts a listing with a place and returns it', async () => {
+    const res = await call('POST', '/api/v1/listings', { token: tokens.user, body: { ...newListing, place } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual(res.body.place, place);
+    const read = await call('GET', `/api/v1/listings/${res.body.id}`, { token: tokens.user });
+    assert.deepEqual(read.body.place, place);
+  });
+
+  test('posts a listing without a place with place null', async () => {
+    const res = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.place, null);
+  });
+
+  test('rejects a place outside Kyiv with 422', async () => {
+    const res = await call('POST', '/api/v1/listings', {
+      token: tokens.user,
+      body: { ...newListing, place: { ...place, location: { lat: 49.8441, lng: 24.0262 } } },
+    });
+    assertRejected(res, 422, 'PLACE_OUTSIDE_CITY');
+  });
+
+  test('rejects a place without its location with 400', async () => {
+    const res = await call('POST', '/api/v1/listings', {
+      token: tokens.user,
+      body: { ...newListing, place: { name: place.name, address: place.address } },
+    });
+    assertInvalid(res, 'body', 'place.location');
+  });
+});
+
+describe('GET /api/v1/places/reverse', () => {
+  test('names the point, and answers it again from memory', async () => {
+    const before = nominatimRequests.length;
+    const first = await call('GET', '/api/v1/places/reverse?lat=50.4357&lng=30.5555', { token: tokens.user });
+    const again = await call('GET', '/api/v1/places/reverse?lat=50.435701&lng=30.555501', { token: tokens.user });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, {
+      name: 'Мистецький Арсенал',
+      address: 'вулиця Лаврська, 10-12, Печерський район',
+    });
+    assert.deepEqual(again.body, first.body);
+    assert.equal(nominatimRequests.length - before, 1);
+  });
+
+  test('answers 404 when nothing is there', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.45&lng=30.52', { token: tokens.user });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('answers 503 when Nominatim fails', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.401&lng=30.52', { token: tokens.user });
+    assertRejected(res, 503, 'PLACE_LOOKUP_UNAVAILABLE');
+  });
+
+  test('rejects a point outside Kyiv with 422', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=49.8441&lng=24.0262', { token: tokens.user });
+    assertRejected(res, 422, 'PLACE_OUTSIDE_CITY');
+  });
+
+  test('rejects a guest token with 401', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.4357&lng=30.5555', { token: tokens.guest });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
   });
 });
 

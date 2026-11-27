@@ -11,6 +11,7 @@ import type { ImageUpload } from '../../images/types/image.ts';
 import { ProfilesService } from '../../profiles/services/profiles.service.ts';
 import { ListingsRepository } from '../repositories/listings.repository.ts';
 import type { Listing, ListingDetails, NewListing } from '../types/listing.ts';
+import { requirePlaceInKyiv } from './place-area.ts';
 
 @Injectable()
 export class ListingsService {
@@ -49,6 +50,9 @@ export class ListingsService {
     if (input.date < kyivDate()) {
       throw new DomainError('LISTING_DATE_IN_PAST', 'The listing date has passed');
     }
+    if (input.place) {
+      requirePlaceInKyiv(input.place.location, 'place.location');
+    }
     if (!(await this.categoriesService.findActive(input.categoryId))) {
       throw new DomainError('REFERENCE_NOT_FOUND', 'Category not found');
     }
@@ -64,6 +68,7 @@ export class ListingsService {
     const listing = await this.listingsRepository.create({
       ...input,
       eventId: input.eventId ?? null,
+      place: input.place ?? null,
       authorId: accountId,
       status: 'active',
       photoId: null,

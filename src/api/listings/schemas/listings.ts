@@ -10,6 +10,24 @@ const ListingAuthor = z
   .object({ username: z.string(), displayName: z.string(), photo: Image.nullable() })
   .meta({ id: 'ListingAuthor', description: 'Who posted the listing; never their contacts' });
 
+export const Point = z
+  .object({
+    lat: z.number().min(-90).max(90).describe('Latitude, WGS 84'),
+    lng: z.number().min(-180).max(180).describe('Longitude, WGS 84'),
+  })
+  .meta({ id: 'Point', description: 'A point on the map' });
+
+const ListingPlaceFields = z.object({
+  name: z.string().describe('The place or the building, else the street and the house'),
+  address: z.string().describe('Street, house and district; may be empty'),
+  location: Point,
+});
+
+export const ListingPlace = ListingPlaceFields.meta({
+  id: 'ListingPlace',
+  description: 'Where the author suggests meeting, picked on the map; not a catalog venue',
+});
+
 const ListingFields = z.object({
   id: Id,
   author: ListingAuthor,
@@ -20,6 +38,7 @@ const ListingFields = z.object({
   date: CalendarDate,
   status: ListingStatus,
   photo: Image.nullable().describe('Cut to 2:1, as the post card shows it'),
+  place: ListingPlace.nullable().describe('Null when the listing names no place'),
 });
 
 export const listingExample: Listing = {
@@ -32,6 +51,11 @@ export const listingExample: Listing = {
   date: '2026-10-17',
   status: 'active',
   photo: null,
+  place: {
+    name: 'Мистецький Арсенал',
+    address: 'вулиця Лаврська, 10-12, Печерський район',
+    location: { lat: 50.4357, lng: 30.5555 },
+  },
 };
 
 export const Listing = ListingFields.meta({
@@ -54,6 +78,14 @@ const CreateListingFields = z.strictObject({
   title: z.string().trim().min(1).max(120).describe('Title shown in the listing feed'),
   description: z.string().trim().max(2000).describe('Can be empty'),
   date: CalendarDate.describe('The day, Kyiv time; today or later'),
+  place: z
+    .strictObject({
+      name: z.string().trim().min(1).max(100).describe('What the place is called, e.g. from reversePlace'),
+      address: z.string().trim().max(200).describe('May be empty'),
+      location: Point.describe('Must be in Kyiv; otherwise PLACE_OUTSIDE_CITY'),
+    })
+    .optional()
+    .describe('Where to meet, picked on the map; all of name, address and location, or omitted'),
 });
 
 export const createListingExample: CreateListingBody = {
@@ -62,10 +94,28 @@ export const createListingExample: CreateListingBody = {
   title: 'Looking for company for the Arsenal exhibition',
   description: 'Planning to go in the evening, happy to grab a coffee after.',
   date: '2026-10-20',
+  place: listingExample.place ?? undefined,
 };
 
 export const CreateListingBody = CreateListingFields.meta({ id: 'CreateListingBody', example: createListingExample });
 
+export const ReversePlaceQuery = z.object({
+  lat: z.coerce.number().min(-90).max(90).describe('Latitude of the map centre'),
+  lng: z.coerce.number().min(-180).max(180).describe('Longitude of the map centre'),
+});
+
+const PlaceDescriptionFields = z.object({
+  name: z.string().describe('The place or the building there, else the street and the house'),
+  address: z.string().describe('Street, house and district; may be empty'),
+});
+
+export const PlaceDescription = PlaceDescriptionFields.meta({
+  id: 'PlaceDescription',
+  description: 'What is at a point on the map, from OpenStreetMap (© OpenStreetMap contributors, ODbL)',
+  example: { name: 'Мистецький Арсенал', address: 'вулиця Лаврська, 10-12, Печерський район' },
+});
+
 export type Listing = z.infer<typeof ListingFields>;
+export type PlaceDescription = z.infer<typeof PlaceDescriptionFields>;
 export type ListingsPage = z.infer<typeof ListingsPage>;
 export type CreateListingBody = z.input<typeof CreateListingFields>;

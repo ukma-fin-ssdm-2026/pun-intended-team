@@ -2,6 +2,7 @@
 import type { Category } from '../../catalog/types/category.ts';
 import type { ImageRef } from '../../images/types/image.ts';
 import type { ProfileSummary } from '../../profiles/types/profile.ts';
+import type { ListingPlace } from './place.ts';
 
 export type ListingStatus = 'active' | 'removed';
 
@@ -17,6 +18,8 @@ export interface Listing {
   date: string;
   status: ListingStatus;
   photoId: string | null;
+  /** Where the author suggests meeting; null when the listing names no place. */
+  place: ListingPlace | null;
 }
 
 /** What readers see of a listing's author. */
@@ -37,6 +40,7 @@ export interface NewListing {
   title: string;
   description: string;
   date: string;
+  place?: ListingPlace;
 }
 
 /** A new row as the repository stores it. */

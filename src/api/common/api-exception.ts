@@ -15,6 +15,7 @@ const errorStatus: Record<ErrorCode, number> = {
   EVENT_CANCELLED: 422,
   EVENT_ENDS_BEFORE_START: 422,
   VENUE_OUTSIDE_CITY: 422,
+  PLACE_OUTSIDE_CITY: 422,
   APPLICATIONS_CLOSED: 422,
   INVALID_SESSION_DAY: 422,
   LISTING_DATE_IN_PAST: 422,
@@ -40,6 +41,7 @@ const errorStatus: Record<ErrorCode, number> = {
   INTERNAL_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
   PHONE_CODES_UNAVAILABLE: 503,
+  PLACE_LOOKUP_UNAVAILABLE: 503,
 };
 
 /** Thrown anywhere in the API; ApiExceptionFilter turns it into an ErrorResponse. */

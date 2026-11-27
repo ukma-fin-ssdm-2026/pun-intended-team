@@ -46,6 +46,7 @@ function aListing(overrides: Partial<Listing> = {}): Listing {
     date: '2026-10-22',
     status: 'active',
     photoId: null,
+    place: null,
     ...overrides,
   };
 }
@@ -179,9 +180,35 @@ describe('ListingsService.create', () => {
     const result = await service.create(ACCOUNT_ID, input);
 
     assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments, [
-      { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null },
+      { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null, place: null },
     ]);
     assert.deepEqual(result.author, { ...anAuthor(), photo: null });
+  });
+
+  test('stores the place picked on the map', async () => {
+    const { service, listingsRepository } = makeService();
+    const place = {
+      name: 'Мистецький Арсенал',
+      address: 'вулиця Лаврська, 10',
+      location: { lat: 50.4357, lng: 30.5555 },
+    };
+
+    const result = await service.create(ACCOUNT_ID, aNewListing({ place }));
+
+    assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments[0]?.place, place);
+    assert.deepEqual(result.place, place);
+  });
+
+  test('rejects a place outside Kyiv with PLACE_OUTSIDE_CITY', async () => {
+    const { service, listingsRepository } = makeService();
+    const place = { name: 'Lviv Opera', address: '', location: { lat: 49.8441, lng: 24.0262 } };
+
+    await assert.rejects(
+      service.create(ACCOUNT_ID, aNewListing({ place })),
+      (error: unknown) =>
+        error instanceof DomainError && error.code === 'PLACE_OUTSIDE_CITY' && error.field === 'place.location',
+    );
+    assert.equal(listingsRepository.create.mock.callCount(), 0);
   });
 
   test('stores a listing without an event with eventId null and does not look one up', async () => {

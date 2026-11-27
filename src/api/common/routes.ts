@@ -48,6 +48,9 @@ export const Routes = {
     byId: '/api/v1/listings/{id}',
     photo: '/api/v1/listings/{id}/photo',
   },
+  places: {
+    reverse: '/api/v1/places/reverse',
+  },
   images: {
     byId: '/api/v1/images/{id}',
   },
