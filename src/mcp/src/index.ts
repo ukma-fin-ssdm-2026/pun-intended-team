@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
- * Generated on: 2026-11-27T08:51:03.932Z
+ * Generated on: 2026-11-27T09:30:49.075Z
  */
 
 import { existsSync } from 'node:fs';
@@ -490,6 +490,96 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["requestToJoinListing", {
+    name: "requestToJoinListing",
+    title: "Ask to join a listing",
+    description: `"Хочу піти": ask the author of someone else’s active listing to go together. The author gets a \`listing_request\` notification. One request per listing; a second one is \`409 ALREADY_REQUESTED\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/listings/{id}/requests",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyListingRequests", {
+    name: "listMyListingRequests",
+    title: "List requests to join your listings",
+    description: `Requests on the caller’s listings, pending first, newest first, with each requester’s public profile but no contacts. Pending requests on a removed listing are left out. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/me/listing-requests",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["getListingRequest", {
+    name: "getListingRequest",
+    title: "Get a listing request",
+    description: `One request, for its requester or the listing’s author, with both public profiles but no contacts. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing request id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/listing-requests/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["acceptListingRequest", {
+    name: "acceptListingRequest",
+    title: "Accept a request to join your listing",
+    description: `The listing’s author accepts a pending request. The requester gets a \`listing_request_accepted\` notification, and both can read each other’s contacts with \`getListingRequestContacts\`. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing request id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/listing-requests/{id}/accept",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["declineListingRequest", {
+    name: "declineListingRequest",
+    title: "Decline a request to join your listing",
+    description: `The listing’s author declines a pending request. The requester gets no notification. Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing request id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/listing-requests/{id}/decline",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["getListingRequestContacts", {
+    name: "getListingRequestContacts",
+    title: "Get the contacts of an accepted listing request",
+    description: `How to reach the other side, once the author accepted: the requester for the author, the author for the requester. Before that, and after a decline, the answer is \`404\`, as for a request that does not exist (SEC-001). An accepted request answers \`422\` until the caller has acknowledged the safety notice with \`acknowledgeSafetyNotice\` (SAFE-002). Needs a signed-in account; a guest token gets 401.
+(Tags: Listings)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Listing request id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/listing-requests/{id}/contacts",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Listings"],
     deprecated: false,
     annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],

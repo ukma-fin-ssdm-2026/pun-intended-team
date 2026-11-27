@@ -246,6 +246,8 @@ components:
         - PROFILE_EXISTS
         - PROFILE_INCOMPLETE
         - ALREADY_APPLIED
+        - ALREADY_REQUESTED
+        - CANNOT_REQUEST_OWN_LISTING
         - SAFETY_NOTICE_REQUIRED
         - CONTACT_REQUIRED
         - INVALID_SOCIAL_HANDLE
@@ -1898,6 +1900,455 @@ components:
       additionalProperties: false
       example:
         refreshToken: <session id>.<secret>
+    ListingRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ListingRequestStatus'
+        role:
+          type: string
+          enum:
+            - author
+            - requester
+          description: >-
+            The caller’s side: the listing’s author, or the user who asked to
+            join it
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: string
+          nullable: true
+          format: date-time
+          description: When the author answered; null while pending
+        listing:
+          $ref: '#/components/schemas/ListingRequestListing'
+        requester:
+          type: object
+          properties:
+            username:
+              type: string
+            displayName:
+              type: string
+            description:
+              type: string
+            occupation:
+              type: string
+            age:
+              type: integer
+              description: Whole years
+            interests:
+              type: array
+              items:
+                $ref: '#/components/schemas/Interest'
+            photo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: The avatar; null shows the initial
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+            cover:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+                crop:
+                  type: object
+                  properties:
+                    left:
+                      type: integer
+                    top:
+                      type: integer
+                    width:
+                      type: integer
+                    height:
+                      type: integer
+                  required:
+                    - left
+                    - top
+                    - width
+                    - height
+                  description: >-
+                    The area the user picked (390:200). A screen of another
+                    shape shows more of the picture around it, or less
+              required:
+                - id
+                - width
+                - height
+                - crop
+              description: null shows the default gradient
+              example:
+                id: 6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d
+                width: 2560
+                height: 1920
+                crop:
+                  left: 0
+                  top: 640
+                  width: 2560
+                  height: 1313
+          required:
+            - username
+            - displayName
+            - description
+            - occupation
+            - age
+            - interests
+            - photo
+            - cover
+          description: Who asked to join
+        author:
+          type: object
+          properties:
+            username:
+              type: string
+            displayName:
+              type: string
+            description:
+              type: string
+            occupation:
+              type: string
+            age:
+              type: integer
+              description: Whole years
+            interests:
+              type: array
+              items:
+                $ref: '#/components/schemas/Interest'
+            photo:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+              required:
+                - id
+                - width
+                - height
+              description: The avatar; null shows the initial
+              example:
+                id: 4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d
+                width: 512
+                height: 512
+            cover:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Get the picture with getImage
+                width:
+                  type: integer
+                height:
+                  type: integer
+                crop:
+                  type: object
+                  properties:
+                    left:
+                      type: integer
+                    top:
+                      type: integer
+                    width:
+                      type: integer
+                    height:
+                      type: integer
+                  required:
+                    - left
+                    - top
+                    - width
+                    - height
+                  description: >-
+                    The area the user picked (390:200). A screen of another
+                    shape shows more of the picture around it, or less
+              required:
+                - id
+                - width
+                - height
+                - crop
+              description: null shows the default gradient
+              example:
+                id: 6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d
+                width: 2560
+                height: 1920
+                crop:
+                  left: 0
+                  top: 640
+                  width: 2560
+                  height: 1313
+          required:
+            - username
+            - displayName
+            - description
+            - occupation
+            - age
+            - interests
+            - photo
+            - cover
+          description: Who posted the listing
+      required:
+        - id
+        - status
+        - role
+        - createdAt
+        - decidedAt
+        - listing
+        - requester
+        - author
+      description: >-
+        A user’s request to join a listing, as its author or the requester sees
+        it
+      example:
+        id: 3b5d7f9a-1c2e-4a6b-8d0f-2a4c6e8b0d13
+        status: pending
+        role: author
+        createdAt: '2026-10-15T12:00:00.000Z'
+        decidedAt: null
+        listing:
+          id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+          title: Looking for company for an exhibition on Saturday
+          date: '2026-10-17'
+          place:
+            name: Мистецький Арсенал
+            address: вулиця Лаврська, 10-12, Печерський район
+            location:
+              lat: 50.4357
+              lng: 30.5555
+          eventId: null
+        requester:
+          username: taras_m
+          displayName: Тарас
+          description: Exhibitions and long walks.
+          occupation: Designer
+          age: 25
+          interests:
+            - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+              name: Книги
+              group: Книги й комікси
+          photo: null
+          cover: null
+        author:
+          username: olena_k
+          displayName: Olena
+          description: Exhibitions and long walks.
+          occupation: Designer
+          age: 24
+          interests:
+            - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+              name: Книги
+              group: Книги й комікси
+          photo: null
+          cover: null
+    ListingRequestStatus:
+      type: string
+      enum:
+        - pending
+        - accepted
+        - declined
+      description: >-
+        `pending`: waiting for the author. `accepted`: the author accepted, both
+        see each other’s contacts. `declined`: the author declined; the
+        requester gets no notification, and the app keeps showing the request as
+        sent
+    ListingRequestListing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        place:
+          $ref: '#/components/schemas/ListingPlace'
+        eventId:
+          type: string
+          nullable: true
+          format: uuid
+          description: The catalog event the listing is about, if any
+      required:
+        - id
+        - title
+        - date
+        - place
+        - eventId
+      description: The listing a request is about
+    ListingPlace:
+      type: object
+      nullable: true
+      properties:
+        name:
+          type: string
+          description: The place or the building, else the street and the house
+        address:
+          type: string
+          description: Street, house and district; may be empty
+        location:
+          $ref: '#/components/schemas/Point'
+      required:
+        - name
+        - address
+        - location
+      description: >-
+        Where the author suggests meeting, picked on the map; not a catalog
+        venue
+    Point:
+      type: object
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude, WGS 84
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude, WGS 84
+      required:
+        - lat
+        - lng
+      description: A point on the map
+    ListingRequestsPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingRequest'
+        page:
+          $ref: '#/components/schemas/PageInfo'
+      required:
+        - items
+        - page
+      example:
+        items:
+          - id: 3b5d7f9a-1c2e-4a6b-8d0f-2a4c6e8b0d13
+            status: pending
+            role: author
+            createdAt: '2026-10-15T12:00:00.000Z'
+            decidedAt: null
+            listing:
+              id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
+              title: Looking for company for an exhibition on Saturday
+              date: '2026-10-17'
+              place:
+                name: Мистецький Арсенал
+                address: вулиця Лаврська, 10-12, Печерський район
+                location:
+                  lat: 50.4357
+                  lng: 30.5555
+              eventId: null
+            requester:
+              username: taras_m
+              displayName: Тарас
+              description: Exhibitions and long walks.
+              occupation: Designer
+              age: 25
+              interests:
+                - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+                  name: Книги
+                  group: Книги й комікси
+              photo: null
+              cover: null
+            author:
+              username: olena_k
+              displayName: Olena
+              description: Exhibitions and long walks.
+              occupation: Designer
+              age: 24
+              interests:
+                - id: b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01
+                  name: Книги
+                  group: Книги й комікси
+              photo: null
+              cover: null
+        page:
+          limit: 20
+          offset: 0
+          hasMore: false
+    MatchContacts:
+      type: object
+      properties:
+        phone:
+          type: string
+          nullable: true
+          description: Only if they share it; null while sign-in is Google-only
+        linkedAccounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedAccount'
+      required:
+        - phone
+        - linkedAccounts
+      description: How to reach the other user of a mutual match (FR-019)
+      example:
+        phone: null
+        linkedAccounts:
+          - network: telegram
+            username: olena_k
+            url: https://t.me/olena_k
+    LinkedAccount:
+      type: object
+      properties:
+        network:
+          $ref: '#/components/schemas/SocialNetwork'
+        username:
+          type: string
+          description: The handle, without "@"; for WhatsApp, the phone number digits
+        url:
+          type: string
+          description: The profile link a mutual match opens
+      required:
+        - network
+        - username
+        - url
+      description: A social network the user shares with a mutual match
+      example:
+        network: telegram
+        username: olena_k
+        url: https://t.me/olena_k
+    SocialNetwork:
+      type: string
+      enum:
+        - telegram
+        - instagram
+        - whatsapp
+        - tiktok
+        - facebook
+      description: A social network whose handle a mutual match sees
     ListingsPage:
       type: object
       properties:
@@ -1932,6 +2383,7 @@ components:
               location:
                 lat: 50.4357
                 lng: 30.5555
+            myRequest: null
         page:
           limit: 20
           offset: 0
@@ -1998,6 +2450,21 @@ components:
             - address
             - location
           description: Null when the listing names no place
+        myRequest:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            status:
+              $ref: '#/components/schemas/ListingRequestStatus'
+          required:
+            - id
+            - status
+          description: >-
+            The caller’s own request to join this listing; null without one, and
+            always on the caller’s own listing
       required:
         - id
         - author
@@ -2009,6 +2476,7 @@ components:
         - status
         - photo
         - place
+        - myRequest
       description: A "looking for company" post
       example:
         id: 9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09
@@ -2031,6 +2499,7 @@ components:
           location:
             lat: 50.4357
             lng: 30.5555
+        myRequest: null
     ListingAuthor:
       type: object
       properties:
@@ -2050,23 +2519,6 @@ components:
       enum:
         - active
         - removed
-    Point:
-      type: object
-      properties:
-        lat:
-          type: number
-          minimum: -90
-          maximum: 90
-          description: Latitude, WGS 84
-        lng:
-          type: number
-          minimum: -180
-          maximum: 180
-          description: Longitude, WGS 84
-      required:
-        - lat
-        - lng
-      description: A point on the map
     CreateListingBody:
       type: object
       properties:
@@ -2623,56 +3075,6 @@ components:
         are open. `declined`: one of the two declined. `expired`: not answered
         in time. `cancelled`: one of the two withdrew, the event was cancelled
         or a user was banned
-    MatchContacts:
-      type: object
-      properties:
-        phone:
-          type: string
-          nullable: true
-          description: Only if they share it; null while sign-in is Google-only
-        linkedAccounts:
-          type: array
-          items:
-            $ref: '#/components/schemas/LinkedAccount'
-      required:
-        - phone
-        - linkedAccounts
-      description: How to reach the other user of a mutual match (FR-019)
-      example:
-        phone: null
-        linkedAccounts:
-          - network: telegram
-            username: olena_k
-            url: https://t.me/olena_k
-    LinkedAccount:
-      type: object
-      properties:
-        network:
-          $ref: '#/components/schemas/SocialNetwork'
-        username:
-          type: string
-          description: The handle, without "@"; for WhatsApp, the phone number digits
-        url:
-          type: string
-          description: The profile link a mutual match opens
-      required:
-        - network
-        - username
-        - url
-      description: A social network the user shares with a mutual match
-      example:
-        network: telegram
-        username: olena_k
-        url: https://t.me/olena_k
-    SocialNetwork:
-      type: string
-      enum:
-        - telegram
-        - instagram
-        - whatsapp
-        - tiktok
-        - facebook
-      description: A social network whose handle a mutual match sees
     AdminOrganizationsPage:
       type: object
       properties:
@@ -3198,7 +3600,10 @@ components:
             application that changed as `{ from, to }`, where `to` is the new
             start or null when the day is no longer on, `applicationCancelled`,
             true when the change cancelled the application, and `match` `{ id,
-            cancelled }` when the application has a mutual match
+            cancelled }` when the application has a mutual match.
+            `listing_request` and `listing_request_accepted`:
+            `listingRequestId`, `listingId` and `displayName`, the requester’s
+            or the author’s
         readAt:
           type: string
           nullable: true
@@ -3233,9 +3638,13 @@ components:
         - event_reminder
         - event_changed
         - report_received
+        - listing_request
+        - listing_request_accepted
       description: >-
         What the notification is about; the app picks the text by it.
-        `report_received`: a report was filed
+        `report_received`: a report was filed. `listing_request`: someone asked
+        to join the caller’s listing. `listing_request_accepted`: the author
+        accepted the caller’s request; a decline sends nothing
     RegisterPushTokenBody:
       type: object
       properties:
@@ -5645,6 +6054,343 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: No image with this id, or a guest asked for a picture of a person
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listings/{id}/requests:
+    post:
+      operationId: requestToJoinListing
+      summary: Ask to join a listing
+      description: >-
+        "Хочу піти": ask the author of someone else’s active listing to go
+        together. The author gets a `listing_request` notification. One request
+        per listing; a second one is `409 ALREADY_REQUESTED`. Needs a signed-in
+        account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing id
+          required: true
+          description: Listing id
+          name: id
+          in: path
+      responses:
+        '201':
+          description: The caller’s request, `pending`
+          headers:
+            Location:
+              description: URL of the created object
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingRequest'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No active listing with this id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`ALREADY_REQUESTED`: the caller has already asked to join it.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `CANNOT_REQUEST_OWN_LISTING`: the listing is the caller’s own.
+            `PROFILE_INCOMPLETE`: the profile lacks a communication format, a
+            gender, an interest or a linked account; the app sends the user to
+            complete it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/me/listing-requests:
+    get:
+      operationId: listMyListingRequests
+      summary: List requests to join your listings
+      description: >-
+        Requests on the caller’s listings, pending first, newest first, with
+        each requester’s public profile but no contacts. Pending requests on a
+        removed listing are left out. Needs a signed-in account; a guest token
+        gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 20
+            description: Items per page, at most 20
+          required: false
+          description: Items per page, at most 20
+          name: limit
+          in: query
+        - schema:
+            type: integer
+            nullable: true
+            minimum: 0
+            default: 0
+            description: Items to skip
+          required: false
+          description: Items to skip
+          name: offset
+          in: query
+      responses:
+        '200':
+          description: A page of requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingRequestsPage'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listing-requests/{id}:
+    get:
+      operationId: getListingRequest
+      summary: Get a listing request
+      description: >-
+        One request, for its requester or the listing’s author, with both public
+        profiles but no contacts. Needs a signed-in account; a guest token gets
+        401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing request id
+          required: true
+          description: Listing request id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingRequest'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            No such request, the caller is neither its requester nor the
+            listing’s author, or it was pending on a listing that has since been
+            removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listing-requests/{id}/accept:
+    post:
+      operationId: acceptListingRequest
+      summary: Accept a request to join your listing
+      description: >-
+        The listing’s author accepts a pending request. The requester gets a
+        `listing_request_accepted` notification, and both can read each other’s
+        contacts with `getListingRequestContacts`. Needs a signed-in account; a
+        guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing request id
+          required: true
+          description: Listing request id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The request, `accepted`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingRequest'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            No such request, the caller is neither its requester nor the
+            listing’s author, or it was pending on a listing that has since been
+            removed; or the caller is not the listing’s author
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`CONFLICT`: the author has already accepted or declined the request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listing-requests/{id}/decline:
+    post:
+      operationId: declineListingRequest
+      summary: Decline a request to join your listing
+      description: >-
+        The listing’s author declines a pending request. The requester gets no
+        notification. Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing request id
+          required: true
+          description: Listing request id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The request, `declined`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingRequest'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: >-
+            No such request, the caller is neither its requester nor the
+            listing’s author, or it was pending on a listing that has since been
+            removed; or the caller is not the listing’s author
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: '`CONFLICT`: the author has already accepted or declined the request.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/listing-requests/{id}/contacts:
+    get:
+      operationId: getListingRequestContacts
+      summary: Get the contacts of an accepted listing request
+      description: >-
+        How to reach the other side, once the author accepted: the requester for
+        the author, the author for the requester. Before that, and after a
+        decline, the answer is `404`, as for a request that does not exist
+        (SEC-001). An accepted request answers `422` until the caller has
+        acknowledged the safety notice with `acknowledgeSafetyNotice`
+        (SAFE-002). Needs a signed-in account; a guest token gets 401.
+      tags:
+        - Listings
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            description: Listing request id
+          required: true
+          description: Listing request id
+          name: id
+          in: path
+      responses:
+        '200':
+          description: The other side’s contacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchContacts'
+        '400':
+          description: The request is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: No access token, or an invalid or expired one
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No accepted request with this id that the caller is part of
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: >-
+            `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety
+            notice yet.
           content:
             application/json:
               schema:
