@@ -22,6 +22,7 @@ package "core (business logic)" as CORE {
       +stats()
       +list(query, page)
       +listOwn(accountId, page)
+      +listByOrganization(organizationId, page)
       +search(filter, page)
       +getOverview(id)
       +find(id)
@@ -48,6 +49,7 @@ package "core (business logic)" as CORE {
     }
     class OrganizationsService {
       +getOwn(accountId)
+      +getPublic(accountId)
       +request(accountId, request)
       +find(accountId)
       +listRequests(filter, page)
@@ -128,6 +130,12 @@ package "core (business logic)" as CORE {
       +create(listing)
       +markRemoved(id)
       +setPhoto(id, imageId, tx)
+    }
+    class PlacesService {
+      +describe(point)
+    }
+    abstract class PlaceLookup {
+      +describe(point)
     }
   }
   package matching {
@@ -212,6 +220,7 @@ VenuesService --> VenuesRepository
 VenuesService --> OrganizationsRepository
 ImportFreshnessService --> ImportRunsRepository
 ListingsService --> ListingsRepository
+PlacesService --> PlaceLookup
 ListingsService --> CategoriesService
 ListingsService --> EventsService
 ListingsService --> ProfilesService

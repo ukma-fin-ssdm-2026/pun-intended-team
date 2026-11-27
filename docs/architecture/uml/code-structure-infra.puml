@@ -48,6 +48,7 @@ package "core: repositories and adapters (methods on code-structure-core-*)" as 
   abstract class PushProvider <<other diagram>>
   abstract class ImagesRepository <<other diagram>>
   abstract class ImageProcessor <<other diagram>>
+  abstract class PlaceLookup <<other diagram>>
 }
 
 package "infra (InfraModule, global)" as INFRA {
@@ -115,6 +116,9 @@ package "infra (InfraModule, global)" as INFRA {
   package images {
     class SharpImageProcessor
   }
+  package geocoding {
+    class NominatimPlaceLookup
+  }
   package jobs {
     class PgBossJobQueue {
       +whenStarted()
@@ -129,6 +133,7 @@ SessionsRepository <|.. PrismaSessionsRepository
 ProfilesRepository <|.. PrismaProfilesRepository
 ImagesRepository <|.. PrismaImagesRepository
 ImageProcessor <|.. SharpImageProcessor
+PlaceLookup <|.. NominatimPlaceLookup
 InterestsRepository <|.. PrismaInterestsRepository
 EventsRepository <|.. PrismaEventsRepository
 EventSessionsRepository <|.. PrismaEventSessionsRepository

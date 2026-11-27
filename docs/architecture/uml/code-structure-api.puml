@@ -77,6 +77,8 @@ package "api/catalog" as API_catalog {
     +deleteCategory()
   }
   class OrganizationsController {
+    +getOrganization()
+    +listOrganizationEvents()
     +getMyOrganization()
     +requestOrganizationStatus()
     +uploadOrganizationLogo()
@@ -104,6 +106,9 @@ package "api/listings" as API_listings {
     +deleteListing()
     +uploadListingPhoto()
     +deleteListingPhoto()
+  }
+  class PlacesController {
+    +reversePlace()
   }
 }
 package "api/matching" as API_matching {
@@ -170,6 +175,7 @@ package "core services (methods on code-structure-core-*)" as CORE {
   class VenuesService <<other diagram>>
   class ImportFreshnessService <<other diagram>>
   class ListingsService <<other diagram>>
+  class PlacesService <<other diagram>>
   class ImagesService <<other diagram>>
   class ApplicationsService <<other diagram>>
   class StatsService <<other diagram>>
@@ -192,10 +198,12 @@ EventsController --> ImportFreshnessService
 CategoriesController --> CategoriesService
 AdminCategoriesController --> CategoriesService
 OrganizationsController --> OrganizationsService
+OrganizationsController --> EventsService
 VenuesController --> VenuesService
 AdminEventsController --> EventsService
 AdminVenuesController --> VenuesService
 ListingsService <-- ListingsController
+PlacesService <-- PlacesController
 ApplicationsService <-- ApplicationsController
 ModerationService <-- ReportsController
 ModerationService <-- AdminReportCasesController

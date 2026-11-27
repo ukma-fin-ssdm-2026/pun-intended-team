@@ -107,6 +107,7 @@ package "catalog" {
     * name : text
     description : text
     official_link : text
+    instagram : text
     * verification_status : pending | verified | rejected | revoked
     verified_by : uuid <<FK>>
     verified_at : timestamptz
@@ -243,6 +244,10 @@ package "listings" {
     * date : date
     * status : active | removed
     photo_id : uuid <<FK, UK>>
+    place_name : text
+    place_address : text
+    place_latitude : decimal(9,6)
+    place_longitude : decimal(9,6)
   }
 }
 

@@ -39,12 +39,13 @@ An event in the city that users can go to together. It is posted by a verified o
 | `priceMin`, `priceMax` | integer \| null | The ticket price in whole hryvnias. Both `null`: the price is unknown, and the event page shows no price. `priceMin` alone: one price. `priceMin` 0 and `priceMax` `null` or 0: free. Both set: a range from `priceMin` to `priceMax`, which is never below it. An imported event takes them from its provider, rounded with `Math.round`; an ArtWizard event written as 0 to 0 gets an unknown price, since ArtWizard writes that for paid events too ([ADR-006](../architecture/decisions/ADR-006.md), decision 12). In the `POST` and `PUT` bodies they are optional, from 0 to 1 000 000; `priceMax` needs `priceMin` and must not be below it (`400` otherwise) |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
+| `organizer` | `{ id, name, logo }` or `null` | The organization that published the event, while it is verified; `id` is its account id, for `GET /organizations/{id}`. `null` for imported events and while the organization is not verified |
 
 The app shows the price as a tag on the cover of the event page, not on the event card (`priceLabel` in `app/src/price.ts`): "450 ₴" for one price, or for `priceMax` equal to `priceMin`; "300–700 ₴" for a range, with an en dash and no spaces around it, also from free ("0–500 ₴"); "Безкоштовно" for a free event; no tag for an unknown price. Thousands are separated with a non-breaking space ("1 200–2 500 ₴"), and the space before "₴" is non-breaking too.
 
 Related to: Category, Venue, Organization (none for imported events), Listing.
 
-Not exposed: organizer contacts and the number of applicants or attendees (catalog access, rule 1).
+Not exposed: organizer contacts (beyond the public site and Instagram on its page) and the number of applicants or attendees (catalog access, rule 1).
 
 ### Listing
 
@@ -63,6 +64,7 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `date` | date | |
 | `status` | `active` \| `removed` | Only `active` listings are returned to users |
 | `photo` | `{ id, width, height }` or `null` | Cut to 2:1; the picture comes from `GET /images/{id}` |
+| `place` | `{ name, address, location: { lat, lng } }` or `null` | Where the author suggests meeting, picked on the map (Д2.1). Kept on the listing, not a catalog venue. In `POST`: optional; all three fields or none (`400` otherwise), `name` 1–100 characters, `address` up to 200 and may be empty, and the point must be in Kyiv (`422 PLACE_OUTSIDE_CITY`) |
 
 Related to: Account (author), Category, Event, Image.
 
@@ -165,7 +167,7 @@ Related to: Event, Listing.
 
 ### Organization
 
-**Base paths:** `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
+**Base paths:** `/api/v1/organizations/{id}` (a verified organization's public page), `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
 
 A regular account asks to become an organization; only a verified organization publishes events (FR-003, FR-009). The request waits as `pending` until an administrator verifies or rejects it.
 
@@ -174,10 +176,13 @@ A regular account asks to become an organization; only a verified organization p
 | `name` | string | 1–100 characters |
 | `description` | string or `null` | 1–1000 characters in a request; `null` only for organizations added in the database |
 | `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
+| `instagram` | string or `null` | The Instagram username without "@". A request takes it optionally as a username with or without "@" or an `instagram.com` profile link and keeps the bare username, up to 30 letters, digits, underscores or single dots (`422 INVALID_SOCIAL_HANDLE` otherwise); empty or `null` for none |
 | `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
 | `verifiedAt` | date-time or `null` | Set when verified |
 | `logo` | `{ id, width, height }` or `null` | A square shown as a circle |
 | `accountId`, `account` | UUID, `{ id, username, displayName }` | Admin responses only: the account that sent the request |
+
+The public page (`PublicOrganization`) has only `id` (the account id), `name`, `description`, `officialLink`, `instagram` and `logo`. Not exposed there: the account, its phone and username, the verification status and dates, and who verified it.
 
 Related to: Account (the organization's account, the administrator who verified it), Event, Venue.
 
@@ -277,8 +282,10 @@ Dates are clamped because a user scrolling the date picker too far should just s
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
+| `GET` | `/api/v1/organizations/{id}` | Anyone with a guest or user token | `200` the verified organization | `400`, `401`, `404` |
+| `GET` | `/api/v1/organizations/{id}/events` | Anyone with a guest or user token | `200` a page of its events | `400`, `401`, `404` |
 | `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
-| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
+| `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409`, `422` |
 | `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
 | `GET` | `/api/v1/admin/organizations/{accountId}` | Administrator | `200` the request with its account | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
@@ -286,7 +293,9 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `PUT` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `401`, `404` |
 
-`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+`GET /organizations/{id}` and `GET /organizations/{id}/events` are the organizer page: an organization that is not verified (pending, rejected, revoked) or an account without one is `404`, so a pending request stays private. The events are its published ones that have not ended, soonest first, a page in the format of `GET /events` without `lastUpdatedAt`.
+
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required, and an optional `instagram`. Instagram is part of the request, so changing it follows the same rule: It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
 
 ### Venues
 
@@ -308,6 +317,9 @@ An organization publishes events only at its own venues (FR-009), so it adds the
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
 | `PUT` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404` |
+| `GET` | `/api/v1/places/reverse?lat&lng` | Signed-in user | `200` `{ name, address }` | `400`, `401`, `404`, `422`, `503` |
+
+`GET /places/reverse` names the point the Д2.1 place picker settles on: `name` is the place or the building there, else the street and the house; `address` is the street, the house and the district. It asks OpenStreetMap's Nominatim (`/reverse`, Ukrainian names, building zoom; data © OpenStreetMap contributors, ODbL) behind the `PlaceLookup` port, at most one request a second for the whole server as Nominatim's policy asks, and answers points it was asked about in the last day from memory (rounded to 5 decimals, about a metre). Nothing there is `404 NOT_FOUND`; a point outside Kyiv `422 PLACE_OUTSIDE_CITY`; Nominatim unreachable or failing `503 PLACE_LOOKUP_UNAVAILABLE`, and the app lets the user type the name. Guests cannot call it, since only a signed-in user posts listings.
 
 ### Matching
 
@@ -487,7 +499,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007), with `Retry-After` in seconds |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
-| `503 Service Unavailable` | `SERVICE_UNAVAILABLE`, `PHONE_CODES_UNAVAILABLE` | `SERVICE_UNAVAILABLE`: a database call ran out of time (no free connection, or a statement or lock wait over its limit); the cause is logged, never returned, and the client may retry later. `PHONE_CODES_UNAVAILABLE`: codes to phone numbers are paused |
+| `503 Service Unavailable` | `SERVICE_UNAVAILABLE`, `PHONE_CODES_UNAVAILABLE`, `PLACE_LOOKUP_UNAVAILABLE` | `SERVICE_UNAVAILABLE`: a database call ran out of time (no free connection, or a statement or lock wait over its limit); the cause is logged, never returned, and the client may retry later. `PHONE_CODES_UNAVAILABLE`: codes to phone numbers are paused. `PLACE_LOOKUP_UNAVAILABLE`: `GET /places/reverse` cannot reach OpenStreetMap |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
 
@@ -499,11 +511,12 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, no user has the reported username, or no active listing has the reported id. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `VENUE_OUTSIDE_CITY` | `POST /me/venues` | The venue's location is outside Kyiv |
+| `PLACE_OUTSIDE_CITY` | `POST /listings`, `GET /places/reverse` | The listing's place, or the point to name, is outside Kyiv; `details` names `place.location` or `lat` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `PUT` and `DELETE /events/{id}/photo`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have its cover changed, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
-| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
+| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts`, `PUT /me/organization` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` or `instagram` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
 | `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
