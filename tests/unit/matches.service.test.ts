@@ -106,8 +106,9 @@ function makeService(stored: MatchRecord | null = aMatch()) {
     getPublicProfiles: mock.fn<(accountIds: string[]) => Promise<Map<string, PublicProfile>>>(() =>
       Promise.resolve(new Map([[OTHER_ACCOUNT_ID, OTHER_PROFILE]])),
     ),
-    getContacts: mock.fn<(accountId: string) => Promise<Contacts>>(() => Promise.resolve(CONTACTS)),
-    hasAcknowledgedSafetyNotice: mock.fn<(accountId: string) => Promise<boolean>>(() => Promise.resolve(true)),
+    revealContacts: mock.fn<(viewerId: string, accountId: string) => Promise<Contacts>>(() =>
+      Promise.resolve(CONTACTS),
+    ),
   };
   const matchingService = {
     matchReturned: mock.fn<(applicationIds: string[]) => Promise<void>>(() => {
@@ -295,12 +296,13 @@ describe('MatchesService.decline', () => {
 
 // FR-019, SEC-001
 describe('MatchesService.getContacts', () => {
-  test('gives the other participant’s contacts once the match is mutual', async () => {
+  // SAFE-002: revealContacts holds them back until the caller has acknowledged the safety notice.
+  test('gives the other participant’s contacts once the match is mutual, after the safety notice', async () => {
     const { service, profilesService } = makeService(aMatch({ status: 'mutual' }));
 
     const contacts = await service.getContacts(ACCOUNT_ID, 'match-1');
 
-    assert.deepEqual(profilesService.getContacts.mock.calls[0]?.arguments, [OTHER_ACCOUNT_ID]);
+    assert.deepEqual(profilesService.revealContacts.mock.calls[0]?.arguments, [ACCOUNT_ID, OTHER_ACCOUNT_ID]);
     assert.deepEqual(contacts, CONTACTS);
   });
 
@@ -309,7 +311,7 @@ describe('MatchesService.getContacts', () => {
       const { service, profilesService } = makeService(aMatch({ status }));
 
       await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('NOT_FOUND'));
-      assert.equal(profilesService.getContacts.mock.callCount(), 0);
+      assert.equal(profilesService.revealContacts.mock.callCount(), 0);
     });
   }
 
@@ -317,22 +319,5 @@ describe('MatchesService.getContacts', () => {
     const { service } = makeService(aMatch({ status: 'mutual' }));
 
     await assert.rejects(service.getContacts(STRANGER_ID, 'match-1'), isDomainError('NOT_FOUND'));
-  });
-
-  // SAFE-002
-  test('holds the contacts back until the caller has acknowledged the safety notice', async () => {
-    const { service, profilesService } = makeService(aMatch({ status: 'mutual' }));
-    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
-
-    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('SAFETY_NOTICE_REQUIRED'));
-    assert.deepEqual(profilesService.hasAcknowledgedSafetyNotice.mock.calls[0]?.arguments, [ACCOUNT_ID]);
-    assert.equal(profilesService.getContacts.mock.callCount(), 0);
-  });
-
-  test('reports a match that is not mutual as missing, whether or not the notice was acknowledged', async () => {
-    const { service, profilesService } = makeService(aMatch({ status: 'accepted_a' }));
-    profilesService.hasAcknowledgedSafetyNotice.mock.mockImplementation(() => Promise.resolve(false));
-
-    await assert.rejects(service.getContacts(ACCOUNT_ID, 'match-1'), isDomainError('NOT_FOUND'));
   });
 });

@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
-import type { ApiImage } from '@/api/images';
+import type { ApiEventPhoto, ApiImage } from '@/api/images';
 import type { components } from '@/api/schema';
 import { ApiPicture } from '@/components/pictures/picture';
 import { EventCover } from '@/components/ui/event-cover';
@@ -71,7 +71,11 @@ export type MutualEvent = {
   title: string;
   startsAt: string;
   startTimeKnown: boolean;
+  // The line under the title; a listing shows its place, an event the reminder.
+  subtitle?: string;
+  // An imported event's image (`coverOf`) or a bundled one in the gallery; `photo`, an organization's upload, wins.
   cover?: ImageSource | number;
+  photo?: ApiEventPhoto | null;
 };
 
 type HeroProps = {
@@ -153,7 +157,8 @@ function ContactRow({ contact }: { contact: MutualContact }) {
 }
 
 type Props = HeroProps & {
-  onEventPress: () => void;
+  // Without it the event block is not a link: a listing with no catalog event.
+  onEventPress?: () => void;
 };
 
 export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack, onMore, onEventPress }: Props) {
@@ -193,23 +198,24 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
             {person.name} теж бачить твої контакти. Бігом домовляйтесь про зустріч!
           </Text>
           <Pressable
-            accessibilityRole="link"
+            accessibilityRole={onEventPress ? 'link' : undefined}
             accessibilityLabel={event.title}
+            disabled={!onEventPress}
             onPress={onEventPress}
             className="flex-row items-center gap-3 rounded-[20px] border border-border-default py-3 pl-3 pr-4"
           >
             <View className="size-11 overflow-hidden rounded-xl">
-              <EventCover cover={event.cover} />
+              <EventCover cover={event.cover} photo={event.photo} />
             </View>
             <View className="flex-1 gap-0.5">
               <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
                 {event.title}
               </Text>
               <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
-                Нагадаємо за день до події
+                {event.subtitle ?? 'Нагадаємо за день до події'}
               </Text>
             </View>
-            <Icon name="arrow-right" size={20} color={colors.text.secondary} />
+            {onEventPress && <Icon name="arrow-right" size={20} color={colors.text.secondary} />}
           </Pressable>
         </View>
       </ScrollView>

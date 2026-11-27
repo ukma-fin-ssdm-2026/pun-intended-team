@@ -5,8 +5,7 @@ import { kyivDay, tomorrow, weekendDays, type KyivDay } from '@/dates';
 import type { EventQuery } from '@/hooks/use-events';
 import { createStore } from '@/state/store';
 
-// The API has no districts yet; only mock events have one.
-type FilterableEvent = components['schemas']['Event'] & { district?: string };
+type FilterableEvent = components['schemas']['Event'];
 
 export type When = 'today' | 'tomorrow' | 'weekend';
 
@@ -20,12 +19,11 @@ type CatalogFilters = {
   when: When | null;
   // Days picked in Д1.1 that are not one of the quick choices; set only while `when` is null.
   dates: DateRange | null;
-  districts: string[];
   // "Поруч зі мною" after Д1.2 "Дозволити"; there is no location yet, so it does not narrow the list.
   nearMe: boolean;
 };
 
-const empty: CatalogFilters = { query: '', categoryIds: [], when: null, dates: null, districts: [], nearMe: false };
+const empty: CatalogFilters = { query: '', categoryIds: [], when: null, dates: null, nearMe: false };
 
 const store = createStore<CatalogFilters>(empty);
 
@@ -61,13 +59,9 @@ export function setNearMe(nearMe: boolean) {
   store.set({ nearMe });
 }
 
-export function toggleDistrict(district: string) {
-  store.set(({ districts }) => ({ districts: toggle(districts, district) }));
-}
-
 // "Скинути" clears the sheet; the search text stays.
 export function resetFilters() {
-  store.set({ categoryIds: [], when: null, dates: null, districts: [], nearMe: false });
+  store.set({ categoryIds: [], when: null, dates: null, nearMe: false });
 }
 
 export function daysOf(when: When, now = new Date()): KyivDay[] {
@@ -88,8 +82,8 @@ export function whenOf(range: DateRange, now = new Date()): When | null {
   );
 }
 
-// What the API can narrow by: a single category and the days. The search text, several categories and the districts
-// are left to `filterEvents`, which sees only the pages loaded so far.
+// What the API can narrow by: a single category and the days. The search text and several categories are left to
+// `filterEvents`, which sees only the pages loaded so far.
 export function eventQuery(filters: CatalogFilters, now = new Date()): EventQuery {
   const days = filters.when ? daysOf(filters.when, now) : filters.dates ? [filters.dates.from, filters.dates.to] : [];
   return {
@@ -99,7 +93,6 @@ export function eventQuery(filters: CatalogFilters, now = new Date()): EventQuer
   };
 }
 
-// An event without a district matches no district, so picking one in "Де" hides it.
 export function filterEvents<T extends FilterableEvent>(events: T[], filters: CatalogFilters, now = new Date()): T[] {
   const search = filters.query.trim().toLocaleLowerCase('uk');
   const days = filters.when ? daysOf(filters.when, now) : undefined;
@@ -108,8 +101,7 @@ export function filterEvents<T extends FilterableEvent>(events: T[], filters: Ca
       (!search || event.title.toLocaleLowerCase('uk').includes(search)) &&
       (filters.categoryIds.length === 0 || filters.categoryIds.includes(event.category.id)) &&
       (!days || overlaps(event, { from: days[0], to: days[days.length - 1] })) &&
-      (!filters.dates || overlaps(event, filters.dates)) &&
-      (filters.districts.length === 0 || (!!event.district && filters.districts.includes(event.district))),
+      (!filters.dates || overlaps(event, filters.dates)),
   );
 }
 

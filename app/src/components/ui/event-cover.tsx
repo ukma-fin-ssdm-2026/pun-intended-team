@@ -22,11 +22,6 @@ export function coverOf(imageUrl: string | null | undefined): ImageSource | unde
   return imageUrl ? { uri: imageUrl } : undefined;
 }
 
-// A mock event's bundled cover, else the image an API event links to: lists that mix both, like the saved events.
-export function eventCoverOf(event: { cover?: ImageSource; imageUrl: string | null }): ImageSource | undefined {
-  return event.cover ?? coverOf(event.imageUrl);
-}
-
 // An event's cover image filling its frame. One that fails to load, e.g. removed by the provider, shows the gradient,
 // as an event without one does.
 export function EventCover({ cover, photo, gradient = 'cover', fallback }: Props) {

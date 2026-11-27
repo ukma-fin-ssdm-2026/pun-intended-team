@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { requestToJoinListing } from '@/api/listing-requests';
 import { deleteListing, type Listing } from '@/api/listings';
 import { failureMessage, failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
 import { DeletePostDialog } from '@/components/announcements/delete-post-dialog';
@@ -21,11 +22,11 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useListingLikes } from '@/hooks/use-listing-likes';
 import { useListings } from '@/hooks/use-listings';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import type { Post } from '@/mocks/announcements';
-import { usePostRequests } from '@/state/post-requests';
+import type { Post } from '@/components/announcements/post';
 import { openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -117,12 +118,11 @@ export default function AnnouncementsScreen() {
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
   const { announcementsEmpty, isGuest } = useSession();
-  const { lastPostId } = usePostRequests();
   const listings = useListings();
   const profile = useProfile();
   const { snackbar, show } = useSnackbar();
+  const toggleLike = useListingLikes(listings, show);
   const allPosts = (listings.data ?? []).map((listing) => listingToPost(listing, profile.data?.username));
-  const requestedPost = allPosts.find((post) => post.id === lastPostId);
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
   // The search button opens Т3.3 in place of the feed's header; its back button returns to the feed.
@@ -164,6 +164,30 @@ export default function AnnouncementsScreen() {
           ? { title: 'Допис видалено', note: 'Його більше не видно в стрічці' }
           : { tone: 'error', title: 'Допису вже немає', note: 'Стрічку оновлено' },
       );
+    } else {
+      show(failureSnackbar(result));
+    }
+  };
+
+  // "Хочу піти" (Т3.2). The request stays on the listing as `myRequest`, so the card keeps "Запит надіслано" after a
+  // reload. A request sent before, from another device, only refreshes the feed.
+  const requestToJoin = async (post: Post) => {
+    setSearching(false);
+    const result = await requestToJoinListing(post.id);
+    if (result.ok) {
+      const myRequest = { id: result.data.id, status: result.data.status };
+      listings.setData(
+        (listings.data ?? []).map((listing) => (listing.id === post.id ? { ...listing, myRequest } : listing)),
+      );
+      show({ title: 'Запит надіслано', note: `Дамо знати, щойно ${post.author.name} відповість.` });
+    } else if (result.code === 'ALREADY_REQUESTED') {
+      listings.reload();
+      show({ title: 'Запит уже надіслано', note: `Дамо знати, щойно ${post.author.name} відповість.` });
+    } else if (result.code === 'PROFILE_INCOMPLETE') {
+      show({ tone: 'error', title: 'Заповни профіль', note: 'Додай інтереси й контакт, щоб надіслати запит' });
+    } else if (result.status === 404) {
+      listings.reload();
+      show({ tone: 'error', title: 'Допису вже немає', note: 'Стрічку оновлено' });
     } else {
       show(failureSnackbar(result));
     }
@@ -297,7 +321,8 @@ export default function AnnouncementsScreen() {
                   setReport('form');
                 }}
                 onDelete={() => setDeleting(post)}
-                onRequest={() => setSearching(false)}
+                onRequest={requestToJoin}
+                onLike={(liked) => void toggleLike(liked)}
               />
               <View className="h-px bg-border-default" />
             </View>
@@ -305,13 +330,7 @@ export default function AnnouncementsScreen() {
         )}
       </ScrollView>
 
-      {snackbar ? (
-        <Snackbar {...snackbar} />
-      ) : (
-        requestedPost && (
-          <Snackbar title="Запит надіслано" note={`Дамо знати, щойно ${requestedPost.author.name} відповість.`} />
-        )
-      )}
+      {snackbar && <Snackbar {...snackbar} />}
 
       <DeletePostDialog
         visible={deleting !== undefined}

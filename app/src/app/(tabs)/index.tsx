@@ -117,7 +117,7 @@ export default function CatalogScreen() {
   const isChipSelected = (id: string | undefined) =>
     id ? filters.categoryIds.includes(id) : filters.categoryIds.length === 0;
   const loadedEvents = allEvents.data ?? [];
-  // Gap: the search text, several categories and "Де" filter only the pages loaded so far (catalog-access.md: no bulk
+  // Gap: the search text and several categories filter only the pages loaded so far (catalog-access.md: no bulk
   // access, so the app does not load the whole catalog to search it).
   const events = filterEvents(loadedEvents, filters);
 

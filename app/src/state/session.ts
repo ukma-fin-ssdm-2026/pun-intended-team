@@ -16,8 +16,6 @@ type Session = {
   catalogLoading: boolean;
   // The Оголошення tab as Т3.1 "Поки тут тихо".
   announcementsEmpty: boolean;
-  // Т5 as Т5.1: "Олена хоче піти з тобою" answers the user's post.
-  joinRequest: boolean;
   // "Увійди, щоб знайти компанію" (02.2) over the current screen.
   guestDialogOpen: boolean;
 };
@@ -29,7 +27,6 @@ const store = createStore<Session>({
   simulateLoading: true,
   catalogLoading: true,
   announcementsEmpty: false,
-  joinRequest: false,
   guestDialogOpen: false,
 });
 
@@ -60,10 +57,6 @@ export function setSimulateLoading(simulateLoading: boolean) {
 
 export function setAnnouncementsEmpty(announcementsEmpty: boolean) {
   store.set({ announcementsEmpty });
-}
-
-export function setJoinRequest(joinRequest: boolean) {
-  store.set({ joinRequest });
 }
 
 export function finishCatalogLoading() {

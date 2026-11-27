@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { SocialNetwork } from '../types/profile.ts';
+import type { SocialNetwork } from '../profiles/types/profile.ts';
 
 interface Rules {
   /** Hosts of a pasted profile link. */

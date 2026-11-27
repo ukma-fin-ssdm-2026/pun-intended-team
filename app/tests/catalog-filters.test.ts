@@ -7,7 +7,7 @@ import { anEvent } from './fixtures/events';
 
 type Filters = Parameters<typeof filterEvents>[1];
 
-const noFilters: Filters = { query: '', categoryIds: [], when: null, dates: null, districts: [], nearMe: false };
+const noFilters: Filters = { query: '', categoryIds: [], when: null, dates: null, nearMe: false };
 
 // Tuesday 10 November 2026, 12:00 in Kyiv.
 const now = new Date('2026-11-10T10:00:00Z');

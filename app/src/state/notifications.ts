@@ -41,8 +41,10 @@ export function unreadCount(notifications: Notification[]): number {
   return notifications.filter(({ readAt }) => readAt === null).length;
 }
 
+type Text = { title: string; text: string };
+
 // One line per type, as the push says it (push-content.ts on the server says only the general line for most types).
-const texts: Record<Notification['type'], { title: string; text: string }> = {
+const texts: Record<Exclude<Notification['type'], ListingRequestType>, Text> = {
   match_proposed: { title: 'Новий метч', text: 'Знайшли тобі компанію на подію.' },
   match_mutual: { title: 'Це взаємно!', text: 'Метч прийнято з обох боків. Контакти відкрито.' },
   respond_soon: { title: 'Час відповісти', text: 'Пропозиція скоро завершиться. Встигни відповісти.' },
@@ -58,6 +60,18 @@ const texts: Record<Notification['type'], { title: string; text: string }> = {
   report_received: { title: 'Скаргу отримано', text: 'Дякуємо. Модератор розгляне її найближчим часом.' },
 };
 
-export function notificationText({ type }: Notification): { title: string; text: string } {
+type ListingRequestType = 'listing_request' | 'listing_request_accepted';
+
+// Т5.1 names who asks, by the display name the payload carries; the API knows no grammatical gender for the verb.
+function listingRequestText(type: ListingRequestType, name: string): Text {
+  return type === 'listing_request'
+    ? { title: `${name} хоче піти з тобою`, text: 'Переглянь запит на своє оголошення.' }
+    : { title: `${name}: запит прийнято`, text: 'Контакти відкрито. Домовтеся про зустріч.' };
+}
+
+export function notificationText({ type, payload }: Notification): Text {
+  if (type === 'listing_request' || type === 'listing_request_accepted') {
+    return listingRequestText(type, typeof payload.displayName === 'string' ? payload.displayName : 'Хтось');
+  }
   return texts[type];
 }

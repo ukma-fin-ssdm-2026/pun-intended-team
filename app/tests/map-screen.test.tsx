@@ -73,6 +73,7 @@ beforeEach(() => {
     failure: undefined,
     loading: false,
     reload: jest.fn(),
+    updateData: jest.fn(),
     setData: () => {},
   }));
 });

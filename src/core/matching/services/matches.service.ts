@@ -87,10 +87,7 @@ export class MatchesService {
     if (match.status !== 'mutual') {
       throw new DomainError('NOT_FOUND', 'Match not found');
     }
-    if (!(await this.profilesService.hasAcknowledgedSafetyNotice(userId))) {
-      throw new DomainError('SAFETY_NOTICE_REQUIRED', 'Acknowledge the safety notice first');
-    }
-    return this.profilesService.getContacts(sidesOf(match, userId)!.other.userId);
+    return this.profilesService.revealContacts(userId, sidesOf(match, userId)!.other.userId);
   }
 
   /** Runs `work` on the current state of the match, under the event lock, so no answer crosses a round (rule 7). */

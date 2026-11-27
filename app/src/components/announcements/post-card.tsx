@@ -1,17 +1,16 @@
 // Written with the help of Claude
 // AI Usage: post of the Figma "Т3 Оголошення" feed; reviewed by Daryna Halytska.
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { ApiPicture } from '@/components/pictures/picture';
-import { EventCover } from '@/components/ui/event-cover';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
-import type { Post } from '@/mocks/announcements';
-import { findMockEvent } from '@/mocks/events';
-import { toggleLike, useLiked } from '@/state/post-likes';
-import { requestPost, usePostRequests } from '@/state/post-requests';
+import type { Post } from '@/components/announcements/post';
 import { colors } from '@/styles/tokens';
 
 type Props = {
@@ -19,14 +18,32 @@ type Props = {
   onReport: () => void;
   // The menu of the user's own post deletes it instead of reporting it.
   onDelete?: () => void;
-  // Called after "Хочу піти"; Т3.3 returns to the feed, which shows Т3.2.
-  onRequest?: () => void;
+  // "Хочу піти": the screen sends the request and shows Т3.2 or the failure. Т3.3 returns to the feed.
+  onRequest?: (post: Post) => Promise<void>;
+  // The heart: the screen turns it at once and asks the API.
+  onLike?: (post: Post) => void;
 };
 
-// The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано"; "Ти йдеш" is a
-// post the user already joined.
-function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void }) {
-  const requested = usePostRequests().postIds.includes(post.id);
+// The post action in Figma: "Хочу піти" sends a request (Т3.2), after which it reads "Запит надіслано", also once the
+// author declined, so a decline stays private. An accepted request opens 07 "Це взаємно!" with the author's contacts;
+// "Ти йдеш" is a post the user already joined.
+function JoinAction({ post, onRequest }: { post: Post; onRequest?: (post: Post) => Promise<void> }) {
+  const router = useRouter();
+  const [sending, setSending] = useState(false);
+  const request = post.myRequest;
+
+  if (request?.status === 'accepted') {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push({ pathname: '/mutual', params: { request: request.id } })}
+        className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral py-1.5 pl-2.5 pr-3"
+      >
+        <Icon name="check" size={16} color={colors.text['on-dark']} />
+        <Text className="font-inter-semibold text-tag text-text-on-dark">Запит прийнято</Text>
+      </Pressable>
+    );
+  }
 
   if (post.going) {
     return (
@@ -37,13 +54,17 @@ function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void })
     );
   }
 
+  const requested = request !== undefined;
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={requested}
-      onPress={() => {
-        requestPost(post.id);
-        onRequest?.();
+      disabled={requested || sending || !onRequest}
+      accessibilityState={{ disabled: requested || sending, busy: sending }}
+      onPress={async () => {
+        if (!onRequest) return;
+        setSending(true);
+        await onRequest(post);
+        setSending(false);
       }}
       // Figma's 1 px stroke lies inside the pill: the padding is 1 px less than its 6 / 10 / 12.
       className="flex-row items-center gap-1.5 rounded-2xl border border-border-default py-[5px] pl-[9px] pr-[11px]"
@@ -56,19 +77,16 @@ function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void })
   );
 }
 
-// The event a post is about: from the API or, until the screens that still use mock events move to the API, a mock one.
-// An event that is neither is left out of the card.
+// The catalog event a post is about; left out of the card until it loads, and when it cannot.
 function LinkedEvent({ eventId }: { eventId: string }) {
-  const { data } = useEvent(eventId);
-  const mockEvent = data ? undefined : findMockEvent(eventId);
-  const event = data ?? mockEvent;
+  const { data: event } = useEvent(eventId);
   if (!event) return null;
 
   return (
     // Inside 1 px stroke, as above: Figma's padding 8 / 8 / 12 minus the border.
     <View className="flex-row items-center gap-3 rounded-2xl border border-border-default py-[7px] pl-[7px] pr-[11px]">
       <View className="size-14 overflow-hidden rounded-xl">
-        <EventCover cover={mockEvent?.cover} />
+        <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-semibold text-tag text-brand-coral">Подія з каталогу</Text>
@@ -83,8 +101,9 @@ function LinkedEvent({ eventId }: { eventId: string }) {
   );
 }
 
-export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
-  const liked = useLiked(post.id);
+export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props) {
+  const router = useRouter();
+  const { liked, likeCount } = post;
 
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
@@ -114,15 +133,31 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
 
         {post.chips && (
           <View className="flex-row gap-2">
-            {post.chips.map((chip) => (
-              <View
-                key={chip.label}
-                className="flex-row items-center gap-[5px] rounded-xl bg-surface-background py-1.5 pl-2 pr-2.5"
-              >
-                <Icon name={chip.icon} size={14} />
-                <Text className="font-inter-semibold text-tag text-text-primary">{chip.label}</Text>
-              </View>
-            ))}
+            {post.chips.map((chip) => {
+              const content = (
+                <>
+                  <Icon name={chip.icon} size={14} />
+                  <Text className="font-inter-semibold text-tag text-text-primary">{chip.label}</Text>
+                </>
+              );
+              const chipClass = 'flex-row items-center gap-[5px] rounded-xl bg-surface-background py-1.5 pl-2 pr-2.5';
+              // The place a listing names opens on a map; Figma has no frame for it, so it reuses Д2.1.
+              return chip.icon === 'pin' && post.hasPlace ? (
+                <Pressable
+                  key={chip.label}
+                  accessibilityRole="button"
+                  accessibilityLabel="Показати місце на мапі"
+                  onPress={() => router.push({ pathname: '/listing-place', params: { listing: post.id } })}
+                  className={chipClass}
+                >
+                  {content}
+                </Pressable>
+              ) : (
+                <View key={chip.label} className={chipClass}>
+                  {content}
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -150,11 +185,15 @@ export function PostCard({ post, onReport, onDelete, onRequest }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Подобається"
             accessibilityState={{ selected: liked }}
-            onPress={() => toggleLike(post.id)}
+            accessibilityValue={likeCount > 0 ? { text: String(likeCount) } : undefined}
+            onPress={() => onLike?.(post)}
             hitSlop={10}
+            className="flex-row items-center gap-1"
           >
             {/* Liked: the heart filled and outlined in brand/coral, as on the event card. */}
             <Icon name="heart" size={18} color={liked ? colors.brand.coral : colors.text.secondary} filled={liked} />
+            {/* Figma has no counter; a small number, left out while nobody likes the post. */}
+            {likeCount > 0 && <Text className="font-inter text-caption text-text-secondary">{likeCount}</Text>}
           </Pressable>
         </View>
       </View>

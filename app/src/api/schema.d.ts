@@ -348,6 +348,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an organization’s page
+         * @description Get a verified organization as its page shows it: name, description, site, Instagram and logo. An organization that is not verified is not found. Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["getOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an organization’s events
+         * @description List the published events of a verified organization that have not ended, soonest first, for its page. Needs an access token: a guest token or a signed-in account.
+         */
+        get: operations["listOrganizationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/organization": {
         parameters: {
             query?: never;
@@ -362,9 +402,29 @@ export interface paths {
         get: operations["getMyOrganization"];
         /**
          * Request organization status
-         * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. Needs a signed-in account; a guest token gets 401.
+         * @description Ask to become a verified organization with a name, a description and an official link. The request waits as pending until an administrator decides it. A pending request is replaced, and after a rejection the request can be sent again. The Instagram username is set apart, with `setOrganizationInstagram`. Needs a signed-in account; a guest token gets 401.
          */
         put: operations["requestOrganizationStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/organization/instagram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your organization’s Instagram
+         * @description Set or clear the Instagram username of the caller’s organization, in any verification status. It is a public link, not checked by an administrator, so a verified organization stays verified and a pending request keeps waiting. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["setOrganizationInstagram"];
         post?: never;
         delete?: never;
         options?: never;
@@ -580,6 +640,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/listings/{id}/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask to join a listing
+         * @description "Хочу піти": ask the author of someone else’s active listing to go together. The author gets a `listing_request` notification. One request per listing; a second one is `409 ALREADY_REQUESTED`. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["requestToJoinListing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/listing-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List requests to join your listings
+         * @description Requests on the caller’s listings, pending first, newest first, with each requester’s public profile but no contacts. Pending requests on a removed listing are left out. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["listMyListingRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listing-requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a listing request
+         * @description One request, for its requester or the listing’s author, with both public profiles but no contacts. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getListingRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listing-requests/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a request to join your listing
+         * @description The listing’s author accepts a pending request. The requester gets a `listing_request_accepted` notification, and both can read each other’s contacts with `getListingRequestContacts`. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["acceptListingRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listing-requests/{id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline a request to join your listing
+         * @description The listing’s author declines a pending request. The requester gets no notification. Needs a signed-in account; a guest token gets 401.
+         */
+        post: operations["declineListingRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listing-requests/{id}/contacts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the contacts of an accepted listing request
+         * @description How to reach the other side, once the author accepted: the requester for the author, the author for the requester. Before that, and after a decline, the answer is `404`, as for a request that does not exist (SEC-001). An accepted request answers `422` until the caller has acknowledged the safety notice with `acknowledgeSafetyNotice` (SAFE-002). Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["getListingRequestContacts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/listings": {
         parameters: {
             query?: never;
@@ -647,6 +827,50 @@ export interface paths {
          * @description Remove the photo of the caller’s own listing. Without a photo, nothing changes. Needs a signed-in account; a guest token gets 401.
          */
         delete: operations["deleteListingPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/listings/{id}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Like a listing
+         * @description Like an active listing, the caller’s own too. Liking it again changes nothing. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+         */
+        put: operations["likeListing"];
+        post?: never;
+        /**
+         * Take back a like
+         * @description Take back the caller’s like of an active listing. Without a like, nothing changes. Returns the like count and whether the caller likes it. Needs a signed-in account; a guest token gets 401.
+         */
+        delete: operations["unlikeListing"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/places/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Name a point on the map
+         * @description Say what is at a point the place picker of a listing settles on: the place or the building, and its address. Answers come from OpenStreetMap (© OpenStreetMap contributors, ODbL), at most one request a second for the whole server; recent points are answered from memory. Needs a signed-in account; a guest token gets 401.
+         */
+        get: operations["reversePlace"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1418,7 +1642,7 @@ export interface components {
          * @description Machine-readable code; clients branch on it, not on the message
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
+        ErrorCode: "VALIDATION_ERROR" | "UNAUTHENTICATED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "RATE_LIMITED" | "INTERNAL_ERROR" | "SERVICE_UNAVAILABLE" | "NOT_FOUND" | "CONFLICT" | "REFERENCE_NOT_FOUND" | "ORGANIZATION_NOT_VERIFIED" | "EVENT_CANCELLED" | "EVENT_ENDS_BEFORE_START" | "VENUE_OUTSIDE_CITY" | "PLACE_OUTSIDE_CITY" | "PLACE_LOOKUP_UNAVAILABLE" | "APPLICATIONS_CLOSED" | "INVALID_SESSION_DAY" | "LISTING_DATE_IN_PAST" | "USERNAME_TAKEN" | "PROFILE_EXISTS" | "PROFILE_INCOMPLETE" | "ALREADY_APPLIED" | "ALREADY_REQUESTED" | "CANNOT_REQUEST_OWN_LISTING" | "SAFETY_NOTICE_REQUIRED" | "CONTACT_REQUIRED" | "INVALID_SOCIAL_HANDLE" | "INVALID_CREDENTIALS" | "WRONG_PASSWORD" | "INVALID_GOOGLE_TOKEN" | "GOOGLE_ACCOUNT_TAKEN" | "GOOGLE_ALREADY_LINKED" | "INVALID_CODE" | "PHONE_CODES_UNAVAILABLE" | "INVALID_REFRESH_TOKEN" | "UNDERAGE" | "CANNOT_REPORT_SELF" | "CANNOT_RESOLVE_OWN_CASE" | "CANNOT_BAN_ADMIN" | "CANNOT_DECIDE_OWN_REQUEST" | "INVALID_IMAGE";
         /** @description One invalid field of the request */
         ValidationIssue: {
             location: components["schemas"]["ValidationLocation"];
@@ -1460,6 +1684,7 @@ export interface components {
          *         "name": "Мистецький Арсенал",
          *         "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *         "officialLink": "https://artarsenal.in.ua",
+         *         "instagram": "artarsenal",
          *         "verificationStatus": "verified",
          *         "verifiedAt": "2026-10-14T12:00:00.000Z",
          *         "logo": null
@@ -1496,6 +1721,7 @@ export interface components {
              *       "name": "Мистецький Арсенал",
              *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
              *       "officialLink": "https://artarsenal.in.ua",
+             *       "instagram": "artarsenal",
              *       "verificationStatus": "pending",
              *       "verifiedAt": null,
              *       "logo": null
@@ -1505,6 +1731,8 @@ export interface components {
                 name: string;
                 description: string | null;
                 officialLink: string | null;
+                /** @description The Instagram username, without "@"; null when none */
+                instagram: string | null;
                 /**
                  * @description pending: waits for an administrator; only a verified organization publishes events
                  * @enum {string}
@@ -1777,6 +2005,11 @@ export interface components {
          *           "sourceUrl": null,
          *           "source": "organization",
          *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           },
          *           "organization": {
          *             "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
          *             "name": "Podil Film Club"
@@ -1824,6 +2057,11 @@ export interface components {
          *       "sourceUrl": null,
          *       "source": "organization",
          *       "status": "published",
+         *       "organizer": {
+         *         "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club",
+         *         "logo": null
+         *       },
          *       "organization": {
          *         "accountId": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
          *         "name": "Podil Film Club"
@@ -1885,6 +2123,32 @@ export interface components {
             sourceUrl: string | null;
             source: components["schemas"]["EventSource"];
             status: components["schemas"]["EventStatus"];
+            /** @description The organization that published the event, while it is verified; null for imported events */
+            organizer: {
+                /**
+                 * Format: uuid
+                 * @description Get its page with getOrganization
+                 */
+                id: string;
+                name: string;
+                /**
+                 * @description A square shown as a circle; null shows the building icon
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                logo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+            } | null;
             /** @description The organization that added it; null for an imported one */
             organization: {
                 /**
@@ -2039,7 +2303,12 @@ export interface components {
          *           "photo": null,
          *           "sourceUrl": null,
          *           "source": "organization",
-         *           "status": "published"
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
          *         }
          *       ],
          *       "page": {
@@ -2088,7 +2357,12 @@ export interface components {
          *       "photo": null,
          *       "sourceUrl": null,
          *       "source": "organization",
-         *       "status": "published"
+         *       "status": "published",
+         *       "organizer": {
+         *         "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *         "name": "Podil Film Club",
+         *         "logo": null
+         *       }
          *     }
          */
         Event: {
@@ -2146,6 +2420,32 @@ export interface components {
             sourceUrl: string | null;
             source: components["schemas"]["EventSource"];
             status: components["schemas"]["EventStatus"];
+            /** @description The organization that published the event, while it is verified; null for imported events */
+            organizer: {
+                /**
+                 * Format: uuid
+                 * @description Get its page with getOrganization
+                 */
+                id: string;
+                name: string;
+                /**
+                 * @description A square shown as a circle; null shows the building icon
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                logo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+            } | null;
         };
         /**
          * @example {
@@ -2177,7 +2477,12 @@ export interface components {
          *           "photo": null,
          *           "sourceUrl": null,
          *           "source": "organization",
-         *           "status": "published"
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
          *         }
          *       ],
          *       "page": {
@@ -2241,11 +2546,102 @@ export interface components {
             priceMax: number | null;
         };
         /**
+         * @description A verified organization as anyone sees it, on its page
+         * @example {
+         *       "id": "f4b6d8e0-2c4a-4e6f-9b1d-5a7c9e1f3b4d",
+         *       "name": "Мистецький Арсенал",
+         *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
+         *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
+         *       "logo": null
+         *     }
+         */
+        PublicOrganization: {
+            /**
+             * Format: uuid
+             * @description The organization’s id; the same as the organizer id of its events
+             */
+            id: string;
+            name: string;
+            description: string | null;
+            /** @description The organization’s site */
+            officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
+            /**
+             * @description A square shown as a circle; null shows the building icon
+             * @example {
+             *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+             *       "width": 512,
+             *       "height": 512
+             *     }
+             */
+            logo: {
+                /**
+                 * Format: uuid
+                 * @description Get the picture with getImage
+                 */
+                id: string;
+                width: number;
+                height: number;
+            } | null;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "3f1c2a9e-8b4d-4e2a-9c71-5d0e6b7a8f10",
+         *           "title": "Open-air film night: Shadows of Forgotten Ancestors",
+         *           "description": "Screening in the park, bring a blanket.",
+         *           "category": {
+         *             "id": "2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03",
+         *             "name": "Концерти"
+         *           },
+         *           "venue": {
+         *             "id": "5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05",
+         *             "name": "Natalka Park lawn",
+         *             "address": "Naberezhno-Luhova St, Kyiv",
+         *             "location": {
+         *               "lat": 50.4825,
+         *               "lng": 30.5181
+         *             }
+         *           },
+         *           "startsAt": "2026-10-17T19:00:00+03:00",
+         *           "startTimeKnown": true,
+         *           "endsAt": "2026-10-17T21:30:00+03:00",
+         *           "endTimeKnown": true,
+         *           "priceMin": 150,
+         *           "priceMax": null,
+         *           "imageUrl": null,
+         *           "photo": null,
+         *           "sourceUrl": null,
+         *           "source": "organization",
+         *           "status": "published",
+         *           "organizer": {
+         *             "id": "e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c",
+         *             "name": "Podil Film Club",
+         *             "logo": null
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        OrganizationEventsPage: {
+            items: components["schemas"]["Event"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
          * @description The caller’s organization request and its status
          * @example {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
          *       "verificationStatus": "pending",
          *       "verifiedAt": null,
          *       "logo": null
@@ -2255,6 +2651,8 @@ export interface components {
             name: string;
             description: string | null;
             officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
             /**
              * @description pending: waits for an administrator; only a verified organization publishes events
              * @enum {string}
@@ -2300,6 +2698,15 @@ export interface components {
              * @description The organization’s official site or page, where an administrator can check it
              */
             officialLink: string;
+        };
+        /**
+         * @example {
+         *       "instagram": "@artarsenal"
+         *     }
+         */
+        OrganizationInstagramBody: {
+            /** @description A username with or without "@", or an instagram.com profile link. Kept as the bare username (up to 30 letters, digits, underscores or single dots); one that does not fit is INVALID_SOCIAL_HANDLE. Null or empty: none */
+            instagram: string | null;
         };
         /**
          * @example {
@@ -2410,6 +2817,334 @@ export interface components {
             refreshToken: string;
         };
         /**
+         * @description A user’s request to join a listing, as its author or the requester sees it
+         * @example {
+         *       "id": "3b5d7f9a-1c2e-4a6b-8d0f-2a4c6e8b0d13",
+         *       "status": "pending",
+         *       "role": "author",
+         *       "createdAt": "2026-10-15T12:00:00.000Z",
+         *       "decidedAt": null,
+         *       "listing": {
+         *         "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
+         *         "title": "Looking for company for an exhibition on Saturday",
+         *         "date": "2026-10-17",
+         *         "place": {
+         *           "name": "Мистецький Арсенал",
+         *           "address": "вулиця Лаврська, 10-12, Печерський район",
+         *           "location": {
+         *             "lat": 50.4357,
+         *             "lng": 30.5555
+         *           }
+         *         },
+         *         "eventId": null
+         *       },
+         *       "requester": {
+         *         "username": "taras_m",
+         *         "displayName": "Тарас",
+         *         "description": "Exhibitions and long walks.",
+         *         "occupation": "Designer",
+         *         "age": 25,
+         *         "interests": [
+         *           {
+         *             "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *             "name": "Книги",
+         *             "group": "Книги й комікси"
+         *           }
+         *         ],
+         *         "photo": null,
+         *         "cover": null
+         *       },
+         *       "author": {
+         *         "username": "olena_k",
+         *         "displayName": "Olena",
+         *         "description": "Exhibitions and long walks.",
+         *         "occupation": "Designer",
+         *         "age": 24,
+         *         "interests": [
+         *           {
+         *             "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *             "name": "Книги",
+         *             "group": "Книги й комікси"
+         *           }
+         *         ],
+         *         "photo": null,
+         *         "cover": null
+         *       }
+         *     }
+         */
+        ListingRequest: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["ListingRequestStatus"];
+            /**
+             * @description The caller’s side: the listing’s author, or the user who asked to join it
+             * @enum {string}
+             */
+            role: "author" | "requester";
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When the author answered; null while pending
+             */
+            decidedAt: string | null;
+            listing: components["schemas"]["ListingRequestListing"];
+            /** @description Who asked to join */
+            requester: {
+                username: string;
+                displayName: string;
+                description: string;
+                occupation: string;
+                /** @description Whole years */
+                age: number;
+                interests: components["schemas"]["Interest"][];
+                /**
+                 * @description The avatar; null shows the initial
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                photo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+                /**
+                 * @description null shows the default gradient
+                 * @example {
+                 *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+                 *       "width": 2560,
+                 *       "height": 1920,
+                 *       "crop": {
+                 *         "left": 0,
+                 *         "top": 640,
+                 *         "width": 2560,
+                 *         "height": 1313
+                 *       }
+                 *     }
+                 */
+                cover: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                    /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                    crop: {
+                        left: number;
+                        top: number;
+                        width: number;
+                        height: number;
+                    };
+                } | null;
+            };
+            /** @description Who posted the listing */
+            author: {
+                username: string;
+                displayName: string;
+                description: string;
+                occupation: string;
+                /** @description Whole years */
+                age: number;
+                interests: components["schemas"]["Interest"][];
+                /**
+                 * @description The avatar; null shows the initial
+                 * @example {
+                 *       "id": "4f1d2c3b-6a5e-4d7c-9b8a-1e2f3a4b5c6d",
+                 *       "width": 512,
+                 *       "height": 512
+                 *     }
+                 */
+                photo: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                } | null;
+                /**
+                 * @description null shows the default gradient
+                 * @example {
+                 *       "id": "6a7b8c9d-0e1f-4a2b-8c3d-4e5f6a7b8c9d",
+                 *       "width": 2560,
+                 *       "height": 1920,
+                 *       "crop": {
+                 *         "left": 0,
+                 *         "top": 640,
+                 *         "width": 2560,
+                 *         "height": 1313
+                 *       }
+                 *     }
+                 */
+                cover: {
+                    /**
+                     * Format: uuid
+                     * @description Get the picture with getImage
+                     */
+                    id: string;
+                    width: number;
+                    height: number;
+                    /** @description The area the user picked (390:200). A screen of another shape shows more of the picture around it, or less */
+                    crop: {
+                        left: number;
+                        top: number;
+                        width: number;
+                        height: number;
+                    };
+                } | null;
+            };
+        };
+        /**
+         * @description `pending`: waiting for the author. `accepted`: the author accepted, both see each other’s contacts. `declined`: the author declined; the requester gets no notification, and the app keeps showing the request as sent
+         * @enum {string}
+         */
+        ListingRequestStatus: "pending" | "accepted" | "declined";
+        /** @description The listing a request is about */
+        ListingRequestListing: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: date */
+            date: string;
+            place: components["schemas"]["ListingPlace"];
+            /**
+             * Format: uuid
+             * @description The catalog event the listing is about, if any
+             */
+            eventId: string | null;
+        };
+        /** @description Where the author suggests meeting, picked on the map; not a catalog venue */
+        ListingPlace: {
+            /** @description The place or the building, else the street and the house */
+            name: string;
+            /** @description Street, house and district; may be empty */
+            address: string;
+            location: components["schemas"]["Point"];
+        } | null;
+        /** @description A point on the map */
+        Point: {
+            /** @description Latitude, WGS 84 */
+            lat: number;
+            /** @description Longitude, WGS 84 */
+            lng: number;
+        };
+        /**
+         * @example {
+         *       "items": [
+         *         {
+         *           "id": "3b5d7f9a-1c2e-4a6b-8d0f-2a4c6e8b0d13",
+         *           "status": "pending",
+         *           "role": "author",
+         *           "createdAt": "2026-10-15T12:00:00.000Z",
+         *           "decidedAt": null,
+         *           "listing": {
+         *             "id": "9e4a6c8d-0f2b-4d4e-8a6c-8d0f2b4d6e09",
+         *             "title": "Looking for company for an exhibition on Saturday",
+         *             "date": "2026-10-17",
+         *             "place": {
+         *               "name": "Мистецький Арсенал",
+         *               "address": "вулиця Лаврська, 10-12, Печерський район",
+         *               "location": {
+         *                 "lat": 50.4357,
+         *                 "lng": 30.5555
+         *               }
+         *             },
+         *             "eventId": null
+         *           },
+         *           "requester": {
+         *             "username": "taras_m",
+         *             "displayName": "Тарас",
+         *             "description": "Exhibitions and long walks.",
+         *             "occupation": "Designer",
+         *             "age": 25,
+         *             "interests": [
+         *               {
+         *                 "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *                 "name": "Книги",
+         *                 "group": "Книги й комікси"
+         *               }
+         *             ],
+         *             "photo": null,
+         *             "cover": null
+         *           },
+         *           "author": {
+         *             "username": "olena_k",
+         *             "displayName": "Olena",
+         *             "description": "Exhibitions and long walks.",
+         *             "occupation": "Designer",
+         *             "age": 24,
+         *             "interests": [
+         *               {
+         *                 "id": "b1d2c3e4-5f60-4a71-8b82-1a2b3c4d5e01",
+         *                 "name": "Книги",
+         *                 "group": "Книги й комікси"
+         *               }
+         *             ],
+         *             "photo": null,
+         *             "cover": null
+         *           }
+         *         }
+         *       ],
+         *       "page": {
+         *         "limit": 20,
+         *         "offset": 0,
+         *         "hasMore": false
+         *       }
+         *     }
+         */
+        ListingRequestsPage: {
+            items: components["schemas"]["ListingRequest"][];
+            page: components["schemas"]["PageInfo"];
+        };
+        /**
+         * @description How to reach the other user of a mutual match (FR-019)
+         * @example {
+         *       "phone": null,
+         *       "linkedAccounts": [
+         *         {
+         *           "network": "telegram",
+         *           "username": "olena_k",
+         *           "url": "https://t.me/olena_k"
+         *         }
+         *       ]
+         *     }
+         */
+        MatchContacts: {
+            /** @description Only if they share it; null while sign-in is Google-only */
+            phone: string | null;
+            linkedAccounts: components["schemas"]["LinkedAccount"][];
+        };
+        /**
+         * @description A social network the user shares with a mutual match
+         * @example {
+         *       "network": "telegram",
+         *       "username": "olena_k",
+         *       "url": "https://t.me/olena_k"
+         *     }
+         */
+        LinkedAccount: {
+            network: components["schemas"]["SocialNetwork"];
+            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
+            username: string;
+            /** @description The profile link a mutual match opens */
+            url: string;
+        };
+        /**
+         * @description A social network whose handle a mutual match sees
+         * @enum {string}
+         */
+        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
+        /**
          * @example {
          *       "items": [
          *         {
@@ -2428,7 +3163,18 @@ export interface components {
          *           "description": "Planning to go in the evening, happy to grab a coffee after.",
          *           "date": "2026-10-17",
          *           "status": "active",
-         *           "photo": null
+         *           "photo": null,
+         *           "place": {
+         *             "name": "Мистецький Арсенал",
+         *             "address": "вулиця Лаврська, 10-12, Печерський район",
+         *             "location": {
+         *               "lat": 50.4357,
+         *               "lng": 30.5555
+         *             }
+         *           },
+         *           "myRequest": null,
+         *           "likeCount": 3,
+         *           "liked": true
          *         }
          *       ],
          *       "page": {
@@ -2460,7 +3206,18 @@ export interface components {
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
          *       "date": "2026-10-17",
          *       "status": "active",
-         *       "photo": null
+         *       "photo": null,
+         *       "place": {
+         *         "name": "Мистецький Арсенал",
+         *         "address": "вулиця Лаврська, 10-12, Печерський район",
+         *         "location": {
+         *           "lat": 50.4357,
+         *           "lng": 30.5555
+         *         }
+         *       },
+         *       "myRequest": null,
+         *       "likeCount": 3,
+         *       "liked": true
          *     }
          */
         Listing: {
@@ -2495,6 +3252,24 @@ export interface components {
                 width: number;
                 height: number;
             } | null;
+            /** @description Null when the listing names no place */
+            place: {
+                /** @description The place or the building, else the street and the house */
+                name: string;
+                /** @description Street, house and district; may be empty */
+                address: string;
+                location: components["schemas"]["Point"];
+            } | null;
+            /** @description The caller’s own request to join this listing; null without one, and always on the caller’s own listing */
+            myRequest: {
+                /** Format: uuid */
+                id: string;
+                status: components["schemas"]["ListingRequestStatus"];
+            } | null;
+            /** @description How many users like the listing, its author included */
+            likeCount: number;
+            /** @description Whether the caller likes the listing */
+            liked: boolean;
         };
         /** @description Who posted the listing; never their contacts */
         ListingAuthor: {
@@ -2510,7 +3285,15 @@ export interface components {
          *       "eventId": "a7d4e0b2-1c3f-4b5a-8e9d-0f2c4b6a8d1e",
          *       "title": "Looking for company for the Arsenal exhibition",
          *       "description": "Planning to go in the evening, happy to grab a coffee after.",
-         *       "date": "2026-10-20"
+         *       "date": "2026-10-20",
+         *       "place": {
+         *         "name": "Мистецький Арсенал",
+         *         "address": "вулиця Лаврська, 10-12, Печерський район",
+         *         "location": {
+         *           "lat": 50.4357,
+         *           "lng": 30.5555
+         *         }
+         *       }
          *     }
          */
         CreateListingBody: {
@@ -2533,6 +3316,46 @@ export interface components {
              * @description The day, Kyiv time; today or later
              */
             date: string;
+            /** @description Where to meet, picked on the map; all of name, address and location, or omitted */
+            place?: {
+                /** @description What the place is called, e.g. from reversePlace */
+                name: string;
+                /** @description May be empty */
+                address: string;
+                /** @description Must be in Kyiv; otherwise PLACE_OUTSIDE_CITY */
+                location: {
+                    /** @description Latitude, WGS 84 */
+                    lat: number;
+                    /** @description Longitude, WGS 84 */
+                    lng: number;
+                };
+            };
+        };
+        /**
+         * @description The likes of a listing after the caller’s like or unlike
+         * @example {
+         *       "likeCount": 3,
+         *       "liked": true
+         *     }
+         */
+        ListingLikes: {
+            /** @description How many users like the listing, its author included */
+            likeCount: number;
+            /** @description Whether the caller likes the listing */
+            liked: boolean;
+        };
+        /**
+         * @description What is at a point on the map, from OpenStreetMap (© OpenStreetMap contributors, ODbL)
+         * @example {
+         *       "name": "Мистецький Арсенал",
+         *       "address": "вулиця Лаврська, 10-12, Печерський район"
+         *     }
+         */
+        PlaceDescription: {
+            /** @description The place or the building there, else the street and the house */
+            name: string;
+            /** @description Street, house and district; may be empty */
+            address: string;
         };
         /**
          * @description The caller’s request to be matched in one session of an event
@@ -2864,50 +3687,13 @@ export interface components {
          */
         MatchStatus: "proposed" | "accepted" | "mutual" | "declined" | "expired" | "cancelled";
         /**
-         * @description How to reach the other user of a mutual match (FR-019)
-         * @example {
-         *       "phone": null,
-         *       "linkedAccounts": [
-         *         {
-         *           "network": "telegram",
-         *           "username": "olena_k",
-         *           "url": "https://t.me/olena_k"
-         *         }
-         *       ]
-         *     }
-         */
-        MatchContacts: {
-            /** @description Only if they share it; null while sign-in is Google-only */
-            phone: string | null;
-            linkedAccounts: components["schemas"]["LinkedAccount"][];
-        };
-        /**
-         * @description A social network the user shares with a mutual match
-         * @example {
-         *       "network": "telegram",
-         *       "username": "olena_k",
-         *       "url": "https://t.me/olena_k"
-         *     }
-         */
-        LinkedAccount: {
-            network: components["schemas"]["SocialNetwork"];
-            /** @description The handle, without "@"; for WhatsApp, the phone number digits */
-            username: string;
-            /** @description The profile link a mutual match opens */
-            url: string;
-        };
-        /**
-         * @description A social network whose handle a mutual match sees
-         * @enum {string}
-         */
-        SocialNetwork: "telegram" | "instagram" | "whatsapp" | "tiktok" | "facebook";
-        /**
          * @example {
          *       "items": [
          *         {
          *           "name": "Мистецький Арсенал",
          *           "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *           "officialLink": "https://artarsenal.in.ua",
+         *           "instagram": "artarsenal",
          *           "verificationStatus": "pending",
          *           "verifiedAt": null,
          *           "logo": null,
@@ -2936,6 +3722,7 @@ export interface components {
          *       "name": "Мистецький Арсенал",
          *       "description": "Культурний комплекс у центрі Києва: виставки, концерти, лекції.",
          *       "officialLink": "https://artarsenal.in.ua",
+         *       "instagram": "artarsenal",
          *       "verificationStatus": "pending",
          *       "verifiedAt": null,
          *       "logo": null,
@@ -2951,6 +3738,8 @@ export interface components {
             name: string;
             description: string | null;
             officialLink: string | null;
+            /** @description The Instagram username, without "@"; null when none */
+            instagram: string | null;
             /**
              * @description pending: waits for an administrator; only a verified organization publishes events
              * @enum {string}
@@ -3252,7 +4041,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             type: components["schemas"]["NotificationType"];
-            /** @description Details by type, never contact details; `report_received` has none, so `{}`. `event_changed`: `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match */
+            /** @description Details by type, never contact details; `report_received` has none, so `{}`. `event_changed`: `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match. `listing_request` and `listing_request_accepted`: `listingRequestId`, `listingId` and `displayName`, the requester’s or the author’s */
             payload: {
                 [key: string]: unknown;
             };
@@ -3265,10 +4054,10 @@ export interface components {
             createdAt: string;
         };
         /**
-         * @description What the notification is about; the app picks the text by it. `report_received`: a report was filed
+         * @description What the notification is about; the app picks the text by it. `report_received`: a report was filed. `listing_request`: someone asked to join the caller’s listing. `listing_request_accepted`: the author accepted the caller’s request; a decline sends nothing
          * @enum {string}
          */
-        NotificationType: "match_proposed" | "match_mutual" | "respond_soon" | "not_a_match" | "continue_matching" | "removed_from_matching" | "no_match_found" | "event_reminder" | "event_changed" | "report_received";
+        NotificationType: "match_proposed" | "match_mutual" | "respond_soon" | "not_a_match" | "continue_matching" | "removed_from_matching" | "no_match_found" | "event_reminder" | "event_changed" | "report_received" | "listing_request" | "listing_request_accepted";
         /**
          * @description The push token of the device this session runs on
          * @example {
@@ -4686,6 +5475,111 @@ export interface operations {
             };
         };
     };
+    getOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The organization’s id: `organizer.id` of its events */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrganization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No verified organization with this id: unknown, still pending, rejected or revoked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listOrganizationEvents: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description The organization’s id: `organizer.id` of its events */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationEventsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No verified organization with this id: unknown, still pending, rejected or revoked */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     getMyOrganization: {
         parameters: {
             query?: never;
@@ -4766,6 +5660,66 @@ export interface operations {
             };
             /** @description `CONFLICT`: the organization is already verified, or its verification was revoked */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    setOrganizationInstagram: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrganizationInstagramBody"];
+            };
+        };
+        responses: {
+            /** @description The organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller has not requested organization status */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `INVALID_SOCIAL_HANDLE`: the Instagram username does not fit; `details` names `instagram` */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5358,6 +6312,346 @@ export interface operations {
             };
         };
     };
+    requestToJoinListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller’s request, `pending` */
+            201: {
+                headers: {
+                    /** @description URL of the created object */
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRequest"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `ALREADY_REQUESTED`: the caller has already asked to join it. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CANNOT_REQUEST_OWN_LISTING`: the listing is the caller’s own. `PROFILE_INCOMPLETE`: the profile lacks a communication format, a gender, an interest or a linked account; the app sends the user to complete it. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    listMyListingRequests: {
+        parameters: {
+            query?: {
+                /** @description Items per page, at most 20 */
+                limit?: number;
+                /** @description Items to skip */
+                offset?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of requests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRequestsPage"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getListingRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing request id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRequest"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such request, the caller is neither its requester nor the listing’s author, or it was pending on a listing that has since been removed */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    acceptListingRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing request id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request, `accepted` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRequest"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such request, the caller is neither its requester nor the listing’s author, or it was pending on a listing that has since been removed; or the caller is not the listing’s author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the author has already accepted or declined the request. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    declineListingRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing request id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request, `declined` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingRequest"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No such request, the caller is neither its requester nor the listing’s author, or it was pending on a listing that has since been removed; or the caller is not the listing’s author */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `CONFLICT`: the author has already accepted or declined the request. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getListingRequestContacts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing request id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The other side’s contacts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchContacts"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No accepted request with this id that the caller is part of */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `SAFETY_NOTICE_REQUIRED`: the caller has not acknowledged the safety notice yet. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     listListings: {
         parameters: {
             query?: {
@@ -5443,7 +6737,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description `REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`: the date is before today. */
+            /** @description `REFERENCE_NOT_FOUND`: no such active category or event. `EVENT_CANCELLED`: the event is cancelled. `LISTING_DATE_IN_PAST`: the date is before today. `PLACE_OUTSIDE_CITY`: the place is not in Kyiv. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5685,6 +6979,176 @@ export interface operations {
             };
             /** @description No active listing with this id, or it is not the caller’s own */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    likeListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The likes of the listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingLikes"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    unlikeListing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Listing id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The likes of the listing */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListingLikes"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No active listing with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    reversePlace: {
+        parameters: {
+            query?: {
+                /** @description Latitude of the map centre */
+                lat?: number | null;
+                /** @description Longitude of the map centre */
+                lng?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What is at the point */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceDescription"];
+                };
+            };
+            /** @description The request is invalid */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No access token, or an invalid or expired one */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Nothing found at the point */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PLACE_OUTSIDE_CITY`: the point is not in Kyiv */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description `PLACE_LOOKUP_UNAVAILABLE`: OpenStreetMap cannot be reached; the user can name the place */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

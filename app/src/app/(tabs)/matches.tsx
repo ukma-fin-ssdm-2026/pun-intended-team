@@ -1,7 +1,6 @@
 // Written with the help of Claude
 // AI Usage: Метчі tab from the Figma "Т2 Метчі" and "Т2.1 · порожньо" frames, on the user's applications and matches;
 // reviewed by Daryna Halytska.
-import type { ImageSource } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
@@ -11,7 +10,8 @@ import { loadMyApplications } from '@/api/applications';
 import { loadMyMatches } from '@/api/matches';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
-import { EventCover } from '@/components/ui/event-cover';
+import type { ApiEventPhoto } from '@/api/images';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate, formatShortDay } from '@/dates';
@@ -19,7 +19,6 @@ import { useMyApplications } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useMyMatches } from '@/hooks/use-matches';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { matchingPhase, openSessions, type Application } from '@/state/applications';
 import { matchHref, type Match } from '@/state/matches';
@@ -38,7 +37,7 @@ function MatchCard({
   status,
   onPress,
 }: {
-  event: { title: string; dateLabel: string; cover?: ImageSource | number };
+  event: { title: string; dateLabel: string; imageUrl?: string | null; photo?: ApiEventPhoto | null };
   status: ReactNode;
   // Without a link (Т2.2's first card) the card is not pressable.
   onPress?: () => void;
@@ -47,7 +46,7 @@ function MatchCard({
     <>
       <View className="flex-row items-center gap-3">
         <View className="size-10 overflow-hidden rounded-xl">
-          <EventCover cover={event.cover} gradient="thumb" />
+          <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} gradient="thumb" />
         </View>
         <View className="flex-1 gap-px">
           <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
@@ -111,7 +110,8 @@ function SearchCard({ application }: { application: Application }) {
       event={{
         title: event?.title ?? ' ',
         dateLabel: daysLabel(openSessions(application), event?.startTimeKnown ?? true),
-        cover: findMockEvent(application.eventId)?.cover,
+        imageUrl: event?.imageUrl,
+        photo: event?.photo,
       }}
       onPress={() => router.push({ pathname: '/events/[id]/search', params: { id: application.eventId } })}
       status={
@@ -152,7 +152,8 @@ function MatchedCard({ application, match }: { application: Application; match: 
       event={{
         title: event?.title ?? ' ',
         dateLabel: match.days.length > 0 ? daysLabel(match.days, event?.startTimeKnown ?? true) : '',
-        cover: findMockEvent(application.eventId)?.cover,
+        imageUrl: event?.imageUrl,
+        photo: event?.photo,
       }}
       onPress={match.status === 'expired' ? undefined : () => router.push(matchHref(match))}
       status={

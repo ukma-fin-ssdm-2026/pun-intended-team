@@ -11,6 +11,7 @@ import type { Event as EventTableRow, Prisma, Venue as VenueRow } from './genera
 export const eventInclude = {
   category: { select: { id: true, name: true } },
   venue: true,
+  organization: { select: { accountId: true, name: true, logoId: true, verificationStatus: true } },
 } satisfies Prisma.EventInclude;
 
 export type EventRow = Prisma.EventGetPayload<{ include: typeof eventInclude }>;
@@ -56,6 +57,11 @@ export function toEvent(row: EventRow): Event {
     source: row.source,
     status: row.status,
     organizationId: row.organizationId,
+    // Only a verified organization is shown as the organizer; its page is not public otherwise.
+    organizer:
+      row.organization?.verificationStatus === 'verified'
+        ? { id: row.organization.accountId, name: row.organization.name, logoId: row.organization.logoId }
+        : null,
   };
 }
 

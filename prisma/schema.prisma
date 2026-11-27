@@ -175,6 +175,15 @@ enum ListingStatus {
   @@map("listing_status")
 }
 
+/// Declared in this order, so ordering by status lists the pending requests first.
+enum ListingRequestStatus {
+  pending
+  accepted
+  declined
+
+  @@map("listing_request_status")
+}
+
 enum ReportTargetType {
   account
   listing
@@ -208,6 +217,8 @@ enum NotificationType {
   event_reminder
   event_changed
   report_received
+  listing_request
+  listing_request_accepted
 
   @@map("notification_type")
 }
@@ -259,14 +270,16 @@ model Account {
   authMethods           AuthMethod[]
   refreshTokens         RefreshToken[]
   profile               Profile?
-  organization          Organization?  @relation("OrganizationAccount")
-  verifiedOrganizations Organization[] @relation("OrganizationVerifier")
+  organization          Organization?    @relation("OrganizationAccount")
+  verifiedOrganizations Organization[]   @relation("OrganizationVerifier")
   applications          Application[]
-  exclusions            Exclusion[]    @relation("ExclusionUser")
-  excludedIn            Exclusion[]    @relation("ExclusionExcludedUser")
+  exclusions            Exclusion[]      @relation("ExclusionUser")
+  excludedIn            Exclusion[]      @relation("ExclusionExcludedUser")
   listings              Listing[]
-  reportCasesAsTarget   ReportCase[]   @relation("ReportCaseTargetAccount")
-  reportCasesResolved   ReportCase[]   @relation("ReportCaseResolver")
+  listingRequests       ListingRequest[]
+  listingLikes          ListingLike[]
+  reportCasesAsTarget   ReportCase[]     @relation("ReportCaseTargetAccount")
+  reportCasesResolved   ReportCase[]     @relation("ReportCaseResolver")
   reports               Report[]
   notifications         Notification[]
   deviceTokens          DeviceToken[]
@@ -328,20 +341,20 @@ model RefreshToken {
 }
 
 model Profile {
-  accountId           String          @id @map("account_id") @db.Uuid
+  accountId           String            @id @map("account_id") @db.Uuid
   username            String
-  displayName         String          @map("display_name")
+  displayName         String            @map("display_name")
   description         String?
   occupation          String?
-  communicationFormat DesiredCompany? @map("communication_format")
+  communicationFormat DesiredCompany?   @map("communication_format")
   gender              Gender?
-  genderDescription   String?         @map("gender_description")
-  sharePhone          Boolean         @default(true) @map("share_phone")
+  genderDescription   String?           @map("gender_description")
+  sharePhone          Boolean           @default(true) @map("share_phone")
   safetyNotice        SafetyNoticeState @default(not_acknowledged) @map("safety_notice")
-  photoId             String?         @unique @map("photo_id") @db.Uuid
-  coverId             String?         @unique @map("cover_id") @db.Uuid
-  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  photoId             String?           @unique @map("photo_id") @db.Uuid
+  coverId             String?           @unique @map("cover_id") @db.Uuid
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   photo            Image?            @relation("ProfilePhoto", fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -420,6 +433,8 @@ model Organization {
   name               String
   description        String?
   officialLink       String?            @map("official_link")
+  /// The bare username, without "@".
+  instagram          String?
   verificationStatus VerificationStatus @default(pending) @map("verification_status")
   verifiedById       String?            @map("verified_by") @db.Uuid
   verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)
@@ -622,25 +637,65 @@ model Exclusion {
 }
 
 model Listing {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  authorId    String        @map("author_id") @db.Uuid
-  categoryId  String        @map("category_id") @db.Uuid
-  eventId     String?       @map("event_id") @db.Uuid
-  title       String
-  description String
-  date        DateTime      @db.Date
-  status      ListingStatus @default(active)
-  photoId     String?       @unique @map("photo_id") @db.Uuid
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId       String        @map("author_id") @db.Uuid
+  categoryId     String        @map("category_id") @db.Uuid
+  eventId        String?       @map("event_id") @db.Uuid
+  title          String
+  description    String
+  date           DateTime      @db.Date
+  status         ListingStatus @default(active)
+  photoId        String?       @unique @map("photo_id") @db.Uuid
+  /// Where the author suggests meeting (Д2.1). The four place columns are all set or all null.
+  placeName      String?       @map("place_name")
+  /// May be empty.
+  placeAddress   String?       @map("place_address")
+  placeLatitude  Decimal?      @map("place_latitude") @db.Decimal(9, 6)
+  placeLongitude Decimal?      @map("place_longitude") @db.Decimal(9, 6)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  author      Account      @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  event       Event?       @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  photo       Image?       @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  author      Account          @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  category    Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  event       Event?           @relation(fields: [eventId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  photo       Image?           @relation(fields: [photoId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   reportCases ReportCase[]
+  requests    ListingRequest[]
+  likes       ListingLike[]
 
   @@map("listings")
+}
+
+/// A user likes a listing (the heart on the post card); one row per user and listing, the author's own included.
+model ListingLike {
+  listingId String   @map("listing_id") @db.Uuid
+  accountId String   @map("account_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@id([listingId, accountId])
+  @@map("listing_likes")
+}
+
+/// A user asks the author of a listing to go together ("Хочу піти"); once the author accepts, both see each other's
+/// contacts, as a mutual match does.
+model ListingRequest {
+  id          String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  listingId   String               @map("listing_id") @db.Uuid
+  requesterId String               @map("requester_id") @db.Uuid
+  status      ListingRequestStatus @default(pending)
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  /// When the author accepted or declined; null while pending.
+  decidedAt   DateTime?            @map("decided_at") @db.Timestamptz(3)
+
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  requester Account @relation(fields: [requesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([listingId, requesterId])
+  @@index([requesterId])
+  @@map("listing_requests")
 }
 
 model ReportCase {

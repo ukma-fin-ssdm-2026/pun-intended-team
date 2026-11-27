@@ -22,7 +22,6 @@ import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useMyMatches } from '@/hooks/use-matches';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { openSessions } from '@/state/applications';
 import { colors } from '@/styles/tokens';
@@ -71,16 +70,14 @@ export default function CompanySearchScreen() {
   const noMatch = application?.status === 'no_match';
   const { matches } = useMyMatches();
   const pending = matches.filter(({ status }) => status === 'proposed' || status === 'accepted').length;
-  const { data: liveEvent } = useEvent(id);
-  const mockEvent = findMockEvent(id);
-  const event = liveEvent ?? mockEvent;
+  const { data: event } = useEvent(id);
   const picked = application ? openSessions(application) : [];
   const day = picked[0]?.startsAt ?? event?.startsAt;
   const days =
     picked.length > 1
       ? `${picked.length} ${plural(picked.length, ['день', 'дні', 'днів'])}`
       : day && formatShortDay(day);
-  const subtitle = event && days ? `${mockEvent?.shortTitle ?? event.title} · ${days}` : undefined;
+  const subtitle = event && days ? `${event.title} · ${days}` : undefined;
   const backToEvent = () => router.dismissTo({ pathname: '/events/[id]', params: { id } });
 
   // Without an application for the event, e.g. after leaving the pool on another device, there is nothing to wait for.

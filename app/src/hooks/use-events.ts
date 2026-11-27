@@ -13,7 +13,7 @@ type EventsPage = components['schemas']['EventsPage'];
 // The API's largest page; the catalog has no "list all" (catalog-access.md).
 const PAGE_SIZE = 20;
 
-// What the API narrows by. The search text, several categories and the districts are applied to the loaded pages only.
+// What the API narrows by. The search text and several categories are applied to the loaded pages only.
 export type EventQuery = { categoryId?: string; from?: string; to?: string; venueId?: string };
 
 const fetchPage = (query: EventQuery, offset: number) =>

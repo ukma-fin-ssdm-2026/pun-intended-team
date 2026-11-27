@@ -25,6 +25,7 @@ const pending: AdminOrganization = {
   name: 'Riverside Stage',
   description: 'Open-air concerts.',
   officialLink: 'https://riverside.example.org',
+  instagram: null,
   verificationStatus: 'pending',
   verifiedAt: null,
   logo: null,

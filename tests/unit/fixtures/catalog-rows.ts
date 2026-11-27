@@ -48,6 +48,7 @@ export function anEventRow(overrides: Partial<EventRow> = {}): EventRow {
     updatedAt: CREATED,
     category: { id: CATEGORY_ID, name: 'Концерти' },
     venue: aVenueRow(),
+    organization: { accountId: ACCOUNT_ID, name: 'Natalka Park', logoId: null, verificationStatus: 'verified' },
     ...overrides,
   };
 }

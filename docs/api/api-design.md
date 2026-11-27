@@ -17,7 +17,7 @@
 
 ## 2. Resource Model
 
-The API exposes six main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts), the signed-in user's own **Profile**, **Organizations** (requests for organization status), **Report Cases** (moderation) and the signed-in user's **Notifications** (the inbox), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
+The API exposes six main resources: **Events** (the catalog), **Listings** (users' "looking for company" posts and the requests to join them), the signed-in user's own **Profile**, **Organizations** (requests for organization status), **Report Cases** (moderation) and the signed-in user's **Notifications** (the inbox), plus two lookups: **Categories**, which events and listings refer to, and **Interests**, which profiles refer to. All of them come from the [data model](../architecture/data-model.md).
 
 ### Event
 
@@ -39,12 +39,13 @@ An event in the city that users can go to together. It is posted by a verified o
 | `priceMin`, `priceMax` | integer \| null | The ticket price in whole hryvnias. Both `null`: the price is unknown, and the event page shows no price. `priceMin` alone: one price. `priceMin` 0 and `priceMax` `null` or 0: free. Both set: a range from `priceMin` to `priceMax`, which is never below it. An imported event takes them from its provider, rounded with `Math.round`; an ArtWizard event written as 0 to 0 gets an unknown price, since ArtWizard writes that for paid events too ([ADR-006](../architecture/decisions/ADR-006.md), decision 12). In the `POST` and `PUT` bodies they are optional, from 0 to 1 000 000; `priceMax` needs `priceMin` and must not be below it (`400` otherwise) |
 | `source` | `organization` \| `import` | |
 | `status` | `published` \| `cancelled` | A cancelled event stays readable, so users who picked it see why it is gone |
+| `organizer` | `{ id, name, logo }` or `null` | The organization that published the event, while it is verified; `id` is its account id, for `GET /organizations/{id}`. `null` for imported events and while the organization is not verified |
 
 The app shows the price as a tag on the cover of the event page, not on the event card (`priceLabel` in `app/src/price.ts`): "450 ₴" for one price, or for `priceMax` equal to `priceMin`; "300–700 ₴" for a range, with an en dash and no spaces around it, also from free ("0–500 ₴"); "Безкоштовно" for a free event; no tag for an unknown price. Thousands are separated with a non-breaking space ("1 200–2 500 ₴"), and the space before "₴" is non-breaking too.
 
 Related to: Category, Venue, Organization (none for imported events), Listing.
 
-Not exposed: organizer contacts and the number of applicants or attendees (catalog access, rule 1).
+Not exposed: organizer contacts (beyond the public site and Instagram on its page) and the number of applicants or attendees (catalog access, rule 1).
 
 ### Listing
 
@@ -63,8 +64,30 @@ A user's post such as "looking for company for an exhibition on Saturday".
 | `date` | date | |
 | `status` | `active` \| `removed` | Only `active` listings are returned to users |
 | `photo` | `{ id, width, height }` or `null` | Cut to 2:1; the picture comes from `GET /images/{id}` |
+| `place` | `{ name, address, location: { lat, lng } }` or `null` | Where the author suggests meeting, picked on the map (Д2.1). Kept on the listing, not a catalog venue. In `POST`: optional; all three fields or none (`400` otherwise), `name` 1–100 characters, `address` up to 200 and may be empty, and the point must be in Kyiv (`422 PLACE_OUTSIDE_CITY`) |
+| `myRequest` | `{ id, status }` or `null` | The caller's own [request to join](#listing-request) the listing, so "Хочу піти" keeps reading "Запит надіслано" after a reload; `null` without one, and always on the caller's own listing. Read for the whole page at once |
+| `likeCount` | integer | How many users like the listing, its author included. Read for the whole page at once, with `liked` |
+| `liked` | boolean | Whether the caller likes it |
 
-Related to: Account (author), Category, Event, Image.
+Related to: Account (author, likes), Category, Event, Image, Listing Request.
+
+### Listing Request
+
+**Base paths:** `/api/v1/listings/{id}/requests` (asking), `/api/v1/me/listing-requests` (requests on the caller's listings), `/api/v1/listing-requests/{id}` (one of them)
+
+"Хочу піти" on someone else's listing: a user asks its author to go together, and the author accepts or declines. Once accepted, both see each other's contacts after the safety notice, as a mutual match does.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | |
+| `status` | `pending` \| `accepted` \| `declined` | A decision is final |
+| `role` | `author` \| `requester` | The caller's side |
+| `createdAt` | date-time | |
+| `decidedAt` | date-time or `null` | When the author answered |
+| `listing` | `{ id, title, date, place, eventId }` | The listing it is about |
+| `requester`, `author` | object | Each one's `username`, `displayName`, `description`, `occupation`, `age`, `interests`, `photo` and `cover`, as a match partner is shown; never their contacts (FR-019) |
+
+Related to: Listing, Account (requester).
 
 ### Application
 
@@ -165,7 +188,7 @@ Related to: Event, Listing.
 
 ### Organization
 
-**Base paths:** `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
+**Base paths:** `/api/v1/organizations/{id}` (a verified organization's public page), `/api/v1/me/organization` (the caller's own request), `/api/v1/admin/organizations` (administrators decide)
 
 A regular account asks to become an organization; only a verified organization publishes events (FR-003, FR-009). The request waits as `pending` until an administrator verifies or rejects it.
 
@@ -174,10 +197,13 @@ A regular account asks to become an organization; only a verified organization p
 | `name` | string | 1–100 characters |
 | `description` | string or `null` | 1–1000 characters in a request; `null` only for organizations added in the database |
 | `officialLink` | string or `null` | An `http` or `https` address, up to 500 characters, where the administrator can check the organization |
+| `instagram` | string or `null` | The Instagram username without "@". `PUT /me/organization/instagram` takes it as a username with or without "@" or an `instagram.com` profile link and keeps the bare username, up to 30 letters, digits, underscores or single dots (`422 INVALID_SOCIAL_HANDLE` otherwise); empty or `null` for none |
 | `verificationStatus` | `pending` \| `verified` \| `rejected` \| `revoked` | `revoked` has no endpoint yet |
 | `verifiedAt` | date-time or `null` | Set when verified |
 | `logo` | `{ id, width, height }` or `null` | A square shown as a circle |
 | `accountId`, `account` | UUID, `{ id, username, displayName }` | Admin responses only: the account that sent the request |
+
+The public page (`PublicOrganization`) has only `id` (the account id), `name`, `description`, `officialLink`, `instagram` and `logo`. Not exposed there: the account, its phone and username, the verification status and dates, and who verified it.
 
 Related to: Account (the organization's account, the administrator who verified it), Event, Venue.
 
@@ -212,8 +238,8 @@ One row of the signed-in user's inbox ([notifications](../architecture/mechanism
 | Field | Type | Notes |
 |---|---|---|
 | `id` | UUID | |
-| `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
-| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10) |
+| `type` | `match_proposed` \| `match_mutual` \| `respond_soon` \| `not_a_match` \| `continue_matching` \| `removed_from_matching` \| `no_match_found` \| `event_reminder` \| `event_changed` \| `report_received` \| `listing_request` \| `listing_request_accepted` | The [catalogue](../architecture/mechanisms/notifications.md#catalogue); the app picks the text by it |
+| `payload` | object | Details by type; never contact details, which a mutual match reads from `/matches`. `report_received` has none, so `{}`. `event_changed` has `eventId`, `applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the application's days that changed as `{ from, to }`, with `to` null for a day the event no longer has, `applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` when the application has a mutual match ([matching](../architecture/mechanisms/matching.md), rule 10). `listing_request` (to the author) and `listing_request_accepted` (to the requester) have `listingRequestId`, `listingId` and `displayName`, the other side's |
 | `readAt` | date-time or `null` | When the caller first marked it read |
 | `createdAt` | date-time | |
 
@@ -277,8 +303,11 @@ Dates are clamped because a user scrolling the date picker too far should just s
 
 | Method | Path | Who | Success | Errors |
 |---|---|---|---|---|
+| `GET` | `/api/v1/organizations/{id}` | Anyone with a guest or user token | `200` the verified organization | `400`, `401`, `404` |
+| `GET` | `/api/v1/organizations/{id}/events` | Anyone with a guest or user token | `200` a page of its events | `400`, `401`, `404` |
 | `GET` | `/api/v1/me/organization` | Signed-in user | `200` the request and its status | `401`, `404` |
 | `PUT` | `/api/v1/me/organization` | Signed-in user | `200` the request, now `pending` | `400`, `401`, `409` |
+| `PUT` | `/api/v1/me/organization/instagram` | Signed-in user with a request | `200` the organization | `400`, `401`, `404`, `422` |
 | `GET` | `/api/v1/admin/organizations` | Administrator | `200` a page of requests | `400`, `401`, `404` |
 | `GET` | `/api/v1/admin/organizations/{accountId}` | Administrator | `200` the request with its account | `400`, `401`, `404` |
 | `POST` | `/api/v1/admin/organizations/{accountId}/approve` | Administrator | `200` the organization, now `verified` | `400`, `401`, `404`, `409` |
@@ -286,7 +315,11 @@ Dates are clamped because a user scrolling the date picker too far should just s
 | `PUT` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/me/organization/logo` | Signed-in user with a request | `200` the organization | `401`, `404` |
 
-`PUT /me/organization` takes `{ name, description, officialLink }`, all required. It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+`GET /organizations/{id}` and `GET /organizations/{id}/events` are the organizer page: an organization that is not verified (pending, rejected, revoked) or an account without one is `404`, so a pending request stays private. The events are its published ones that have not ended, soonest first, a page in the format of `GET /events` without `lastUpdatedAt`.
+
+`PUT /me/organization` takes `{ name, description, officialLink }`, all required, and nothing else (`400` for any other field). It saves the first request, replaces a pending one, or sends a rejected one again; each time the request becomes `pending`. A verified or revoked organization gets `409 CONFLICT`. `GET /me/organization` answers `404` before the first request. The admin list shows pending requests first, oldest first, then the verified, rejected and revoked ones; `search` (part of the name) and `status` filter it. Approve sets `verified` and records the administrator (`verified_by`) and the time (`verifiedAt`); reject sets `rejected`, and the account may send the request again. Both work only on a pending request (`409 CONFLICT` otherwise), and an administrator cannot decide their own request (`409 CANNOT_DECIDE_OWN_REQUEST`). Every decision and every refused attempt writes a row to the audit log (SEC-004). Revoking a verification and notifying the account are not built yet.
+
+`PUT /me/organization/instagram` takes `{ instagram }`, a username, a profile link or `null` (or empty) to clear it, and sets it in any verification status, as the logo is set: Instagram is a public link, not data an administrator verifies, so it never changes `verificationStatus`, and a verified organization stays verified. A request sent again keeps it. An account without a request gets `404`.
 
 ### Venues
 
@@ -308,6 +341,21 @@ An organization publishes events only at its own venues (FR-009), so it adds the
 | `DELETE` | `/api/v1/listings/{id}` | The author | `204` | `400`, `401`, `404` |
 | `PUT` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404`, `413`, `415`, `422` |
 | `DELETE` | `/api/v1/listings/{id}/photo` | The author | `200` the listing | `400`, `401`, `404` |
+| `PUT` | `/api/v1/listings/{id}/like` | Signed-in user | `200` `{ likeCount, liked }` | `400`, `401`, `404` |
+| `DELETE` | `/api/v1/listings/{id}/like` | Signed-in user | `200` `{ likeCount, liked }` | `400`, `401`, `404` |
+| `GET` | `/api/v1/places/reverse?lat&lng` | Signed-in user | `200` `{ name, address }` | `400`, `401`, `404`, `422`, `503` |
+| `POST` | `/api/v1/listings/{id}/requests` | Signed-in user with a complete profile | `201` the request + `Location` header | `400`, `401`, `404`, `409`, `422` |
+| `GET` | `/api/v1/me/listing-requests` | Signed-in user | `200` a page of requests on the caller's listings | `400`, `401` |
+| `GET` | `/api/v1/listing-requests/{id}` | The requester or the listing's author | `200` the request | `400`, `401`, `404` |
+| `POST` | `/api/v1/listing-requests/{id}/accept` | The listing's author | `200` the request | `400`, `401`, `404`, `409` |
+| `POST` | `/api/v1/listing-requests/{id}/decline` | The listing's author | `200` the request | `400`, `401`, `404`, `409` |
+| `GET` | `/api/v1/listing-requests/{id}/contacts` | Both sides of an accepted request | `200` `{ phone, linkedAccounts }` | `400`, `401`, `404`, `422` |
+
+`GET /places/reverse` names the point the Д2.1 place picker settles on: `name` is the place or the building there, else the street and the house; `address` is the street, the house and the district. It asks OpenStreetMap's Nominatim (`/reverse`, Ukrainian names, building zoom; data © OpenStreetMap contributors, ODbL) behind the `PlaceLookup` port, at most one request a second for the whole server as Nominatim's policy asks, and answers points it was asked about in the last day from memory (rounded to 5 decimals, about a metre). Nothing there is `404 NOT_FOUND`; a point outside Kyiv `422 PLACE_OUTSIDE_CITY`; Nominatim unreachable or failing `503 PLACE_LOOKUP_UNAVAILABLE`, and the app lets the user type the name. Guests cannot call it, since only a signed-in user posts listings.
+
+**Likes.** The heart on a post card. `PUT …/like` likes an active listing and `DELETE …/like` takes the like back; both are idempotent, so a second like or an unlike without a like changes nothing and answers `200` as the first did. The author may like their own listing. A listing that is not active, removed or unknown, is a `404` to both. Each answers the listing's `likeCount` and the caller's `liked` after the change, which the app shows in place of its optimistic guess. Guests cannot like, as they cannot read listings.
+
+**Listing requests.** A signed-in user asks to join someone else's active listing once: their own is `422 CANNOT_REQUEST_OWN_LISTING`, a second request `409 ALREADY_REQUESTED` (not the existing one with `200`, so the app can tell a request from another device apart and reload), a listing that is not active `404`. The requester needs a complete profile, as for matching (`422 PROFILE_INCOMPLETE`), so the author sees who asks and has a way to reach them; an organization account may ask, as it may apply for a match, since an organization is a regular account too. The author gets a `listing_request` notification in the same transaction. `GET /me/listing-requests` lists the requests on the caller's listings, pending first, newest first, in pages as the feeds are. Only the listing's author accepts or declines, and only while the request is `pending`; anyone else, the requester included, gets `404`, and a request already answered `409 CONFLICT`. Accepting sends the requester a `listing_request_accepted` notification in the same transaction. **Declining sends nothing**, a product choice: the requester is not told they were turned down, and the app keeps showing their request as sent. A listing that is removed, by its author or an administrator, takes its pending requests with it: they leave the author's list, and reading or answering one is a `404` for both sides; accepted and declined ones stay readable. The contacts are those of the other side, the requester for the author and the author for the requester, in the shape of a match's: `404` until the request is accepted, also after a decline, and for anyone else (SEC-001); `422 SAFETY_NOTICE_REQUIRED` until the caller has acknowledged the safety notice, the same check and the same acknowledgment as for matches (SAFE-002).
 
 ### Matching
 
@@ -487,7 +535,7 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `422 Unprocessable Content` | one code per business rule | The body is valid, but a business rule forbids the action |
 | `429 Too Many Requests` | `RATE_LIMITED` | A rate limit was hit (SEC-007), with `Retry-After` in seconds |
 | `500 Internal Server Error` | `INTERNAL_ERROR` | Anything unexpected; details are logged, never returned |
-| `503 Service Unavailable` | `SERVICE_UNAVAILABLE`, `PHONE_CODES_UNAVAILABLE` | `SERVICE_UNAVAILABLE`: a database call ran out of time (no free connection, or a statement or lock wait over its limit); the cause is logged, never returned, and the client may retry later. `PHONE_CODES_UNAVAILABLE`: codes to phone numbers are paused |
+| `503 Service Unavailable` | `SERVICE_UNAVAILABLE`, `PHONE_CODES_UNAVAILABLE`, `PLACE_LOOKUP_UNAVAILABLE` | `SERVICE_UNAVAILABLE`: a database call ran out of time (no free connection, or a statement or lock wait over its limit); the cause is logged, never returned, and the client may retry later. `PHONE_CODES_UNAVAILABLE`: codes to phone numbers are paused. `PLACE_LOOKUP_UNAVAILABLE`: `GET /places/reverse` cannot reach OpenStreetMap |
 
 **No `403`.** A caller who may not access a resource gets the same `404` as if it did not exist, so the API never reveals that it exists (SEC-001, e.g. a match that is not mutual yet).
 
@@ -499,14 +547,16 @@ Every error has the `ErrorResponse` body: `{ "error": { "code", "message", "deta
 | `REFERENCE_NOT_FOUND` | `POST /events`, `PUT /events/{id}`, `POST /listings`, `PUT /me/profile/interests`, `POST /reports` | A referenced category is missing or deactivated, a venue is not one of the organization's own, a referenced event does not exist, an interest id is not in the list, no user has the reported username, or no active listing has the reported id. The message names which |
 | `EVENT_ENDS_BEFORE_START` | `POST /events`, `PUT /events/{id}` | `endsAt` is not after `startsAt` |
 | `VENUE_OUTSIDE_CITY` | `POST /me/venues` | The venue's location is outside Kyiv |
+| `PLACE_OUTSIDE_CITY` | `POST /listings`, `GET /places/reverse` | The listing's place, or the point to name, is outside Kyiv; `details` names `place.location` or `lat` |
 | `UNDERAGE` | `POST /auth/complete-registration` | The date of birth is less than 18 years ago, by the Kyiv date (SAFE-001); the registration is removed |
 | `INVALID_GOOGLE_TOKEN` | `POST /auth/google/register` | The Google ID token is invalid, expired or issued to another app |
 | `EVENT_CANCELLED` | `PUT /events/{id}`, `PUT` and `DELETE /events/{id}/photo`, `POST /listings`, `POST /events/{id}/applications` | The event is cancelled, so it can no longer be edited, have its cover changed, have listings posted for it or take applications |
 | `CONTACT_REQUIRED` | `PUT /me/profile/linked-accounts` | The list is empty; a profile keeps at least one network for a mutual match to see |
-| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` |
+| `INVALID_SOCIAL_HANDLE` | `PUT /me/profile/linked-accounts`, `PUT /me/organization/instagram` | A username does not fit its social network, or a link points at a page that is not a profile; `details` names the field, e.g. `linkedAccounts.1.username` or `instagram` |
 | `LISTING_DATE_IN_PAST` | `POST /listings` | `date` is before today, Kyiv time |
 | `CANNOT_REPORT_SELF` | `POST /reports` | The username or the listing is the caller's own |
-| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `PROFILE_INCOMPLETE` | `POST /events/{id}/applications`, `POST /listings/{id}/requests` | The profile lacks a communication format, an interest or a linked account, or there is no profile; the app sends the user to complete it |
+| `CANNOT_REQUEST_OWN_LISTING` | `POST /listings/{id}/requests` | The listing is the caller's own |
 | `APPLICATIONS_CLOSED` | `POST /events/{id}/applications` | The cutoff of a picked day has passed: an hour before it starts, or for a session of 3 hours or more, 2 hours before it ends |
 | `INVALID_IMAGE` | `PUT /me/profile/photo`, `PUT /me/profile/cover`, `PUT /listings/{id}/photo`, `PUT /events/{id}/photo`, `PUT /me/organization/logo` | The file is not a JPEG, PNG or WebP picture, is broken, or has over 60 megapixels |
 | `INVALID_SESSION_DAY` | `POST /events/{id}/applications` | The event does not run on one of `dates`, one of them is after the catalog window, or the event runs on several days and `dates` is missing |
@@ -520,6 +570,7 @@ A reference that cannot be used is a `422`, not a `404`: the URL exists, it is a
 | `USERNAME_TAKEN` | `POST /me/profile`, `PATCH /me/profile` | Another profile already has this username; the comparison ignores letter case (unique index on `lower(username)`) |
 | `PROFILE_EXISTS` | `POST /me/profile` | The account already has a profile; continue with `PATCH` |
 | `ALREADY_APPLIED` | `POST /events/{id}/applications` | The caller already has an active application for this event |
+| `ALREADY_REQUESTED` | `POST /listings/{id}/requests` | The caller has already asked to join this listing, whatever the author answered |
 | `GOOGLE_ACCOUNT_TAKEN` | `POST /auth/google/register` | The Google account is already registered; sign in with `POST /auth/google` |
 | `CANNOT_RESOLVE_OWN_CASE` | `POST /admin/report-cases/{id}/ban`, `…/remove-listing`, `…/dismiss` | The case is about the calling administrator or their listing; another administrator resolves it |
 | `CANNOT_BAN_ADMIN` | `POST /admin/report-cases/{id}/ban` | The reported user is an administrator; their role is removed in the database first |

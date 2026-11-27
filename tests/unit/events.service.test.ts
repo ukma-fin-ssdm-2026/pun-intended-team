@@ -32,6 +32,9 @@ const OLD_PHOTO: ImageRef = {
   crop: { left: 0, top: 213, width: 2560, height: 1280 },
 };
 const PHOTO: ImageRef = { ...OLD_PHOTO, id: 'a0000000-0000-4000-8000-000000000012' };
+const LOGO: ImageRef = { id: 'a0000000-0000-4000-8000-000000000013', width: 512, height: 512, crop: null };
+/** anEvent()'s organizer as the API returns it. */
+const ORGANIZER = { id: ACCOUNT_ID, name: 'Natalka Park', logo: null };
 const UPLOAD = {
   content: new Uint8Array([1, 2, 3]),
   contentType: 'image/jpeg',
@@ -61,7 +64,7 @@ function makeService() {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
   };
 
-  const { imagesService } = fakeImages([OLD_PHOTO, PHOTO], PHOTO);
+  const { imagesService } = fakeImages([OLD_PHOTO, PHOTO, LOGO], PHOTO);
   const transactions = aTransactionRunner();
   const jobs = aJobQueue();
 
@@ -180,11 +183,53 @@ describe('EventsService.listOwn', () => {
   });
 });
 
+describe('EventsService.listByOrganization', () => {
+  useFixedClock();
+
+  test('lists the published events of a verified organization that have not ended', async () => {
+    const { service, eventsRepository } = makeService();
+
+    const page = await service.listByOrganization(ACCOUNT_ID, PAGE);
+
+    assert.equal(page.items.length, 1);
+    const [organizationId, endingAfter, request, status] = eventsRepository.findByOrganization.mock.calls[0]!.arguments;
+    assert.deepEqual([organizationId, endingAfter, request, status], [ACCOUNT_ID, NOW, PAGE, 'published']);
+  });
+
+  test('answers NOT_FOUND for an organization that is not verified, or none', async () => {
+    const { service, organizationsRepository, eventsRepository } = makeService();
+    for (const organization of [anOrganization({ verificationStatus: 'pending' }), undefined]) {
+      organizationsRepository.findByAccountId.mock.mockImplementation(() => Promise.resolve(organization));
+
+      await assert.rejects(service.listByOrganization(ACCOUNT_ID, PAGE), isDomainError('NOT_FOUND'));
+    }
+    assert.equal(eventsRepository.findByOrganization.mock.callCount(), 0);
+  });
+});
+
 describe('EventsService.getById', () => {
   test('returns the event without a cover', async () => {
     const { service } = makeService();
 
-    assert.deepEqual(await service.getById(EVENT_ID), { ...anEvent(), photo: null });
+    assert.deepEqual(await service.getById(EVENT_ID), { ...anEvent(), photo: null, organizer: ORGANIZER });
+  });
+
+  test('returns the organizer with its logo', async () => {
+    const { service, eventsRepository } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() =>
+      Promise.resolve(anEvent({ organizer: { id: ACCOUNT_ID, name: 'Natalka Park', logoId: LOGO.id } })),
+    );
+
+    assert.deepEqual((await service.getById(EVENT_ID)).organizer, { ...ORGANIZER, logo: LOGO });
+  });
+
+  test('returns no organizer for an imported event', async () => {
+    const { service, eventsRepository } = makeService();
+    eventsRepository.findById.mock.mockImplementation(() =>
+      Promise.resolve(anEvent({ source: 'import', organizationId: null, organizer: null })),
+    );
+
+    assert.equal((await service.getById(EVENT_ID)).organizer, null);
   });
 
   test('returns the event with its cover’s size and crop', async () => {
@@ -418,7 +463,7 @@ describe('EventsService.cancel', () => {
 
     const result = await service.cancel(ACCOUNT_ID, EVENT_ID);
 
-    assert.deepEqual(result, { ...cancelled, photo: null });
+    assert.deepEqual(result, { ...cancelled, photo: null, organizer: ORGANIZER });
     assert.equal(eventsRepository.update.mock.callCount(), 0);
     assert.deepEqual(enqueued(jobs), []);
   });

@@ -12,8 +12,11 @@ import type { Transaction } from '../../dist/core/common/transaction.js';
 import type { TransactionRunner } from '../../dist/core/common/transaction-runner.js';
 import type { ImagesService, PreparedImage } from '../../dist/core/images/services/images.service.js';
 import type { ImageRef } from '../../dist/core/images/types/image.js';
+import type { ListingLikesRepository } from '../../dist/core/listings/repositories/listing-likes.repository.js';
+import type { ListingRequestsRepository } from '../../dist/core/listings/repositories/listing-requests.repository.js';
 import type { ListingsRepository } from '../../dist/core/listings/repositories/listings.repository.js';
-import type { Listing, ListingRecord, NewListing } from '../../dist/core/listings/types/listing.js';
+import type { Listing, ListingLikes, ListingRecord, NewListing } from '../../dist/core/listings/types/listing.js';
+import type { ListingRequest } from '../../dist/core/listings/types/listing-request.js';
 import type { ProfilesService } from '../../dist/core/profiles/services/profiles.service.js';
 import type { ProfileSummary } from '../../dist/core/profiles/types/profile.js';
 import { ACCOUNT_ID, OTHER_ACCOUNT_ID } from './fixtures/accounts.ts';
@@ -46,6 +49,7 @@ function aListing(overrides: Partial<Listing> = {}): Listing {
     date: '2026-10-22',
     status: 'active',
     photoId: null,
+    place: null,
     ...overrides,
   };
 }
@@ -74,6 +78,19 @@ function makeService() {
     markRemoved: mock.fn(() => Promise.resolve()),
     findByIds: mock.fn((): Promise<Listing[]> => Promise.resolve([aListing({ status: 'removed' })])),
     setPhoto: mock.fn((_id: string, photoId: string | null) => Promise.resolve(aListing({ photoId }))),
+  };
+  const requestsRepository = {
+    findOwn: mock.fn<(requesterId: string, listingIds: string[]) => Promise<Map<string, ListingRequest>>>(() =>
+      Promise.resolve(new Map()),
+    ),
+  };
+  // Every listing asked about is in the map, as in the Prisma repository; nobody likes anything yet.
+  const likesRepository = {
+    like: mock.fn<(listingId: string, accountId: string) => Promise<void>>(() => Promise.resolve()),
+    unlike: mock.fn<(listingId: string, accountId: string) => Promise<void>>(() => Promise.resolve()),
+    summaries: mock.fn<(listingIds: string[], viewerId: string) => Promise<Map<string, ListingLikes>>>((ids) =>
+      Promise.resolve(new Map(ids.map((id) => [id, { likeCount: 0, liked: false }]))),
+    ),
   };
   const categoriesService = {
     findActive: mock.fn((): Promise<Category | undefined> => Promise.resolve(aCategory())),
@@ -104,13 +121,25 @@ function makeService() {
 
   const service = new ListingsService(
     listingsRepository as unknown as ListingsRepository,
+    requestsRepository as unknown as ListingRequestsRepository,
+    likesRepository as unknown as ListingLikesRepository,
     categoriesService as unknown as CategoriesService,
     eventsService as unknown as EventsService,
     profilesService as unknown as ProfilesService,
     imagesService as unknown as ImagesService,
     transactions as unknown as TransactionRunner,
   );
-  return { service, listingsRepository, categoriesService, eventsService, profilesService, imagesService, tx };
+  return {
+    service,
+    listingsRepository,
+    requestsRepository,
+    likesRepository,
+    categoriesService,
+    eventsService,
+    profilesService,
+    imagesService,
+    tx,
+  };
 }
 
 function isDomainError(code: string) {
@@ -125,7 +154,7 @@ describe('ListingsService.list', () => {
     mock.timers.setTime(Date.parse('2026-10-14T21:30:00Z'));
     const { service, listingsRepository } = makeService();
 
-    const result = await service.list(PAGE);
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
 
     assert.deepEqual(listingsRepository.findActive.mock.calls[0]?.arguments, [TODAY, PAGE]);
     assert.deepEqual(result.items[0]?.author, { ...anAuthor(), photo: null });
@@ -138,7 +167,7 @@ describe('ListingsService.list', () => {
       Promise.resolve(new Map([[ACCOUNT_ID, anAuthor({ photoId: PHOTO.id })]])),
     );
 
-    const result = await service.list(PAGE);
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
 
     assert.deepEqual(result.items[0]?.author.photo, PHOTO);
   });
@@ -147,9 +176,126 @@ describe('ListingsService.list', () => {
     const { service, profilesService } = makeService();
     profilesService.getSummaries.mock.mockImplementation(() => Promise.resolve(new Map()));
 
-    const result = await service.list(PAGE);
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
 
     assert.deepEqual(result.items, []);
+  });
+});
+
+// One query for the viewer's requests on the whole page, none on their own listings.
+describe('ListingsService myRequest', () => {
+  test("adds the viewer's own request to each listing of the page", async () => {
+    const { service, requestsRepository } = makeService();
+    requestsRepository.findOwn.mock.mockImplementation(() =>
+      Promise.resolve(
+        new Map([
+          [
+            LISTING_ID,
+            {
+              id: 'e0000000-0000-4000-8000-000000000001',
+              listingId: LISTING_ID,
+              requesterId: OTHER_ACCOUNT_ID,
+              status: 'pending' as const,
+              createdAt: '2026-10-14T09:00:00.000Z',
+              decidedAt: null,
+            },
+          ],
+        ]),
+      ),
+    );
+
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
+
+    assert.deepEqual(requestsRepository.findOwn.mock.calls[0]?.arguments, [OTHER_ACCOUNT_ID, [LISTING_ID]]);
+    assert.equal(requestsRepository.findOwn.mock.callCount(), 1);
+    assert.deepEqual(result.items[0]?.myRequest, { id: 'e0000000-0000-4000-8000-000000000001', status: 'pending' });
+  });
+
+  test('gives null without a request', async () => {
+    const { service } = makeService();
+
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
+
+    assert.equal(result.items[0]?.myRequest, null);
+  });
+
+  test("does not look for requests on the viewer's own listings", async () => {
+    const { service, requestsRepository } = makeService();
+
+    await service.list(ACCOUNT_ID, PAGE);
+
+    assert.deepEqual(requestsRepository.findOwn.mock.calls[0]?.arguments, [ACCOUNT_ID, []]);
+  });
+});
+
+// One query for the likes of the whole page, the viewer's own listings included.
+describe('ListingsService likes on a page', () => {
+  test('adds the like count and whether the viewer likes each listing, read once for the page', async () => {
+    const { service, likesRepository } = makeService();
+    likesRepository.summaries.mock.mockImplementation(() =>
+      Promise.resolve(new Map([[LISTING_ID, { likeCount: 4, liked: true }]])),
+    );
+
+    const result = await service.list(ACCOUNT_ID, PAGE);
+
+    assert.equal(likesRepository.summaries.mock.callCount(), 1);
+    assert.deepEqual(likesRepository.summaries.mock.calls[0]?.arguments, [[LISTING_ID], ACCOUNT_ID]);
+    assert.equal(result.items[0]?.likeCount, 4);
+    assert.equal(result.items[0]?.liked, true);
+  });
+
+  test('gives 0 and not liked to a listing nobody likes', async () => {
+    const { service } = makeService();
+
+    const result = await service.list(OTHER_ACCOUNT_ID, PAGE);
+
+    assert.equal(result.items[0]?.likeCount, 0);
+    assert.equal(result.items[0]?.liked, false);
+  });
+});
+
+describe('ListingsService.like and unlike', () => {
+  test("likes someone else's active listing and returns its likes", async () => {
+    const { service, listingsRepository, likesRepository } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
+    likesRepository.summaries.mock.mockImplementation(() =>
+      Promise.resolve(new Map([[LISTING_ID, { likeCount: 1, liked: true }]])),
+    );
+
+    const likes = await service.like(OTHER_ACCOUNT_ID, LISTING_ID);
+
+    assert.deepEqual(likesRepository.like.mock.calls[0]?.arguments, [LISTING_ID, OTHER_ACCOUNT_ID]);
+    assert.deepEqual(likesRepository.summaries.mock.calls[0]?.arguments, [[LISTING_ID], OTHER_ACCOUNT_ID]);
+    assert.deepEqual(likes, { likeCount: 1, liked: true });
+  });
+
+  test('lets the author like their own listing', async () => {
+    const { service, listingsRepository, likesRepository } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
+
+    await service.like(ACCOUNT_ID, LISTING_ID);
+
+    assert.deepEqual(likesRepository.like.mock.calls[0]?.arguments, [LISTING_ID, ACCOUNT_ID]);
+  });
+
+  test('takes the like back and returns the likes left', async () => {
+    const { service, listingsRepository, likesRepository } = makeService();
+    listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
+
+    const likes = await service.unlike(OTHER_ACCOUNT_ID, LISTING_ID);
+
+    assert.deepEqual(likesRepository.unlike.mock.calls[0]?.arguments, [LISTING_ID, OTHER_ACCOUNT_ID]);
+    assert.deepEqual(likes, { likeCount: 0, liked: false });
+  });
+
+  test('answers NOT_FOUND to a missing or removed listing and stores nothing', async () => {
+    // findActiveById gives nothing for a removed listing, as for an unknown one.
+    const { service, likesRepository } = makeService();
+
+    await assert.rejects(service.like(OTHER_ACCOUNT_ID, LISTING_ID), isDomainError('NOT_FOUND'));
+    await assert.rejects(service.unlike(OTHER_ACCOUNT_ID, LISTING_ID), isDomainError('NOT_FOUND'));
+    assert.equal(likesRepository.like.mock.callCount(), 0);
+    assert.equal(likesRepository.unlike.mock.callCount(), 0);
   });
 });
 
@@ -157,7 +303,7 @@ describe('ListingsService.getById', () => {
   test('answers NOT_FOUND to an unknown listing', async () => {
     const { service } = makeService();
 
-    await assert.rejects(service.getById(LISTING_ID), isDomainError('NOT_FOUND'));
+    await assert.rejects(service.getById(OTHER_ACCOUNT_ID, LISTING_ID), isDomainError('NOT_FOUND'));
   });
 
   test('answers NOT_FOUND when the author has no profile', async () => {
@@ -165,7 +311,7 @@ describe('ListingsService.getById', () => {
     listingsRepository.findActiveById.mock.mockImplementation(() => Promise.resolve(aListing()));
     profilesService.getSummaries.mock.mockImplementation(() => Promise.resolve(new Map()));
 
-    await assert.rejects(service.getById(LISTING_ID), isDomainError('NOT_FOUND'));
+    await assert.rejects(service.getById(OTHER_ACCOUNT_ID, LISTING_ID), isDomainError('NOT_FOUND'));
   });
 });
 
@@ -179,9 +325,35 @@ describe('ListingsService.create', () => {
     const result = await service.create(ACCOUNT_ID, input);
 
     assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments, [
-      { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null },
+      { ...input, authorId: ACCOUNT_ID, status: 'active', photoId: null, place: null },
     ]);
     assert.deepEqual(result.author, { ...anAuthor(), photo: null });
+  });
+
+  test('stores the place picked on the map', async () => {
+    const { service, listingsRepository } = makeService();
+    const place = {
+      name: 'Мистецький Арсенал',
+      address: 'вулиця Лаврська, 10',
+      location: { lat: 50.4357, lng: 30.5555 },
+    };
+
+    const result = await service.create(ACCOUNT_ID, aNewListing({ place }));
+
+    assert.deepEqual(listingsRepository.create.mock.calls[0]?.arguments[0]?.place, place);
+    assert.deepEqual(result.place, place);
+  });
+
+  test('rejects a place outside Kyiv with PLACE_OUTSIDE_CITY', async () => {
+    const { service, listingsRepository } = makeService();
+    const place = { name: 'Lviv Opera', address: '', location: { lat: 49.8441, lng: 24.0262 } };
+
+    await assert.rejects(
+      service.create(ACCOUNT_ID, aNewListing({ place })),
+      (error: unknown) =>
+        error instanceof DomainError && error.code === 'PLACE_OUTSIDE_CITY' && error.field === 'place.location',
+    );
+    assert.equal(listingsRepository.create.mock.callCount(), 0);
   });
 
   test('stores a listing without an event with eventId null and does not look one up', async () => {

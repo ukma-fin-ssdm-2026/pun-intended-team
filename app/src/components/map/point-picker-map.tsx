@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // The map an organization places a new venue on, on Android and iOS; the web build uses point-picker-map.web.tsx. The
-// pin stays in the middle of the screen and the map moves under it, as in Д2.1.
+// pin stays in the middle of the screen and the map moves under it, as in Д2.1. Read-only, it shows a listing's place
+// and does not move.
 import { useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { type Region } from 'react-native-maps';
@@ -14,17 +15,19 @@ export type PointPickerMapProps = {
   /** Where the map starts; the city centre without it. */
   initial?: MapPoint;
   /** The point under the pin, each time the map stops moving. */
-  onMove: (center: MapPoint) => void;
+  onMove?: (center: MapPoint) => void;
+  /** The map stays on `initial`: no panning, zooming or rotating, so the pin keeps pointing at it. */
+  readOnly?: boolean;
 };
 
-export function PointPickerMap({ initial = KYIV_CENTER, onMove }: PointPickerMapProps) {
+export function PointPickerMap({ initial = KYIV_CENTER, onMove, readOnly = false }: PointPickerMapProps) {
   const map = useRef<MapView>(null);
 
   // A map moved away from the city comes back to its edge, and only a point in the city is reported.
   const settle = ({ latitude, longitude, latitudeDelta, longitudeDelta }: Region) => {
     const center = { lat: latitude, lng: longitude };
     if (isInKyiv(center)) {
-      onMove(center);
+      onMove?.(center);
       return;
     }
     const { lat, lng } = clampToKyiv(center);
@@ -45,7 +48,11 @@ export function PointPickerMap({ initial = KYIV_CENTER, onMove }: PointPickerMap
       showsMyLocationButton={false}
       showsPointsOfInterests={false}
       toolbarEnabled={false}
-      onRegionChangeComplete={settle}
+      scrollEnabled={!readOnly}
+      zoomEnabled={!readOnly}
+      rotateEnabled={!readOnly}
+      pitchEnabled={!readOnly}
+      onRegionChangeComplete={readOnly ? undefined : settle}
     />
   );
 }

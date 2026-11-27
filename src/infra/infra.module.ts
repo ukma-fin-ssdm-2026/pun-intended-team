@@ -20,6 +20,8 @@ import { GoogleIdTokens } from '../core/identity/adapters/google-id-tokens.ts';
 import { PasswordHasher } from '../core/identity/adapters/password-hasher.ts';
 import { SessionsRepository } from '../core/identity/repositories/sessions.repository.ts';
 import { VerificationCodesRepository } from '../core/identity/repositories/verification-codes.repository.ts';
+import { ListingLikesRepository } from '../core/listings/repositories/listing-likes.repository.ts';
+import { ListingRequestsRepository } from '../core/listings/repositories/listing-requests.repository.ts';
 import { ListingsRepository } from '../core/listings/repositories/listings.repository.ts';
 import { ApplicationsRepository } from '../core/matching/repositories/applications.repository.ts';
 import { MatchesRepository } from '../core/matching/repositories/matches.repository.ts';
@@ -28,6 +30,7 @@ import { ReportCasesRepository } from '../core/moderation/repositories/report-ca
 import { JobQueue } from '../core/jobs/adapters/job-queue.ts';
 import { MessagingProvider } from '../core/notifications/adapters/messaging-provider.ts';
 import { PushProvider } from '../core/notifications/adapters/push-provider.ts';
+import { PlaceLookup } from '../core/listings/adapters/place-lookup.ts';
 import { DeviceTokensRepository } from '../core/notifications/repositories/device-tokens.repository.ts';
 import { NotificationsRepository } from '../core/notifications/repositories/notifications.repository.ts';
 import { DatabaseProbe } from '../core/system/adapters/database-probe.ts';
@@ -39,6 +42,9 @@ import { JoseGoogleIdTokens } from './auth/jose-google-id-tokens.ts';
 import { loadCodeHmacKey, loadContactHmacKey, loadDataEncryptionKey, loadSigningKeys } from './auth/key-files.ts';
 import { PgBossJobQueue } from './jobs/pg-boss-job-queue.ts';
 import { ConsoleMessagingProvider } from './messaging/console-messaging-provider.ts';
+import { NominatimPlaceLookup } from './geocoding/nominatim-place-lookup.ts';
+import { PoliteHttpClient } from './providers/http-client.ts';
+import { importSettings } from './providers/import-settings.ts';
 import { DisabledMessagingProvider } from './messaging/disabled-messaging-provider.ts';
 import { FallbackMessagingProvider } from './messaging/fallback-messaging-provider.ts';
 import { loadMessagingSettings } from './messaging/messaging-settings.ts';
@@ -56,6 +62,8 @@ import { PrismaEventSessionsRepository } from './prisma/prisma-event-sessions.re
 import { PrismaEventsRepository } from './prisma/prisma-events.repository.ts';
 import { PrismaImportRunsRepository } from './prisma/prisma-import-runs.repository.ts';
 import { PrismaInterestsRepository } from './prisma/prisma-interests.repository.ts';
+import { PrismaListingLikesRepository } from './prisma/prisma-listing-likes.repository.ts';
+import { PrismaListingRequestsRepository } from './prisma/prisma-listing-requests.repository.ts';
 import { PrismaListingsRepository } from './prisma/prisma-listings.repository.ts';
 import { PrismaMatchesRepository } from './prisma/prisma-matches.repository.ts';
 import { PrismaNotificationsRepository } from './prisma/prisma-notifications.repository.ts';
@@ -82,6 +90,8 @@ const repositories = [
   { provide: SessionsRepository, useClass: PrismaSessionsRepository },
   { provide: ProfilesRepository, useClass: PrismaProfilesRepository },
   { provide: ListingsRepository, useClass: PrismaListingsRepository },
+  { provide: ListingRequestsRepository, useClass: PrismaListingRequestsRepository },
+  { provide: ListingLikesRepository, useClass: PrismaListingLikesRepository },
   { provide: InterestsRepository, useClass: PrismaInterestsRepository },
   { provide: MatchesRepository, useClass: PrismaMatchesRepository },
   { provide: ApplicationsRepository, useClass: PrismaApplicationsRepository },
@@ -105,6 +115,7 @@ const adapters = [
   { provide: MessagingProvider, useFactory: messagingProvider },
   { provide: PushProvider, useFactory: () => new ExpoPushProvider() },
   { provide: ImageProcessor, useClass: SharpImageProcessor },
+  { provide: PlaceLookup, useFactory: placeLookup },
   { provide: PasswordHasher, useClass: Argon2PasswordHasher },
   { provide: CodeHasher, useFactory: () => new HmacCodeHasher(loadCodeHmacKey()) },
   { provide: AccessTokens, useFactory: () => new JoseAccessTokens(loadSigningKeys()) },
@@ -152,3 +163,15 @@ export function personalDataCipher(): PersonalDataCipher {
   exports: providers.map(({ provide }) => provide),
 })
 export class InfraModule {}
+
+/**
+ * The place picker's lookup shares the import geocoder's Nominatim settings. A user waits for it, so it retries once
+ * and gives up sooner than the import does.
+ */
+function placeLookup(): PlaceLookup {
+  const { userAgent, intervalMs, nominatimBaseUrl } = importSettings();
+  return new NominatimPlaceLookup(
+    new PoliteHttpClient({ userAgent, intervalMs, retries: 1, backoffMs: 500, timeoutMs: 5000 }),
+    nominatimBaseUrl,
+  );
+}

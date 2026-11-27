@@ -13,14 +13,14 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
-import type { ApiEventPhoto } from '@/api/images';
+import type { Event } from '@/api/events';
 import { SafetySheet } from '@/components/matching/safety-sheet';
 import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
-import { eventCoverOf } from '@/components/ui/event-cover';
+import { coverOf } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
@@ -28,7 +28,6 @@ import { formatEventDate } from '@/dates';
 import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { colors } from '@/styles/tokens';
@@ -93,10 +92,7 @@ function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab:
   );
 }
 
-// A live event from the catalog or, until the screens that use them move to the API, a mock one.
-type SavedEvent = Omit<MockEvent, 'district' | 'organizer' | 'photo'> & { photo?: ApiEventPhoto | null };
-
-function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: string) => void }) {
+function SavedEvents({ events, onOpen }: { events: Event[]; onOpen: (id: string) => void }) {
   return (
     <View className="gap-4 px-5 pt-4">
       <Text className="font-inter text-caption text-text-secondary">{savedLabel(events.length)}</Text>
@@ -107,7 +103,7 @@ function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: st
           category={event.category.name}
           dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
           place={event.venue.name}
-          cover={eventCoverOf(event)}
+          cover={coverOf(event.imageUrl)}
           photo={event.photo}
           favorite
           onToggleFavorite={() => toggleFavorite(event.id)}
@@ -216,12 +212,12 @@ export default function ProfileScreen() {
     setChosenTab(next);
     if (saved) router.setParams({ saved: undefined });
   };
-  // Each saved id is asked of the API, then looked up among the mocks. An event the API no longer returns is not shown.
+  // Each saved id is asked of the API. An event the API no longer returns is not shown.
   const favoriteIds = useFavoriteIds();
   const liveEvents = useEventsByIds(favoriteIds).data;
   const savedEvents = favoriteIds
-    .map((id): SavedEvent | undefined => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
-    .filter((event): event is SavedEvent => !!event);
+    .map((id) => liveEvents?.find((event) => event.id === id))
+    .filter((event): event is Event => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
 

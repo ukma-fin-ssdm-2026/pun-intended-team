@@ -47,13 +47,28 @@ export const Routes = {
     list: '/api/v1/listings',
     byId: '/api/v1/listings/{id}',
     photo: '/api/v1/listings/{id}/photo',
+    requests: '/api/v1/listings/{id}/requests',
+    like: '/api/v1/listings/{id}/like',
+  },
+  listingRequests: {
+    mine: '/api/v1/me/listing-requests',
+    byId: '/api/v1/listing-requests/{id}',
+    accept: '/api/v1/listing-requests/{id}/accept',
+    decline: '/api/v1/listing-requests/{id}/decline',
+    contacts: '/api/v1/listing-requests/{id}/contacts',
+  },
+  places: {
+    reverse: '/api/v1/places/reverse',
   },
   images: {
     byId: '/api/v1/images/{id}',
   },
   organizations: {
+    byId: '/api/v1/organizations/{id}',
+    events: '/api/v1/organizations/{id}/events',
     me: '/api/v1/me/organization',
     logo: '/api/v1/me/organization/logo',
+    instagram: '/api/v1/me/organization/instagram',
   },
   profiles: {
     me: '/api/v1/me/profile',

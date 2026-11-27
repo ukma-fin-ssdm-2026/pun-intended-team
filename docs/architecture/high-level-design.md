@@ -136,6 +136,8 @@ Each process connects with its own database role; the import role can write only
 | `MessagingProvider.sendCode(contact, code)` | notifications | Telegram Gateway API → SMS fallback chain |
 | `GoogleIdTokens.verify(idToken)` → the Google subject id, or none for an invalid token | identity | Google |
 | `ImageProcessor.measure(content)`, `encode(content, options)` — reads, crops and re-encodes a picture | images | sharp (libvips), in process |
+| `Geocoder.locate(venue)` → coordinates, or none | CMP-03 | Nominatim (OpenStreetMap, ODbL) |
+| `PlaceLookup.describe(point)` → `{ name, address }`, or none — names the point of a listing's place picker | listings | Nominatim `/reverse` (OpenStreetMap, ODbL), at most 1 request/s, recent points cached |
 
 ## 4. How Components Communicate
 

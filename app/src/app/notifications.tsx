@@ -5,13 +5,21 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  acceptListingRequest,
+  declineListingRequest,
+  getListingRequest,
+  type ListingRequest,
+} from '@/api/listing-requests';
 import { loadNotifications, markAllNotificationsRead, markNotificationRead } from '@/api/notifications';
+import { failureSnackbar } from '@/auth/messages';
+import { joinRequestOf } from '@/components/announcements/join-request';
 import { JoinRequestSheet } from '@/components/announcements/join-request-sheet';
 import { Icon, type IconName } from '@/components/ui/icon';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { formatDateTime } from '@/dates';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { notificationText, useNotificationsState, type Notification } from '@/state/notifications';
-import { useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
 // "01 Навігація": top padding 56 in the iPhone 14 frame, 9 px below its status bar.
@@ -38,6 +46,8 @@ const looks: Record<Notification['type'], { icon: IconName; tone: Tone; toMatche
   event_reminder: { icon: 'bell', tone: 'plain' },
   event_changed: { icon: 'calendar', tone: 'plain' },
   report_received: { icon: 'shield', tone: 'plain' },
+  listing_request: { icon: 'matches', tone: 'coral' },
+  listing_request_accepted: { icon: 'check', tone: 'coral' },
 };
 
 type Row = { key: string; icon: IconName; tone: Tone; title: string; time: string; text: string; unread: boolean };
@@ -73,23 +83,14 @@ function toRow(notification: Notification): Row {
   };
 }
 
-// Т5.1: shown on top of the new ones when the development switch is on.
-const joinRequest: Row = {
-  key: 'join-request',
-  icon: 'matches',
-  tone: 'ink',
-  title: 'Олена хоче піти з тобою',
-  time: 'щойно',
-  text: 'Відгукнулася на твоє оголошення про настолки в антикафе.',
-  unread: true,
-};
-
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const session = useSession();
   const inbox = useNotificationsState();
-  const [requestOpen, setRequestOpen] = useState(false);
+  const { snackbar, show } = useSnackbar();
+  // The Д4 sheet of a `listing_request` row, with the request from the API.
+  const [request, setRequest] = useState<ListingRequest>();
+  const [answering, setAnswering] = useState<'accept' | 'decline'>();
   useStatusBarStyle('dark');
 
   // The inbox is read when the screen opens (HLD I1); the web build has no push, so this is its only channel.
@@ -97,12 +98,49 @@ export default function NotificationsScreen() {
     void loadNotifications();
   }, []);
 
+  const toMutual = (id: string) => router.push({ pathname: '/mutual', params: { request: id } });
+
+  // A request already accepted goes straight to 07; a pending or declined one opens Д4, read-only once declined.
+  const openRequest = async (id: string) => {
+    const result = await getListingRequest(id);
+    if (!result.ok) {
+      show(
+        result.status === 404
+          ? { tone: 'error', title: 'Запиту вже немає', note: 'Оголошення видалено' }
+          : failureSnackbar(result),
+      );
+    } else if (result.data.status === 'accepted') {
+      toMutual(id);
+    } else {
+      setRequest(result.data);
+    }
+  };
+
+  const answer = async (choice: 'accept' | 'decline') => {
+    if (!request) return;
+    setAnswering(choice);
+    const result =
+      choice === 'accept' ? await acceptListingRequest(request.id) : await declineListingRequest(request.id);
+    setAnswering(undefined);
+    if (!result.ok) {
+      show(failureSnackbar(result));
+      return;
+    }
+    setRequest(undefined);
+    if (choice === 'accept') toMutual(request.id);
+    else show({ title: 'Запит відхилено', note: `${request.requester.displayName} не отримає сповіщення` });
+  };
+
   const open = (notification: Notification) => () => {
     void markNotificationRead(notification.id);
-    const { eventId } = notification.payload;
+    const { eventId, listingRequestId } = notification.payload;
     // "No match found" opens the search screen of its event, which shows what to do next.
     if (notification.type === 'no_match_found' && typeof eventId === 'string') {
       router.push({ pathname: '/events/[id]/search', params: { id: eventId } });
+    } else if (notification.type === 'listing_request' && typeof listingRequestId === 'string') {
+      void openRequest(listingRequestId);
+    } else if (notification.type === 'listing_request_accepted' && typeof listingRequestId === 'string') {
+      toMutual(listingRequestId);
     } else if (looks[notification.type].toMatches) {
       router.dismissTo('/matches');
     }
@@ -112,11 +150,10 @@ export default function NotificationsScreen() {
   const fresh = notifications.filter(({ readAt }) => readAt === null);
   const earlier = notifications.filter(({ readAt }) => readAt !== null);
 
-  const section = (label: string, items: Notification[], extra?: Row) =>
-    (items.length > 0 || extra) && (
+  const section = (label: string, items: Notification[]) =>
+    items.length > 0 && (
       <View className="gap-1 px-5 pt-4">
         <Text className="font-inter-medium text-label text-text-secondary">{label}</Text>
-        {extra && <NotificationRow row={extra} onPress={() => setRequestOpen(true)} />}
         {items.map((item) => (
           <NotificationRow key={item.id} row={toRow(item)} onPress={open(item)} />
         ))}
@@ -126,7 +163,7 @@ export default function NotificationsScreen() {
   const message =
     inbox.status === 'error'
       ? 'Не вдалося завантажити сповіщення'
-      : inbox.status === 'loaded' && notifications.length === 0 && !session.joinRequest
+      : inbox.status === 'loaded' && notifications.length === 0
         ? 'Сповіщень поки немає'
         : undefined;
 
@@ -162,18 +199,23 @@ export default function NotificationsScreen() {
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: Math.max(34, insets.bottom) }}>
         {message && <Text className="px-5 pt-8 text-center font-inter text-body text-text-secondary">{message}</Text>}
-        {section('Нові', fresh, session.joinRequest ? joinRequest : undefined)}
+        {section('Нові', fresh)}
         {section('Раніше', earlier)}
       </ScrollView>
-
-      <JoinRequestSheet
-        visible={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        onAccept={() => {
-          setRequestOpen(false);
-          router.push({ pathname: '/mutual', params: { person: 'olena' } });
-        }}
-      />
+      {request && (
+        <JoinRequestSheet
+          visible
+          request={joinRequestOf(request)}
+          busy={answering}
+          decided={
+            request.status === 'declined' ? 'Запит уже відхилено. Про це ніхто не отримав сповіщення.' : undefined
+          }
+          onClose={() => setRequest(undefined)}
+          onAccept={() => void answer('accept')}
+          onDecline={() => void answer('decline')}
+        />
+      )}
+      {snackbar && <Snackbar {...snackbar} />}
     </View>
   );
 }

@@ -30,7 +30,6 @@ import { useEvent } from '@/hooks/use-event';
 import { useMatch } from '@/hooks/use-matches';
 import { useProfile } from '@/hooks/use-profile';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent } from '@/mocks/events';
 import type { Match } from '@/state/matches';
 import { colors } from '@/styles/tokens';
 
@@ -85,15 +84,14 @@ export default function ProposalScreen() {
   const { match: listed, loaded } = useMatch(id);
   const match = answered ?? listed;
   const ownInterestIds = useProfile().data?.interests.map(({ id: interestId }) => interestId) ?? [];
-  const { data: liveEvent } = useEvent(match?.eventId);
-  const mockEvent = match ? findMockEvent(match.eventId) : undefined;
+  const { data: event } = useEvent(match?.eventId);
 
   const profileX = useSharedValue(0);
   const controlsOpacity = useSharedValue(1);
   const messageOpacity = useSharedValue(0);
 
   const day = match?.days[0]?.startsAt;
-  const title = liveEvent?.title ?? mockEvent?.title;
+  const title = event?.title;
   const subtitle = title && day ? `${title} · ${formatShortDay(day)}` : undefined;
   const actionsBottom = Math.max(ACTIONS_BOTTOM, insets.bottom);
   const navTop = Math.max(NAV_TOP, insets.top + GAP_BELOW_STATUS_BAR);
@@ -183,7 +181,7 @@ export default function ProposalScreen() {
           className="flex-1 px-5 pt-2.5"
           style={{ paddingBottom: actionsBottom + ACTIONS_HEIGHT + NOTE_GAP + NOTE_HEIGHT + LIST_GAP }}
         >
-          <ProposalCard match={match} ownInterestIds={ownInterestIds} cover={mockEvent?.cover} />
+          <ProposalCard match={match} ownInterestIds={ownInterestIds} event={event} />
         </View>
       </Animated.View>
 

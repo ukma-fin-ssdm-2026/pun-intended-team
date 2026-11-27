@@ -9,7 +9,7 @@ import { cancelEvent, type Event } from '@/api/events';
 import { CancelEventDialog } from '@/components/organization/cancel-event-dialog';
 import { eventFailure } from '@/components/organization/event-messages';
 import { Button } from '@/components/ui/button';
-import { EventCover, eventCoverOf } from '@/components/ui/event-cover';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useMyEvents } from '@/hooks/use-my-events';
@@ -49,7 +49,7 @@ function EventCard({ event, onEdit, onCancel }: { event: Event; onEdit: () => vo
     <View className="flex-1 gap-3 rounded-[24px] bg-surface-card p-3" style={{ boxShadow: shadows.small }}>
       <View className="flex-row items-center gap-3">
         <View className={`size-[94px] overflow-hidden rounded-2xl ${status === 'cancelled' ? 'opacity-50' : ''}`}>
-          <EventCover cover={eventCoverOf(event)} photo={event.photo} gradient="thumb" />
+          <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} gradient="thumb" />
         </View>
         <View className="flex-1 items-start gap-1">
           <View className="flex-row items-center gap-1.5 rounded-xl bg-surface-background py-[5px] pl-2 pr-2.5">

@@ -1,21 +1,22 @@
 // Written with the help of Claude
 // AI Usage: organization settings from the Figma "DО4 Організація · Налаштування" desktop frame with the DО4.1 dialog,
 // after the О4 screen reviewed by Daryna Halytska. The verification request (name, description, site) and its status
-// come from the API; the status block has no Figma frame. Figma's Instagram field and notification switches are left out
+// come from the API; Instagram is saved apart, in any status; the status block has no Figma frame. Figma's notification switches are left out
 // until the API stores them.
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { deleteOrganizationLogo, uploadOrganizationLogo } from '@/api/images';
-import { requestOrganizationStatus, type Organization } from '@/api/organizations';
-import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
+import { requestOrganizationStatus, setOrganizationInstagram, type Organization } from '@/api/organizations';
+import { failureMessage, failureSnackbar, pictureRefusalSnackbar } from '@/auth/messages';
 import { ApiPicture, Picture } from '@/components/pictures/picture';
 import { usePictureCropper } from '@/components/pictures/picture-cropper';
 import { signOut } from '@/api/session';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
+import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { TextField } from '@/components/ui/text-field';
 import { useOwnOrganization } from '@/hooks/use-own-organization';
 import type { PictureDraft } from '@/pictures/picked-picture';
@@ -44,6 +45,9 @@ export default function OrganizationSettingsScreen() {
   const [name, setName] = useState('');
   const [about, setAbout] = useState('');
   const [site, setSite] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [instagramBusy, setInstagramBusy] = useState(false);
+  const { snackbar, show } = useSnackbar();
   const [sending, setSending] = useState(false);
   const [requestError, setRequestError] = useState<string>();
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -85,7 +89,27 @@ export default function OrganizationSettingsScreen() {
     setName(own.data.name);
     setAbout(own.data.description ?? '');
     setSite(own.data.officialLink ?? '');
+    setInstagram(own.data.instagram ? `@${own.data.instagram}` : '');
   }
+
+  const savedInstagram = own.data?.instagram ? `@${own.data.instagram}` : '';
+  const instagramChanged = instagram.trim() !== savedInstagram;
+  const saveInstagram = async () => {
+    setInstagramBusy(true);
+    const result = await setOrganizationInstagram(instagram.trim() || null);
+    setInstagramBusy(false);
+    if (result.ok) {
+      own.set(result.data);
+      show({
+        title: result.data.instagram ? 'Instagram збережено' : 'Instagram прибрано',
+        note: 'Його видно на сторінці організації',
+      });
+    } else if (result.code === 'INVALID_SOCIAL_HANDLE') {
+      show({ tone: 'error', title: 'Перевір Instagram', note: 'Наприклад, @artarsenal' });
+    } else {
+      show(failureSnackbar(result));
+    }
+  };
 
   const status = own.data?.verificationStatus ?? (own.none ? 'none' : undefined);
   const canSend = status === 'none' || status === 'pending' || status === 'rejected';
@@ -123,6 +147,8 @@ export default function OrganizationSettingsScreen() {
     if (result.ok) {
       own.set(result.data);
       if (logoDraft && (await saveLogo(logoDraft))) setLogoDraft(undefined);
+      // Typed before the first request, when the API had no organization to keep it on.
+      if (instagram.trim() !== (result.data.instagram ? `@${result.data.instagram}` : '')) await saveInstagram();
     } else if (result.status === 0) setRequestError('Немає зʼєднання. Спробуй ще раз.');
     else if (result.status === 400) setRequestError('Перевір дані: сайт має бути адресою, наприклад artarsenal.in.ua.');
     else if (result.status === 409) {
@@ -203,6 +229,24 @@ export default function OrganizationSettingsScreen() {
             keyboardType="url"
             editable={canSend}
           />
+          <TextField
+            label="Instagram"
+            value={instagram}
+            onChangeText={setInstagram}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {/* Saved on its own, also for a verified organization; before the first request it goes with the request. */}
+          {own.data && instagramChanged && (
+            <View className="self-start">
+              <Button
+                label="Зберегти Instagram"
+                variant="light"
+                loading={instagramBusy}
+                onPress={() => void saveInstagram()}
+              />
+            </View>
+          )}
 
           <View className="mt-3 gap-3 rounded-[20px] bg-surface-background p-4">
             <View className="gap-0.5">
@@ -272,6 +316,7 @@ export default function OrganizationSettingsScreen() {
         }}
       />
       {cropper}
+      {snackbar && <Snackbar {...snackbar} />}
     </View>
   );
 }

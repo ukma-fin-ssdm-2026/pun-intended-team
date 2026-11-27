@@ -5,6 +5,7 @@ import type { components } from './schema';
 
 export type Listing = components['schemas']['Listing'];
 export type NewListing = components['schemas']['CreateListingBody'];
+export type ListingLikes = components['schemas']['ListingLikes'];
 
 // The API's largest page.
 const PAGE_SIZE = 20;
@@ -27,8 +28,21 @@ export async function loadAllListings(): Promise<ApiResult<Listing[]>> {
   }
 }
 
+export function getListing(id: string) {
+  return call(() => apiClient.GET('/api/v1/listings/{id}', { params: { path: { id } } }));
+}
+
 export function createListing(body: NewListing) {
   return call(() => apiClient.POST('/api/v1/listings', { body }));
+}
+
+// Both are idempotent: liking twice or unliking without a like answers the same likes.
+export function likeListing(id: string) {
+  return call(() => apiClient.PUT('/api/v1/listings/{id}/like', { params: { path: { id } } }));
+}
+
+export function unlikeListing(id: string) {
+  return call(() => apiClient.DELETE('/api/v1/listings/{id}/like', { params: { path: { id } } }));
 }
 
 export function deleteListing(id: string) {

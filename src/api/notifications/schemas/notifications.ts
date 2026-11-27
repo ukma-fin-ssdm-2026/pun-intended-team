@@ -6,7 +6,10 @@ import { DateTime, Id, PageQuery, pageOf } from '../../common/schemas/common.ts'
 
 export const NotificationType = z.enum(notificationTypes).meta({
   id: 'NotificationType',
-  description: 'What the notification is about; the app picks the text by it. `report_received`: a report was filed',
+  description:
+    'What the notification is about; the app picks the text by it. `report_received`: a report was filed. ' +
+    '`listing_request`: someone asked to join the caller’s listing. `listing_request_accepted`: the author ' +
+    'accepted the caller’s request; a decline sends nothing',
 });
 
 const NotificationFields = z.object({
@@ -19,7 +22,8 @@ const NotificationFields = z.object({
         '`applicationId`, `change` (`cancelled` or `rescheduled`) and `sessions`, the days of the application that ' +
         'changed as `{ from, to }`, where `to` is the new start or null when the day is no longer on, ' +
         '`applicationCancelled`, true when the change cancelled the application, and `match` `{ id, cancelled }` ' +
-        'when the application has a mutual match',
+        'when the application has a mutual match. `listing_request` and `listing_request_accepted`: ' +
+        '`listingRequestId`, `listingId` and `displayName`, the requester’s or the author’s',
     ),
   readAt: DateTime.nullable().describe('When the caller first marked it read; null while unread'),
   createdAt: DateTime,
