@@ -2,11 +2,10 @@
 // AI Usage: place picker from the Figma "Д2.1 Новий допис · Місце на мапі" frame; reviewed by Daryna Halytska. The
 // loading and failed lookups have no Figma frame: a spinner in the card, and the name field of the venue form.
 import { Redirect, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { describePlace } from '@/api/places';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
 import { KYIV_CENTER, type MapPoint } from '@/components/map/kyiv';
 import { PointPickerMap } from '@/components/map/point-picker-map';
@@ -14,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { TextField } from '@/components/ui/text-field';
+import { usePlaceLookup } from '@/hooks/use-place-lookup';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { pickPlace, usePickedPlace } from '@/state/post-place';
 import { useSession } from '@/state/session';
@@ -29,16 +29,8 @@ const SEARCH_SHADOW = '0px 4px 14px rgba(0, 0, 0, 0.08)';
 const DROP_PIN_SHADOW = '0px 6px 12px rgba(0, 0, 0, 0.25)';
 // "Мітка / Обране місце": a 48 px pin. It stands over the map's centre, the point that is picked.
 const PIN_SIZE = 48;
-// The map is asked about its centre once it has rested this long, so a drag does not send a request per stop.
-const LOOKUP_DELAY_MS = 600;
 // The API's limit.
 const NAME_MAX = 100;
-
-type Lookup =
-  | { state: 'loading' }
-  | { state: 'found'; name: string; address: string }
-  // Nothing found there, or OpenStreetMap cannot be reached: the user names the place.
-  | { state: 'failed' };
 
 export default function PostPlaceScreen() {
   const router = useRouter();
@@ -47,24 +39,12 @@ export default function PostPlaceScreen() {
   const picked = usePickedPlace();
   const [query, setQuery] = useState('');
   const [point, setPoint] = useState<MapPoint>(picked?.location ?? KYIV_CENTER);
-  // The answer for a point; while the latest point has none, the card shows the spinner.
-  const [answer, setAnswer] = useState<{ point: MapPoint; lookup: Lookup }>();
   const [typedName, setTypedName] = useState('');
-  // Only the answer for the latest point is shown.
-  const latest = useRef(0);
+  const lookup = usePlaceLookup(point);
+  const loading = lookup.status === 'idle' || lookup.status === 'loading';
+  // Nothing found there, or OpenStreetMap cannot be reached: the user names the place.
+  const failed = lookup.status === 'not-found' || lookup.status === 'unavailable';
   useStatusBarStyle('dark');
-
-  useEffect(() => {
-    const request = ++latest.current;
-    const timer = setTimeout(() => {
-      void describePlace(point).then((result) => {
-        if (request !== latest.current) return;
-        setAnswer({ point, lookup: result.ok ? { state: 'found', ...result.data } : { state: 'failed' } });
-      });
-    }, LOOKUP_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [point]);
-  const lookup: Lookup = answer?.point === point ? answer.lookup : { state: 'loading' };
 
   // The post editor is for signed-in users only, and so is the lookup.
   if (isGuest) return <Redirect href="/announcements" />;
@@ -72,9 +52,9 @@ export default function PostPlaceScreen() {
   // Opened straight from a link, the screen has no history; it goes to the post editor on Т3, where Д2.1 comes from.
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/announcements'));
 
-  const name = lookup.state === 'found' ? lookup.name : typedName.trim();
-  const address = lookup.state === 'found' ? lookup.address : '';
-  const canPick = lookup.state !== 'loading' && name.length > 0 && name.length <= NAME_MAX;
+  const name = lookup.place ? lookup.place.name : typedName.trim();
+  const address = lookup.place ? lookup.place.address : '';
+  const canPick = !loading && name.length > 0 && name.length <= NAME_MAX;
 
   const choose = () => {
     pickPlace({ name: name.slice(0, NAME_MAX), address, location: point });
@@ -129,21 +109,21 @@ export default function PostPlaceScreen() {
             <Icon name="pin" size={22} color={colors.text['on-dark']} />
           </View>
           <View className="flex-1 gap-0.5">
-            {lookup.state === 'loading' ? (
+            {loading ? (
               <ActivityIndicator
                 accessibilityLabel="Шукаємо місце"
                 size="small"
                 color={colors.brand.coral}
                 className="self-start"
               />
-            ) : lookup.state === 'found' ? (
+            ) : lookup.place ? (
               <>
                 <Text numberOfLines={1} className="font-inter-medium text-body text-text-primary">
-                  {lookup.name}
+                  {lookup.place.name}
                 </Text>
-                {lookup.address ? (
+                {lookup.place.address ? (
                   <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
-                    {lookup.address}
+                    {lookup.place.address}
                   </Text>
                 ) : null}
               </>
@@ -154,7 +134,7 @@ export default function PostPlaceScreen() {
             )}
           </View>
         </View>
-        {lookup.state === 'failed' && (
+        {failed && (
           <View className="self-stretch">
             <TextField label="Назва місця" value={typedName} onChangeText={setTypedName} maxLength={NAME_MAX} />
           </View>
