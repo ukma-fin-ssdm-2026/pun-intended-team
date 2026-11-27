@@ -4,12 +4,11 @@ import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 
 import { ApiPicture } from '@/components/pictures/picture';
-import { EventCover } from '@/components/ui/event-cover';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import type { Post } from '@/mocks/announcements';
-import { findMockEvent } from '@/mocks/events';
 import { toggleLike, useLiked } from '@/state/post-likes';
 import { requestPost, usePostRequests } from '@/state/post-requests';
 import { colors } from '@/styles/tokens';
@@ -56,19 +55,16 @@ function JoinAction({ post, onRequest }: { post: Post; onRequest?: () => void })
   );
 }
 
-// The event a post is about: from the API or, until the screens that still use mock events move to the API, a mock one.
-// An event that is neither is left out of the card.
+// The catalog event a post is about; left out of the card until it loads, and when it cannot.
 function LinkedEvent({ eventId }: { eventId: string }) {
-  const { data } = useEvent(eventId);
-  const mockEvent = data ? undefined : findMockEvent(eventId);
-  const event = data ?? mockEvent;
+  const { data: event } = useEvent(eventId);
   if (!event) return null;
 
   return (
     // Inside 1 px stroke, as above: Figma's padding 8 / 8 / 12 minus the border.
     <View className="flex-row items-center gap-3 rounded-2xl border border-border-default py-[7px] pl-[7px] pr-[11px]">
       <View className="size-14 overflow-hidden rounded-xl">
-        <EventCover cover={mockEvent?.cover} />
+        <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} />
       </View>
       <View className="flex-1 gap-0.5">
         <Text className="font-inter-semibold text-tag text-brand-coral">Подія з каталогу</Text>

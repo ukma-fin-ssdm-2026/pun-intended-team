@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
-import type { ApiImage } from '@/api/images';
+import type { ApiEventPhoto, ApiImage } from '@/api/images';
 import type { components } from '@/api/schema';
 import { ApiPicture } from '@/components/pictures/picture';
 import { EventCover } from '@/components/ui/event-cover';
@@ -71,7 +71,9 @@ export type MutualEvent = {
   title: string;
   startsAt: string;
   startTimeKnown: boolean;
+  // An imported event's image (`coverOf`) or a bundled one in the gallery; `photo`, an organization's upload, wins.
   cover?: ImageSource | number;
+  photo?: ApiEventPhoto | null;
 };
 
 type HeroProps = {
@@ -199,7 +201,7 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
             className="flex-row items-center gap-3 rounded-[20px] border border-border-default py-3 pl-3 pr-4"
           >
             <View className="size-11 overflow-hidden rounded-xl">
-              <EventCover cover={event.cover} />
+              <EventCover cover={event.cover} photo={event.photo} />
             </View>
             <View className="flex-1 gap-0.5">
               <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
