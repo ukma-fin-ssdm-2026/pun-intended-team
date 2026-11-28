@@ -108,6 +108,14 @@ Both are for a browser on a computer, and the web app opens them in place of the
 
 To make an account an administrator, see [Local database](../README.md#local-database) in the root README, then sign in again. Reports from the gallery's mock matches go to the usernames `maksym` and `olena`, so they reach the API only when an account has that username.
 
+## Desktop Layout
+
+In a browser window at least 1024 px wide (`DESKTOP_MIN_WIDTH` in `src/hooks/use-is-desktop.ts`), the app follows the Figma "desktop" page; narrower windows and the phone apps keep the mobile layout. Resizing the window switches between them without a reload.
+
+- `src/components/desktop/desktop-shell.tsx` wraps the root stack. Its route table decides, per screen, whether the "Desktop / Шапка" header is shown above it, over its gradient, or by the screen itself, and how wide a narrow screen's column is. A new screen with a header gets a row there.
+- Screens change their layout with `useIsDesktop()` and keep their state, API calls and hooks. Sheets and dialogs go through `Overlay`, which centers them on a desktop, so a new sheet built on `Sheet` needs nothing more.
+- A screen or modal without a desktop frame starts with a comment naming the frame its layout was derived from.
+
 ## Environment variables
 
 | Variable                           | Example                                     | Purpose                                                                                                                                                                 |
