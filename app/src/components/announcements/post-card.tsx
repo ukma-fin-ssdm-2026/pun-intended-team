@@ -199,8 +199,6 @@ export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props)
           ) : (
             <JoinAction post={post} onRequest={onRequest} />
           )}
-          {/* Share has no prototype link; shown as in Figma. */}
-          <Icon name="share" size={18} color={colors.text.secondary} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Подобається"

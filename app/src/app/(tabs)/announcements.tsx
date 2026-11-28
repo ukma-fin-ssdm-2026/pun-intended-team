@@ -37,11 +37,11 @@ const HEADER_TOP = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 const LIST_BOTTOM_GAP = 36;
 
-const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
-// Т3.3 Пошук оголошень: the tabs switch only visually; every tab shows the matching posts.
-const searchTabs = ['Популярне', 'Нове', 'Люди', 'Події'];
-// "Для тебе" and "Поруч" show the same feed: the API has no such split. "Мої" shows the user's own posts.
+// Figma's "Для тебе" and "Поруч" would show the same feed, since the API has no such split, and the search tabs of Т3.3
+// would only switch visually, so the feed has two tabs: every post, and the user's own.
+const FEED_TAB = 'Стрічка';
 const OWN_TAB = 'Мої';
+const feedTabs = [FEED_TAB, OWN_TAB];
 
 // A new listing goes where the API would put it: by day, after the posts of the same day.
 function withListing(listings: Listing[], added: Listing): Listing[] {
@@ -83,13 +83,10 @@ function HeaderTabs({
   tabs,
   selected,
   onSelect,
-  light = false,
 }: {
   tabs: string[];
   selected: string;
   onSelect: (tab: string) => void;
-  // On the white feed column of DТ3 instead of the gradient header.
-  light?: boolean;
 }) {
   return (
     <View accessibilityRole="tablist" className="flex-row">
@@ -104,15 +101,7 @@ function HeaderTabs({
             className="flex-1 items-center gap-2.5"
           >
             <Text
-              className={`font-inter-medium text-label ${
-                light
-                  ? isSelected
-                    ? 'text-text-primary'
-                    : 'text-text-secondary'
-                  : isSelected
-                    ? 'text-text-on-dark'
-                    : 'text-text-on-dark-muted'
-              }`}
+              className={`font-inter-medium text-label ${isSelected ? 'text-text-on-dark' : 'text-text-on-dark-muted'}`}
             >
               {tab}
             </Text>
@@ -137,10 +126,10 @@ export default function AnnouncementsScreen() {
   const allPosts = (listings.data ?? []).map((listing) => listingToPost(listing, profile.data?.username));
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
-  // The search button opens Т3.3 in place of the feed's header; its back button returns to the feed.
+  // On a phone the search button opens Т3.3 in place of the feed's header; its back button returns to the feed. On a
+  // desktop the field is always there, in the right column.
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
-  const [searchTab, setSearchTab] = useState(searchTabs[0]);
   const [reported, setReported] = useState<ReportedPerson>();
   const [report, setReport] = useState<ReportStep>('closed');
   const [deleting, setDeleting] = useState<Post>();
@@ -208,7 +197,9 @@ export default function AnnouncementsScreen() {
 
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const search = query.trim().toLocaleLowerCase('uk');
-  const posts = searching
+  // The feed narrows as the query is typed; an empty field shows the whole feed.
+  const filtering = (isDesktop || searching) && search !== '';
+  const posts = filtering
     ? allPosts.filter((post) => `${post.title ?? ''} ${post.text}`.toLocaleLowerCase('uk').includes(search))
     : feedTab === OWN_TAB
       ? allPosts.filter((post) => post.own)
@@ -216,7 +207,7 @@ export default function AnnouncementsScreen() {
   const feedEmpty = announcementsEmpty || allPosts.length === 0;
 
   const composer =
-    searching || isGuest ? null : editorOpen ? (
+    (searching && !isDesktop) || isGuest ? null : editorOpen ? (
       <PostComposer onPublished={onPublished} onAddPlace={() => router.push('/post-place')} />
     ) : (
       <Pressable
@@ -251,7 +242,7 @@ export default function AnnouncementsScreen() {
       text={listings.failure ? failureMessage(listings.failure) : 'Спробуй ще раз.'}
       action={{ label: 'Спробувати ще раз', onPress: listings.reload }}
     />
-  ) : feedEmpty && !searching ? (
+  ) : feedEmpty && !filtering && !searching ? (
     <FeedNotice
       icon="empty-list"
       title="Поки тут тихо"
@@ -260,8 +251,8 @@ export default function AnnouncementsScreen() {
   ) : posts.length === 0 ? (
     <FeedNotice
       icon="empty-search"
-      title={searching ? 'Нічого не знайшли' : 'У тебе ще немає оголошень'}
-      text={searching ? 'Спробуй інший запит.' : 'Напиши перше: що плануєш і з ким хочеш піти?'}
+      title={filtering || searching ? 'Нічого не знайшли' : 'У тебе ще немає оголошень'}
+      text={filtering || searching ? 'Спробуй інший запит.' : 'Напиши перше: що плануєш і з ким хочеш піти?'}
     />
   ) : (
     posts.map((post) => (
@@ -303,7 +294,7 @@ export default function AnnouncementsScreen() {
   // компанії" and "Що відбувається поруч" have nothing behind them in the app, so they are left out.
   if (isDesktop) {
     const sections = [
-      { label: 'Стрічка', icon: 'home', selected: feedTab !== OWN_TAB, onPress: () => setFeedTab(feedTabs[0]) },
+      { label: 'Стрічка', icon: 'home', selected: feedTab !== OWN_TAB, onPress: () => setFeedTab(FEED_TAB) },
       { label: 'Мої оголошення', icon: 'list', selected: feedTab === OWN_TAB, onPress: () => setFeedTab(OWN_TAB) },
     ] as const;
     return (
@@ -321,7 +312,6 @@ export default function AnnouncementsScreen() {
                   accessibilityState={{ selected: section.selected }}
                   onPress={() => {
                     setQuery('');
-                    setSearching(false);
                     section.onPress();
                   }}
                   className="flex-row items-center gap-3 rounded-2xl px-3 py-2.5 hover:bg-border-default"
@@ -340,7 +330,6 @@ export default function AnnouncementsScreen() {
                     label="Створити оголошення"
                     onPress={() => {
                       setQuery('');
-                      setSearching(false);
                       setComposing(true);
                     }}
                   />
@@ -349,13 +338,8 @@ export default function AnnouncementsScreen() {
             </View>
 
             <View className="min-h-[600px] flex-1 border-x border-border-default bg-surface-card">
-              {!searching && (
-                <View className="border-b border-border-default pt-4">
-                  <HeaderTabs tabs={feedTabs} selected={feedTab} onSelect={setFeedTab} light />
-                </View>
-              )}
               {composer}
-              {!searching && <View className="h-px bg-border-default" />}
+              {composer && <View className="h-px bg-border-default" />}
               {feed}
             </View>
 
@@ -363,10 +347,7 @@ export default function AnnouncementsScreen() {
               <SearchField
                 placeholder="Пошук оголошень"
                 value={query}
-                onChangeText={(text) => {
-                  setQuery(text);
-                  setSearching(text.trim() !== '');
-                }}
+                onChangeText={setQuery}
                 iconColor={colors.text.primary}
               />
             </View>
@@ -393,7 +374,14 @@ export default function AnnouncementsScreen() {
           {searching ? (
             <>
               <View className="flex-row items-center gap-2.5">
-                <Pressable accessibilityRole="button" accessibilityLabel="Назад" onPress={() => setSearching(false)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Назад"
+                  onPress={() => {
+                    setSearching(false);
+                    setQuery('');
+                  }}
+                >
                   <Glass
                     className="size-10 items-center justify-center"
                     radius={20}
@@ -415,7 +403,6 @@ export default function AnnouncementsScreen() {
                   />
                 </View>
               </View>
-              <HeaderTabs tabs={searchTabs} selected={searchTab} onSelect={setSearchTab} />
             </>
           ) : (
             <>
