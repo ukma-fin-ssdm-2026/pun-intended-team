@@ -2,12 +2,13 @@
 // AI Usage: "Прийняти" slider from the Figma "05 Запропонований метч" frame and its 05.2а drag animation; reviewed by
 // Daryna Halytska.
 import { useState } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { Icon } from '@/components/ui/icon';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { colors } from '@/styles/tokens';
 
 // "Кнопка / Прийняти": 60 px high, padding 8 left and 24 right, a 44 px knob; the label starts after the knob (x 52).
@@ -33,6 +34,14 @@ export function SwipeAccept({ onAccept, disabled = false }: Props) {
   const offset = useSharedValue(0);
   const start = useSharedValue(0);
   const labelWidth = Math.max(0, width - LABEL_START - PADDING_RIGHT);
+  const isDesktop = useIsDesktop();
+
+  // The knob slides to the end and the match is accepted, as after a full drag.
+  const acceptAtOnce = () => {
+    if (disabled) return;
+    offset.set(withTiming(travel.get(), TRANSITION));
+    onAccept();
+  };
 
   const complete = () => {
     'worklet';
@@ -65,11 +74,7 @@ export function SwipeAccept({ onAccept, disabled = false }: Props) {
       accessibilityRole="adjustable"
       accessibilityLabel="Прийняти"
       accessibilityActions={[{ name: 'activate' }]}
-      onAccessibilityAction={() => {
-        if (disabled) return;
-        offset.set(withTiming(travel.get(), TRANSITION));
-        onAccept();
-      }}
+      onAccessibilityAction={acceptAtOnce}
       onLayout={(event) => {
         const layoutWidth = event.nativeEvent.layout.width;
         setWidth(layoutWidth);
@@ -90,6 +95,16 @@ export function SwipeAccept({ onAccept, disabled = false }: Props) {
           </View>
         </Animated.View>
       </GestureDetector>
+      {/* A mouse cannot be expected to drag: on a desktop a click anywhere on the slider accepts. */}
+      {isDesktop && (
+        <Pressable
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          disabled={disabled}
+          onPress={acceptAtOnce}
+          className="absolute inset-0 rounded-[30px] hover:bg-black/5"
+        />
+      )}
     </View>
   );
 }

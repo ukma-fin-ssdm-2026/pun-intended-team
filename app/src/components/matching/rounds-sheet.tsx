@@ -1,11 +1,11 @@
 // Written with the help of Claude
 import { Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
 import { colors } from '@/styles/tokens';
 
 const steps: { icon: IconName; title: string; note: string }[] = [
@@ -31,22 +31,15 @@ const steps: { icon: IconName; title: string; note: string }[] = [
   },
 ];
 
-// "01 Шторка" has a 34 px bottom padding; a larger bottom inset replaces it.
-const SHEET_BOTTOM = 34;
-
 export function RoundsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding();
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
-        <View
-          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom) }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
+      <Animated.View entering={entering} accessibilityViewIsModal>
+        <View className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={padding}>
+          <SheetHandle />
 
           <View className="items-center gap-3">
             <View className="size-14 items-center justify-center rounded-full bg-brand-coral">

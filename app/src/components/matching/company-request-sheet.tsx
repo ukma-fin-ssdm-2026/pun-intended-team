@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
-import Animated, { SlideInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { actionFadeBottom, BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
+import { useSheetEntering } from '@/components/ui/sheet';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { RadioOption } from '@/components/ui/radio-option';
 import { RangeSlider } from '@/components/ui/range-slider';
 import type { ApplicationAnswers } from '@/api/applications';
@@ -114,6 +116,8 @@ export function CompanyRequestSheet({
   onSubmit,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const isDesktop = useIsDesktop();
   const { height } = useWindowDimensions();
   const [companyType, setCompanyType] = useState<CompanyType>(initial.desiredCompany);
   const [afterEvent, setAfterEvent] = useState(
@@ -138,15 +142,18 @@ export function CompanyRequestSheet({
       <GestureHandlerRootView style={{ flexShrink: 1 }}>
         {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
         <Animated.View
-          entering={SlideInDown.duration(250)}
+          entering={entering}
           accessibilityViewIsModal
           style={{ maxHeight: height - Math.max(TOP_CLOSE_ZONE, insets.top) }}
         >
           {/* A tall sheet scrolls under its button, which stays pinned over a white fade. */}
-          <View className="shrink rounded-t-[28px] bg-surface-card pt-3">
-            <View className="items-center pb-6">
-              <View className="h-1 w-10 rounded-sm bg-border-default" />
-            </View>
+          <View className={`shrink rounded-t-[28px] bg-surface-card ${isDesktop ? 'pt-6' : 'pt-3'}`}>
+            {/* A desktop dialog has no handle. */}
+            {!isDesktop && (
+              <View className="items-center pb-6">
+                <View className="h-1 w-10 rounded-sm bg-border-default" />
+              </View>
+            )}
             {/* Gesture handler's scroll view, so a drag that starts on an age handle stays with the handle. NativeWind maps
               className only on React Native's own components, hence the plain styles. */}
             <ScrollView

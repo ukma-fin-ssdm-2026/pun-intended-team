@@ -2,12 +2,12 @@
 // AI Usage: safety reminder sheet from the Figma "06 Безпекова памʼятка" frame; reviewed by Daryna Halytska.
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
 import { colors } from '@/styles/tokens';
 
 const rules: { icon: IconName; title: string; note: string }[] = [
@@ -15,9 +15,6 @@ const rules: { icon: IconName; title: string; note: string }[] = [
   { icon: 'matches', title: 'Розкажи комусь близькому', note: 'Куди йдеш і з ким зустрічаєшся' },
   { icon: 'danger', title: 'Щось не так? Не мовчи', note: 'Модератор побачить твою скаргу за хвилину' },
 ];
-
-// "01 Шторка" has a 34 px bottom padding; a larger bottom inset replaces it.
-const SHEET_BOTTOM = 34;
 
 type Props = {
   visible: boolean;
@@ -32,20 +29,16 @@ type Props = {
 };
 
 export function SafetySheet({ visible, person, busy, onClose, onConfirm }: Props) {
-  const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding();
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
       {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
-        <View
-          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom) }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
+      <Animated.View entering={entering} accessibilityViewIsModal>
+        <View className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={padding}>
+          <SheetHandle />
 
           <View className="items-center gap-3">
             <View className="size-14 items-center justify-center rounded-full bg-brand-coral">

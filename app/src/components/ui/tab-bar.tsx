@@ -22,13 +22,16 @@ import { colors, shadows, tabBarShadow } from '@/styles/tokens';
 
 export type TabName = 'events' | 'map' | 'matches' | 'announcements' | 'profile';
 
-const tabs: { name: TabName; label: string; icon: IconName }[] = [
+export const tabs: { name: TabName; label: string; icon: IconName }[] = [
   { name: 'events', label: 'Події', icon: 'home' },
   { name: 'map', label: 'Мапа', icon: 'pin' },
   { name: 'matches', label: 'Метчі', icon: 'matches' },
   { name: 'announcements', label: 'Оголошення', icon: 'list' },
   { name: 'profile', label: 'Профіль', icon: 'user' },
 ];
+
+// A guest can browse events and the map; these tabs ask to sign in first (02.2).
+export const signedInTabs: TabName[] = ['matches', 'announcements', 'profile'];
 
 const SIDE_PADDING = 20;
 const CIRCLE_SIZE = 56;

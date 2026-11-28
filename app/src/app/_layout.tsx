@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { restoreSession } from '@/api/session';
+import { DesktopShell } from '@/components/desktop/desktop-shell';
 import { GuestDialog } from '@/components/guest-dialog';
 import { useBlurOnNavigate } from '@/hooks/use-blur-on-navigate';
 import { closeGuestDialog, useSession } from '@/state/session';
@@ -43,21 +44,23 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="events/[id]/index" options={{ headerShown: false }} />
-        <Stack.Screen name="events/[id]/search" options={dissolve} />
-        <Stack.Screen name="proposal" options={dissolve} />
-        <Stack.Screen name="mutual" options={dissolve} />
-        <Stack.Screen name="organization" options={{ headerShown: false, title: 'Nearby · Кабінет організації' }} />
-        <Stack.Screen name="offline" options={dissolve} />
-        <Stack.Screen name="update" options={dissolve} />
-        <Stack.Screen name="too-many-attempts" options={dissolve} />
-        <Stack.Screen name="organizers/[id]" options={dissolve} />
-        <Stack.Screen name="post-place" options={dissolve} />
-        <Stack.Screen name="listing-place" options={dissolve} />
-        <Stack.Screen name="admin" options={{ headerShown: false, title: 'Nearby · Адмін-панель' }} />
-      </Stack>
+      <DesktopShell>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="events/[id]/index" options={{ headerShown: false }} />
+          <Stack.Screen name="events/[id]/search" options={dissolve} />
+          <Stack.Screen name="proposal" options={dissolve} />
+          <Stack.Screen name="mutual" options={dissolve} />
+          <Stack.Screen name="organization" options={{ headerShown: false, title: 'Nearby · Кабінет організації' }} />
+          <Stack.Screen name="offline" options={dissolve} />
+          <Stack.Screen name="update" options={dissolve} />
+          <Stack.Screen name="too-many-attempts" options={dissolve} />
+          <Stack.Screen name="organizers/[id]" options={dissolve} />
+          <Stack.Screen name="post-place" options={dissolve} />
+          <Stack.Screen name="listing-place" options={dissolve} />
+          <Stack.Screen name="admin" options={{ headerShown: false, title: 'Nearby · Адмін-панель' }} />
+        </Stack>
+      </DesktopShell>
       {/* Opened by the tabs a guest cannot use; the event page has its own, which goes back when closed. */}
       <GuestDialog visible={guestDialogOpen} onClose={closeGuestDialog} onLeave={closeGuestDialog} />
     </GestureHandlerRootView>

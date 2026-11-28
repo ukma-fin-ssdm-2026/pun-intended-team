@@ -4,9 +4,10 @@ import { Redirect } from 'expo-router';
 import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { Platform, View } from 'react-native';
 
-import { TabBar, type TabName } from '@/components/ui/tab-bar';
+import { signedInTabs, TabBar, type TabName } from '@/components/ui/tab-bar';
 import { tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { accountHome, useAccountKind } from '@/hooks/use-account-kind';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useProfile } from '@/hooks/use-profile';
 import { isOrganizationSignUp } from '@/state/google-registration';
 import { openGuestDialog, useSession } from '@/state/session';
@@ -21,9 +22,6 @@ const tabRoutes: Record<TabName, string> = {
 };
 
 const routeTabs = Object.fromEntries(Object.entries(tabRoutes).map(([tab, route]) => [route, tab as TabName]));
-
-// A guest can browse events and the map; these tabs ask to sign in first (02.2).
-const signedInTabs: TabName[] = ['matches', 'announcements', 'profile'];
 
 function NearbyTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { isGuest } = useSession();
@@ -59,6 +57,7 @@ export default function TabsLayout() {
   const { signedIn, isGuest } = useSession();
   const profile = useProfile();
   const kind = useAccountKind();
+  const isDesktop = useIsDesktop();
   // Without an account or the guest choice, the app opens on the onboarding (В1).
   if (!signedIn && !isGuest) return <Redirect href="/onboarding" />;
   if (signedIn) {
@@ -73,7 +72,8 @@ export default function TabsLayout() {
   if (profile.data?.linkedAccounts.length === 0) return <Redirect href="/profile-contacts" />;
 
   return (
-    <Tabs tabBar={(props) => <NearbyTabBar {...props} />} screenOptions={{ headerShown: false }}>
+    // On a desktop the header of the desktop shell takes the tab bar's place.
+    <Tabs tabBar={(props) => (isDesktop ? null : <NearbyTabBar {...props} />)} screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="index" />
       <Tabs.Screen name="map" />
       <Tabs.Screen name="matches" />

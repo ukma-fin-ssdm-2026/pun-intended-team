@@ -1,16 +1,13 @@
 // Written with the help of Claude
 // AI Usage: company search menu and leave-pool dialog from the Figma "04.1" and "04.2" frames; reviewed by Daryna Halytska.
 import { Pressable, Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
 import { colors, shadows } from '@/styles/tokens';
-
-// "01 Шторка" has a 34 px bottom padding; a larger bottom inset replaces it.
-const SHEET_BOTTOM = 34;
 
 function MenuItem({
   icon,
@@ -47,18 +44,14 @@ type MenuProps = {
 };
 
 export function SearchMenuSheet({ visible, onClose, onChangeRequest, onLeave }: MenuProps) {
-  const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding();
 
   return (
     <Overlay visible={visible} onClose={onClose} placement="bottom">
-      <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
-        <View
-          className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-          style={{ paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom) }}
-        >
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
+      <Animated.View entering={entering} accessibilityViewIsModal>
+        <View className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={padding}>
+          <SheetHandle />
           <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
             Пошук компанії
           </Text>

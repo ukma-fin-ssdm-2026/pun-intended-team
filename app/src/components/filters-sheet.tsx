@@ -2,8 +2,7 @@
 // AI Usage: filters sheet from the Figma "Д1 Фільтри" screen; reviewed by Daryna Halytska.
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import type { components } from '@/api/schema';
 import { DatesSheet } from '@/components/dates-sheet';
@@ -11,6 +10,7 @@ import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
 import { locateUser } from '@/location';
 import {
   filterEvents,
@@ -63,7 +63,8 @@ type Props = {
 };
 
 export function FiltersSheet({ visible, onClose, events, categories }: Props) {
-  const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding(20);
   const filters = useCatalogFilters();
   const count = filterEvents(events, filters).length;
   // "Обрати дати" opens Д1.1 and "Поруч зі мною" Д1.2 in place of the sheet; both return to it.
@@ -92,14 +93,9 @@ export function FiltersSheet({ visible, onClose, events, categories }: Props) {
     <>
       <Overlay visible={visible && view === 'filters'} onClose={onClose} placement="bottom">
         {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-        <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
-          <View
-            className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-            style={{ paddingBottom: Math.max(insets.bottom, 20) }}
-          >
-            <View className="items-center">
-              <View className="h-1 w-10 rounded-sm bg-border-default" />
-            </View>
+        <Animated.View entering={entering} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
+          <View className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={padding}>
+            <SheetHandle />
             <View className="flex-row items-center justify-between">
               <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
                 Фільтри
