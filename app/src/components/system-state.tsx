@@ -4,8 +4,10 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useDesktopHeaderInset } from '@/components/desktop/desktop-shell';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 
 // "01 Безпека" starts 150 px from the top of the frame; "02 Дії" has a 34 px bottom padding.
@@ -25,6 +27,8 @@ type Props = {
 
 export function SystemState({ icon, title, description, note, action, link }: Props) {
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
+  const headerInset = useDesktopHeaderInset();
   useStatusBarStyle('light');
 
   const linkText = link && <Text className="font-inter-medium text-label text-text-on-dark">{link.label}</Text>;
@@ -33,7 +37,12 @@ export function SystemState({ icon, title, description, note, action, link }: Pr
     <View className="flex-1">
       <CoralGradient preset="screen" />
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="items-center gap-7 px-5" style={{ paddingTop: CONTENT_TOP }}>
+        {/* DС1–DС3: the state and its actions are one 440 px column in the middle of the window. */}
+        {isDesktop && <View className="flex-1" style={{ minHeight: headerInset }} />}
+        <View
+          className={`items-center gap-7 px-5 ${isDesktop ? 'w-[480px] self-center' : ''}`}
+          style={{ paddingTop: isDesktop ? 0 : CONTENT_TOP }}
+        >
           <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.08]">
             <View
               className="size-[76px] items-center justify-center rounded-full bg-brand-coral"
@@ -51,11 +60,11 @@ export function SystemState({ icon, title, description, note, action, link }: Pr
           </View>
         </View>
 
-        <View className="flex-1" />
+        {!isDesktop && <View className="flex-1" />}
 
         <View
-          className="items-center gap-[18px] px-5 pt-10"
-          style={{ paddingBottom: Math.max(ACTIONS_BOTTOM, insets.bottom) }}
+          className={`items-center gap-[18px] px-5 pt-10 ${isDesktop ? 'w-[480px] self-center' : ''}`}
+          style={{ paddingBottom: isDesktop ? 0 : Math.max(ACTIONS_BOTTOM, insets.bottom) }}
         >
           <View className="self-stretch">
             <Button label={action.label} onPress={action.onPress} />
@@ -69,6 +78,7 @@ export function SystemState({ icon, title, description, note, action, link }: Pr
               linkText
             ))}
         </View>
+        {isDesktop && <View className="flex-1" />}
       </ScrollView>
     </View>
   );

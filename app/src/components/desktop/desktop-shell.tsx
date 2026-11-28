@@ -39,6 +39,7 @@ const routes: Record<string, RouteLayout> = {
   'listing-place': { header: 'header', active: 'announcements' },
   offline: { header: 'overlay', active: 'none' },
   update: { header: 'overlay', active: 'none' },
+  'too-many-attempts': { header: 'overlay', active: 'none' },
 };
 
 const ShellContext = createContext<{ header: HeaderMode }>({ header: 'none' });
