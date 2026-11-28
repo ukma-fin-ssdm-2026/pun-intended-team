@@ -17,7 +17,6 @@ type RouteLayout = { header: HeaderMode; active?: DesktopSection; column?: numbe
 
 // Narrow screens of the phone frames sit in a centered column as wide as their desktop frame.
 const NOTIFICATIONS_COLUMN = 760;
-const FORM_COLUMN = 600;
 
 // Route (Expo Router segments joined with "/") → desktop layout. A route that is not listed has no header: the
 // onboarding and sign-up screens, the organization area and the admin panel have their own.
@@ -35,7 +34,7 @@ const routes: Record<string, RouteLayout> = {
   proposal: { header: 'overlay', active: 'matches' },
   mutual: { header: 'header', active: 'matches' },
   notifications: { header: 'header', active: 'none', column: NOTIFICATIONS_COLUMN },
-  'profile-edit': { header: 'header', active: 'profile', column: FORM_COLUMN },
+  'profile-edit': { header: 'header', active: 'profile' },
   'post-place': { header: 'header', active: 'announcements' },
   'listing-place': { header: 'header', active: 'announcements' },
   offline: { header: 'overlay', active: 'none' },

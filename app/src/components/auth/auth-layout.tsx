@@ -5,8 +5,10 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DesktopAuthFrame } from '@/components/desktop/auth-frame';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { Icon } from '@/components/ui/icon';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { colors } from '@/styles/tokens';
 
@@ -28,7 +30,26 @@ type Props = {
 export function AuthLayout({ title, subtitle, children, footer }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
   useStatusBarStyle('light');
+
+  // DВ5: the title, the form and the footer in one card.
+  if (isDesktop) {
+    return (
+      <DesktopAuthFrame>
+        <View className="gap-4 p-8">
+          <View className="gap-1.5 pb-2">
+            <Text accessibilityRole="header" className="font-inter-bold text-display text-text-primary">
+              {title}
+            </Text>
+            <Text className="font-inter text-body text-text-secondary">{subtitle}</Text>
+          </View>
+          {children}
+          {footer}
+        </View>
+      </DesktopAuthFrame>
+    );
+  }
 
   return (
     <KeyboardAvoidingView className="flex-1 bg-surface-card" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

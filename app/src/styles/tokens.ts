@@ -51,6 +51,8 @@ export const typography = {
   // "Nearby/Desktop/Hero" and "Nearby/Desktop/H1" of the 1440 px frames.
   'desktop-hero': { fontSize: 44, lineHeight: 52 },
   'desktop-h1': { fontSize: 32, lineHeight: 40 },
+  // The logotype on the left half of DВ1–DВ4.
+  'desktop-logo': { fontSize: 40, lineHeight: 58 },
 };
 
 // The desktop frames: a 76 px header, and content 1200 px wide inside 120 px margins of the 1440 px frame.

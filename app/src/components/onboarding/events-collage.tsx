@@ -71,8 +71,10 @@ function withEvents(events: Event[] | undefined): Tile[] {
   });
 }
 
-export function EventsCollage() {
-  const { width } = useWindowDimensions();
+// `width`: of the panel the collage is centered in; the window's by default.
+export function EventsCollage({ width: panelWidth }: { width?: number } = {}) {
+  const window = useWindowDimensions();
+  const width = panelWidth ?? window.width;
   const { data } = useEvents();
   const start = (width - COLLAGE_WIDTH) / 2;
   return (
