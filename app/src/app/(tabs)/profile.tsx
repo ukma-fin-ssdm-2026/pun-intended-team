@@ -3,7 +3,7 @@
 // by Daryna Halytska.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
@@ -46,6 +46,7 @@ const DESKTOP_COVER_HEIGHT = 260;
 const DESKTOP_COVER_TOP = 24;
 const DESKTOP_AVATAR = 136;
 const DESKTOP_BOTTOM = 96;
+const DESKTOP_COLUMN = 760;
 
 // "Затемнення": black at 35% fading out by 60% of the cover.
 function CoverShade() {
@@ -230,7 +231,16 @@ export default function ProfileScreen() {
   const isDesktop = useIsDesktop();
   // DТ4: a wider cover, a larger avatar beside the name, and the content in a 760 px column of the 1200 px grid.
   const avatarSize = isDesktop ? DESKTOP_AVATAR : AVATAR;
-  const column = isDesktop ? 'w-full max-w-[1000px] self-center px-[120px]' : '';
+  const { width } = useWindowDimensions();
+  // Left-aligned on the grid: 120 px in from the 1440 px frame, which is centered in a wider window.
+  const column = isDesktop
+    ? {
+        width: '100%' as const,
+        maxWidth: 120 + DESKTOP_COLUMN,
+        paddingLeft: 120,
+        marginLeft: Math.max(0, (width - 1440) / 2),
+      }
+    : undefined;
 
   const nameBlock = profile.data && (
     <View className={`gap-0.5 ${isDesktop ? 'pb-3' : ''}`}>
@@ -290,7 +300,7 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View className={isDesktop ? `${column} flex-row items-end gap-4` : 'pl-5'}>
+        <View className={isDesktop ? 'flex-row items-end gap-4' : 'pl-5'} style={column}>
           <View
             className="items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card"
             style={{ width: avatarSize, height: avatarSize }}
@@ -306,14 +316,14 @@ export default function ProfileScreen() {
           {isDesktop && nameBlock}
         </View>
 
-        <View className={isDesktop ? `${column} gap-3 pt-6` : 'gap-3 px-5 pt-3.5'}>
+        <View className={isDesktop ? 'gap-3 pt-6' : 'gap-3 px-5 pt-3.5'} style={column}>
           {!isDesktop && nameBlock}
           <ProfileTabs active={tab} onSelect={selectTab} />
           {tab === 'about' && <AboutCard profile={profile} />}
         </View>
 
         {tab === 'about' ? (
-          <View className={isDesktop ? `${column} items-start gap-4 pt-4` : 'items-center gap-4 px-5 pt-2.5'}>
+          <View className={isDesktop ? 'items-start gap-4 pt-4' : 'items-center gap-4 px-5 pt-2.5'} style={column}>
             <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
             </Pressable>
@@ -322,7 +332,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         ) : (
-          <View className={column}>
+          <View style={column}>
             <SavedEvents
               events={savedEvents}
               onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
