@@ -112,7 +112,7 @@ Organizational:
 | Change fail rate | Flaky rate limit test (№207) | Unknown; not a port clash, as the log has no `EADDRINUSE` | Flaky test hunt: 5 runs of the suite on one commit; the tests assert all three statuses; quarantine with an issue | @viktoriyabaran |
 | Change fail rate | Reliability tests hung until the timeout (№202) | A wait without a time limit in `database-timeouts.reliability.test.ts` | `--test-timeout` for the reliability tests; `stopApi` kills an API that does not exit in a few seconds | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red (#455) | @Vlad-Re |
-| Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR fixes or reverts it, and nothing else is merged meanwhile | @viktoriyabaran |
+| Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR watches its `main` run, fixes or reverts a red one, and nothing else is merged meanwhile | @viktoriyabaran |
 | Recovery time | 1 h 58 min to green after №157 | A pipeline change was first run on `main` with nobody watching | The author of a pipeline change watches its first `main` run and re-runs it once the setting is fixed | @OLEGkn-coder |
 
 ### Implemented: Stop Committing Coverage Reports
@@ -157,7 +157,7 @@ The numbers match under the two readings the hand count used: an incident is the
 
 **Action** (#454): `E2E tests` no longer waits for `CI passed`, so on `main` the two jobs run side by side ([`ci.yml`](../../.github/workflows/ci.yml)). `CI passed` already ran the same checks on the pull request, so on `main` it rarely fails; if it does, `E2E tests` still runs, and `Publish API image` still waits for both.
 
-**Metric:** the execution part of the change lead time, as the duration of a `main` run. Before, a run was `CI passed`, then `E2E tests`, then `Publish API image`; now it is the longer of the first two, then the publish. The durations are from the run pages. `Publish API image` exists since #459, so the last column leaves it out to compare runs before and after it.
+**Metric:** the execution part of the change lead time, as the duration of a `main` run. Before, a run was `CI passed`, then `E2E tests`, then `Publish API image`; now it is the longer of the first two, then the publish. The durations are from the run pages: a run from its creation to its last update, a job from its start to its completion; the timings are in [`evidence/bonus-2-3-run-timings.json`](evidence/bonus-2-3-run-timings.json). `Publish API image` exists since #459, so the last column leaves it out to compare runs before and after it.
 
 Before, runs of merged pull requests that change code, tests or configuration:
 
@@ -169,10 +169,17 @@ Before, runs of merged pull requests that change code, tests or configuration:
 | #459 | [43619040962](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43619040962) | 10 min 21 s: about 4 min more than its jobs, as it was created in the same minute as the run of #458 | 1 min 38 s | 2 min 48 s | 1 min 31 s | 8 min 50 s |
 | #449 | [43627146940](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43627146940) | 5 min 33 s | 1 min 15 s | 2 min 27 s | 1 min 44 s | 3 min 49 s |
 
-After: TODO, the first runs after the merge of #454.
+After, the first runs after the merge of #454 under the same rule (the runs of #471 and #475 change only documentation, the run of #472 was cancelled):
 
 | PR | Run | Total | `CI passed` | `E2E tests` | `Publish API image` | Total without the publish |
 |---|---|---|---|---|---|---|
+| #473 | [43812051966](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43812051966) | 5 min 59 s | 1 min 19 s | 3 min 35 s | 2 min 19 s | 3 min 40 s |
+| #464 | [43812204146](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43812204146) | 9 min 26 s: about 4 min 30 s more than its jobs, as it waited for the run of #473 to finish | 1 min 38 s | 3 min 30 s | 1 min 22 s | 8 min 4 s |
+| #478 | [43945567593](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43945567593) | 5 min 27 s | 2 min 28 s | 3 min 28 s | 1 min 53 s | 3 min 34 s |
+| #479 | [43946446210](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43946446210) | 4 min 51 s, of which 25 s waiting for the run of #478 | 2 min | 2 min 45 s | 1 min 37 s | 3 min 14 s |
+| #481 | [43952170304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43952170304) | 4 min 20 s | 2 min 29 s | 2 min 31 s | 1 min 45 s | 2 min 35 s |
+
+Without the two runs that waited for an earlier run on `main` (#459 and #464), a run without the publish took 3 min 49 s to 5 min 47 s before, mean 4 min 40 s, and 2 min 35 s to 3 min 40 s after, mean 3 min 16 s: 1 min 24 s, or 30%, shorter; with them, the mean fell from 5 min 30 s to 4 min 13 s. `CI passed` now ends first in every run, so a run lasts as long as `E2E tests`; that job was slower after, 2 min 31 s to 3 min 35 s against 2 min 9 s to 3 min 3 s, so the run saved less than the length of `CI passed`. `Reliability tests` ran at the start of every run in both tables, so it makes no difference.
 
 ### 3. Fast and slow test suites
 
@@ -188,12 +195,12 @@ The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are 
 | | Run | `CI passed` | `E2E tests` |
 |---|---|---|---|
 | Pull request before the split | [run 43220805887](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43220805887), 12.11 | 4 min 38 s, of which 1 min 42 s is the coverage run of all tests and 12 s the start of the database | did not exist |
-| Pull request after the split (unit tests only) | TODO | TODO | not run |
-| `main` after the split (unit and e2e tests) | TODO | TODO | TODO |
+| Pull request after the split (unit tests only) | [run 45153834852](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/45153834852), 23.11 | 1 min 56 s, of which 24 s is the unit tests | not run |
+| `main` after the split (unit and e2e tests) | [run 43945567593](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43945567593), 16.11 | 2 min 28 s, of which 22 s is the unit tests | 3 min 28 s, of which 2 min 8 s is the coverage run of all tests and 11 s the start of the database |
 
-In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s.
+In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s. In the five latest pull request runs after the split, `CI passed` took between 1 min 21 s and 2 min 5 s; these are the runs before #496 added the app's Jest tests to it. The timings are in [`evidence/bonus-2-3-run-timings.json`](evidence/bonus-2-3-run-timings.json).
 
-**Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
+**Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged. Until the team chat is notified of a red `main` (#455, @Vlad-Re), that author watches the run of their merge on `main`, so a red `E2E tests` falls under [the backlog's rule for a red `main`](#improvement-backlog) (@viktoriyabaran) as soon as it fails.
 
 ### 5. Release artifact from every green `main` run
 
@@ -212,4 +219,4 @@ A green `main` was not an artifact: most changes waited days for one, and more t
 
 ## AI Usage Note
 
-The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog was drafted by Claude Code. Reviewed by the team.
+The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog was drafted by Claude Code. The run data of bonuses 2 and 3 was collected and computed by Claude Code from the GitHub Actions REST API and checked against the run pages. Reviewed by the team.
