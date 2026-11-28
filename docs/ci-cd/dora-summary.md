@@ -112,7 +112,7 @@ Organizational:
 | Change fail rate | Flaky rate limit test (№207) | Unknown; not a port clash, as the log has no `EADDRINUSE` | Flaky test hunt: 5 runs of the suite on one commit; the tests assert all three statuses; quarantine with an issue | @viktoriyabaran |
 | Change fail rate | Reliability tests hung until the timeout (№202) | A wait without a time limit in `database-timeouts.reliability.test.ts` | `--test-timeout` for the reliability tests; `stopApi` kills an API that does not exit in a few seconds | @OLEGkn-coder |
 | Recovery time | Red `main` for 14 h (№207) | Nobody watches `main` | Notify the team chat when `main` turns red (#455) | @Vlad-Re |
-| Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR fixes or reverts it, and nothing else is merged meanwhile | @viktoriyabaran |
+| Recovery time | Each red run waited for someone to notice it | No rule for a red `main` | A red `main` comes first: the author of the merged PR watches its `main` run, fixes or reverts a red one, and nothing else is merged meanwhile | @viktoriyabaran |
 | Recovery time | 1 h 58 min to green after №157 | A pipeline change was first run on `main` with nobody watching | The author of a pipeline change watches its first `main` run and re-runs it once the setting is fixed | @OLEGkn-coder |
 
 ### Implemented: Stop Committing Coverage Reports
@@ -200,7 +200,7 @@ The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are 
 
 In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s. In the five latest pull request runs after the split, `CI passed` took between 1 min 21 s and 2 min 5 s; these are the runs before #496 added the app's Jest tests to it. The timings are in [`evidence/bonus-2-3-run-timings.json`](evidence/bonus-2-3-run-timings.json).
 
-**Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
+**Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged. Until the team chat is notified of a red `main` (#455, @Vlad-Re), that author watches the run of their merge on `main`, so a red `E2E tests` falls under [the backlog's rule for a red `main`](#improvement-backlog) (@viktoriyabaran) as soon as it fails.
 
 ### 5. Release artifact from every green `main` run
 
