@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // "Для організацій" has no Figma frame: В3 "Безпечний простір" with the organization's text, opened from the web
 // onboarding. Its Google button signs in an organization, or signs one up and opens its request (DО4) after В5.
+// No desktop frame in Figma; layout derived from 565:6624 (DС1): the content and its actions in one centered column.
 import { Stack, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -61,7 +62,7 @@ export default function ForOrganizationsScreen() {
       </View>
 
       <View
-        className="absolute bottom-0 left-0 right-0 items-center gap-[18px] px-5"
+        className="absolute bottom-0 left-0 right-0 mx-auto w-full max-w-[480px] items-center gap-[18px] px-5"
         style={{ paddingBottom: Math.max(ACTIONS_BOTTOM, insets.bottom) }}
       >
         <View className="w-full">

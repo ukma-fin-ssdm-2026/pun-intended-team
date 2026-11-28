@@ -1,4 +1,5 @@
 // Written with the help of Claude
+// No desktop frame in Figma; layout derived from 567:7083 (DД1 Фільтри): the photo menu sheet is a centered dialog.
 import { useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 

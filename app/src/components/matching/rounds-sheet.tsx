@@ -1,4 +1,5 @@
 // Written with the help of Claude
+// No desktop frame in Figma; layout derived from 567:7083 (DД1 Фільтри): the sheet is a centered dialog.
 import { Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 

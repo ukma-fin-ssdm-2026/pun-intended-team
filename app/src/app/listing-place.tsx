@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // AI Usage: a listing's place on a map, opened from the pin chip of a post card. Figma has no frame for it, so it
 // reuses the layout of "Д2.1 Новий допис · Місце на мапі" without the search and the drag; reviewed by Daryna Halytska.
+// No desktop frame in Figma; layout derived from 569:9607 (DД2.1), shown as the same dialog over the feed.
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
