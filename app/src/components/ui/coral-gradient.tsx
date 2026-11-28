@@ -43,6 +43,8 @@ const presets = {
   // The header of the sign-in and sign-up screens (В4–В8). Figma's transform grows linearly with the header height, so
   // stretching this 234 px frame to the header gives Figma's gradient at any height.
   auth: { width: 390, height: 234, transform: 'matrix(46.5 37.052 -41.64 41.498 10.803 -17.176)' },
+  // "01 Hero" of the D01 desktop catalog, 1440 px wide.
+  desktopHero: { width: 1440, height: 432, transform: 'matrix(171.69 68.403 -153.75 76.611 39.888 -31.709)' },
   // A 40 px event thumbnail without a cover.
   thumb: { width: 40, height: 40, transform: 'matrix(4.7692 6.3336 -4.2708 7.0936 1.108 -2.936)' },
 };
