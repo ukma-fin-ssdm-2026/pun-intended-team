@@ -43,9 +43,12 @@ type Props = {
   onCreated: (venue: Venue) => void;
 };
 
+// The venue form with its map is 880 px wide.
+const DIALOG_WIDTH = 880;
+
 export function NewVenueModal({ visible, onClose, onCreated }: Props) {
   return (
-    <Overlay visible={visible} onClose={onClose} placement="center">
+    <Overlay visible={visible} onClose={onClose} placement="center" desktopWidth={DIALOG_WIDTH}>
       {/* A new form each time it opens. */}
       {visible && <NewVenueForm onClose={onClose} onCreated={onCreated} />}
     </Overlay>
