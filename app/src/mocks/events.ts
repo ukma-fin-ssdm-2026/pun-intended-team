@@ -36,9 +36,6 @@ export const mockCategories: components['schemas']['Category'][] = [
   { id: '6f1c2a3e-0001-4a00-8000-000000000012', name: 'Дні відкритих дверей' },
 ];
 
-// "Де" in the filters.
-export const mockDistricts = ['Центр', 'Поділ', 'Печерськ', 'Лівий берег'];
-
 // Dated like the Figma cards (Saturday, Sunday, Tuesday, Friday), in the week of 24 October 2026.
 export const mockEvents: MockEvent[] = [
   {

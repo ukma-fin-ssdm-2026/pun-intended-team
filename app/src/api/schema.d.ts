@@ -245,7 +245,7 @@ export interface paths {
         };
         /**
          * Browse the event catalog
-         * @description Browse the event catalog: published events in the catalog window, soonest first. `lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more than 30 hours ago (FR-014). Needs an access token: a guest token or a signed-in account.
+         * @description Browse the event catalog: published events in the catalog window, soonest first. Filters combine: an event shows when it is in any of `categoryIds`, at `venueId`, within `radiusKm` of `lat`, `lng` and on the days from `from` to `to`. `lastUpdatedAt` is not null while the imported events are those of an earlier import run, or of a run more than 30 hours ago (FR-014). Needs an access token: a guest token or a signed-in account.
          */
         get: operations["listEvents"];
         put?: never;
@@ -5021,10 +5021,16 @@ export interface operations {
                 limit?: number;
                 /** @description Items to skip */
                 offset?: number | null;
-                /** @description Only events of this category */
-                categoryId?: string;
+                /** @description Only events of any of these categories, at most 20: repeated (`categoryIds=a&categoryIds=b`) or comma-separated (`categoryIds=a,b`). An unknown id matches no event */
+                categoryIds?: string[];
                 /** @description Only events at this venue, e.g. after tapping its map pin */
                 venueId?: string;
+                /** @description Latitude of the point; only with lng and radiusKm */
+                lat?: number | null;
+                /** @description Longitude of the point; only with lat and radiusKm */
+                lng?: number | null;
+                /** @description Only events whose venue is within this many kilometres of lat, lng; at most 50 */
+                radiusKm?: number;
                 /** @description First day, Kyiv time; earlier dates count as today */
                 from?: string;
                 /** @description Last day, Kyiv time; later dates count as the end of the catalog window */

@@ -13,8 +13,16 @@ type EventsPage = components['schemas']['EventsPage'];
 // The API's largest page; the catalog has no "list all" (catalog-access.md).
 const PAGE_SIZE = 20;
 
-// What the API narrows by. The search text and several categories are applied to the loaded pages only.
-export type EventQuery = { categoryId?: string; from?: string; to?: string; venueId?: string };
+// What the API narrows by. The search text is applied to the loaded pages only.
+export type EventQuery = {
+  categoryIds?: string[];
+  from?: string;
+  to?: string;
+  venueId?: string;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+};
 
 const fetchPage = (query: EventQuery, offset: number) =>
   call(() => apiClient.GET('/api/v1/events', { params: { query: { ...query, limit: PAGE_SIZE, offset } } }));
@@ -29,8 +37,11 @@ export function lastUpdatedNotice(lastUpdatedAt: string | null | undefined): str
 }
 
 // One page of the catalog; `loadMore` adds the next one, when the screen is scrolled to its end.
-export function useEvents({ categoryId, from, to }: EventQuery = {}) {
-  const first = useApiQuery(JSON.stringify([categoryId, from, to]), () => fetchPage({ categoryId, from, to }, 0));
+export function useEvents(query: EventQuery = {}) {
+  // Callers build the query on every render; the key keeps it the same object while its values stay the same.
+  const key = JSON.stringify(query);
+  const stable = useMemo(() => JSON.parse(key) as EventQuery, [key]);
+  const first = useApiQuery(key, () => fetchPage(stable, 0));
   const [more, setMore] = useState<More>();
   const [loadingMore, setLoadingMore] = useState(false);
   const busy = useRef(false);
@@ -45,7 +56,7 @@ export function useEvents({ categoryId, from, to }: EventQuery = {}) {
     busy.current = true;
     setLoadingMore(true);
     const items = extra?.items ?? [];
-    fetchPage({ categoryId, from, to }, data.length)
+    fetchPage(stable, data.length)
       .then((result) =>
         setMore(
           result.ok
@@ -64,7 +75,7 @@ export function useEvents({ categoryId, from, to }: EventQuery = {}) {
         busy.current = false;
         setLoadingMore(false);
       });
-  }, [base, data, extra, hasMore, categoryId, from, to]);
+  }, [base, data, extra, hasMore, stable]);
 
   const error =
     first.failure && (first.failure.status === 0 ? 'Could not reach the server.' : 'Could not load events.');
@@ -83,10 +94,8 @@ export function useEvents({ categoryId, from, to }: EventQuery = {}) {
 
 // The first page of one venue's events, for the venue card of the map (FR-013); nothing while no venue is picked.
 export function useVenueEvents(venueId: string | undefined, query: EventQuery) {
-  const { categoryId, from, to } = query;
-  return useApiQuery(venueId ? JSON.stringify([venueId, categoryId, from, to]) : null, () =>
-    fetchPage({ categoryId, from, to, venueId }, 0),
-  );
+  const venueQuery = { ...query, venueId };
+  return useApiQuery(venueId ? JSON.stringify(venueQuery) : null, () => fetchPage(venueQuery, 0));
 }
 
 // The saved events: one request per id, since the catalog is not listed whole. An id the API does not return is left

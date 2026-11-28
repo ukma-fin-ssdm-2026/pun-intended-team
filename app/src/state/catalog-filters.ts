@@ -9,6 +9,13 @@ type FilterableEvent = components['schemas']['Event'];
 
 export type When = 'today' | 'tomorrow' | 'weekend';
 
+// The radius choices of "Поруч зі мною", in kilometres; the API takes up to 50.
+export const RADIUS_OPTIONS = [1, 3, 5, 10] as const;
+export type RadiusKm = (typeof RADIUS_OPTIONS)[number];
+const DEFAULT_RADIUS_KM: RadiusKm = 3;
+
+export type Point = { lat: number; lng: number };
+
 // A day or a range picked in the Д1.1 calendar; `from` equals `to` for a single day.
 export type DateRange = { from: KyivDay; to: KyivDay };
 
@@ -19,11 +26,19 @@ type CatalogFilters = {
   when: When | null;
   // Days picked in Д1.1 that are not one of the quick choices; set only while `when` is null.
   dates: DateRange | null;
-  // "Поруч зі мною" after Д1.2 "Дозволити"; there is no location yet, so it does not narrow the list.
-  nearMe: boolean;
+  // "Поруч зі мною": where the user was when they turned it on, rounded; null while it is off.
+  near: Point | null;
+  radiusKm: RadiusKm;
 };
 
-const empty: CatalogFilters = { query: '', categoryIds: [], when: null, dates: null, nearMe: false };
+const empty: CatalogFilters = {
+  query: '',
+  categoryIds: [],
+  when: null,
+  dates: null,
+  near: null,
+  radiusKm: DEFAULT_RADIUS_KM,
+};
 
 const store = createStore<CatalogFilters>(empty);
 
@@ -55,13 +70,27 @@ export function setDates(range: DateRange | null, now = new Date()) {
   store.set({ when, dates: when ? null : range });
 }
 
-export function setNearMe(nearMe: boolean) {
-  store.set({ nearMe });
+// Three decimals are about 100 m: enough for a radius of a kilometre, and the API never learns the exact spot.
+const roundCoordinate = (value: number) => Math.round(value * 1000) / 1000;
+
+export function setNear(point: Point | null) {
+  store.set({ near: point && { lat: roundCoordinate(point.lat), lng: roundCoordinate(point.lng) } });
+}
+
+export function setRadius(radiusKm: RadiusKm) {
+  store.set({ radiusKm });
 }
 
 // "Скинути" clears the sheet; the search text stays.
 export function resetFilters() {
-  store.set({ categoryIds: [], when: null, dates: null, nearMe: false });
+  store.set({ categoryIds: [], when: null, dates: null, near: null, radiusKm: DEFAULT_RADIUS_KM });
+}
+
+// Whether anything narrows the list, so an empty one says "nothing matches" rather than "no events yet".
+export function hasFilters(filters: CatalogFilters): boolean {
+  return (
+    filters.query.trim() !== '' || filters.categoryIds.length > 0 || !!filters.when || !!filters.dates || !!filters.near
+  );
 }
 
 export function daysOf(when: When, now = new Date()): KyivDay[] {
@@ -82,14 +111,15 @@ export function whenOf(range: DateRange, now = new Date()): When | null {
   );
 }
 
-// What the API can narrow by: a single category and the days. The search text and several categories are left to
-// `filterEvents`, which sees only the pages loaded so far.
+// What the API narrows by: the categories, the days and the distance. The search text is left to `filterEvents`, which
+// sees only the pages loaded so far.
 export function eventQuery(filters: CatalogFilters, now = new Date()): EventQuery {
   const days = filters.when ? daysOf(filters.when, now) : filters.dates ? [filters.dates.from, filters.dates.to] : [];
   return {
-    categoryId: filters.categoryIds.length === 1 ? filters.categoryIds[0] : undefined,
+    categoryIds: filters.categoryIds.length > 0 ? filters.categoryIds : undefined,
     from: days[0],
     to: days[days.length - 1],
+    ...(filters.near && { ...filters.near, radiusKm: filters.radiusKm }),
   };
 }
 

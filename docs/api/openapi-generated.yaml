@@ -4814,9 +4814,12 @@ paths:
       summary: Browse the event catalog
       description: >-
         Browse the event catalog: published events in the catalog window,
-        soonest first. `lastUpdatedAt` is not null while the imported events are
-        those of an earlier import run, or of a run more than 30 hours ago
-        (FR-014). Needs an access token: a guest token or a signed-in account.
+        soonest first. Filters combine: an event shows when it is in any of
+        `categoryIds`, at `venueId`, within `radiusKm` of `lat`, `lng` and on
+        the days from `from` to `to`. `lastUpdatedAt` is not null while the
+        imported events are those of an earlier import run, or of a run more
+        than 30 hours ago (FR-014). Needs an access token: a guest token or a
+        signed-in account.
       tags:
         - Events
       security:
@@ -4843,12 +4846,22 @@ paths:
           name: offset
           in: query
         - schema:
-            type: string
-            format: uuid
-            description: Only events of this category
+            type: array
+            items:
+              type: string
+              format: uuid
+            minItems: 1
+            maxItems: 20
+            description: >-
+              Only events of any of these categories, at most 20: repeated
+              (`categoryIds=a&categoryIds=b`) or comma-separated
+              (`categoryIds=a,b`). An unknown id matches no event
           required: false
-          description: Only events of this category
-          name: categoryId
+          description: >-
+            Only events of any of these categories, at most 20: repeated
+            (`categoryIds=a&categoryIds=b`) or comma-separated
+            (`categoryIds=a,b`). An unknown id matches no event
+          name: categoryIds
           in: query
         - schema:
             type: string
@@ -4857,6 +4870,40 @@ paths:
           required: false
           description: Only events at this venue, e.g. after tapping its map pin
           name: venueId
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: -90
+            maximum: 90
+            description: Latitude of the point; only with lng and radiusKm
+          required: false
+          description: Latitude of the point; only with lng and radiusKm
+          name: lat
+          in: query
+        - schema:
+            type: number
+            nullable: true
+            minimum: -180
+            maximum: 180
+            description: Longitude of the point; only with lat and radiusKm
+          required: false
+          description: Longitude of the point; only with lat and radiusKm
+          name: lng
+          in: query
+        - schema:
+            type: number
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 50
+            description: >-
+              Only events whose venue is within this many kilometres of lat,
+              lng; at most 50
+          required: false
+          description: >-
+            Only events whose venue is within this many kilometres of lat, lng;
+            at most 50
+          name: radiusKm
           in: query
         - schema:
             type: string

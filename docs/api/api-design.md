@@ -291,11 +291,14 @@ The page of `GET /api/v1/events` carries `lastUpdatedAt` for the "last updated" 
 
 | Parameter | Type | Default | Out of range |
 |---|---|---|---|
-| `categoryId` | UUID | any category | — |
+| `categoryIds` | UUIDs, repeated (`categoryIds=a&categoryIds=b`) or comma-separated (`categoryIds=a,b`) | any category | More than 20, or one that is not a UUID: `400`. An unknown id matches no event |
 | `from` | date | today | Before today: clamped to today, the catalog shows only upcoming events (FR-006) |
 | `to` | date | end of the catalog window (today + 28 days) | Past the window: clamped to its end. Before `from`: `400` |
 | `venueId` | UUID | any venue; used when a map pin is tapped (FR-013) | — |
+| `lat`, `lng`, `radiusKm` | numbers: a point and a radius in kilometres | anywhere | Only together, else `400`. `lat` outside −90…90, `lng` outside −180…180, `radiusKm` not above 0 or above 50: `400` |
 | `limit`, `offset` | integer | see [pagination](#pagination) | `limit` above 20: `400` |
+
+The filters combine: an event shows when its category is any of `categoryIds`, it is at `venueId`, its venue is within `radiusKm` of `lat`, `lng`, and it overlaps the days from `from` to `to`. The distance is the great-circle distance to the venue's coordinates; the order stays soonest first, also with a point. For example, `GET /api/v1/events?categoryIds=<concerts>,<exhibitions>&lat=50.450&lng=30.524&radiusKm=3&from=2026-12-05&to=2026-12-06` lists the concerts and exhibitions of that weekend within 3 km of Maidan. The app rounds the user's coordinates to 3 decimals (about 100 m) before it sends them. Districts are not a filter yet: venues carry no district.
 
 Dates are clamped because a user scrolling the date picker too far should just see the events that exist. `limit` is rejected because only a script asks for more than a page, and it should learn the cap rather than be silently short-changed.
 

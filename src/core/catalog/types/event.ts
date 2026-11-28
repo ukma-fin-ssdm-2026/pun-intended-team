@@ -52,9 +52,19 @@ export interface EventOrganizer {
   logoId: string | null;
 }
 
+/** A circle on the map: the point the user is at and how far they will go, in kilometres. */
+export interface Circle {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+}
+
 export interface EventFilter {
-  categoryId?: string;
+  /** Events of any of these categories. */
+  categoryIds?: string[];
   venueId?: string;
+  /** Events whose venue is inside the circle. */
+  near?: Circle;
   from: string;
   to: string;
 }

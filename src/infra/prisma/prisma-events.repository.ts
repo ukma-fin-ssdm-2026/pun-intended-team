@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventsRepository } from '../../core/catalog/repositories/events.repository.ts';
 import type {
+  Circle,
   Event,
   EventChanges,
   EventFilter,
@@ -27,11 +28,13 @@ export class PrismaEventsRepository implements EventsRepository {
   }
 
   async findPublished(filter: EventFilter, { limit, offset }: PageRequest): Promise<Page<Event>> {
+    const nearVenueIds = filter.near && (await this.venueIdsWithin(filter.near));
     const rows = await this.prisma.event.findMany({
       where: {
         status: 'published',
-        categoryId: filter.categoryId,
+        categoryId: filter.categoryIds && { in: filter.categoryIds },
         venueId: filter.venueId,
+        ...(nearVenueIds && { AND: { venueId: { in: nearVenueIds } } }),
         endsAt: { gt: endOfKyivDay(addDays(filter.from, -1)) },
         startsAt: { lte: endOfKyivDay(filter.to) },
       },
@@ -44,6 +47,18 @@ export class PrismaEventsRepository implements EventsRepository {
       items: rows.slice(0, limit).map(toEvent),
       page: { limit, offset, hasMore: rows.length > limit },
     };
+  }
+
+  /** Great-circle distance on a sphere of the Earth's mean radius: within 0.5% of the true one, enough for a radius. */
+  private async venueIdsWithin({ lat, lng, radiusKm }: Circle): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM venues
+      WHERE 2 * ${EARTH_RADIUS_KM}::float8 * asin(least(1, sqrt(
+        power(sin(radians(latitude::float8 - ${lat}::float8) / 2), 2) +
+        cos(radians(${lat}::float8)) * cos(radians(latitude::float8)) *
+        power(sin(radians(longitude::float8 - ${lng}::float8) / 2), 2)
+      ))) <= ${radiusKm}::float8`;
+    return rows.map(({ id }) => id);
   }
 
   async findByOrganization(
@@ -132,6 +147,8 @@ export class PrismaEventsRepository implements EventsRepository {
     );
   }
 }
+
+const EARTH_RADIUS_KM = 6371;
 
 function toEventOverview(row: EventRow): EventOverview {
   const { organization } = row;

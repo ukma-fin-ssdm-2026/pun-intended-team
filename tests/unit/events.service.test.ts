@@ -147,9 +147,13 @@ describe('EventsService.list', () => {
     });
   }
 
-  test('passes the category and venue filters on unchanged', async () => {
+  test('passes the category, venue and distance filters on unchanged', async () => {
     const { service, eventsRepository } = makeService();
-    const query = { categoryId: aCategory().id, venueId: aVenue().id };
+    const query = {
+      categoryIds: [aCategory().id],
+      venueId: aVenue().id,
+      near: { lat: 50.45, lng: 30.524, radiusKm: 3 },
+    };
 
     await service.list(query, PAGE);
 

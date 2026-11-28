@@ -19,7 +19,7 @@ import { JoinRequestSheet } from '@/components/announcements/join-request-sheet'
 import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
 import { mockJoinRequest } from '@/mocks/announcements';
-import { findMockEvent, mockCategories, mockDistricts, mockEvents, mockOtherEvents } from '@/mocks/events';
+import { findMockEvent, mockCategories, mockEvents, mockOtherEvents } from '@/mocks/events';
 import { mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
 import { setAnnouncementsEmpty, setGuest, setSimulateLoading, useSession } from '@/state/session';
@@ -69,7 +69,6 @@ export default function ComponentsGallery() {
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<TabName>('events');
   const [joinRequestOpen, setJoinRequestOpen] = useState(false);
-  const [district, setDistrict] = useState<string>();
 
   const matchEvent = findMockEvent(mockPeople.maksym.eventId) ?? mockEvents[0];
 
@@ -102,21 +101,6 @@ export default function ComponentsGallery() {
       {/* Т5 opens the sheet for a real request; here it shows mock content. */}
       <Section title="Д4 Запит на оголошення">
         <Button label="Д4 Запит на оголошення (Т5.1)" variant="light" onPress={() => setJoinRequestOpen(true)} />
-      </Section>
-
-      {/* Designed, but the API has none yet, so the real screens leave it out (#486). */}
-      <Section title="Без API">
-        <Text className="font-inter text-caption text-text-secondary">Д1 Фільтри · «Де»: райони</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {mockDistricts.map((name) => (
-            <FilterChip
-              key={name}
-              label={name}
-              selected={district === name}
-              onPress={() => setDistrict(district === name ? undefined : name)}
-            />
-          ))}
-        </View>
       </Section>
 
       <Section title="Іконки · Solar Linear">
