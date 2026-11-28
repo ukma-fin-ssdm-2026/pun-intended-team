@@ -219,4 +219,4 @@ A green `main` was not an artifact: most changes waited days for one, and more t
 
 ## AI Usage Note
 
-The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog was drafted by Claude Code. Reviewed by the team.
+The metrics were computed by Claude Code from the collected run data, following the lab's definitions; the improvement backlog was drafted by Claude Code. The run data of bonuses 2 and 3 was collected and computed by Claude Code from the GitHub Actions REST API and checked against the run pages. Reviewed by the team.
