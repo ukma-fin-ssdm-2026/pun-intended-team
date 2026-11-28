@@ -195,10 +195,10 @@ The tests of the `CI` workflow ([`ci.yml`](../../.github/workflows/ci.yml)) are 
 | | Run | `CI passed` | `E2E tests` |
 |---|---|---|---|
 | Pull request before the split | [run 43220805887](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43220805887), 12.11 | 4 min 38 s, of which 1 min 42 s is the coverage run of all tests and 12 s the start of the database | did not exist |
-| Pull request after the split (unit tests only) | TODO | TODO | not run |
-| `main` after the split (unit and e2e tests) | TODO | TODO | TODO |
+| Pull request after the split (unit tests only) | [run 45153834852](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/45153834852), 23.11 | 1 min 56 s, of which 24 s is the unit tests | not run |
+| `main` after the split (unit and e2e tests) | [run 43945567593](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43945567593), 16.11 | 2 min 28 s, of which 22 s is the unit tests | 3 min 28 s, of which 2 min 8 s is the coverage run of all tests and 11 s the start of the database |
 
-In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s.
+In the five latest pull request runs before the split, `CI passed` took between 3 min 45 s and 4 min 38 s. In the five latest pull request runs after the split, `CI passed` took between 1 min 21 s and 2 min 5 s; these are the runs before #496 added the app's Jest tests to it. The timings are in [`evidence/bonus-2-3-run-timings.json`](evidence/bonus-2-3-run-timings.json).
 
 **Trade-off.** A broken migration, an e2e regression or a coverage drop is now caught only after the merge, when `main` already contains it. A red `E2E tests` on `main` is handled like any red `main`: the author of the merged pull request fixes it or reverts the merge before anything else is merged; TODO: confirm with the team who watches `main` for it (the backlog's "notify the team chat when `main` turns red" action, owner @Vlad-Re, would cover it).
 
