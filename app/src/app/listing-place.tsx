@@ -6,6 +6,7 @@ import { ActivityIndicator, Linking, Platform, Pressable, Text, View } from 'rea
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { failureMessage } from '@/auth/messages';
+import { DesktopRouteDialog } from '@/components/desktop/route-dialog';
 import { mapsLink } from '@/components/map/maps-link';
 import { PointPickerMap } from '@/components/map/point-picker-map';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { useListing } from '@/hooks/use-listings';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { useSession } from '@/state/session';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { colors } from '@/styles/tokens';
 
 // As on Д2.1: the back button 56 px from the top of the iPhone 14 frame (9 px below its status bar), a 34 px bottom
@@ -24,7 +26,8 @@ const CARD_BOTTOM = 34;
 const DROP_PIN_SHADOW = '0px 6px 12px rgba(0, 0, 0, 0.25)';
 const PIN_SIZE = 48;
 
-export default function ListingPlaceScreen() {
+function ListingPlaceScreenContent() {
+  const isDesktop = useIsDesktop();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isGuest } = useSession();
@@ -122,7 +125,7 @@ export default function ListingPlaceScreen() {
         className="absolute bottom-0 left-0 right-0 items-center gap-4 rounded-t-[28px] bg-surface-card px-5 pt-3"
         style={{ paddingBottom: Math.max(CARD_BOTTOM, insets.bottom) }}
       >
-        <View className="h-1 w-10 rounded-sm bg-border-default" />
+        {!isDesktop && <View className="h-1 w-10 rounded-sm bg-border-default" />}
         <View className="flex-row items-center gap-3.5 self-stretch">
           <View className="size-11 items-center justify-center rounded-[14px] bg-brand-coral">
             <Icon name="pin" size={22} color={colors.text['on-dark']} />
@@ -145,5 +148,14 @@ export default function ListingPlaceScreen() {
 
       {snackbar && <Snackbar {...snackbar} />}
     </View>
+  );
+}
+
+// DД2.1 on a desktop: a dialog over the page it was opened from.
+export default function ListingPlaceScreen() {
+  return (
+    <DesktopRouteDialog fallback="/announcements">
+      <ListingPlaceScreenContent />
+    </DesktopRouteDialog>
   );
 }

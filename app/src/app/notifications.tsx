@@ -18,9 +18,10 @@ import { JoinRequestSheet } from '@/components/announcements/join-request-sheet'
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { formatDateTime } from '@/dates';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { notificationText, useNotificationsState, type Notification } from '@/state/notifications';
-import { colors } from '@/styles/tokens';
+import { colors, shadows } from '@/styles/tokens';
 
 // "01 Навігація": top padding 56 in the iPhone 14 frame, 9 px below its status bar.
 const NAV_TOP = 56;
@@ -86,6 +87,7 @@ function toRow(notification: Notification): Row {
 export default function NotificationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
   const inbox = useNotificationsState();
   const { snackbar, show } = useSnackbar();
   // The Д4 sheet of a `listing_request` row, with the request from the API.
@@ -167,6 +169,61 @@ export default function NotificationsScreen() {
         ? 'Сповіщень поки немає'
         : undefined;
 
+  const markAll = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Прочитати все"
+      onPress={() => void markAllNotificationsRead()}
+      className="size-10 items-center justify-center rounded-[20px] bg-surface-background hover:bg-border-default"
+    >
+      <Icon name="check" size={20} />
+    </Pressable>
+  );
+
+  const overlays = (
+    <>
+      {request && (
+        <JoinRequestSheet
+          visible
+          request={joinRequestOf(request)}
+          busy={answering}
+          decided={
+            request.status === 'declined' ? 'Запит уже відхилено. Про це ніхто не отримав сповіщення.' : undefined
+          }
+          onClose={() => setRequest(undefined)}
+          onAccept={() => void answer('accept')}
+          onDecline={() => void answer('decline')}
+        />
+      )}
+      {snackbar && <Snackbar {...snackbar} />}
+    </>
+  );
+
+  // DТ5: the title on the page, the inbox in a white card; the desktop header leads back.
+  if (isDesktop) {
+    return (
+      <View className="flex-1 bg-surface-background">
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView contentContainerClassName="gap-6 px-5 pb-24 pt-10">
+          <View className="flex-row items-center justify-between">
+            <Text accessibilityRole="header" className="font-inter-bold text-desktop-h1 text-text-primary">
+              Сповіщення
+            </Text>
+            {markAll}
+          </View>
+          <View className="rounded-[28px] bg-surface-card pb-4" style={{ boxShadow: shadows.small }}>
+            {message && (
+              <Text className="px-5 pt-8 text-center font-inter text-body text-text-secondary">{message}</Text>
+            )}
+            {section('Нові', fresh)}
+            {section('Раніше', earlier)}
+          </View>
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-surface-card">
       <Stack.Screen options={{ headerShown: false }} />
@@ -188,34 +245,14 @@ export default function NotificationsScreen() {
         >
           Сповіщення
         </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Прочитати все"
-          onPress={() => void markAllNotificationsRead()}
-          className="size-10 items-center justify-center rounded-[20px] bg-surface-background"
-        >
-          <Icon name="check" size={20} />
-        </Pressable>
+        {markAll}
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: Math.max(34, insets.bottom) }}>
         {message && <Text className="px-5 pt-8 text-center font-inter text-body text-text-secondary">{message}</Text>}
         {section('Нові', fresh)}
         {section('Раніше', earlier)}
       </ScrollView>
-      {request && (
-        <JoinRequestSheet
-          visible
-          request={joinRequestOf(request)}
-          busy={answering}
-          decided={
-            request.status === 'declined' ? 'Запит уже відхилено. Про це ніхто не отримав сповіщення.' : undefined
-          }
-          onClose={() => setRequest(undefined)}
-          onAccept={() => void answer('accept')}
-          onDecline={() => void answer('decline')}
-        />
-      )}
-      {snackbar && <Snackbar {...snackbar} />}
+      {overlays}
     </View>
   );
 }

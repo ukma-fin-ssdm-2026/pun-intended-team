@@ -19,10 +19,12 @@ import { restoreSession } from '@/api/session';
 import { DesktopShell } from '@/components/desktop/desktop-shell';
 import { GuestDialog } from '@/components/guest-dialog';
 import { useBlurOnNavigate } from '@/hooks/use-blur-on-navigate';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { closeGuestDialog, useSession } from '@/state/session';
 
 export default function RootLayout() {
   const { guestDialogOpen, restored } = useSession();
+  const isDesktop = useIsDesktop();
   useBlurOnNavigate();
   useEffect(() => {
     void restoreSession();
@@ -41,6 +43,8 @@ export default function RootLayout() {
 
   // The matching and system state screens open with the prototype's 250 ms dissolve.
   const dissolve = { headerShown: false, animation: 'fade', animationDuration: 250 } as const;
+  // DД2.1: on a desktop the place screens are dialogs over the page they were opened from.
+  const placeDialog = isDesktop ? ({ ...dissolve, presentation: 'transparentModal' } as const) : dissolve;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -56,8 +60,8 @@ export default function RootLayout() {
           <Stack.Screen name="update" options={dissolve} />
           <Stack.Screen name="too-many-attempts" options={dissolve} />
           <Stack.Screen name="organizers/[id]" options={dissolve} />
-          <Stack.Screen name="post-place" options={dissolve} />
-          <Stack.Screen name="listing-place" options={dissolve} />
+          <Stack.Screen name="post-place" options={placeDialog} />
+          <Stack.Screen name="listing-place" options={placeDialog} />
           <Stack.Screen name="admin" options={{ headerShown: false, title: 'Nearby · Адмін-панель' }} />
         </Stack>
       </DesktopShell>

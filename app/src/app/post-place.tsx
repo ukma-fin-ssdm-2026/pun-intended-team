@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { DesktopRouteDialog } from '@/components/desktop/route-dialog';
 import { MAP_SEARCH_ICON } from '@/components/map-background';
 import { KYIV_CENTER, type MapPoint } from '@/components/map/kyiv';
 import { PointPickerMap } from '@/components/map/point-picker-map';
@@ -17,6 +18,7 @@ import { usePlaceLookup } from '@/hooks/use-place-lookup';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { pickPlace, usePickedPlace } from '@/state/post-place';
 import { useSession } from '@/state/session';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { colors } from '@/styles/tokens';
 
 // "01 Пошук": top padding 56 in the iPhone 14 frame (9 px below its status bar). "02 Обране місце" has a 34 px bottom
@@ -32,7 +34,8 @@ const PIN_SIZE = 48;
 // The API's limit.
 const NAME_MAX = 100;
 
-export default function PostPlaceScreen() {
+function PostPlaceScreenContent() {
+  const isDesktop = useIsDesktop();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isGuest } = useSession();
@@ -103,7 +106,7 @@ export default function PostPlaceScreen() {
         className="absolute bottom-0 left-0 right-0 items-center gap-4 rounded-t-[28px] bg-surface-card px-5 pt-3"
         style={{ paddingBottom: Math.max(CARD_BOTTOM, insets.bottom) }}
       >
-        <View className="h-1 w-10 rounded-sm bg-border-default" />
+        {!isDesktop && <View className="h-1 w-10 rounded-sm bg-border-default" />}
         <View className="flex-row items-center gap-3.5 self-stretch">
           <View className="size-11 items-center justify-center rounded-[14px] bg-brand-coral">
             <Icon name="pin" size={22} color={colors.text['on-dark']} />
@@ -148,5 +151,14 @@ export default function PostPlaceScreen() {
         </View>
       </View>
     </View>
+  );
+}
+
+// DД2.1 on a desktop: a dialog over the page it was opened from.
+export default function PostPlaceScreen() {
+  return (
+    <DesktopRouteDialog fallback="/announcements">
+      <PostPlaceScreenContent />
+    </DesktopRouteDialog>
   );
 }
