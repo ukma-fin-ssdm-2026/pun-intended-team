@@ -27,6 +27,7 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
@@ -39,6 +40,12 @@ const COVER_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 const AVATAR_OVERLAP = 46;
 const LIST_BOTTOM_GAP = 36;
+const AVATAR = 92;
+// DТ4: a 260 px cover with the edit button 24 px from its top, and a 136 px avatar half over it.
+const DESKTOP_COVER_HEIGHT = 260;
+const DESKTOP_COVER_TOP = 24;
+const DESKTOP_AVATAR = 136;
+const DESKTOP_BOTTOM = 96;
 
 // "Затемнення": black at 35% fading out by 60% of the cover.
 function CoverShade() {
@@ -220,19 +227,41 @@ export default function ProfileScreen() {
     .filter((event): event is Event => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
+  const isDesktop = useIsDesktop();
+  // DТ4: a wider cover, a larger avatar beside the name, and the content in a 760 px column of the 1200 px grid.
+  const avatarSize = isDesktop ? DESKTOP_AVATAR : AVATAR;
+  const column = isDesktop ? 'w-full max-w-[1000px] self-center px-[120px]' : '';
+
+  const nameBlock = profile.data && (
+    <View className={`gap-0.5 ${isDesktop ? 'pb-3' : ''}`}>
+      <Text className={`font-inter-bold text-text-primary ${isDesktop ? 'text-desktop-h1' : 'text-h1'}`}>
+        {profile.data.displayName}, {profile.data.age}
+      </Text>
+      {/* Figma shows the occupation here; without one, the username. */}
+      <Text className="font-inter text-caption text-text-secondary">
+        {profile.data.occupation || `@${profile.data.username}`}
+      </Text>
+    </View>
+  );
 
   return (
     <View className="flex-1 bg-surface-background">
       <ScrollView
-        contentContainerStyle={{ paddingBottom: BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP }}
+        contentContainerStyle={{
+          paddingBottom: isDesktop ? DESKTOP_BOTTOM : BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP,
+        }}
       >
         <View
-          className="flex-row items-start justify-between overflow-hidden px-5"
-          style={{
-            height: COVER_HEIGHT,
-            paddingTop: Math.max(COVER_TOP, insets.top + GAP_BELOW_STATUS_BAR),
-            marginBottom: -AVATAR_OVERLAP,
-          }}
+          className={`flex-row items-start justify-between overflow-hidden ${isDesktop ? 'px-[120px]' : 'px-5'}`}
+          style={
+            isDesktop
+              ? { height: DESKTOP_COVER_HEIGHT, paddingTop: DESKTOP_COVER_TOP, marginBottom: -avatarSize / 2 }
+              : {
+                  height: COVER_HEIGHT,
+                  paddingTop: Math.max(COVER_TOP, insets.top + GAP_BELOW_STATUS_BAR),
+                  marginBottom: -AVATAR_OVERLAP,
+                }
+          }
         >
           {/* The user's cover, or the default gradient once the profile shows there is none; light grey until then. */}
           <View className="absolute inset-0 bg-border-default">
@@ -243,9 +272,14 @@ export default function ProfileScreen() {
             )}
           </View>
           <CoverShade />
-          <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
-            Мій профіль
-          </Text>
+          {/* On a desktop the header marks the section instead. */}
+          {isDesktop ? (
+            <View />
+          ) : (
+            <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
+              Мій профіль
+            </Text>
+          )}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Редагувати"
@@ -256,8 +290,11 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <View className="pl-5">
-          <View className="size-[92px] items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card">
+        <View className={isDesktop ? `${column} flex-row items-end gap-4` : 'pl-5'}>
+          <View
+            className="items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card"
+            style={{ width: avatarSize, height: avatarSize }}
+          >
             {profile.data?.photo ? (
               <ApiPicture image={profile.data.photo} />
             ) : (
@@ -266,26 +303,17 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
+          {isDesktop && nameBlock}
         </View>
 
-        <View className="gap-3 px-5 pt-3.5">
-          {profile.data && (
-            <View className="gap-0.5">
-              <Text className="font-inter-bold text-h1 text-text-primary">
-                {profile.data.displayName}, {profile.data.age}
-              </Text>
-              {/* Figma shows the occupation here; without one, the username. */}
-              <Text className="font-inter text-caption text-text-secondary">
-                {profile.data.occupation || `@${profile.data.username}`}
-              </Text>
-            </View>
-          )}
+        <View className={isDesktop ? `${column} gap-3 pt-6` : 'gap-3 px-5 pt-3.5'}>
+          {!isDesktop && nameBlock}
           <ProfileTabs active={tab} onSelect={selectTab} />
           {tab === 'about' && <AboutCard profile={profile} />}
         </View>
 
         {tab === 'about' ? (
-          <View className="items-center gap-4 px-5 pt-2.5">
+          <View className={isDesktop ? `${column} items-start gap-4 pt-4` : 'items-center gap-4 px-5 pt-2.5'}>
             <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
             </Pressable>
@@ -294,10 +322,12 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         ) : (
-          <SavedEvents
-            events={savedEvents}
-            onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
-          />
+          <View className={column}>
+            <SavedEvents
+              events={savedEvents}
+              onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
+            />
+          </View>
         )}
       </ScrollView>
 
