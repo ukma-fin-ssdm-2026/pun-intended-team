@@ -35,9 +35,9 @@ const PAGES = 3;
 const ACTIONS_BOTTOM = 34;
 // В1's text sits 20 px above the step indicator.
 const INTRO_GAP = 20;
-// DВ1–DВ3: the collage fills the left half; the slides and their actions are a 440 px column on the right.
+// DВ1–DВ3: the collage fills the left half; the slides and their actions are a 440 px column on the right, with В1's
+// text and the actions centered in its height and the other slides' content standing on the actions.
 const DESKTOP_COLUMN = 440;
-const DESKTOP_COLUMN_HEIGHT = 780;
 // "00 Колаж подій" of DВ1 is В1's 600 px collage at 1.9 times the size, 60 px above the top of the window.
 const DESKTOP_COLLAGE_SCALE = 1.9;
 const DESKTOP_COLLAGE_TOP = -60;
@@ -86,6 +86,9 @@ type ActionsProps = {
   googleLoading: boolean;
   onGuest: () => void;
   onOrganizations: () => void;
+  // The space under the actions.
+  bottom: number;
+  // The height of the actions without the space under them.
   onHeight: (height: number) => void;
 };
 
@@ -101,15 +104,16 @@ function Actions({
   googleLoading,
   onGuest,
   onOrganizations,
+  bottom,
   onHeight,
 }: ActionsProps) {
-  const insets = useSafeAreaInsets();
   const last = page === PAGES - 1;
   return (
     <View
       className="absolute bottom-0 left-0 right-0 items-center gap-[18px] px-5"
-      style={{ paddingBottom: Math.max(ACTIONS_BOTTOM, insets.bottom), pointerEvents: 'box-none' }}
-      onLayout={(event) => onHeight(event.nativeEvent.layout.height)}
+      pointerEvents="box-none"
+      style={{ paddingBottom: bottom }}
+      onLayout={(event) => onHeight(event.nativeEvent.layout.height - bottom)}
     >
       <View className="flex-row items-center gap-1.5">
         {Array.from({ length: PAGES }, (_, index) => (
@@ -167,6 +171,14 @@ export default function OnboardingScreen() {
   const offset = useSharedValue(0);
   const [page, setPage] = useState(0);
   const [actionsHeight, setActionsHeight] = useState(0);
+  const [introHeight, setIntroHeight] = useState(0);
+  const insets = useSafeAreaInsets();
+  // "02 Дії" 34 px above the bottom of a phone; on a desktop, В1's text and the actions centered in the column.
+  const actionsBottom = isDesktop
+    ? Math.max(ACTIONS_BOTTOM, (window.height - introHeight - INTRO_GAP - actionsHeight) / 2)
+    : Math.max(ACTIONS_BOTTOM, insets.bottom);
+  // Where the slides' content ends: right above the actions.
+  const aboveActions = actionsBottom + actionsHeight + INTRO_GAP;
   const google = useGoogleAuth();
   useStatusBarStyle('light');
 
@@ -229,7 +241,8 @@ export default function OnboardingScreen() {
           )}
           <View
             className="absolute left-0 right-0 items-center gap-3 px-5"
-            style={{ bottom: actionsHeight + INTRO_GAP }}
+            style={{ bottom: aboveActions }}
+            onLayout={(event) => setIntroHeight(event.nativeEvent.layout.height)}
           >
             <Text accessibilityRole="header" className="text-center font-inter-bold text-display text-text-on-dark">
               {'Обери подію,\nа ми знайдемо компанію'}
@@ -240,7 +253,10 @@ export default function OnboardingScreen() {
           </View>
         </View>
         <View className="h-full" style={{ width }}>
-          <View className="absolute left-0 right-0 top-[130px] gap-7 px-5">
+          <View
+            className={`absolute left-0 right-0 gap-7 px-5 ${isDesktop ? '' : 'top-[130px]'}`}
+            style={isDesktop ? { bottom: aboveActions } : undefined}
+          >
             <View className="gap-2">
               <Text accessibilityRole="header" className="font-inter-bold text-display text-text-on-dark">
                 Як це працює
@@ -282,7 +298,10 @@ export default function OnboardingScreen() {
         </View>
 
         <View className="h-full" style={{ width }}>
-          <View className="absolute left-0 right-0 top-[150px] items-center gap-7 px-5">
+          <View
+            className={`absolute left-0 right-0 items-center gap-7 px-5 ${isDesktop ? '' : 'top-[150px]'}`}
+            style={isDesktop ? { bottom: aboveActions } : undefined}
+          >
             <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.08]">
               <View
                 className="size-[76px] items-center justify-center rounded-full bg-brand-coral"
@@ -326,6 +345,7 @@ export default function OnboardingScreen() {
           router.replace('/');
         }}
         onOrganizations={() => router.push('/for-organizations')}
+        bottom={actionsBottom}
         onHeight={setActionsHeight}
       />
     </>
@@ -356,7 +376,7 @@ export default function OnboardingScreen() {
         </View>
         <View className="flex-1 items-center justify-center overflow-hidden">
           {backgrounds}
-          <View style={{ width: DESKTOP_COLUMN, height: Math.min(DESKTOP_COLUMN_HEIGHT, window.height) }}>
+          <View style={{ width: DESKTOP_COLUMN, height: window.height }}>
             {pager}
             {actions}
           </View>
