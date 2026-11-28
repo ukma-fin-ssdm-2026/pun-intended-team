@@ -66,7 +66,8 @@ export function CoralGradient({ preset, frame }: Props) {
       height="100%"
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
-      style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
+      pointerEvents="none"
+      style={StyleSheet.absoluteFill}
     >
       <Defs>
         <RadialGradient id={id} gradientUnits="userSpaceOnUse" cx={0} cy={0} r={10} gradientTransform={transform}>

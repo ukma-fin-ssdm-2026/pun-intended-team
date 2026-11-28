@@ -65,7 +65,7 @@ const rules: { icon: IconName; text: string }[] = [
 // "01 Перехід у фон" of В1: the collage fades into the ink background by 60% of its 420 px.
 function CollageFade({ top = 300, height = 420 }: { top?: number; height?: number }) {
   return (
-    <Svg width="100%" height={height} style={{ position: 'absolute', top, left: 0, pointerEvents: 'none' }}>
+    <Svg width="100%" height={height} pointerEvents="none" style={{ position: 'absolute', top, left: 0 }}>
       <Defs>
         <LinearGradient id="onboarding-fade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset={0} stopColor={colors.brand.ink} stopOpacity={0} />

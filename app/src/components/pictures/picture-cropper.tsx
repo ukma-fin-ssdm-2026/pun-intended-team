@@ -169,7 +169,8 @@ function CropView({ kind, picture, onCancel, onDone }: Omit<Props, 'picture'> & 
       </View>
       <Text
         className="absolute left-0 right-0 px-5 text-center font-inter text-caption text-text-on-dark-muted"
-        style={{ bottom: insets.bottom + 32, pointerEvents: 'none' }}
+        pointerEvents="none"
+        style={{ bottom: insets.bottom + 32 }}
       >
         Посунь і збільш фото, щоб обрати, що буде видно
       </Text>

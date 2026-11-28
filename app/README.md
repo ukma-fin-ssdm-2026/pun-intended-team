@@ -115,6 +115,7 @@ In a browser window at least 1024 px wide (`DESKTOP_MIN_WIDTH` in `src/hooks/use
 - `src/components/desktop/desktop-shell.tsx` wraps the root stack. Its route table decides, per screen, whether the "Desktop / Шапка" header is shown above it, over its gradient, or by the screen itself, and how wide a narrow screen's column is. A new screen with a header gets a row there.
 - Screens change their layout with `useIsDesktop()` and keep their state, API calls and hooks. Sheets and dialogs go through `Overlay`, which centers them on a desktop, so a new sheet built on `Sheet` needs nothing more.
 - A screen or modal without a desktop frame starts with a comment naming the frame its layout was derived from.
+- A layer that lets clicks through sets `pointerEvents` as a prop, not in `style`: react-native-web drops it from an inline style, and the layer then catches every click under it. ESLint enforces this.
 
 ## Environment variables
 

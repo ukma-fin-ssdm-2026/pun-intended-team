@@ -70,7 +70,7 @@ export const MAP_SEARCH_ICON = '#1A1A2E';
 
 export function MapBackground() {
   return (
-    <View className="absolute inset-0 overflow-hidden bg-[#ECECE7]" style={{ pointerEvents: 'none' }}>
+    <View className="absolute inset-0 overflow-hidden bg-[#ECECE7]" pointerEvents="none">
       {mapShapes.map((shape, index) => (
         <View
           key={index}

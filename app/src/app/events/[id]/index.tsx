@@ -159,7 +159,7 @@ function DetailRow({
 // Darkens the top of the cover so the white buttons and the status bar stay readable on light images.
 function TopShade() {
   return (
-    <Svg width="100%" height={140} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+    <Svg width="100%" height={140} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
       <Defs>
         <LinearGradient id="event-top-shade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset={0} stopColor="#000" stopOpacity={0.35} />

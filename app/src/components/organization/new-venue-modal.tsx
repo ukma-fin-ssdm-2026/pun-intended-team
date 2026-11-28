@@ -122,6 +122,7 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
         {/* The map's centre is the venue's point: the pin stands over it and the map moves underneath. */}
         <View
           className="absolute items-center justify-center rounded-3xl border-[3px] border-surface-card bg-brand-coral"
+          pointerEvents="none"
           style={{
             width: PIN_SIZE,
             height: PIN_SIZE,
@@ -130,7 +131,6 @@ function NewVenueForm({ onClose, onCreated }: Omit<Props, 'visible'>) {
             marginLeft: -PIN_SIZE / 2,
             marginTop: -PIN_SIZE / 2,
             boxShadow: DROP_PIN_SHADOW,
-            pointerEvents: 'none',
           }}
         >
           <Icon name="pin" size={22} color={colors.text['on-dark']} />

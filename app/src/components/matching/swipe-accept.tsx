@@ -84,7 +84,8 @@ export function SwipeAccept({ onAccept, disabled = false }: Props) {
       style={{ boxShadow: '0px 10px 24px -6px rgba(0, 0, 0, 0.2)' }}
     >
       <Animated.View
-        style={[{ position: 'absolute', left: LABEL_START, width: labelWidth, pointerEvents: 'none' }, labelStyle]}
+        pointerEvents="none"
+        style={[{ position: 'absolute', left: LABEL_START, width: labelWidth }, labelStyle]}
       >
         <Text className="text-center font-inter-semibold text-button text-text-primary">Прийняти</Text>
       </Animated.View>

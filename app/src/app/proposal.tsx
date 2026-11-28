@@ -190,9 +190,9 @@ export default function ProposalScreen() {
       </Animated.View>
 
       <Animated.View
+        pointerEvents="none"
         style={[
           { position: 'absolute', left: 0, right: 0, bottom: actionsBottom + ACTIONS_HEIGHT + NOTE_GAP },
-          { pointerEvents: 'none' },
           controlsStyle,
         ]}
       >
@@ -205,11 +205,8 @@ export default function ProposalScreen() {
       </Animated.View>
 
       <Animated.View
-        style={[
-          { position: 'absolute', left: 0, right: 0, bottom: actionsBottom },
-          { pointerEvents: canAnswer ? 'auto' : 'none' },
-          controlsStyle,
-        ]}
+        pointerEvents={canAnswer ? 'auto' : 'none'}
+        style={[{ position: 'absolute', left: 0, right: 0, bottom: actionsBottom }, controlsStyle]}
       >
         {waitingNote ? (
           <View className="h-[60px] items-center justify-center px-5">
@@ -235,10 +232,8 @@ export default function ProposalScreen() {
 
       {answer && (
         <Animated.View
-          style={[
-            { position: 'absolute', left: 20, right: 20, top: navTop + MESSAGE_BELOW_NAV, pointerEvents: 'none' },
-            messageStyle,
-          ]}
+          pointerEvents="none"
+          style={[{ position: 'absolute', left: 20, right: 20, top: navTop + MESSAGE_BELOW_NAV }, messageStyle]}
         >
           <MatchStatus answer={answer} name={match.partner.displayName} />
         </Animated.View>

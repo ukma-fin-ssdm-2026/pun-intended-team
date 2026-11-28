@@ -106,6 +106,7 @@ function ListingPlaceScreenContent() {
       <PointPickerMap initial={place.location} readOnly />
       <View
         className="absolute items-center justify-center rounded-3xl border-[3px] border-surface-card bg-brand-coral"
+        pointerEvents="none"
         style={{
           width: PIN_SIZE,
           height: PIN_SIZE,
@@ -114,7 +115,6 @@ function ListingPlaceScreenContent() {
           marginLeft: -PIN_SIZE / 2,
           marginTop: -PIN_SIZE / 2,
           boxShadow: DROP_PIN_SHADOW,
-          pointerEvents: 'none',
         }}
       >
         <Icon name="pin" size={22} color={colors.text['on-dark']} />

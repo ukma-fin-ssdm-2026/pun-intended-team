@@ -78,7 +78,7 @@ export function EventsCollage({ width: panelWidth }: { width?: number } = {}) {
   const { data } = useEvents();
   const start = (width - COLLAGE_WIDTH) / 2;
   return (
-    <View className="absolute left-0 top-0 h-[600px] w-full overflow-hidden" style={{ pointerEvents: 'none' }}>
+    <View className="absolute left-0 top-0 h-[600px] w-full overflow-hidden" pointerEvents="none">
       {withEvents(data).map((tile, index) => {
         const gradient = (
           <CoralGradient

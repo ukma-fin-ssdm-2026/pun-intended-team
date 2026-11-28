@@ -51,7 +51,7 @@ const DESKTOP_COLUMN = 760;
 // "Затемнення": black at 35% fading out by 60% of the cover.
 function CoverShade() {
   return (
-    <Svg width="100%" height={COVER_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+    <Svg width="100%" height={COVER_HEIGHT} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
       <Defs>
         <LinearGradient id="profile-cover-shade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset={0} stopColor="#000" stopOpacity={0.35} />
