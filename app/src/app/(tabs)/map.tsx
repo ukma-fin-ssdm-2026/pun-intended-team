@@ -3,7 +3,7 @@
 // Daryna Halytska.
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,6 +65,21 @@ export default function MapScreen() {
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
+  // "На мапі" of an event page opens the tab with `venueId`: that venue is selected and zoomed in on. The param is
+  // dropped once read, so the same link works again after the card is closed.
+  const { venueId } = useLocalSearchParams<{ venueId?: string }>();
+  const [focusedId, setFocusedId] = useState<string>();
+  const [seenVenueId, setSeenVenueId] = useState<string>();
+  if (venueId !== seenVenueId) {
+    setSeenVenueId(venueId);
+    if (venueId) {
+      setSelectedId(venueId);
+      setFocusedId(venueId);
+    }
+  }
+  useEffect(() => {
+    if (venueId) router.setParams({ venueId: undefined });
+  }, [venueId, router]);
   const user = useUserLocation();
   const isDesktop = useIsDesktop();
   useStatusBarStyle('dark');
@@ -81,7 +96,14 @@ export default function MapScreen() {
   // The filters narrow the pins as they narrow the catalog; the search also matches venue names.
   const matches = (list: NonNullable<typeof events.data>) =>
     filterEvents(list, filters).filter((event) => matchesMapSearch(event, search));
-  const venues = venuesOf(matches(events.data ?? []));
+  const listed = venuesOf(matches(events.data ?? []));
+  const venueEvents = useVenueEvents(selectedId, query);
+  // A focused venue the filters or the search leave out still gets its pin and card, from its own events.
+  const focusedVenue =
+    selectedId === focusedId && !listed.some(({ venue }) => venue.id === selectedId)
+      ? venuesOf(venueEvents.data?.items ?? [])[0]
+      : undefined;
+  const venues = focusedVenue ? [...listed, focusedVenue] : listed;
   const pins = venues.map(({ venue, events: venueEvents }) => ({
     id: venue.id,
     location: venue.location,
@@ -89,8 +111,15 @@ export default function MapScreen() {
     name: venue.name,
   }));
   const selected = venues.find(({ venue }) => venue.id === selectedId);
-  const venueEvents = useVenueEvents(selected?.venue.id, query);
-  const cardEvents = venueEvents.data ? matches(venueEvents.data.items) : undefined;
+  const cardEvents = venueEvents.data
+    ? focusedVenue
+      ? venueEvents.data.items
+      : matches(venueEvents.data.items)
+    : undefined;
+  const selectPin = (id: string | undefined) => {
+    setSelectedId(id);
+    setFocusedId(undefined);
+  };
 
   const openEvent = (id: string) => router.push({ pathname: '/events/[id]', params: { id } });
   const cardBottom = BAR_HEIGHT + tabBarSafeArea(insets.bottom) + CARD_GAP_ABOVE_BAR;
@@ -110,7 +139,7 @@ export default function MapScreen() {
           accessibilityRole="button"
           accessibilityLabel="Закрити"
           hitSlop={8}
-          onPress={() => setSelectedId(undefined)}
+          onPress={() => selectPin(undefined)}
         >
           <Icon name="close" size={20} color={colors.text.secondary} />
         </Pressable>
@@ -204,7 +233,13 @@ export default function MapScreen() {
           ) : null}
         </ScrollView>
         <View className="flex-1 bg-[#ECECE7]">
-          <VenueMap pins={pins} selectedId={selected?.venue.id} user={user} onPinPress={setSelectedId} />
+          <VenueMap
+            pins={pins}
+            selectedId={selected?.venue.id}
+            user={user}
+            focused={!!selected && selected.venue.id === focusedId}
+            onPinPress={selectPin}
+          />
         </View>
         {filtersSheet}
       </View>
@@ -213,12 +248,19 @@ export default function MapScreen() {
 
   return (
     <View className="flex-1 bg-[#ECECE7]">
-      <VenueMap pins={pins} selectedId={selected?.venue.id} user={user} onPinPress={setSelectedId} />
+      <VenueMap
+        pins={pins}
+        selectedId={selected?.venue.id}
+        user={user}
+        focused={!!selected && selected.venue.id === focusedId}
+        onPinPress={selectPin}
+      />
 
       <View
         className="flex-row items-start gap-2.5 px-5"
         // The map stays usable around the search row.
-        style={{ paddingTop: Math.max(SEARCH_TOP, insets.top + GAP_BELOW_STATUS_BAR), pointerEvents: 'box-none' }}
+        pointerEvents="box-none"
+        style={{ paddingTop: Math.max(SEARCH_TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
       >
         {searchRow}
       </View>

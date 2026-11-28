@@ -259,6 +259,9 @@ export default function EventScreen() {
   const sheetStop = actionsTop + GLASS_BUTTON_SIZE + SHEET_GAP_BELOW_ACTIONS;
   const sheetBottomPadding = actionBarReach(insets.bottom) + GAP_ABOVE_ACTION;
 
+  // The map tab, centred and zoomed in on the venue with its card open.
+  const showOnMap = () => router.navigate({ pathname: '/map', params: { venueId: event.venue.id } });
+
   const openSearch = () => router.push({ pathname: '/events/[id]/search', params: { id: event.id } });
 
   const onAction = () => {
@@ -368,13 +371,7 @@ export default function EventScreen() {
   const detailsBlock = (
     <>
       <View className="rounded-[20px] bg-surface-background px-4 py-1">
-        <DetailRow
-          icon="pin"
-          value={event.venue.name}
-          note={event.venue.address}
-          // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
-          onPress={() => router.navigate('/map')}
-        />
+        <DetailRow icon="pin" value={event.venue.name} note={event.venue.address} onPress={showOnMap} />
         <View className="h-px bg-border-default" />
         <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
         {/* Only an organization's event has an organizer; an imported one has its provider's page instead. */}
@@ -402,7 +399,7 @@ export default function EventScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Показати на мапі"
-          onPress={() => router.navigate('/map')}
+          onPress={showOnMap}
           className={`items-center justify-center rounded-[18px] bg-[#ECECE7] active:opacity-90 ${isDesktop ? 'h-[280px]' : 'h-[140px]'}`}
         >
           <View className="size-10 items-center justify-center rounded-full bg-brand-coral">

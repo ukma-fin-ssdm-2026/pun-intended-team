@@ -7,6 +7,7 @@ import { Map as MapLibreMap, Marker, setWorkerUrl } from 'maplibre-gl';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { colors } from '@/styles/tokens';
 
 import { KYIV_BOUNDS, KYIV_CENTER } from './kyiv';
@@ -15,6 +16,8 @@ import { mapTargets, PIN_SIZE, SELECTED_PIN_SIZE, VENUE_CARD_HEIGHT, type VenueM
 const STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 const CITY_ZOOM = 10.5;
 const USER_ZOOM = 13;
+// A venue opened from its event page: a few streets around it.
+const FOCUS_ZOOM = 15;
 // "Ви тут" of Т1: the location blue with its 10 px halo at 25%.
 const LOCATION_BLUE = '#2E5CD4';
 
@@ -59,7 +62,7 @@ function userElement(): HTMLElement {
   return element;
 }
 
-export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) {
+export function VenueMap({ pins, selectedId, user, focused, onPinPress }: VenueMapProps) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const onPinPressRef = useRef(onPinPress);
@@ -100,22 +103,30 @@ export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) 
   }, [pins, selectedId]);
 
   const { selectedLat, selectedLng, userLat, userLng } = mapTargets({ pins, selectedId, user });
+  const focusedRef = useRef(focused);
+  useEffect(() => {
+    focusedRef.current = focused;
+  });
+  const cardPadding = useIsDesktop() ? 0 : VENUE_CARD_HEIGHT;
 
-  // A selected pin moves above the venue card.
+  // A selected pin moves above the venue card; a focused one is also zoomed in on. The desktop card sits beside the
+  // map, so there the pin stays in the middle.
   useEffect(() => {
     if (selectedLat === undefined || selectedLng === undefined) return;
     map.current?.easeTo({
       center: [selectedLng, selectedLat],
-      padding: { top: 0, right: 0, left: 0, bottom: VENUE_CARD_HEIGHT },
+      padding: { top: 0, right: 0, left: 0, bottom: cardPadding },
+      ...(focused ? { zoom: FOCUS_ZOOM } : {}),
     });
-  }, [selectedLat, selectedLng]);
+  }, [selectedLat, selectedLng, focused, cardPadding]);
 
-  // The location arrives after the map is shown; the map moves to it once, if it is in the city.
+  // The location arrives after the map is shown; the map moves to it once, if it is in the city, unless it shows a
+  // venue opened from its event page.
   useEffect(() => {
     const current = map.current;
     if (!current || userLat === undefined || userLng === undefined) return;
     const marker = new Marker({ element: userElement() }).setLngLat([userLng, userLat]).addTo(current);
-    current.flyTo({ center: [userLng, userLat], zoom: USER_ZOOM });
+    if (!focusedRef.current) current.flyTo({ center: [userLng, userLat], zoom: USER_ZOOM });
     return () => {
       marker.remove();
     };

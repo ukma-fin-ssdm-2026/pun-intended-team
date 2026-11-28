@@ -8,6 +8,8 @@ export type VenueMapProps = {
   selectedId?: string;
   /** The user's location: the map moves to it once it is known; without it the map shows the whole city. */
   user?: MapPoint;
+  /** The selected pin was opened from an event page ("На мапі"): the map zooms in on it and stays off the user. */
+  focused?: boolean;
   onPinPress: (id: string) => void;
 };
 

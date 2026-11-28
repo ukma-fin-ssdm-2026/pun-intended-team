@@ -9,10 +9,12 @@ import { useEvent } from '@/hooks/use-event';
 import { anEvent } from './fixtures/events';
 
 const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'e1' }),
   useRouter: () => ({
     push: mockPush,
+    navigate: mockNavigate,
     replace: jest.fn(),
     back: jest.fn(),
     canGoBack: () => true,
@@ -74,6 +76,18 @@ describe('EventScreen description', () => {
 
     expect(screen.queryByText('Читати далі')).toBeNull();
     expect(screen.queryByText('Читати менше')).toBeNull();
+  });
+});
+
+describe('EventScreen "На мапі"', () => {
+  test('opens the map on the venue of the event, from the map block and the venue row', async () => {
+    await showEvent();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Показати на мапі' }));
+    await fireEvent.press(screen.getByText('Мистецький Арсенал'));
+
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/map', params: { venueId: 'v1' } });
   });
 });
 

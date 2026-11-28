@@ -10,7 +10,15 @@ import { useEvents, useVenueEvents } from '@/hooks/use-events';
 import { anEvent, atlas } from './fixtures/events';
 
 const mockPush = jest.fn();
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }), useFocusEffect: () => {} }));
+const mockSetParams = jest.fn();
+let mockParams: { venueId?: string } = {};
+const mockRouter = { push: mockPush, setParams: mockSetParams };
+jest.mock('expo-router', () => ({
+  useRouter: () => mockRouter,
+  useLocalSearchParams: () => mockParams,
+  useFocusEffect: () => {},
+}));
+let mockMapProps: VenueMapProps | undefined;
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: () => Promise.resolve({ status: 'denied' }),
   Accuracy: { Balanced: 3 },
@@ -25,20 +33,24 @@ jest.mock('@/hooks/use-events', () => ({ useEvents: jest.fn(), useVenueEvents: j
 jest.mock('@/components/map/venue-map', () => {
   const { Pressable, Text, View } = jest.requireActual<typeof import('react-native')>('react-native');
   return {
-    VenueMap: ({ pins, onPinPress }: VenueMapProps) => (
-      <View>
-        {pins.map((pin) => (
-          <Pressable
-            key={pin.id}
-            accessibilityRole="button"
-            accessibilityLabel={pin.name}
-            onPress={() => onPinPress(pin.id)}
-          >
-            <Text>{pin.count}</Text>
-          </Pressable>
-        ))}
-      </View>
-    ),
+    VenueMap: (props: VenueMapProps) => {
+      mockMapProps = props;
+      const { pins, onPinPress } = props;
+      return (
+        <View>
+          {pins.map((pin) => (
+            <Pressable
+              key={pin.id}
+              accessibilityRole="button"
+              accessibilityLabel={pin.name}
+              onPress={() => onPinPress(pin.id)}
+            >
+              <Text>{pin.count}</Text>
+            </Pressable>
+          ))}
+        </View>
+      );
+    },
   };
 });
 
@@ -61,6 +73,8 @@ function eventsResult(overrides: Partial<ReturnType<typeof useEvents>> = {}): Re
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = {};
+  mockMapProps = undefined;
   jest.mocked(useEvents).mockReturnValue(eventsResult());
   jest.mocked(useVenueEvents).mockImplementation((venueId) => ({
     data: venueId
@@ -96,6 +110,43 @@ describe('MapScreen', () => {
 
     expect(useVenueEvents).toHaveBeenLastCalledWith('v1', expect.anything());
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/events/[id]', params: { id: 'e3' } });
+  });
+
+  // "На мапі" of an event page.
+  test('opens the venue of `venueId` zoomed in, with its card, and drops the param', async () => {
+    mockParams = { venueId: 'v2' };
+    await render(<MapScreen />);
+
+    expect(screen.getByText('Атлас', { exact: false })).toBeOnTheScreen();
+    expect(screen.getByText('1 подія')).toBeOnTheScreen();
+    expect(mockMapProps).toMatchObject({ selectedId: 'v2', focused: true });
+    expect(mockSetParams).toHaveBeenCalledWith({ venueId: undefined });
+  });
+
+  test('a pin pressed after the focused venue is only centred', async () => {
+    mockParams = { venueId: 'v2' };
+    await render(<MapScreen />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Мистецький Арсенал' }));
+
+    expect(mockMapProps).toMatchObject({ selectedId: 'v1', focused: false });
+  });
+
+  test('keeps the pin of a focused venue the search leaves out', async () => {
+    mockParams = { venueId: 'v2' };
+    await render(<MapScreen />);
+
+    await fireEvent.changeText(screen.getByPlaceholderText('Заклад або подія'), 'джаз');
+
+    expect(screen.getByRole('button', { name: 'Атлас' })).toBeOnTheScreen();
+    expect(screen.getByText('1 подія')).toBeOnTheScreen();
+  });
+
+  test('without `venueId` selects nothing', async () => {
+    await render(<MapScreen />);
+
+    expect(mockMapProps).toMatchObject({ selectedId: undefined, focused: false });
+    expect(mockSetParams).not.toHaveBeenCalled();
   });
 
   test('narrows the pins with the search, by event title or venue name', async () => {
