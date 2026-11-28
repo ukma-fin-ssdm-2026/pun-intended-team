@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { Post } from '@/components/announcements/post';
-import { PostCard } from '@/components/announcements/post-card';
+import { POST_PREVIEW_LENGTH, PostCard } from '@/components/announcements/post-card';
 
 const mockRouter = { push: jest.fn() };
 jest.mock('expo-router', () => ({ useRouter: () => mockRouter }));
@@ -103,5 +103,30 @@ describe('PostCard', () => {
 
     expect(screen.queryByText('Хочу піти')).toBeNull();
     expect(screen.getByText('Твій допис')).toBeTruthy();
+  });
+
+  describe('long text', () => {
+    const words = 'Шукаю компанію на виставку в Мистецькому Арсеналі, потім можна на каву. ';
+    const long = `${words.repeat(4)}Останнє речення.`;
+
+    test('cuts a text over the limit at the last word and opens the rest in place', async () => {
+      expect(long.length).toBeGreaterThan(POST_PREVIEW_LENGTH);
+      await render(<PostCard post={aPost({ text: long })} onReport={() => {}} />);
+
+      expect(screen.queryByText(/Останнє речення/)).toBeNull();
+      expect(screen.getByText(/… Читати далі$/)).toBeOnTheScreen();
+
+      await fireEvent.press(screen.getByText('Читати далі'));
+
+      expect(screen.getByText(/Останнє речення\.$/)).toBeOnTheScreen();
+      expect(screen.queryByText('Читати далі')).toBeNull();
+    });
+
+    test('shows a text within the limit whole, without the link', async () => {
+      await render(<PostCard post={aPost({ text: words.trim() })} onReport={() => {}} />);
+
+      expect(screen.getByText(words.trim())).toBeOnTheScreen();
+      expect(screen.queryByText('Читати далі')).toBeNull();
+    });
   });
 });

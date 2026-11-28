@@ -12,6 +12,10 @@ import { formatEventDate } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import type { Post } from '@/components/announcements/post';
 import { colors } from '@/styles/tokens';
+import { textPreview } from '@/text-preview';
+
+// A longer post text is cut at the last whole word within this many characters and ends with "… Читати далі".
+export const POST_PREVIEW_LENGTH = 200;
 
 type Props = {
   post: Post;
@@ -101,6 +105,22 @@ function LinkedEvent({ eventId }: { eventId: string }) {
   );
 }
 
+// The text of a post; a long one shows its start until "Читати далі" opens the rest in place.
+function PostText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const short = expanded ? undefined : textPreview(text, POST_PREVIEW_LENGTH);
+  return (
+    <Text className="font-inter text-body text-text-primary">
+      {short ? `${short}… ` : text}
+      {short && (
+        <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
+          Читати далі
+        </Text>
+      )}
+    </Text>
+  );
+}
+
 export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props) {
   const router = useRouter();
   const { liked, likeCount } = post;
@@ -129,7 +149,7 @@ export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props)
         </View>
 
         {post.title && <Text className="font-inter-semibold text-body text-text-primary">{post.title}</Text>}
-        {post.text !== '' && <Text className="font-inter text-body text-text-primary">{post.text}</Text>}
+        {post.text !== '' && <PostText text={post.text} />}
 
         {post.chips && (
           <View className="flex-row gap-2">

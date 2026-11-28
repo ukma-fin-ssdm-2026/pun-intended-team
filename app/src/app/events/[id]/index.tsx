@@ -35,6 +35,7 @@ import { toggleFavorite, useFavorite } from '@/state/favorites';
 import { matchHref } from '@/state/matches';
 import { useSession } from '@/state/session';
 import { colors, desktop, shadows } from '@/styles/tokens';
+import { textPreview } from '@/text-preview';
 
 // "01.1 Верхні дії" sits at y=56 in the iPhone 14 frame, 9 px below its 47 px status bar. A taller status bar keeps that
 // gap; without one (the web) the buttons stay at 56 px, as in Figma.
@@ -84,12 +85,6 @@ const CHANGE_FAILED: SnackbarContent = {
 function daysLabel(starts: string[], eventStart: string): string {
   if (starts.length > 1) return `${starts.length} ${plural(starts.length, ['день', 'дні', 'днів'])}`;
   return formatShortDay(starts[0] ?? eventStart);
-}
-
-function preview(text: string): string | undefined {
-  if (text.length <= DESCRIPTION_PREVIEW) return undefined;
-  const cut = text.slice(0, DESCRIPTION_PREVIEW);
-  return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,.:;—-]+$/, '');
 }
 
 function GlassButton({
@@ -258,7 +253,7 @@ export default function EventScreen() {
   // Organization events have no provider page.
   const sourceUrl = event.sourceUrl;
   const price = priceLabel(event.priceMin, event.priceMax);
-  const cut = preview(event.description);
+  const cut = textPreview(event.description, DESCRIPTION_PREVIEW);
   const short = expanded ? undefined : cut;
   const actionsTop = Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR);
   const sheetStop = actionsTop + GLASS_BUTTON_SIZE + SHEET_GAP_BELOW_ACTIONS;
