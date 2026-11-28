@@ -20,11 +20,20 @@ import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { formatShortDay } from '@/dates';
 import { useEventApplication } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useMyMatches } from '@/hooks/use-matches';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { plural } from '@/plural';
 import { openSessions } from '@/state/applications';
-import { colors } from '@/styles/tokens';
+import { colors, desktop } from '@/styles/tokens';
+
+// The 1200 px column of the desktop frames inside the 120 px margins.
+const desktopColumn = {
+  width: '100%',
+  maxWidth: desktop.contentWidth + 240,
+  alignSelf: 'center',
+  paddingHorizontal: 120,
+} as const;
 
 // The large button's height (button.tsx).
 const BUTTON_HEIGHT = 52;
@@ -57,6 +66,7 @@ function WaitingItem({
 export default function CompanySearchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const isDesktop = useIsDesktop();
   // "Ще" opens the 04.1 menu, whose "Вийти з підбору" opens the 04.2 dialog.
   const [overlay, setOverlay] = useState<'menu' | 'leave' | null>(null);
   const [leaving, setLeaving] = useState(false);
@@ -112,40 +122,50 @@ export default function CompanySearchScreen() {
     }
   };
 
+  // D04: the gradient is a rounded card of the 1200 px column, and the rest follows on the page under it.
+  const gradient = (
+    <View
+      className={`absolute left-0 right-0 top-0 overflow-hidden ${isDesktop ? 'bottom-0 rounded-[28px]' : 'h-[472px] rounded-b-[28px]'}`}
+    >
+      <CoralGradient preset="search" />
+    </View>
+  );
+
   return (
-    <View className="flex-1 bg-surface-card">
-      <ScrollView className="flex-1">
+    <View className={`flex-1 ${isDesktop ? 'bg-surface-background' : 'bg-surface-card'}`}>
+      <ScrollView className="flex-1" contentContainerStyle={isDesktop ? desktopColumn : undefined}>
         <Stack.Screen options={{ headerShown: false }} />
-        <View className="absolute left-0 right-0 top-0 h-[472px] overflow-hidden rounded-b-[28px]">
-          <CoralGradient preset="search" />
-        </View>
+        {isDesktop ? null : gradient}
+        <View className={isDesktop ? 'mt-7 pb-12' : undefined}>
+          {isDesktop ? gradient : null}
 
-        <MatchingNav
-          title="Пошук компанії"
-          subtitle={subtitle}
-          onBack={() =>
-            router.canGoBack() ? router.back() : router.replace({ pathname: '/events/[id]', params: { id } })
-          }
-          onMore={noMatch ? undefined : () => setOverlay('menu')}
-        />
+          <MatchingNav
+            title="Пошук компанії"
+            subtitle={subtitle}
+            onBack={() =>
+              router.canGoBack() ? router.back() : router.replace({ pathname: '/events/[id]', params: { id } })
+            }
+            onMore={noMatch ? undefined : () => setOverlay('menu')}
+          />
 
-        <View className="items-center gap-5 px-5 pb-2 pt-9">
-          {noMatch ? (
-            <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-white/10">
-              <Icon name="empty-matches" size={48} color={colors.text['on-dark']} />
+          <View className="items-center gap-5 px-5 pb-2 pt-9">
+            {noMatch ? (
+              <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-white/10">
+                <Icon name="empty-matches" size={48} color={colors.text['on-dark']} />
+              </View>
+            ) : (
+              <SearchRadar />
+            )}
+            <View className="items-center gap-2">
+              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-on-dark">
+                {noMatch ? 'Цього разу не склалося' : 'Ти в грі!'}
+              </Text>
+              <Text className="text-center font-inter text-caption leading-5 text-text-on-dark-muted">
+                {noMatch
+                  ? 'Компанії на цю подію не знайшлося. Спробуй іншу подію або створи оголошення.'
+                  : 'Ми штурхнемо тебе, щойно знайдемо людину зі схожими інтересами.'}
+              </Text>
             </View>
-          ) : (
-            <SearchRadar />
-          )}
-          <View className="items-center gap-2">
-            <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-on-dark">
-              {noMatch ? 'Цього разу не склалося' : 'Ти в грі!'}
-            </Text>
-            <Text className="text-center font-inter text-caption leading-5 text-text-on-dark-muted">
-              {noMatch
-                ? 'Компанії на цю подію не знайшлося. Спробуй іншу подію або створи оголошення.'
-                : 'Ми штурхнемо тебе, щойно знайдемо людину зі схожими інтересами.'}
-            </Text>
           </View>
         </View>
 

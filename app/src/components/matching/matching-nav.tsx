@@ -3,13 +3,17 @@
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useDesktopHeaderInset } from '@/components/desktop/desktop-shell';
 import { Icon } from '@/components/ui/icon';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { colors } from '@/styles/tokens';
 
 // "01 Навігація" starts 56 px from the top of the iPhone 14 frame, 9 px below its 47 px status bar. A taller status bar
 // keeps that gap; without one (the web) the bar stays at 56 px.
 const TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
+// On the desktop frames the bar is 20 px below the top of its card, or of the window under the desktop header.
+const DESKTOP_TOP = 20;
 
 type Props = {
   title?: string;
@@ -19,15 +23,17 @@ type Props = {
   onMore?: () => void;
 };
 
-const buttonClass = 'size-10 items-center justify-center rounded-[20px] bg-white/[0.14]';
+const buttonClass = 'size-10 items-center justify-center rounded-[20px] bg-white/[0.14] hover:bg-white/25';
 
 export function MatchingNav({ title, subtitle, onBack, onMore }: Props) {
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
+  const headerInset = useDesktopHeaderInset();
 
   return (
     <View
       className="flex-row items-center gap-3 px-5"
-      style={{ paddingTop: Math.max(TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
+      style={{ paddingTop: isDesktop ? headerInset + DESKTOP_TOP : Math.max(TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
     >
       <Pressable accessibilityRole="button" accessibilityLabel="Назад" onPress={onBack} className={buttonClass}>
         <Icon name="arrow-left" size={20} color={colors.text['on-dark']} />

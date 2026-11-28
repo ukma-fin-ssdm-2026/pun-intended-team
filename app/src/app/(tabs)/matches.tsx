@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { loadMyApplications } from '@/api/applications';
 import { loadMyMatches } from '@/api/matches';
 import { Button } from '@/components/ui/button';
+import { CardGrid } from '@/components/desktop/card-grid';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import type { ApiEventPhoto } from '@/api/images';
 import { coverOf, EventCover } from '@/components/ui/event-cover';
@@ -18,6 +19,7 @@ import { formatEventDate, formatShortDay } from '@/dates';
 import { useMyApplications } from '@/hooks/use-applications';
 import { useEvent } from '@/hooks/use-event';
 import { useMyMatches } from '@/hooks/use-matches';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { plural } from '@/plural';
 import { matchingPhase, openSessions, type Application } from '@/state/applications';
@@ -173,7 +175,7 @@ function MatchedCard({ application, match }: { application: Application; match: 
 function EmptyState({ onPick }: { onPick: () => void }) {
   return (
     <View className="flex-1 items-center justify-center px-5" style={{ paddingBottom: 120 }}>
-      <View className="w-full items-center gap-3.5 px-8">
+      <View className="w-full max-w-[440px] items-center gap-3.5 px-8">
         <View className="size-[120px] items-center justify-center rounded-full border border-white/[0.14] bg-surface-background">
           <View
             className="size-[76px] items-center justify-center rounded-full bg-brand-coral"
@@ -201,6 +203,7 @@ export default function MatchesScreen() {
   const { applications, loading, error, reload } = useMyApplications();
   const { matches } = useMyMatches();
   const { signedIn, isGuest } = useSession();
+  const isDesktop = useIsDesktop();
   const enabled = signedIn && !isGuest;
   useStatusBarStyle('light');
   // A round may have proposed a match since the tab was last open; the loads share a request already in flight.
@@ -212,12 +215,21 @@ export default function MatchesScreen() {
     }, [enabled]),
   );
 
-  const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
+  // The desktop header replaces the tab bar, so nothing needs to clear it.
+  const tabBarSpace = isDesktop ? 0 : BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const count = applications.length;
   const subtitle =
     count > 0 ? `${count} ${plural(count, ['подія', 'події', 'подій'])}` : 'Тут з’являтимуться твої пропозиції';
 
-  const header = (
+  // DТ2: the title on the page itself, above the grid.
+  const header = isDesktop ? (
+    <View className="w-full max-w-[1440px] gap-1.5 self-center px-[120px] pb-8 pt-10">
+      <Text accessibilityRole="header" className="font-inter-bold text-desktop-h1 text-text-primary">
+        Метчі
+      </Text>
+      <Text className="font-inter text-body text-text-secondary">{subtitle}</Text>
+    </View>
+  ) : (
     <View
       className="gap-1.5 overflow-hidden px-5 pb-[52px]"
       style={{ paddingTop: Math.max(HEADER_TOP, insets.top + GAP_BELOW_STATUS_BAR), marginBottom: -LIST_OVERLAP }}
@@ -231,6 +243,15 @@ export default function MatchesScreen() {
       <Text className="font-inter text-body text-text-on-dark-muted">{subtitle}</Text>
     </View>
   );
+
+  const renderCard = (application: (typeof applications)[number]) => {
+    const match = matches.find(({ applicationId }) => applicationId === application.id);
+    return match ? (
+      <MatchedCard key={application.id} application={application} match={match} />
+    ) : (
+      <SearchCard key={application.id} application={application} />
+    );
+  };
 
   if (count === 0 && (loading || error)) {
     return (
@@ -265,16 +286,13 @@ export default function MatchesScreen() {
     <View className="flex-1 bg-surface-background">
       <ScrollView contentContainerStyle={{ paddingBottom: tabBarSpace + LIST_BOTTOM_GAP }}>
         {header}
-        <View className="gap-3.5 px-5">
-          {applications.map((application) => {
-            const match = matches.find(({ applicationId }) => applicationId === application.id);
-            return match ? (
-              <MatchedCard key={application.id} application={application} match={match} />
-            ) : (
-              <SearchCard key={application.id} application={application} />
-            );
-          })}
-        </View>
+        {isDesktop ? (
+          <View className="w-full max-w-[1440px] self-center px-[120px] pb-24">
+            <CardGrid items={applications} keyOf={(application) => application.id} render={renderCard} />
+          </View>
+        ) : (
+          <View className="gap-3.5 px-5">{applications.map(renderCard)}</View>
+        )}
       </ScrollView>
     </View>
   );

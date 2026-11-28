@@ -18,6 +18,7 @@ import { acceptMatch, declineMatch } from '@/api/matches';
 import { failureSnackbar } from '@/auth/messages';
 import { DeclineMatchDialog } from '@/components/matching/decline-match-dialog';
 import { MatchStatus } from '@/components/matching/match-status';
+import { useDesktopHeaderInset } from '@/components/desktop/desktop-shell';
 import { MatchingNav } from '@/components/matching/matching-nav';
 import { ProposalCard } from '@/components/matching/proposal-card';
 import { ReportFlow, reportedUser, type ReportStep } from '@/components/matching/report-flow';
@@ -29,6 +30,7 @@ import { formatShortDay } from '@/dates';
 import { useEvent } from '@/hooks/use-event';
 import { useMatch } from '@/hooks/use-matches';
 import { useProfile } from '@/hooks/use-profile';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import type { Match } from '@/state/matches';
 import { colors } from '@/styles/tokens';
@@ -57,6 +59,11 @@ const SLIDE_PAST_EDGE = 40;
 type Answer = 'accepted' | 'declined';
 
 // What a proposal the caller already answered, or one past its time, shows in place of the buttons.
+// D05: the card and its controls are a 460 px column in the middle of the window; the nav sits 20 px under the header,
+// as MatchingNav does.
+const DESKTOP_COLUMN = 460;
+const DESKTOP_NAV_TOP = 20;
+
 const waitingNotes: Partial<Record<Match['status'], string>> = {
   accepted: 'Згоду надіслано, чекаємо на відповідь',
   expired: 'Час на відповідь вийшов',
@@ -67,6 +74,8 @@ export default function ProposalScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isDesktop = useIsDesktop();
+  const headerInset = useDesktopHeaderInset();
   const reduceMotion = useReducedMotion();
   const [answer, setAnswer] = useState<Answer>();
   const [sending, setSending] = useState(false);
@@ -94,7 +103,7 @@ export default function ProposalScreen() {
   const title = event?.title;
   const subtitle = title && day ? `${title} · ${formatShortDay(day)}` : undefined;
   const actionsBottom = Math.max(ACTIONS_BOTTOM, insets.bottom);
-  const navTop = Math.max(NAV_TOP, insets.top + GAP_BELOW_STATUS_BAR);
+  const navTop = isDesktop ? headerInset + DESKTOP_NAV_TOP : Math.max(NAV_TOP, insets.top + GAP_BELOW_STATUS_BAR);
   const toMatches = () => router.dismissTo('/matches');
   const waitingNote = match && !answer ? waitingNotes[match.status] : undefined;
   const canAnswer = match?.status === 'proposed' && !answer;
@@ -161,13 +170,8 @@ export default function ProposalScreen() {
     );
   }
 
-  return (
-    <View className="flex-1 bg-brand-ink">
-      <Stack.Screen options={{ headerShown: false }} />
-      <View className="absolute inset-0">
-        <CoralGradient preset="screen" />
-      </View>
-
+  const content = (
+    <>
       <MatchingNav
         title="Новий метч"
         subtitle={subtitle}
@@ -239,6 +243,17 @@ export default function ProposalScreen() {
           <MatchStatus answer={answer} name={match.partner.displayName} />
         </Animated.View>
       )}
+    </>
+  );
+
+  return (
+    <View className="flex-1 bg-brand-ink">
+      <Stack.Screen options={{ headerShown: false }} />
+      <View className="absolute inset-0">
+        <CoralGradient preset="screen" />
+      </View>
+
+      {isDesktop ? <View style={{ flex: 1, width: DESKTOP_COLUMN, alignSelf: 'center' }}>{content}</View> : content}
 
       <ReportFlow person={reportedUser(match.partner)} step={report} onStepChange={setReport} onDone={toMatches} />
       <DeclineMatchDialog
