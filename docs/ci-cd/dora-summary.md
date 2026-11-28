@@ -157,7 +157,7 @@ The numbers match under the two readings the hand count used: an incident is the
 
 **Action** (#454): `E2E tests` no longer waits for `CI passed`, so on `main` the two jobs run side by side ([`ci.yml`](../../.github/workflows/ci.yml)). `CI passed` already ran the same checks on the pull request, so on `main` it rarely fails; if it does, `E2E tests` still runs, and `Publish API image` still waits for both.
 
-**Metric:** the execution part of the change lead time, as the duration of a `main` run. Before, a run was `CI passed`, then `E2E tests`, then `Publish API image`; now it is the longer of the first two, then the publish. The durations are from the run pages. `Publish API image` exists since #459, so the last column leaves it out to compare runs before and after it.
+**Metric:** the execution part of the change lead time, as the duration of a `main` run. Before, a run was `CI passed`, then `E2E tests`, then `Publish API image`; now it is the longer of the first two, then the publish. The durations are from the run pages: a run from its creation to its last update, a job from its start to its completion; the timings are in [`evidence/bonus-2-3-run-timings.json`](evidence/bonus-2-3-run-timings.json). `Publish API image` exists since #459, so the last column leaves it out to compare runs before and after it.
 
 Before, runs of merged pull requests that change code, tests or configuration:
 
@@ -169,10 +169,17 @@ Before, runs of merged pull requests that change code, tests or configuration:
 | #459 | [43619040962](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43619040962) | 10 min 21 s: about 4 min more than its jobs, as it was created in the same minute as the run of #458 | 1 min 38 s | 2 min 48 s | 1 min 31 s | 8 min 50 s |
 | #449 | [43627146940](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43627146940) | 5 min 33 s | 1 min 15 s | 2 min 27 s | 1 min 44 s | 3 min 49 s |
 
-After: TODO, the first runs after the merge of #454.
+After, the first runs after the merge of #454 under the same rule (the runs of #471 and #475 change only documentation, the run of #472 was cancelled):
 
 | PR | Run | Total | `CI passed` | `E2E tests` | `Publish API image` | Total without the publish |
 |---|---|---|---|---|---|---|
+| #473 | [43812051966](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43812051966) | 5 min 59 s | 1 min 19 s | 3 min 35 s | 2 min 19 s | 3 min 40 s |
+| #464 | [43812204146](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43812204146) | 9 min 26 s: about 4 min 30 s more than its jobs, as it waited for the run of #473 to finish | 1 min 38 s | 3 min 30 s | 1 min 22 s | 8 min 4 s |
+| #478 | [43945567593](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43945567593) | 5 min 27 s | 2 min 28 s | 3 min 28 s | 1 min 53 s | 3 min 34 s |
+| #479 | [43946446210](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43946446210) | 4 min 51 s, of which 25 s waiting for the run of #478 | 2 min | 2 min 45 s | 1 min 37 s | 3 min 14 s |
+| #481 | [43952170304](https://github.com/ukma-fin-ssdm-2026/pun-intended-team/actions/runs/43952170304) | 4 min 20 s | 2 min 29 s | 2 min 31 s | 1 min 45 s | 2 min 35 s |
+
+Without the two runs that waited for an earlier run on `main` (#459 and #464), a run without the publish took 3 min 49 s to 5 min 47 s before, mean 4 min 40 s, and 2 min 35 s to 3 min 40 s after, mean 3 min 16 s: 1 min 24 s, or 30%, shorter; with them, the mean fell from 5 min 30 s to 4 min 13 s. `CI passed` now ends first in every run, so a run lasts as long as `E2E tests`; that job was slower after, 2 min 31 s to 3 min 35 s against 2 min 9 s to 3 min 3 s, so the run saved less than the length of `CI passed`. `Reliability tests` ran at the start of every run in both tables, so it makes no difference.
 
 ### 3. Fast and slow test suites
 
