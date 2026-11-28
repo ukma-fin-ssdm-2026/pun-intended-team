@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * MCP Server generated from OpenAPI spec for nearby-api-mcp v1.2.0
- * Generated on: 2026-11-21T15:29:48.864Z
+ * Generated on: 2026-11-28T11:22:14.949Z
  */
 
 import { existsSync } from 'node:fs';
@@ -58,6 +58,36 @@ console.error("API_BASE_URL is set to:", API_BASE_URL);
  */
 const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
 
+  ["adminListAccounts", {
+    name: "adminListAccounts",
+    title: "List accounts",
+    description: `List accounts, newest first: users and administrators, with their profile and organization status. The phone number and the date of birth are never returned, only the age. Needs an administrator account; other accounts get 404.
+(Tags: Admin)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"search":{"type":"string","minLength":1,"maxLength":100,"description":"An account id, or part of a username or display name, in any case"},"role":{"type":"string","enum":["user","admin"],"description":"Only accounts with this role; `admin` lists the administrators"},"status":{"type":"string","enum":["pending","active","banned"],"description":"Only accounts in this status"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/accounts",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"},{"name":"search","in":"query"},{"name":"role","in":"query"},{"name":"status","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Admin"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminGetAccount", {
+    name: "adminGetAccount",
+    title: "Get an account",
+    description: `Get one account with its profile, as other users see it, and its organization request. Needs an administrator account; other accounts get 404.
+(Tags: Admin)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Account id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/admin/accounts/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Admin"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
   ["adminListBackups", {
     name: "adminListBackups",
     title: "List the nightly database backups",
@@ -163,6 +193,66 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":false,"openWorldHint":true}
   }],
+  ["adminListEvents", {
+    name: "adminListEvents",
+    title: "List all events",
+    description: `List every event, imported or added by an organization, published or cancelled, upcoming or past. For the catalog users see, use listEvents. Needs an administrator account; other accounts get 404.
+(Tags: Events)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"period":{"type":"string","enum":["upcoming","past"],"default":"upcoming","description":"`upcoming`: not ended yet, soonest first. `past`: ended, latest first"},"search":{"type":"string","minLength":1,"maxLength":100,"description":"Part of the title, in any case"},"source":{"type":"string","enum":["organization","import"],"description":"Who added the event: a verified organization or the importer"},"status":{"type":"string","enum":["published","cancelled"]},"organizationId":{"type":"string","format":"uuid","description":"Only events of this organization, by its account id"},"venueId":{"type":"string","format":"uuid","description":"Only events at this venue"},"categoryId":{"type":"string","format":"uuid","description":"Only events of this category, active or not"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/events",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"},{"name":"period","in":"query"},{"name":"search","in":"query"},{"name":"source","in":"query"},{"name":"status","in":"query"},{"name":"organizationId","in":"query"},{"name":"venueId","in":"query"},{"name":"categoryId","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Events"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminGetEvent", {
+    name: "adminGetEvent",
+    title: "Get any event",
+    description: `Get one event in any status, past ones too, with who added it. Needs an administrator account; other accounts get 404.
+(Tags: Events)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/admin/events/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Events"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminListVenues", {
+    name: "adminListVenues",
+    title: "List all venues",
+    description: `List every venue by name: the imported ones and those organizations added. Needs an administrator account; other accounts get 404.
+(Tags: Venues)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"search":{"type":"string","minLength":1,"maxLength":100,"description":"Part of the name or the address, in any case"},"source":{"type":"string","enum":["organization","import"]},"organizationId":{"type":"string","format":"uuid","description":"Only venues of this organization, by its account id"}}},
+    method: "get",
+    pathTemplate: "/api/v1/admin/venues",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"},{"name":"search","in":"query"},{"name":"source","in":"query"},{"name":"organizationId","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminGetVenue", {
+    name: "adminGetVenue",
+    title: "Get any venue",
+    description: `Get one venue with the organization that owns it. Needs an administrator account; other accounts get 404.
+(Tags: Venues)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Venue id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/admin/venues/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
   ["listCategories", {
     name: "listCategories",
     title: "List the categories users can pick",
@@ -198,7 +288,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     title: "Publish an event",
     description: `Publish an event. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body","examples":[{"title":"Film quiz night","description":"Teams of up to four, questions on Ukrainian cinema.","categoryId":"2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03","venueId":"5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05","startsAt":"2026-10-25T19:00:00+03:00","endsAt":"2026-10-25T21:00:00+03:00"}]}}},
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"},"priceMin":{"type":["integer","null"],"minimum":0,"maximum":1000000,"default":null,"description":"The lowest ticket price in whole hryvnias; 0 for a free event. Omitted or null: the price is unknown"},"priceMax":{"type":["integer","null"],"minimum":0,"maximum":1000000,"default":null,"description":"The highest ticket price of a range in whole hryvnias; only together with priceMin, and not below it. Omitted or null for one price or a free event"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body","examples":[{"title":"Film quiz night","description":"Teams of up to four, questions on Ukrainian cinema.","categoryId":"2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03","venueId":"5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05","startsAt":"2026-10-25T19:00:00+03:00","endsAt":"2026-10-25T21:00:00+03:00","priceMin":300,"priceMax":700}]}}},
     method: "post",
     pathTemplate: "/api/v1/events",
     executionParameters: [],
@@ -207,6 +297,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Events"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["listMyEvents", {
+    name: "listMyEvents",
+    title: "List your organization’s events",
+    description: `List the events the caller’s organization has published that have not ended, the cancelled ones too, soonest first. Empty for an account that is not an organization. Needs a signed-in account; a guest token gets 401.
+(Tags: Events)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/me/events",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Events"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],
   ["getEvent", {
     name: "getEvent",
@@ -228,7 +333,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     title: "Edit an event",
     description: `Replace the editable fields of one of the organization’s own events; the body is the same as when publishing. A cancelled event cannot be edited. Needs a signed-in account; a guest token gets 401.
 (Tags: Events)`,
-    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body","examples":[{"title":"Film quiz night","description":"Teams of up to four, questions on Ukrainian cinema.","categoryId":"2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03","venueId":"5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05","startsAt":"2026-10-25T19:00:00+03:00","endsAt":"2026-10-25T21:00:00+03:00"}]}},"required":["id"]},
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"},"requestBody":{"type":"object","properties":{"title":{"type":"string","minLength":1,"maxLength":120,"description":"Title shown in the catalog"},"description":{"type":"string","maxLength":5000,"description":"Can be empty"},"categoryId":{"type":"string","format":"uuid","description":"An active category from listCategories"},"venueId":{"type":"string","format":"uuid","description":"One of the organization's own venues"},"startsAt":{"type":"string","format":"date-time","description":"Start time with an offset, e.g. 2026-10-25T19:00:00+03:00"},"endsAt":{"type":"string","format":"date-time","description":"End time with an offset; must be after startsAt"},"priceMin":{"type":["integer","null"],"minimum":0,"maximum":1000000,"default":null,"description":"The lowest ticket price in whole hryvnias; 0 for a free event. Omitted or null: the price is unknown"},"priceMax":{"type":["integer","null"],"minimum":0,"maximum":1000000,"default":null,"description":"The highest ticket price of a range in whole hryvnias; only together with priceMin, and not below it. Omitted or null for one price or a free event"}},"required":["title","description","categoryId","venueId","startsAt","endsAt"],"additionalProperties":false,"description":"All editable fields of an event; PUT /events/{id} takes the same body","examples":[{"title":"Film quiz night","description":"Teams of up to four, questions on Ukrainian cinema.","categoryId":"2d8b4f6c-0e3a-4c5d-9f7b-9a4c6e8d0f03","venueId":"5a1c3e5f-7b9d-4f1a-8c3e-5f7a9b1d3e05","startsAt":"2026-10-25T19:00:00+03:00","endsAt":"2026-10-25T21:00:00+03:00","priceMin":300,"priceMax":700}]}},"required":["id"]},
     method: "put",
     pathTemplate: "/api/v1/events/{id}",
     executionParameters: [{"name":"id","in":"path"}],
@@ -252,6 +357,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Events"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["deleteEventPhoto", {
+    name: "deleteEventPhoto",
+    title: "Remove the cover of your event",
+    description: `Remove the cover of one of the organization’s own events. Without a cover, nothing changes. Needs a signed-in account; a guest token gets 401.
+(Tags: Events)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Event id"}},"required":["id"]},
+    method: "delete",
+    pathTemplate: "/api/v1/events/{id}/photo",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Events"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
   }],
   ["getMyOrganization", {
     name: "getMyOrganization",
@@ -282,6 +402,66 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Organizations"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["deleteOrganizationLogo", {
+    name: "deleteOrganizationLogo",
+    title: "Remove your organization’s logo",
+    description: `Remove the logo of the caller’s organization. Without a logo, nothing changes. Needs a signed-in account; a guest token gets 401.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{}},
+    method: "delete",
+    pathTemplate: "/api/v1/me/organization/logo",
+    executionParameters: [],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["listMyVenues", {
+    name: "listMyVenues",
+    title: "List your organization’s venues",
+    description: `List the venues the caller’s organization has added, by name. An organization publishes events only at its own venues. Empty for an account that is not an organization. Needs a signed-in account; a guest token gets 401.
+(Tags: Venues)`,
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    method: "get",
+    pathTemplate: "/api/v1/me/venues",
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["createVenue", {
+    name: "createVenue",
+    title: "Add a venue",
+    description: `Add a venue where the caller’s organization can publish events: a name, an address and its point on the map, which must be in Kyiv. Needs a signed-in account; a guest token gets 401.
+(Tags: Venues)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"name":{"type":"string","minLength":1,"maxLength":100,"description":"The venue’s name, as users will see it"},"address":{"type":"string","minLength":1,"maxLength":200,"description":"Street and building, as users will see it"},"location":{"type":"object","properties":{"lat":{"type":"number","minimum":-90,"maximum":90},"lng":{"type":"number","minimum":-180,"maximum":180}},"required":["lat","lng"],"additionalProperties":false,"description":"Where the venue’s map pin stands; must be in Kyiv"}},"required":["name","address","location"],"additionalProperties":false,"examples":[{"name":"Natalka Park lawn","address":"Naberezhno-Luhova St, Kyiv","location":{"lat":50.4825,"lng":30.5181}}],"description":"The JSON request body."}}},
+    method: "post",
+    pathTemplate: "/api/v1/me/venues",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["getMyVenue", {
+    name: "getMyVenue",
+    title: "Get one of your organization’s venues",
+    description: `Get one of your organization’s venues. Needs a signed-in account; a guest token gets 401.
+(Tags: Venues)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Venue id"}},"required":["id"]},
+    method: "get",
+    pathTemplate: "/api/v1/me/venues/{id}",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Venues"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
   }],
   ["listListings", {
     name: "listListings",
@@ -376,7 +556,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["listMyApplications", {
     name: "listMyApplications",
     title: "List your applications",
-    description: `The caller’s active applications (in the pool, paired or paused), soonest first day first. Needs a signed-in account; a guest token gets 401.
+    description: `The caller’s active applications (in the pool, paired or paused), and those that found no match until the caller dismisses them; soonest first day first. Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{}},
     method: "get",
@@ -411,6 +591,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
     method: "post",
     pathTemplate: "/api/v1/applications/{id}/withdraw",
+    executionParameters: [{"name":"id","in":"path"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Matching"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
+  }],
+  ["dismissApplication", {
+    name: "dismissApplication",
+    title: "Dismiss an application with no match",
+    description: `Take one of the caller’s applications that found no match by its cutoff out of \`listMyApplications\`. Dismissing it again changes nothing; \`getApplication\` still returns it. Needs a signed-in account; a guest token gets 401.
+(Tags: Matching)`,
+    inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Application id"}},"required":["id"]},
+    method: "post",
+    pathTemplate: "/api/v1/applications/{id}/dismiss",
     executionParameters: [{"name":"id","in":"path"}],
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
@@ -481,7 +676,7 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["getMatchContacts", {
     name: "getMatchContacts",
     title: "Get the contacts of a mutual match",
-    description: `How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is \`404\`, as for a match that does not exist (SEC-001). Needs a signed-in account; a guest token gets 401.
+    description: `How to reach the other user, once both accepted. Before that, and for a match that did not go ahead, the answer is \`404\`, as for a match that does not exist (SEC-001). A mutual match answers \`422\` until the caller has acknowledged the safety notice with \`acknowledgeSafetyNotice\` (SAFE-002). Needs a signed-in account; a guest token gets 401.
 (Tags: Matching)`,
     inputSchema: {"type":"object","properties":{"id":{"type":"string","format":"uuid","description":"Match id"}},"required":["id"]},
     method: "get",
@@ -496,12 +691,27 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
   ["adminListOrganizations", {
     name: "adminListOrganizations",
     title: "List organization requests",
-    description: `List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Needs an administrator account; other accounts get 404.
+    description: `List organization requests: pending ones first, oldest first, then the verified, rejected and revoked ones. Filter them by name or status. Needs an administrator account; other accounts get 404.
 (Tags: Organizations)`,
-    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"}}},
+    inputSchema: {"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20,"description":"Items per page, at most 20"},"offset":{"type":["integer","null"],"minimum":0,"default":0,"description":"Items to skip"},"search":{"type":"string","minLength":1,"maxLength":100,"description":"Part of the organization’s name, in any case"},"status":{"type":"string","enum":["pending","verified","rejected","revoked"],"description":"Only organizations in this status"}}},
     method: "get",
     pathTemplate: "/api/v1/admin/organizations",
-    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"}],
+    executionParameters: [{"name":"limit","in":"query"},{"name":"offset","in":"query"},{"name":"search","in":"query"},{"name":"status","in":"query"}],
+    requestBodyContentType: undefined,
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Organizations"],
+    deprecated: false,
+    annotations: {"readOnlyHint":true,"openWorldHint":true}
+  }],
+  ["adminGetOrganization", {
+    name: "adminGetOrganization",
+    title: "Get an organization request",
+    description: `Get the organization request of one account, in any status, with the account that sent it. Needs an administrator account; other accounts get 404.
+(Tags: Organizations)`,
+    inputSchema: {"type":"object","properties":{"accountId":{"type":"string","format":"uuid","description":"Account id of the organization"}},"required":["accountId"]},
+    method: "get",
+    pathTemplate: "/api/v1/admin/organizations/{accountId}",
+    executionParameters: [{"name":"accountId","in":"path"}],
     requestBodyContentType: undefined,
     securityRequirements: [{"bearerAuth":[]}],
     tags: ["Organizations"],
@@ -747,6 +957,21 @@ const toolDefinitionMap: Map<string, McpToolDefinition> = new Map([
     tags: ["Profiles"],
     deprecated: false,
     annotations: {"readOnlyHint":false,"destructiveHint":true,"idempotentHint":true,"openWorldHint":true}
+  }],
+  ["acknowledgeSafetyNotice", {
+    name: "acknowledgeSafetyNotice",
+    title: "Acknowledge the safety notice",
+    description: `Record that the caller read the safety notice the app shows on a mutual match (FR-032): \`safetyNotice\` becomes \`acknowledged\`, or \`hidden\` with \`dontShowAgain\`. Until the first acknowledgment, \`getMatchContacts\` holds the contacts back. Needs a signed-in account; a guest token gets 401.
+(Tags: Profiles)`,
+    inputSchema: {"type":"object","properties":{"requestBody":{"type":"object","properties":{"dontShowAgain":{"type":"boolean","description":"True when the user ticked \"don’t show again\"; false keeps showing it on the next matches"}},"required":["dontShowAgain"],"additionalProperties":false,"examples":[{"dontShowAgain":false}],"description":"The JSON request body."}}},
+    method: "post",
+    pathTemplate: "/api/v1/me/profile/safety-notice",
+    executionParameters: [],
+    requestBodyContentType: "application/json",
+    securityRequirements: [{"bearerAuth":[]}],
+    tags: ["Profiles"],
+    deprecated: false,
+    annotations: {"readOnlyHint":false,"destructiveHint":false,"idempotentHint":false,"openWorldHint":true}
   }],
   ["deleteMyPhoto", {
     name: "deleteMyPhoto",
