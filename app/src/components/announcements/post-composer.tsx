@@ -7,17 +7,15 @@ import { uploadListingPhoto } from '@/api/images';
 import { createListing, type Listing } from '@/api/listings';
 import type { ApiResult } from '@/api/public-client';
 import { failureMessage, pictureRefusalSnackbar } from '@/auth/messages';
+import { PostDateSheet } from '@/components/announcements/post-date-sheet';
 import { Picture } from '@/components/pictures/picture';
 import { usePictureCropper } from '@/components/pictures/picture-cropper';
-import { Icon, type IconName } from '@/components/ui/icon';
-import { kyivDay, tomorrow, weekendDays } from '@/dates';
+import { Icon } from '@/components/ui/icon';
+import { formatShortDay, kyivDay, tomorrow, weekendDays } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
 import type { PictureDraft } from '@/pictures/picked-picture';
 import { clearPickedPlace, usePickedPlace } from '@/state/post-place';
 import { colors } from '@/styles/tokens';
-
-// "Дата", "Подія з каталогу", "Категорія": no prototype links, shown as in Figma. "Фото" opens the gallery.
-const tools: IconName[] = ['calendar', 'ticket', 'category-all'];
 
 type Failure = Extract<ApiResult<unknown>, { ok: false }>;
 
@@ -94,6 +92,9 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
     { label: 'Вихідні', day: weekendDays(today)[0] ?? today },
   ];
   const [day, setDay] = useState(today);
+  // "Інша дата" opens a calendar for any later day; once picked, the chip shows it.
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const otherDay = !days.some((option) => option.day === day);
 
   // createListing never rejects: a failure comes back as a result and is shown under the text.
   const publish = async () => {
@@ -138,12 +139,6 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
   return (
     <View className="flex-row items-start gap-3 px-5 py-3.5">
       <View className="flex-1 gap-3">
-        {/* Figma's 1 px stroke lies inside the chip: the padding is 1 px less than its 5 / 10 / 12. */}
-        <View className="flex-row items-center gap-1.5 self-start rounded-[14px] border border-border-default py-1 pl-[9px] pr-[11px]">
-          <Icon name="pin" size={14} color={colors.brand.coral} />
-          <Text className="font-inter-semibold text-tag text-brand-coral">Люди поруч · Київ</Text>
-        </View>
-
         <TextInput
           accessibilityLabel="Текст допису"
           multiline
@@ -159,8 +154,16 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
         />
 
         {photo && (
+          // The API cuts the photo to 2:1; a tap on it picks another one.
           <View className="overflow-hidden rounded-2xl" style={{ aspectRatio: 2 }}>
-            <Picture source={{ uri: photo.picture.uri }} size={photo.picture} crop={photo.crop} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Змінити фото"
+              onPress={() => void pickPhoto('listingPhoto')}
+              className="absolute inset-0"
+            >
+              <Picture source={{ uri: photo.picture.uri }} size={photo.picture} crop={photo.crop} />
+            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Прибрати фото"
@@ -184,6 +187,11 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
                 onPress={() => setDay(option.day)}
               />
             ))}
+            <Pill
+              label={otherDay ? formatShortDay(`${day}T12:00:00Z`) : 'Інша дата'}
+              selected={otherDay}
+              onPress={() => setDateSheetOpen(true)}
+            />
           </View>
         </View>
 
@@ -251,17 +259,18 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
         <View className="h-px bg-border-default" />
 
         <View className="flex-row items-center gap-4">
+          {/* One photo per listing, cut to 2:1 and uploaded once the listing is created. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={photo ? 'Змінити фото' : 'Додати фото'}
             onPress={() => void pickPhoto('listingPhoto')}
             hitSlop={8}
+            className="flex-row items-center gap-1.5 rounded-[14px] bg-surface-background py-[7px] pl-2.5 pr-3"
           >
-            <Icon name="gallery-edit" size={20} color={colors.brand.coral} />
+            <Icon name="gallery-edit" size={16} color={colors.brand.coral} />
+            <Text className="font-inter-semibold text-tag text-text-primary">
+              {photo ? 'Змінити фото' : 'Додати фото'}
+            </Text>
           </Pressable>
-          {tools.map((tool) => (
-            <Icon key={tool} name={tool} size={20} color={colors.brand.coral} />
-          ))}
           <View className="flex-1" />
           <Pressable
             accessibilityRole="button"
@@ -277,6 +286,15 @@ export function PostComposer({ onPublished, onAddPlace }: Props) {
         </View>
       </View>
       {cropper}
+      <PostDateSheet
+        // Each opening starts from the post's day.
+        key={`date-${dateSheetOpen}`}
+        visible={dateSheetOpen}
+        onClose={() => setDateSheetOpen(false)}
+        today={today}
+        initial={day}
+        onPick={setDay}
+      />
     </View>
   );
 }

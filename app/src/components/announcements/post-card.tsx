@@ -184,7 +184,8 @@ export function PostCard({ post, onReport, onDelete, onRequest, onLike }: Props)
         {post.eventId && <LinkedEvent eventId={post.eventId} />}
 
         {(post.apiPhoto || post.photo) && (
-          <View className="h-[150px] overflow-hidden rounded-2xl">
+          // The API cuts a listing photo to 2:1; it fills the width of the post.
+          <View className="w-full overflow-hidden rounded-2xl" style={{ aspectRatio: 2 }}>
             {post.apiPhoto ? (
               <ApiPicture image={post.apiPhoto} />
             ) : (
