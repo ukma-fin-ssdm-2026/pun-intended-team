@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { requestToJoinListing } from '@/api/listing-requests';
 import { deleteListing, type Listing } from '@/api/listings';
 import { failureMessage, failureSnackbar, pictureFailureSnackbar } from '@/auth/messages';
 import { DeletePostDialog } from '@/components/announcements/delete-post-dialog';
@@ -21,11 +22,12 @@ import { Icon, type IconName } from '@/components/ui/icon';
 import { SearchField } from '@/components/ui/search-field';
 import { Snackbar, useSnackbar } from '@/components/ui/snackbar';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
+import { useListingLikes } from '@/hooks/use-listing-likes';
 import { useListings } from '@/hooks/use-listings';
 import { useProfile } from '@/hooks/use-profile';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import type { Post } from '@/mocks/announcements';
-import { usePostRequests } from '@/state/post-requests';
+import type { Post } from '@/components/announcements/post';
 import { openGuestDialog, useSession } from '@/state/session';
 import { colors } from '@/styles/tokens';
 
@@ -35,11 +37,11 @@ const HEADER_TOP = 60;
 const GAP_BELOW_STATUS_BAR = 13;
 const LIST_BOTTOM_GAP = 36;
 
-const feedTabs = ['Для тебе', 'Поруч', 'Мої'];
-// Т3.3 Пошук оголошень: the tabs switch only visually; every tab shows the matching posts.
-const searchTabs = ['Популярне', 'Нове', 'Люди', 'Події'];
-// "Для тебе" and "Поруч" show the same feed: the API has no such split. "Мої" shows the user's own posts.
+// Figma's "Для тебе" and "Поруч" would show the same feed, since the API has no such split, and the search tabs of Т3.3
+// would only switch visually, so the feed has two tabs: every post, and the user's own.
+const FEED_TAB = 'Стрічка';
 const OWN_TAB = 'Мої';
+const feedTabs = [FEED_TAB, OWN_TAB];
 
 // A new listing goes where the API would put it: by day, after the posts of the same day.
 function withListing(listings: Listing[], added: Listing): Listing[] {
@@ -117,22 +119,22 @@ export default function AnnouncementsScreen() {
   // 04 "Створити оголошення" opens the tab with the editor (Д2).
   const { compose } = useLocalSearchParams<{ compose?: string }>();
   const { announcementsEmpty, isGuest } = useSession();
-  const { lastPostId } = usePostRequests();
   const listings = useListings();
   const profile = useProfile();
   const { snackbar, show } = useSnackbar();
+  const toggleLike = useListingLikes(listings, show);
   const allPosts = (listings.data ?? []).map((listing) => listingToPost(listing, profile.data?.username));
-  const requestedPost = allPosts.find((post) => post.id === lastPostId);
   const [composing, setComposing] = useState(false);
   const [feedTab, setFeedTab] = useState(feedTabs[0]);
-  // The search button opens Т3.3 in place of the feed's header; its back button returns to the feed.
+  // On a phone the search button opens Т3.3 in place of the feed's header; its back button returns to the feed. On a
+  // desktop the field is always there, in the right column.
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
-  const [searchTab, setSearchTab] = useState(searchTabs[0]);
   const [reported, setReported] = useState<ReportedPerson>();
   const [report, setReport] = useState<ReportStep>('closed');
   const [deleting, setDeleting] = useState<Post>();
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const isDesktop = useIsDesktop();
   useStatusBarStyle('light');
 
   const editorOpen = composing || compose === '1';
@@ -169,14 +171,192 @@ export default function AnnouncementsScreen() {
     }
   };
 
+  // "Хочу піти" (Т3.2). The request stays on the listing as `myRequest`, so the card keeps "Запит надіслано" after a
+  // reload. A request sent before, from another device, only refreshes the feed.
+  const requestToJoin = async (post: Post) => {
+    setSearching(false);
+    const result = await requestToJoinListing(post.id);
+    if (result.ok) {
+      const myRequest = { id: result.data.id, status: result.data.status };
+      listings.setData(
+        (listings.data ?? []).map((listing) => (listing.id === post.id ? { ...listing, myRequest } : listing)),
+      );
+      show({ title: 'Запит надіслано', note: `Дамо знати, щойно ${post.author.name} відповість.` });
+    } else if (result.code === 'ALREADY_REQUESTED') {
+      listings.reload();
+      show({ title: 'Запит уже надіслано', note: `Дамо знати, щойно ${post.author.name} відповість.` });
+    } else if (result.code === 'PROFILE_INCOMPLETE') {
+      show({ tone: 'error', title: 'Заповни профіль', note: 'Додай інтереси й контакт, щоб надіслати запит' });
+    } else if (result.status === 404) {
+      listings.reload();
+      show({ tone: 'error', title: 'Допису вже немає', note: 'Стрічку оновлено' });
+    } else {
+      show(failureSnackbar(result));
+    }
+  };
+
   const tabBarSpace = BAR_HEIGHT + tabBarSafeArea(insets.bottom);
   const search = query.trim().toLocaleLowerCase('uk');
-  const posts = searching
+  // The feed narrows as the query is typed; an empty field shows the whole feed.
+  const filtering = (isDesktop || searching) && search !== '';
+  const posts = filtering
     ? allPosts.filter((post) => `${post.title ?? ''} ${post.text}`.toLocaleLowerCase('uk').includes(search))
     : feedTab === OWN_TAB
       ? allPosts.filter((post) => post.own)
       : allPosts;
   const feedEmpty = announcementsEmpty || allPosts.length === 0;
+
+  const composer =
+    (searching && !isDesktop) || isGuest ? null : editorOpen ? (
+      <PostComposer onPublished={onPublished} onAddPlace={() => router.push('/post-place')} />
+    ) : (
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setComposing(true)}
+        className="flex-row items-center gap-3 px-5 py-3.5"
+      >
+        <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
+          <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
+            Що плануєш? Знайди компанію…
+          </Text>
+        </View>
+      </Pressable>
+    );
+
+  const feed = isGuest ? (
+    <FeedNotice
+      icon="empty-list"
+      title="Оголошення для тих, хто увійшов"
+      text="Увійди, щоб бачити, хто шукає компанію, і писати свої оголошення."
+      action={{ label: 'Увійти', onPress: openGuestDialog }}
+    />
+  ) : (listings.loading && !listings.data) || profile.loading ? (
+    // The own username decides which posts are the own ones, so the feed waits for the profile too.
+    <View className="flex-1 items-center justify-center pb-24">
+      <ActivityIndicator size="large" color={colors.brand.coral} />
+    </View>
+  ) : !listings.data ? (
+    <FeedNotice
+      icon="state-danger"
+      title="Не вдалося завантажити оголошення"
+      text={listings.failure ? failureMessage(listings.failure) : 'Спробуй ще раз.'}
+      action={{ label: 'Спробувати ще раз', onPress: listings.reload }}
+    />
+  ) : feedEmpty && !filtering && !searching ? (
+    <FeedNotice
+      icon="empty-list"
+      title="Поки тут тихо"
+      text="Не знайшла подію в каталозі? Напиши, куди хочеш піти, і хтось точно відгукнеться."
+    />
+  ) : posts.length === 0 ? (
+    <FeedNotice
+      icon="empty-search"
+      title={filtering || searching ? 'Нічого не знайшли' : 'У тебе ще немає оголошень'}
+      text={filtering || searching ? 'Спробуй інший запит.' : 'Напиши перше: що плануєш і з ким хочеш піти?'}
+    />
+  ) : (
+    posts.map((post) => (
+      <View key={post.id}>
+        <PostCard
+          post={post}
+          onReport={() => {
+            // The post is a listing from the API, so the listing is reported, not its author.
+            setReported({ ...post.author, listingId: post.id });
+            setReport('form');
+          }}
+          onDelete={() => setDeleting(post)}
+          onRequest={requestToJoin}
+          onLike={(liked) => void toggleLike(liked)}
+        />
+        <View className="h-px bg-border-default" />
+      </View>
+    ))
+  );
+
+  const overlays = (
+    <>
+      {snackbar && <Snackbar {...snackbar} />}
+
+      <DeletePostDialog
+        visible={deleting !== undefined}
+        busy={deleteBusy}
+        onClose={() => setDeleting(undefined)}
+        // The promise comes from `confirmDelete`, which shows its own failures.
+        onDelete={() => void confirmDelete()}
+      />
+
+      {/* The prototype ends the report on the Метчі tab from a match; from a post it stays on the feed. */}
+      <ReportFlow person={reported} step={report} onStepChange={setReport} onDone={() => {}} />
+    </>
+  );
+
+  // DТ3: the sections on the left, the feed in the middle and the search on the right. Figma's "Збережені", "Мої
+  // компанії" and "Що відбувається поруч" have nothing behind them in the app, so they are left out.
+  if (isDesktop) {
+    const sections = [
+      { label: 'Стрічка', icon: 'home', selected: feedTab !== OWN_TAB, onPress: () => setFeedTab(FEED_TAB) },
+      { label: 'Мої оголошення', icon: 'list', selected: feedTab === OWN_TAB, onPress: () => setFeedTab(OWN_TAB) },
+    ] as const;
+    return (
+      <View className="flex-1 bg-surface-background">
+        <ScrollView keyboardShouldPersistTaps="handled">
+          <View className="w-full max-w-[1200px] flex-row items-start gap-6 self-center px-5 pb-24">
+            <View className="w-[260px] gap-2 pt-8">
+              <Text accessibilityRole="header" className="pb-4 font-inter-bold text-display text-text-primary">
+                Оголошення
+              </Text>
+              {sections.map((section) => (
+                <Pressable
+                  key={section.label}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: section.selected }}
+                  onPress={() => {
+                    setQuery('');
+                    section.onPress();
+                  }}
+                  className="flex-row items-center gap-3 rounded-2xl px-3 py-2.5 hover:bg-border-default"
+                >
+                  <Icon name={section.icon} size={22} color={colors.text.primary} />
+                  <Text
+                    className={`text-title text-text-primary ${section.selected ? 'font-inter-bold' : 'font-inter'}`}
+                  >
+                    {section.label}
+                  </Text>
+                </Pressable>
+              ))}
+              {!isGuest && (
+                <View className="pt-6">
+                  <Button
+                    label="Створити оголошення"
+                    onPress={() => {
+                      setQuery('');
+                      setComposing(true);
+                    }}
+                  />
+                </View>
+              )}
+            </View>
+
+            <View className="min-h-[600px] flex-1 border-x border-border-default bg-surface-card">
+              {composer}
+              {composer && <View className="h-px bg-border-default" />}
+              {feed}
+            </View>
+
+            <View className="w-[300px] pt-4">
+              <SearchField
+                placeholder="Пошук оголошень"
+                value={query}
+                onChangeText={setQuery}
+                iconColor={colors.text.primary}
+              />
+            </View>
+          </View>
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-surface-card">
@@ -194,7 +374,14 @@ export default function AnnouncementsScreen() {
           {searching ? (
             <>
               <View className="flex-row items-center gap-2.5">
-                <Pressable accessibilityRole="button" accessibilityLabel="Назад" onPress={() => setSearching(false)}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Назад"
+                  onPress={() => {
+                    setSearching(false);
+                    setQuery('');
+                  }}
+                >
                   <Glass
                     className="size-10 items-center justify-center"
                     radius={20}
@@ -216,7 +403,6 @@ export default function AnnouncementsScreen() {
                   />
                 </View>
               </View>
-              <HeaderTabs tabs={searchTabs} selected={searchTab} onSelect={setSearchTab} />
             </>
           ) : (
             <>
@@ -238,91 +424,13 @@ export default function AnnouncementsScreen() {
           )}
         </View>
 
-        {searching || isGuest ? null : editorOpen ? (
-          <PostComposer onPublished={onPublished} onAddPlace={() => router.push('/post-place')} />
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setComposing(true)}
-            className="flex-row items-center gap-3 px-5 py-3.5"
-          >
-            <View className="flex-1 rounded-[20px] bg-surface-background px-4 py-[11px]">
-              <Text numberOfLines={1} className="font-inter text-body text-text-secondary">
-                Що плануєш? Знайди компанію…
-              </Text>
-            </View>
-          </Pressable>
-        )}
+        {composer}
         {!searching && <View className="h-px bg-border-default" />}
 
-        {isGuest ? (
-          <FeedNotice
-            icon="empty-list"
-            title="Оголошення для тих, хто увійшов"
-            text="Увійди, щоб бачити, хто шукає компанію, і писати свої оголошення."
-            action={{ label: 'Увійти', onPress: openGuestDialog }}
-          />
-        ) : (listings.loading && !listings.data) || profile.loading ? (
-          // The own username decides which posts are the own ones, so the feed waits for the profile too.
-          <View className="flex-1 items-center justify-center pb-24">
-            <ActivityIndicator size="large" color={colors.brand.coral} />
-          </View>
-        ) : !listings.data ? (
-          <FeedNotice
-            icon="state-danger"
-            title="Не вдалося завантажити оголошення"
-            text={listings.failure ? failureMessage(listings.failure) : 'Спробуй ще раз.'}
-            action={{ label: 'Спробувати ще раз', onPress: listings.reload }}
-          />
-        ) : feedEmpty && !searching ? (
-          <FeedNotice
-            icon="empty-list"
-            title="Поки тут тихо"
-            text="Не знайшла подію в каталозі? Напиши, куди хочеш піти, і хтось точно відгукнеться."
-          />
-        ) : posts.length === 0 ? (
-          <FeedNotice
-            icon="empty-search"
-            title={searching ? 'Нічого не знайшли' : 'У тебе ще немає оголошень'}
-            text={searching ? 'Спробуй інший запит.' : 'Напиши перше: що плануєш і з ким хочеш піти?'}
-          />
-        ) : (
-          posts.map((post) => (
-            <View key={post.id}>
-              <PostCard
-                post={post}
-                onReport={() => {
-                  // The post is a listing from the API, so the listing is reported, not its author.
-                  setReported({ ...post.author, listingId: post.id });
-                  setReport('form');
-                }}
-                onDelete={() => setDeleting(post)}
-                onRequest={() => setSearching(false)}
-              />
-              <View className="h-px bg-border-default" />
-            </View>
-          ))
-        )}
+        {feed}
       </ScrollView>
 
-      {snackbar ? (
-        <Snackbar {...snackbar} />
-      ) : (
-        requestedPost && (
-          <Snackbar title="Запит надіслано" note={`Дамо знати, щойно ${requestedPost.author.name} відповість.`} />
-        )
-      )}
-
-      <DeletePostDialog
-        visible={deleting !== undefined}
-        busy={deleteBusy}
-        onClose={() => setDeleting(undefined)}
-        // The promise comes from `confirmDelete`, which shows its own failures.
-        onDelete={() => void confirmDelete()}
-      />
-
-      {/* The prototype ends the report on the Метчі tab from a match; from a post it stays on the feed. */}
-      <ReportFlow person={reported} step={report} onStepChange={setReport} onDone={() => {}} />
+      {overlays}
     </View>
   );
 }

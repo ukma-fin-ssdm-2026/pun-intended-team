@@ -1,13 +1,14 @@
 // Written with the help of Claude
 import type { Listing } from '@/api/listings';
 import { formatShortDay } from '@/dates';
-import type { Post } from '@/mocks/announcements';
+import type { Post } from '@/components/announcements/post';
 
 // A listing as the feed's card shows it. The API gives no age, no district or time of posting and no name forms, so
 // the card shows the display name, the category and the day of the plan. Whose post it is stays undefined until the own
 // username is known, so a screen does not offer a report on the own post.
 export function listingToPost(listing: Listing, ownUsername?: string): Post {
-  const { id, author, category, title, description, date, eventId, photo } = listing;
+  const { id, author, category, title, description, date, eventId, photo, place, myRequest, likeCount, liked } =
+    listing;
   return {
     id,
     initial: author.displayName.charAt(0).toUpperCase(),
@@ -23,11 +24,18 @@ export function listingToPost(listing: Listing, ownUsername?: string): Post {
     title,
     text: description,
     // Noon, so the day is the same in Kyiv whatever the offset.
-    chips: [{ icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) }],
+    chips: [
+      { icon: 'calendar', label: formatShortDay(`${date}T12:00:00Z`) },
+      ...(place ? [{ icon: 'pin' as const, label: place.name }] : []),
+    ],
+    hasPlace: place !== null,
     eventId: eventId ?? undefined,
     apiPhoto: photo ?? undefined,
     authorPhoto: author.photo ?? undefined,
     going: false,
+    myRequest: myRequest ?? undefined,
+    likeCount,
+    liked,
     own: ownUsername === undefined ? undefined : ownUsername.toLowerCase() === author.username.toLowerCase(),
   };
 }

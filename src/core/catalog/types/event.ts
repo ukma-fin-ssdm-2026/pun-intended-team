@@ -1,5 +1,5 @@
 // Written with the help of Claude
-import type { WholeImageRef } from '../../images/types/image.ts';
+import type { ImageRef, WholeImageRef } from '../../images/types/image.ts';
 import type { Category } from './category.ts';
 import type { OrganizationName } from './organization.ts';
 import type { Venue } from './venue.ts';
@@ -40,19 +40,42 @@ export interface Event {
   source: EventSource;
   status: EventStatus;
   organizationId: string | null;
+  /** The organization that published it, while it is verified; null for imported events. */
+  organizer: EventOrganizer | null;
+}
+
+/** A verified organization as its events show it. */
+export interface EventOrganizer {
+  /** The organization's account id. */
+  id: string;
+  name: string;
+  logoId: string | null;
+}
+
+/** A circle on the map: the point the user is at and how far they will go, in kilometres. */
+export interface Circle {
+  lat: number;
+  lng: number;
+  radiusKm: number;
 }
 
 export interface EventFilter {
-  categoryId?: string;
+  /** Events of any of these categories. */
+  categoryIds?: string[];
   venueId?: string;
+  /** Events whose venue is inside the circle. */
+  near?: Circle;
   from: string;
   to: string;
 }
 
 export type EventQuery = Partial<EventFilter>;
 
-/** An event as the API returns it: with its cover's size and crop. */
-export type WithPhoto<T extends Event> = T & { photo: WholeImageRef | null };
+/** An event as the API returns it: with its cover's size and crop, and its organizer's logo. */
+export type WithPhoto<T extends Event> = Omit<T, 'organizer'> & {
+  photo: WholeImageRef | null;
+  organizer: (Omit<EventOrganizer, 'logoId'> & { logo: ImageRef | null }) | null;
+};
 
 /** An event as the admin panel shows it, in any status, with the organization that added it. */
 export interface EventOverview extends Event {

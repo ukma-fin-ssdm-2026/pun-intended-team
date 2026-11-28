@@ -3,13 +3,13 @@
 // Daryna Halytska.
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import { reportListing, reportUser, type ReportReason } from '@/api/reports';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { Overlay } from '@/components/ui/overlay';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
 import { colors, shadows } from '@/styles/tokens';
 
 export const reportReasons: { value: ReportReason; label: string }[] = [
@@ -71,8 +71,9 @@ function ReasonRow({ label, checked, onPress }: { label: string; checked: boolea
 }
 
 function ReportSheet({ person, onSent }: { person: ReportedPerson; onSent: () => void }) {
-  const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding(SHEET_BOTTOM);
   // The API takes one reason per report.
   const [reason, setReason] = useState<ReportReason>();
   const [comment, setComment] = useState('');
@@ -104,18 +105,16 @@ function ReportSheet({ person, onSent }: { person: ReportedPerson; onSent: () =>
 
   return (
     // NativeWind maps className only on React Native's own components, so the layout sits on a View inside.
-    <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal>
+    <Animated.View entering={entering} accessibilityViewIsModal>
       <View
         className="rounded-t-[28px] bg-surface-card px-5 pt-3"
         style={{
           height: Math.min(SHEET_HEIGHT, windowHeight - SHEET_TOP_MARGIN),
-          paddingBottom: Math.max(SHEET_BOTTOM, insets.bottom),
+          ...padding,
         }}
       >
         <ScrollView contentContainerClassName="gap-5" showsVerticalScrollIndicator={false}>
-          <View className="items-center">
-            <View className="h-1 w-10 rounded-sm bg-border-default" />
-          </View>
+          <SheetHandle />
 
           <View className="items-center gap-2.5">
             <View className="size-14 items-center justify-center rounded-full bg-brand-coral">

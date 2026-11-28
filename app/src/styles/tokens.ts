@@ -48,6 +48,20 @@ export const typography = {
   tag: { fontSize: 11, lineHeight: 14 },
   // The price badge on an event cover; Figma's line height is "auto", which Inter renders at about 1.21.
   price: { fontSize: 14, lineHeight: 17 },
+  // "Nearby/Desktop/Hero" and "Nearby/Desktop/H1" of the 1440 px frames.
+  'desktop-hero': { fontSize: 44, lineHeight: 52 },
+  'desktop-h1': { fontSize: 32, lineHeight: 40 },
+  // The logotype on the left half of DВ1–DВ4.
+  'desktop-logo': { fontSize: 40, lineHeight: 58 },
+};
+
+// The desktop frames: a 76 px header, and content 1200 px wide inside 120 px margins of the 1440 px frame.
+export const desktop = {
+  headerHeight: 76,
+  contentWidth: 1200,
+  // Sheets become centered dialogs this wide; the small "01 Вікно" dialogs are narrower.
+  sheetWidth: 520,
+  dialogWidth: 440,
 };
 
 // CSS box-shadow strings; React Native supports them on iOS, Android and web (New Architecture).

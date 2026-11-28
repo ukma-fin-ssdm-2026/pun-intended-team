@@ -15,12 +15,14 @@ import { SearchField } from '@/components/ui/search-field';
 import { TabBar, type TabName } from '@/components/ui/tab-bar';
 import { TextField } from '@/components/ui/text-field';
 import { Toggle } from '@/components/ui/toggle';
+import { JoinRequestSheet } from '@/components/announcements/join-request-sheet';
 import { MutualMatchHero, mutualTitles } from '@/components/matching/mutual-match';
 import { formatEventDate } from '@/dates';
+import { mockJoinRequest } from '@/mocks/announcements';
 import { findMockEvent, mockCategories, mockEvents, mockOtherEvents } from '@/mocks/events';
 import { mockMutual, mockMutualPerson, mockPeople } from '@/mocks/matching';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { setAnnouncementsEmpty, setGuest, setJoinRequest, setSimulateLoading, useSession } from '@/state/session';
+import { setAnnouncementsEmpty, setGuest, setSimulateLoading, useSession } from '@/state/session';
 
 // Variant and size pairs that exist in Figma ("Кнопка / Основна").
 const buttonColumns: { variant: ButtonVariant; size: ButtonSize }[] = [
@@ -66,6 +68,7 @@ export default function ComponentsGallery() {
   const [category, setCategory] = useState(mockCategories[0].id);
   const [toggle, setToggle] = useState(true);
   const [tab, setTab] = useState<TabName>('events');
+  const [joinRequestOpen, setJoinRequestOpen] = useState(false);
 
   const matchEvent = findMockEvent(mockPeople.maksym.eventId) ?? mockEvents[0];
 
@@ -84,7 +87,6 @@ export default function ComponentsGallery() {
           value={session.announcementsEmpty}
           onValueChange={setAnnouncementsEmpty}
         />
-        <SwitchRow label="Запит на оголошення (Т5.1)" value={session.joinRequest} onValueChange={setJoinRequest} />
         <Button label="Відкрити каталог" variant="dark" onPress={() => router.navigate('/')} />
       </Section>
 
@@ -94,6 +96,11 @@ export default function ComponentsGallery() {
         <Button label="С1 Немає з’єднання" variant="light" onPress={() => router.push('/offline')} />
         <Button label="С2 Потрібне оновлення" variant="light" onPress={() => router.push('/update')} />
         <Button label="С3 Забагато спроб" variant="light" onPress={() => router.push('/too-many-attempts')} />
+      </Section>
+
+      {/* Т5 opens the sheet for a real request; here it shows mock content. */}
+      <Section title="Д4 Запит на оголошення">
+        <Button label="Д4 Запит на оголошення (Т5.1)" variant="light" onPress={() => setJoinRequestOpen(true)} />
       </Section>
 
       <Section title="Іконки · Solar Linear">
@@ -209,6 +216,13 @@ export default function ComponentsGallery() {
           </View>
         ))}
       </Section>
+      <JoinRequestSheet
+        visible={joinRequestOpen}
+        request={mockJoinRequest}
+        onClose={() => setJoinRequestOpen(false)}
+        onAccept={() => setJoinRequestOpen(false)}
+        onDecline={() => setJoinRequestOpen(false)}
+      />
     </ScrollView>
   );
 }

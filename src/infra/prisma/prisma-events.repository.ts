@@ -2,6 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { EventsRepository } from '../../core/catalog/repositories/events.repository.ts';
 import type {
+  Circle,
   Event,
   EventChanges,
   EventFilter,
@@ -13,8 +14,7 @@ import type {
 import { addDays, kyivEndOfDay } from '../../core/common/kyiv-time.ts';
 import type { Page, PageRequest } from '../../core/common/page.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
-import { eventInclude, organizationName, toEvent } from './catalog-rows.ts';
-import type { Prisma } from './generated/client.ts';
+import { eventInclude, type EventRow, toEvent } from './catalog-rows.ts';
 import { PrismaService } from './prisma.service.ts';
 import { clientOf } from './transaction-client.ts';
 
@@ -28,11 +28,13 @@ export class PrismaEventsRepository implements EventsRepository {
   }
 
   async findPublished(filter: EventFilter, { limit, offset }: PageRequest): Promise<Page<Event>> {
+    const nearVenueIds = filter.near && (await this.venueIdsWithin(filter.near));
     const rows = await this.prisma.event.findMany({
       where: {
         status: 'published',
-        categoryId: filter.categoryId,
+        categoryId: filter.categoryIds && { in: filter.categoryIds },
         venueId: filter.venueId,
+        ...(nearVenueIds && { AND: { venueId: { in: nearVenueIds } } }),
         endsAt: { gt: endOfKyivDay(addDays(filter.from, -1)) },
         startsAt: { lte: endOfKyivDay(filter.to) },
       },
@@ -47,13 +49,26 @@ export class PrismaEventsRepository implements EventsRepository {
     };
   }
 
+  /** Great-circle distance on a sphere of the Earth's mean radius: within 0.5% of the true one, enough for a radius. */
+  private async venueIdsWithin({ lat, lng, radiusKm }: Circle): Promise<string[]> {
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM venues
+      WHERE 2 * ${EARTH_RADIUS_KM}::float8 * asin(least(1, sqrt(
+        power(sin(radians(latitude::float8 - ${lat}::float8) / 2), 2) +
+        cos(radians(${lat}::float8)) * cos(radians(latitude::float8)) *
+        power(sin(radians(longitude::float8 - ${lng}::float8) / 2), 2)
+      ))) <= ${radiusKm}::float8`;
+    return rows.map(({ id }) => id);
+  }
+
   async findByOrganization(
     organizationId: string,
     endingAfter: Date,
     { limit, offset }: PageRequest,
+    status?: EventStatus,
   ): Promise<Page<Event>> {
     const rows = await this.prisma.event.findMany({
-      where: { organizationId, endsAt: { gt: endingAfter } },
+      where: { organizationId, status, endsAt: { gt: endingAfter } },
       include: eventInclude,
       orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
       skip: offset,
@@ -81,7 +96,7 @@ export class PrismaEventsRepository implements EventsRepository {
         title: search ? { contains: search, mode: 'insensitive' } : undefined,
         endsAt: period === 'upcoming' ? { gt: now } : { lte: now },
       },
-      include: overviewInclude,
+      include: eventInclude,
       orderBy: [{ startsAt: order }, { id: 'asc' }],
       skip: offset,
       take: limit + 1,
@@ -93,7 +108,7 @@ export class PrismaEventsRepository implements EventsRepository {
   }
 
   async findOverview(id: string): Promise<EventOverview | undefined> {
-    const row = await this.prisma.event.findUnique({ where: { id }, include: overviewInclude });
+    const row = await this.prisma.event.findUnique({ where: { id }, include: eventInclude });
     return row ? toEventOverview(row) : undefined;
   }
 
@@ -133,10 +148,14 @@ export class PrismaEventsRepository implements EventsRepository {
   }
 }
 
-const overviewInclude = { ...eventInclude, ...organizationName } satisfies Prisma.EventInclude;
+const EARTH_RADIUS_KM = 6371;
 
-function toEventOverview(row: Prisma.EventGetPayload<{ include: typeof overviewInclude }>): EventOverview {
-  return { ...toEvent(row), organization: row.organization };
+function toEventOverview(row: EventRow): EventOverview {
+  const { organization } = row;
+  return {
+    ...toEvent(row),
+    organization: organization && { accountId: organization.accountId, name: organization.name },
+  };
 }
 
 /** The last millisecond of a Kyiv calendar date; noon UTC always falls on the same Kyiv date. */

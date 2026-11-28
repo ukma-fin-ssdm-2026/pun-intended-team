@@ -2,8 +2,7 @@
 // AI Usage: filters sheet from the Figma "Д1 Фільтри" screen; reviewed by Daryna Halytska.
 import { useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import Animated, { SlideInDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated from 'react-native-reanimated';
 
 import type { components } from '@/api/schema';
 import { DatesSheet } from '@/components/dates-sheet';
@@ -11,17 +10,25 @@ import { LocationDialog } from '@/components/location-dialog';
 import { Button } from '@/components/ui/button';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { Overlay } from '@/components/ui/overlay';
-import { mockDistricts } from '@/mocks/events';
+import { SheetHandle, useSheetEntering, useSheetPadding } from '@/components/ui/sheet';
+import { locateUser } from '@/location';
 import {
   filterEvents,
+  RADIUS_OPTIONS,
   resetFilters,
-  setNearMe,
+  setNear,
+  setRadius,
   toggleCategory,
-  toggleDistrict,
   toggleWhen,
   useCatalogFilters,
   type When,
 } from '@/state/catalog-filters';
+
+// Shown under "Де" when the location cannot be used; the other filters keep working.
+const locationNotices = {
+  denied: 'Без доступу до геолокації не покажемо події поруч. Інші фільтри працюють як завжди.',
+  failed: 'Не вдалося визначити, де ти. Спробуй ще раз трохи згодом.',
+};
 
 const whenOptions: { value: When; label: string }[] = [
   { value: 'today', label: 'Сьогодні' },
@@ -56,30 +63,51 @@ type Props = {
 };
 
 export function FiltersSheet({ visible, onClose, events, categories }: Props) {
-  const insets = useSafeAreaInsets();
+  const entering = useSheetEntering();
+  const padding = useSheetPadding(20);
   const filters = useCatalogFilters();
   const count = filterEvents(events, filters).length;
   // "Обрати дати" opens Д1.1 and "Поруч зі мною" Д1.2 in place of the sheet; both return to it.
   const [view, setView] = useState<'filters' | 'dates' | 'location'>('filters');
   const back = () => setView('filters');
+  const [locating, setLocating] = useState(false);
+  const [locationNotice, setLocationNotice] = useState<keyof typeof locationNotices>();
+
+  const turnOnNearMe = async () => {
+    back();
+    setLocating(true);
+    setLocationNotice(undefined);
+    const result = await locateUser();
+    setLocating(false);
+    if (result.status === 'located') setNear(result.point);
+    else setLocationNotice(result.status);
+  };
+
+  const toggleNearMe = () => {
+    if (locating) return;
+    if (filters.near) setNear(null);
+    else setView('location');
+  };
 
   return (
     <>
       <Overlay visible={visible && view === 'filters'} onClose={onClose} placement="bottom">
         {/* NativeWind maps className only on React Native's own components, so the layout sits on a View inside. */}
-        <Animated.View entering={SlideInDown.duration(250)} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
-          <View
-            className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-            style={{ paddingBottom: Math.max(insets.bottom, 20) }}
-          >
-            <View className="items-center">
-              <View className="h-1 w-10 rounded-sm bg-border-default" />
-            </View>
+        <Animated.View entering={entering} accessibilityViewIsModal style={{ maxHeight: '90%' }}>
+          <View className="shrink gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3" style={padding}>
+            <SheetHandle />
             <View className="flex-row items-center justify-between">
               <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
                 Фільтри
               </Text>
-              <Pressable accessibilityRole="button" onPress={resetFilters} hitSlop={8}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  resetFilters();
+                  setLocationNotice(undefined);
+                }}
+                hitSlop={8}
+              >
                 <Text className="font-inter-medium text-label text-brand-coral">Скинути</Text>
               </Pressable>
             </View>
@@ -113,21 +141,26 @@ export function FiltersSheet({ visible, onClose, events, categories }: Props) {
               </Section>
               <Section title="Де">
                 <FilterChip
-                  label="Поруч зі мною"
+                  label={locating ? 'Визначаємо, де ти…' : 'Поруч зі мною'}
                   icon="pin"
-                  selected={filters.nearMe}
-                  onPress={() => (filters.nearMe ? setNearMe(false) : setView('location'))}
+                  selected={!!filters.near}
+                  onPress={toggleNearMe}
                 />
-                {/* The API has no districts yet, so with live events a district shows nothing. */}
-                {mockDistricts.map((district) => (
-                  <FilterChip
-                    key={district}
-                    label={district}
-                    selected={filters.districts.includes(district)}
-                    onPress={() => toggleDistrict(district)}
-                  />
-                ))}
+                {filters.near &&
+                  RADIUS_OPTIONS.map((radiusKm) => (
+                    <FilterChip
+                      key={radiusKm}
+                      label={`До ${radiusKm} км`}
+                      selected={filters.radiusKm === radiusKm}
+                      onPress={() => setRadius(radiusKm)}
+                    />
+                  ))}
               </Section>
+              {locationNotice && (
+                <Text accessibilityLiveRegion="polite" className="-mt-3 font-inter text-caption text-text-secondary">
+                  {locationNotices[locationNotice]}
+                </Text>
+              )}
             </ScrollView>
 
             <Button label={eventsLabel(count)} variant="dark" onPress={onClose} />
@@ -136,14 +169,7 @@ export function FiltersSheet({ visible, onClose, events, categories }: Props) {
       </Overlay>
 
       {visible && view === 'dates' && <DatesSheet visible onClose={back} />}
-      <LocationDialog
-        visible={visible && view === 'location'}
-        onClose={back}
-        onAllow={() => {
-          setNearMe(true);
-          back();
-        }}
-      />
+      <LocationDialog visible={visible && view === 'location'} onClose={back} onAllow={() => void turnOnNearMe()} />
     </>
   );
 }

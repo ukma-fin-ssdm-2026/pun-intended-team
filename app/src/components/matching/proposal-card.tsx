@@ -1,12 +1,12 @@
 // Written with the help of Claude
 // AI Usage: participant card from the Figma "05 Запропонований метч" frame; reviewed by Daryna Halytska.
-import { Image, type ImageSource } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 
+import type { ApiEventPhoto } from '@/api/images';
 import { ApiPicture } from '@/components/pictures/picture';
-import { CoralGradient } from '@/components/ui/coral-gradient';
+import { coverOf, EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { formatEventDate } from '@/dates';
 import { plural } from '@/plural';
@@ -47,11 +47,12 @@ type Props = {
   match: Match;
   // The caller's own interests, so the shared ones stand out.
   ownInterestIds: string[];
-  // Shown when the partner has no cover of their own.
-  cover?: ImageSource | number;
+  // The event's cover, shown when the partner has no cover of their own: an imported event's image, or the one an
+  // organization uploaded; the coral gradient without either.
+  event?: { imageUrl: string | null; photo: ApiEventPhoto | null };
 };
 
-export function ProposalCard({ match, ownInterestIds, cover }: Props) {
+export function ProposalCard({ match, ownInterestIds, event }: Props) {
   const { partner } = match;
   const own = new Set(ownInterestIds);
   const common = partner.interests.filter(({ id }) => own.has(id)).length;
@@ -80,10 +81,8 @@ export function ProposalCard({ match, ownInterestIds, cover }: Props) {
             <View className="absolute inset-0 bg-border-default">
               <ApiPicture image={partner.cover} />
             </View>
-          ) : cover ? (
-            <Image source={cover} contentFit="cover" style={{ width: '100%', height: '100%' }} />
           ) : (
-            <CoralGradient preset="cover" />
+            <EventCover cover={coverOf(event?.imageUrl)} photo={event?.photo} />
           )}
         </View>
 

@@ -237,6 +237,9 @@ const googleClientId = 'nearby-e2e.apps.googleusercontent.com';
 const googleKid = 'e2e-google';
 let googleKey: CryptoKey;
 let jwksServer: Server;
+// Stands in for Nominatim's /reverse, so no test calls the real service.
+let nominatimServer: Server;
+const nominatimRequests: string[] = [];
 
 interface Response {
   status: number;
@@ -409,6 +412,28 @@ async function newProfile(): Promise<{
   const res = await call('POST', '/api/v1/me/profile', { token, body: { username, displayName: 'Reported' } });
   assert.equal(res.status, 201, JSON.stringify(res.body));
   return { subject: registrant.subject, token, refreshToken, accountId: accountIdOf(token), username };
+}
+
+/** A new account whose profile has everything matching needs. */
+// Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
+async function newCompleteProfile(
+  gender: 'female' | 'male' | 'other' = 'female',
+): Promise<{ token: string; accountId: string; username: string }> {
+  const { token, accountId, username } = await newProfile();
+  const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
+  for (const [method, path, body] of [
+    ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
+    ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
+    [
+      'PUT',
+      '/api/v1/me/profile/linked-accounts',
+      { linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e' }] },
+    ],
+  ] as const) {
+    const res = await call(method, path, { token, body });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+  }
+  return { token, accountId, username };
 }
 
 /** Reports the user and resolves the case with `action`; returns the case id. */
@@ -693,6 +718,24 @@ before(async () => {
   jwksServer = createHttpServer((_req, res) => res.writeHead(200, { 'content-type': 'application/json' }).end(jwks));
   const jwksPort = await freePort();
   await new Promise<void>((resolve) => jwksServer.listen(jwksPort, resolve));
+  nominatimServer = createHttpServer((req, res) => {
+    const query = new URL(req.url ?? '/', 'http://localhost').searchParams;
+    nominatimRequests.push(`${query.get('lat')},${query.get('lon')}`);
+    const json = (status: number, body: object) =>
+      res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+    if (query.get('lat') === '50.4357') {
+      json(200, {
+        name: 'Мистецький Арсенал',
+        address: { road: 'вулиця Лаврська', house_number: '10-12', city_district: 'Печерський район' },
+      });
+    } else if (query.get('lat') === '50.401') {
+      json(503, {});
+    } else {
+      json(200, { error: 'Unable to geocode' });
+    }
+  });
+  const nominatimPort = await freePort();
+  await new Promise<void>((resolve) => nominatimServer.listen(nominatimPort, resolve));
   apiEnv = {
     ...process.env,
     // Production mode so the run does not rewrite the committed OpenAPI spec.
@@ -706,6 +749,7 @@ before(async () => {
     GOOGLE_CLIENT_IDS: googleClientId,
     GOOGLE_JWKS_URL: `http://localhost:${jwksPort}/certs`,
     ALLOW_TEST_ADAPTERS: 'true',
+    NOMINATIM_BASE_URL: `http://localhost:${nominatimPort}`,
   };
   runOrThrow('node_modules/.bin/prisma', ['migrate', 'deploy'], apiEnv);
   await addStubAccounts(new PersonalDataCipher(dataEncryptionKey, contactHmacKey));
@@ -726,6 +770,7 @@ before(async () => {
 after(() => {
   server?.kill();
   jwksServer?.close();
+  nominatimServer?.close();
   rmSync(keysDir, { recursive: true, force: true });
 });
 
@@ -1257,6 +1302,136 @@ describe('GET /api/v1/events', () => {
   test('rejects a limit above 20 with 400', async () => {
     assertInvalid(await call('GET', '/api/v1/events?limit=100', { token: tokens.guest }), 'query', 'limit');
   });
+
+  // FR-007: the filters of the sheet. The test's own categories and venues, so no other test's events show up. The
+  // point is in Obolon; the near venue is about 0.4 km from it, the far one about 5 km, and the stub venues 5 km and
+  // more.
+  describe('filters', () => {
+    const point = 'lat=50.5000&lng=30.4500';
+    const nearVenue = randomUUID();
+    const farVenue = randomUUID();
+    const firstDay = inDays(5);
+    const secondDay = inDays(6);
+    const ids = { nearFirst: randomUUID(), nearSecond: randomUUID(), nearOther: randomUUID(), farFirst: randomUUID() };
+    let first = '';
+    let second = '';
+    let other = '';
+
+    before(async () => {
+      [first, second, other] = (await Promise.all([newCategory(), newCategory(), newCategory()])).map(({ id }) => id);
+      const events = [
+        { id: ids.nearFirst, categoryId: first, venueId: nearVenue, day: firstDay },
+        { id: ids.nearSecond, categoryId: second, venueId: nearVenue, day: secondDay },
+        { id: ids.nearOther, categoryId: other, venueId: nearVenue, day: firstDay },
+        { id: ids.farFirst, categoryId: first, venueId: farVenue, day: firstDay },
+      ];
+      await withDatabase(async (client) => {
+        await client.query(
+          `INSERT INTO venues (id, name, address, latitude, longitude, source)
+           VALUES ($1, 'Near hall', 'Obolonskyi Ave, Kyiv', 50.5040, 30.4500, 'import'),
+                  ($2, 'Far hall', 'Kyrylivska St, Kyiv', 50.5000, 30.5200, 'import')`,
+          [nearVenue, farVenue],
+        );
+        for (const { id, categoryId, venueId, day } of events) {
+          await client.query(
+            `INSERT INTO events (id, title, description, category_id, venue_id, starts_at, ends_at, source)
+             VALUES ($1, 'Filter test', '', $2, $3, $4, $5, 'import')`,
+            [id, categoryId, venueId, fromKyivWallClock(`${day}T19:00:00Z`), fromKyivWallClock(`${day}T21:00:00Z`)],
+          );
+        }
+      });
+    });
+
+    async function listIds(query: string): Promise<string[]> {
+      const res = await call('GET', `/api/v1/events?${query}`, { token: tokens.guest });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      return res.body.items.map((item: { id: string }) => item.id).sort();
+    }
+
+    const sorted = (...values: string[]) => [...values].sort();
+
+    test('returns the events of any of several repeated categories', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first}&categoryIds=${second}`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.farFirst),
+      );
+    });
+
+    test('takes the categories as a comma-separated list', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second}`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.farFirst),
+      );
+    });
+
+    test('returns the events within the radius and leaves out the far venue', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second},${other}&${point}&radiusKm=3`),
+        sorted(ids.nearFirst, ids.nearSecond, ids.nearOther),
+      );
+    });
+
+    test('takes the far venue in with a radius that reaches it', async () => {
+      assert.ok((await listIds(`categoryIds=${first}&${point}&radiusKm=6`)).includes(ids.farFirst));
+    });
+
+    test('combines the categories, the distance and the dates', async () => {
+      assert.deepEqual(
+        await listIds(`categoryIds=${first},${second}&${point}&radiusKm=3&from=${firstDay}&to=${firstDay}`),
+        [ids.nearFirst],
+      );
+    });
+
+    test('gives an empty page when the venue is outside the radius', async () => {
+      const res = await call('GET', `/api/v1/events?venueId=${farVenue}&${point}&radiusKm=3`, { token: tokens.guest });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.deepEqual(res.body.items, []);
+      assert.equal(res.body.page.hasMore, false);
+    });
+
+    test('gives an empty page for an unknown category', async () => {
+      assert.deepEqual(await listIds(`categoryIds=${randomUUID()}`), []);
+    });
+
+    test('keeps the page size: one item and hasMore with limit=1', async () => {
+      const res = await call('GET', `/api/v1/events?categoryIds=${first},${second}&${point}&radiusKm=3&limit=1`, {
+        token: tokens.guest,
+      });
+
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.items.length, 1);
+      assert.equal(res.body.page.hasMore, true);
+    });
+
+    test('rejects a limit above 20 with the filters too', async () => {
+      const res = await call('GET', `/api/v1/events?categoryIds=${first}&${point}&radiusKm=3&limit=21`, {
+        token: tokens.guest,
+      });
+
+      assertInvalid(res, 'query', 'limit');
+    });
+
+    const invalid = [
+      { title: 'a point without a radius', query: () => point, field: 'radiusKm' },
+      { title: 'a radius without a point', query: () => 'radiusKm=3', field: 'lat' },
+      { title: 'a latitude out of range', query: () => 'lat=91&lng=30.45&radiusKm=3', field: 'lat' },
+      { title: 'a longitude out of range', query: () => 'lat=50.5&lng=181&radiusKm=3', field: 'lng' },
+      { title: 'a radius above 50 km', query: () => `${point}&radiusKm=51`, field: 'radiusKm' },
+      { title: 'a zero radius', query: () => `${point}&radiusKm=0`, field: 'radiusKm' },
+      { title: 'a category id that is not a UUID', query: () => 'categoryIds=abc', field: 'categoryIds.0' },
+      {
+        title: 'more than 20 categories',
+        query: () => `categoryIds=${Array.from({ length: 21 }, () => first).join(',')}`,
+        field: 'categoryIds',
+      },
+    ];
+    for (const { title, query, field } of invalid) {
+      test(`rejects ${title} with 400`, async () => {
+        assertInvalid(await call('GET', `/api/v1/events?${query()}`, { token: tokens.guest }), 'query', field);
+      });
+    }
+  });
 });
 
 describe('GET /api/v1/events/{id}', () => {
@@ -1269,6 +1444,56 @@ describe('GET /api/v1/events/{id}', () => {
 
   test('rejects an id that is not a UUID with 400', async () => {
     assertInvalid(await call('GET', '/api/v1/events/not-a-uuid', { token: tokens.guest }), 'params', 'id');
+  });
+});
+
+describe('Event organizer', () => {
+  test('shows the verified organization that published the event', async () => {
+    const res = await call('GET', `/api/v1/events/${filmNight}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.deepEqual(res.body.organizer, { id: stubAccounts.org.id, name: 'Podil Film Club', logo: null });
+  });
+
+  test('shows no organizer for an imported event', async () => {
+    const res = await call('GET', `/api/v1/events/${arsenalExhibition}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.organizer, null);
+  });
+});
+
+describe('Public organization pages', () => {
+  test('returns a verified organization to a guest, without private fields', async () => {
+    const res = await call('GET', `/api/v1/organizations/${stubAccounts.org.id}`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    assert.deepEqual(Object.keys(res.body).sort(), ['description', 'id', 'instagram', 'logo', 'name', 'officialLink']);
+    assert.equal(res.body.id, stubAccounts.org.id);
+    assert.equal(res.body.name, 'Podil Film Club');
+  });
+
+  test('lists its published events that have not ended, soonest first', async () => {
+    const res = await call('GET', `/api/v1/organizations/${stubAccounts.org.id}/events`, { token: tokens.guest });
+    assert.equal(res.status, 200);
+    const ids = res.body.items.map((event: { id: string }) => event.id);
+    assert.ok(ids.includes(filmNight));
+    assert.ok(!ids.includes(cancelledFilmEvent));
+    assert.ok(
+      res.body.items.every((event: { organizer: { id: string } }) => event.organizer.id === stubAccounts.org.id),
+    );
+  });
+
+  test('answers 404 for an organization that is not verified, and for an account without one', async () => {
+    for (const id of [stubAccounts.orgPending.id, stubAccounts.user.id]) {
+      assertRejected(await call('GET', `/api/v1/organizations/${id}`, { token: tokens.guest }), 404, 'NOT_FOUND');
+      assertRejected(
+        await call('GET', `/api/v1/organizations/${id}/events`, { token: tokens.guest }),
+        404,
+        'NOT_FOUND',
+      );
+    }
+  });
+
+  test('rejects a call without a token with 401', async () => {
+    assertRejected(await call('GET', `/api/v1/organizations/${stubAccounts.org.id}`), 401, 'UNAUTHENTICATED');
   });
 });
 
@@ -1667,6 +1892,79 @@ describe('POST /api/v1/listings', () => {
   });
 });
 
+describe('Listing place', () => {
+  const place = {
+    name: 'Мистецький Арсенал',
+    address: 'вулиця Лаврська, 10-12',
+    location: { lat: 50.4357, lng: 30.5555 },
+  };
+
+  test('posts a listing with a place and returns it', async () => {
+    const res = await call('POST', '/api/v1/listings', { token: tokens.user, body: { ...newListing, place } });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual(res.body.place, place);
+    const read = await call('GET', `/api/v1/listings/${res.body.id}`, { token: tokens.user });
+    assert.deepEqual(read.body.place, place);
+  });
+
+  test('posts a listing without a place with place null', async () => {
+    const res = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
+    assert.equal(res.status, 201);
+    assert.equal(res.body.place, null);
+  });
+
+  test('rejects a place outside Kyiv with 422', async () => {
+    const res = await call('POST', '/api/v1/listings', {
+      token: tokens.user,
+      body: { ...newListing, place: { ...place, location: { lat: 49.8441, lng: 24.0262 } } },
+    });
+    assertRejected(res, 422, 'PLACE_OUTSIDE_CITY');
+  });
+
+  test('rejects a place without its location with 400', async () => {
+    const res = await call('POST', '/api/v1/listings', {
+      token: tokens.user,
+      body: { ...newListing, place: { name: place.name, address: place.address } },
+    });
+    assertInvalid(res, 'body', 'place.location');
+  });
+});
+
+describe('GET /api/v1/places/reverse', () => {
+  test('names the point, and answers it again from memory', async () => {
+    const before = nominatimRequests.length;
+    const first = await call('GET', '/api/v1/places/reverse?lat=50.4357&lng=30.5555', { token: tokens.user });
+    const again = await call('GET', '/api/v1/places/reverse?lat=50.435701&lng=30.555501', { token: tokens.user });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, {
+      name: 'Мистецький Арсенал',
+      address: 'вулиця Лаврська, 10-12, Печерський район',
+    });
+    assert.deepEqual(again.body, first.body);
+    assert.equal(nominatimRequests.length - before, 1);
+  });
+
+  test('answers 404 when nothing is there', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.45&lng=30.52', { token: tokens.user });
+    assertRejected(res, 404, 'NOT_FOUND');
+  });
+
+  test('answers 503 when Nominatim fails', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.401&lng=30.52', { token: tokens.user });
+    assertRejected(res, 503, 'PLACE_LOOKUP_UNAVAILABLE');
+  });
+
+  test('rejects a point outside Kyiv with 422', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=49.8441&lng=24.0262', { token: tokens.user });
+    assertRejected(res, 422, 'PLACE_OUTSIDE_CITY');
+  });
+
+  test('rejects a guest token with 401', async () => {
+    const res = await call('GET', '/api/v1/places/reverse?lat=50.4357&lng=30.5555', { token: tokens.guest });
+    assertRejected(res, 401, 'UNAUTHENTICATED');
+  });
+});
+
 describe('DELETE /api/v1/listings/{id}', () => {
   test('removes the caller’s own listing', async () => {
     const created = await call('POST', '/api/v1/listings', { token: tokens.user, body: newListing });
@@ -1723,30 +2021,272 @@ describe('PUT and DELETE /api/v1/listings/{id}/photo', () => {
   });
 });
 
+describe('Listing requests', () => {
+  /** A listing by a new author with a complete profile, so both sides have contacts to reveal. */
+  async function newAuthorListing(): Promise<{ token: string; listingId: string }> {
+    const { token } = await newCompleteProfile();
+    const res = await call('POST', '/api/v1/listings', { token, body: newListing });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return { token, listingId: res.body.id };
+  }
+
+  function request(token: string, listingId: string): Promise<Response> {
+    return call('POST', `/api/v1/listings/${listingId}/requests`, { token });
+  }
+
+  async function requested(): Promise<{ author: string; requester: string; listingId: string; requestId: string }> {
+    const { token: author, listingId } = await newAuthorListing();
+    const { token: requester } = await newCompleteProfile();
+    const res = await request(requester, listingId);
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return { author, requester, listingId, requestId: res.body.id };
+  }
+
+  const acknowledge = (token: string) =>
+    call('POST', '/api/v1/me/profile/safety-notice', { token, body: { dontShowAgain: false } });
+
+  async function inboxOf(token: string): Promise<{ type: string; payload: Record<string, unknown> }[]> {
+    const res = await call('GET', '/api/v1/me/notifications', { token });
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    return res.body.items;
+  }
+
+  test('creates a pending request that the listing then shows as the caller’s own', async () => {
+    const { token: author, listingId } = await newAuthorListing();
+    const { token: requester, username } = await newCompleteProfile();
+
+    const res = await request(requester, listingId);
+
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.equal(res.headers.get('location'), `/api/v1/listing-requests/${res.body.id}`);
+    assert.equal(res.body.status, 'pending');
+    assert.equal(res.body.role, 'requester');
+    assert.equal(res.body.requester.username, username);
+    const listing = await call('GET', `/api/v1/listings/${listingId}`, { token: requester });
+    assert.deepEqual(listing.body.myRequest, { id: res.body.id, status: 'pending' });
+    const inFeed = (await call('GET', '/api/v1/listings', { token: requester })).body.items.find(
+      (item: { id: string }) => item.id === listingId,
+    );
+    assert.deepEqual(inFeed?.myRequest, { id: res.body.id, status: 'pending' });
+    assert.equal((await call('GET', `/api/v1/listings/${listingId}`, { token: author })).body.myRequest, null);
+  });
+
+  test('shows the author the request with the requester’s public profile and no contacts', async () => {
+    const { author, requestId, listingId } = await requested();
+
+    const res = await call('GET', '/api/v1/me/listing-requests', { token: author });
+
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const [item] = res.body.items;
+    assert.equal(item.id, requestId);
+    assert.equal(item.role, 'author');
+    assert.equal(item.listing.id, listingId);
+    assert.equal(item.requester.age, 26);
+    assert.equal(item.requester.interests[0].id, interestFilms);
+    assert.equal('phone' in item.requester, false);
+    assert.equal('linkedAccounts' in item.requester, false);
+    const notification = (await inboxOf(author)).find(({ type }) => type === 'listing_request');
+    assert.deepEqual(notification?.payload, { listingRequestId: requestId, listingId, displayName: 'Reported' });
+  });
+
+  test('rejects a request on the caller’s own listing with 422', async () => {
+    const { token, listingId } = await newAuthorListing();
+
+    assertRejected(await request(token, listingId), 422, 'CANNOT_REQUEST_OWN_LISTING');
+  });
+
+  test('rejects a second request with 409', async () => {
+    const { requester, listingId } = await requested();
+
+    assertRejected(await request(requester, listingId), 409, 'ALREADY_REQUESTED');
+  });
+
+  test('rejects a request from an incomplete profile with 422', async () => {
+    const { listingId } = await newAuthorListing();
+    const { token } = await newProfile();
+
+    assertRejected(await request(token, listingId), 422, 'PROFILE_INCOMPLETE');
+  });
+
+  test('answers 404 for a removed listing, and hides its pending requests', async () => {
+    const { author, requester, listingId, requestId } = await requested();
+    assert.equal((await call('DELETE', `/api/v1/listings/${listingId}`, { token: author })).status, 204);
+
+    const { token: late } = await newCompleteProfile();
+    assertRejected(await request(late, listingId), 404, 'NOT_FOUND');
+    assertRejected(await call('GET', `/api/v1/listing-requests/${requestId}`, { token: requester }), 404, 'NOT_FOUND');
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author }),
+      404,
+      'NOT_FOUND',
+    );
+    const mine = await call('GET', '/api/v1/me/listing-requests', { token: author });
+    assert.deepEqual(mine.body.items, []);
+  });
+
+  test('accepted: the contacts wait for each side’s safety notice, then both see the other’s', async () => {
+    const { author, requester, requestId } = await requested();
+    const contacts = (token: string) => call('GET', `/api/v1/listing-requests/${requestId}/contacts`, { token });
+    assertRejected(await contacts(author), 404, 'NOT_FOUND');
+
+    const accepted = await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author });
+
+    assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+    assert.equal(accepted.body.status, 'accepted');
+    assert.ok(accepted.body.decidedAt);
+    const notification = (await inboxOf(requester)).find(({ type }) => type === 'listing_request_accepted');
+    assert.equal(notification?.payload.listingRequestId, requestId);
+    for (const token of [author, requester]) {
+      assertRejected(await contacts(token), 422, 'SAFETY_NOTICE_REQUIRED');
+      assert.equal((await acknowledge(token)).status, 200);
+      const res = await contacts(token);
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      assert.equal(res.body.linkedAccounts[0].username, 'nearby_e2e');
+    }
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: author }),
+      409,
+      'CONFLICT',
+    );
+  });
+
+  test('declined: the request stays declined and opens no contacts', async () => {
+    const { author, requester, listingId, requestId } = await requested();
+
+    const declined = await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: author });
+
+    assert.equal(declined.status, 200, JSON.stringify(declined.body));
+    assert.equal(declined.body.status, 'declined');
+    assert.deepEqual(await inboxOf(requester), []);
+    assert.equal((await acknowledge(requester)).status, 200);
+    assertRejected(
+      await call('GET', `/api/v1/listing-requests/${requestId}/contacts`, { token: requester }),
+      404,
+      'NOT_FOUND',
+    );
+    const listing = await call('GET', `/api/v1/listings/${listingId}`, { token: requester });
+    assert.deepEqual(listing.body.myRequest, { id: requestId, status: 'declined' });
+  });
+
+  test('lets only the author answer', async () => {
+    const { requester, requestId } = await requested();
+
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: requester }),
+      404,
+      'NOT_FOUND',
+    );
+  });
+
+  test('answers 404 to a third user, even once accepted', async () => {
+    const { author, requestId } = await requested();
+    await call('POST', `/api/v1/listing-requests/${requestId}/accept`, { token: author });
+    const { token: stranger } = await newCompleteProfile();
+    await acknowledge(stranger);
+
+    for (const path of ['', '/contacts']) {
+      const res = await call('GET', `/api/v1/listing-requests/${requestId}${path}`, { token: stranger });
+      assertRejected(res, 404, 'NOT_FOUND');
+    }
+    assertRejected(
+      await call('POST', `/api/v1/listing-requests/${requestId}/decline`, { token: stranger }),
+      404,
+      'NOT_FOUND',
+    );
+  });
+
+  test('rejects a guest with 401', async () => {
+    const { listingId } = await newAuthorListing();
+
+    assertRejected(await request(tokens.guest, listingId), 401, 'UNAUTHENTICATED');
+  });
+});
+
+describe('Listing likes', () => {
+  async function newListingBy(token: string): Promise<string> {
+    const res = await call('POST', '/api/v1/listings', { token, body: newListing });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    return res.body.id;
+  }
+
+  /** The listing as the feed shows it to this user, read page by page, since other tests post listings too. */
+  async function findInFeed(token: string, id: string): Promise<{ likeCount: number; liked: boolean } | undefined> {
+    for (let offset = 0; ; offset += 20) {
+      const res = await call('GET', `/api/v1/listings?limit=20&offset=${offset}`, { token });
+      assert.equal(res.status, 200, JSON.stringify(res.body));
+      const found = res.body.items.find((listing: { id: string }) => listing.id === id);
+      if (found || !res.body.page.hasMore) return found;
+    }
+  }
+
+  const like = (token: string, id: string) => call('PUT', `/api/v1/listings/${id}/like`, { token });
+  const unlike = (token: string, id: string) => call('DELETE', `/api/v1/listings/${id}/like`, { token });
+
+  test('the author likes their own listing once, however often they ask', async () => {
+    const { token } = await newCompleteProfile();
+    const listingId = await newListingBy(token);
+
+    const first = await like(token, listingId);
+    const second = await like(token, listingId);
+
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, { likeCount: 1, liked: true });
+    assert.deepEqual(second.body, { likeCount: 1, liked: true });
+  });
+
+  test('another user sees the same count, likes too, and a reload keeps both', async () => {
+    const { token: author } = await newCompleteProfile();
+    const { token: reader } = await newCompleteProfile();
+    const listingId = await newListingBy(author);
+    await like(author, listingId);
+
+    const seen = await call('GET', `/api/v1/listings/${listingId}`, { token: reader });
+    assert.equal(seen.body.likeCount, 1);
+    assert.equal(seen.body.liked, false);
+
+    assert.deepEqual((await like(reader, listingId)).body, { likeCount: 2, liked: true });
+    const inFeed = await findInFeed(author, listingId);
+    assert.equal(inFeed?.likeCount, 2);
+    assert.equal(inFeed?.liked, true);
+  });
+
+  test('unliking twice takes the like back once and leaves the others', async () => {
+    const { token: author } = await newCompleteProfile();
+    const { token: reader } = await newCompleteProfile();
+    const listingId = await newListingBy(author);
+    await like(author, listingId);
+    await like(reader, listingId);
+
+    const first = await unlike(reader, listingId);
+    const second = await unlike(reader, listingId);
+
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.deepEqual(first.body, { likeCount: 1, liked: false });
+    assert.deepEqual(second.body, { likeCount: 1, liked: false });
+    const seen = await call('GET', `/api/v1/listings/${listingId}`, { token: reader });
+    assert.equal(seen.body.likeCount, 1);
+    assert.equal(seen.body.liked, false);
+  });
+
+  test('a removed or unknown listing is a 404', async () => {
+    const { token } = await newCompleteProfile();
+    const listingId = await newListingBy(token);
+    await like(token, listingId);
+    assert.equal((await call('DELETE', `/api/v1/listings/${listingId}`, { token })).status, 204);
+
+    assert.equal((await like(token, listingId)).status, 404);
+    assert.equal((await unlike(token, listingId)).status, 404);
+    assert.equal((await like(token, randomUUID())).status, 404);
+  });
+
+  test('rejects an id that is not a UUID with 400 and a call without a token with 401', async () => {
+    assertInvalid(await like(tokens.user, 'not-a-uuid'), 'params', 'id');
+    assert.equal((await call('PUT', `/api/v1/listings/${olenasListing}/like`)).status, 401);
+  });
+});
+
 describe('Applications', () => {
   const answers = { desiredCompany: 'company', afterEventPlans: ['coffee', 'walk'] };
-
-  /** A new account whose profile has everything matching needs. */
-  // Born 2000-05-17 (newProfile), so 26 in the autumn of 2026.
-  async function newCompleteProfile(
-    gender: 'female' | 'male' | 'other' = 'female',
-  ): Promise<{ token: string; accountId: string; username: string }> {
-    const { token, accountId, username } = await newProfile();
-    const genderFields = gender === 'other' ? { gender, genderDescription: 'Небінарна людина' } : { gender };
-    for (const [method, path, body] of [
-      ['PATCH', '/api/v1/me/profile', { communicationFormat: 'friends', ...genderFields }],
-      ['PUT', '/api/v1/me/profile/interests', { interestIds: [interestFilms] }],
-      [
-        'PUT',
-        '/api/v1/me/profile/linked-accounts',
-        { linkedAccounts: [{ network: 'telegram', username: 'nearby_e2e' }] },
-      ],
-    ] as const) {
-      const res = await call(method, path, { token, body });
-      assert.equal(res.status, 200, JSON.stringify(res.body));
-    }
-    return { token, accountId, username };
-  }
 
   async function newEventAt(startsAt: string, endsAt: string): Promise<string> {
     const res = await call('POST', '/api/v1/events', { token: tokens.org, body: { ...newEvent, startsAt, endsAt } });
@@ -3554,13 +4094,71 @@ describe('Organization verification', () => {
     return rows;
   }
 
+  describe('PUT /api/v1/me/organization/instagram', () => {
+    const setInstagram = (token: string, instagram: string | null) =>
+      call('PUT', '/api/v1/me/organization/instagram', { token, body: { instagram } });
+
+    test('keeps the Instagram username bare, and refuses one that does not fit', async () => {
+      const { token } = await newRequest();
+
+      const saved = await setInstagram(token, 'https://www.instagram.com/riverside.stage/');
+
+      assert.equal(saved.status, 200, JSON.stringify(saved.body));
+      assert.equal(saved.body.instagram, 'riverside.stage');
+      assert.equal(saved.body.verificationStatus, 'pending');
+      assertRejected(await setInstagram(token, '..nope'), 422, 'INVALID_SOCIAL_HANDLE');
+    });
+
+    test('lets a verified organization set and clear it without a new review, and shows it on its page', async () => {
+      const { token, accountId } = await newRequest();
+      assert.equal((await decide(accountId, 'approve')).status, 200);
+
+      const saved = await setInstagram(token, '@riverside.stage');
+
+      assert.equal(saved.status, 200, JSON.stringify(saved.body));
+      assert.equal(saved.body.verificationStatus, 'verified');
+      const page = await call('GET', `/api/v1/organizations/${accountId}`, { token: tokens.guest });
+      assert.equal(page.body.instagram, 'riverside.stage');
+      const cleared = await setInstagram(token, null);
+      assert.equal(cleared.body.instagram, null);
+      assert.equal(cleared.body.verificationStatus, 'verified');
+      assert.equal(
+        (await call('GET', `/api/v1/organizations/${accountId}`, { token: tokens.guest })).body.instagram,
+        null,
+      );
+    });
+
+    test('keeps it when the request is sent again', async () => {
+      const { token } = await newRequest();
+      await setInstagram(token, 'riverside.stage');
+
+      const resent = await call('PUT', '/api/v1/me/organization', { token, body: request });
+
+      assert.equal(resent.body.instagram, 'riverside.stage');
+    });
+
+    test('answers 404 for an account without an organization request', async () => {
+      const { token } = await newAccount();
+
+      assertRejected(await setInstagram(token, 'riverside.stage'), 404, 'NOT_FOUND');
+    });
+
+    test('takes it no longer in the request itself', async () => {
+      const { token } = await newAccount();
+
+      const res = await call('PUT', '/api/v1/me/organization', { token, body: { ...request, instagram: 'x' } });
+
+      assertRejected(res, 400, 'VALIDATION_ERROR');
+    });
+  });
+
   test('saves a request as pending, shows it to the account, and keeps it from publishing events', async () => {
     const { token } = await newAccount();
     assertRejected(await call('GET', '/api/v1/me/organization', { token }), 404, 'NOT_FOUND');
 
     const res = await call('PUT', '/api/v1/me/organization', { token, body: request });
 
-    const pending = { ...request, verificationStatus: 'pending', verifiedAt: null, logo: null };
+    const pending = { ...request, instagram: null, verificationStatus: 'pending', verifiedAt: null, logo: null };
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.deepEqual(res.body, pending);
     assert.deepEqual((await call('GET', '/api/v1/me/organization', { token })).body, pending);

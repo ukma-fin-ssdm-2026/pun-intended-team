@@ -1,7 +1,7 @@
 // Written with the help of Claude
 import assert from 'node:assert/strict';
 import { describe, mock, test } from 'node:test';
-import type { Listing as ListingRow } from '../../dist/infra/prisma/generated/client.js';
+import { Prisma, type Listing as ListingRow } from '../../dist/infra/prisma/generated/client.js';
 import { PrismaListingsRepository } from '../../dist/infra/prisma/prisma-listings.repository.js';
 import type { PrismaService } from '../../dist/infra/prisma/prisma.service.js';
 import { ACCOUNT_ID } from './fixtures/accounts.ts';
@@ -20,6 +20,11 @@ function aRow(overrides: Partial<ListingRow> = {}): ListingRow {
     description: 'Evening, coffee after.',
     date: new Date('2026-11-14T00:00:00Z'),
     status: 'active',
+    photoId: null,
+    placeName: null,
+    placeAddress: null,
+    placeLatitude: null,
+    placeLongitude: null,
     createdAt: CREATED,
     updatedAt: CREATED,
     ...overrides,
@@ -90,5 +95,49 @@ describe('PrismaListingsRepository.markRemoved', () => {
       where: { id: 'l0000000-0000-4000-8000-000000000001' },
       data: { status: 'removed' },
     });
+  });
+});
+
+describe('PrismaListingsRepository place', () => {
+  const place = { name: 'Мистецький Арсенал', address: '', location: { lat: 50.4357, lng: 30.5555 } };
+
+  test('reads the four place columns as the place, and none as null', async () => {
+    const withPlace = aRow({
+      id: 'a',
+      placeName: place.name,
+      placeAddress: '',
+      placeLatitude: new Prisma.Decimal('50.4357'),
+      placeLongitude: new Prisma.Decimal('30.5555'),
+    });
+    const { repository } = makeRepository([withPlace, aRow({ id: 'b' })]);
+
+    const { items } = await repository.findActive('2026-11-10', { limit: 20, offset: 0 });
+
+    assert.deepEqual(
+      items.map((item) => item.place),
+      [place, null],
+    );
+  });
+
+  test('writes the place into its columns', async () => {
+    const { repository, listing } = makeRepository([aRow()]);
+
+    await repository.create({
+      authorId: ACCOUNT_ID,
+      categoryId: CATEGORY_ID,
+      eventId: null,
+      title: 'Looking for company',
+      description: '',
+      date: '2026-11-14',
+      status: 'active',
+      photoId: null,
+      place,
+    });
+
+    const { data } = listing.create.mock.calls[0]?.arguments[0] as { data: Record<string, unknown> };
+    assert.deepEqual(
+      [data.placeName, data.placeAddress, data.placeLatitude, data.placeLongitude],
+      [place.name, '', 50.4357, 30.5555],
+    );
   });
 });

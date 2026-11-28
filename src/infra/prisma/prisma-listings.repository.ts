@@ -4,6 +4,7 @@ import type { Page, PageRequest } from '../../core/common/page.ts';
 import type { Transaction } from '../../core/common/transaction.ts';
 import { ListingsRepository } from '../../core/listings/repositories/listings.repository.ts';
 import type { Listing, ListingRecord } from '../../core/listings/types/listing.ts';
+import type { ListingPlace } from '../../core/listings/types/place.ts';
 import type { Listing as ListingRow } from './generated/client.ts';
 import { PrismaService } from './prisma.service.ts';
 import { clientOf } from './transaction-client.ts';
@@ -34,8 +35,10 @@ export class PrismaListingsRepository implements ListingsRepository {
     };
   }
 
-  async create({ date, ...record }: ListingRecord): Promise<Listing> {
-    return toListing(await this.prisma.listing.create({ data: { ...record, date: toDateColumn(date) } }));
+  async create({ date, place, ...record }: ListingRecord): Promise<Listing> {
+    return toListing(
+      await this.prisma.listing.create({ data: { ...record, ...placeColumns(place), date: toDateColumn(date) } }),
+    );
   }
 
   async markRemoved(id: string): Promise<void> {
@@ -58,6 +61,29 @@ function toListing(row: ListingRow): Listing {
     date: row.date.toISOString().slice(0, 10),
     status: row.status,
     photoId: row.photoId,
+    place: toPlace(row),
+  };
+}
+
+// The four columns are all set or all null (listings_place_check).
+function toPlace(row: ListingRow): ListingPlace | null {
+  const { placeName, placeAddress, placeLatitude, placeLongitude } = row;
+  if (placeName === null || placeAddress === null || placeLatitude === null || placeLongitude === null) {
+    return null;
+  }
+  return {
+    name: placeName,
+    address: placeAddress,
+    location: { lat: placeLatitude.toNumber(), lng: placeLongitude.toNumber() },
+  };
+}
+
+function placeColumns(place: ListingPlace | null) {
+  return {
+    placeName: place?.name ?? null,
+    placeAddress: place?.address ?? null,
+    placeLatitude: place?.location.lat ?? null,
+    placeLongitude: place?.location.lng ?? null,
   };
 }
 

@@ -10,7 +10,7 @@ import { ImagesService } from '../../images/services/images.service.ts';
 import type { ImageUpload } from '../../images/types/image.ts';
 import { InterestsRepository } from '../repositories/interests.repository.ts';
 import { ProfilesRepository } from '../repositories/profiles.repository.ts';
-import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from './social-networks.ts';
+import { socialNetworkHandle, socialNetworkHint, socialNetworkUrl } from '../../common/social-networks.ts';
 import type {
   Contacts,
   Interest,
@@ -121,6 +121,17 @@ export class ProfilesService {
       phone: profile.sharePhone ? await this.accountsService.getPhone(accountId) : null,
       linkedAccounts: profile.linkedAccounts.map(withUrl),
     };
+  }
+
+  /**
+   * The contacts of `accountId` for `viewerId`, who must have acknowledged the safety notice first (SAFE-002). The
+   * caller checks that the two may see each other's contacts at all: a mutual match or an accepted listing request.
+   */
+  async revealContacts(viewerId: string, accountId: string): Promise<Contacts> {
+    if (!(await this.hasAcknowledgedSafetyNotice(viewerId))) {
+      throw new DomainError('SAFETY_NOTICE_REQUIRED', 'Acknowledge the safety notice first');
+    }
+    return this.getContacts(accountId);
   }
 
   /** Whether the user has acknowledged the safety notice, which contacts wait for (SAFE-002); false without a profile. */

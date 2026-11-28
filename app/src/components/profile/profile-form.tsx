@@ -7,12 +7,14 @@ import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { components } from '@/api/schema';
+import { DesktopAuthFrame } from '@/components/desktop/auth-frame';
 import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { RadioOption } from '@/components/ui/radio-option';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { colors } from '@/styles/tokens';
+import { colors, shadows } from '@/styles/tokens';
 
 // "01 Навігація": top padding 56 in the iPhone 14 frame (9 px below its status bar). "04 Дія": padding 16 / 20 / 34 / 20
 // around the 52 px button; the form keeps 110 px under it.
@@ -98,8 +100,49 @@ type FormScreenProps = FormNavProps & {
 // A white form under the navigation, with the screen's main button pinned to the bottom.
 export function FormScreen({ action, children, ...nav }: Readonly<FormScreenProps>) {
   const insets = useSafeAreaInsets();
+  const isDesktop = useIsDesktop();
   useStatusBarStyle('dark');
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
+
+  if (isDesktop) {
+    const button = (
+      <View className="px-5 pb-8 pt-6">
+        <Button
+          label={action.label}
+          variant="dark"
+          onPress={action.onPress}
+          disabled={action.disabled}
+          loading={action.loading}
+        />
+      </View>
+    );
+    // DВ7, DВ8: a sign-up step is a card on the gradient, with its navigation inside.
+    if (nav.step) {
+      return (
+        <DesktopAuthFrame>
+          <View className="pt-3">
+            <FormNav {...(nav as FormNavProps)} />
+            {children}
+            {button}
+          </View>
+        </DesktopAuthFrame>
+      );
+    }
+    // DП1: the title above a white card, under the desktop header.
+    return (
+      <ScrollView className="flex-1 bg-surface-background" keyboardShouldPersistTaps="handled">
+        <View className="w-[720px] max-w-full gap-6 self-center px-5 pb-24 pt-10">
+          <Text accessibilityRole="header" className="font-inter-bold text-desktop-h1 text-text-primary">
+            {nav.title}
+          </Text>
+          <View className="rounded-[28px] bg-surface-card px-3 pt-6" style={{ boxShadow: shadows.small }}>
+            {children}
+            {button}
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <View className="flex-1 bg-surface-card">

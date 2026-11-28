@@ -1,13 +1,14 @@
 // Written with the help of Claude
 // Not in Figma: the crop preview the photo, cover and post photo buttons open.
 import { Image } from 'expo-image';
-import { useState } from 'react';
-import { Modal, Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Modal, Platform, Pressable, Text, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { useWebCropGestures, wheelZoom } from '@/components/pictures/web-crop-gestures';
 import { aspectRatios, type PictureKind } from '@/pictures/geometry';
 import { pickPicture, type PickedPicture, type PictureDraft, type PictureRefusal } from '@/pictures/picked-picture';
 
@@ -85,15 +86,46 @@ function CropView({ kind, picture, onCancel, onDone }: Omit<Props, 'picture'> & 
       y.value = limit(y.value, scale, baseHeight, frameHeight);
     });
   // Without two fingers, e.g. with a mouse, a double tap zooms in and out.
+  const toggleZoom = () => {
+    'worklet';
+    const scale = zoom.value > 1.01 ? 1 : 2;
+    zoom.value = withTiming(scale);
+    x.value = withTiming(limit(x.value, scale, baseWidth, frameWidth));
+    y.value = withTiming(limit(y.value, scale, baseHeight, frameHeight));
+  };
   const doubleTap = Gesture.Tap()
     .numberOfTaps(2)
-    .onEnd(() => {
-      const scale = zoom.value > 1.01 ? 1 : 2;
-      zoom.value = withTiming(scale);
-      x.value = withTiming(limit(x.value, scale, baseWidth, frameWidth));
-      y.value = withTiming(limit(y.value, scale, baseHeight, frameHeight));
-    });
+    .onEnd(() => toggleZoom());
   const gesture = Gesture.Simultaneous(pan, pinch, doubleTap);
+
+  // In a browser the same moves and limits, from the mouse, the wheel and the touch screen.
+  const zoomTo = (scale: number) => {
+    zoom.value = scale;
+    x.value = limit(x.value, scale, baseWidth, frameWidth);
+    y.value = limit(y.value, scale, baseHeight, frameHeight);
+  };
+  const webHandlers = useRef({
+    onStart: () => {},
+    onMove: (_dx: number, _dy: number) => {},
+    onPinch: (_scale: number) => {},
+    onWheel: (_deltaY: number, _pinch: boolean) => {},
+    onDoubleClick: () => {},
+  });
+  useEffect(() => {
+    webHandlers.current = {
+      onStart: () => {
+        start.value = { zoom: zoom.value, x: x.value, y: y.value };
+      },
+      onMove: (dx, dy) => {
+        x.value = limit(start.value.x + dx, zoom.value, baseWidth, frameWidth);
+        y.value = limit(start.value.y + dy, zoom.value, baseHeight, frameHeight);
+      },
+      onPinch: (scale) => zoomTo(Math.min(Math.max(start.value.zoom * scale, 1), MAX_ZOOM)),
+      onWheel: (deltaY, pinching) => zoomTo(wheelZoom(zoom.value, deltaY, pinching, MAX_ZOOM)),
+      onDoubleClick: toggleZoom,
+    };
+  });
+  const webArea = useWebCropGestures(webHandlers);
 
   const pictureStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: x.value }, { translateY: y.value }, { scale: zoom.value }],
@@ -117,41 +149,43 @@ function CropView({ kind, picture, onCancel, onDone }: Omit<Props, 'picture'> & 
   const frameLeft = (window.width - frameWidth) / 2;
   const frameTop = (window.height - frameHeight) / 2;
 
+  const area = (
+    <View ref={webArea} className="absolute inset-0">
+      <View className="absolute" style={{ left: frameLeft, top: frameTop, width: frameWidth, height: frameHeight }}>
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              left: (frameWidth - baseWidth) / 2,
+              top: (frameHeight - baseHeight) / 2,
+              width: baseWidth,
+              height: baseHeight,
+            },
+            pictureStyle,
+          ]}
+        >
+          <Image source={{ uri: picture.uri }} contentFit="fill" style={{ width: '100%', height: '100%' }} />
+        </Animated.View>
+      </View>
+      <Svg width={window.width} height={window.height} pointerEvents="none" style={{ position: 'absolute' }}>
+        <Path
+          d={`M0 0H${window.width}V${window.height}H0Z ${hole(kind, frameLeft, frameTop, frameWidth, frameHeight)}`}
+          fill={SHADE}
+          fillRule="evenodd"
+        />
+        <Path
+          d={hole(kind, frameLeft, frameTop, frameWidth, frameHeight)}
+          fill="none"
+          stroke="rgba(255, 255, 255, 0.7)"
+          strokeWidth={1}
+        />
+      </Svg>
+    </View>
+  );
+
   return (
     <View className="flex-1 bg-brand-ink">
-      <GestureDetector gesture={gesture}>
-        <View className="absolute inset-0">
-          <View className="absolute" style={{ left: frameLeft, top: frameTop, width: frameWidth, height: frameHeight }}>
-            <Animated.View
-              style={[
-                {
-                  position: 'absolute',
-                  left: (frameWidth - baseWidth) / 2,
-                  top: (frameHeight - baseHeight) / 2,
-                  width: baseWidth,
-                  height: baseHeight,
-                },
-                pictureStyle,
-              ]}
-            >
-              <Image source={{ uri: picture.uri }} contentFit="fill" style={{ width: '100%', height: '100%' }} />
-            </Animated.View>
-          </View>
-          <Svg width={window.width} height={window.height} style={{ position: 'absolute', pointerEvents: 'none' }}>
-            <Path
-              d={`M0 0H${window.width}V${window.height}H0Z ${hole(kind, frameLeft, frameTop, frameWidth, frameHeight)}`}
-              fill={SHADE}
-              fillRule="evenodd"
-            />
-            <Path
-              d={hole(kind, frameLeft, frameTop, frameWidth, frameHeight)}
-              fill="none"
-              stroke="rgba(255, 255, 255, 0.7)"
-              strokeWidth={1}
-            />
-          </Svg>
-        </View>
-      </GestureDetector>
+      {Platform.OS === 'web' ? area : <GestureDetector gesture={gesture}>{area}</GestureDetector>}
 
       <View
         className="absolute left-0 right-0 flex-row items-center justify-between px-5"
@@ -169,7 +203,8 @@ function CropView({ kind, picture, onCancel, onDone }: Omit<Props, 'picture'> & 
       </View>
       <Text
         className="absolute left-0 right-0 px-5 text-center font-inter text-caption text-text-on-dark-muted"
-        style={{ bottom: insets.bottom + 32, pointerEvents: 'none' }}
+        pointerEvents="none"
+        style={{ bottom: insets.bottom + 32 }}
       >
         Посунь і збільш фото, щоб обрати, що буде видно
       </Text>

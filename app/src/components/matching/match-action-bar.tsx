@@ -89,7 +89,7 @@ export function MatchActionBar({ label, icon = false, onPress, bottomInset }: Pr
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
     >
       {width > 0 && (
-        <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
+        <View className="absolute left-0 top-0" pointerEvents="none" style={barShadow}>
           <Svg width={width} height={height}>
             <Path testID="action-bar" d={actionBarPath(width, height, buttonWidth)} fill={colors.surface.card} />
           </Svg>

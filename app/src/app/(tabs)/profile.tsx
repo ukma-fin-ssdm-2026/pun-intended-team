@@ -13,25 +13,26 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 // import { failureMessage } from '@/auth/messages';
 // import { GoogleButton } from '@/components/auth/google-button';
 import { signOut } from '@/api/session';
-import type { ApiEventPhoto } from '@/api/images';
+import type { Event } from '@/api/events';
+import { CardGrid } from '@/components/desktop/card-grid';
 import { SafetySheet } from '@/components/matching/safety-sheet';
 import { ApiPicture } from '@/components/pictures/picture';
 import { NetworkLink } from '@/components/profile/network-fields';
 import { SignOutDialog } from '@/components/sign-out-dialog';
 import { CoralGradient } from '@/components/ui/coral-gradient';
 import { EventCard } from '@/components/ui/event-card';
-import { eventCoverOf } from '@/components/ui/event-cover';
+import { coverOf } from '@/components/ui/event-cover';
 import { Icon } from '@/components/ui/icon';
 import { Spinner } from '@/components/ui/spinner';
 import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useEventsByIds } from '@/hooks/use-events';
 import { useProfile } from '@/hooks/use-profile';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent, type MockEvent } from '@/mocks/events';
 import { plural } from '@/plural';
 import { toggleFavorite, useFavoriteIds } from '@/state/favorites';
-import { colors } from '@/styles/tokens';
+import { colors, desktop } from '@/styles/tokens';
 
 // "01.1 Обкладинка": 200 px high with a 56 px top padding (9 px below the iPhone 14 status bar); the avatar overlaps its
 // bottom 46 px. The page keeps 120 px under it for the tab bar.
@@ -40,11 +41,19 @@ const COVER_TOP = 56;
 const GAP_BELOW_STATUS_BAR = 9;
 const AVATAR_OVERLAP = 46;
 const LIST_BOTTOM_GAP = 36;
+const AVATAR = 92;
+// DТ4 has a 260 px cover; half of it keeps the name and the tabs high on a laptop screen. The edit button stays 24 px
+// from its top, and a 136 px avatar half over it.
+const DESKTOP_COVER_HEIGHT = 130;
+const DESKTOP_COVER_TOP = 24;
+const DESKTOP_AVATAR = 136;
+const DESKTOP_BOTTOM = 96;
+const DESKTOP_COLUMN = 760;
 
 // "Затемнення": black at 35% fading out by 60% of the cover.
 function CoverShade() {
   return (
-    <Svg width="100%" height={COVER_HEIGHT} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+    <Svg width="100%" height={COVER_HEIGHT} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
       <Defs>
         <LinearGradient id="profile-cover-shade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset={0} stopColor="#000" stopOpacity={0.35} />
@@ -93,28 +102,28 @@ function ProfileTabs({ active, onSelect }: { active: ProfileTab; onSelect: (tab:
   );
 }
 
-// A live event from the catalog or, until the screens that use them move to the API, a mock one.
-type SavedEvent = Omit<MockEvent, 'district' | 'organizer' | 'photo'> & { photo?: ApiEventPhoto | null };
-
-function SavedEvents({ events, onOpen }: { events: SavedEvent[]; onOpen: (id: string) => void }) {
+function SavedEvents({ events, onOpen }: { events: Event[]; onOpen: (id: string) => void }) {
+  const isDesktop = useIsDesktop();
+  const card = (event: Event) => (
+    <EventCard
+      key={event.id}
+      title={event.title}
+      category={event.category.name}
+      dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
+      place={event.venue.name}
+      cover={coverOf(event.imageUrl)}
+      photo={event.photo}
+      favorite
+      onToggleFavorite={() => toggleFavorite(event.id)}
+      // The button opens the event page too, as on the catalog cards.
+      onPress={() => onOpen(event.id)}
+    />
+  );
   return (
-    <View className="gap-4 px-5 pt-4">
+    <View className={isDesktop ? 'gap-4 pt-4' : 'gap-4 px-5 pt-4'}>
       <Text className="font-inter text-caption text-text-secondary">{savedLabel(events.length)}</Text>
-      {events.map((event) => (
-        <EventCard
-          key={event.id}
-          title={event.title}
-          category={event.category.name}
-          dateLabel={formatEventDate(event.startsAt, event.startTimeKnown)}
-          place={event.venue.name}
-          cover={eventCoverOf(event)}
-          photo={event.photo}
-          favorite
-          onToggleFavorite={() => toggleFavorite(event.id)}
-          // The button opens the event page too, as on the catalog cards.
-          onPress={() => onOpen(event.id)}
-        />
-      ))}
+      {/* On a desktop, the catalog's cards in its grid. */}
+      {isDesktop ? <CardGrid items={events} keyOf={(event) => event.id} render={card} /> : events.map(card)}
     </View>
   );
 }
@@ -216,27 +225,71 @@ export default function ProfileScreen() {
     setChosenTab(next);
     if (saved) router.setParams({ saved: undefined });
   };
-  // Each saved id is asked of the API, then looked up among the mocks. An event the API no longer returns is not shown.
+  // Each saved id is asked of the API. An event the API no longer returns is not shown.
   const favoriteIds = useFavoriteIds();
   const liveEvents = useEventsByIds(favoriteIds).data;
   const savedEvents = favoriteIds
-    .map((id): SavedEvent | undefined => liveEvents?.find((event) => event.id === id) ?? findMockEvent(id))
-    .filter((event): event is SavedEvent => !!event);
+    .map((id) => liveEvents?.find((event) => event.id === id))
+    .filter((event): event is Event => !!event);
   useStatusBarStyle('light');
   const profile = useProfile();
+  const isDesktop = useIsDesktop();
+  // DТ4: a wider cover, a larger avatar beside the name, and the content in a 760 px column centered in the 1200 px
+  // container of the other desktop pages; the saved events take the whole container, as the catalog's grid.
+  const avatarSize = isDesktop ? DESKTOP_AVATAR : AVATAR;
+  const container = isDesktop
+    ? {
+        width: '100%' as const,
+        maxWidth: desktop.contentWidth + 240,
+        paddingHorizontal: 120,
+        alignSelf: 'center' as const,
+      }
+    : undefined;
+  const column = isDesktop
+    ? { width: '100%' as const, maxWidth: DESKTOP_COLUMN, alignSelf: 'center' as const }
+    : undefined;
+
+  const nameBlock = profile.data && (
+    <View className={`gap-0.5 ${isDesktop ? 'pb-3' : ''}`}>
+      <Text className={`font-inter-bold text-text-primary ${isDesktop ? 'text-desktop-h1' : 'text-h1'}`}>
+        {profile.data.displayName}, {profile.data.age}
+      </Text>
+      {/* Figma shows the occupation here; without one, the username. */}
+      <Text className="font-inter text-caption text-text-secondary">
+        {profile.data.occupation || `@${profile.data.username}`}
+      </Text>
+    </View>
+  );
+
+  const editButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Редагувати"
+      onPress={() => router.push('/profile-edit')}
+      className="size-10 items-center justify-center rounded-[20px] bg-white/[0.16]"
+    >
+      <Icon name="gallery-edit" size={20} color={colors.text['on-dark']} />
+    </Pressable>
+  );
 
   return (
     <View className="flex-1 bg-surface-background">
       <ScrollView
-        contentContainerStyle={{ paddingBottom: BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP }}
+        contentContainerStyle={{
+          paddingBottom: isDesktop ? DESKTOP_BOTTOM : BAR_HEIGHT + tabBarSafeArea(insets.bottom) + LIST_BOTTOM_GAP,
+        }}
       >
         <View
-          className="flex-row items-start justify-between overflow-hidden px-5"
-          style={{
-            height: COVER_HEIGHT,
-            paddingTop: Math.max(COVER_TOP, insets.top + GAP_BELOW_STATUS_BAR),
-            marginBottom: -AVATAR_OVERLAP,
-          }}
+          className={`overflow-hidden ${isDesktop ? '' : 'flex-row items-start justify-between px-5'}`}
+          style={
+            isDesktop
+              ? { height: DESKTOP_COVER_HEIGHT, paddingTop: DESKTOP_COVER_TOP, marginBottom: -avatarSize / 2 }
+              : {
+                  height: COVER_HEIGHT,
+                  paddingTop: Math.max(COVER_TOP, insets.top + GAP_BELOW_STATUS_BAR),
+                  marginBottom: -AVATAR_OVERLAP,
+                }
+          }
         >
           {/* The user's cover, or the default gradient once the profile shows there is none; light grey until then. */}
           <View className="absolute inset-0 bg-border-default">
@@ -247,21 +300,27 @@ export default function ProfileScreen() {
             )}
           </View>
           <CoverShade />
-          <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
-            Мій профіль
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Редагувати"
-            onPress={() => router.push('/profile-edit')}
-            className="size-10 items-center justify-center rounded-[20px] bg-white/[0.16]"
-          >
-            <Icon name="gallery-edit" size={20} color={colors.text['on-dark']} />
-          </Pressable>
+          {/* On a desktop the header marks the section instead, and the button keeps to the column's right edge. */}
+          {isDesktop ? (
+            <View className="items-end" style={column}>
+              {editButton}
+            </View>
+          ) : (
+            <>
+              <Text accessibilityRole="header" className="font-inter-semibold text-title text-text-on-dark">
+                Мій профіль
+              </Text>
+              {editButton}
+            </>
+          )}
         </View>
 
-        <View className="pl-5">
-          <View className="size-[92px] items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card">
+        {/* The row overlaps the cover's bottom, so its empty part lets the cover's edit button be pressed. */}
+        <View className={isDesktop ? 'flex-row items-end gap-4' : 'pl-5'} pointerEvents="box-none" style={column}>
+          <View
+            className="items-center justify-center overflow-hidden rounded-full border-4 border-surface-background bg-surface-card"
+            style={{ width: avatarSize, height: avatarSize }}
+          >
             {profile.data?.photo ? (
               <ApiPicture image={profile.data.photo} />
             ) : (
@@ -270,26 +329,17 @@ export default function ProfileScreen() {
               </Text>
             )}
           </View>
+          {isDesktop && nameBlock}
         </View>
 
-        <View className="gap-3 px-5 pt-3.5">
-          {profile.data && (
-            <View className="gap-0.5">
-              <Text className="font-inter-bold text-h1 text-text-primary">
-                {profile.data.displayName}, {profile.data.age}
-              </Text>
-              {/* Figma shows the occupation here; without one, the username. */}
-              <Text className="font-inter text-caption text-text-secondary">
-                {profile.data.occupation || `@${profile.data.username}`}
-              </Text>
-            </View>
-          )}
+        <View className={isDesktop ? 'gap-3 pt-6' : 'gap-3 px-5 pt-3.5'} style={column}>
+          {!isDesktop && nameBlock}
           <ProfileTabs active={tab} onSelect={selectTab} />
           {tab === 'about' && <AboutCard profile={profile} />}
         </View>
 
         {tab === 'about' ? (
-          <View className="items-center gap-4 px-5 pt-2.5">
+          <View className={isDesktop ? 'items-start gap-4 pt-4' : 'items-center gap-4 px-5 pt-2.5'} style={column}>
             <Pressable accessibilityRole="button" onPress={() => setSafetyOpen(true)} hitSlop={8}>
               <Text className="font-inter-medium text-label text-text-primary">Безпека</Text>
             </Pressable>
@@ -298,10 +348,12 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         ) : (
-          <SavedEvents
-            events={savedEvents}
-            onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
-          />
+          <View style={container}>
+            <SavedEvents
+              events={savedEvents}
+              onOpen={(id) => router.push({ pathname: '/events/[id]', params: { id } })}
+            />
+          </View>
         )}
       </ScrollView>
 

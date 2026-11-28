@@ -5,6 +5,11 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { ProposalCard } from '@/components/matching/proposal-card';
 import type { Match } from '@/state/matches';
 
+// The props EventCover hands to expo-image, as a plain view to look for.
+jest.mock('expo-image', () => {
+  const { View } = require('react-native') as typeof import('react-native');
+  return { Image: (props: object) => <View testID="cover-image" {...props} /> };
+});
 // The real client signs requests through the session, which needs the device's push and secure storage.
 jest.mock('@/api/client', () => ({ apiClient: {} }));
 jest.mock('@/api/session', () => ({ currentAccessToken: jest.fn(() => Promise.resolve(undefined)) }));
@@ -57,5 +62,12 @@ describe('ProposalCard', () => {
 
     expect(screen.getByText('Інтерес 5')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Показати всі інтереси' })).toBeNull();
+  });
+
+  test("shows the event's image when the partner has no cover", async () => {
+    const imageUrl = 'https://artwizard.io/cdn/jazz.jpg';
+    await render(<ProposalCard match={aMatch(1)} ownInterestIds={[]} event={{ imageUrl, photo: null }} />);
+
+    expect(screen.getByTestId('cover-image').props.source).toEqual({ uri: imageUrl });
   });
 });

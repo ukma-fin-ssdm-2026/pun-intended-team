@@ -21,7 +21,7 @@ State on 23 November 2026, on `main` after release [1.2.0](../../CHANGELOG.md). 
 | Reports on users and listings, report cases, bans, platform statistics | Working | #323, #382 |
 | Notifications: inbox and Android pushes | Working for `report_received` and `no_match_found`; the other eight types have no sender yet (`event_changed` comes with #418) | #372 |
 | Nightly backups with an admin page | Working | #384 |
-| Expo client | Most screens use the API; the organizer page, part of О1, the districts filter, Д2.1 and the join request of Т5.1 still show mock data ([app README](../../app/README.md)) | #486 |
+| Expo client | Working: every screen uses the API. Only the districts filter of Д1 and О4's notification switches have no API yet and are shown in the gallery ([app README](../../app/README.md)) | #486 |
 | Staging | API, web app and PostgreSQL on one Hetzner server, deployed by CI | #313, #332 |
 
 63 operations are implemented and documented in [`openapi-generated.yaml`](../api/openapi-generated.yaml): auth 6, profiles 10, interests 1, events 5, categories 1, admin categories 5, listings 6, matching 10, organizations 2, admin organizations 3, moderation 6, notifications 4, images 1, admin statistics 1, admin backups 1, health 1. Twelve are marked `x-mcp: false` (the auth operations, uploads, images and push tokens); the generated [`src/mcp/`](../../src/mcp/) server has the other 51 as tools except `dismissApplication` and `acknowledgeSafetyNotice`, which it gets on the next `npm run mcp:generate`.
@@ -101,7 +101,7 @@ The SA-01 finding (#129) concerned the stub `sessions[accessToken]` lookup, whic
 
 - **Event changes (#418):** applications, proposals and mutual matches of an event that is moved or cancelled, with the `event_changed` notification.
 - **Notifications:** senders for the remaining types, such as `match_proposed`, `match_mutual` and `event_reminder`, and expiring a proposal past `validUntil`.
-- **Expo client (#486):** the screens listed above move from mock data to the API, where the API has an endpoint.
+- **Expo client:** the districts filter of Д1 and О4's notification switches, once the API has them.
 - **Load test on staging (#484):** the k6 scenario of PERF-001 at 500 concurrent sessions against staging.
 - [`quality-attributes.md`](../api/quality-attributes.md) still records the Lab 4 Swagger UI checks of `PATCH /events/{id}`; they are history of that lab and were left unchanged.
 

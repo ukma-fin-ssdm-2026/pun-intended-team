@@ -6,7 +6,7 @@ import type { ApiResult } from '@/api/public-client';
 type Failure = Extract<ApiResult<unknown>, { ok: false }>;
 
 // Loads again whenever `key` changes or `reload` is called, and not at all while `key` is null; `setData` puts in what
-// an action returned.
+// an action returned, and `updateData` changes the data loaded by then, so two changes in a row both stay.
 export function useApiQuery<T>(key: string | null, load: () => Promise<ApiResult<T>>) {
   const loadRef = useRef(load);
   useEffect(() => {
@@ -29,6 +29,13 @@ export function useApiQuery<T>(key: string | null, load: () => Promise<ApiResult
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   const setData = useCallback((data: T) => key !== null && setState({ key, attempt, data }), [key, attempt]);
+  const updateData = useCallback(
+    (update: (data: T) => T) =>
+      setState((previous) =>
+        previous?.key === key && previous.data !== undefined ? { ...previous, data: update(previous.data) } : previous,
+      ),
+    [key],
+  );
   // A reload keeps the data it replaces until the new data arrives; a new key does not.
   const current = state?.key === key ? state : undefined;
   return {
@@ -37,5 +44,6 @@ export function useApiQuery<T>(key: string | null, load: () => Promise<ApiResult
     loading: key !== null && current?.attempt !== attempt,
     reload,
     setData,
+    updateData,
   };
 }

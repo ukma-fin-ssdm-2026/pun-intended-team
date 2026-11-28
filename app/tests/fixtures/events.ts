@@ -36,5 +36,6 @@ export function anEvent(id: string, title: string, venue = arsenal): Event {
     sourceUrl: null,
     source: 'import',
     status: 'published',
+    organizer: null,
   };
 }

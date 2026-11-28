@@ -31,9 +31,12 @@ type Props = {
   error?: string;
 };
 
+// DО3 is 520 px wide.
+const DIALOG_WIDTH = 520;
+
 export function CancelEventDialog({ visible, eventName, onClose, onConfirm, loading = false, error }: Props) {
   return (
-    <Overlay visible={visible} onClose={loading ? () => {} : onClose} placement="center">
+    <Overlay visible={visible} onClose={loading ? () => {} : onClose} placement="center" desktopWidth={DIALOG_WIDTH}>
       <View accessibilityViewIsModal className="w-full max-w-[520px] self-center">
         <View className="gap-5 rounded-[28px] bg-surface-card px-5 pb-6 pt-3" style={{ boxShadow: DIALOG_SHADOW }}>
           <View className="items-center gap-2.5">

@@ -12,6 +12,8 @@ import { VenuePinView } from './venue-pin';
 // The whole city, so every pin is on screen; a closer view around the user.
 const CITY_DELTA = 0.32;
 const USER_DELTA = 0.04;
+// A venue opened from its event page: a few streets around it.
+const FOCUS_DELTA = 0.012;
 
 // Google Maps on Android draws a marker once, as an image of its view. A marker that tracked its view all the time
 // would be redrawn on every frame, so it tracks it only for this long after it is made, which is enough for the number
@@ -45,22 +47,31 @@ function VenueMarker({ pin, selected, onPress }: { pin: VenuePin; selected: bool
   );
 }
 
-export function VenueMap({ pins, selectedId, user, onPinPress }: VenueMapProps) {
+export function VenueMap({ pins, selectedId, user, focused, onPinPress }: VenueMapProps) {
   const map = useRef<MapView>(null);
 
   const { selectedLat, selectedLng, userLat, userLng } = mapTargets({ pins, selectedId, user });
-
-  // The location arrives after the map is shown; the map moves to it once, if it is in the city.
+  const focusedRef = useRef(focused);
   useEffect(() => {
-    if (userLat === undefined || userLng === undefined) return;
+    focusedRef.current = focused;
+  });
+
+  // The location arrives after the map is shown; the map moves to it once, if it is in the city, unless it shows a
+  // venue opened from its event page.
+  useEffect(() => {
+    if (userLat === undefined || userLng === undefined || focusedRef.current) return;
     map.current?.animateToRegion(regionAround({ lat: userLat, lng: userLng }, USER_DELTA), 400);
   }, [userLat, userLng]);
 
-  // A selected pin moves above the venue card.
+  // A selected pin moves above the venue card; a focused one is also zoomed in on.
   useEffect(() => {
     if (selectedLat === undefined || selectedLng === undefined) return;
+    if (focused) {
+      map.current?.animateToRegion(regionAround({ lat: selectedLat, lng: selectedLng }, FOCUS_DELTA), 400);
+      return;
+    }
     map.current?.animateCamera({ center: { latitude: selectedLat, longitude: selectedLng } }, { duration: 300 });
-  }, [selectedLat, selectedLng]);
+  }, [selectedLat, selectedLng, focused]);
 
   // A map moved away from the city comes back to its edge.
   const keepInKyiv = ({ latitude, longitude, latitudeDelta, longitudeDelta }: Region) => {

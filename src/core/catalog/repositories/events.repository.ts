@@ -18,11 +18,16 @@ import type {
 export abstract class EventsRepository {
   abstract findById(id: string, tx?: Transaction): Promise<Event | undefined>;
 
-  /** Published events that overlap the filter's dates, soonest first. */
+  /** Published events that overlap the filter's dates and match all its other fields, soonest first. */
   abstract findPublished(filter: EventFilter, page: PageRequest): Promise<Page<Event>>;
 
-  /** The organization's events, published and cancelled, that end after the instant; soonest first. */
-  abstract findByOrganization(organizationId: string, endingAfter: Date, page: PageRequest): Promise<Page<Event>>;
+  /** The organization's events that end after the instant, in any status or only in `status`; soonest first. */
+  abstract findByOrganization(
+    organizationId: string,
+    endingAfter: Date,
+    page: PageRequest,
+    status?: EventStatus,
+  ): Promise<Page<Event>>;
 
   /** Events in any status that match, in the order of the filter's period; `now` splits upcoming from past. */
   abstract search(filter: EventSearch, now: Date, page: PageRequest): Promise<Page<EventOverview>>;

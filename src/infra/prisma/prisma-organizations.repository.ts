@@ -27,7 +27,11 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
 
   async create(accountId: string, request: OrganizationRequest): Promise<Organization | undefined> {
     try {
-      return toOrganization(await this.prisma.organization.create({ data: { accountId, ...request } }));
+      return toOrganization(
+        await this.prisma.organization.create({
+          data: { accountId, ...request },
+        }),
+      );
     } catch (error) {
       if (violatedIndex(error) === ORGANIZATION_KEY) {
         return undefined;
@@ -39,7 +43,12 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
   async resubmit(accountId: string, request: OrganizationRequest): Promise<Organization | undefined> {
     const { count } = await this.prisma.organization.updateMany({
       where: { accountId, verificationStatus: { in: ['pending', 'rejected'] } },
-      data: { ...request, verificationStatus: 'pending', verifiedById: null, verifiedAt: null },
+      data: {
+        ...request,
+        verificationStatus: 'pending',
+        verifiedById: null,
+        verifiedAt: null,
+      },
     });
     return count === 1 ? this.findByAccountId(accountId) : undefined;
   }
@@ -69,6 +78,10 @@ export class PrismaOrganizationsRepository implements OrganizationsRepository {
     );
   }
 
+  async setInstagram(accountId: string, instagram: string | null): Promise<Organization> {
+    return toOrganization(await this.prisma.organization.update({ where: { accountId }, data: { instagram } }));
+  }
+
   async decide(accountId: string, decision: VerificationDecision, adminId: string, at: Date): Promise<boolean> {
     const { count } = await this.prisma.organization.updateMany({
       where: { accountId, verificationStatus: 'pending' },
@@ -87,6 +100,7 @@ function toOrganization(row: OrganizationRow): Organization {
     name: row.name,
     description: row.description,
     officialLink: row.officialLink,
+    instagram: row.instagram,
     verificationStatus: row.verificationStatus,
     verifiedAt: row.verifiedAt?.toISOString() ?? null,
     logoId: row.logoId,

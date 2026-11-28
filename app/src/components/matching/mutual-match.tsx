@@ -7,14 +7,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomActionFade } from '@/components/ui/bottom-action-fade';
 import { Button } from '@/components/ui/button';
 import { CoralGradient } from '@/components/ui/coral-gradient';
-import type { ApiImage } from '@/api/images';
+import type { ApiEventPhoto, ApiImage } from '@/api/images';
 import type { components } from '@/api/schema';
 import { ApiPicture } from '@/components/pictures/picture';
 import { EventCover } from '@/components/ui/event-cover';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { SocialNetworkIcon } from '@/components/ui/social-network-icon';
 import { formatSessionDay } from '@/dates';
-import { colors } from '@/styles/tokens';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
+import { colors, shadows } from '@/styles/tokens';
 
 // "01 Шапка": top padding 56 in the iPhone 14 frame (9 px below its status bar), 52 at the bottom, of which the contacts
 // sheet covers 28.
@@ -24,6 +25,11 @@ const SHEET_OVERLAP = 28;
 // "03 Дія" sits 34 px above the bottom; the contacts keep 130 px under them for it.
 const ACTION_BOTTOM = 34;
 const CONTACTS_BOTTOM = 130;
+// D07: the contacts are a 600 px card that rises 60 px into the gradient header, which starts 20 px under the desktop
+// header.
+const DESKTOP_CARD_WIDTH = 600;
+const DESKTOP_OVERLAP = 60;
+const DESKTOP_HEADER_TOP = 20;
 
 // The 07 frame and its variants differ only in this line; which one fits a match is decided later.
 export const mutualTitles = ['Це взаємно!', 'Концерту бути!', 'Вечір врятовано!', 'Гірко!'] as const;
@@ -71,7 +77,11 @@ export type MutualEvent = {
   title: string;
   startsAt: string;
   startTimeKnown: boolean;
+  // The line under the title; a listing shows its place, an event the reminder.
+  subtitle?: string;
+  // An imported event's image (`coverOf`) or a bundled one in the gallery; `photo`, an organization's upload, wins.
   cover?: ImageSource | number;
+  photo?: ApiEventPhoto | null;
 };
 
 type HeroProps = {
@@ -90,16 +100,21 @@ export function MutualMatchHero({ title, person, ownInitial, ownPhoto, event, on
   const insets = useSafeAreaInsets();
   const when = formatSessionDay(event.startsAt, event.startTimeKnown);
   const together = person.instrumental ? `Ви з ${person.instrumental} йдете` : 'Ви йдете разом';
+  const isDesktop = useIsDesktop();
 
   return (
     <View
-      className="items-center gap-4 overflow-hidden px-5 pb-[52px]"
-      style={{ paddingTop: Math.max(HEADER_TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
+      className="items-center gap-4 overflow-hidden px-5"
+      style={
+        isDesktop
+          ? { paddingTop: DESKTOP_HEADER_TOP, paddingBottom: DESKTOP_OVERLAP + 52 }
+          : { paddingTop: Math.max(HEADER_TOP, insets.top + GAP_BELOW_STATUS_BAR), paddingBottom: 52 }
+      }
     >
       <View className="absolute inset-0">
         <CoralGradient preset="mutual" />
       </View>
-      <View className="w-full flex-row justify-between">
+      <View className="w-full max-w-[600px] flex-row justify-between">
         <Pressable accessibilityRole="button" accessibilityLabel="Назад" onPress={onBack} className={navButton}>
           <Icon name="arrow-left" size={20} color={colors.text['on-dark']} />
         </Pressable>
@@ -153,7 +168,8 @@ function ContactRow({ contact }: { contact: MutualContact }) {
 }
 
 type Props = HeroProps & {
-  onEventPress: () => void;
+  // Without it the event block is not a link: a listing with no catalog event.
+  onEventPress?: () => void;
 };
 
 export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack, onMore, onEventPress }: Props) {
@@ -161,9 +177,17 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
   const actionBottom = Math.max(ACTION_BOTTOM, insets.bottom);
   // "Написати в Telegram" in Figma: the first contact with a link.
   const write = person.contacts.find(({ url }) => url);
+  const isDesktop = useIsDesktop();
+  const writeButton = write && (
+    <Button
+      label={`Написати в ${write.label}`}
+      variant="dark"
+      onPress={() => write.url && void Linking.openURL(write.url)}
+    />
+  );
 
   return (
-    <View className="flex-1 bg-surface-card">
+    <View className={`flex-1 ${isDesktop ? 'bg-surface-background' : 'bg-surface-card'}`}>
       <ScrollView>
         <MutualMatchHero
           title={title}
@@ -175,8 +199,16 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
           onMore={onMore}
         />
         <View
-          className="gap-4 rounded-t-[28px] bg-surface-card px-5 pt-6"
-          style={{ marginTop: -SHEET_OVERLAP, paddingBottom: CONTACTS_BOTTOM - ACTION_BOTTOM + actionBottom }}
+          className={
+            isDesktop
+              ? 'mb-16 max-w-full gap-4 self-center rounded-[28px] bg-surface-card p-6'
+              : 'gap-4 rounded-t-[28px] bg-surface-card px-5 pt-6'
+          }
+          style={
+            isDesktop
+              ? { width: DESKTOP_CARD_WIDTH, marginTop: -DESKTOP_OVERLAP, boxShadow: shadows.medium }
+              : { marginTop: -SHEET_OVERLAP, paddingBottom: CONTACTS_BOTTOM - ACTION_BOTTOM + actionBottom }
+          }
         >
           <Text className="font-inter-semibold text-title text-text-primary">
             {person.genitive ? `Контакти ${person.genitive}` : 'Контакти'}
@@ -193,34 +225,32 @@ export function MutualMatch({ title, person, ownInitial, ownPhoto, event, onBack
             {person.name} теж бачить твої контакти. Бігом домовляйтесь про зустріч!
           </Text>
           <Pressable
-            accessibilityRole="link"
+            accessibilityRole={onEventPress ? 'link' : undefined}
             accessibilityLabel={event.title}
+            disabled={!onEventPress}
             onPress={onEventPress}
             className="flex-row items-center gap-3 rounded-[20px] border border-border-default py-3 pl-3 pr-4"
           >
             <View className="size-11 overflow-hidden rounded-xl">
-              <EventCover cover={event.cover} />
+              <EventCover cover={event.cover} photo={event.photo} />
             </View>
             <View className="flex-1 gap-0.5">
               <Text numberOfLines={1} className="font-inter-medium text-label text-text-primary">
                 {event.title}
               </Text>
               <Text numberOfLines={1} className="font-inter text-caption text-text-secondary">
-                Нагадаємо за день до події
+                {event.subtitle ?? 'Нагадаємо за день до події'}
               </Text>
             </View>
-            <Icon name="arrow-right" size={20} color={colors.text.secondary} />
+            {onEventPress && <Icon name="arrow-right" size={20} color={colors.text.secondary} />}
           </Pressable>
+          {isDesktop && writeButton && <View className="items-center pt-2">{writeButton}</View>}
         </View>
       </ScrollView>
 
-      {write && (
+      {write && !isDesktop && (
         <BottomActionFade id="mutual-action-fade" style={{ alignItems: 'center' }}>
-          <Button
-            label={`Написати в ${write.label}`}
-            variant="dark"
-            onPress={() => write.url && void Linking.openURL(write.url)}
-          />
+          {writeButton}
         </BottomActionFade>
       )}
     </View>

@@ -3,7 +3,7 @@
 // Daryna Halytska.
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import { BAR_HEIGHT, tabBarSafeArea } from '@/components/ui/tab-bar-shape';
 import { formatEventDate } from '@/dates';
 import { useCategories } from '@/hooks/use-categories';
 import { useEvents, useVenueEvents } from '@/hooks/use-events';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
 import { eventQuery, filterEvents, useCatalogFilters } from '@/state/catalog-filters';
 import { colors } from '@/styles/tokens';
@@ -64,7 +65,23 @@ export default function MapScreen() {
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
+  // "На мапі" of an event page opens the tab with `venueId`: that venue is selected and zoomed in on. The param is
+  // dropped once read, so the same link works again after the card is closed.
+  const { venueId } = useLocalSearchParams<{ venueId?: string }>();
+  const [focusedId, setFocusedId] = useState<string>();
+  const [seenVenueId, setSeenVenueId] = useState<string>();
+  if (venueId !== seenVenueId) {
+    setSeenVenueId(venueId);
+    if (venueId) {
+      setSelectedId(venueId);
+      setFocusedId(venueId);
+    }
+  }
+  useEffect(() => {
+    if (venueId) router.setParams({ venueId: undefined });
+  }, [venueId, router]);
   const user = useUserLocation();
+  const isDesktop = useIsDesktop();
   useStatusBarStyle('dark');
 
   // Every venue of the catalog window gets a pin, so the map loads the pages one after another.
@@ -79,7 +96,14 @@ export default function MapScreen() {
   // The filters narrow the pins as they narrow the catalog; the search also matches venue names.
   const matches = (list: NonNullable<typeof events.data>) =>
     filterEvents(list, filters).filter((event) => matchesMapSearch(event, search));
-  const venues = venuesOf(matches(events.data ?? []));
+  const listed = venuesOf(matches(events.data ?? []));
+  const venueEvents = useVenueEvents(selectedId, query);
+  // A focused venue the filters or the search leave out still gets its pin and card, from its own events.
+  const focusedVenue =
+    selectedId === focusedId && !listed.some(({ venue }) => venue.id === selectedId)
+      ? venuesOf(venueEvents.data?.items ?? [])[0]
+      : undefined;
+  const venues = focusedVenue ? [...listed, focusedVenue] : listed;
   const pins = venues.map(({ venue, events: venueEvents }) => ({
     id: venue.id,
     location: venue.location,
@@ -87,30 +111,158 @@ export default function MapScreen() {
     name: venue.name,
   }));
   const selected = venues.find(({ venue }) => venue.id === selectedId);
-  const venueEvents = useVenueEvents(selected?.venue.id, query);
-  const cardEvents = venueEvents.data ? matches(venueEvents.data.items) : undefined;
+  const cardEvents = venueEvents.data
+    ? focusedVenue
+      ? venueEvents.data.items
+      : matches(venueEvents.data.items)
+    : undefined;
+  const selectPin = (id: string | undefined) => {
+    setSelectedId(id);
+    setFocusedId(undefined);
+  };
 
   const openEvent = (id: string) => router.push({ pathname: '/events/[id]', params: { id } });
   const cardBottom = BAR_HEIGHT + tabBarSafeArea(insets.bottom) + CARD_GAP_ABOVE_BAR;
 
+  const venueBlock = selected && (
+    <>
+      <View className="flex-row items-center gap-3">
+        <View className="size-11 items-center justify-center rounded-[14px] bg-brand-coral">
+          <Icon name="pin" size={22} color={colors.text['on-dark']} />
+        </View>
+        <View className="flex-1 gap-0.5">
+          <Text className="font-inter-semibold text-title text-text-primary">{selected.venue.name}</Text>
+          <Text className="font-inter text-caption text-text-secondary">{selected.venue.address}</Text>
+        </View>
+        <Text className="font-inter-medium text-label text-brand-coral">{eventsLabel(selected.events.length)}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Закрити"
+          hitSlop={8}
+          onPress={() => selectPin(undefined)}
+        >
+          <Icon name="close" size={20} color={colors.text.secondary} />
+        </Pressable>
+      </View>
+      <ScrollView
+        className="rounded-[20px] bg-surface-background px-3 py-1"
+        style={{ maxHeight: EVENT_LIST_MAX_HEIGHT }}
+      >
+        {cardEvents ? (
+          cardEvents.map((event, index) => (
+            <View key={event.id}>
+              {index > 0 && <View className="h-px bg-border-default" />}
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => openEvent(event.id)}
+                className="flex-row items-center gap-3 py-2.5"
+              >
+                <View className="size-11 items-center justify-center overflow-hidden rounded-xl bg-brand-coral-soft">
+                  {event.photo ? (
+                    <ApiPicture image={event.photo} />
+                  ) : event.imageUrl ? (
+                    <Image
+                      source={{ uri: event.imageUrl }}
+                      contentFit="cover"
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  ) : (
+                    <Icon name="calendar" size={20} color={colors.brand.coral} />
+                  )}
+                </View>
+                <View className="flex-1 gap-0.5">
+                  <Text numberOfLines={1} className="font-inter-medium text-body text-text-primary">
+                    {event.title}
+                  </Text>
+                  <Text className="font-inter text-caption text-text-secondary">
+                    {formatEventDate(event.startsAt, event.startTimeKnown)}
+                  </Text>
+                </View>
+                <Icon name="arrow-right" size={18} color={colors.text.secondary} />
+              </Pressable>
+            </View>
+          ))
+        ) : (
+          <Text className="py-3 font-inter text-caption text-text-secondary">
+            {venueEvents.failure ? 'Не вдалося завантажити події закладу.' : 'Завантаження…'}
+          </Text>
+        )}
+      </ScrollView>
+    </>
+  );
+
+  const searchRow = (
+    <>
+      <View className="flex-1 rounded-2xl bg-surface-card" style={{ boxShadow: SEARCH_SHADOW }}>
+        <SearchField
+          placeholder="Заклад або подія"
+          value={search}
+          onChangeText={setSearch}
+          iconColor={MAP_SEARCH_ICON}
+        />
+      </View>
+      <IconButton icon="filter" accessibilityLabel="Фільтри" onPress={() => setFiltersOpen(true)} />
+    </>
+  );
+
+  const filtersSheet = (
+    <FiltersSheet
+      visible={filtersOpen}
+      onClose={() => setFiltersOpen(false)}
+      events={events.data ?? []}
+      categories={categories.data ?? []}
+    />
+  );
+
+  // DТ1: the search, the filters and the chosen venue in a 440 px column on the left, the map beside it.
+  if (isDesktop) {
+    return (
+      <View className="flex-1 flex-row bg-surface-card">
+        <ScrollView className="w-[440px] grow-0" contentContainerClassName="gap-5 p-5">
+          <View className="flex-row items-start gap-2.5">{searchRow}</View>
+          {events.error ? (
+            <View className="gap-3 rounded-[20px] bg-surface-background p-4">
+              <Text className="font-inter-semibold text-body text-text-primary">Не вдалося завантажити події</Text>
+              <Button label="Спробувати ще раз" size="sm" onPress={events.reload} />
+            </View>
+          ) : selected ? (
+            <View className="gap-3">
+              <Text className="font-inter-medium text-label text-text-secondary">Обраний заклад</Text>
+              {venueBlock}
+            </View>
+          ) : null}
+        </ScrollView>
+        <View className="flex-1 bg-[#ECECE7]">
+          <VenueMap
+            pins={pins}
+            selectedId={selected?.venue.id}
+            user={user}
+            focused={!!selected && selected.venue.id === focusedId}
+            onPinPress={selectPin}
+          />
+        </View>
+        {filtersSheet}
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-[#ECECE7]">
-      <VenueMap pins={pins} selectedId={selected?.venue.id} user={user} onPinPress={setSelectedId} />
+      <VenueMap
+        pins={pins}
+        selectedId={selected?.venue.id}
+        user={user}
+        focused={!!selected && selected.venue.id === focusedId}
+        onPinPress={selectPin}
+      />
 
       <View
         className="flex-row items-start gap-2.5 px-5"
         // The map stays usable around the search row.
-        style={{ paddingTop: Math.max(SEARCH_TOP, insets.top + GAP_BELOW_STATUS_BAR), pointerEvents: 'box-none' }}
+        pointerEvents="box-none"
+        style={{ paddingTop: Math.max(SEARCH_TOP, insets.top + GAP_BELOW_STATUS_BAR) }}
       >
-        <View className="flex-1 rounded-2xl bg-surface-card" style={{ boxShadow: SEARCH_SHADOW }}>
-          <SearchField
-            placeholder="Заклад або подія"
-            value={search}
-            onChangeText={setSearch}
-            iconColor={MAP_SEARCH_ICON}
-          />
-        </View>
-        <IconButton icon="filter" accessibilityLabel="Фільтри" onPress={() => setFiltersOpen(true)} />
+        {searchRow}
       </View>
 
       {events.error ? (
@@ -130,80 +282,12 @@ export default function MapScreen() {
             <View className="items-center">
               <View className="h-1 w-10 rounded-sm bg-border-default" />
             </View>
-            <View className="flex-row items-center gap-3">
-              <View className="size-11 items-center justify-center rounded-[14px] bg-brand-coral">
-                <Icon name="pin" size={22} color={colors.text['on-dark']} />
-              </View>
-              <View className="flex-1 gap-0.5">
-                <Text className="font-inter-semibold text-title text-text-primary">{selected.venue.name}</Text>
-                <Text className="font-inter text-caption text-text-secondary">{selected.venue.address}</Text>
-              </View>
-              <Text className="font-inter-medium text-label text-brand-coral">
-                {eventsLabel(selected.events.length)}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Закрити"
-                hitSlop={8}
-                onPress={() => setSelectedId(undefined)}
-              >
-                <Icon name="close" size={20} color={colors.text.secondary} />
-              </Pressable>
-            </View>
-            <ScrollView
-              className="rounded-[20px] bg-surface-background px-3 py-1"
-              style={{ maxHeight: EVENT_LIST_MAX_HEIGHT }}
-            >
-              {cardEvents ? (
-                cardEvents.map((event, index) => (
-                  <View key={event.id}>
-                    {index > 0 && <View className="h-px bg-border-default" />}
-                    <Pressable
-                      accessibilityRole="link"
-                      onPress={() => openEvent(event.id)}
-                      className="flex-row items-center gap-3 py-2.5"
-                    >
-                      <View className="size-11 items-center justify-center overflow-hidden rounded-xl bg-brand-coral-soft">
-                        {event.photo ? (
-                          <ApiPicture image={event.photo} />
-                        ) : event.imageUrl ? (
-                          <Image
-                            source={{ uri: event.imageUrl }}
-                            contentFit="cover"
-                            style={{ width: '100%', height: '100%' }}
-                          />
-                        ) : (
-                          <Icon name="calendar" size={20} color={colors.brand.coral} />
-                        )}
-                      </View>
-                      <View className="flex-1 gap-0.5">
-                        <Text numberOfLines={1} className="font-inter-medium text-body text-text-primary">
-                          {event.title}
-                        </Text>
-                        <Text className="font-inter text-caption text-text-secondary">
-                          {formatEventDate(event.startsAt, event.startTimeKnown)}
-                        </Text>
-                      </View>
-                      <Icon name="arrow-right" size={18} color={colors.text.secondary} />
-                    </Pressable>
-                  </View>
-                ))
-              ) : (
-                <Text className="py-3 font-inter text-caption text-text-secondary">
-                  {venueEvents.failure ? 'Не вдалося завантажити події закладу.' : 'Завантаження…'}
-                </Text>
-              )}
-            </ScrollView>
+            {venueBlock}
           </View>
         )
       )}
 
-      <FiltersSheet
-        visible={filtersOpen}
-        onClose={() => setFiltersOpen(false)}
-        events={events.data ?? []}
-        categories={categories.data ?? []}
-      />
+      {filtersSheet}
     </View>
   );
 }

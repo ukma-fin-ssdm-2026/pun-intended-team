@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // AI Usage: day picker for a multi-day event before the company request sheet; not in Figma, built from the 03 sheet's
 // blocks; reviewed by Viktoriia Baran.
+// No desktop frame in Figma; layout derived from 567:7083 (DД1 Фільтри): the sheet is a centered dialog.
 import { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 

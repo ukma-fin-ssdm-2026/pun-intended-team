@@ -36,7 +36,7 @@ export function Picture({ source, size, crop }: Props) {
   // Until the parent is measured, the picture covers it around its centre, so the first frame is not empty. Pictures
   // stay in memory, so going back to a screen shows them at once.
   return (
-    <View className="absolute inset-0 overflow-hidden" style={{ pointerEvents: 'none' }} onLayout={onLayout}>
+    <View className="absolute inset-0 overflow-hidden" pointerEvents="none" onLayout={onLayout}>
       {source && (
         <Image
           source={source}

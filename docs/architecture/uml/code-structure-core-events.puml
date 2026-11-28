@@ -22,6 +22,7 @@ package "core (business logic)" as CORE {
       +stats()
       +list(query, page)
       +listOwn(accountId, page)
+      +listByOrganization(organizationId, page)
       +search(filter, page)
       +getOverview(id)
       +find(id)
@@ -48,6 +49,7 @@ package "core (business logic)" as CORE {
     }
     class OrganizationsService {
       +getOwn(accountId)
+      +getPublic(accountId)
       +request(accountId, request)
       +find(accountId)
       +listRequests(filter, page)
@@ -55,6 +57,7 @@ package "core (business logic)" as CORE {
       +decide(accountId, decision, adminId)
       +setLogo(accountId, upload)
       +removeLogo(accountId)
+      +setInstagram(accountId, input)
     }
     class VenuesService {
       +listOwn(accountId, page)
@@ -105,6 +108,7 @@ package "core (business logic)" as CORE {
       +findByAccountIds(accountIds)
       +decide(accountId, decision, adminId, at)
       +setLogo(accountId, logoId, tx)
+      +setInstagram(accountId, instagram)
     }
     abstract class ImportRunsRepository {
       +freshness()
@@ -112,14 +116,16 @@ package "core (business logic)" as CORE {
   }
   package listings {
     class ListingsService {
-      +list(page)
-      +getById(id)
+      +list(viewerId, page)
+      +getById(viewerId, id)
       +create(accountId, input)
       +remove(accountId, id)
       +findByIds(ids)
       +removeReported(id)
       +setPhoto(accountId, id, upload)
       +removePhoto(accountId, id)
+      +like(accountId, id)
+      +unlike(accountId, id)
     }
     abstract class ListingsRepository {
       +findActiveById(id)
@@ -128,6 +134,33 @@ package "core (business logic)" as CORE {
       +create(listing)
       +markRemoved(id)
       +setPhoto(id, imageId, tx)
+    }
+    class ListingRequestsService {
+      +create(requesterId, listingId)
+      +listIncoming(authorId, page)
+      +getOwn(userId, id)
+      +accept(authorId, id)
+      +decline(authorId, id)
+      +getContacts(userId, id)
+    }
+    abstract class ListingRequestsRepository {
+      +create(listingId, requesterId, tx)
+      +findById(id, tx)
+      +findByListingAndRequester(listingId, requesterId)
+      +findOwn(requesterId, listingIds)
+      +findOnListingsOf(authorId, page)
+      +decide(id, status, decidedAt, tx)
+    }
+    abstract class ListingLikesRepository {
+      +like(listingId, accountId)
+      +unlike(listingId, accountId)
+      +summaries(listingIds, viewerId)
+    }
+    class PlacesService {
+      +describe(point)
+    }
+    abstract class PlaceLookup {
+      +describe(point)
     }
   }
   package matching {
@@ -212,12 +245,20 @@ VenuesService --> VenuesRepository
 VenuesService --> OrganizationsRepository
 ImportFreshnessService --> ImportRunsRepository
 ListingsService --> ListingsRepository
+PlacesService --> PlaceLookup
 ListingsService --> CategoriesService
 ListingsService --> EventsService
 ListingsService --> ProfilesService
 EventsService --> TransactionRunner
 EventsService --> JobQueue
 ListingsService --> ImagesService
+ListingsService --> ListingRequestsRepository
+ListingsService --> ListingLikesRepository
+ListingRequestsService --> ListingRequestsRepository
+ListingRequestsService --> ListingsRepository
+ListingRequestsService --> ProfilesService
+ListingRequestsService --> NotificationsService
+ListingRequestsService --> TransactionRunner
 ApplicationsService --> ApplicationsRepository
 ApplicationsService --> EventSessionsService
 ApplicationsService --> ProfilesService

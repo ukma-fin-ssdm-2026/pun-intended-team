@@ -39,12 +39,23 @@ describe('toEvent', () => {
       source: 'organization',
       status: 'published',
       organizationId: ACCOUNT_ID,
+      organizer: { id: ACCOUNT_ID, name: 'Natalka Park', logoId: null },
     });
+  });
+
+  test('shows no organizer while the organization is not verified', () => {
+    for (const verificationStatus of ['pending', 'rejected', 'revoked'] as const) {
+      const row = anEventRow({
+        organization: { accountId: ACCOUNT_ID, name: 'Natalka Park', logoId: null, verificationStatus },
+      });
+
+      assert.equal(toEvent(row).organizer, null);
+    }
   });
 
   test('leaves out the columns an Event does not have', () => {
     const event = toEvent(
-      anEventRow({ source: 'import', provider: 'karabas', externalId: '42', organizationId: null }),
+      anEventRow({ source: 'import', provider: 'karabas', externalId: '42', organizationId: null, organization: null }),
     );
 
     assert.deepEqual(Object.keys(event).sort(), [
@@ -55,6 +66,7 @@ describe('toEvent', () => {
       'id',
       'imageUrl',
       'organizationId',
+      'organizer',
       'photoId',
       'priceMax',
       'priceMin',
@@ -67,6 +79,7 @@ describe('toEvent', () => {
       'venue',
     ]);
     assert.equal(event.organizationId, null);
+    assert.equal(event.organizer, null);
   });
 
   test('says that the start and the end of an imported event are unknown when the row does', () => {

@@ -53,6 +53,20 @@ export class EventsService {
     return this.pageWithPhotos(await this.eventsRepository.findByOrganization(accountId, new Date(), page));
   }
 
+  /**
+   * A verified organization's published events that have not ended, soonest first, for its public page. NOT_FOUND
+   * for an account that is not a verified organization.
+   */
+  async listByOrganization(organizationId: string, page: PageRequest): Promise<Page<WithPhoto<Event>>> {
+    const organization = await this.organizationsRepository.findByAccountId(organizationId);
+    if (organization?.verificationStatus !== 'verified') {
+      throw new DomainError('NOT_FOUND', 'Organization not found');
+    }
+    return this.pageWithPhotos(
+      await this.eventsRepository.findByOrganization(organizationId, new Date(), page, 'published'),
+    );
+  }
+
   /** For the admin panel: every event, past and cancelled ones too. */
   async search(filter: EventSearch, page: PageRequest): Promise<Page<WithPhoto<EventOverview>>> {
     return this.pageWithPhotos(await this.eventsRepository.search(filter, new Date(), page));
@@ -84,7 +98,7 @@ export class EventsService {
       status: 'published',
       organizationId: accountId,
     });
-    return { ...event, photo: null };
+    return this.withPhoto(event);
   }
 
   /**
@@ -128,14 +142,14 @@ export class EventsService {
     const event = await this.getEditable(accountId, id);
     const { photoId } = event;
     if (photoId === null) {
-      return { ...event, photo: null };
+      return this.withPhoto(event);
     }
     const updated = await this.transactions.run(async (tx) => {
       const changed = await this.eventsRepository.setPhoto(id, null, tx);
       await this.imagesService.remove([photoId], tx);
       return changed;
     });
-    return { ...updated, photo: null };
+    return this.withPhoto(updated);
   }
 
   private async getStored(id: string): Promise<Event> {
@@ -182,11 +196,19 @@ export class EventsService {
     return withPhoto as WithPhoto<T>;
   }
 
+  /** The covers and the organizers' logos, in one lookup for the whole page. */
   private async withPhotos<T extends Event>(events: T[]): Promise<WithPhoto<T>[]> {
-    const photos = await this.imagesService.getRefs(events.map((event) => event.photoId));
-    return events.map((event) => {
-      const photo = event.photoId === null ? undefined : photos.get(event.photoId);
-      return { ...event, photo: photo?.crop ? { ...photo, crop: photo.crop } : null };
+    const images = await this.imagesService.getRefs(
+      events.flatMap((event) => [event.photoId, event.organizer?.logoId ?? null]),
+    );
+    return events.map(({ organizer, ...event }) => {
+      const photo = event.photoId === null ? undefined : images.get(event.photoId);
+      const logo = organizer?.logoId == null ? undefined : images.get(organizer.logoId);
+      return {
+        ...event,
+        photo: photo?.crop ? { ...photo, crop: photo.crop } : null,
+        organizer: organizer && { id: organizer.id, name: organizer.name, logo: logo ?? null },
+      };
     });
   }
 

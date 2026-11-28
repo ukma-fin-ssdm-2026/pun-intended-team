@@ -44,6 +44,27 @@ describe('CreateListingBody', () => {
     });
   }
 
+  test('accepts a place with an empty address', () => {
+    const place = { name: 'Арсенал', address: '', location: { lat: 50.4357, lng: 30.5555 } };
+
+    const result = CreateListingBody.safeParse(aCreateListingBody({ place }));
+
+    assert.equal(result.success, true);
+    assert.deepEqual(result.data?.place, place);
+  });
+
+  test('rejects a place without its location, or without its name', () => {
+    const partial = CreateListingBody.safeParse(
+      aCreateListingBody({ place: { name: 'Арсенал', address: '' } as CreateListing['place'] }),
+    );
+    const unnamed = CreateListingBody.safeParse(
+      aCreateListingBody({ place: { name: ' ', address: '', location: { lat: 50.4, lng: 30.5 } } }),
+    );
+
+    assert.deepEqual(rejectedPaths(partial), [['place', 'location']]);
+    assert.deepEqual(rejectedPaths(unnamed), [['place', 'name']]);
+  });
+
   test('accepts a description of spaces only as an empty one', () => {
     const body = aCreateListingBody({ description: '   ' });
 

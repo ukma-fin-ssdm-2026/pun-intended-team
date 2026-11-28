@@ -22,6 +22,7 @@ function makeRepository() {
     create: mock.fn((): Promise<unknown> => Promise.resolve(aRow())),
     updateMany: mock.fn<(args: unknown) => Promise<{ count: number }>>(() => Promise.resolve({ count: 1 })),
     findMany: mock.fn<(args: unknown) => Promise<unknown[]>>(() => Promise.resolve([aRow()])),
+    update: mock.fn<(args: unknown) => Promise<unknown>>(() => Promise.resolve(aRow())),
   };
   const repository = new PrismaOrganizationsRepository({ organization } as unknown as PrismaService);
   return { repository, organization };
@@ -50,6 +51,19 @@ describe('PrismaOrganizationsRepository.create', () => {
     );
 
     assert.equal(await repository.create(ACCOUNT_ID, REQUEST), undefined);
+  });
+});
+
+describe('PrismaOrganizationsRepository.setInstagram', () => {
+  test('changes only the Instagram username, not the verification', async () => {
+    const { repository, organization } = makeRepository();
+
+    await repository.setInstagram(ACCOUNT_ID, 'natalka.park');
+
+    assert.deepEqual(organization.update.mock.calls[0]?.arguments[0], {
+      where: { accountId: ACCOUNT_ID },
+      data: { instagram: 'natalka.park' },
+    });
   });
 });
 

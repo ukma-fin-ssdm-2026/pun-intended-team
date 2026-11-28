@@ -1,6 +1,6 @@
 // Written with the help of Claude
-// AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens, on mock
-// data; reviewed by Daryna Halytska.
+// AI Usage: event page from the Figma "02 Сторінка події", "02.1 · Ти вже в пошуку" and "02.2 · гість" screens;
+// reviewed by Daryna Halytska.
 import { BlurTargetView } from 'expo-blur';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState, type RefObject } from 'react';
@@ -25,16 +25,17 @@ import { eventSessions, formatEventDay, formatShortDay, formatTimeRange, kyivDay
 import { useEventApplication } from '@/hooks/use-applications';
 import { useApplicationMatch } from '@/hooks/use-matches';
 import { useEvent } from '@/hooks/use-event';
+import { useIsDesktop } from '@/hooks/use-is-desktop';
 import { useProfile } from '@/hooks/use-profile';
 import { plural } from '@/plural';
 import { priceLabel } from '@/price';
 import { openSessions } from '@/state/applications';
 import { useStatusBarStyle } from '@/hooks/use-status-bar-style';
-import { findMockEvent } from '@/mocks/events';
 import { toggleFavorite, useFavorite } from '@/state/favorites';
 import { matchHref } from '@/state/matches';
 import { useSession } from '@/state/session';
-import { colors } from '@/styles/tokens';
+import { colors, desktop, shadows } from '@/styles/tokens';
+import { textPreview } from '@/text-preview';
 
 // "01.1 Верхні дії" sits at y=56 in the iPhone 14 frame, 9 px below its 47 px status bar. A taller status bar keeps that
 // gap; without one (the web) the buttons stay at 56 px, as in Figma.
@@ -84,12 +85,6 @@ const CHANGE_FAILED: SnackbarContent = {
 function daysLabel(starts: string[], eventStart: string): string {
   if (starts.length > 1) return `${starts.length} ${plural(starts.length, ['день', 'дні', 'днів'])}`;
   return formatShortDay(starts[0] ?? eventStart);
-}
-
-function preview(text: string): string | undefined {
-  if (text.length <= DESCRIPTION_PREVIEW) return undefined;
-  const cut = text.slice(0, DESCRIPTION_PREVIEW);
-  return cut.slice(0, cut.lastIndexOf(' ')).replace(/[,.:;—-]+$/, '');
 }
 
 function GlassButton({
@@ -159,7 +154,7 @@ function DetailRow({
 // Darkens the top of the cover so the white buttons and the status bar stay readable on light images.
 function TopShade() {
   return (
-    <Svg width="100%" height={140} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+    <Svg width="100%" height={140} pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
       <Defs>
         <LinearGradient id="event-top-shade" x1="0" y1="0" x2="0" y2="1">
           <Stop offset={0} stopColor="#000" stopOpacity={0.35} />
@@ -204,13 +199,10 @@ export default function EventScreen() {
     if (request) router.setParams({ request: undefined });
   };
   const coverRef = useRef<View>(null);
+  const isDesktop = useIsDesktop();
   useStatusBarStyle('light');
 
-  const { data: liveEvent, loading, error, notFound, reload } = useEvent(id);
-  // Temporary: the screens still on mocks (map, matches, saved events, notifications) open mock events, which the API
-  // does not know. Remove the fallback when those screens move to the API.
-  const mockEvent = liveEvent ? undefined : findMockEvent(id);
-  const event = liveEvent ?? mockEvent;
+  const { data: event, loading, error, notFound, reload } = useEvent(id);
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (loading) {
@@ -258,14 +250,17 @@ export default function EventScreen() {
         ageMax: application.ageMax,
       }
     : { ...FIGMA_ANSWERS, desiredCompany: profile.data?.communicationFormat ?? FIGMA_ANSWERS.desiredCompany };
-  // Mock and organization events have no provider page.
-  const sourceUrl = liveEvent?.sourceUrl;
+  // Organization events have no provider page.
+  const sourceUrl = event.sourceUrl;
   const price = priceLabel(event.priceMin, event.priceMax);
-  const cut = preview(event.description);
+  const cut = textPreview(event.description, DESCRIPTION_PREVIEW);
   const short = expanded ? undefined : cut;
   const actionsTop = Math.max(TOP_ACTIONS_Y, insets.top + GAP_BELOW_STATUS_BAR);
   const sheetStop = actionsTop + GLASS_BUTTON_SIZE + SHEET_GAP_BELOW_ACTIONS;
   const sheetBottomPadding = actionBarReach(insets.bottom) + GAP_ABOVE_ACTION;
+
+  // The map tab, centred and zoomed in on the venue with its card open.
+  const showOnMap = () => router.navigate({ pathname: '/map', params: { venueId: event.venue.id } });
 
   const openSearch = () => router.push({ pathname: '/events/[id]/search', params: { id: event.id } });
 
@@ -307,149 +302,116 @@ export default function EventScreen() {
     }
   };
 
-  return (
-    <View className="flex-1 bg-surface-background">
-      <View className="absolute left-0 right-0 top-0 overflow-hidden" style={{ height: COVER_HEIGHT }}>
-        {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
-        <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
-          {/* An imported event links its provider's image, an organization's event has its uploaded cover, and a mock event has a bundled one. */}
-          <EventCover cover={mockEvent?.cover ?? coverOf(liveEvent?.imageUrl)} photo={liveEvent?.photo} />
-          <TopShade />
-        </BlurTargetView>
-      </View>
+  const actionLabel = match
+    ? 'Відкрити метч'
+    : application?.status === 'no_match'
+      ? 'Результат підбору'
+      : inPool
+        ? 'Стежити за метчингом'
+        : 'Знайти метч';
 
-      {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
-          content scrolls, so nothing passes under the status bar or the buttons. Above the sheet the scroll view is
-          clear and shows the cover. */}
-      <View className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-t-[28px]" style={{ top: sheetStop }}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={{ height: COVER_HEIGHT - SHEET_OVERLAP - sheetStop }} />
-          <View
-            className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
-            style={{ paddingBottom: sheetBottomPadding }}
-          >
-            <View className="items-center">
-              <View className="h-1 w-10 rounded-sm bg-border-default" />
-            </View>
-
-            {/* "02.1 Назва і категорія": as tall as its content, so a title of one, two or three lines is followed by the
-                sheet's 20 px gap to "Про подію"; the chips and the title are 10 px apart. */}
-            <View className="items-start gap-2.5">
-              <View className="flex-row items-center gap-2.5">
-                <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
-                  <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
-                </View>
-                {/* "квитки та деталі": an imported event links its page on ArtWizard or Karabas, where tickets are
-                    sold. */}
-                {sourceUrl && (
-                  <Pressable
-                    accessibilityRole="link"
-                    accessibilityLabel="Квитки та деталі"
-                    onPress={() => void Linking.openURL(sourceUrl)}
-                    className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral-soft px-3.5 py-[7px] active:opacity-80"
-                  >
-                    <Text className="font-inter-semibold text-button-sm text-brand-coral-dark">Квитки та деталі</Text>
-                    <Icon name="square-top-down" size={14} color={colors.brand['coral-dark']} />
-                  </Pressable>
-                )}
-              </View>
-              <Text accessibilityRole="header" className="font-inter-bold text-h1 text-text-primary">
-                {event.title}
-              </Text>
-            </View>
-
-            <View className="gap-2">
-              <Text className="font-inter-semibold text-title text-text-primary">Про подію</Text>
-              <Text className="font-inter text-caption leading-5 text-text-secondary">
-                {short ? `${short}… ` : event.description}
-                {short && (
-                  <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
-                    Читати далі
-                  </Text>
-                )}
-                {/* Only a text long enough to be cut collapses back to its preview. */}
-                {expanded && cut && (
-                  <>
-                    {' '}
-                    <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(false)}>
-                      Читати менше
-                    </Text>
-                  </>
-                )}
-              </Text>
-            </View>
-
-            <View className="rounded-[20px] bg-surface-background px-4 py-1">
-              <DetailRow
-                icon="pin"
-                value={event.venue.name}
-                note={[event.venue.address, mockEvent?.district].filter(Boolean).join(' · ')}
-                // Like the map preview; the map is a static picture of Figma's Т1, so it cannot centre on the venue.
-                onPress={() => router.navigate('/map')}
-              />
-              <View className="h-px bg-border-default" />
-              <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
-              {/* The API has no organizer name yet; only mock events have one. */}
-              {mockEvent && (
-                <>
-                  <View className="h-px bg-border-default" />
-                  <DetailRow
-                    icon="building"
-                    value={mockEvent.organizer}
-                    note="Організатор події"
-                    onPress={() => router.push('/organizer')}
-                  />
-                </>
-              )}
-            </View>
-
-            <View className="gap-3">
-              <Text className="font-inter-semibold text-title text-text-primary">На мапі</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Показати на мапі"
-                onPress={() => router.navigate('/map')}
-                className="h-[140px] items-center justify-center rounded-[18px] bg-[#ECECE7] active:opacity-90"
-              >
-                <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
-                  <Icon name="pin" size={20} color={colors.text['on-dark']} />
-                </View>
-              </Pressable>
-            </View>
+  const titleBlock = (
+    <>
+      {/* "02.1 Назва і категорія": as tall as its content, so a title of one, two or three lines is followed by the
+        sheet's 20 px gap to "Про подію"; the chips and the title are 10 px apart. */}
+      <View className="items-start gap-2.5">
+        <View className="flex-row items-center gap-2.5">
+          <View className="rounded-2xl bg-brand-coral px-3.5 py-[7px]">
+            <Text className="font-inter-semibold text-button-sm text-text-on-dark">{event.category.name}</Text>
           </View>
-        </ScrollView>
-      </View>
-
-      <View className="absolute left-5 right-5 flex-row items-center justify-between" style={{ top: actionsTop }}>
-        <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
-        <View className="flex-row items-center gap-2">
-          {/* "1.3 Ціна", left of the heart; the card shows no price. No badge while the price is unknown. */}
-          {price ? <PriceBadge price={price} blurTarget={coverRef} /> : null}
-          <GlassButton
-            icon="heart"
-            label="В обране"
-            active={favorite}
-            onPress={() => toggleFavorite(id)}
-            blurTarget={coverRef}
-          />
+          {/* "квитки та деталі": an imported event links its page on ArtWizard or Karabas, where tickets are
+            sold. */}
+          {sourceUrl && (
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Квитки та деталі"
+              onPress={() => void Linking.openURL(sourceUrl)}
+              className="flex-row items-center gap-1.5 rounded-2xl bg-brand-coral-soft px-3.5 py-[7px] active:opacity-80"
+            >
+              <Text className="font-inter-semibold text-button-sm text-brand-coral-dark">Квитки та деталі</Text>
+              <Icon name="square-top-down" size={14} color={colors.brand['coral-dark']} />
+            </Pressable>
+          )}
         </View>
+        <Text
+          accessibilityRole="header"
+          className={`font-inter-bold text-text-primary ${isDesktop ? 'text-desktop-h1' : 'text-h1'}`}
+        >
+          {event.title}
+        </Text>
       </View>
+    </>
+  );
 
-      <MatchActionBar
-        label={
-          match
-            ? 'Відкрити метч'
-            : application?.status === 'no_match'
-              ? 'Результат підбору'
-              : inPool
-                ? 'Стежити за метчингом'
-                : 'Знайти метч'
-        }
-        icon={!match && !inPool}
-        onPress={onAction}
-        bottomInset={insets.bottom}
-      />
+  const aboutBlock = (
+    <>
+      <View className="gap-2">
+        <Text className="font-inter-semibold text-title text-text-primary">Про подію</Text>
+        <Text className="font-inter text-caption leading-5 text-text-secondary">
+          {short ? `${short}… ` : event.description}
+          {short && (
+            <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(true)}>
+              Читати далі
+            </Text>
+          )}
+          {/* Only a text long enough to be cut collapses back to its preview. */}
+          {expanded && cut && (
+            <>
+              {' '}
+              <Text accessibilityRole="button" className="text-brand-coral" onPress={() => setExpanded(false)}>
+                Читати менше
+              </Text>
+            </>
+          )}
+        </Text>
+      </View>
+    </>
+  );
 
+  const detailsBlock = (
+    <>
+      <View className="rounded-[20px] bg-surface-background px-4 py-1">
+        <DetailRow icon="pin" value={event.venue.name} note={event.venue.address} onPress={showOnMap} />
+        <View className="h-px bg-border-default" />
+        <DetailRow icon="calendar" value={formatEventDay(event.startsAt)} note={formatTimeRange(event)} />
+        {/* Only an organization's event has an organizer; an imported one has its provider's page instead. */}
+        {event.organizer && (
+          <>
+            <View className="h-px bg-border-default" />
+            <DetailRow
+              icon="building"
+              value={event.organizer.name}
+              note="Організатор події"
+              onPress={() =>
+                event.organizer && router.push({ pathname: '/organizers/[id]', params: { id: event.organizer.id } })
+              }
+            />
+          </>
+        )}
+      </View>
+    </>
+  );
+
+  const mapBlock = (
+    <>
+      <View className="gap-3">
+        <Text className="font-inter-semibold text-title text-text-primary">На мапі</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Показати на мапі"
+          onPress={showOnMap}
+          className={`items-center justify-center rounded-[18px] bg-[#ECECE7] active:opacity-90 ${isDesktop ? 'h-[280px]' : 'h-[140px]'}`}
+        >
+          <View className="size-10 items-center justify-center rounded-full bg-brand-coral">
+            <Icon name="pin" size={20} color={colors.text['on-dark']} />
+          </View>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  const overlays = (
+    <>
       <DayPickerSheet
         key={`days-${dayOpen}`}
         visible={dayOpen}
@@ -496,6 +458,105 @@ export default function EventScreen() {
       />
 
       {snackbar && <Snackbar {...snackbar} />}
+    </>
+  );
+
+  // D02, with D02.1 (already searching) and D02.2 (guest) through the same button and dialogs.
+  if (isDesktop) {
+    return (
+      <View className="flex-1 bg-surface-background">
+        <ScrollView>
+          <View
+            className="w-full gap-6 self-center px-[120px] pb-24 pt-7"
+            style={{ maxWidth: desktop.contentWidth + 240 }}
+          >
+            <View className="h-[420px] overflow-hidden rounded-[28px]">
+              <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
+                <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} />
+              </BlurTargetView>
+              <View className="absolute right-4 top-4 flex-row items-center gap-2">
+                {price ? <PriceBadge price={price} blurTarget={coverRef} /> : null}
+                <GlassButton
+                  icon="heart"
+                  label="В обране"
+                  active={favorite}
+                  onPress={() => toggleFavorite(id)}
+                  blurTarget={coverRef}
+                />
+              </View>
+            </View>
+            <View className="flex-row items-start gap-10">
+              <View className="flex-1 gap-6">
+                {titleBlock}
+                {aboutBlock}
+                {mapBlock}
+              </View>
+              <View className="w-[420px] gap-5 rounded-[28px] bg-surface-card p-5" style={{ boxShadow: shadows.small }}>
+                {detailsBlock}
+                <Button label={actionLabel} variant="dark" onPress={onAction} />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+        {overlays}
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-surface-background">
+      <View className="absolute left-0 right-0 top-0 overflow-hidden" style={{ height: COVER_HEIGHT }}>
+        {/* What the glass buttons blur on Android; the buttons themselves stay outside. */}
+        <BlurTargetView ref={coverRef} style={StyleSheet.absoluteFill}>
+          {/* An imported event links its provider's image, an organization's event has its uploaded cover. */}
+          <EventCover cover={coverOf(event.imageUrl)} photo={event.photo} />
+          <TopShade />
+        </BlurTargetView>
+      </View>
+
+      {/* The sheet scrolls over the fixed cover up to `sheetStop`, then this frame's rounded top clips it and only its
+          content scrolls, so nothing passes under the status bar or the buttons. Above the sheet the scroll view is
+          clear and shows the cover. */}
+      <View className="absolute bottom-0 left-0 right-0 overflow-hidden rounded-t-[28px]" style={{ top: sheetStop }}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={{ height: COVER_HEIGHT - SHEET_OVERLAP - sheetStop }} />
+          <View
+            className="gap-5 rounded-t-[28px] bg-surface-card px-5 pt-3"
+            style={{ paddingBottom: sheetBottomPadding }}
+          >
+            <View className="items-center">
+              <View className="h-1 w-10 rounded-sm bg-border-default" />
+            </View>
+
+            {titleBlock}
+
+            {aboutBlock}
+
+            {detailsBlock}
+
+            {mapBlock}
+          </View>
+        </ScrollView>
+      </View>
+
+      <View className="absolute left-5 right-5 flex-row items-center justify-between" style={{ top: actionsTop }}>
+        <GlassButton icon="arrow-left" label="Назад" onPress={goBack} blurTarget={coverRef} />
+        <View className="flex-row items-center gap-2">
+          {/* "1.3 Ціна", left of the heart; the card shows no price. No badge while the price is unknown. */}
+          {price ? <PriceBadge price={price} blurTarget={coverRef} /> : null}
+          <GlassButton
+            icon="heart"
+            label="В обране"
+            active={favorite}
+            onPress={() => toggleFavorite(id)}
+            blurTarget={coverRef}
+          />
+        </View>
+      </View>
+
+      <MatchActionBar label={actionLabel} icon={!match && !inPool} onPress={onAction} bottomInset={insets.bottom} />
+
+      {overlays}
     </View>
   );
 }

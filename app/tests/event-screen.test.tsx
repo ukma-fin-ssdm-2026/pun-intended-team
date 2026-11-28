@@ -8,10 +8,13 @@ import { useEvent } from '@/hooks/use-event';
 
 import { anEvent } from './fixtures/events';
 
+const mockPush = jest.fn();
+const mockNavigate = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'e1' }),
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
+    navigate: mockNavigate,
     replace: jest.fn(),
     back: jest.fn(),
     canGoBack: () => true,
@@ -32,7 +35,6 @@ jest.mock('@/hooks/use-matches', () => ({ useApplicationMatch: () => ({ match: u
 jest.mock('@/hooks/use-profile', () => ({
   useProfile: () => ({ data: undefined, missing: false, reload: () => {} }),
 }));
-jest.mock('@/mocks/events', () => ({ findMockEvent: () => undefined }));
 jest.mock('@/hooks/use-status-bar-style', () => ({ useStatusBarStyle: () => {} }));
 jest.mock('@/state/session', () => ({ useSession: () => ({ isGuest: false }) }));
 jest.mock('@/state/favorites', () => ({ useFavorite: () => false, toggleFavorite: () => {} }));
@@ -74,6 +76,35 @@ describe('EventScreen description', () => {
 
     expect(screen.queryByText('Читати далі')).toBeNull();
     expect(screen.queryByText('Читати менше')).toBeNull();
+  });
+});
+
+describe('EventScreen "На мапі"', () => {
+  test('opens the map on the venue of the event, from the map block and the venue row', async () => {
+    await showEvent();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Показати на мапі' }));
+    await fireEvent.press(screen.getByText('Мистецький Арсенал'));
+
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/map', params: { venueId: 'v1' } });
+  });
+});
+
+describe('EventScreen "Організатор події"', () => {
+  test('shows the organizer and opens its page', async () => {
+    await showEvent({ source: 'organization', organizer: { id: 'o1', name: 'Подільський кіноклуб', logo: null } });
+
+    await fireEvent.press(screen.getByText('Подільський кіноклуб'));
+
+    expect(screen.getByText('Організатор події')).toBeTruthy();
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/organizers/[id]', params: { id: 'o1' } });
+  });
+
+  test('is left out for an event without an organizer', async () => {
+    await showEvent({ organizer: null });
+
+    expect(screen.queryByText('Організатор події')).toBeNull();
   });
 });
 

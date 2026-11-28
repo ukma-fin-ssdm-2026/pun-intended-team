@@ -15,7 +15,7 @@ const STREET_ZOOM = 16;
 
 setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 
-export function PointPickerMap({ initial = KYIV_CENTER, onMove }: PointPickerMapProps) {
+export function PointPickerMap({ initial = KYIV_CENTER, onMove, readOnly = false }: PointPickerMapProps) {
   const container = useRef<HTMLDivElement | null>(null);
   const onMoveRef = useRef(onMove);
   useEffect(() => {
@@ -29,6 +29,7 @@ export function PointPickerMap({ initial = KYIV_CENTER, onMove }: PointPickerMap
       style: STYLE_URL,
       center: [initial.lng, initial.lat],
       zoom: STREET_ZOOM,
+      interactive: !readOnly,
       maxBounds: [
         [KYIV_BOUNDS.west, KYIV_BOUNDS.south],
         [KYIV_BOUNDS.east, KYIV_BOUNDS.north],
@@ -36,7 +37,7 @@ export function PointPickerMap({ initial = KYIV_CENTER, onMove }: PointPickerMap
     });
     created.on('moveend', () => {
       const { lat, lng } = created.getCenter();
-      onMoveRef.current({ lat, lng });
+      onMoveRef.current?.({ lat, lng });
     });
     return () => created.remove();
     // The map starts at `initial` once; later values would only jump it away from where the user moved it.

@@ -30,12 +30,10 @@ export function BottomActionFade({ children, id, style }: Props) {
   return (
     <View
       className="absolute bottom-0 left-0 right-0 px-5"
-      style={[
-        { paddingTop: ACTION_FADE_TOP, paddingBottom: actionFadeBottom(insets.bottom), pointerEvents: 'box-none' },
-        style,
-      ]}
+      pointerEvents="box-none"
+      style={[{ paddingTop: ACTION_FADE_TOP, paddingBottom: actionFadeBottom(insets.bottom) }, style]}
     >
-      <Svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}>
+      <Svg width="100%" height="100%" pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0 }}>
         <Defs>
           <LinearGradient id={id} x1="0" y1="0" x2="0" y2="1">
             <Stop offset={0} stopColor={colors.surface.card} stopOpacity={0} />

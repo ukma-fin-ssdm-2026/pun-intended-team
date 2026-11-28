@@ -9,6 +9,9 @@ const texts: Partial<Record<NotificationType, (notification: Notification) => Pu
   no_match_found: () => ({ body: 'Цього разу компанії не знайшлося. Обери іншу подію або створи оголошення.' }),
   event_changed: ({ payload }) => eventChangedText(payload),
   report_received: () => ({ body: 'Ми отримали вашу скаргу й розглянемо її.' }),
+  // The display name, as the API knows no grammatical gender to agree a verb with.
+  listing_request: ({ payload }) => ({ title: 'Новий запит', body: `${nameOf(payload)} хоче піти з тобою` }),
+  listing_request_accepted: ({ payload }) => ({ title: 'Запит прийнято', body: `${nameOf(payload)}: запит прийнято` }),
 };
 
 const GENERAL_BODY = 'У вас нове сповіщення в Nearby.';
@@ -17,6 +20,10 @@ const GENERAL_BODY = 'У вас нове сповіщення в Nearby.';
 export function pushContent(notification: Notification): Omit<PushMessage, 'to'> {
   const text = texts[notification.type]?.(notification) ?? { body: GENERAL_BODY };
   return { ...text, data: { notificationId: notification.id, type: notification.type } };
+}
+
+function nameOf(payload: NotificationPayload): string {
+  return typeof payload.displayName === 'string' ? payload.displayName : 'Хтось';
 }
 
 /**

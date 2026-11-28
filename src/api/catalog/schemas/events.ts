@@ -10,7 +10,7 @@ import {
   pageOf,
   SearchText,
 } from '../../common/schemas/common.ts';
-import { EventPhoto } from '../../images/schemas/images.ts';
+import { EventPhoto, Image } from '../../images/schemas/images.ts';
 import { ActiveCategoryId, Category, categoryExample } from './categories.ts';
 import { OrganizationName } from './organizations.ts';
 
@@ -52,6 +52,14 @@ export const AdminVenue = AdminVenueFields.meta({
   description: 'A venue as administrators see it, with who added it',
   example: adminVenueExample,
 });
+
+export const EventOrganizer = z
+  .object({
+    id: Id.describe('Get its page with getOrganization'),
+    name: z.string(),
+    logo: Image.nullable().describe('A square shown as a circle; null shows the building icon'),
+  })
+  .meta({ id: 'EventOrganizer', description: 'The verified organization that published an event' });
 
 const EventFields = z.object({
   id: Id,
@@ -103,6 +111,9 @@ const EventFields = z.object({
     .describe("Imported events: the event's page at the provider, to credit it and to buy tickets; null otherwise"),
   source: EventSource,
   status: EventStatus,
+  organizer: EventOrganizer.nullable().describe(
+    'The organization that published the event, while it is verified; null for imported events',
+  ),
 });
 
 export const eventExample: Event = {
@@ -127,6 +138,7 @@ export const eventExample: Event = {
   sourceUrl: null,
   source: 'organization',
   status: 'published',
+  organizer: { id: 'e1f3a5c7-9b2d-4f6e-8a0c-3d5f7b9e1a2c', name: 'Podil Film Club', logo: null },
 };
 
 export const Event = EventFields.meta({
@@ -147,6 +159,8 @@ export const EventsPage = pageFields(Event)
   .meta({ id: 'EventsPage', example: { ...pageExample(eventExample), lastUpdatedAt: null } });
 
 export const MyEventsPage = pageOf(Event, 'MyEventsPage', eventExample);
+
+export const OrganizationEventsPage = pageOf(Event, 'OrganizationEventsPage', eventExample);
 
 export const ListMyEventsQuery = PageQuery;
 
@@ -179,12 +193,43 @@ export const ListAdminEventsQuery = PageQuery.extend({
   categoryId: Id.optional().describe('Only events of this category, active or not'),
 });
 
+/** How many categories one catalog request can name. */
+export const MAX_CATEGORY_IDS = 20;
+
+/** The largest radius of the distance filter: Kyiv is about 40 km across. */
+export const MAX_RADIUS_KM = 50;
+
+// The query parser gives a repeated parameter as an array and a single one as a string, which may hold a list.
+const CategoryIds = z.preprocess(
+  (value) => (typeof value === 'string' ? value.split(',') : value),
+  z.array(Id).min(1).max(MAX_CATEGORY_IDS),
+);
+
 export const ListEventsQuery = PageQuery.extend({
-  categoryId: Id.optional().describe('Only events of this category'),
+  categoryIds: CategoryIds.optional().describe(
+    `Only events of any of these categories, at most ${MAX_CATEGORY_IDS}: repeated ` +
+      '(`categoryIds=a&categoryIds=b`) or comma-separated (`categoryIds=a,b`). An unknown id matches no event',
+  ),
   venueId: Id.optional().describe('Only events at this venue, e.g. after tapping its map pin'),
+  lat: z.coerce.number().min(-90).max(90).optional().describe('Latitude of the point; only with lng and radiusKm'),
+  lng: z.coerce.number().min(-180).max(180).optional().describe('Longitude of the point; only with lat and radiusKm'),
+  radiusKm: z.coerce
+    .number()
+    .positive()
+    .max(MAX_RADIUS_KM)
+    .optional()
+    .describe(`Only events whose venue is within this many kilometres of lat, lng; at most ${MAX_RADIUS_KM}`),
   from: CalendarDate.optional().describe('First day, Kyiv time; earlier dates count as today'),
   to: CalendarDate.optional().describe('Last day, Kyiv time; later dates count as the end of the catalog window'),
-}).refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' });
+})
+  .refine(({ from, to }) => !from || !to || from <= to, { path: ['to'], message: 'Must not be before from' })
+  .superRefine(({ lat, lng, radiusKm }, context) => {
+    const missing = Object.entries({ lat, lng, radiusKm }).filter(([, value]) => value === undefined);
+    if (missing.length === 3) return;
+    for (const [field] of missing) {
+      context.addIssue({ code: 'custom', path: [field], message: 'lat, lng and radiusKm go together' });
+    }
+  });
 
 /** A ticket price in whole hryvnias; the upper bound only keeps a typo from passing as a price. */
 const Hryvnias = z.number().int().min(0).max(MAX_PRICE);
@@ -241,6 +286,7 @@ export type Event = z.infer<typeof EventFields>;
 export type CreateEventBody = z.input<typeof CreateEventFields>;
 export type EventsPage = z.infer<typeof EventsPage>;
 export type MyEventsPage = z.infer<typeof MyEventsPage>;
+export type OrganizationEventsPage = z.infer<typeof OrganizationEventsPage>;
 export type AdminVenue = z.infer<typeof AdminVenueFields>;
 export type AdminEvent = z.infer<typeof AdminEventFields>;
 export type AdminEventsPage = z.infer<typeof AdminEventsPage>;

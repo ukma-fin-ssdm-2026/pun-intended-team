@@ -7,12 +7,12 @@ import type { components } from '@/api/schema';
 type Event = components['schemas']['Event'];
 
 // Same shape as the API's Event, so screens can switch to live data without changing their props.
-// The API has no districts or organizers yet; those fields are mock-only. `cover` is a bundled image for the mocks;
+// The API has no districts, and its organizer is an object; `district` and the organizer's name are mock-only. `cover` is a bundled image for the mocks;
 // the API gives imported events an `imageUrl` instead. An event without a cover shows the coral gradient.
 // Prices cover every case of the card's tag (`priceLabel`).
 // `shortTitle` is the name the matching screens use in their subtitles, e.g. "Джаз-вечір · Сб, 24 жовт".
 // Mock events have bundled covers, never an uploaded photo.
-export type MockEvent = Omit<Event, 'photo'> & {
+type MockEvent = Omit<Event, 'photo' | 'organizer'> & {
   photo?: null;
   cover?: ImageSource;
   district: string;
@@ -35,9 +35,6 @@ export const mockCategories: components['schemas']['Category'][] = [
   { id: '6f1c2a3e-0001-4a00-8000-000000000011', name: 'Волонтерство' },
   { id: '6f1c2a3e-0001-4a00-8000-000000000012', name: 'Дні відкритих дверей' },
 ];
-
-// "Де" in the filters.
-export const mockDistricts = ['Центр', 'Поділ', 'Печерськ', 'Лівий берег'];
 
 // Dated like the Figma cards (Saturday, Sunday, Tuesday, Friday), in the week of 24 October 2026.
 export const mockEvents: MockEvent[] = [

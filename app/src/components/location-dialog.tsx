@@ -1,6 +1,7 @@
 // Written with the help of Claude
 // AI Usage: location access dialog from the Figma "Д1.2 Фільтри · Доступ до геолокації" frame; reviewed by Daryna
 // Halytska.
+// No desktop frame in Figma; layout derived from 569:11221 (DП5 Вийти з акаунта): a centered dialog.
 import { Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';

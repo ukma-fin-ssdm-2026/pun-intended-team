@@ -339,6 +339,25 @@ describe('NotificationsService: the notifications.deliver handler', () => {
     });
   }
 
+  const listingRequestTexts = [
+    ['listing_request', { title: 'Новий запит', body: 'Ірина хоче піти з тобою' }],
+    ['listing_request_accepted', { title: 'Запит прийнято', body: 'Ірина: запит прийнято' }],
+  ] as const;
+  for (const [type, text] of listingRequestTexts) {
+    test(`names the other side in the ${type} push, with no gendered verb`, async () => {
+      const mocks = makeService();
+      const stored = aNotification({ type, payload: { listingRequestId: 'r', listingId: 'l', displayName: 'Ірина' } });
+      mocks.repository.findById.mock.mockImplementation(() => Promise.resolve(stored));
+
+      await registeredHandler(mocks)(deliverJob);
+
+      const [message] = mocks.push.send.mock.calls[0]?.arguments[0] ?? [];
+      assert.ok(message);
+      assert.deepEqual({ title: message.title, body: message.body }, text);
+      assert.deepEqual(message.data, { notificationId: NOTIFICATION_ID, type });
+    });
+  }
+
   test('marks it skipped and pushes nothing when the account has no device', async () => {
     const mocks = makeService();
     const stored = withStoredNotification(mocks.repository, 'pending');

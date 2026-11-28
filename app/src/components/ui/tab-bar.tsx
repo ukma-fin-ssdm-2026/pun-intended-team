@@ -22,13 +22,16 @@ import { colors, shadows, tabBarShadow } from '@/styles/tokens';
 
 export type TabName = 'events' | 'map' | 'matches' | 'announcements' | 'profile';
 
-const tabs: { name: TabName; label: string; icon: IconName }[] = [
+export const tabs: { name: TabName; label: string; icon: IconName }[] = [
   { name: 'events', label: 'Події', icon: 'home' },
   { name: 'map', label: 'Мапа', icon: 'pin' },
   { name: 'matches', label: 'Метчі', icon: 'matches' },
   { name: 'announcements', label: 'Оголошення', icon: 'list' },
   { name: 'profile', label: 'Профіль', icon: 'user' },
 ];
+
+// A guest can browse events and the map; these tabs ask to sign in first (02.2).
+export const signedInTabs: TabName[] = ['matches', 'announcements', 'profile'];
 
 const SIDE_PADDING = 20;
 const CIRCLE_SIZE = 56;
@@ -75,10 +78,8 @@ function TabContent({ tab, index, transition }: { tab: (typeof tabs)[number]; in
       </Animated.View>
       {/* At 320 px a tab is 56 px wide, narrower than "Оголошення"; the label may overhang its tab. */}
       <Animated.View
-        style={[
-          { position: 'absolute', left: -12, right: -12, top: 28, alignItems: 'center', pointerEvents: 'none' },
-          inactiveStyle,
-        ]}
+        pointerEvents="none"
+        style={[{ position: 'absolute', left: -12, right: -12, top: 28, alignItems: 'center' }, inactiveStyle]}
       >
         <Text numberOfLines={1} className="font-inter text-tag text-text-secondary">
           {tab.label}
@@ -149,7 +150,7 @@ export function TabBar({ active, onTabPress, bottomPadding = 0 }: Props) {
     >
       {width > 0 && (
         <>
-          <View className="absolute left-0 top-0" style={[barShadow, { pointerEvents: 'none' }]}>
+          <View className="absolute left-0 top-0" pointerEvents="none" style={barShadow}>
             <Svg width={width} height={height}>
               <Path
                 d={tabBarPath(width, notchCenter ?? centerOf(activeIndex, width), height)}
@@ -158,6 +159,7 @@ export function TabBar({ active, onTabPress, bottomPadding = 0 }: Props) {
             </Svg>
           </View>
           <Animated.View
+            pointerEvents="none"
             style={[
               {
                 position: 'absolute',
@@ -168,7 +170,6 @@ export function TabBar({ active, onTabPress, bottomPadding = 0 }: Props) {
                 borderRadius: CIRCLE_SIZE / 2,
                 backgroundColor: colors.brand.coral,
                 boxShadow: shadows.tabActive,
-                pointerEvents: 'none',
               },
               circleStyle,
             ]}
